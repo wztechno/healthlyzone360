@@ -1039,7 +1039,9 @@
             "plannedLabel": "Planned quantity",
             "noRecipeAccessTitle": "The recipe book is not open to you",
             "noRecipeAccessBody": "Starting a batch needs permission to view recipes.",
-            "unpublishedTitle": "This recipe's current version is {{status}}"
+            "unpublishedTitle": "This recipe's current version is {{status}}",
+            "versionLabel": "Recipe version id",
+            "versionHint": "Paste the published version id from the recipe editor."
         },
         "qc": {
             "title": "Quality control",
@@ -2717,7 +2719,18 @@
         "checkAllergens": "Allergens confirmed",
         "checkAllergensOk_one": "Derived from {{count}} raw material",
         "checkAllergensOk_other": "Derived from {{count}} raw materials",
-        "checkAllergensUnmapped": "No allergen mapping recorded: {{names}}"
+        "checkAllergensUnmapped": "No allergen mapping recorded: {{names}}",
+        "yieldQuantity": "Yield",
+        "yieldPieces": "Pieces produced",
+        "discard": "Discard",
+        "costProduction": "Production",
+        "costPackaging": "Packaging",
+        "costTotalCard": "Total cost",
+        "costTotal": "Total cost",
+        "costPerUnit": "Per {{unit}}",
+        "costWithWaste": "+ {{percent}}% waste",
+        "sectionCoefficients": "Coefficients & prices",
+        "coefficientsHint": "What the waste rows above are multiplied by, and what a unit of the batch is sold for"
     },
     "publish": {
         "action": "Publish",
@@ -2828,7 +2841,11 @@
         "on": "On",
         "off": "Off",
         "removeDay": "Remove this day",
-        "rowCaption": "One row per calendar date. Leave Remaining empty for unlimited portions."
+        "rowCaption": "One row per calendar date. Leave Remaining empty for unlimited portions.",
+        "noneYet": "None yet",
+        "dayCount_one": "{{count}} day",
+        "dayCount_other": "{{count}} days",
+        "emptyBody": "A published meal with no dates cannot be ordered."
     },
     "products": {
         "caption": "Resale items",
@@ -3059,7 +3076,12 @@
         "netContentRequired": "This shelf is counted by weight or volume, so one sold unit must say how much it is. Without it every sale is refused.",
         "netContentInvalid": "The net content must be a number greater than zero.",
         "netContentUnitMissing": "Choose the unit the net content is in.",
-        "netContentUnitsForbidden": "Stating the net content needs the inventory permission, because the unit it is measured in comes from the stock reference. Ask someone with inventory access to fill it in, or the sale will be refused."
+        "netContentUnitsForbidden": "Stating the net content needs the inventory permission, because the unit it is measured in comes from the stock reference. Ask someone with inventory access to fill it in, or the sale will be refused.",
+        "portionHint": "Servings of the recipe in one meal.",
+        "marginUnknown": "No confirmed price yet — a margin over a placeholder is a fiction.",
+        "retiredTitle": "This meal is withdrawn",
+        "retiredBody": "It is on no consumer surface. It is still here because past orders and prices point at it.",
+        "sectionWhenHint": "Pick any that apply"
     },
     "priceStatus": {
         "confirmed": "Confirmed",

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7362 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7383 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2510,12 +2510,15 @@ export interface NamespaceKeys {
     | 'availability.dateDuplicate'
     | 'availability.dateLabel'
     | 'availability.dateRequired'
+    | 'availability.dayCount'
     | 'availability.dayRemoved'
     | 'availability.empty'
+    | 'availability.emptyBody'
     | 'availability.emptyTitle'
     | 'availability.explainerBody'
     | 'availability.explainerTitle'
     | 'availability.newDay'
+    | 'availability.noneYet'
     | 'availability.off'
     | 'availability.on'
     | 'availability.remainingHeader'
@@ -3341,6 +3344,7 @@ export interface NamespaceKeys {
     | 'meals.loadErrorTitle'
     | 'meals.marginEmpty'
     | 'meals.marginRailTitle'
+    | 'meals.marginUnknown'
     | 'meals.marginValue'
     | 'meals.mealTypesLabel'
     | 'meals.nameRequired'
@@ -3353,6 +3357,7 @@ export interface NamespaceKeys {
     | 'meals.netContentUnitsForbidden'
     | 'meals.noChannels'
     | 'meals.notVisibleToConsumers'
+    | 'meals.portionHint'
     | 'meals.portionInvalid'
     | 'meals.portionLabel'
     | 'meals.producedIngredientHint'
@@ -3383,6 +3388,8 @@ export interface NamespaceKeys {
     | 'meals.retireConsequence'
     | 'meals.retireFailed'
     | 'meals.retireTitle'
+    | 'meals.retiredBody'
+    | 'meals.retiredTitle'
     | 'meals.retiredToast'
     | 'meals.searchPlaceholder'
     | 'meals.sectionDetails'
@@ -3392,6 +3399,7 @@ export interface NamespaceKeys {
     | 'meals.sectionProductionHint'
     | 'meals.sectionRecipe'
     | 'meals.sectionWhen'
+    | 'meals.sectionWhenHint'
     | 'meals.statLiveAction'
     | 'meals.statLiveCaption'
     | 'meals.subtitle'
@@ -3996,6 +4004,8 @@ export interface NamespaceKeys {
     | 'ops.production.unitCostLabel'
     | 'ops.production.unpublishedTitle'
     | 'ops.production.unreferenced'
+    | 'ops.production.versionHint'
+    | 'ops.production.versionLabel'
     | 'ops.production.versionRequired'
     | 'ops.production.viewKind'
     | 'ops.production.wasteHeading'
@@ -5097,6 +5107,7 @@ export interface NamespaceKeys {
     | 'recipes.checkYield'
     | 'recipes.checkYieldMissing'
     | 'recipes.checkYieldOk'
+    | 'recipes.coefficientsHint'
     | 'recipes.columnAllergens'
     | 'recipes.columnKitchen'
     | 'recipes.columnName'
@@ -5109,13 +5120,20 @@ export interface NamespaceKeys {
     | 'recipes.confidential'
     | 'recipes.confidentialHint'
     | 'recipes.costCascadeHint'
+    | 'recipes.costPackaging'
     | 'recipes.costPerPieceWithWaste'
+    | 'recipes.costPerUnit'
+    | 'recipes.costProduction'
+    | 'recipes.costTotal'
+    | 'recipes.costTotalCard'
+    | 'recipes.costWithWaste'
     | 'recipes.create'
     | 'recipes.createAction'
     | 'recipes.createTitle'
     | 'recipes.createdToast'
     | 'recipes.currentVersion'
     | 'recipes.descriptionLabel'
+    | 'recipes.discard'
     | 'recipes.draftOpenedToast'
     | 'recipes.emptyBody'
     | 'recipes.emptyTitle'
@@ -5199,6 +5217,7 @@ export interface NamespaceKeys {
     | 'recipes.savePublish'
     | 'recipes.savedToast'
     | 'recipes.sectionAllergenClasses'
+    | 'recipes.sectionCoefficients'
     | 'recipes.sectionCostCascade'
     | 'recipes.sectionDetails'
     | 'recipes.sectionIdentity'
@@ -5302,6 +5321,8 @@ export interface NamespaceKeys {
     | 'recipes.wastePercentHint'
     | 'recipes.yieldDescription'
     | 'recipes.yieldFirstHint'
+    | 'recipes.yieldPieces'
+    | 'recipes.yieldQuantity'
     | 'recipes.yieldRequired'
     | 'recipes.yieldUnit'
     | 'recordView.backToList'
@@ -9890,12 +9911,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:availability.dateDuplicate',
   'kitchen:availability.dateLabel',
   'kitchen:availability.dateRequired',
+  'kitchen:availability.dayCount',
   'kitchen:availability.dayRemoved',
   'kitchen:availability.empty',
+  'kitchen:availability.emptyBody',
   'kitchen:availability.emptyTitle',
   'kitchen:availability.explainerBody',
   'kitchen:availability.explainerTitle',
   'kitchen:availability.newDay',
+  'kitchen:availability.noneYet',
   'kitchen:availability.off',
   'kitchen:availability.on',
   'kitchen:availability.remainingHeader',
@@ -10721,6 +10745,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.loadErrorTitle',
   'kitchen:meals.marginEmpty',
   'kitchen:meals.marginRailTitle',
+  'kitchen:meals.marginUnknown',
   'kitchen:meals.marginValue',
   'kitchen:meals.mealTypesLabel',
   'kitchen:meals.nameRequired',
@@ -10733,6 +10758,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.netContentUnitsForbidden',
   'kitchen:meals.noChannels',
   'kitchen:meals.notVisibleToConsumers',
+  'kitchen:meals.portionHint',
   'kitchen:meals.portionInvalid',
   'kitchen:meals.portionLabel',
   'kitchen:meals.producedIngredientHint',
@@ -10763,6 +10789,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.retireConsequence',
   'kitchen:meals.retireFailed',
   'kitchen:meals.retireTitle',
+  'kitchen:meals.retiredBody',
+  'kitchen:meals.retiredTitle',
   'kitchen:meals.retiredToast',
   'kitchen:meals.searchPlaceholder',
   'kitchen:meals.sectionDetails',
@@ -10772,6 +10800,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.sectionProductionHint',
   'kitchen:meals.sectionRecipe',
   'kitchen:meals.sectionWhen',
+  'kitchen:meals.sectionWhenHint',
   'kitchen:meals.statLiveAction',
   'kitchen:meals.statLiveCaption',
   'kitchen:meals.subtitle',
@@ -11376,6 +11405,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.unitCostLabel',
   'kitchen:ops.production.unpublishedTitle',
   'kitchen:ops.production.unreferenced',
+  'kitchen:ops.production.versionHint',
+  'kitchen:ops.production.versionLabel',
   'kitchen:ops.production.versionRequired',
   'kitchen:ops.production.viewKind',
   'kitchen:ops.production.wasteHeading',
@@ -12477,6 +12508,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.checkYield',
   'kitchen:recipes.checkYieldMissing',
   'kitchen:recipes.checkYieldOk',
+  'kitchen:recipes.coefficientsHint',
   'kitchen:recipes.columnAllergens',
   'kitchen:recipes.columnKitchen',
   'kitchen:recipes.columnName',
@@ -12489,13 +12521,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.confidential',
   'kitchen:recipes.confidentialHint',
   'kitchen:recipes.costCascadeHint',
+  'kitchen:recipes.costPackaging',
   'kitchen:recipes.costPerPieceWithWaste',
+  'kitchen:recipes.costPerUnit',
+  'kitchen:recipes.costProduction',
+  'kitchen:recipes.costTotal',
+  'kitchen:recipes.costTotalCard',
+  'kitchen:recipes.costWithWaste',
   'kitchen:recipes.create',
   'kitchen:recipes.createAction',
   'kitchen:recipes.createTitle',
   'kitchen:recipes.createdToast',
   'kitchen:recipes.currentVersion',
   'kitchen:recipes.descriptionLabel',
+  'kitchen:recipes.discard',
   'kitchen:recipes.draftOpenedToast',
   'kitchen:recipes.emptyBody',
   'kitchen:recipes.emptyTitle',
@@ -12579,6 +12618,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.savePublish',
   'kitchen:recipes.savedToast',
   'kitchen:recipes.sectionAllergenClasses',
+  'kitchen:recipes.sectionCoefficients',
   'kitchen:recipes.sectionCostCascade',
   'kitchen:recipes.sectionDetails',
   'kitchen:recipes.sectionIdentity',
@@ -12682,6 +12722,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.wastePercentHint',
   'kitchen:recipes.yieldDescription',
   'kitchen:recipes.yieldFirstHint',
+  'kitchen:recipes.yieldPieces',
+  'kitchen:recipes.yieldQuantity',
   'kitchen:recipes.yieldRequired',
   'kitchen:recipes.yieldUnit',
   'kitchen:recordView.backToList',

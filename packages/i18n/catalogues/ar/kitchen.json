@@ -1195,7 +1195,9 @@
             "plannedLabel": "الكمية المخطّطة",
             "noRecipeAccessTitle": "دفتر الوصفات غير متاح لك",
             "noRecipeAccessBody": "بدء دُفعة يتطلّب صلاحية عرض الوصفات.",
-            "unpublishedTitle": "الإصدار الحالي لهذه الوصفة: {{status}}"
+            "unpublishedTitle": "الإصدار الحالي لهذه الوصفة: {{status}}",
+            "versionLabel": "معرّف إصدار الوصفة",
+            "versionHint": "الصق معرّف الإصدار المنشور من محرر الوصفة."
         },
         "qc": {
             "title": "مراقبة الجودة",
@@ -3049,7 +3051,18 @@
         "checkAllergensOk_few": "مشتقّة من {{count}} مواد خام",
         "checkAllergensOk_many": "مشتقّة من {{count}} مادة خام",
         "checkAllergensOk_other": "مشتقّة من {{count}} مادة خام",
-        "checkAllergensUnmapped": "لا يوجد ربط لمسببات الحساسية: {{names}}"
+        "checkAllergensUnmapped": "لا يوجد ربط لمسببات الحساسية: {{names}}",
+        "yieldQuantity": "الكمية الناتجة",
+        "yieldPieces": "عدد القطع الناتجة",
+        "discard": "تجاهل",
+        "costProduction": "الإنتاج",
+        "costPackaging": "التعبئة",
+        "costTotalCard": "التكلفة الإجمالية",
+        "costTotal": "التكلفة الإجمالية",
+        "costPerUnit": "لكل {{unit}}",
+        "costWithWaste": "+ {{percent}}% هدر",
+        "sectionCoefficients": "المعاملات والأسعار",
+        "coefficientsHint": "ما تُضرب به صفوف الهدر أعلاه، وما تُباع به وحدة من الدفعة"
     },
     "publish": {
         "action": "نشر",
@@ -3160,7 +3173,15 @@
         "on": "مفعّل",
         "off": "معطّل",
         "removeDay": "احذف هذا اليوم",
-        "rowCaption": "صف واحد لكل تاريخ. اترك «المتبقي» فارغًا لعدد حصص غير محدود."
+        "rowCaption": "صف واحد لكل تاريخ. اترك «المتبقي» فارغًا لعدد حصص غير محدود.",
+        "noneYet": "لا شيء بعد",
+        "dayCount_one": "{{count}} يوم",
+        "dayCount_other": "{{count}} يوم",
+        "emptyBody": "الوجبة المنشورة بلا تواريخ لا يمكن طلبها.",
+        "dayCount_zero": "{{count}} يوم",
+        "dayCount_two": "{{count}} يومان",
+        "dayCount_few": "{{count}} أيام",
+        "dayCount_many": "{{count}} يومًا"
     },
     "products": {
         "caption": "أصناف إعادة البيع",
@@ -3415,7 +3436,12 @@
         "netContentRequired": "هذا الرفّ يُحسب بالوزن أو الحجم، لذا يجب بيان مقدار الوحدة المباعة. وبدونه تُرفض كل عملية بيع.",
         "netContentInvalid": "يجب أن يكون المحتوى الصافي رقماً أكبر من صفر.",
         "netContentUnitMissing": "اختر وحدة المحتوى الصافي.",
-        "netContentUnitsForbidden": "يحتاج تحديد المحتوى الصافي إلى صلاحية المخزون، لأن وحدة القياس تأتي من مرجع المخزون. اطلب من شخص لديه صلاحية المخزون إدخاله، وإلا سيُرفض البيع."
+        "netContentUnitsForbidden": "يحتاج تحديد المحتوى الصافي إلى صلاحية المخزون، لأن وحدة القياس تأتي من مرجع المخزون. اطلب من شخص لديه صلاحية المخزون إدخاله، وإلا سيُرفض البيع.",
+        "portionHint": "عدد حصص الوصفة في وجبة واحدة.",
+        "marginUnknown": "لا سعر مؤكد بعد — الهامش فوق سعر مؤقت وهْم.",
+        "retiredTitle": "هذا الطبق مسحوب",
+        "retiredBody": "ليس على أي واجهة للعملاء. وهو باقٍ هنا لأن الطلبات السابقة والأسعار تشير إليه.",
+        "sectionWhenHint": "اختر ما ينطبق"
     },
     "priceStatus": {
         "confirmed": "مؤكَّد",
