@@ -20,6 +20,7 @@ import {
     Dialog,
     ErrorState,
     FormGrid,
+    FormNavigation,
     FormSection,
     Icon,
     Inline,
@@ -1001,7 +1002,7 @@ function RecipeEditor({
 
     /* ── saving ──────────────────────────────────────────────────────────────────────────────── */
 
-    const saveAll = () => {
+    const saveAll = (onDone?: () => void) => {
         if (saveBlocked) return;
         setSaveError(null);
 
@@ -1150,6 +1151,7 @@ function RecipeEditor({
         void run().then(
             () => {
                 settle();
+                if (onDone !== undefined) onDone();
                 toast.show({
                     testID: 'kitchen-recipe-saved-toast',
                     tone: 'success',
@@ -1161,6 +1163,23 @@ function RecipeEditor({
                 setSaveError(toFailure(error)?.message ?? t('kitchen:recipes.saveFailed'));
             },
         );
+    };
+
+    /*
+     * Publish writes the form first.
+     *
+     * The dialog reads the *saved* version — its allergen declarations, its blocked reasons — so
+     * opening it over unsaved edits describes one recipe and publishes another. Saving first costs
+     * a request nobody asked for and is the only order in which the dialog tells the truth.
+     */
+    const savePublish = () => {
+        if (anyDirty && !saveBlocked) {
+            saveAll(() => {
+                setShowPublish(true);
+            });
+            return;
+        }
+        setShowPublish(true);
     };
 
     const goBack = () => {
@@ -1250,6 +1269,180 @@ function RecipeEditor({
         .filter((part): part is string => part !== null && part !== '')
         .join(' · ');
 
+    /* ── the technical sheet's own reading, and what still stands between it and a label ─────── */
+
+    const noValue = t('kitchen:list.noValue');
+    const yieldUnitLabel = t(unitShortKey(details.yieldUnit));
+    const sheetMoney = (amount: CostAmount | null | undefined, digits: Intl.NumberFormatOptions) =>
+        amount == null ? noValue : formatMoney(formatter, amount.amount, amount.currency, digits);
+
+    /*
+     * The sheet's figures, off the draft rather than the saved version, so the reading answers
+     * while the recipe is still being written. The money rows are the server's cascade and are
+     * left off for a reader who may not see costs at all, exactly as the header's line is.
+     */
+    const sheetRows: readonly {
+        readonly key: string;
+        readonly label: string;
+        readonly value: string;
+        readonly mono: boolean;
+    }[] = [
+        {
+            key: 'designation',
+            label: t('kitchen:recipes.sheetDesignation'),
+            value:
+                details.name.en.trim() === '' ? noValue : displayName(details.name, locale).value,
+            mono: false,
+        },
+        {
+            key: 'reference',
+            label: t('kitchen:list.columnReference'),
+            value: (isCreating ? nextReference.data : data?.reference) ?? noValue,
+            mono: true,
+        },
+        {
+            key: 'yield',
+            label: t('kitchen:recipes.sheetQuantityProduced'),
+            value: yieldInvalid
+                ? noValue
+                : yieldPieces !== null && yieldPieces > 0
+                  ? t('kitchen:recipes.sheetYieldWithPortions', {
+                        quantity: formatter.formatNumber(servings, YIELD_DIGITS),
+                        unit: yieldUnitLabel,
+                        pieces: formatter.formatNumber(yieldPieces, YIELD_DIGITS),
+                    })
+                  : t('kitchen:recipes.checkYieldOk', {
+                        quantity: formatter.formatNumber(servings, YIELD_DIGITS),
+                        unit: yieldUnitLabel,
+                    }),
+            mono: true,
+        },
+        ...(!canViewCosts
+            ? []
+            : [
+                  {
+                      key: 'production-cost',
+                      label: t('kitchen:recipes.sheetCostTotal'),
+                      value: sheetMoney(computed?.production.total, CASCADE_DIGITS),
+                      mono: true,
+                  },
+                  {
+                      key: 'production-per-unit',
+                      label: t('kitchen:recipes.sheetProductionAfterWaste', {
+                          unit: yieldUnitLabel,
+                      }),
+                      value: sheetMoney(
+                          computed?.production.costPerYieldUnitWithWaste,
+                          PER_UNIT_DIGITS,
+                      ),
+                      mono: true,
+                  },
+                  {
+                      key: 'packaging-per-unit',
+                      label: t('kitchen:recipes.sheetPackagingAfterWaste', {
+                          unit: yieldUnitLabel,
+                      }),
+                      value: sheetMoney(
+                          computed?.packaging.costPerYieldUnitWithWaste,
+                          PER_UNIT_DIGITS,
+                      ),
+                      mono: true,
+                  },
+                  {
+                      key: 'total-per-unit',
+                      label: t('kitchen:recipes.cascadeTotal', { unit: yieldUnitLabel }),
+                      value: sheetMoney(computed?.totalCostPerYieldUnit, PER_UNIT_DIGITS),
+                      mono: true,
+                  },
+              ]),
+        {
+            key: 'allergens',
+            label: t('kitchen:recipes.sheetAllergensDerived'),
+            value:
+                allergenSources.length === 0
+                    ? t('kitchen:recipes.noAllergens')
+                    : allergenSources
+                          .map((source) => String(source.allergenCode))
+                          .join(t('kitchen:common.listSeparator')),
+            mono: false,
+        },
+        {
+            key: 'restricted',
+            label: t('kitchen:recipes.restricted'),
+            // Every recipe, for the reason the header's badge gives.
+            value: t('kitchen:recipes.sheetRestrictedValue'),
+            mono: false,
+        },
+    ];
+
+    /*
+     * The draft's raw materials with no allergen mapping, by name.
+     *
+     * Read off the *draft* lines rather than the saved version the publish dialog reads, so the
+     * check moves as lines are added. Unmapped is a warning rather than a failure for the reason
+     * the dialog's own note gives: this contract cannot tell "free of all fourteen" from "never
+     * checked".
+     */
+    const unmappedDraftNames = uniqueIngredientIds(lines)
+        .map((id) => library.find((entry) => String(entry.id) === String(id)))
+        .filter(
+            (entry): entry is IngredientAdmin =>
+                entry !== undefined && entry.allergens.length === 0,
+        )
+        .map((entry) => displayName(entry.name, locale).value)
+        .join(t('kitchen:common.listSeparator'));
+
+    const publishChecks: readonly {
+        readonly key: string;
+        readonly ok: boolean;
+        readonly label: string;
+        readonly note: string;
+    }[] = [
+        {
+            key: 'languages',
+            ok: !isTranslationIncomplete(details.name),
+            label: t('kitchen:recipes.checkLanguages'),
+            note: isTranslationIncomplete(details.name)
+                ? t('kitchen:recipes.checkLanguagesMissing')
+                : t('kitchen:recipes.checkLanguagesOk'),
+        },
+        {
+            key: 'costed',
+            ok: lines.length > 0 && uncostedNames === '',
+            label: t('kitchen:recipes.checkCosted'),
+            note:
+                lines.length === 0
+                    ? t('kitchen:recipes.checkNoLines')
+                    : uncostedNames === ''
+                      ? t('kitchen:recipes.checkCostedOk', {
+                            count: lines.length + packaging.length,
+                        })
+                      : t('kitchen:recipes.uncostedLines', { names: uncostedNames }),
+        },
+        {
+            key: 'yield',
+            ok: !yieldInvalid,
+            label: t('kitchen:recipes.checkYield'),
+            note: yieldInvalid
+                ? t('kitchen:recipes.checkYieldMissing')
+                : t('kitchen:recipes.checkYieldOk', {
+                      quantity: formatter.formatNumber(servings, YIELD_DIGITS),
+                      unit: yieldUnitLabel,
+                  }),
+        },
+        {
+            key: 'allergens',
+            ok: lines.length > 0 && unmappedDraftNames === '',
+            label: t('kitchen:recipes.checkAllergens'),
+            note:
+                lines.length === 0
+                    ? t('kitchen:recipes.checkNoLines')
+                    : unmappedDraftNames === ''
+                      ? t('kitchen:recipes.checkAllergensOk', { count: lines.length })
+                      : t('kitchen:recipes.checkAllergensUnmapped', { names: unmappedDraftNames }),
+        },
+    ];
+
     const tabItems = [
         {
             value: 'description' as const,
@@ -1315,6 +1508,13 @@ function RecipeEditor({
                     title={title}
                     titleAside={
                         <Inline space="xs" align="center" wrap>
+                            {isCreating ? (
+                                <Badge
+                                    testID="kitchen-recipe-editor-screen-mode"
+                                    tone="brand"
+                                    label={t('kitchen:recipes.modeNew')}
+                                />
+                            ) : null}
                             <Badge
                                 testID="kitchen-recipe-editor-screen-status"
                                 tone={data === undefined ? 'neutral' : statusTone(data.meta.status)}
@@ -1363,16 +1563,16 @@ function RecipeEditor({
                                 label={t('kitchen:common.saveDraft')}
                                 loading={create.isPending || update.isPending || setLines.isPending}
                                 disabled={saveBlocked || !isEditable}
-                                onPress={saveAll}
+                                onPress={() => {
+                                    saveAll();
+                                }}
                             />
                             {isCreating || !canManage ? null : (
                                 <Button
                                     testID="kitchen-recipe-publish"
                                     label={t('kitchen:publish.action')}
                                     disabled={!isEditable}
-                                    onPress={() => {
-                                        setShowPublish(true);
-                                    }}
+                                    onPress={savePublish}
                                 />
                             )}
                         </Inline>
@@ -1712,18 +1912,19 @@ function RecipeEditor({
                      * rather than as a paragraph the reader has to clear before the table.
                      */}
                     {/*
-                     * Yield and waste, above the formulation rather than on Description.
+                     * Yield above the formulation rather than on Description.
                      *
-                     * They belong to the same reading. A yield is only meaningful beside the lines
-                     * it is divided into — "1.7 kg from these nine rows" — and the waste coefficient
-                     * is the number that turns those lines into that yield. Having them a tab away
+                     * They belong to the same reading: a yield is only meaningful beside the lines
+                     * it is divided into — "1.7 kg from these nine rows" — and having it a step away
                      * meant checking a formulation required remembering a figure from another
-                     * screen, which is exactly the kind of thing a reader gets wrong.
+                     * screen, which is exactly the kind of thing a reader gets wrong. The two waste
+                     * coefficients are read against *each other* rather than against the yield, so
+                     * they sit together on Packaging.
                      */}
                     <FormSection
                         first
                         testID="kitchen-recipe-yield"
-                        title={t('kitchen:recipes.sectionYieldWaste')}
+                        title={t('kitchen:recipes.sectionYieldOnly')}
                         description={t('kitchen:recipes.yieldDescription')}
                     >
                         <FormGrid testID="kitchen-recipe-yield-grid">
@@ -1763,27 +1964,6 @@ function RecipeEditor({
                                 disabled={!editable}
                                 onChangeText={(next) => {
                                     setDetails({ ...details, yieldPieces: next });
-                                    markDirty('details');
-                                }}
-                            />
-                            {/*
-                             * Production waste, moved here from Costing.
-                             *
-                             * It was filed with the money because the cost cascade divides by it,
-                             * but it is not a commercial figure — it is a property of the process,
-                             * measured in the kitchen, and it belongs next to the yield it reduces.
-                             * Costing still reads it; it is simply no longer edited there.
-                             */}
-                            <QuantityInput
-                                testID="kitchen-recipe-waste"
-                                id="kitchen-recipe-waste"
-                                label={t('kitchen:recipes.productionWastePercent')}
-                                size="sm"
-                                unit="%"
-                                value={details.wastePercent}
-                                disabled={!editable}
-                                onChangeText={(next) => {
-                                    setDetails({ ...details, wastePercent: next });
                                     markDirty('details');
                                 }}
                             />
@@ -1864,16 +2044,35 @@ function RecipeEditor({
                     </View>
 
                     {/*
-                     * Packaging waste, moved here from Costing for the reason production waste moved to
-                     * Production: it is a property of the packing step, not a commercial input, and the
-                     * lines it applies to are on this tab. Saved with the version, like its sibling.
+                     * Both waste coefficients, moved here from Costing.
+                     *
+                     * They were filed with the money because the cost cascade divides by them, but
+                     * neither is a commercial figure: each is a property of a step, measured in the
+                     * kitchen. The design puts the pair side by side because they are read against
+                     * each other — a formulation that loses 3% in the pan and 2% at the packing
+                     * bench is two different problems. Costing still reads both and edits neither.
+                     * Saved with the version.
                      */}
                     <FormSection
                         testID="kitchen-recipe-packaging-coefficients"
-                        title={t('kitchen:recipes.sectionPackagingWaste')}
-                        description={t('kitchen:recipes.packagingWasteHint')}
+                        title={t('kitchen:recipes.sectionWaste')}
+                        description={t('kitchen:recipes.wasteHint')}
                     >
                         <FormGrid testID="kitchen-recipe-packaging-waste-grid">
+                            <QuantityInput
+                                testID="kitchen-recipe-waste"
+                                id="kitchen-recipe-waste"
+                                label={t('kitchen:recipes.productionWastePercent')}
+                                size="sm"
+                                unit="%"
+                                hint={t('kitchen:recipes.productionWasteHelp')}
+                                value={details.wastePercent}
+                                disabled={!editable}
+                                onChangeText={(next) => {
+                                    setDetails({ ...details, wastePercent: next });
+                                    markDirty('details');
+                                }}
+                            />
                             <QuantityInput
                                 testID="kitchen-recipe-packaging-waste"
                                 id="kitchen-recipe-packaging-waste"
@@ -2124,137 +2323,221 @@ function RecipeEditor({
 
             {/* ── Technical sheet ──────────────────────────────────────────────────────────── */}
             {tab !== 'sheet' ? null : (
-                <View className="relative z-raised">
-                    <FormSection
-                        first
-                        testID="kitchen-recipe-composition"
-                        title={t('kitchen:composition.title')}
-                        description={t('kitchen:recipes.compositionHint')}
-                        aside={
-                            <Badge
-                                tone="info"
-                                icon={null}
-                                label={t('kitchen:composition.fromDatabase')}
+                <View className="relative z-raised flex-col gap-loose lg:flex-row lg:items-start">
+                    <View className="min-w-0 flex-1 flex-col">
+                        {/*
+                         * The sheet as a reader checks it before publishing: one ledger of the figures
+                         * the other steps produced, from the draft rather than the saved version, so it
+                         * answers while a recipe is still being written.
+                         */}
+                        <FormSection
+                            first
+                            testID="kitchen-recipe-sheet-summary"
+                            title={t('kitchen:recipes.sheetTitle')}
+                        >
+                            <View className="flex-col">
+                                {sheetRows.map((row) => (
+                                    <View
+                                        key={row.key}
+                                        testID={`kitchen-recipe-sheet-summary-${row.key}`}
+                                        className="min-h-8 flex-row items-baseline gap-snug border-b border-stroke-subtle py-hair"
+                                    >
+                                        <View className="w-44 shrink-0">
+                                            <Text variant="caption" tone="secondary">
+                                                {row.label}
+                                            </Text>
+                                        </View>
+                                        <Text
+                                            testID={`kitchen-recipe-sheet-summary-${row.key}-value`}
+                                            variant={row.mono ? 'mono' : 'label'}
+                                        >
+                                            {row.value}
+                                        </Text>
+                                    </View>
+                                ))}
+                            </View>
+                        </FormSection>
+
+                        <FormSection
+                            first
+                            testID="kitchen-recipe-composition"
+                            title={t('kitchen:composition.title')}
+                            description={t('kitchen:recipes.compositionHint')}
+                            aside={
+                                <Badge
+                                    tone="info"
+                                    icon={null}
+                                    label={t('kitchen:composition.fromDatabase')}
+                                />
+                            }
+                        >
+                            <DerivedPanel
+                                testID="kitchen-recipe-composition-panel"
+                                description={t('kitchen:composition.description')}
+                                figures={nutrientFigures(
+                                    rollup.data?.per100g ?? null,
+                                    t,
+                                    formatter,
+                                )}
+                                emptyValue={t('kitchen:list.noValue')}
                             />
-                        }
-                    >
-                        <DerivedPanel
-                            testID="kitchen-recipe-composition-panel"
-                            description={t('kitchen:composition.description')}
-                            figures={nutrientFigures(rollup.data?.per100g ?? null, t, formatter)}
-                            emptyValue={t('kitchen:list.noValue')}
-                        />
+
+                            {/*
+                             * Why the tiles are dashes, in the reader's language and naming the row.
+                             * The panel above withholds every figure the moment one line cannot be
+                             * resolved, and a panel of dashes with no reason beside it is the version
+                             * of this screen a kitchen files a bug against.
+                             */}
+                            {warningNotices.length === 0 ? null : (
+                                <Stack space="sm" testID="kitchen-recipe-composition-warnings">
+                                    {warningNotices.map((notice) => (
+                                        <Callout
+                                            key={notice.code}
+                                            testID={`kitchen-recipe-composition-warnings-warning-${notice.code}`}
+                                            tone="warning"
+                                            role="status"
+                                            title={notice.text}
+                                        />
+                                    ))}
+                                </Stack>
+                            )}
+                        </FormSection>
 
                         {/*
-                         * Why the tiles are dashes, in the reader's language and naming the row.
-                         * The panel above withholds every figure the moment one line cannot be
-                         * resolved, and a panel of dashes with no reason beside it is the version
-                         * of this screen a kitchen files a bug against.
+                         * The chips come from the *roll-up*, not from the saved version, which is what
+                         * lets this tab answer while a recipe is still being written: the roll-up is
+                         * computed from the draft lines. `origin` is not on `AllergenSource` — it is a
+                         * derivation by definition — so nothing here claims a hand-declared entry.
                          */}
-                        {warningNotices.length === 0 ? null : (
-                            <Stack space="sm" testID="kitchen-recipe-composition-warnings">
-                                {warningNotices.map((notice) => (
-                                    <Callout
-                                        key={notice.code}
-                                        testID={`kitchen-recipe-composition-warnings-warning-${notice.code}`}
-                                        tone="warning"
-                                        role="status"
-                                        title={notice.text}
-                                    />
-                                ))}
-                            </Stack>
-                        )}
-                    </FormSection>
+                        <FormSection
+                            testID="kitchen-recipe-allergens"
+                            title={t('kitchen:recipes.sectionAllergenClasses')}
+                            description={t('kitchen:recipes.allergensInheritedFrom', {
+                                count: lines.length,
+                            })}
+                        >
+                            {allergenSources.length === 0 ? (
+                                <Text
+                                    testID="kitchen-recipe-allergens-none"
+                                    tone="secondary"
+                                    variant="caption"
+                                >
+                                    {t('kitchen:recipes.noAllergens')}
+                                </Text>
+                            ) : (
+                                <Inline space="xs" wrap testID="kitchen-recipe-allergen-chips">
+                                    {allergenSources.map((source) => {
+                                        const code = String(source.allergenCode);
+                                        // `contains` and `may_contain` are two different claims and
+                                        // never one colour: the tone separates them, the label carries
+                                        // the rest, and the source names the line that put it there.
+                                        const tone: TagTone =
+                                            source.containment === 'contains'
+                                                ? 'danger'
+                                                : 'warning';
+                                        const via = source.ingredientIds
+                                            .map((id) => {
+                                                const found = ingredients.find(
+                                                    (entry) => entry.id === id,
+                                                );
+                                                return found === undefined
+                                                    ? null
+                                                    : displayName(found.name, locale).value;
+                                            })
+                                            .filter((name): name is string => name !== null);
+
+                                        return (
+                                            <Tag
+                                                key={code}
+                                                testID={`kitchen-recipe-allergen-${code}`}
+                                                tone={tone}
+                                                label={
+                                                    via.length === 0
+                                                        ? code
+                                                        : t('kitchen:recipes.allergenVia', {
+                                                              code,
+                                                              name: via[0],
+                                                          })
+                                                }
+                                            />
+                                        );
+                                    })}
+                                </Inline>
+                            )}
+                        </FormSection>
+
+                        {/*
+                         * The print view is the one thing here that genuinely needs a saved record: a
+                         * technical sheet is a snapshot of a version, with its number on it, and there
+                         * is no version to snapshot until the recipe exists.
+                         */}
+                        <FormSection
+                            testID="kitchen-recipe-sheet"
+                            title={t('kitchen:recipes.sheetTitle')}
+                            description={t('kitchen:recipes.sheetPrintHint')}
+                        >
+                            {data === undefined ? (
+                                <Text
+                                    testID="kitchen-recipe-sheet-unsaved"
+                                    tone="secondary"
+                                    variant="caption"
+                                >
+                                    {t('kitchen:recipes.sheetAfterSave')}
+                                </Text>
+                            ) : (
+                                <TechnicalSheetPanel
+                                    testID="kitchen-recipe-technical-sheet"
+                                    recipe={data}
+                                    version={data.currentVersion}
+                                    sheet={technicalSheet.data}
+                                    isLoading={technicalSheet.isPending}
+                                />
+                            )}
+                        </FormSection>
+                    </View>
 
                     {/*
-                     * The chips come from the *roll-up*, not from the saved version, which is what
-                     * lets this tab answer while a recipe is still being written: the roll-up is
-                     * computed from the draft lines. `origin` is not on `AllergenSource` — it is a
-                     * derivation by definition — so nothing here claims a hand-declared entry.
+                     * The rail: what stands between this draft and a published label, live. The
+                     * publish dialog re-reads the saved version and is the gate; this is the reading
+                     * a person works from while there is still something to fix.
                      */}
-                    <FormSection
-                        testID="kitchen-recipe-allergens"
-                        title={t('kitchen:recipes.sectionAllergenClasses')}
-                        description={t('kitchen:recipes.allergensInheritedFrom', {
-                            count: lines.length,
-                        })}
+                    <View
+                        testID="kitchen-recipe-publish-checks"
+                        className="flex-col lg:w-72 lg:shrink-0"
                     >
-                        {allergenSources.length === 0 ? (
-                            <Text
-                                testID="kitchen-recipe-allergens-none"
-                                tone="secondary"
-                                variant="caption"
-                            >
-                                {t('kitchen:recipes.noAllergens')}
-                            </Text>
-                        ) : (
-                            <Inline space="xs" wrap testID="kitchen-recipe-allergen-chips">
-                                {allergenSources.map((source) => {
-                                    const code = String(source.allergenCode);
-                                    // `contains` and `may_contain` are two different claims and
-                                    // never one colour: the tone separates them, the label carries
-                                    // the rest, and the source names the line that put it there.
-                                    const tone: TagTone =
-                                        source.containment === 'contains' ? 'danger' : 'warning';
-                                    const via = source.ingredientIds
-                                        .map((id) => {
-                                            const found = ingredients.find(
-                                                (entry) => entry.id === id,
-                                            );
-                                            return found === undefined
-                                                ? null
-                                                : displayName(found.name, locale).value;
-                                        })
-                                        .filter((name): name is string => name !== null);
-
-                                    return (
-                                        <Tag
-                                            key={code}
-                                            testID={`kitchen-recipe-allergen-${code}`}
-                                            tone={tone}
-                                            label={
-                                                via.length === 0
-                                                    ? code
-                                                    : t('kitchen:recipes.allergenVia', {
-                                                          code,
-                                                          name: via[0],
-                                                      })
+                        <FormSection first title={t('kitchen:recipes.publishChecksTitle')}>
+                            <View className="flex-col">
+                                {publishChecks.map((check) => (
+                                    <View
+                                        key={check.key}
+                                        testID={`kitchen-recipe-check-${check.key}`}
+                                        accessibilityLabel={`${check.label}: ${check.note}`}
+                                        className="flex-row items-start gap-tight border-b border-stroke-subtle py-tight"
+                                    >
+                                        <Icon
+                                            name={check.ok ? 'check' : 'warning'}
+                                            size="sm"
+                                            className={
+                                                check.ok
+                                                    ? 'text-success-strong'
+                                                    : 'text-warning-strong'
                                             }
                                         />
-                                    );
-                                })}
-                            </Inline>
-                        )}
-                    </FormSection>
-
-                    {/*
-                     * The print view is the one thing here that genuinely needs a saved record: a
-                     * technical sheet is a snapshot of a version, with its number on it, and there
-                     * is no version to snapshot until the recipe exists.
-                     */}
-                    <FormSection
-                        testID="kitchen-recipe-sheet"
-                        title={t('kitchen:recipes.sheetTitle')}
-                        description={t('kitchen:recipes.sheetPrintHint')}
-                    >
-                        {data === undefined ? (
-                            <Text
-                                testID="kitchen-recipe-sheet-unsaved"
-                                tone="secondary"
-                                variant="caption"
-                            >
-                                {t('kitchen:recipes.sheetAfterSave')}
-                            </Text>
-                        ) : (
-                            <TechnicalSheetPanel
-                                testID="kitchen-recipe-technical-sheet"
-                                recipe={data}
-                                version={data.currentVersion}
-                                sheet={technicalSheet.data}
-                                isLoading={technicalSheet.isPending}
-                            />
-                        )}
-                    </FormSection>
+                                        <View className="min-w-0 flex-1 flex-col">
+                                            <Text variant="label">{check.label}</Text>
+                                            <Text
+                                                testID={`kitchen-recipe-check-${check.key}-note`}
+                                                variant="caption"
+                                                tone="secondary"
+                                            >
+                                                {check.note}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
+                        </FormSection>
+                    </View>
                 </View>
             )}
 
@@ -2266,34 +2549,53 @@ function RecipeEditor({
              * what it is packed in, then what it costs), and the design's own sale flow uses the same
              * pair for the same reason.
              *
-             * Secondary rather than primary: Publish is the page's one primary action and a green
-             * Next beside it would compete with it. Both stay drawn at the ends of the sequence and
-             * go disabled instead, so the row does not change width as it is walked.
+             * Previous stays drawn and goes disabled on the first step, so the row does not change
+             * width as it is walked. Next does not: on the last step it gives way to the form's own
+             * commit — Create while there is no recipe yet, and nothing once there is one, since a
+             * saved recipe's Publish is in the header where every step can reach it.
              */}
-            <Inline space="sm" wrap testID="kitchen-recipe-tab-steps">
-                <Button
-                    testID="kitchen-recipe-tab-previous"
-                    variant="quiet"
-                    iconStart={<Icon name="chevronStart" size="sm" />}
-                    label={t('kitchen:recipes.tabPrevious')}
-                    disabled={at <= 0}
-                    onPress={() => {
-                        const previous = order[at - 1];
-                        if (previous !== undefined) setTab(previous);
-                    }}
-                />
-                <Button
-                    testID="kitchen-recipe-tab-next"
-                    variant="secondary"
-                    iconEnd={<Icon name="chevronEnd" size="sm" />}
-                    label={t('kitchen:recipes.tabNext')}
-                    disabled={at < 0 || at === order.length - 1}
-                    onPress={() => {
-                        const next = order[at + 1];
-                        if (next !== undefined) setTab(next);
-                    }}
-                />
-            </Inline>
+            <FormNavigation
+                testID="kitchen-recipe-tab-steps"
+                previousTestID="kitchen-recipe-tab-previous"
+                previousLabel={t('kitchen:recipes.tabPrevious')}
+                previousDisabled={at <= 0}
+                onPrevious={() => {
+                    const previous = order[at - 1];
+                    if (previous !== undefined) setTab(previous);
+                }}
+                counter={t('kitchen:recipes.stepCounter', {
+                    current: at + 1,
+                    total: order.length,
+                    label: tabItems[at]?.label ?? '',
+                })}
+                sticky
+                actions={
+                    at >= 0 && at === order.length - 1 ? (
+                        isCreating ? (
+                            <Button
+                                testID="kitchen-recipe-create"
+                                label={t('kitchen:recipes.createAction')}
+                                loading={create.isPending || update.isPending || setLines.isPending}
+                                disabled={saveBlocked || !isEditable}
+                                onPress={() => {
+                                    saveAll();
+                                }}
+                            />
+                        ) : null
+                    ) : (
+                        <Button
+                            testID="kitchen-recipe-tab-next"
+                            iconEnd={<Icon name="chevronEnd" size="sm" />}
+                            label={t('kitchen:recipes.tabNext')}
+                            disabled={at < 0}
+                            onPress={() => {
+                                const next = order[at + 1];
+                                if (next !== undefined) setTab(next);
+                            }}
+                        />
+                    )
+                }
+            />
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog
