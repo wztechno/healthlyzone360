@@ -9,6 +9,7 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { GoodsReceiptId, StockItemId, SupplierId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import type { RepositoryOverrides } from '../../testing/stub-repositories.ts';
@@ -188,6 +189,9 @@ describe('purchases ledger detail mode', () => {
         await untilVisible('kitchen-purchases-ledger-table');
 
         expect(harness.repositories.kitchenOps.getSpendSummary).not.toHaveBeenCalled();
+
+        // The ledger is the valuation, and says so above the figures.
+        expect(screen.getByTestId('kitchen-purchases-ledger-cost-note')).toBeTruthy();
     });
 
     it('offers a price-completeness chip per state and asks the server for exactly one', async () => {
@@ -215,6 +219,65 @@ describe('purchases ledger detail mode', () => {
     });
 });
 
+describe('purchases ledger column headers', () => {
+    // Above `md` the Catalogue draws tracks with headers; Jest's default 750px window is below it.
+    const narrowWindow = Dimensions.get('window');
+    const narrowScreen = Dimensions.get('screen');
+
+    beforeAll(() => {
+        Dimensions.set({
+            window: { ...narrowWindow, width: 1440, height: 900 },
+            screen: { ...narrowScreen, width: 1440, height: 900 },
+        });
+    });
+
+    afterAll(() => {
+        Dimensions.set({ window: narrowWindow, screen: narrowScreen });
+    });
+
+    it('sends the Supplier and State header filters with the request, since the ledger is paged', async () => {
+        const harness = await renderStubScreen(<PurchasesLedgerScreen />, {
+            session: kitchenManagerSession(),
+            repositories: overrides(),
+        });
+
+        await untilVisible('kitchen-purchases-ledger-table');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-purchases-ledger-column-supplier-trigger'));
+        });
+        await untilVisible(`kitchen-purchases-ledger-column-supplier-${String(SUPPLIER_A)}`);
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId(
+                    `kitchen-purchases-ledger-column-supplier-${String(SUPPLIER_A)}`,
+                ),
+            );
+        });
+
+        await waitFor(() => {
+            expect(harness.repositories.kitchenOps.listPurchasesLedger).toHaveBeenCalledWith(
+                expect.objectContaining({ supplierId: SUPPLIER_A }),
+            );
+        });
+
+        await untilVisible('kitchen-purchases-ledger-column-state-trigger');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-purchases-ledger-column-state-trigger'));
+        });
+        await untilVisible('kitchen-purchases-ledger-column-state-partial');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-purchases-ledger-column-state-partial'));
+        });
+
+        await waitFor(() => {
+            expect(harness.repositories.kitchenOps.listPurchasesLedger).toHaveBeenCalledWith(
+                expect.objectContaining({ supplierId: SUPPLIER_A, costStatus: 'partial' }),
+            );
+        });
+    });
+});
+
 describe('purchases ledger summary modes', () => {
     it('shows a complete period with its money, and switching modes keeps the filters', async () => {
         const harness = await renderStubScreen(
@@ -228,7 +291,7 @@ describe('purchases ledger summary modes', () => {
         await untilVisible('kitchen-purchases-ledger-table');
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ledger-mode-weekly'));
+            fireEvent.press(screen.getByTestId('kitchen-ledger-toolbar-status-weekly'));
         });
 
         await untilVisible('kitchen-ledger-period-2026-W31');
@@ -263,7 +326,7 @@ describe('purchases ledger summary modes', () => {
         await untilVisible('kitchen-ledger-period-2026-W31-USD-charges');
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ledger-mode-monthly'));
+            fireEvent.press(screen.getByTestId('kitchen-ledger-toolbar-status-monthly'));
         });
 
         await waitFor(() => {

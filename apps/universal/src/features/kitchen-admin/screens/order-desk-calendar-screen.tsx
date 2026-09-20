@@ -454,7 +454,7 @@ function OrderDeskCalendarWeek() {
             {/* One 28px row: the week stepper and the range it is on. */}
             <View
                 testID="kitchen-order-desk-calendar-toolbar"
-                className="min-h-control-sm flex-row flex-wrap items-center gap-tight"
+                className="min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
             >
                 <View className="flex-row items-center gap-hair">
                     <IconButton

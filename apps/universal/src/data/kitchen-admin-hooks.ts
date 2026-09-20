@@ -2179,6 +2179,15 @@ export function recipeRollupHash(draft: RecipeRollupDraft): string {
             line.unit,
             line.isOptional ?? false,
         ]),
+        // The packaging half is priced from these, so an edit on the Packaging tab is a different
+        // question. Left out, the Costing tab went on showing the previous box after a new one was
+        // picked. The comment is not here: it changes no figure.
+        (draft.packaging ?? []).map((line) => [
+            String(line.ingredientId),
+            line.basis,
+            line.quantity ?? null,
+        ]),
+        draft.packagingWastePercent ?? null,
     ]);
 }
 

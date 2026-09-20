@@ -94,7 +94,9 @@ export function TeamMemberScreen() {
 }
 
 /** Where a role sits relative to now — the assignment's bounds, said in words. */
-function assignmentNote(assignment: MembershipRoleAssignment | undefined): 'scheduled' | 'expired' | null {
+function assignmentNote(
+    assignment: MembershipRoleAssignment | undefined,
+): 'scheduled' | 'expired' | null {
     if (assignment === undefined) return null;
 
     const now = Date.now();
@@ -170,9 +172,8 @@ function TeamMemberEditor() {
     }, [record]);
 
     const branches = member.data?.organisationBranches ?? [];
-    const savedScope = record?.branch === null || record?.branch === undefined
-        ? null
-        : String(record.branch.id);
+    const savedScope =
+        record?.branch === null || record?.branch === undefined ? null : String(record.branch.id);
     const chosenScope = scope === undefined ? savedScope : scope;
     const scopeMoved = scope !== undefined && scope !== savedScope;
 
@@ -402,9 +403,7 @@ function TeamMemberEditor() {
                     <Card padding="md">
                         <Stack space="sm">
                             <Inline space="sm" align="center" justify="between" wrap>
-                                <Heading level={2}>
-                                    {t('accessAdmin:member.rolesHeading')}
-                                </Heading>
+                                <Heading level={2}>{t('accessAdmin:member.rolesHeading')}</Heading>
                                 <Badge
                                     testID="kitchen-team-member-status"
                                     tone={isWorkingMember(record.status) ? 'success' : 'warning'}
@@ -424,7 +423,9 @@ function TeamMemberEditor() {
                                         <Checkbox
                                             key={id}
                                             testID={`kitchen-team-member-role-${role.code}`}
-                                            label={locale.startsWith('ar') ? role.nameAr : role.nameEn}
+                                            label={
+                                                locale.startsWith('ar') ? role.nameAr : role.nameEn
+                                            }
                                             {...(note === null
                                                 ? {}
                                                 : {
@@ -493,9 +494,7 @@ function TeamMemberEditor() {
                             <Heading level={2}>
                                 {t('accessAdmin:member.permissionsHeading')}
                             </Heading>
-                            <Text tone="secondary">
-                                {t('accessAdmin:member.permissionsHint')}
-                            </Text>
+                            <Text tone="secondary">{t('accessAdmin:member.permissionsHint')}</Text>
                             <Inline space="xs" wrap testID="kitchen-team-member-permissions">
                                 {record.permissions.map((code) => (
                                     <Badge

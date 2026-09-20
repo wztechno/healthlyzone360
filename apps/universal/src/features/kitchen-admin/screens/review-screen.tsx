@@ -1,13 +1,5 @@
 import { apiFailure } from '@healthy360/api-client/contracts';
-import {
-    Button,
-    EmptyState,
-    ErrorState,
-    RecordWindow,
-    Skeleton,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
+import { Button, EmptyState, ErrorState, Skeleton, Stack, Text } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -21,11 +13,12 @@ import { useReviewQueueQuery } from '../../../data/kitchen-admin-hooks.ts';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, statusKey } from '../format.ts';
-import { ReviewFamilySection } from '../review/review-family-section.tsx';
+import { ReviewTable } from '../review/review-table.tsx';
 import { buildReviewQueue, isBlocked, reviewFamilyKey, reviewReasonKey } from '../review-queue.ts';
 import type { ReviewItem, ReviewQueue, ReviewSection } from '../review-queue.ts';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
 /**
  * `/kitchen/review` — the publication review queue (K1.8), as `Workbench.dc.html` draws it.
@@ -34,17 +27,17 @@ import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
  * Needs review  [ READ ONLY ]
  * ┌ SHOWN ┐ ┌ BLOCKED ┐ ┌ TO FINISH ┐
  * [ ⌕ Designation or name ]  [ All | Blocked | To finish ]
- * ── INGREDIENTS  3 records  [ 1 BLOCKED ] ─────────────────────────
- * DESIGNATION         WHY IT IS HERE          LAST CHANGED          ◉ ✎
- * ── RECIPES … ─────────────────────────────────────────────────────
- * Checked: …   Not checked here: …
+ * ID        DESIGNATION         WHY IT IS HERE          LAST CHANGED          ◉ ✎
+ * ING-0142  …
+ * RC-0007   …
  * ```
  *
  * ## The one screen in this workspace that is not about a family
  *
  * Every other kitchen screen answers "show me the ingredients". This one answers **what is stopping
- * anything from going out?** — a question across six families at once, which is why it is a section
- * per family, and why a family with nothing to report gets no heading at all.
+ * anything from going out?** — a question across six families at once. They share one table, and
+ * the ID column (`ING-`, `RC-`, `RSL-`, or the family's name where it has no series) says which
+ * family a row is; its header filters by family.
  *
  * ## It states what it checked, and it never claims more
  *
@@ -55,7 +48,7 @@ import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
  *
  * ## Nothing is written from here
  *
- * No resolve, no publish-anyway, no bulk action. The row body opens a read-only `RecordWindow`, and
+ * No resolve, no publish-anyway, no bulk action. The row body opens the read-only record page, and
  * both its primary and the row's pen go to the family's own editor, where the lock version, the unsaved
  * guard and the publish confirmation already live.
  *
@@ -113,6 +106,8 @@ function ReviewQueueBody() {
         () => (queue === null ? [] : narrow(queue, search, scope, locale)),
         [queue, search, scope, locale],
     );
+    /** One list for the one table, memoised so the table's page survives an unrelated render. */
+    const items = useMemo(() => sections.flatMap((section) => section.items), [sections]);
 
     /**
      * Derived from `isError`, not from `toFailure` alone: an unclassifiable rejection would otherwise
@@ -127,6 +122,18 @@ function ReviewQueueBody() {
         setViewing(null);
         router.push(item.href as never);
     };
+
+    if (viewing !== null) {
+        return (
+            <ReviewWindow
+                item={viewing.item}
+                onBack={() => {
+                    setViewing(null);
+                }}
+                onOpen={open}
+            />
+        );
+    }
 
     return (
         <Stack space="md" testID="kitchen-review-screen">
@@ -223,30 +230,16 @@ function ReviewQueueBody() {
                             }
                         />
                     ) : (
-                        <View testID="kitchen-review-sections" className="flex-col gap-base">
-                            {sections.map((section) => (
-                                <ReviewFamilySection
-                                    key={section.familyKey}
-                                    section={section}
-                                    onView={(item) => {
-                                        setViewing({ item });
-                                    }}
-                                    onOpen={open}
-                                />
-                            ))}
-                        </View>
+                        <ReviewTable
+                            testID="kitchen-review-table"
+                            items={items}
+                            onView={(item) => {
+                                setViewing({ item });
+                            }}
+                            onOpen={open}
+                        />
                     )}
                 </Stack>
-            )}
-
-            {viewing === null ? null : (
-                <ReviewWindow
-                    item={viewing.item}
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    onOpen={open}
-                />
             )}
         </Stack>
     );
@@ -254,11 +247,11 @@ function ReviewQueueBody() {
 
 function ReviewWindow({
     item,
-    onClose,
+    onBack,
     onOpen,
 }: {
     readonly item: ReviewItem;
-    readonly onClose: () => void;
+    readonly onBack: () => void;
     readonly onOpen: (item: ReviewItem) => void;
 }) {
     const { t } = useTranslation();
@@ -267,10 +260,9 @@ function ReviewWindow({
     const blocked = isBlocked(item);
 
     return (
-        <RecordWindow
+        <RecordViewPage
             testID="kitchen-review-window"
-            open
-            onClose={onClose}
+            onBack={onBack}
             title={displayName(item.name, locale).value}
             kind={t(reviewFamilyKey(item.familyKey))}
             status={
@@ -319,6 +311,7 @@ function ReviewWindow({
             }))}
             primaryAction={{
                 label: t('kitchen:review.open'),
+                icon: null,
                 onPress: () => {
                     onOpen(item);
                 },

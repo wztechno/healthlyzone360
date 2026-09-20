@@ -85,13 +85,14 @@ export interface DerivedPanelProps {
      * the ones the record cannot fill. See the note above on why the row does not collapse.
      */
     /**
-     * One line saying where the values came from and that they cannot be edited.
+     * One line saying where the values came from and that they cannot be edited. Optional: the
+     * stepped editors leave it out and let the sunken fill say it.
      *
      * The `From database` badge is *not* a prop. It belongs beside the section title, which is
      * `FormSection`'s `aside` and not this component's business — the panel is the content, and
      * putting a second badge inside it would state the same thing twice, ten pixels apart.
      */
-    readonly description: string;
+    readonly description?: string | undefined;
     readonly figures: readonly DerivedFigure[];
     /** Stands in for a figure the record has not got. An em dash, not a zero. */
     readonly emptyValue: string;
@@ -109,9 +110,11 @@ export function DerivedPanel({
 }: DerivedPanelProps) {
     return (
         <View testID={testID} className="flex-col gap-snug">
-            <Text testID={`${testID}-description`} variant="caption" tone="secondary">
-                {description}
-            </Text>
+            {description === undefined ? null : (
+                <Text testID={`${testID}-description`} variant="caption" tone="secondary">
+                    {description}
+                </Text>
+            )}
 
             {figures.length === 0 ? null : (
                 /*

@@ -69,6 +69,10 @@
     "stepper": {
         "progress": "Step {{current}} of {{total}}"
     },
+    "stepProgress": {
+        "step": "Step {{current}} of {{total}}: {{label}}",
+        "stepDone": "Step {{current}} of {{total}}: {{label}}, completed"
+    },
     "numberStepper": {
         "increase": "Increase {{label}}",
         "decrease": "Decrease {{label}}"
@@ -117,7 +121,10 @@
     "shell": {
         "primaryNavigation": "Main navigation",
         "openNavigation": "Open the main navigation",
-        "skipToContent": "Skip to the main content"
+        "skipToContent": "Skip to the main content",
+        "hideNavigation": "Close the pages panel",
+        "showNavigation": "Open the pages panel",
+        "modules": "Modules"
     },
     "showcase": {
         "title": "Design system",

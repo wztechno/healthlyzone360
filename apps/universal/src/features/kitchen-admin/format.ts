@@ -343,63 +343,6 @@ export function costPerServing(cost: CostAmount | null, servings: number): CostA
 }
 
 /**
- * What one line costs — the quantity converted into the unit the price is quoted against, then
- * multiplied.
- *
- * The conversion is the whole point. A price is recorded per *one* unit of something (per kilogram,
- * per piece) and a line is written in whatever the kitchen's sheet used, so multiplying the raw
- * figures reads a 300 g line against a per-kilogram price as three hundred kilograms. The server
- * converts before it multiplies (`RecipeVersionService::costOf`) and refuses across dimensions; this
- * is the same rule on the client.
- *
- * `null` is an **uncosted** line — no recorded price, or no conversion between the two units — and is
- * never a zero. A zero is a measurement, and a costing panel full of them reads as "these things are
- * free" rather than "nobody has priced them".
- */
-export function lineCost(
-    quantity: number,
-    unit: MeasureUnit,
-    price: CostAmount | null,
-    pricedPer: MeasureUnit,
-): number | null {
-    if (price === null) return null;
-    const converted = normaliseQuantity(quantity, unit, pricedPer);
-    return converted === null ? null : converted * price.amount;
-}
-
-/**
- * What one filled package costs: the product it holds, plus the container at its own waste rate.
- *
- * `capacity` is how much product one item holds *in the recipe's own unit* (a 300 cc bottle carries
- * `0.3` kg of sauce — see `IngredientAdmin.capacity`), so the contents cost is the production cost
- * per yield unit times that capacity converted into the yield's unit. The waste coefficient applies
- * to the container alone: a box is crushed in the stack, the sauce inside it is not.
- *
- * `null` when the item records no capacity, or when its capacity cannot be converted to the yield
- * unit — a `piece` capacity against a kilogram yield is a question this arithmetic cannot answer.
- */
-export function costPerPackage({
-    productionPerYieldUnit,
-    capacity,
-    yieldUnit,
-    containerPrice,
-    packagingWastePercent,
-}: {
-    readonly productionPerYieldUnit: number;
-    readonly capacity: { readonly quantity: number; readonly unit: MeasureUnit } | null;
-    readonly yieldUnit: MeasureUnit;
-    readonly containerPrice: number | null;
-    readonly packagingWastePercent: number;
-}): number | null {
-    if (capacity === null) return null;
-    const held = normaliseQuantity(capacity.quantity, capacity.unit, yieldUnit);
-    if (held === null) return null;
-    return (
-        productionPerYieldUnit * held + (containerPrice ?? 0) * (1 + packagingWastePercent / 100)
-    );
-}
-
-/**
  * Moves one row of an ordered list, returning a new list.
  *
  * The three row editors (lines, outputs, steps) all order by array position, so this is the single

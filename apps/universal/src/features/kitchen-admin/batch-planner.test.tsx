@@ -1,5 +1,7 @@
 import type {
     AdminEntityMeta,
+    StockItem,
+    StockLevel,
     IngredientAdmin,
     RecipeAdmin,
     RecipeAdminSummary,
@@ -13,6 +15,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import {
+    TEST_BRANCH_ID,
     TEST_ORGANISATION_ID,
     kitchenManagerSession,
     testActiveContext,
@@ -33,6 +36,8 @@ import { BatchPlannerScreen } from './screens/batch-planner-screen.tsx';
  * 2. **Packaging rounds up and ingredients do not.** 0.4 of an egg is an instruction; 0.4 of a box
  *    is not something anybody can take off a shelf. Both appear in one run below, because the
  *    difference is invisible in either case alone.
+ * 3. **A rounded figure shows what it was rounded from.** 7.5 trays reads 8, with "from 7.5" beside
+ *    it, so the cook can see the rounding rather than trust it.
  */
 
 jest.mock('expo-router', () => ({
@@ -187,6 +192,7 @@ function version(overrides: Partial<RecipeVersionAdmin> = {}): RecipeVersionAdmi
         yieldUnit: 'kg',
         yieldPieces: null,
         wastePercent: 3,
+        packagingWastePercent: 0,
         b2bPrice: null,
         b2cPrice: null,
         lines: [LINE],
@@ -242,9 +248,37 @@ function summaryOf(record: RecipeAdmin): RecipeAdminSummary {
     return summary;
 }
 
-function batchRepositories() {
-    const record = recipe();
+const BURGHUL_SHELF: StockItem = {
+    id: 'stock-item-burghul' as StockItem['id'],
+    code: 'ING-001',
+    nameEn: 'Burghul',
+    unitCode: 'kg',
+    ingredientId: BURGHUL_ID,
+    catalogueItemId: null,
+    backing: 'ingredient',
+    isStocked: true,
+    hasHistory: true,
+};
+
+const BURGHUL_LEVEL: StockLevel = {
+    id: 'stock-level-burghul',
+    branchId: TEST_BRANCH_ID,
+    stockItemId: BURGHUL_SHELF.id,
+    quantity: '0.200',
+    reorderThreshold: null,
+    parLevel: null,
+    isLow: false,
+    itemCode: 'ING-001',
+    itemNameEn: 'Burghul',
+    ingredientId: BURGHUL_ID,
+};
+
+function batchRepositories(record: RecipeAdmin = recipe()) {
     return {
+        kitchenOps: {
+            listStockItems: async () => [BURGHUL_SHELF],
+            listStockLevels: async () => [BURGHUL_LEVEL],
+        },
         kitchenAdmin: {
             listRecipes: async () => page([summaryOf(record)]),
             getRecipe: async () => record,
@@ -280,6 +314,7 @@ describe('the batch planner', () => {
         await untilVisible('kitchen-batch-planner-screen');
         // Nothing is scaled before a recipe is picked.
         await untilVisible('kitchen-batch-planner-pick-recipe');
+        expect(screen.queryByTestId('kitchen-batch-ingredients')).toBeNull();
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-batch-recipe-trigger'));
@@ -288,6 +323,16 @@ describe('the batch planner', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`));
         });
+
+        // The version's own facts are on the page before anything is scaled.
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-batch-facts-yield-value')).toHaveTextContent(
+                    '4',
+                );
+            },
+            { timeout: 10_000 },
+        );
 
         // A recipe with no target is still not a batch.
         await untilVisible('kitchen-batch-planner-target-needed');
@@ -298,8 +343,9 @@ describe('the batch planner', () => {
 
         await untilVisible('kitchen-batch-ingredients');
 
-        // 10 kg of a 4 kg recipe is two and a half batches.
-        expect(screen.getByTestId('kitchen-batch-metric-batches-value')).toHaveTextContent('2.5');
+        // 10 kg of a 4 kg recipe is two and a half batches, which a kitchen runs as three.
+        expect(screen.getByTestId('kitchen-batch-facts-batches-value')).toHaveTextContent('3');
+        expect(screen.getByTestId('kitchen-batch-factor')).toHaveTextContent(/×2\.5/);
 
         // The name can only have come from the ingredient record: the line carries none.
         await waitFor(
@@ -310,18 +356,89 @@ describe('the batch planner', () => {
             },
             { timeout: 10_000 },
         );
-        // 0.2 kg × 2.5 is half a kilogram, which the sheet reads as 500 g.
+        // 0.2 kg × 2.5 is half a kilogram — stated in kilograms, the one unit the row has.
         expect(
             screen.getByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-quantity`),
-        ).toHaveTextContent('500');
+        ).toHaveTextContent('0.5');
+
+        // The planner is a sheet, not a stock check: no shelf column is drawn.
+        expect(screen.queryByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-on-hand`)).toBeNull();
 
         // 3 trays × 2.5 is 7.5, and half a tray is not a thing anybody can take off a shelf.
         expect(
             screen.getByTestId(`kitchen-batch-row-${String(TRAY_ID)}-quantity`),
         ).toHaveTextContent('8');
+        expect(screen.getByTestId(`kitchen-batch-row-${String(TRAY_ID)}-exact`)).toHaveTextContent(
+            /from 7.5/,
+        );
         expect(screen.getByTestId(`kitchen-batch-row-${String(TRAY_ID)}-name`)).toHaveTextContent(
             'Gastronorm tray',
         );
+    });
+
+    it('sorts the scaled sheet from its headers and filters it by unit', async () => {
+        // Tray first in the version's own order, in grams, so a sort by name has something to move.
+        const trayLine: RecipeLine = { ...LINE, ingredientId: TRAY_ID, quantity: 150, unit: 'g' };
+        const record = recipe({
+            currentVersion: version({ lines: [trayLine, LINE], packaging: [] }),
+        });
+        await renderStubScreen(<BatchPlannerScreen />, {
+            session: kitchenManagerSession(),
+            repositories: batchRepositories(record),
+        });
+
+        await untilVisible('kitchen-batch-recipe-trigger');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-recipe-trigger'));
+        });
+        await untilVisible(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`));
+        });
+        await untilVisible('kitchen-batch-target-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-batch-target-input'), '10');
+        });
+        await untilVisible('kitchen-batch-ingredients-column-name-trigger');
+
+        const burghulRow = `kitchen-batch-ingredients-row-${String(BURGHUL_ID)}`;
+        const trayRow = `kitchen-batch-ingredients-row-${String(TRAY_ID)}`;
+        const rowOrder = () =>
+            screen
+                .getAllByTestId(/^kitchen-batch-ingredients-row-[0-9a-f-]+$/)
+                .map((row) => String(row.props.testID));
+
+        expect(rowOrder()).toEqual([trayRow, burghulRow]);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-ingredients-column-name-trigger'));
+        });
+        await waitFor(
+            () => {
+                expect(rowOrder()).toEqual([burghulRow, trayRow]);
+            },
+            { timeout: 10_000 },
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-ingredients-column-name-trigger'));
+        });
+        await waitFor(() => {
+            expect(rowOrder()).toEqual([trayRow, burghulRow]);
+        });
+
+        // Unit filters rather than sorts: its menu offers the units on the sheet.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-ingredients-column-unit-trigger'));
+        });
+        await untilVisible('kitchen-batch-ingredients-column-unit-kg');
+        expect(screen.getByTestId('kitchen-batch-ingredients-column-unit-g')).toBeTruthy();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-ingredients-column-unit-kg'));
+        });
+        await waitFor(() => {
+            expect(rowOrder()).toEqual([burghulRow]);
+        });
     });
 
     it('refuses a reader who may see recipes but not the catalogue behind their names', async () => {

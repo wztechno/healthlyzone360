@@ -1,17 +1,5 @@
 import type { MealAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    Dialog,
-    EmptyState,
-    ErrorState,
-    Icon,
-    Inline,
-    Skeleton,
-    Stack,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Dialog, Icon, Inline, Stack, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { MEAL_TYPES } from '@healthy360/domain-types';
 import type { MealType } from '@healthy360/domain-types';
@@ -24,16 +12,17 @@ import { useTranslation } from 'react-i18next';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
-import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
-import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
+import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
+import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { mealColumns } from '../catalogue/meal-columns.tsx';
 import type { MealListState, MealSortKey } from '../catalogue/use-meal-list.ts';
@@ -49,6 +38,7 @@ import {
     statusShortKey,
     statusTone,
 } from '../format.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/meals` — the dishes this kitchen sells, and which of them a shopper can see.
@@ -107,17 +97,6 @@ export function MealsScreen() {
     );
 }
 
-/**
- * All · Live · Draft · Review.
- *
- * Four, not five: Archived — `retired`, which for a meal means withdrawn — is reachable from the
- * Status column's own filter, and putting it on the toolbar would spend a fifth of a primary
- * control on the one state a menu is almost never browsed in.
- */
-const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'review_required'];
-
-type StatusSegmentValue = PublishableStatus | 'all';
-
 function MealsList() {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -143,17 +122,57 @@ function MealsList() {
         },
     );
 
-    const active = list.statuses[0];
-    const segmentValue: StatusSegmentValue =
-        active !== undefined && SEGMENT_STATUSES.includes(active) ? active : 'all';
+    const segments = statusSegments(list.statuses, list.setStatuses, t);
 
-    const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
-        { value: 'all', label: t('kitchen:toolbar.statusAll') },
-        ...SEGMENT_STATUSES.map((status) => ({
-            value: status,
-            label: t(statusShortKey(status)),
-        })),
-    ];
+    /*
+     * View takes the whole page (`IngredientView.dc.html`), in place of the list rather than on a
+     * route of its own — Back is a state change, so the list's page, sort and filters survive it.
+     */
+    const viewing = list.viewing;
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-meals-view"
+                kind={t('kitchen:meals.viewKind')}
+                title={displayName(viewing.name, locale).value}
+                status={{
+                    tone: statusTone(viewing.meta.status),
+                    label: t(statusShortKey(viewing.meta.status)),
+                }}
+                fields={viewFields(viewing, t, formatter)}
+                onBack={list.closeView}
+                primaryAction={{
+                    label: t('kitchen:catalogue.edit'),
+                    testID: 'kitchen-meals-view-edit',
+                    onPress: () => {
+                        list.closeView();
+                        list.openEditor(String(viewing.id));
+                    },
+                }}
+                /*
+                 * Drawn even when the set is empty. The label is frozen from the recipe version at
+                 * publication and cannot be edited on a meal, so an empty set here is a real
+                 * declaration — and on the one field a kitchen reads for safety, "this meal declares
+                 * none" and "nobody has looked" are the two answers that most need telling apart.
+                 */
+                chipsLabel={t('kitchen:meals.columnAllergens')}
+                chipsSourceBadge={t('kitchen:meals.viewAllergensSource')}
+                chipsCaption={t('kitchen:meals.viewAllergensCaption')}
+                chips={viewing.allergens.map((code) => ({
+                    key: String(code),
+                    label: String(code),
+                    tone: 'danger' as const,
+                }))}
+                {...(viewing.allergens.length === 0
+                    ? {
+                          chipsContent: (
+                              <Text tone="secondary">{t('kitchen:list.noAllergens')}</Text>
+                          ),
+                      }
+                    : {})}
+            />
+        );
+    }
 
     return (
         <Stack space="md" testID="kitchen-meals-screen">
@@ -170,12 +189,11 @@ function MealsList() {
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:meals.searchPlaceholder')}
                 statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={statusSegments}
-                status={segmentValue}
-                onStatusChange={(status) => {
-                    list.setStatuses(status === 'all' ? [] : [status]);
-                }}
+                statusSegments={segments.segments}
+                status={segments.value}
+                onStatusChange={segments.onChange}
             >
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Inline space="xs" align="center">
                         <CatalogueTransferActions testID="kitchen-meals-toolbar" />
@@ -189,183 +207,82 @@ function MealsList() {
                 ) : undefined}
             </CatalogueToolbar>
 
-            {list.isPending ? (
-                <Stack space="xs" testID="kitchen-meals-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-meals-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
-            ) : list.failure !== null ? (
-                <ErrorState
-                    testID="kitchen-meals-error"
-                    failure={list.failure}
-                    onRetry={list.refetch}
-                    retrying={list.isFetching}
-                />
-            ) : list.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-meals-empty"
-                    title={
-                        list.isUnfiltered
-                            ? t('kitchen:meals.emptyTitle')
-                            : t('kitchen:meals.filteredEmptyTitle')
-                    }
-                    body={
-                        list.isUnfiltered
-                            ? t('kitchen:meals.emptyBody')
-                            : t('kitchen:meals.filteredEmptyBody')
-                    }
-                    actions={
-                        <Inline space="sm" wrap>
-                            <Button
-                                testID="kitchen-meals-clear"
-                                variant="secondary"
-                                label={t('kitchen:toolbar.clearFilters')}
-                                onPress={list.clearFilters}
-                            />
-                            {canManage ? (
-                                <Button
-                                    testID="kitchen-meals-empty-create"
-                                    label={t('kitchen:meals.create')}
-                                    onPress={list.createNew}
-                                />
-                            ) : null}
-                        </Inline>
-                    }
-                />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList
-                        testID="kitchen-meals-table"
-                        label={t('kitchen:meals.caption')}
-                        columns={controls.columns}
-                        rows={list.rows}
-                        rowKey={(row) => String(row.id)}
-                        density="sm"
-                        onRowPress={(row) => {
-                            list.openEditor(String(row.id));
-                        }}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={(row): readonly MenuItem[] => [
-                            {
-                                key: 'view',
-                                label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
-                                testID: `${mealRowTestId(String(row.id))}-view`,
-                                onSelect: () => {
-                                    list.openView(row);
-                                },
-                            },
-                            {
-                                key: 'edit',
-                                label: t('kitchen:list.open'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
-                                testID: `${mealRowTestId(String(row.id))}-open`,
-                                onSelect: () => {
-                                    list.openEditor(String(row.id));
-                                },
-                            },
-                            /*
-                             * Withdraw sits in the Archive slot, because withdrawing *is* the
-                             * archive for a meal — and it is offered only on a row the server would
-                             * accept it for: a draft has nothing to withdraw from, and an already
-                             * withdrawn meal would 409.
-                             */
-                            ...(canManage &&
-                            (row.meta.status === 'published' ||
-                                row.meta.status === 'review_required')
-                                ? [
-                                      {
-                                          key: 'retire',
-                                          label: t('kitchen:meals.retire'),
-                                          icon: CATALOGUE_ROW_ICONS.archive,
-                                          tone: 'danger' as const,
-                                          testID: `${mealRowTestId(String(row.id))}-retire`,
-                                          onSelect: () => {
-                                              list.askToRetire(row);
-                                          },
-                                      },
-                                  ]
-                                : []),
-                        ]}
-                    />
-
-                    {/*
-                     * 7a's provenance footer, verbatim from the frame: the numbers on a card are
-                     * the recipe version's, and this is where a reader learns that.
-                     */}
-                    <Text variant="caption" tone="secondary" testID="kitchen-meals-provenance">
-                        {t('kitchen:meals.tableProvenance')}
-                    </Text>
-
-                    <CataloguePager
-                        testID="kitchen-meals-pagination"
-                        range={t('kitchen:toolbar.showing', {
-                            shown: list.shown,
-                            total: list.total ?? list.shown,
-                        })}
-                        page={list.page}
-                        totalPages={list.totalPages}
-                        onPageChange={list.setPage}
-                        label={t('kitchen:catalogue.pagerLabel')}
-                    />
-                </Stack>
-            )}
-
-            <CatalogueViewDrawer
-                testID="kitchen-meals-view"
-                open={list.viewing !== null}
-                onClose={list.closeView}
-                kindLabel={t('kitchen:meals.viewKind')}
-                fieldsLabel={t('kitchen:list.viewFields')}
-                closeLabel={t('kitchen:catalogue.close')}
-                editLabel={t('kitchen:catalogue.edit')}
-                onEdit={() => {
-                    const viewed = list.viewing;
-                    if (viewed === null) return;
-                    list.closeView();
-                    list.openEditor(String(viewed.id));
+            <CatalogueListBody
+                testID="kitchen-meals"
+                list={list}
+                empty={{ title: t('kitchen:meals.emptyTitle'), body: t('kitchen:meals.emptyBody') }}
+                filteredEmpty={{
+                    title: t('kitchen:meals.filteredEmptyTitle'),
+                    body: t('kitchen:meals.filteredEmptyBody'),
                 }}
-                title={list.viewing === null ? '' : displayName(list.viewing.name, locale).value}
-                status={
-                    list.viewing === null ? undefined : (
-                        <Badge
-                            tone={statusTone(list.viewing.meta.status)}
-                            label={t(statusShortKey(list.viewing.meta.status))}
-                        />
-                    )
+                create={
+                    canManage
+                        ? { label: t('kitchen:meals.create'), onPress: list.createNew }
+                        : undefined
                 }
-                fields={list.viewing === null ? [] : viewFields(list.viewing, t, formatter)}
-                /*
-                 * Drawn even when the set is empty. The label is frozen from the recipe version at
-                 * publication and cannot be edited on a meal, so an empty set here is a real
-                 * declaration — and on the one field a kitchen reads for safety, "this meal declares
-                 * none" and "nobody has looked" are the two answers that most need telling apart.
-                 */
-                {...(list.viewing === null
-                    ? {}
-                    : {
-                          chipsLabel: t('kitchen:meals.columnAllergens'),
-                          chipsSource: t('kitchen:meals.viewAllergensSource'),
-                          chipsCaption: t('kitchen:meals.viewAllergensCaption'),
-                          chips:
-                              list.viewing.allergens.length === 0 ? (
-                                  <Text tone="secondary">{t('kitchen:list.noAllergens')}</Text>
-                              ) : (
-                                  list.viewing.allergens.map((code) => (
-                                      <Badge
-                                          key={String(code)}
-                                          tone="danger"
-                                          label={String(code)}
-                                      />
-                                  ))
-                              ),
-                      })}
-            />
+            >
+                <CatalogueList
+                    testID="kitchen-meals-table"
+                    label={t('kitchen:meals.caption')}
+                    columns={controls.columns}
+                    rows={list.rows}
+                    rowKey={(row) => String(row.id)}
+                    density="sm"
+                    onRowPress={(row) => {
+                        list.openEditor(String(row.id));
+                    }}
+                    rowActionsLabel={t('kitchen:list.rowActions')}
+                    rowActions={(row): readonly MenuItem[] => [
+                        {
+                            key: 'view',
+                            label: t('kitchen:list.view'),
+                            icon: CATALOGUE_ROW_ICONS.view,
+                            testID: `${mealRowTestId(String(row.id))}-view`,
+                            onSelect: () => {
+                                list.openView(row);
+                            },
+                        },
+                        {
+                            key: 'edit',
+                            label: t('kitchen:catalogue.edit'),
+                            icon: CATALOGUE_ROW_ICONS.edit,
+                            testID: `${mealRowTestId(String(row.id))}-open`,
+                            onSelect: () => {
+                                list.openEditor(String(row.id));
+                            },
+                        },
+                        /*
+                         * Withdraw sits in the Archive slot, because withdrawing *is* the
+                         * archive for a meal — and it is offered only on a row the server would
+                         * accept it for: a draft has nothing to withdraw from, and an already
+                         * withdrawn meal would 409.
+                         */
+                        ...(canManage &&
+                        (row.meta.status === 'published' || row.meta.status === 'review_required')
+                            ? [
+                                  {
+                                      key: 'retire',
+                                      label: t('kitchen:meals.retire'),
+                                      icon: CATALOGUE_ROW_ICONS.archive,
+                                      tone: 'danger' as const,
+                                      testID: `${mealRowTestId(String(row.id))}-retire`,
+                                      onSelect: () => {
+                                          list.askToRetire(row);
+                                      },
+                                  },
+                              ]
+                            : []),
+                    ]}
+                />
+
+                {/*
+                 * 7a's provenance footer, verbatim from the frame: the numbers on a card are
+                 * the recipe version's, and this is where a reader learns that.
+                 */}
+                <Text variant="caption" tone="secondary" testID="kitchen-meals-provenance">
+                    {t('kitchen:meals.tableProvenance')}
+                </Text>
+            </CatalogueListBody>
 
             {/*
              * Withdrawing is what removes a meal from every consumer surface. The dialog says exactly
@@ -569,8 +486,8 @@ function viewFields(
 /**
  * What one column's header does — handed to `useColumnControls`, which draws it.
  *
- * Only what `MealAdminFilter` carries — `statuses`, `mealTypes`, `allergenCodes` — all sent with
- * the request. Channels and the filing pair have no parameter, so their headers stay plain:
+ * Filters are only what `MealAdminFilter` carries — `statuses`, `mealTypes`, `allergenCodes` — all
+ * sent with the request. Channels and the filing pair have no parameter, so they sort instead:
  * narrowing one loaded page would misreport every page after it. The allergen filter has to be
  * the server's: a meal's label is derived at read time, so nothing on the row could be matched.
  */
@@ -582,6 +499,7 @@ function columnControl(
 ): ColumnControl<MealAdmin> {
     if (key === 'status') {
         return {
+            sort: 'external',
             filter: {
                 values: () =>
                     MEAL_STATUS_FILTERS.map((status: PublishableStatus) => ({
@@ -639,5 +557,11 @@ function columnControl(
 }
 
 function isMealAdminSortKey(key: string): key is MealSortKey {
-    return key === 'name' || key === 'category' || key === 'status' || key === 'updatedAt';
+    return (
+        key === 'name' ||
+        key === 'channels' ||
+        key === 'category' ||
+        key === 'status' ||
+        key === 'updatedAt'
+    );
 }

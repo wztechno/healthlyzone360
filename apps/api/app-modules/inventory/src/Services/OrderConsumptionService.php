@@ -89,6 +89,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
 {
     private const int SCALE = 6;
 
+    /** Multiply at twelve and round to six once, the rule the rest of the stock arithmetic follows. */
     private const int WORKING_SCALE = 12;
 
     /**
@@ -130,6 +131,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         private InventoryService $inventory,
         private UnitConversionService $conversion,
         private MealExplosion $explosion,
+        private ConsumptionValuation $valuation,
         private OrderLineEstimator $estimator,
     ) {}
 
@@ -697,38 +699,12 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             return;
         }
 
-        $cost = IngredientStockCost::withoutTenancy()
-            ->where('organisation_id', $order->organisation_id)
-            ->where('ingredient_id', $ingredientId)
-            ->first();
-
-        $unitCostAmount = null;
-        $costAmount = null;
-        $currencyCode = null;
-        $consumedInCostUnit = null;
-        $costProblem = null;
-
-        if ($cost instanceof IngredientStockCost && $cost->moving_average_cost_amount !== null && $cost->currency_code !== null) {
-            $costUnit = MeasurementUnit::query()->find($cost->unit_id);
-
-            if ($costUnit instanceof MeasurementUnit) {
-                try {
-                    $consumedInCostUnit = $this->conversion->convert($consumedInStockUnit, $stockUnit, $costUnit);
-                    $unitCostAmount = $this->numeric((string) $cost->moving_average_cost_amount);
-                    $costAmount = $this->round(bcmul($consumedInCostUnit, $unitCostAmount, self::WORKING_SCALE));
-                    $currencyCode = $cost->currency_code;
-                } catch (UnitConversionUnsupported $exception) {
-                    // The stock deducts; the COGS side cannot be valued because
-                    // the stock unit will not convert to the cost unit.
-                    $consumedInCostUnit = null;
-                    $costProblem = 'unit_conversion_unsupported';
-                }
-            } else {
-                $costProblem = 'no_ingredient_cost';
-            }
-        } else {
-            $costProblem = 'no_ingredient_cost';
-        }
+        // A reason instead of figures when the COGS side cannot be valued — no
+        // average held, or a stock unit that will not convert to the cost unit.
+        // The stock deducts either way.
+        $valued = $this->valuation->value((string) $order->organisation_id, $ingredientId, $stockUnit, $consumedInStockUnit);
+        $costProblem = is_string($valued) ? $valued : null;
+        $figures = is_array($valued) ? $valued : null;
 
         try {
             $this->inventory->recordMovement(
@@ -740,9 +716,9 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
                 self::CONSUME_REFERENCE,
                 (string) $order->getKey(),
                 notes: 'Order line '.$line->getKey().' consumption.',
-                unitCostAmount: $unitCostAmount,
-                costAmount: $costAmount,
-                costCurrencyCode: $currencyCode,
+                unitCostAmount: $figures['unit_cost_amount'] ?? null,
+                costAmount: $figures['cost_amount'] ?? null,
+                costCurrencyCode: $figures['currency_code'] ?? null,
                 orderLineId: (string) $line->getKey(),
                 soldItemType: $item->item_type->value,
             );
@@ -771,10 +747,10 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             return;
         }
 
-        if ($consumedInCostUnit !== null) {
+        if ($figures !== null) {
             // COGS was valued: lower the perpetual basis without rewriting the
             // average (the average only moves on a purchase).
-            $this->lowerQuantityOnHand((string) $cost->getKey(), $consumedInCostUnit);
+            $this->valuation->lowerBasis($figures['cost_id'], $figures['quantity_in_cost_unit']);
 
             return;
         }
@@ -815,28 +791,6 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             ->where('order_line_id', (string) $line->getKey())
             ->where('reason', 'consume')
             ->count();
-    }
-
-    /**
-     * Decrement the moving-average basis quantity by what was consumed, under a
-     * row lock. The average amount is untouched — a consume values COGS from it
-     * but does not move it.
-     *
-     * @param  numeric-string  $consumedInCostUnit
-     */
-    private function lowerQuantityOnHand(string $costId, string $consumedInCostUnit): void
-    {
-        $cost = IngredientStockCost::withoutTenancy()
-            ->whereKey($costId)
-            ->lockForUpdate()
-            ->first();
-
-        if (! $cost instanceof IngredientStockCost) {
-            return;
-        }
-
-        $cost->quantity_on_hand = bcsub($this->numeric((string) $cost->quantity_on_hand), $consumedInCostUnit, self::SCALE);
-        $cost->save();
     }
 
     /**

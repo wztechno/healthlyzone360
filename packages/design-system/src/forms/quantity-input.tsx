@@ -128,7 +128,10 @@ export function QuantityInput({
                         // it would win over the class besides. The logical utility is the one route
                         // to "the trailing edge, whichever side that is today".
                         className={cx(
-                            'flex-1 border-0 bg-transparent tabular-nums text-end outline-none',
+                            // `min-w-0`: a web `<input>` has an intrinsic width of about twenty
+                            // characters, and without the floor released a narrow frame could not
+                            // shrink it — the unit suffix was pushed out past the border.
+                            'min-w-0 flex-1 border-0 bg-transparent tabular-nums text-end outline-none',
                             density === 'compact' ? 'text-role-body' : 'text-base',
                             inert ? 'text-content-secondary' : 'text-content-primary',
                         )}

@@ -24,43 +24,40 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { SelectOption } from '@healthy360/design-system';
-import { MEAL_TYPES, MealId } from '@healthy360/domain-types';
-import type { MealType, RecipeId } from '@healthy360/domain-types';
+import { MEAL_TYPES } from '@healthy360/domain-types';
+import type { MealId, MealType } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { Gate, useCan } from '../../../access/gate.tsx';
-import { toFailure } from '../../../data/hooks.ts';
+import { Gate, useCan } from '../../access/gate.tsx';
+import { toFailure } from '../../data/hooks.ts';
 import {
     ingredientsFromPages,
-    recipesFromPages,
     useAdminMealQuery,
-    useCreateMealMutation,
     useIngredientsQuery,
     usePublishMealMutation,
-    useRecipesQuery,
     useRetireMealMutation,
     useSetMealAvailabilityMutation,
     useUpdateMealMutation,
-} from '../../../data/kitchen-admin-hooks.ts';
-import { useProcurementReferenceQuery } from '../../../data/kitchen-ops-hooks.ts';
-import { BilingualField } from '../bilingual-field.tsx';
+} from '../../data/kitchen-admin-hooks.ts';
+import { useProcurementReferenceQuery } from '../../data/kitchen-ops-hooks.ts';
+import { BilingualField } from './bilingual-field.tsx';
 import {
     MealAvailabilityEditor,
     availabilityErrors,
     emptyAvailabilityDay,
-} from '../catalogue-row-editors.tsx';
-import type { AvailabilityDraft } from '../catalogue-row-editors.tsx';
-import { EditorFrame } from '../editor-frame.tsx';
+} from './catalogue-row-editors.tsx';
+import type { AvailabilityDraft } from './catalogue-row-editors.tsx';
+import { EditorFrame } from './editor-frame.tsx';
 import {
     CATALOGUE_MANAGE_PERMISSION,
     CATALOGUE_VIEW_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
-} from '../entity-registry.ts';
-import { GateRailCard } from '../gate-rail-card.tsx';
+} from './entity-registry.ts';
+import { GateRailCard } from './gate-rail-card.tsx';
 import {
     displayName,
     isTranslationIncomplete,
@@ -70,12 +67,21 @@ import {
     parseWholeNumber,
     unitDimension,
     unitKey,
-} from '../format.ts';
-import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
-import { useUnsavedGuard } from '../use-unsaved-guard.ts';
+} from './format.ts';
+import { useOptimisticConcurrency } from './use-optimistic-concurrency.ts';
+import { useUnsavedGuard } from './use-unsaved-guard.ts';
 
 /**
- * `/kitchen/meals/{meal}` — the one editor in this workspace whose save a shopper can see.
+ * A meal's listing — the Selling tab of its page, and the one form in this workspace whose save a
+ * shopper can see.
+ *
+ * ## The page is the recipe
+ *
+ * `/kitchen/meals/{meal}` is `CookedItemEditScreen`: the recipe the meal is made from, with this
+ * listing on a tab of its own, exactly as a sauce's is. So nothing here chooses a recipe — the page
+ * already is one — and nothing here creates a meal: the recipe's first save writes the listing that
+ * sells it. What stays is everything about the dish *as sold*: its name on the menu, the portion, when
+ * in the day it sits, the days it can be ordered, and whether it is public.
  *
  * ## Publication is the whole point of the screen
  *
@@ -107,9 +113,6 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 /* ------------------------------------------------------------------------------------------------
  * Working copies
  * ---------------------------------------------------------------------------------------------- */
-
-/** The "bought in rather than cooked" answer of the recipe picker. Never a real identifier. */
-const NO_RECIPE = '__none__';
 
 /** The "no shelf of its own" answer of the produced-item picker. Never a real identifier. */
 const NO_INGREDIENT = '__none__';
@@ -144,7 +147,6 @@ const PRODUCTION_MODE_KEYS: Record<ProductionMode, string> = {
 interface DetailsDraft {
     readonly name: LocalisedText;
     readonly description: LocalisedText;
-    readonly recipeId: RecipeId | null;
     readonly portionFactor: string;
     /**
      * The finished-stock chain (PROD1), in the order the server checks it: a
@@ -165,7 +167,6 @@ interface DetailsDraft {
 const EMPTY_DETAILS: DetailsDraft = {
     name: { en: '', ar: '' },
     description: { en: '', ar: '' },
-    recipeId: null,
     portionFactor: '1',
     productionMode: null,
     ingredientId: null,
@@ -179,7 +180,6 @@ function detailsFrom(meal: MealAdmin): DetailsDraft {
     return {
         name: meal.name,
         description: meal.description,
-        recipeId: meal.recipeId,
         portionFactor: String(meal.portionFactor),
         productionMode: meal.productionMode,
         ingredientId: meal.ingredientId,
@@ -193,10 +193,8 @@ function detailsFrom(meal: MealAdmin): DetailsDraft {
 /**
  * Draft rows in the shape `setMealAvailability` takes.
  *
- * Shared by the two callers that need it — the availability save on an existing record, and the
- * create flow, which now carries the days typed *before* the meal existed and writes them the
- * moment it does. A row with no date is dropped rather than sent: the contract keys days by date,
- * so a dateless row is not a day yet.
+ * A row with no date is dropped rather than sent: the contract keys days by date, so a dateless row
+ * is not a day yet.
  */
 function availabilityRequestDays(rows: readonly AvailabilityDraft[]) {
     return rows.flatMap((row) =>
@@ -231,43 +229,44 @@ function availabilityFrom(meal: MealAdmin): readonly AvailabilityDraft[] {
  * Screen
  * ---------------------------------------------------------------------------------------------- */
 
-export interface MealEditScreenProps {
-    /** The route parameter. `'new'` opens the create form; anything else is an identifier. */
-    readonly meal: string | undefined;
+export interface MealListingProps {
+    /** The meal, already resolved by the page — it never opens on a meal that does not exist. */
+    readonly meal: MealId;
+    /** Told when the listing's unsaved state changes, so the page can guard its own exits. */
+    readonly onDirtyChange?: ((dirty: boolean) => void) | undefined;
 }
 
-export function MealEditScreen({ meal }: MealEditScreenProps) {
+export function MealListing({ meal, onDirtyChange }: MealListingProps) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID="kitchen-meal-editor"
         >
-            <MealEditor meal={meal} />
+            <MealListingEditor meal={meal} onDirtyChange={onDirtyChange} />
         </Gate>
     );
 }
 
-function MealEditor({ meal }: MealEditScreenProps) {
+function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const { locale } = useLocale();
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
 
-    const isCreating = meal === undefined || meal === 'new';
-    const parsed = isCreating ? null : MealId.safeParse(meal);
+    const record = useAdminMealQuery(meal);
 
-    const record = useAdminMealQuery(parsed);
-    const recipes = useRecipesQuery({ limit: 100 });
-
-    const create = useCreateMealMutation();
     const update = useUpdateMealMutation();
     const setAvailability = useSetMealAvailabilityMutation();
     const publish = usePublishMealMutation();
     const retire = useRetireMealMutation();
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
+
+    useEffect(() => {
+        onDirtyChange?.(guard.isDirty);
+    }, [guard.isDirty, onDirtyChange]);
 
     const [details, setDetails] = useState<DetailsDraft>(EMPTY_DETAILS);
     const [detailsKey, setDetailsKey] = useState<string | null>(null);
@@ -328,21 +327,6 @@ function MealEditor({ meal }: MealEditScreenProps) {
     };
 
     /* ── option lists ────────────────────────────────────────────────────────────────────────── */
-
-    const recipeRows = recipesFromPages(recipes.data?.pages);
-    const recipeOptions: readonly SelectOption[] = useMemo(
-        () => [
-            { value: NO_RECIPE, label: t('kitchen:meals.recipeNone') },
-            ...recipeRows.map((row) => ({
-                value: String(row.id),
-                label: displayName(row.name, locale).value,
-                description: row.slug,
-            })),
-        ],
-        [recipeRows, locale, t],
-    );
-
-    const linkedRecipe = recipeRows.find((row) => row.id === details.recipeId) ?? null;
 
     /*
      * The produced item is picked from the ingredient library, and only the library — a meal's
@@ -451,7 +435,9 @@ function MealEditor({ meal }: MealEditScreenProps) {
      */
     const producedShelfWeighed =
         producedIngredient !== null &&
-        !['count', 'package', 'serving'].includes(unitDimension(producedIngredient.measurementUnit));
+        !['count', 'package', 'serving'].includes(
+            unitDimension(producedIngredient.measurementUnit),
+        );
 
     const netContentText = details.netContentQuantity.trim();
     const netContent = netContentText === '' ? null : parseQuantity(netContentText);
@@ -545,71 +531,13 @@ function MealEditor({ meal }: MealEditScreenProps) {
         productionMode: details.productionMode,
         ingredientId: details.ingredientId,
         sellsFromFinishedStock: details.sellsFromFinishedStock,
-        netContentQuantity: netContent === null || details.netContentUnitId === null ? null : netContent,
+        netContentQuantity:
+            netContent === null || details.netContentUnitId === null ? null : netContent,
         netContentUnitId: netContent === null ? null : details.netContentUnitId,
     };
 
     const saveDetails = () => {
         if (detailsBlocked || portion === null) return;
-        // Creating writes the days in the same gesture, so their errors block it like the record's.
-        if (isCreating && dayErrors.size > 0) return;
-
-        if (isCreating) {
-            create.mutate(
-                {
-                    name: details.name,
-                    description: details.description,
-                    portionFactor: portion,
-                    mealTypes: details.mealTypes,
-                    // Not editable here — see the note on DetailsDraft. A new meal starts with none.
-                    dietClassifications: [],
-                    ...(details.recipeId === null ? {} : { recipeId: details.recipeId }),
-                    ...finishedStockRequest,
-                },
-                {
-                    onSuccess: (created) => {
-                        toast.show({
-                            testID: 'kitchen-meal-created-toast',
-                            tone: 'success',
-                            message: t('kitchen:meals.createdToast', {
-                                name: displayName(created.name, locale).value,
-                            }),
-                        });
-
-                        const open = () => {
-                            settle(false, false);
-                            router.replace(`/kitchen/meals/${String(created.id)}` as never);
-                        };
-
-                        /*
-                         * Service days can be filled in before the meal exists, so they arrive here
-                         * with nowhere to have been written yet — `setMealAvailability` takes a meal
-                         * id. This is the first moment there is one.
-                         *
-                         * `onSettled` rather than `onSuccess`: the record itself is saved either
-                         * way, and stranding the person on a create form for a record that already
-                         * exists is worse than landing them on it with the gate telling them the
-                         * days are still missing.
-                         */
-                        const seeded = availabilityRequestDays(days);
-                        if (seeded.length === 0) {
-                            open();
-                            return;
-                        }
-
-                        setAvailability.mutate(
-                            {
-                                mealId: created.id,
-                                request: { lockVersion: created.meta.lockVersion, days: seeded },
-                            },
-                            { onSettled: open },
-                        );
-                    },
-                },
-            );
-            return;
-        }
-
         if (data === undefined) return;
         update.mutate(
             {
@@ -618,7 +546,7 @@ function MealEditor({ meal }: MealEditScreenProps) {
                     lockVersion: data.meta.lockVersion,
                     name: details.name,
                     description: details.description,
-                    recipeId: details.recipeId,
+                    // No recipe: the page is the recipe, and the writer sends only what it is given.
                     portionFactor: portion,
                     mealTypes: details.mealTypes,
                     // Echoed back untouched so a save here cannot clear a classification set
@@ -672,31 +600,7 @@ function MealEditor({ meal }: MealEditScreenProps) {
 
     /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
 
-    if (!isCreating && parsed === null) {
-        return (
-            <Stack space="lg" testID="kitchen-meal-editor-screen">
-                <Callout
-                    testID="kitchen-meal-not-found"
-                    role="alert"
-                    tone="warning"
-                    title={t('kitchen:meals.notFoundTitle')}
-                    body={t('kitchen:meals.notFoundBody')}
-                    actions={
-                        <Button
-                            testID="kitchen-meal-not-found-back"
-                            variant="quiet"
-                            label={t('kitchen:meals.backToList')}
-                            onPress={() => {
-                                router.push('/kitchen/meals' as never);
-                            }}
-                        />
-                    }
-                />
-            </Stack>
-        );
-    }
-
-    if (!isCreating && record.isPending) {
+    if (record.isPending) {
         return (
             <Stack space="md" testID="kitchen-meal-editor-loading">
                 <Skeleton testID="kitchen-meal-skeleton-1" heightClassName="h-8" />
@@ -707,7 +611,7 @@ function MealEditor({ meal }: MealEditScreenProps) {
     }
 
     const loadFailure = toFailure(record.error);
-    if (!isCreating && loadFailure !== null) {
+    if (loadFailure !== null) {
         return (
             <Stack space="lg" testID="kitchen-meal-editor-screen">
                 <ErrorState
@@ -723,7 +627,7 @@ function MealEditor({ meal }: MealEditScreenProps) {
         );
     }
 
-    const saveFailure = toFailure(update.error ?? create.error);
+    const saveFailure = toFailure(update.error);
     const availabilityFailure = toFailure(setAvailability.error);
     const publishFailure = toFailure(publish.error);
     const publishFields =
@@ -735,20 +639,21 @@ function MealEditor({ meal }: MealEditScreenProps) {
     return (
         <EditorFrame
             testID="kitchen-meal-editor-screen"
-            title={isCreating ? t('kitchen:meals.createTitle') : t('kitchen:meals.editTitle')}
+            title={t('kitchen:meals.editTitle')}
             meta={data?.meta ?? null}
             guard={guard}
             concurrency={concurrency}
             onSaveDraft={saveDetails}
             saveLabel={t('kitchen:common.saveDraft')}
-            saving={create.isPending || update.isPending}
-            saveDisabled={!canManage || detailsBlocked || (isCreating && dayErrors.size > 0)}
+            saving={update.isPending}
+            saveDisabled={!canManage || detailsBlocked}
             backLabel={t('kitchen:common.cancel')}
             onBack={() => {
                 router.push('/kitchen/meals' as never);
             }}
             actionsPlacement="header"
             headerVariant="plain"
+            embedded
             rail={
                 /*
                  * Three cards, in the order the handoff stacks them: what stops publication, what
@@ -762,7 +667,7 @@ function MealEditor({ meal }: MealEditScreenProps) {
                         title={t('kitchen:meals.gateTitle')}
                         checks={gateChecks}
                         action={
-                            isCreating || !canManage || isPublished ? undefined : (
+                            !canManage || isPublished ? undefined : (
                                 <Button
                                     testID="kitchen-meal-publish"
                                     label={t('kitchen:publish.action')}
@@ -869,7 +774,7 @@ function MealEditor({ meal }: MealEditScreenProps) {
                 </Stack>
             }
             primaryAction={
-                isCreating || !canManage ? null : (
+                !canManage ? null : (
                     <Inline space="xs" wrap justify="end">
                         {isPublished ? (
                             <Button
@@ -997,92 +902,27 @@ function MealEditor({ meal }: MealEditScreenProps) {
                         />
 
                         {/*
-                         * The recipe and the portion it is sold in are one question — "where does
-                         * this dish come from, and how much of it is a serving?" — so they share a
-                         * row. Both stretch with the panel for the reason `BilingualField`'s `fill`
-                         * layout states; the pair above would look pinned to the left margin if
-                         * these two did not.
+                         * The portion this listing sells, relative to one serving of the recipe the
+                         * page is — half a portion of the same dish takes half its ingredients off the
+                         * shelf and carries half its nutrition.
                          */}
-                        <View className="z-auto flex-col gap-base md:flex-row">
-                            <View className="z-auto min-w-0 flex-1">
-                                <Select
-                                    testID="kitchen-meal-recipe-select"
-                                    id="kitchen-meal-recipe-select"
-                                    label={t('kitchen:meals.recipeLabel')}
-                                    /*
-                                     * One line, and only in the state that needs it. With a recipe
-                                     * chosen the field's own value says where the meal comes from,
-                                     * and three lines of prose under it pushed the next section off
-                                     * the fold; with none, "nothing is derived" is not visible
-                                     * anywhere else on the page, so that one stays.
-                                     */
-                                    {...(details.recipeId === null
-                                        ? { hint: t('kitchen:meals.recipeHintNone') }
-                                        : {})}
-                                    searchable
-                                    disabled={!canManage}
-                                    options={recipeOptions}
-                                    value={
-                                        details.recipeId === null
-                                            ? NO_RECIPE
-                                            : String(details.recipeId)
-                                    }
-                                    onChange={(next) => {
-                                        setDetails({
-                                            ...details,
-                                            recipeId:
-                                                next === NO_RECIPE ? null : (next as RecipeId),
-                                        });
-                                        markDetailsDirty();
-                                    }}
-                                />
-                            </View>
-
-                            <View className="z-auto min-w-0 flex-1">
-                                <TextInputField
-                                    testID="kitchen-meal-portion"
-                                    id="kitchen-meal-portion"
-                                    label={t('kitchen:meals.portionLabel')}
-                                    hint={t('kitchen:meals.portionHint')}
-                                    value={details.portionFactor}
-                                    inputMode="decimal"
-                                    required
-                                    disabled={!canManage}
-                                    {...(portionInvalid
-                                        ? { error: t('kitchen:meals.portionInvalid') }
-                                        : {})}
-                                    onChangeText={(next) => {
-                                        setDetails({ ...details, portionFactor: next });
-                                        markDetailsDirty();
-                                    }}
-                                />
-                            </View>
-                        </View>
-
-                        {details.recipeId === null ? null : (
-                            <Inline space="sm" align="center" wrap>
-                                <Text testID="kitchen-meal-recipe-linked">
-                                    {linkedRecipe === null
-                                        ? String(details.recipeId)
-                                        : displayName(linkedRecipe.name, locale).value}
-                                </Text>
-                                <Button
-                                    testID="kitchen-meal-recipe-open"
-                                    size="sm"
-                                    variant="ghost"
-                                    label={t('kitchen:meals.openRecipe')}
-                                    onPress={() => {
-                                        const target = details.recipeId;
-                                        if (target === null) return;
-                                        guard.intercept(() => {
-                                            router.push(
-                                                `/kitchen/recipes/${String(target)}` as never,
-                                            );
-                                        });
-                                    }}
-                                />
-                            </Inline>
-                        )}
+                        <TextInputField
+                            testID="kitchen-meal-portion"
+                            id="kitchen-meal-portion"
+                            label={t('kitchen:meals.portionLabel')}
+                            hint={t('kitchen:meals.portionHint')}
+                            value={details.portionFactor}
+                            inputMode="decimal"
+                            required
+                            disabled={!canManage}
+                            {...(portionInvalid
+                                ? { error: t('kitchen:meals.portionInvalid') }
+                                : {})}
+                            onChangeText={(next) => {
+                                setDetails({ ...details, portionFactor: next });
+                                markDetailsDirty();
+                            }}
+                        />
                     </Stack>
                 </FormSection>
 
@@ -1319,11 +1159,6 @@ function MealEditor({ meal }: MealEditScreenProps) {
                         </Text>
                     }
                     actions={
-                        /*
-                         * Available while creating too. The rows are held in local state and written
-                         * by `saveDetails`'s create branch the moment the meal has an id, so a day
-                         * typed here is never lost — see the note on `availabilityRequestDays`.
-                         */
                         !canManage ? undefined : (
                             <Button
                                 testID="kitchen-meal-availability-add"
@@ -1373,7 +1208,7 @@ function MealEditor({ meal }: MealEditScreenProps) {
                          * a different lock — so its control appears once there is something to
                          * save, rather than sitting under an untouched empty state.
                          */}
-                        {isCreating || !canManage || !daysDirty ? null : (
+                        {!canManage || !daysDirty ? null : (
                             <Inline space="sm" wrap justify="end">
                                 <Button
                                     testID="kitchen-meal-availability-save"

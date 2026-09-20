@@ -16,8 +16,10 @@ import {
     useAllergenClassesQuery,
     useRetireMealMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
-import { displayName } from '../format.ts';
+import { availableChannels, displayName } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
+import { useCatalogueFilters } from './use-catalogue-filters.ts';
+import { useDestructiveRow } from './use-destructive-row.ts';
 
 /**
  * Everything `/kitchen/meals` knows that is not a pixel.
@@ -53,7 +55,7 @@ import { useListPage } from '../use-list-page.ts';
  * not claim to be catalogue-wide.
  */
 
-export type MealSortKey = 'name' | 'category' | 'status' | 'updatedAt';
+export type MealSortKey = 'name' | 'channels' | 'category' | 'status' | 'updatedAt';
 export type MealSortDirection = 'asc' | 'desc';
 
 export interface MealListState {
@@ -119,16 +121,21 @@ export function useMealList(): MealListState {
     const router = useRouter();
     const { locale } = useLocale();
 
-    const [query, setQuery] = useState('');
-    const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
+    const {
+        query,
+        setQuery,
+        trimmed,
+        statuses,
+        setStatuses,
+        isUnfiltered: searchAndStatusUnset,
+        clear: clearSearchAndStatus,
+    } = useCatalogueFilters();
     const [mealType, setMealType] = useState<MealType | null>(null);
     const [allergen, setAllergen] = useState<AllergenCode | null>(null);
     const [sortKey, setSortKey] = useState<MealSortKey>('name');
     const [sortDirection, setSortDirection] = useState<MealSortDirection>('asc');
     const [viewing, setViewing] = useState<MealAdmin | null>(null);
-    const [retiring, setRetiring] = useState<MealAdmin | null>(null);
 
-    const trimmed = query.trim();
     const filter = useMemo(
         () => ({
             ...(trimmed === '' ? {} : { query: trimmed }),
@@ -142,7 +149,10 @@ export function useMealList(): MealListState {
     const [page, setPage] = useListPage(filter);
     const meals = useAdminMealPageQuery(filter, page);
     const allergenClasses = useAllergenClassesQuery();
-    const retire = useRetireMealMutation();
+    const retire = useDestructiveRow(useRetireMealMutation(), (row: MealAdmin) => ({
+        mealId: row.id,
+        request: { lockVersion: row.meta.lockVersion },
+    }));
 
     // Left possibly-undefined rather than defaulted to `[]`: `?? []` is a fresh array on every
     // render, which would re-run the sort below whether or not the data changed.
@@ -155,6 +165,17 @@ export function useMealList(): MealListState {
                 return (
                     factor *
                     (left.kitchenCategory ?? '').localeCompare(right.kitchenCategory ?? '', locale)
+                );
+            }
+            if (sortKey === 'channels') {
+                // Sorts, because `MealAdminFilter` carries no channel parameter to filter by: by how
+                // many channels sell the meal, then by their codes, so equal counts stay grouped.
+                const leftChannels = availableChannels(left.channelAvailability);
+                const rightChannels = availableChannels(right.channelAvailability);
+                return (
+                    factor *
+                    (leftChannels.length - rightChannels.length ||
+                        leftChannels.join(',').localeCompare(rightChannels.join(',')))
                 );
             }
             if (sortKey === 'status') {
@@ -191,11 +212,9 @@ export function useMealList(): MealListState {
         allergen,
         setAllergen,
         allergenClasses: allergenClasses.data ?? [],
-        isUnfiltered:
-            trimmed === '' && statuses.length === 0 && mealType === null && allergen === null,
+        isUnfiltered: searchAndStatusUnset && mealType === null && allergen === null,
         clearFilters: () => {
-            setQuery('');
-            setStatuses([]);
+            clearSearchAndStatus();
             setMealType(null);
             setAllergen(null);
         },
@@ -229,28 +248,11 @@ export function useMealList(): MealListState {
             setViewing(null);
         },
 
-        retiring,
-        askToRetire: setRetiring,
-        cancelRetire: () => {
-            setRetiring(null);
-        },
-        confirmRetire: (onRetired) => {
-            const row = retiring;
-            if (row === null) return;
-            retire.mutate(
-                {
-                    mealId: row.id,
-                    request: { lockVersion: row.meta.lockVersion },
-                },
-                {
-                    onSuccess: () => {
-                        setRetiring(null);
-                        onRetired(displayName(row.name, locale).value);
-                    },
-                },
-            );
-        },
+        retiring: retire.target,
+        askToRetire: retire.ask,
+        cancelRetire: retire.cancel,
+        confirmRetire: retire.confirm,
         isRetirePending: retire.isPending,
-        retireFailure: toFailure(retire.error),
+        retireFailure: retire.failure,
     };
 }

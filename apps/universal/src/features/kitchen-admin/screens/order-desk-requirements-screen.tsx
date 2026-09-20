@@ -28,6 +28,7 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
+import { WithColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/order-desk/requirements` — what this branch must buy to cook the days ahead.
@@ -300,7 +301,15 @@ function OrderDeskRequirements() {
 
     const failure = toFailure(requirements.error);
     const rows = requirements.data?.requirements ?? [];
-    const controls = useColumnControls(rows, columns, 'kitchen-order-desk-requirements-table');
+    /*
+     * Every column on, rather than the catalogue's six: this is one arithmetic read across the row —
+     * required, less what the shelf holds and what production has claimed, leaves what is short and
+     * what to buy — and dropping two of the eight leaves the buyer deriving a figure the row already
+     * holds. The picker still offers them, so a reader who wants a narrower table can have one.
+     */
+    const controls = useColumnControls(rows, columns, 'kitchen-order-desk-requirements-table', {
+        picker: { max: columns.length },
+    });
 
     return (
         <Stack space="md" testID="kitchen-order-desk-requirements-screen">
@@ -420,14 +429,16 @@ function OrderDeskRequirements() {
                             body={t('kitchen:ops.requirements.noRowsBody')}
                         />
                     ) : (
-                        <CatalogueList<OrderDeskRequirement>
-                            testID="kitchen-order-desk-requirements-table"
-                            label={t('kitchen:ops.requirements.title')}
-                            columns={controls.columns}
-                            rows={controls.rows}
-                            rowKey={(row) => row.stockItemId}
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
+                        <WithColumnPicker picker={controls.picker}>
+                            <CatalogueList<OrderDeskRequirement>
+                                testID="kitchen-order-desk-requirements-table"
+                                label={t('kitchen:ops.requirements.title')}
+                                columns={controls.columns}
+                                rows={controls.rows}
+                                rowKey={(row) => row.stockItemId}
+                                rowActionsLabel={t('kitchen:list.rowActions')}
+                            />
+                        </WithColumnPicker>
                     )}
                 </View>
             )}

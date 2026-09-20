@@ -40,7 +40,9 @@ export function RolePagesTab({ codes, onChange, disabled = false, testID }: Role
             {sections.map((section) => (
                 <Card key={section.group} padding="md" testID={`${testID}-group-${section.group}`}>
                     <Stack space="md">
-                        <Heading level={3}>{t(`kitchen:nav.groups.${section.group}` as never)}</Heading>
+                        <Heading level={3}>
+                            {t(`kitchen:nav.groups.${section.group}` as never)}
+                        </Heading>
 
                         {section.rows.map((row) => (
                             <PageRowControl

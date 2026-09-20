@@ -79,8 +79,8 @@ class ReplaceMembershipRolesRequest extends FormRequest
 
         return array_values(array_map(static fn (array $row): array => [
             'role_id' => (string) $row['role_id'],
-            'starts_at' => isset($row['starts_at']) && $row['starts_at'] !== null ? (string) $row['starts_at'] : null,
-            'expires_at' => isset($row['expires_at']) && $row['expires_at'] !== null ? (string) $row['expires_at'] : null,
+            'starts_at' => isset($row['starts_at']) ? (string) $row['starts_at'] : null,
+            'expires_at' => isset($row['expires_at']) ? (string) $row['expires_at'] : null,
         ], $rows));
     }
 }

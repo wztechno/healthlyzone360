@@ -1,9 +1,15 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { buildKitchenAnalytics } from './analytics-sample-data.ts';
 import { AnalyticsScreen } from './screens/analytics-screen.tsx';
+import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
+
+afterEach(() => {
+    forgetColumnChoice('kitchen-analytics-table');
+});
 
 jest.mock('expo-router', () => ({
     __esModule: true,
@@ -56,6 +62,69 @@ describe('kitchen analytics', () => {
             expect(
                 screen.getByTestId('kitchen-analytics-kpis-produced-value').props.children,
             ).not.toEqual(producedBefore);
+        });
+    });
+});
+
+describe('kitchen analytics line items at desk width', () => {
+    // The column headers are only drawn above `md`; below it the list is a stack of cards.
+    const narrowWindow = Dimensions.get('window');
+    const narrowScreen = Dimensions.get('screen');
+    beforeAll(() => {
+        Dimensions.set({
+            window: { ...narrowWindow, width: 1440, height: 900 },
+            screen: { ...narrowScreen, width: 1440, height: 900 },
+        });
+    });
+    afterAll(() => {
+        Dimensions.set({ window: narrowWindow, screen: narrowScreen });
+    });
+
+    const rowOrder = () =>
+        screen
+            .getAllByTestId(/^kitchen-analytics-table-row-row-30d-all-\d+$/)
+            .map((row) => String(row.props.testID));
+
+    it('sorts by Updated on a press, oldest first, and flips on the next', async () => {
+        // Updated ranks lowest of the seven, so it is one pick away; the reader has picked it.
+        rememberColumnChoice('kitchen-analytics-table', [
+            'name',
+            'segment',
+            'status',
+            'volume',
+            'done',
+            'updated',
+        ]);
+        await renderStubScreen(<AnalyticsScreen />, { session: kitchenManagerSession() });
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('kitchen-analytics-table-column-updated-trigger'),
+            ).toBeTruthy();
+        });
+
+        const rows = buildKitchenAnalytics('30d', 'all').rows;
+        const idsOf = (sorted: typeof rows) =>
+            sorted.map((row) => `kitchen-analytics-table-row-${row.id}`);
+        // Two stable sorts rather than one reversed: rows updated the same hour keep their order.
+        const oldestFirst = idsOf(
+            [...rows].sort((left, right) => right.updatedHoursAgo - left.updatedHoursAgo),
+        );
+        const newestFirst = idsOf(
+            [...rows].sort((left, right) => left.updatedHoursAgo - right.updatedHoursAgo),
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-analytics-table-column-updated-trigger'));
+        });
+        await waitFor(() => {
+            expect(rowOrder()).toEqual(oldestFirst);
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-analytics-table-column-updated-trigger'));
+        });
+        await waitFor(() => {
+            expect(rowOrder()).toEqual(newestFirst);
         });
     });
 });

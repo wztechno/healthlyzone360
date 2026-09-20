@@ -1000,6 +1000,13 @@ export type AdminRecipeVersion = {
      */
     waste_coefficient_percent: string;
     /**
+     * Packaging loss, applied to the packaging half of the cost alone and to
+     * what a sale deducts from the packaging shelves. Decimal with two places,
+     * as a string. Defaults to `0.00`.
+     *
+     */
+    packaging_waste_percent: string;
+    /**
      * Trade list price for one unit of the yield, in **major** currency
      * units, as a string so no client rounds it. A list price and not a
      * cost: what the version is offered at to a kitchen or corporate
@@ -1444,6 +1451,21 @@ export type ComputedCostProduction = {
     waste_percent: string;
     uncosted_line_numbers: Array<number>;
     is_complete: boolean;
+    /**
+     * Each line's unit cost and line cost, in line order: what a table draws
+     * beside its rows, on the same basis as the totals above. Null amounts are
+     * an unpriced line, never a zero.
+     *
+     * Absent on the weekly block, which prices a formulation as a whole and has
+     * no per-line answer to give.
+     *
+     */
+    lines?: Array<{
+        line_number: number;
+        ingredient_id: string;
+        unit_cost_amount: string | null;
+        line_cost_amount: string | null;
+    }>;
 };
 
 /**
@@ -1460,6 +1482,21 @@ export type ComputedCostPackaging = {
     waste_percent: string;
     uncosted_line_numbers: Array<number>;
     is_complete: boolean;
+    /**
+     * Each line's unit cost and line cost, in line order: what a table draws
+     * beside its rows, on the same basis as the totals above. Null amounts are
+     * an unpriced line, never a zero.
+     *
+     * Absent on the weekly block, which prices a formulation as a whole and has
+     * no per-line answer to give.
+     *
+     */
+    lines?: Array<{
+        line_number: number;
+        ingredient_id: string;
+        unit_cost_amount: string | null;
+        line_cost_amount: string | null;
+    }>;
 };
 
 /**
@@ -1484,6 +1521,24 @@ export type ComputedCost = {
      */
     total_cost_per_yield_unit_amount: string | null;
     yield_unit_id: string | null;
+    /**
+     * What one filled package costs, one entry per packaging line in line
+     * order: the contents at the production cost per yield unit (with
+     * waste), plus the container at the packaging waste rate.
+     *
+     * Every line is present, including the ones that are not packages. A
+     * line whose item records no capacity — a cap holds nothing — or whose
+     * capacity cannot be expressed in the yield unit carries a null
+     * amount rather than being dropped, so a client can name which item it
+     * could not cost. All amounts are null until the production half is
+     * complete.
+     *
+     */
+    packages: Array<{
+        line_number: number;
+        ingredient_id: string;
+        cost_per_package_amount: string | null;
+    }>;
 };
 
 export type CreateRecipeRequest = {
@@ -1542,6 +1597,7 @@ export type UpdateRecipeVersionRequest = {
     yield_piece_count?: number | null;
     input_quantity_total?: number | null;
     waste_coefficient_percent?: number;
+    packaging_waste_percent?: number;
     /**
      * Trade list price per unit of yield, in **major** currency units.
      * Zero is a real price — a staff meal, a component carried at cost —
@@ -26639,6 +26695,14 @@ export type CreateProductionOrderErrors = {
      * The resource does not exist, or is not the caller's to see.
      */
     404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
     /**
      * The submitted data is invalid.
      */

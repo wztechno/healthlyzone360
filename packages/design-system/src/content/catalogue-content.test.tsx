@@ -124,7 +124,7 @@ describe('spreadColumns', () => {
 });
 
 describe('DataList', () => {
-    it('draws one hairline per row and no card, outline or zebra', async () => {
+    it('rules the header alone — no line between rows, and no zebra', async () => {
         await renderWithI18n(
             compact(
                 <DataList
@@ -140,10 +140,15 @@ describe('DataList', () => {
             ),
         );
 
+        // The header row is the column header's own parent.
+        const header = screen.getByTestId(`list-columnheader-${COLUMNS[0]!.key}`).parent!.props
+            .className as string;
+        expect(header).toContain('border-b');
+        expect(header).toContain('border-stroke-subtle');
+
         for (const id of ['list-row-a', 'list-row-b']) {
             const className = screen.getByTestId(id).props.className as string;
-            expect(className).toContain('border-b');
-            expect(className).toContain('border-stroke-subtle');
+            expect(className).not.toContain('border-b');
             // No zebra: the tint is a hover state, never an alternating background.
             expect(className).not.toMatch(/bg-surface-(base|raised|sunken)(\s|$)/);
         }

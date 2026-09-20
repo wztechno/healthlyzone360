@@ -130,7 +130,13 @@ function member(overrides: Partial<TeamMemberSummary> = {}): TeamMemberSummary {
         joinedAt: '2026-01-15T09:30:00.000Z',
         branch: { id: BranchId.unsafe('01935f6c-0000-7000-8000-0000000000d1'), name: 'Hamra' },
         roles: [
-            { id: ROLE_ID, code: 'evening_counter', nameEn: 'Evening counter', nameAr: 'كاونتر', isSystem: false },
+            {
+                id: ROLE_ID,
+                code: 'evening_counter',
+                nameEn: 'Evening counter',
+                nameAr: 'كاونتر',
+                isSystem: false,
+            },
         ],
         lockVersion: 0,
         ...overrides,
@@ -216,9 +222,7 @@ describe('the team list', () => {
                 accessAdmin: {
                     listTeam: jest
                         .fn()
-                        .mockResolvedValue(
-                            page([member({ givenName: null, familyName: null })]),
-                        ),
+                        .mockResolvedValue(page([member({ givenName: null, familyName: null })])),
                     listInvitations: jest.fn().mockResolvedValue([]),
                 },
             },
@@ -371,7 +375,10 @@ describe('the roles list', () => {
                 accessAdmin: {
                     listRoles: jest
                         .fn()
-                        .mockResolvedValue([roleSummary(), roleSummary({ id: TEMPLATE_ID, code: 'spare', holderCount: 0 })]),
+                        .mockResolvedValue([
+                            roleSummary(),
+                            roleSummary({ id: TEMPLATE_ID, code: 'spare', holderCount: 0 }),
+                        ]),
                 },
             },
         });
@@ -421,7 +428,9 @@ describe('the role editor', () => {
         await untilVisible('kitchen-role-editor-advanced');
 
         expect(
-            screen.getByTestId('kitchen-role-editor-advanced-code-inventory.view_costs_organisation'),
+            screen.getByTestId(
+                'kitchen-role-editor-advanced-code-inventory.view_costs_organisation',
+            ),
         ).toBeTruthy();
         expect(
             screen.getByTestId(
@@ -452,9 +461,7 @@ describe('the role editor', () => {
         await untilVisible('kitchen-role-editor-pages-unmapped');
 
         expect(
-            screen.getByTestId(
-                'kitchen-role-editor-pages-unmapped-recipe.publish_organisation',
-            ),
+            screen.getByTestId('kitchen-role-editor-pages-unmapped-recipe.publish_organisation'),
         ).toBeTruthy();
     });
 
@@ -479,7 +486,9 @@ describe('the role editor', () => {
 
         // Turn the order book off entirely, on the Pages tab.
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-role-editor-pages-orders-level-option-none'));
+            fireEvent.press(
+                screen.getByTestId('kitchen-role-editor-pages-orders-level-option-none'),
+            );
         });
 
         await act(async () => {
@@ -502,9 +511,11 @@ describe('the role editor', () => {
         await renderStubScreen(<RoleEditorScreen />, {
             session: permissionsAdministratorSession(),
             repositories: editorRepositories({
-                getRole: jest.fn().mockResolvedValue(
-                    role({ id: TEMPLATE_ID, code: 'kitchen_manager', isSystem: true }),
-                ),
+                getRole: jest
+                    .fn()
+                    .mockResolvedValue(
+                        role({ id: TEMPLATE_ID, code: 'kitchen_manager', isSystem: true }),
+                    ),
             }),
         });
 
@@ -735,7 +746,11 @@ describe('one member of staff', () => {
         await untilVisible('kitchen-team-member-roles');
 
         await act(async () => {
-            fireEvent(screen.getByTestId('kitchen-team-member-role-evening_counter'), 'change', false);
+            fireEvent(
+                screen.getByTestId('kitchen-team-member-role-evening_counter'),
+                'change',
+                false,
+            );
         });
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
@@ -819,7 +834,11 @@ describe('one member of staff', () => {
 
         // The fixture member is scoped to Hamra, so "the whole kitchen" is a real change.
         await act(async () => {
-            fireEvent(screen.getByTestId('kitchen-team-member-scope-select'), 'change', '__organisation__');
+            fireEvent(
+                screen.getByTestId('kitchen-team-member-scope-select'),
+                'change',
+                '__organisation__',
+            );
         });
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
@@ -993,7 +1012,9 @@ describe('refusals that must not vanish', () => {
                     listRoles: jest.fn().mockResolvedValue([roleSummary()]),
                     setMemberRoles: jest
                         .fn()
-                        .mockRejectedValue(new ApiError(conflictFailure({ currentLockVersion: 3 }))),
+                        .mockRejectedValue(
+                            new ApiError(conflictFailure({ currentLockVersion: 3 })),
+                        ),
                 },
             },
         });

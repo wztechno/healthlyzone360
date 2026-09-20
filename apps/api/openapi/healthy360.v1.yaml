@@ -4400,6 +4400,15 @@ paths:
         `catalogue_id` may be omitted; the organisation's `default` catalogue
         is created on demand.
 
+        A `sauce` or `dressing` created without an `ingredient_id` is given an
+        ingredient twin in the same transaction: an organisation ingredient
+        with the item's names, its `SAC-`/`DRS-` handle and the `sauce` or
+        `dressings` category, weighed in kilograms whatever the item is sold
+        in, with no allergen mapping yet. It is what a meal's recipe
+        lines name when they use the sauce, and the shelf a batch of it lands
+        on. It is created once; renaming or retiring the item does not reach
+        it.
+
         Variants, ingredients, diet tags and channels are each their own
         set-replace endpoint and are not accepted here.
 
@@ -10767,6 +10776,8 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '429':
@@ -24063,6 +24074,7 @@ components:
           status,
           completeness,
           waste_coefficient_percent,
+          packaging_waste_percent,
           derivation_state,
           lock_version,
         ]
@@ -24105,6 +24117,13 @@ components:
             Decimal with two places, as a string. Defaults to `3.00` — the flat
             allowance the source technical sheets apply across the board.
           examples: ['3.00']
+        packaging_waste_percent:
+          type: string
+          description: |
+            Packaging loss, applied to the packaging half of the cost alone and to
+            what a sale deducts from the packaging shelves. Decimal with two places,
+            as a string. Defaults to `0.00`.
+          examples: ['5.00']
         b2b_price_amount:
           type: ['string', 'null']
           description: |
@@ -24730,6 +24749,30 @@ components:
               minimum: 1
           is_complete:
             type: boolean
+          lines:
+            type: array
+            description: |
+              Each line's unit cost and line cost, in line order: what a table draws
+              beside its rows, on the same basis as the totals above. Null amounts are
+              an unpriced line, never a zero.
+
+              Absent on the weekly block, which prices a formulation as a whole and has
+              no per-line answer to give.
+            items:
+              type: object
+              required: [line_number, ingredient_id, unit_cost_amount, line_cost_amount]
+              properties:
+                line_number:
+                  type: integer
+                  minimum: 1
+                ingredient_id:
+                  type: string
+                  format: uuid
+                unit_cost_amount:
+                  type: ['string', 'null']
+                line_cost_amount:
+                  type: ['string', 'null']
+              additionalProperties: false
         additionalProperties: false
 
     ComputedCostPackaging:
@@ -24764,12 +24807,43 @@ components:
               minimum: 1
           is_complete:
             type: boolean
+          lines:
+            type: array
+            description: |
+              Each line's unit cost and line cost, in line order: what a table draws
+              beside its rows, on the same basis as the totals above. Null amounts are
+              an unpriced line, never a zero.
+
+              Absent on the weekly block, which prices a formulation as a whole and has
+              no per-line answer to give.
+            items:
+              type: object
+              required: [line_number, ingredient_id, unit_cost_amount, line_cost_amount]
+              properties:
+                line_number:
+                  type: integer
+                  minimum: 1
+                ingredient_id:
+                  type: string
+                  format: uuid
+                unit_cost_amount:
+                  type: ['string', 'null']
+                line_cost_amount:
+                  type: ['string', 'null']
+              additionalProperties: false
         additionalProperties: false
 
     ComputedCost:
       type: object
       required:
-        [currency_code, production, packaging, total_cost_per_yield_unit_amount, yield_unit_id]
+        [
+          currency_code,
+          production,
+          packaging,
+          total_cost_per_yield_unit_amount,
+          yield_unit_id,
+          packages,
+        ]
       description: |
         The live cost of one version's lines, in two halves that are summed but
         never blended.
@@ -24796,6 +24870,32 @@ components:
         yield_unit_id:
           type: ['string', 'null']
           format: uuid
+        packages:
+          type: array
+          description: |
+            What one filled package costs, one entry per packaging line in line
+            order: the contents at the production cost per yield unit (with
+            waste), plus the container at the packaging waste rate.
+
+            Every line is present, including the ones that are not packages. A
+            line whose item records no capacity — a cap holds nothing — or whose
+            capacity cannot be expressed in the yield unit carries a null
+            amount rather than being dropped, so a client can name which item it
+            could not cost. All amounts are null until the production half is
+            complete.
+          items:
+            type: object
+            required: [line_number, ingredient_id, cost_per_package_amount]
+            properties:
+              line_number:
+                type: integer
+                minimum: 1
+              ingredient_id:
+                type: string
+                format: uuid
+              cost_per_package_amount:
+                type: ['string', 'null']
+            additionalProperties: false
       additionalProperties: false
 
 
@@ -24904,6 +25004,10 @@ components:
           type: number
           minimum: 0
           maximum: 999.99
+        packaging_waste_percent:
+          type: number
+          minimum: 0
+          exclusiveMaximum: 100
         b2b_price_amount:
           type: ['number', 'null']
           minimum: 0

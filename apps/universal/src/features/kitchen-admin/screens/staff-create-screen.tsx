@@ -77,8 +77,22 @@ export function StaffCreateScreen() {
  * is to be transcribable, not to be a lasting secret.
  */
 const PASSWORD_WORDS = [
-    'copper', 'harvest', 'lantern', 'meadow', 'saffron', 'thistle', 'walnut', 'cinnamon',
-    'marble', 'olive', 'pepper', 'quartz', 'ribbon', 'summit', 'timber', 'velvet',
+    'copper',
+    'harvest',
+    'lantern',
+    'meadow',
+    'saffron',
+    'thistle',
+    'walnut',
+    'cinnamon',
+    'marble',
+    'olive',
+    'pepper',
+    'quartz',
+    'ribbon',
+    'summit',
+    'timber',
+    'velvet',
 ];
 
 export function generatePassphrase(): string {
@@ -122,7 +136,8 @@ function StaffCreateForm() {
     const [issued, setIssued] = useState<{ name: string; password: string } | null>(null);
 
     const domainOptions = useMemo(
-        () => (domains.data ?? []).map((row) => ({ value: row.domain, label: row.organisationName })),
+        () =>
+            (domains.data ?? []).map((row) => ({ value: row.domain, label: row.organisationName })),
         [domains.data],
     );
 
@@ -192,7 +207,9 @@ function StaffCreateForm() {
                     testID="kitchen-staff-create-header"
                     title={t('accessAdmin:add.title')}
                     subtitle={t(
-                        mode === 'invite' ? 'accessAdmin:add.inviteHint' : 'accessAdmin:add.createHint',
+                        mode === 'invite'
+                            ? 'accessAdmin:add.inviteHint'
+                            : 'accessAdmin:add.createHint',
                     )}
                     titleTestID="kitchen-staff-create-title"
                     subtitleTestID="kitchen-staff-create-subtitle"
@@ -359,7 +376,6 @@ function StaffCreateForm() {
                         onPress={submit}
                     />
                 </Inline>
-
             </Stack>
 
             <Dialog

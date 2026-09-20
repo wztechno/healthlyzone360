@@ -1,16 +1,4 @@
-import {
-    Badge,
-    Button,
-    Dialog,
-    EmptyState,
-    ErrorState,
-    Icon,
-    Inline,
-    Skeleton,
-    Stack,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Dialog, Icon, Inline, Stack, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { PublishableStatus, RecipeAdminSummary } from '@healthy360/api-client/contracts';
 import type { KitchenId } from '@healthy360/domain-types';
@@ -26,16 +14,17 @@ import { useSession } from '../../../session/session-provider.tsx';
 import { RECIPE_MANAGE_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
-import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
+import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { recipeColumns } from '../catalogue/recipe-columns.tsx';
 import type { RecipeListState, RecipeSortKey } from '../catalogue/use-recipe-list.ts';
@@ -47,6 +36,7 @@ import {
     statusShortKey,
     statusTone,
 } from '../format.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/recipes` — the recipe list, drawn the way `/kitchen/ingredients` is.
@@ -99,17 +89,6 @@ export function RecipesScreen() {
         </Gate>
     );
 }
-
-/**
- * The status segments: All · Live · Draft · Review.
- *
- * Four, not five — Archived is reachable from the Status column's own filter, and spending a fifth
- * of a primary control on the one state a catalogue is almost never browsed in is the trade the
- * ingredient toolbar already refused. `retired` is still a first-class filter, just not a segment.
- */
-const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'review_required'];
-
-type StatusSegmentValue = PublishableStatus | 'all';
 
 /** The kitchen a recipe belongs to, by name. See `RecipeColumnDeps.kitchenName`. */
 type KitchenName = (kitchenId: KitchenId) => string;
@@ -171,22 +150,54 @@ function RecipesList() {
         },
     );
 
-    // A status the segments do not name — Archived, reached from the Status column's own filter —
-    // leaves the set on "all" rather than lighting a segment that is not on the row.
-    const active = list.statuses[0];
-    const segmentValue: StatusSegmentValue =
-        active !== undefined && SEGMENT_STATUSES.includes(active) ? active : 'all';
-
-    const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
-        { value: 'all', label: t('kitchen:toolbar.statusAll') },
-        ...SEGMENT_STATUSES.map((status) => ({
-            value: status,
-            label: t(statusShortKey(status)),
-        })),
-    ];
+    const segments = statusSegments(list.statuses, list.setStatuses, t);
 
     const viewed = list.viewing;
     const viewedAllergens = viewedDetail.data?.currentVersion.allergens ?? [];
+
+    /*
+     * View takes the whole page (`IngredientView.dc.html`), in place of the list rather than on a
+     * route of its own — Back is a state change, so the list's page, sort and filters survive it.
+     */
+    if (viewed !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-recipes-view"
+                kind={t('kitchen:recipes.viewKind')}
+                reference={viewed.slug}
+                title={displayName(viewed.name, locale).value}
+                status={{
+                    tone: statusTone(viewed.meta.status),
+                    label: t(statusShortKey(viewed.meta.status)),
+                }}
+                fields={viewFields(viewed, t, formatter, kitchenName)}
+                onBack={list.closeView}
+                primaryAction={{
+                    label: t('kitchen:catalogue.edit'),
+                    testID: 'kitchen-recipes-view-edit',
+                    onPress: () => {
+                        list.closeView();
+                        list.openEditor(String(viewed.id));
+                    },
+                }}
+                {...(viewedAllergens.length === 0
+                    ? {}
+                    : {
+                          chipsLabel: t('kitchen:recipes.columnAllergens'),
+                          chipsSourceBadge: t('kitchen:recipes.viewAllergensSource'),
+                          chipsCaption: t('kitchen:recipes.viewAllergensCaption'),
+                          chips: viewedAllergens.map((declaration) => ({
+                              key: declaration.allergenCode,
+                              label: declaration.allergenCode,
+                              tone:
+                                  declaration.containment === 'contains'
+                                      ? ('danger' as const)
+                                      : ('warning' as const),
+                          })),
+                      })}
+            />
+        );
+    }
 
     return (
         <Stack space="md" testID="kitchen-recipes-screen">
@@ -210,13 +221,11 @@ function RecipesList() {
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:toolbar.searchRecipes')}
                 statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={statusSegments}
-                // Single-select, so "all" is the absence of a status rather than a status of its own.
-                status={segmentValue}
-                onStatusChange={(status) => {
-                    list.setStatuses(status === 'all' ? [] : [status]);
-                }}
+                statusSegments={segments.segments}
+                status={segments.value}
+                onStatusChange={segments.onChange}
             >
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Inline space="xs" align="center">
                         <CatalogueTransferActions testID="kitchen-recipes-toolbar" />
@@ -230,126 +239,38 @@ function RecipesList() {
                 ) : undefined}
             </CatalogueToolbar>
 
-            {list.isPending ? (
-                <Stack space="xs" testID="kitchen-recipes-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-recipes-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
-            ) : list.failure !== null ? (
-                <ErrorState
-                    testID="kitchen-recipes-error"
-                    failure={list.failure}
-                    onRetry={list.refetch}
-                    retrying={list.isFetching}
-                />
-            ) : list.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-recipes-empty"
-                    title={
-                        list.isUnfiltered
-                            ? t('kitchen:recipes.emptyTitle')
-                            : t('kitchen:recipes.filteredEmptyTitle')
-                    }
-                    body={
-                        list.isUnfiltered
-                            ? t('kitchen:recipes.emptyBody')
-                            : t('kitchen:recipes.filteredEmptyBody')
-                    }
-                    actions={
-                        <Inline space="sm" wrap>
-                            <Button
-                                testID="kitchen-recipes-clear"
-                                variant="secondary"
-                                label={t('kitchen:toolbar.clearFilters')}
-                                onPress={list.clearFilters}
-                            />
-                            {canManage ? (
-                                <Button
-                                    testID="kitchen-recipes-empty-create"
-                                    label={t('kitchen:toolbar.createRecipe')}
-                                    onPress={list.createNew}
-                                />
-                            ) : null}
-                        </Inline>
-                    }
-                />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList
-                        testID="kitchen-recipes-table"
-                        label={t('kitchen:recipes.caption')}
-                        columns={controls.columns}
-                        rows={list.rows}
-                        rowKey={(row) => String(row.id)}
-                        // Fixed, not switchable: the S/M/L control is gone.
-                        density="sm"
-                        onRowPress={(row) => {
-                            list.openEditor(String(row.id));
-                        }}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={(row) => rowActions(row, list, t, toast, canManage)}
-                    />
-
-                    <CataloguePager
-                        testID="kitchen-recipes-pagination"
-                        range={t('kitchen:toolbar.showing', {
-                            shown: list.shown,
-                            total: list.total ?? list.shown,
-                        })}
-                        page={list.page}
-                        totalPages={list.totalPages}
-                        onPageChange={list.setPage}
-                        label={t('kitchen:catalogue.pagerLabel')}
-                    />
-                </Stack>
-            )}
-
-            <CatalogueViewDrawer
-                testID="kitchen-recipes-view"
-                open={viewed !== null}
-                onClose={list.closeView}
-                kindLabel={t('kitchen:recipes.viewKind')}
-                fieldsLabel={t('kitchen:list.viewFields')}
-                closeLabel={t('kitchen:catalogue.close')}
-                editLabel={t('kitchen:catalogue.edit')}
-                onEdit={() => {
-                    if (viewed === null) return;
-                    list.closeView();
-                    list.openEditor(String(viewed.id));
+            <CatalogueListBody
+                testID="kitchen-recipes"
+                list={list}
+                empty={{
+                    title: t('kitchen:recipes.emptyTitle'),
+                    body: t('kitchen:recipes.emptyBody'),
                 }}
-                {...(viewed === null ? {} : { reference: viewed.slug })}
-                title={viewed === null ? '' : displayName(viewed.name, locale).value}
-                status={
-                    viewed === null ? undefined : (
-                        <Badge
-                            tone={statusTone(viewed.meta.status)}
-                            label={t(statusShortKey(viewed.meta.status))}
-                        />
-                    )
+                filteredEmpty={{
+                    title: t('kitchen:recipes.filteredEmptyTitle'),
+                    body: t('kitchen:recipes.filteredEmptyBody'),
+                }}
+                create={
+                    canManage
+                        ? { label: t('kitchen:toolbar.createRecipe'), onPress: list.createNew }
+                        : undefined
                 }
-                fields={viewed === null ? [] : viewFields(viewed, t, formatter, kitchenName)}
-                {...(viewed === null || viewedAllergens.length === 0
-                    ? {}
-                    : {
-                          chipsLabel: t('kitchen:recipes.columnAllergens'),
-                          chipsSource: t('kitchen:recipes.viewAllergensSource'),
-                          chipsCaption: t('kitchen:recipes.viewAllergensCaption'),
-                          chips: viewedAllergens.map((declaration) => (
-                              <Badge
-                                  key={declaration.allergenCode}
-                                  tone={
-                                      declaration.containment === 'contains' ? 'danger' : 'warning'
-                                  }
-                                  label={declaration.allergenCode}
-                              />
-                          )),
-                      })}
-            />
+            >
+                <CatalogueList
+                    testID="kitchen-recipes-table"
+                    label={t('kitchen:recipes.caption')}
+                    columns={controls.columns}
+                    rows={list.rows}
+                    rowKey={(row) => String(row.id)}
+                    // Fixed, not switchable: the S/M/L control is gone.
+                    density="sm"
+                    onRowPress={(row) => {
+                        list.openEditor(String(row.id));
+                    }}
+                    rowActionsLabel={t('kitchen:list.rowActions')}
+                    rowActions={(row) => rowActions(row, list, t, toast, canManage)}
+                />
+            </CatalogueListBody>
 
             {/*
              * Retiring *is* the archive: the contract has no `archiveRecipe`, and nothing is
@@ -433,7 +354,7 @@ function rowActions(
         },
         {
             key: 'edit',
-            label: t('kitchen:recipes.open'),
+            label: t('kitchen:catalogue.edit'),
             icon: CATALOGUE_ROW_ICONS.edit,
             testID: `${testID}-open`,
             onSelect: () => {
@@ -649,6 +570,7 @@ function columnControl(
     }
     if (key === 'status') {
         return {
+            sort: 'external',
             filter: {
                 values: () =>
                     RECIPE_STATUS_FILTERS.map((status: PublishableStatus) => ({
@@ -666,6 +588,7 @@ function columnControl(
     }
     if (key === 'kitchen') {
         return {
+            sort: 'external',
             filter: {
                 values: () =>
                     list.kitchens.map((entry) => ({

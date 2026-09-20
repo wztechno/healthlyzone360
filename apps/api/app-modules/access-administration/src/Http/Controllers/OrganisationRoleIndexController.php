@@ -62,7 +62,9 @@ final class OrganisationRoleIndexController
             ->orderBy('code')
             ->get();
 
-        $roleIds = $roles->map(static fn (Role $role): string => (string) $role->getKey())->all();
+        $roleIds = array_values(
+            $roles->map(static fn (Role $role): string => (string) $role->getKey())->all(),
+        );
 
         $holders = $this->query->holderCountsFor($roleIds);
         $grants = $this->query->codesForRoles($roleIds);

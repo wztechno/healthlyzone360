@@ -948,6 +948,7 @@ export function mapRecipeVersionAdmin(
         yieldUnit: measureUnitById(wire.yield_unit_id, units),
         yieldPieces: wire.yield_piece_count ?? null,
         wastePercent: parseDecimal(wire.waste_coefficient_percent, 3),
+        packagingWastePercent: parseDecimal(wire.packaging_waste_percent),
         // The two list prices share one currency by construction — the column CHECK refuses an
         // amount without one — so both read the same code rather than each carrying its own.
         b2bPrice: mapCostAmount(wire.b2b_price_amount, wire.price_currency_code),
@@ -1024,11 +1025,24 @@ function mapCostAmount(
  * `currency_code` is the block's, not each figure's: every amount inside one computation shares it
  * by construction, because a formulation carrying two currencies is refused rather than blended.
  */
-function mapComputedCost(wire: WireComputedCost | null | undefined): RecipeComputedCost | null {
+function mapComputedCost(
+    wire: WireComputedCost | WireWeeklyCost | null | undefined,
+): RecipeComputedCost | null {
     if (wire === null || wire === undefined) return null;
 
     const currency = wire.currency_code;
     const amount = (value: string | null): CostAmount | null => mapCostAmount(value, currency);
+    const lineCostOf = (line: {
+        readonly line_number: number;
+        readonly ingredient_id: string;
+        readonly unit_cost_amount: string | null;
+        readonly line_cost_amount: string | null;
+    }) => ({
+        lineNumber: line.line_number,
+        ingredientId: IngredientId.unsafe(line.ingredient_id),
+        unitCost: amount(line.unit_cost_amount),
+        lineCost: amount(line.line_cost_amount),
+    });
 
     return {
         currency: isCurrencyCode(currency) ? currency : null,
@@ -1043,6 +1057,7 @@ function mapComputedCost(wire: WireComputedCost | null | undefined): RecipeCompu
             wastePercent: Number(wire.production.waste_percent),
             uncostedLineNumbers: wire.production.uncosted_line_numbers,
             isComplete: wire.production.is_complete,
+            lines: (wire.production.lines ?? []).map(lineCostOf),
         },
         packaging: {
             total: amount(wire.packaging.total_packaging_cost_amount),
@@ -1051,8 +1066,20 @@ function mapComputedCost(wire: WireComputedCost | null | undefined): RecipeCompu
             wastePercent: Number(wire.packaging.waste_percent),
             uncostedLineNumbers: wire.packaging.uncosted_line_numbers,
             isComplete: wire.packaging.is_complete,
+            lines: (wire.packaging.lines ?? []).map(lineCostOf),
         },
         totalCostPerYieldUnit: amount(wire.total_cost_per_yield_unit_amount),
+        /*
+         * The weekly block shares this mapper and states neither per-line costs nor per-package
+         * ones: it prices a formulation as a whole at last week's averages, so there is no line to
+         * draw a figure beside. Empty rather than absent, because every reader of these two lists
+         * renders a table and an empty table is the honest answer to "which lines cost what".
+         */
+        packages: ('packages' in wire ? wire.packages : []).map((line) => ({
+            lineNumber: line.line_number,
+            ingredientId: IngredientId.unsafe(line.ingredient_id),
+            cost: amount(line.cost_per_package_amount),
+        })),
     };
 }
 
@@ -1078,6 +1105,7 @@ function mapWeeklyCost(wire: WireWeeklyCost): RecipeWeeklyCost {
                 wastePercent: 0,
                 uncostedLineNumbers: [],
                 isComplete: false,
+                lines: [],
             },
             packaging: {
                 total: null,
@@ -1086,8 +1114,10 @@ function mapWeeklyCost(wire: WireWeeklyCost): RecipeWeeklyCost {
                 wastePercent: 0,
                 uncostedLineNumbers: [],
                 isComplete: false,
+                lines: [],
             },
             totalCostPerYieldUnit: null,
+            packages: [],
         }),
         weeklyPricePublicationId: wire.weekly_price_publication_id ?? null,
         hasCarriedForwardPrices: wire.has_carried_forward_prices,
@@ -1101,7 +1131,8 @@ function mapWeeklyCost(wire: WireWeeklyCost): RecipeWeeklyCost {
             unitCost: mapCostAmount(source.unit_cost_amount, source.cost_currency_code),
             effectiveFrom: source.effective_from ?? null,
             sourceRecipeVersionId:
-                source.source_recipe_version_id === null || source.source_recipe_version_id === undefined
+                source.source_recipe_version_id === null ||
+                source.source_recipe_version_id === undefined
                     ? null
                     : RecipeVersionId.unsafe(source.source_recipe_version_id),
             carriedForward: source.carried_forward,

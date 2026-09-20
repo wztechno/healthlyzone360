@@ -1,4 +1,11 @@
-import type { BranchId, IsoDateTime, MembershipId, OrganisationId, RoleId, UserId } from '@healthy360/domain-types';
+import type {
+    BranchId,
+    IsoDateTime,
+    MembershipId,
+    OrganisationId,
+    RoleId,
+    UserId,
+} from '@healthy360/domain-types';
 
 import type { CursorPage, OffsetPageRequest } from './pagination.ts';
 
@@ -379,8 +386,14 @@ export interface AccessAdminRepository {
     /** Platform templates and the kitchen's own, in one list — from the assigning side they are one set. */
     listRoles(organisation: OrganisationId | string): Promise<readonly OrganisationRoleSummary[]>;
     /** Resolves a template too, because Copy is the only supported way to change what one means. */
-    getRole(organisation: OrganisationId | string, role: RoleId | string): Promise<OrganisationRole>;
-    createRole(organisation: OrganisationId | string, request: CreateRoleRequest): Promise<CreatedRole>;
+    getRole(
+        organisation: OrganisationId | string,
+        role: RoleId | string,
+    ): Promise<OrganisationRole>;
+    createRole(
+        organisation: OrganisationId | string,
+        request: CreateRoleRequest,
+    ): Promise<CreatedRole>;
     updateRole(
         organisation: OrganisationId | string,
         role: RoleId | string,

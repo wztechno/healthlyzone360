@@ -749,6 +749,13 @@ export interface RecipeVersionAdmin {
     /** Process loss, whole percent. The source sheets state 3 %. */
     readonly wastePercent: number;
     /**
+     * Packaging loss — split film, mis-fed labels — applied to the packaging half of the cost alone,
+     * and to what a sale deducts from the packaging shelves. A separate figure from `wastePercent`
+     * because the source sheets state separate rates, and one field for both would make correcting
+     * either silently rewrite the other.
+     */
+    readonly packagingWastePercent: number;
+    /**
      * Trade list price for one unit of `yieldUnit`, `null` when none is recorded.
      *
      * A list price, not a cost: what this version is offered at to a kitchen or corporate buyer,
@@ -888,6 +895,27 @@ export interface RecipeCostHalf {
     /** Lines that contributed nothing, in line order. Non-empty means the half is incomplete. */
     readonly uncostedLineNumbers: readonly number[];
     readonly isComplete: boolean;
+    /**
+     * Each line's unit cost and line cost, in line order.
+     *
+     * What a line table draws beside its rows, priced on the same basis as the totals, so a row
+     * and the total under it cannot disagree about what an ingredient costs.
+     */
+    readonly lines: readonly RecipeLineCost[];
+}
+
+/** CONFIDENTIAL: one line's figures, keyed by the line number the server assigned. */
+export interface RecipeLineCost {
+    readonly lineNumber: number;
+    /**
+     * What the line names, beside its number. A table matching these to rows somebody is still
+     * editing needs both: after a row is removed, line 2 is a different ingredient until the next
+     * answer lands, and a figure drawn beside the wrong row is worse than a dash.
+     */
+    readonly ingredientId: IngredientId;
+    /** Null is an unpriced line. Never a zero: a zero is a measurement. */
+    readonly unitCost: CostAmount | null;
+    readonly lineCost: CostAmount | null;
 }
 
 /**
@@ -910,6 +938,22 @@ export interface RecipeComputedCost {
     readonly packaging: RecipeCostHalf;
     /** Production-with-waste plus packaging-with-waste; null unless both halves are complete. */
     readonly totalCostPerYieldUnit: CostAmount | null;
+    /**
+     * What one filled package costs, one entry per packaging line.
+     *
+     * The figure an operator sets a retail price against. Every line is here, including a cap that
+     * holds nothing: its `cost` is null rather than the entry being dropped, so a screen can say
+     * which item it could not cost instead of showing one package where two were drawn.
+     */
+    readonly packages: readonly RecipePackageCost[];
+}
+
+/** CONFIDENTIAL — one packaging line's cost per filled package. */
+export interface RecipePackageCost {
+    readonly lineNumber: number;
+    readonly ingredientId: IngredientId;
+    /** Null for an item with no capacity, a capacity the yield unit cannot express, or an incomplete formulation. */
+    readonly cost: CostAmount | null;
 }
 
 /** Where one formulation line's weekly estimate came from. */
@@ -1020,6 +1064,8 @@ export interface CreateRecipeRequest {
     readonly yieldUnit: MeasureUnit;
     readonly yieldPieces?: number | undefined;
     readonly wastePercent?: number | undefined;
+    /** Omitted leaves the column's own default, `0`. */
+    readonly packagingWastePercent?: number | undefined;
     /** Trade list price per yield unit. Omitted leaves it unpriced. */
     readonly b2bPrice?: CostAmount | undefined;
     readonly b2cPrice?: CostAmount | undefined;
@@ -1034,6 +1080,7 @@ export interface UpdateRecipeRequest extends LockedRequest {
     readonly yieldUnit?: MeasureUnit | undefined;
     readonly yieldPieces?: number | null | undefined;
     readonly wastePercent?: number | undefined;
+    readonly packagingWastePercent?: number | undefined;
     /**
      * Trade list price per yield unit. `null` **clears** it, `undefined` leaves it alone — the same
      * three-way distinction the ingredient editor's prices draw, and the reason an emptied price box

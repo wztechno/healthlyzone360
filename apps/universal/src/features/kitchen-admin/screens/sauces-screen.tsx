@@ -4,7 +4,7 @@ import {
     ProductsScreen,
     SAUCES_FAMILY,
 } from './products-screen.tsx';
-import { CookedItemEditScreen } from './sauce-edit-screen.tsx';
+import { CookedItemEditScreen } from './cooked-item-edit-screen.tsx';
 
 /**
  * `/kitchen/sauces` and `/kitchen/dressings` — the two v6 cooked kinds beside
@@ -17,8 +17,8 @@ import { CookedItemEditScreen } from './sauce-edit-screen.tsx';
  * bought in and reads as one scrolling form, while a sauce and a dressing are
  * cooked and read as a recipe — designation, formulation, cost, technical
  * sheet. So these two editors are {@link CookedItemEditScreen}, which resolves
- * the item to its own recipe and hands it to the recipe editor with the
- * Packaging tab dropped.
+ * the item to its own recipe and draws the item's listing on the recipe's
+ * Selling tab.
  */
 export function SaucesScreen() {
     return <ProductsScreen family={SAUCES_FAMILY} />;
@@ -31,7 +31,7 @@ export function FrozenMealsScreen() {
 export function FrozenMealEditScreen({ product }: { readonly product: string | undefined }) {
     return (
         <CookedItemEditScreen
-            product={product}
+            item={product}
             itemType="frozen_meal"
             routeBase="/kitchen/frozen-meals"
         />
@@ -43,15 +43,11 @@ export function DressingsScreen() {
 }
 
 export function SauceEditScreen({ product }: { readonly product: string | undefined }) {
-    return <CookedItemEditScreen product={product} itemType="sauce" routeBase="/kitchen/sauces" />;
+    return <CookedItemEditScreen item={product} itemType="sauce" routeBase="/kitchen/sauces" />;
 }
 
 export function DressingEditScreen({ product }: { readonly product: string | undefined }) {
     return (
-        <CookedItemEditScreen
-            product={product}
-            itemType="dressing"
-            routeBase="/kitchen/dressings"
-        />
+        <CookedItemEditScreen item={product} itemType="dressing" routeBase="/kitchen/dressings" />
     );
 }

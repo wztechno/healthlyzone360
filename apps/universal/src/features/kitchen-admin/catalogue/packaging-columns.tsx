@@ -60,6 +60,19 @@ const PRICE_DIGITS: Intl.NumberFormatOptions = {
     maximumFractionDigits: 2,
 };
 
+/**
+ * The six a first visit draws. Stated rather than left to `priority`, which ranks Category below the
+ * two pack-size columns — and Category is the column this list filters by, as on Ingredients.
+ */
+export const PACKAGING_DEFAULT_COLUMNS: readonly string[] = [
+    'reference',
+    'name',
+    'category',
+    'purchasePrice',
+    'capacity',
+    'status',
+];
+
 export function packagingColumns({
     t,
     locale,
@@ -160,6 +173,8 @@ export function packagingColumns({
             min: 64,
             priority: CATALOGUE_PRIORITY.unit,
             align: 'center',
+            sortable: true,
+            sortType: 'text',
             value: (row) => (row.purchaseUnit === null ? dash : t(unitShortKey(row.purchaseUnit))),
         },
         {
@@ -171,6 +186,8 @@ export function packagingColumns({
             priority: CATALOGUE_PRIORITY.unit,
             align: 'center',
             mono: true,
+            sortable: true,
+            sortType: 'number',
             value: (row) =>
                 row.itemsPerUnit === null ? dash : formatter.formatNumber(row.itemsPerUnit),
         },
@@ -220,6 +237,8 @@ export function packagingColumns({
             priority: CATALOGUE_PRIORITY.metric,
             align: 'center',
             mono: true,
+            sortable: true,
+            sortType: 'number',
             value: (row) =>
                 row.capacity === null
                     ? dash
@@ -233,6 +252,8 @@ export function packagingColumns({
             priority: CATALOGUE_PRIORITY.updated,
             align: 'center',
             mono: true,
+            sortable: true,
+            sortType: 'number',
             // `0` and `null` are different answers — "none is thrown away" against "nobody has
             // measured" — so the dash is reserved for the second.
             value: (row) =>

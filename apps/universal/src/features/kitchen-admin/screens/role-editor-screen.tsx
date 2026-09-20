@@ -119,7 +119,14 @@ function RoleEditor() {
         if (draft !== null) return draft;
 
         if (record === undefined) {
-            return { code: '', nameEn: '', nameAr: '', descriptionEn: '', descriptionAr: '', codes: new Set() };
+            return {
+                code: '',
+                nameEn: '',
+                nameAr: '',
+                descriptionEn: '',
+                descriptionAr: '',
+                codes: new Set(),
+            };
         }
 
         return {
@@ -215,8 +222,10 @@ function RoleEditor() {
         const body = {
             nameEn: current.nameEn,
             nameAr: current.nameAr,
-            descriptionEn: current.descriptionEn.trim() === '' ? null : current.descriptionEn.trim(),
-            descriptionAr: current.descriptionAr.trim() === '' ? null : current.descriptionAr.trim(),
+            descriptionEn:
+                current.descriptionEn.trim() === '' ? null : current.descriptionEn.trim(),
+            descriptionAr:
+                current.descriptionAr.trim() === '' ? null : current.descriptionAr.trim(),
             permissions,
         };
 

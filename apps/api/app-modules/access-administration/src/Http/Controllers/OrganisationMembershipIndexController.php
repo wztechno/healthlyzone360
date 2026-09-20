@@ -80,7 +80,9 @@ final class OrganisationMembershipIndexController
             ->keyBy(static fn (User $user): string => (string) $user->getKey());
 
         $rolesByMembership = $this->rolesByMembership(
-            $rows->map(static fn (OrganisationMembership $row): string => (string) $row->getKey())->all(),
+            array_values(
+                $rows->map(static fn (OrganisationMembership $row): string => (string) $row->getKey())->all(),
+            ),
         );
 
         return ApiResponse::data(

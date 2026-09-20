@@ -198,7 +198,7 @@ final readonly class StaffProvisioning
             );
         }
 
-        return $roles->all();
+        return array_values($roles->all());
     }
 
     /**

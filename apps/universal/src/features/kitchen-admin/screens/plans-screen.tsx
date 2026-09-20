@@ -2,19 +2,16 @@ import type { PlanAdmin, PublishableStatus } from '@healthy360/api-client/contra
 import {
     Badge,
     Button,
-    Card,
     EmptyState,
     ErrorState,
-    Inline,
-    Pagination,
     Skeleton,
     Stack,
-    Table,
     Text,
 } from '@healthy360/design-system';
-import type { TableColumn, TableSortDirection } from '@healthy360/design-system';
+import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
+import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -26,49 +23,54 @@ import {
     useAdminPlanPageQuery,
     usePriceListsQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
+import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
+import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
+import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
+import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
+import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
+import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import {
+    compareNumber,
+    compareText,
+    useColumnControls,
+} from '../catalogue/use-column-controls.tsx';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
     PLAN_STATUS_FILTERS,
     displayName,
     planRowTestId,
-    statusKey,
+    statusShortKey,
     statusTone,
     summarisePlanDurations,
     summarisePlanMatrix,
     summarisePlanPrices,
 } from '../format.ts';
 import type { PlanPriceCoverage } from '../format.ts';
-import { KitchenPageHeader } from '../kitchen-page-header.tsx';
-import { ListToolbar } from '../list-toolbar.tsx';
 import { useListPage } from '../use-list-page.ts';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
- * `/kitchen/plans` — the commercial plans this kitchen sells, and how much of each one is decided.
+ * `/kitchen/plans` — the plans this kitchen sells, and how much of each is decided (Commercial §3.3).
  *
- * ## Three columns, and each of them answers "is this finished?"
+ * ```
+ *                                                                  [ + New plan ]
+ * ┌ SHOWN ┐ ┌ NO CONFIGURATIONS ┐ ┌ NOTHING PRICED ┐
+ * [ ⌕ search ]  [ All | Live | Draft | Review ]
+ * PLAN     CONFIGURATIONS                DURATIONS     PRICES             STATUS  UPDATED  ◉ ✎
+ * ```
  *
- * A plan is not one record; it is a *matrix* of configurations, a set of commitments and a set of
- * prices, and every one of the three can be half-built. So the list reports the completeness of each
- * rather than a count:
+ * The Catalogue list's parts, unchanged. Three cells, three independent half-built states — a plan
+ * is a matrix, a set of commitments and a set of prices, and each can be half-built. Prices come
+ * from the price lists (a plan carries none of its own) and read "checking" until they arrive,
+ * because "no confirmed price" is the strongest claim on the page.
  *
- * 1. **Configurations** — how many cells of the combination × energy-band grid actually exist. A
- *    plan with three combinations and three bands has nine cells and the seeded plans fill three of
- *    them; "3 configurations" without "of 9" would read as complete when it is not.
- * 2. **Durations** — the kinds offered and the day counts, because the whole point of the
- *    `duration_kind` model (plan §4.3) is that 5, 20, 40 and 60 days are representable and a
- *    one-off delivery is a *kind* rather than a zero.
- * 3. **Prices** — derived from the kitchen's price lists, which is the only place a plan price
- *    lives. This column is why the publish refusal is never a surprise: `publishPlan` is refused
- *    while no confirmed price exists, and the row says so before anybody opens the plan.
- *
- * ## Sorting is client-side, and stated
- *
- * The same limitation the other five lists document: `PlanAdminFilter` publishes no sort parameter,
- * so the table sorts what has been loaded.
+ * Archive stays on the editor, where `plans.retire*` already explains what it costs; the row offers
+ * View and Edit.
  */
-
-type SortKey = 'name' | 'status' | 'updatedAt';
-
 export function PlansScreen() {
     return (
         <Gate
@@ -81,163 +83,8 @@ export function PlansScreen() {
     );
 }
 
-/** How much of a plan's matrix exists, as a fraction of the grid it is drawn on. */
-function MatrixCell({ row }: { readonly row: PlanAdmin }) {
-    const { t } = useTranslation();
-    const testID = planRowTestId(String(row.id));
-    const summary = summarisePlanMatrix(row);
-
-    if (summary.variants === 0) {
-        return (
-            <Text testID={`${testID}-variants-none`} tone="secondary">
-                {t('kitchen:plans.noVariants')}
-            </Text>
-        );
-    }
-
-    return (
-        <Stack space="xs" testID={`${testID}-variants`}>
-            <Text variant="bodyStrong" testID={`${testID}-variants-coverage`}>
-                {t('kitchen:plans.coverage', { filled: summary.filled, cells: summary.cells })}
-            </Text>
-            <Inline space="xs" wrap>
-                <Badge
-                    testID={`${testID}-variants-count`}
-                    tone="neutral"
-                    label={t('kitchen:plans.variantCount', { count: summary.variants })}
-                />
-                <Badge
-                    testID={`${testID}-combination-count`}
-                    tone="info"
-                    label={t('kitchen:plans.combinationCount', { count: summary.combinations })}
-                />
-                {summary.activeVariants === summary.variants ? null : (
-                    <Badge
-                        testID={`${testID}-variants-inactive`}
-                        tone="warning"
-                        icon="warning"
-                        label={t('kitchen:plans.inactiveCount', {
-                            count: summary.variants - summary.activeVariants,
-                        })}
-                    />
-                )}
-            </Inline>
-        </Stack>
-    );
-}
-
-/** The commitments a plan offers — kinds first, then the day counts they carry. */
-function DurationsCell({ row }: { readonly row: PlanAdmin }) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-    const testID = planRowTestId(String(row.id));
-    const summary = summarisePlanDurations(row.durations);
-
-    if (summary.total === 0) {
-        return (
-            <Text testID={`${testID}-durations-none`} tone="secondary">
-                {t('kitchen:plans.noDurations')}
-            </Text>
-        );
-    }
-
-    return (
-        <Stack space="xs" testID={`${testID}-durations`}>
-            <Text testID={`${testID}-durations-days`}>
-                {summary.dayCounts.length === 0
-                    ? t('kitchen:plans.noFixedDurations')
-                    : t('kitchen:plans.dayCountList', {
-                          days: summary.dayCounts
-                              .map((days) => formatter.formatNumber(days))
-                              .join(t('kitchen:common.listSeparator')),
-                      })}
-            </Text>
-            <Inline space="xs" wrap>
-                {summary.oneOff === 0 ? null : (
-                    <Badge
-                        testID={`${testID}-durations-one-off`}
-                        tone="info"
-                        label={t('kitchen:plans.oneOffCount', { count: summary.oneOff })}
-                    />
-                )}
-                {summary.undecidedDiscounts === 0 ? null : (
-                    <Badge
-                        testID={`${testID}-durations-undecided`}
-                        tone="neutral"
-                        label={t('kitchen:plans.undecidedDiscountCount', {
-                            count: summary.undecidedDiscounts,
-                        })}
-                    />
-                )}
-                {summary.inconsistent === 0 ? null : (
-                    <Badge
-                        testID={`${testID}-durations-inconsistent`}
-                        tone="danger"
-                        icon="warning"
-                        label={t('kitchen:plans.inconsistentDurationCount', {
-                            count: summary.inconsistent,
-                        })}
-                    />
-                )}
-            </Inline>
-        </Stack>
-    );
-}
-
-/**
- * What the price lists say about this plan.
- *
- * `null` while the price lists are still loading, which is rendered as "checking" rather than as a
- * zero: "no confirmed price" is the strongest claim on this screen and stating it before the
- * evidence has arrived would be wrong exactly when it matters.
- */
-function PricesCell({
-    row,
-    coverage,
-}: {
-    readonly row: PlanAdmin;
-    readonly coverage: PlanPriceCoverage | null;
-}) {
-    const { t } = useTranslation();
-    const testID = planRowTestId(String(row.id));
-
-    if (coverage === null) {
-        return (
-            <Text testID={`${testID}-prices-pending`} tone="secondary" variant="caption">
-                {t('kitchen:plans.pricesPending')}
-            </Text>
-        );
-    }
-
-    return (
-        <Stack space="xs" testID={`${testID}-prices`}>
-            <Badge
-                testID={`${testID}-prices-confirmed`}
-                tone={coverage.confirmed === 0 ? 'warning' : 'success'}
-                {...(coverage.confirmed === 0 ? { icon: 'warning' as const } : {})}
-                label={t('kitchen:plans.confirmedPriceCount', { count: coverage.confirmed })}
-            />
-            <Inline space="xs" wrap>
-                {coverage.placeholder === 0 ? null : (
-                    <Badge
-                        testID={`${testID}-prices-placeholder`}
-                        tone="warning"
-                        label={t('kitchen:plans.placeholderPriceCount', {
-                            count: coverage.placeholder,
-                        })}
-                    />
-                )}
-                {coverage.unpriced === 0 ? null : (
-                    <Badge
-                        testID={`${testID}-prices-unpriced`}
-                        tone="neutral"
-                        label={t('kitchen:plans.unpricedCount', { count: coverage.unpriced })}
-                    />
-                )}
-            </Inline>
-        </Stack>
-    );
-}
+const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'review_required'];
+type StatusSegmentValue = PublishableStatus | 'all';
 
 function PlansList() {
     const { t } = useTranslation();
@@ -247,31 +94,22 @@ function PlansList() {
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
 
     const [query, setQuery] = useState('');
-    const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
-    const [sortKey, setSortKey] = useState<SortKey>('name');
-    const [sortDirection, setSortDirection] = useState<TableSortDirection>('asc');
+    const [status, setStatus] = useState<StatusSegmentValue>('all');
+    const [viewing, setViewing] = useState<PlanAdmin | null>(null);
 
     const trimmed = query.trim();
     const filter = useMemo(
         () => ({
             ...(trimmed === '' ? {} : { query: trimmed }),
-            ...(statuses.length === 0 ? {} : { statuses }),
+            ...(status === 'all' ? {} : { statuses: [status] }),
         }),
-        [trimmed, statuses],
+        [trimmed, status],
     );
-
     const [page, setPage] = useListPage(filter);
     const plans = useAdminPlanPageQuery(filter, page);
-    /*
-     * The price coverage column reads the lists, because `PlanAdmin` carries no price and should
-     * not: a price belongs to an effective-dated list in one currency, and a second copy on the plan
-     * would be a second answer to "what does this cost?". One capped listing serves every row.
-     */
     const priceLists = usePriceListsQuery({ limit: 100 });
 
-    // Left possibly-undefined rather than defaulted to `[]`: `?? []` is a fresh array on
-    // every render, which would re-run anything memoised over it whether or not it changed.
-    const rows = plans.data?.items;
+    const rows = useMemo(() => plans.data?.items ?? [], [plans.data]);
     const total = plans.data?.totalCount ?? null;
     const totalPages = pagesInResult(plans.data) ?? 0;
     const lists = priceListsFromPages(priceLists.data?.pages);
@@ -280,49 +118,67 @@ function PlansList() {
     const coverage = useMemo(() => {
         if (!pricesReady) return new Map<string, PlanPriceCoverage>();
         return new Map(
-            (rows ?? []).map((row) => [String(row.id), summarisePlanPrices(row, lists)] as const),
+            rows.map((row) => [String(row.id), summarisePlanPrices(row, lists)] as const),
         );
     }, [rows, lists, pricesReady]);
 
-    const sorted = useMemo(() => {
-        const factor = sortDirection === 'asc' ? 1 : -1;
-        return [...(rows ?? [])].sort((left, right) => {
-            if (sortKey === 'status') {
-                return factor * left.meta.status.localeCompare(right.meta.status);
-            }
-            if (sortKey === 'updatedAt') {
-                return factor * left.meta.updatedAt.localeCompare(right.meta.updatedAt);
-            }
-            return (
-                factor *
-                displayName(left.name, locale).value.localeCompare(
-                    displayName(right.name, locale).value,
-                    locale,
-                )
-            );
-        });
-    }, [rows, sortKey, sortDirection, locale]);
+    /**
+     * The design's Prices cell: how much of the grid is sold at a confirmed price — "9 of 12 cells
+     * sold" — or `Nothing priced yet` while no list confirms one. Reads "checking" until the price
+     * lists arrive, because "nothing priced" is the strongest claim on the row.
+     */
+    const pricesText = (row: PlanAdmin): string => {
+        const found = coverage.get(String(row.id));
+        if (found === undefined) return t('kitchen:plans.pricesPending');
+        if (found.confirmed === 0) return t('kitchen:priceLists.noEntries');
+        const matrix = summarisePlanMatrix(row);
+        return t('kitchen:plans.coverage', { filled: matrix.filled, cells: matrix.cells });
+    };
 
-    const columns: readonly TableColumn<PlanAdmin>[] = [
+    /** "yesterday by Omar Fares" — the design's Last changed cell. */
+    const updatedText = (row: PlanAdmin): string =>
+        row.meta.updatedByName === null
+            ? `${formatter.formatRelativeTime(row.meta.updatedAt)} ${t('kitchen:list.updatedBySeed')}`
+            : `${formatter.formatRelativeTime(row.meta.updatedAt)} ${t('kitchen:list.updatedBy', {
+                  name: row.meta.updatedByName,
+              })}`;
+
+    const openEditor = (row: PlanAdmin) => {
+        setViewing(null);
+        router.push(`/kitchen/plans/${String(row.id)}` as never);
+    };
+
+    const columns: readonly ControlledColumn<PlanAdmin, CatalogueColumn<PlanAdmin>>[] = [
         {
             key: 'name',
-            header: t('kitchen:plans.columnName'),
-            rowHeader: true,
-            sortable: true,
-            flex: 2,
+            role: 'title',
+            label: t('kitchen:plans.columnName'),
+            width: 200,
+            priority: 100,
+            value: (row) => displayName(row.name, locale).value,
+            sort: (left, right, direction) =>
+                compareText(
+                    displayName(left.name, locale).value,
+                    displayName(right.name, locale).value,
+                    direction,
+                ),
             render: (row) => {
-                const name = displayName(row.name, locale);
                 const testID = planRowTestId(String(row.id));
+                const name = displayName(row.name, locale);
                 return (
-                    <Stack space="none">
-                        <Text variant="bodyStrong" testID={`${testID}-name`}>
+                    <Stack space="none" testID={testID}>
+                        <Text variant="strong" numberOfLines={1} testID={`${testID}-name`}>
                             {name.value}
                         </Text>
+                        {displayName(row.summary, locale).value.trim() === '' ? null : (
+                            <Text variant="caption" tone="secondary" numberOfLines={1}>
+                                {displayName(row.summary, locale).value}
+                            </Text>
+                        )}
                         {name.isFallback ? (
                             <Badge
                                 testID={`${testID}-missing-arabic`}
                                 tone="warning"
-                                icon="warning"
                                 label={t('kitchen:list.missingArabic')}
                             />
                         ) : null}
@@ -332,108 +188,287 @@ function PlansList() {
         },
         {
             key: 'variants',
-            header: t('kitchen:plans.columnVariants'),
-            flex: 2,
-            render: (row) => <MatrixCell row={row} />,
-        },
-        {
-            key: 'durations',
-            header: t('kitchen:plans.columnDurations'),
-            flex: 2,
-            render: (row) => <DurationsCell row={row} />,
-        },
-        {
-            key: 'prices',
-            header: t('kitchen:plans.columnPrices'),
-            flex: 2,
+            role: 'metric',
+            label: t('kitchen:plans.columnVariants'),
+            width: 200,
+            priority: 85,
+            value: (row) => variantsText(row, t),
+            sort: (left, right, direction) =>
+                compareNumber(
+                    summarisePlanMatrix(left).variants,
+                    summarisePlanMatrix(right).variants,
+                    direction,
+                ),
             render: (row) => (
-                <PricesCell row={row} coverage={coverage.get(String(row.id)) ?? null} />
+                <Text
+                    tone={summarisePlanMatrix(row).variants === 0 ? 'secondary' : 'primary'}
+                    testID={`${planRowTestId(String(row.id))}-variants-coverage`}
+                >
+                    {variantsText(row, t)}
+                </Text>
             ),
         },
         {
+            key: 'durations',
+            label: t('kitchen:plans.columnDurations'),
+            width: 130,
+            priority: 60,
+            value: (row) => durationsText(row, t),
+            sort: (left, right, direction) =>
+                compareNumber(
+                    summarisePlanDurations(left.durations).total,
+                    summarisePlanDurations(right.durations).total,
+                    direction,
+                ),
+            render: (row) => (
+                <Text
+                    tone={row.durations.length === 0 ? 'secondary' : 'primary'}
+                    testID={`${planRowTestId(String(row.id))}-durations`}
+                >
+                    {durationsText(row, t)}
+                </Text>
+            ),
+        },
+        {
+            key: 'prices',
+            label: t('kitchen:plans.columnPrices'),
+            width: 150,
+            priority: 80,
+            value: pricesText,
+            // By how much is confirmed. A plan still "checking" is not "nothing priced", so while
+            // the price lists are loading it sorts last either way rather than as a zero.
+            sort: (left, right, direction) => {
+                const a = coverage.get(String(left.id));
+                const b = coverage.get(String(right.id));
+                if (a === undefined || b === undefined) {
+                    return a === b ? 0 : a === undefined ? 1 : -1;
+                }
+                return compareNumber(a.confirmed, b.confirmed, direction);
+            },
+            render: (row) => {
+                const found = coverage.get(String(row.id));
+                return (
+                    <Text
+                        tone={
+                            found === undefined
+                                ? 'secondary'
+                                : found.confirmed === 0
+                                  ? 'warning'
+                                  : 'primary'
+                        }
+                        testID={`${planRowTestId(String(row.id))}-prices`}
+                    >
+                        {pricesText(row)}
+                    </Text>
+                );
+            },
+        },
+        {
             key: 'status',
-            header: t('kitchen:list.columnStatus'),
-            sortable: true,
+            role: 'status',
+            label: t('kitchen:list.columnStatus'),
+            width: 96,
+            priority: 70,
+            value: (row) => t(statusShortKey(row.meta.status)),
+            // The status the request already carries — the segments' own filter, so Archived is
+            // reachable here without spending a segment on it.
+            filter: {
+                values: () =>
+                    PLAN_STATUS_FILTERS.map((value) => ({
+                        key: value,
+                        label: t(statusShortKey(value)),
+                    })),
+                external: {
+                    value: status === 'all' ? null : status,
+                    onChange: (next) => {
+                        setStatus(next === null ? 'all' : (next as PublishableStatus));
+                        setViewing(null);
+                    },
+                },
+            },
             render: (row) => (
                 <Badge
                     testID={`${planRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
-                    label={t(statusKey(row.meta.status))}
+                    label={t(statusShortKey(row.meta.status))}
                 />
             ),
         },
         {
             key: 'updatedAt',
-            header: t('kitchen:list.columnUpdated'),
-            sortable: true,
+            label: t('kitchen:list.columnUpdated'),
+            width: 160,
+            priority: 20,
+            value: (row) => updatedText(row),
+            sort: (left, right, direction) =>
+                compareText(left.meta.updatedAt, right.meta.updatedAt, direction),
             render: (row) => (
-                <Stack space="none">
-                    <Text testID={`${planRowTestId(String(row.id))}-updated`} variant="caption">
-                        {formatter.formatRelativeTime(row.meta.updatedAt)}
-                    </Text>
-                    <Text variant="caption" tone="secondary">
-                        {row.meta.updatedByName === null
-                            ? t('kitchen:list.updatedBySeed')
-                            : t('kitchen:list.updatedBy', { name: row.meta.updatedByName })}
-                    </Text>
-                </Stack>
+                <Text
+                    variant="caption"
+                    tone="secondary"
+                    numberOfLines={2}
+                    testID={`${planRowTestId(String(row.id))}-updated`}
+                >
+                    {updatedText(row)}
+                </Text>
             ),
         },
     ];
 
+    const controls = useColumnControls(rows, columns, 'kitchen-plans');
     const failure = toFailure(plans.error);
-    const unfiltered = trimmed === '' && statuses.length === 0;
+    const unfiltered = trimmed === '' && status === 'all';
+
+    const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
+        { value: 'all', label: t('kitchen:toolbar.statusAll') },
+        ...SEGMENT_STATUSES.map((value) => ({ value, label: t(statusShortKey(value)) })),
+    ];
+
+    // The design's three: Shown, Published ("on sale"), Draft ("half-built") — counted over the
+    // rows in hand, so a status segment moves them with the list (§3z).
+    const published = controls.rows.filter((row) => row.meta.status === 'published').length;
+    const drafts = controls.rows.filter((row) => row.meta.status === 'draft').length;
+    const cards: readonly CatalogueStatCard[] = [
+        {
+            key: 'shown',
+            label: t('kitchen:list.statShown'),
+            value: String(controls.rows.length),
+            unit: t('kitchen:list.statShownUnit', { total: total ?? controls.rows.length }),
+            caption: unfiltered
+                ? t('kitchen:list.statShownUnfiltered')
+                : t('kitchen:list.statShownFiltered'),
+            mark: 'calendar',
+            tone: 'brand',
+            onPress: () => {
+                setQuery('');
+                setStatus('all');
+            },
+            accessibilityLabel: t('kitchen:list.statShownAction'),
+        },
+        {
+            key: 'published',
+            label: t(statusShortKey('published')),
+            value: String(published),
+            unit: t('kitchen:plans.statPlansUnit'),
+            caption: t('kitchen:plans.statPublishedCaption'),
+            mark: 'check',
+            tone: 'default',
+            onPress: () => {
+                setStatus('published');
+            },
+            accessibilityLabel: t(statusShortKey('published')),
+        },
+        {
+            key: 'draft',
+            label: t(statusShortKey('draft')),
+            value: String(drafts),
+            unit: t('kitchen:plans.statPlansUnit'),
+            caption: t('kitchen:plans.statDraftCaption'),
+            mark: 'eyeOff',
+            tone: drafts === 0 ? 'default' : 'warning',
+            onPress: () => {
+                setStatus('draft');
+            },
+            accessibilityLabel: t(statusShortKey('draft')),
+        },
+    ];
+
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-plans-view"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={displayName(viewing.name, locale).value}
+                kind={t('kitchen:plans.viewKind')}
+                status={{
+                    label: t(statusShortKey(viewing.meta.status)),
+                    tone: statusTone(viewing.meta.status),
+                }}
+                fields={[
+                    {
+                        key: 'variants',
+                        label: t('kitchen:plans.columnVariants'),
+                        value: variantsText(viewing, t),
+                    },
+                    {
+                        key: 'combinations',
+                        label: t('kitchen:plans.viewCombinations'),
+                        value: t('kitchen:plans.combinationCount', {
+                            count: summarisePlanMatrix(viewing).combinations,
+                        }),
+                    },
+                    {
+                        key: 'durations',
+                        label: t('kitchen:plans.columnDurations'),
+                        value: durationsText(viewing, t),
+                    },
+                    {
+                        key: 'prices',
+                        label: t('kitchen:plans.columnPrices'),
+                        value: pricesText(viewing),
+                    },
+                    {
+                        key: 'updated',
+                        label: t('kitchen:list.columnUpdated'),
+                        value: formatter.formatRelativeTime(viewing.meta.updatedAt),
+                    },
+                ]}
+                primaryAction={{
+                    label: t('kitchen:catalogue.edit'),
+                    onPress: () => {
+                        openEditor(viewing);
+                    },
+                }}
+            />
+        );
+    }
 
     return (
-        <Stack space="lg" testID="kitchen-plans-screen">
-            <KitchenPageHeader
-                testID="kitchen-plans-header"
-                title={t('kitchen:plans.title')}
-                subtitle={t('kitchen:plans.subtitle')}
-                titleTestID="kitchen-plans-title"
-                subtitleTestID="kitchen-plans-subtitle"
-                actions={
-                    canManage ? (
-                        <Button
-                            testID="kitchen-plans-toolbar-create"
-                            label={t('kitchen:plans.create')}
-                            onPress={() => {
-                                router.push('/kitchen/plans/new' as never);
-                            }}
-                        />
-                    ) : undefined
-                }
-            />
+        <Stack space="md" testID="kitchen-plans-screen">
+            {plans.isPending || failure !== null ? null : (
+                <CatalogueStatCards testID="kitchen-plans-stats" cards={cards} />
+            )}
 
-            <ListToolbar
+            <CatalogueToolbar<StatusSegmentValue>
                 testID="kitchen-plans-toolbar"
-                query={query}
-                onQueryChange={setQuery}
-                statuses={statuses}
-                onStatusesChange={setStatuses}
-                statusOptions={PLAN_STATUS_FILTERS}
-                {...(plans.isPending || total === null
-                    ? {}
-                    : {
-                          resultSummary: t('kitchen:toolbar.showing', {
-                              shown: sorted.length,
-                              total,
-                          }),
-                      })}
-            />
+                search={query}
+                onSearchChange={(next) => {
+                    setQuery(next);
+                    setViewing(null);
+                }}
+                searchLabel={t('kitchen:toolbar.searchLabel')}
+                statusLabel={t('kitchen:toolbar.statusLabel')}
+                statusSegments={statusSegments}
+                // Archived, reached from the Status column's own filter, has no segment — the set
+                // reads "all" rather than lighting nothing.
+                status={status === 'all' || SEGMENT_STATUSES.includes(status) ? status : 'all'}
+                onStatusChange={(next) => {
+                    setStatus(next);
+                    setViewing(null);
+                }}
+            >
+                <ColumnPicker {...controls.picker} />
+                {canManage ? (
+                    <Button
+                        testID="kitchen-plans-toolbar-create"
+                        label={t('kitchen:plans.create')}
+                        onPress={() => {
+                            router.push('/kitchen/plans/new' as never);
+                        }}
+                    />
+                ) : null}
+            </CatalogueToolbar>
 
             {plans.isPending ? (
-                <Stack space="sm" testID="kitchen-plans-loading">
-                    {Array.from({ length: 4 }, (_, index) => (
-                        <Card key={index} padding="md">
-                            <Stack space="xs">
-                                <Skeleton
-                                    testID={`kitchen-plans-skeleton-${String(index + 1)}`}
-                                    heightClassName="h-5"
-                                />
-                                <Skeleton heightClassName="h-4" widthClassName="w-1/2" />
-                            </Stack>
-                        </Card>
+                <Stack space="xs" testID="kitchen-plans-loading">
+                    {Array.from({ length: 5 }, (_, index) => (
+                        <Skeleton
+                            key={index}
+                            testID={`kitchen-plans-skeleton-${String(index + 1)}`}
+                            heightClassName="h-row-sm"
+                        />
                     ))}
                 </Stack>
             ) : failure !== null ? (
@@ -445,7 +480,7 @@ function PlansList() {
                     }}
                     retrying={plans.isFetching}
                 />
-            ) : sorted.length === 0 ? (
+            ) : controls.rows.length === 0 ? (
                 <EmptyState
                     testID="kitchen-plans-empty"
                     title={
@@ -461,48 +496,71 @@ function PlansList() {
                 />
             ) : (
                 <Stack space="sm">
-                    <Table<PlanAdmin>
+                    <CatalogueList<PlanAdmin>
                         testID="kitchen-plans-table"
-                        caption={t('kitchen:plans.caption')}
-                        captionHidden
-                        columns={columns}
-                        rows={sorted}
+                        label={t('kitchen:plans.caption')}
+                        columns={controls.columns}
+                        rows={controls.rows}
                         rowKey={(row) => String(row.id)}
-                        sortKey={sortKey}
-                        sortDirection={sortDirection}
-                        onSortChange={(key, direction) => {
-                            setSortKey(key as SortKey);
-                            setSortDirection(direction);
-                        }}
-                        rowAction={{
-                            header: t('kitchen:list.actionHeader'),
-                            render: (row) => (
-                                <Inline space="xs" wrap justify="end">
-                                    <Button
-                                        testID={`${planRowTestId(String(row.id))}-open`}
-                                        size="sm"
-                                        variant="secondary"
-                                        label={t('kitchen:list.open')}
-                                        onPress={() => {
-                                            router.push(
-                                                `/kitchen/plans/${String(row.id)}` as never,
-                                            );
-                                        }}
-                                    />
-                                </Inline>
-                            ),
-                        }}
+                        density="sm"
+                        onRowPress={openEditor}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        rowActions={(row): readonly MenuItem[] => [
+                            {
+                                key: 'view',
+                                label: t('kitchen:list.view'),
+                                icon: CATALOGUE_ROW_ICONS.view,
+                                testID: `${planRowTestId(String(row.id))}-view`,
+                                onSelect: () => {
+                                    setViewing(row);
+                                },
+                            },
+                            {
+                                key: 'edit',
+                                label: t('kitchen:catalogue.edit'),
+                                icon: CATALOGUE_ROW_ICONS.edit,
+                                testID: `${planRowTestId(String(row.id))}-open`,
+                                onSelect: () => {
+                                    openEditor(row);
+                                },
+                            },
+                        ]}
                     />
-
-                    <Pagination
+                    <CataloguePager
                         testID="kitchen-plans-pagination"
+                        range={t('kitchen:toolbar.showing', {
+                            shown: controls.rows.length,
+                            total: total ?? controls.rows.length,
+                        })}
                         page={page}
                         totalPages={totalPages}
-                        onPageChange={setPage}
-                        disabled={plans.isFetching}
+                        onPageChange={(next) => {
+                            setPage(next);
+                            setViewing(null);
+                        }}
+                        label={t('kitchen:catalogue.pagerLabel')}
                     />
                 </Stack>
             )}
         </Stack>
     );
+}
+
+/** "9 configurations · 1 inactive", or `No configurations`. */
+function variantsText(row: PlanAdmin, t: TFunction): string {
+    const summary = summarisePlanMatrix(row);
+    if (summary.variants === 0) return t('kitchen:plans.noVariants');
+    const inactive = summary.variants - summary.activeVariants;
+    const count = t('kitchen:plans.variantCount', { count: summary.variants });
+    return inactive === 0
+        ? count
+        : `${count} · ${t('kitchen:plans.inactiveCount', { count: inactive })}`;
+}
+
+/** "4 durations", or `No durations`. */
+function durationsText(row: PlanAdmin, t: TFunction): string {
+    const summary = summarisePlanDurations(row.durations);
+    return summary.total === 0
+        ? t('kitchen:plans.noDurations')
+        : t('kitchen:plans.durationCount', { count: summary.total });
 }

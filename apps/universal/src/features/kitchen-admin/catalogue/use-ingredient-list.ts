@@ -28,6 +28,8 @@ import {
 import { displayName } from '../format.ts';
 import { missingLast } from './catalogue-column-spec.ts';
 import { useListPage } from '../use-list-page.ts';
+import { useCatalogueFilters } from './use-catalogue-filters.ts';
+import { useDestructiveRow } from './use-destructive-row.ts';
 
 /**
  * Everything `/kitchen/ingredients` knows that is not a pixel — handoff §4.6.
@@ -179,8 +181,15 @@ export function useIngredientList(): IngredientListState {
     const router = useRouter();
     const { locale } = useLocale();
 
-    const [query, setQuery] = useState('');
-    const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
+    const {
+        query,
+        setQuery,
+        trimmed,
+        statuses,
+        setStatuses,
+        isUnfiltered: searchAndStatusUnset,
+        clear: clearSearchAndStatus,
+    } = useCatalogueFilters();
     const [category, setCategory] = useState<string | null>(null);
     const [allergen, setAllergen] = useState<AllergenCode | null>(null);
     // Reference ascending, which is the order the codes were issued in and so the order a
@@ -188,10 +197,8 @@ export function useIngredientList(): IngredientListState {
     // that changes with the language.
     const [sortKey, setSortKey] = useState<IngredientSortKey>('reference');
     const [sortDirection, setSortDirection] = useState<IngredientSortDirection>('asc');
-    const [archiving, setArchiving] = useState<IngredientAdmin | null>(null);
     const [viewing, setViewing] = useState<IngredientAdmin | null>(null);
 
-    const trimmed = query.trim();
     const filter = useMemo(
         () => ({
             /*
@@ -236,7 +243,10 @@ export function useIngredientList(): IngredientListState {
     const ingredients = useIngredientPageQuery(filter, page);
     const categories = useIngredientCategoriesQuery();
     const allergenClasses = useAllergenClassesQuery();
-    const archive = useArchiveIngredientMutation();
+    const archive = useDestructiveRow(useArchiveIngredientMutation(), (row: IngredientAdmin) => ({
+        ingredientId: row.id,
+        request: { lockVersion: row.meta.lockVersion },
+    }));
 
     // Left possibly-undefined rather than defaulted to `[]` here: `?? []` is a fresh array on
     // every render, which would re-run the sort below whether or not the data changed.
@@ -313,11 +323,9 @@ export function useIngredientList(): IngredientListState {
         allergen,
         setAllergen,
         allergenClasses: allergenClasses.data ?? [],
-        isUnfiltered:
-            trimmed === '' && statuses.length === 0 && category === null && allergen === null,
+        isUnfiltered: searchAndStatusUnset && category === null && allergen === null,
         clearFilters: () => {
-            setQuery('');
-            setStatuses([]);
+            clearSearchAndStatus();
             setCategory(null);
             setAllergen(null);
         },
@@ -357,28 +365,11 @@ export function useIngredientList(): IngredientListState {
             setViewing(null);
         },
 
-        archiving,
-        askToArchive: setArchiving,
-        cancelArchive: () => {
-            setArchiving(null);
-        },
-        confirmArchive: (onArchived) => {
-            const row = archiving;
-            if (row === null) return;
-            archive.mutate(
-                {
-                    ingredientId: row.id,
-                    request: { lockVersion: row.meta.lockVersion },
-                },
-                {
-                    onSuccess: () => {
-                        setArchiving(null);
-                        onArchived(displayName(row.name, locale).value);
-                    },
-                },
-            );
-        },
+        archiving: archive.target,
+        askToArchive: archive.ask,
+        cancelArchive: archive.cancel,
+        confirmArchive: archive.confirm,
         isArchivePending: archive.isPending,
-        archiveFailure: toFailure(archive.error),
+        archiveFailure: archive.failure,
     };
 }

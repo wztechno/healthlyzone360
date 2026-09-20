@@ -32,6 +32,7 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
+import { WithColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/order-desk/cash-report` — who took what, on one day.
@@ -243,7 +244,7 @@ function OrderDeskCashReport() {
             {/* One 28px row: the day, and the clock it was cut on. */}
             <View
                 testID="kitchen-order-desk-cash-report-toolbar"
-                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight"
+                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
             >
                 <DatePickerButton
                     testID="kitchen-order-desk-cash-report-date"
@@ -326,14 +327,16 @@ function OrderDeskCashReport() {
                         ]}
                     />
 
-                    <CatalogueList<OrderDeskCashReportRow>
-                        testID="kitchen-order-desk-cash-report-table"
-                        label={t('kitchen:ops.cashReport.caption')}
-                        columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={rowTestId}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                    />
+                    <WithColumnPicker picker={controls.picker}>
+                        <CatalogueList<OrderDeskCashReportRow>
+                            testID="kitchen-order-desk-cash-report-table"
+                            label={t('kitchen:ops.cashReport.caption')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={rowTestId}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
+                    </WithColumnPicker>
 
                     {/*
                      * The totals, as a panel of labelled pairs rather than a footer row of the list

@@ -1,6 +1,5 @@
 import type { AllergenClass } from '@healthy360/api-client/contracts';
 import {
-    Badge,
     Button,
     Callout,
     EmptyState,
@@ -31,12 +30,13 @@ import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
-import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
-import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import type { AllergenListState, AllergenStatusFilter } from '../catalogue/use-allergen-list.ts';
-import { useAllergenList } from '../catalogue/use-allergen-list.ts';
+import { NO_MARKET, useAllergenList } from '../catalogue/use-allergen-list.ts';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/allergen-classes` — the fourteen regulatory classes, read only.
@@ -120,7 +120,7 @@ function AllergenClasses() {
 
     const controls = useColumnControls<AllergenClass, CatalogueColumn<AllergenClass>>(
         list.rows,
-        columns.map((column) => ({ ...column, ...columnControl(column.key) })),
+        columns.map((column) => ({ ...column, ...columnControl(column.key, list, t) })),
         'kitchen-allergen-classes',
         {
             sort: {
@@ -144,6 +144,30 @@ function AllergenClasses() {
                       : t('kitchen:classes.withdrawn'),
         }),
     );
+
+    /*
+     * View takes the whole page (`IngredientView.dc.html`), in place of the list rather than on a
+     * route of its own — Back is a state change, so the list's page, sort and filters survive it.
+     */
+    const viewing = list.viewing;
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-allergen-classes-view"
+                kind={t('kitchen:classes.viewKind')}
+                reference={String(viewing.code)}
+                title={displayName(viewing.name, locale).value}
+                status={{
+                    tone: viewing.isActive ? 'brand' : 'warning',
+                    label: viewing.isActive
+                        ? t('kitchen:classes.active')
+                        : t('kitchen:classes.withdrawn'),
+                }}
+                fields={viewFields(viewing, t, formatter, locale)}
+                onBack={list.closeView}
+            />
+        );
+    }
 
     return (
         <Stack space="md" testID="kitchen-allergen-classes-screen">
@@ -177,7 +201,9 @@ function AllergenClasses() {
                 statusSegments={statusSegments}
                 status={list.status}
                 onStatusChange={list.setStatus}
-            />
+            >
+                <ColumnPicker {...controls.picker} />
+            </CatalogueToolbar>
 
             {list.isPending ? (
                 <Stack space="xs" testID="kitchen-allergen-classes-loading">
@@ -248,34 +274,6 @@ function AllergenClasses() {
                     ]}
                 />
             )}
-
-            <CatalogueViewDrawer
-                testID="kitchen-allergen-classes-view"
-                open={list.viewing !== null}
-                onClose={list.closeView}
-                kindLabel={t('kitchen:classes.viewKind')}
-                fieldsLabel={t('kitchen:list.viewFields')}
-                closeLabel={t('kitchen:catalogue.close')}
-                {...(list.viewing === null
-                    ? { title: '' }
-                    : {
-                          reference: String(list.viewing.code),
-                          title: displayName(list.viewing.name, locale).value,
-                          status: (
-                              <Badge
-                                  testID="kitchen-allergen-classes-view-status"
-                                  tone={list.viewing.isActive ? 'brand' : 'warning'}
-                                  icon={list.viewing.isActive ? null : undefined}
-                                  label={
-                                      list.viewing.isActive
-                                          ? t('kitchen:classes.active')
-                                          : t('kitchen:classes.withdrawn')
-                                  }
-                              />
-                          ),
-                      })}
-                fields={list.viewing === null ? [] : viewFields(list.viewing, t, formatter, locale)}
-            />
         </Stack>
     );
 }
@@ -389,11 +387,33 @@ function viewFields(
 /**
  * What one column's header does — handed to `useColumnControls`, which draws it.
  *
- * Sort only. The one cut this list makes, Active / Withdrawn, is on the toolbar where a reader
- * meets it first; a Status menu offering the same two would be that control drawn twice. Markets
- * would be a real second cut, and is not offered: the request carries no market parameter.
+ * Every column but Markets sorts. Status sorts rather than filters: the one lifecycle cut, Active /
+ * Withdrawn, is on the toolbar where a reader meets it first, and a Status menu offering the same
+ * two would be that control drawn twice.
+ *
+ * Markets filters — a class belongs to several markets, so there is no order to put them in, and
+ * "what does the GCC require" is the question the column is asked. The request carries no market
+ * parameter, and does not need one: the resource is all fourteen classes, unpaged, so the list hook
+ * narrows the whole answer rather than a page of it, and Shown stays a true count.
  */
-function columnControl(key: string): ColumnControl<AllergenClass> {
+function columnControl(
+    key: string,
+    list: AllergenListState,
+    t: TFunction,
+): ColumnControl<AllergenClass> {
+    if (key === 'markets') {
+        return {
+            filter: {
+                values: () => [
+                    ...list.markets.map((market) => ({ key: market, label: market })),
+                    ...(list.hasUnmarketed
+                        ? [{ key: NO_MARKET, label: t('kitchen:classes.noMarkets') }]
+                        : []),
+                ],
+                external: { value: list.market, onChange: list.setMarket },
+            },
+        };
+    }
     return isAllergenClassSortKey(key) ? { sort: 'external' } : {};
 }
 

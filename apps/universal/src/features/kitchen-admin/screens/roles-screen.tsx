@@ -48,11 +48,7 @@ import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 
 export function RolesScreen() {
     return (
-        <Gate
-            area="kitchen"
-            requirement={{ allOf: [ROLE_VIEW_PERMISSION] }}
-            testID="kitchen-roles"
-        >
+        <Gate area="kitchen" requirement={{ allOf: [ROLE_VIEW_PERMISSION] }} testID="kitchen-roles">
             <RolesList />
         </Gate>
     );
@@ -88,9 +84,7 @@ function RolesList() {
             flex: 2,
             render: (row) => {
                 const testID = roleRowTestId(String(row.id));
-                const description = locale.startsWith('ar')
-                    ? row.descriptionAr
-                    : row.descriptionEn;
+                const description = locale.startsWith('ar') ? row.descriptionAr : row.descriptionEn;
 
                 return (
                     <Stack space="none">

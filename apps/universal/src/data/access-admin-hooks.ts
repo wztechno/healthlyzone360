@@ -250,7 +250,11 @@ function useWriteOrganisation(): () => string {
     }, [organisation]);
 }
 
-export function useCreateRoleMutation(): UseMutationResult<CreatedRole, unknown, CreateRoleRequest> {
+export function useCreateRoleMutation(): UseMutationResult<
+    CreatedRole,
+    unknown,
+    CreateRoleRequest
+> {
     const repositories = useRepositories();
     const organisation = useWriteOrganisation();
     const onWritten = useAccessAdminWriteEffects();

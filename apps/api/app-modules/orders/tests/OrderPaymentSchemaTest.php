@@ -158,15 +158,18 @@ it('will not let an order be deleted out from under its own receipt', function (
     // A receipt is the record that money arrived; an order it points at going
     // missing would leave a takings figure nobody can explain.
     //
-    // `23503` is `foreign_key_violation`, and it is what PostgreSQL raises here.
-    // This assertion used to pin `23001` (`restrict_violation`) on the reasoning
-    // that the two codes discriminate `ON DELETE RESTRICT` from `NO ACTION` —
-    // which is not true of PostgreSQL: `ri_restrict()` serves both and reports
-    // through `ri_ReportViolation()`, which raises `23503` either way. `23001`
-    // exists in `errcodes.txt` for standard completeness and the RI machinery
-    // never emits it, so the old expectation could not have passed against any
-    // schema at all.
-    expect(refusalState(fn () => Order::query()->whereKey($order->getKey())->delete()))->toBe('23503');
+    // `23001` is `restrict_violation`, and on the server this repository pins it
+    // is what a RESTRICT reference raises — `ri_ReportViolation()` reports
+    // "violates RESTRICT setting of foreign key constraint" and names its own
+    // SQLSTATE. This assertion briefly pinned `23503` (`foreign_key_violation`)
+    // on the reasoning that `ri_restrict()` serves RESTRICT and NO ACTION alike
+    // and cannot tell them apart. That was true of PostgreSQL 17 and is not true
+    // of 18, which separates the two, and `compose.yaml` runs `postgres:18-alpine`.
+    //
+    // So the code is a fact about the server version rather than about this
+    // schema, which is why it is not the assertion the guarantee rests on — see
+    // the catalogue read below.
+    expect(refusalState(fn () => Order::query()->whereKey($order->getKey())->delete()))->toBe('23001');
 
     expect(Order::query()->whereKey($order->getKey())->exists())->toBeTrue();
 

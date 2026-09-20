@@ -49,8 +49,8 @@ import {
     parseClockTime,
     parseWholeNumber,
 } from './format.ts';
-import { MealEditScreen } from './screens/meal-edit-screen.tsx';
 import { MealsScreen } from './screens/meals-screen.tsx';
+import { MealListing } from './meal-listing.tsx';
 import { ProductEditScreen } from './screens/product-edit-screen.tsx';
 import { ProductsScreen } from './screens/products-screen.tsx';
 
@@ -923,6 +923,58 @@ describe('the meal list', () => {
             ),
         ).toBe(true);
     });
+
+    it('puts a sort or a filter on every column header, and Channels sorts', async () => {
+        const one = meal({ ordinal: 1, name: 'Alpha bowl' });
+        const two = meal({
+            ordinal: 2,
+            name: 'Beta wrap',
+            overrides: {
+                channelAvailability: [channel('b2c', true), channel('marketplace', true)],
+            },
+        });
+        const none = meal({
+            ordinal: 3,
+            name: 'Gamma salad',
+            overrides: { channelAvailability: [] },
+        });
+
+        await renderStubScreen(<MealsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listMeals: mealListing(() => [one, two, none]),
+                    listAllergenClasses: async () => MEAL_ALLERGEN_CLASSES,
+                },
+            },
+        });
+        await untilVisible('kitchen-meals-table');
+
+        for (const key of ['name', 'channels', 'mealTypes', 'category', 'allergens', 'status']) {
+            expect(screen.getByTestId(`kitchen-meals-column-${key}-trigger`)).toBeTruthy();
+        }
+
+        const names = () =>
+            screen
+                .getAllByTestId(/^kitchen-meal-.+-name$/)
+                .map((node) => node.props.children as string);
+
+        // `MealAdminFilter` has no channel parameter, so the header orders by how many channels
+        // sell the meal rather than narrowing one page.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meals-column-channels-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()).toEqual(['Gamma salad', 'Alpha bowl', 'Beta wrap']);
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meals-column-channels-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()).toEqual(['Beta wrap', 'Alpha bowl', 'Gamma salad']);
+        });
+    });
 });
 
 /* ------------------------------------------------------------------------------------------------
@@ -974,8 +1026,13 @@ describe('creating and editing a product', () => {
         /*
          * And a pack, because the save gate counts one. A product with no pack is a record no price
          * list can point at and no order line can measure, so the editor refuses it rather than
-         * writing a row that every downstream screen would then have to special-case.
+         * writing a row that every downstream screen would then have to special-case. Packs are
+         * the form's second step.
          */
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-packs'));
+        });
+        await untilVisible('kitchen-product-packs-add');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-product-packs-add'));
         });
@@ -1037,6 +1094,10 @@ describe('creating and editing a product', () => {
                     listRecipes: async () => page(NO_RECIPES),
                 },
             },
+        });
+        await untilVisible('kitchen-product-editor-screen-steps-packs');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-packs'));
         });
         await untilVisible('kitchen-product-packs-add');
 
@@ -1116,6 +1177,10 @@ describe('creating and editing a product', () => {
                 },
             },
         );
+        await untilVisible('kitchen-product-editor-screen-steps-packs');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-packs'));
+        });
         await untilVisible('kitchen-product-packs-add');
 
         await act(async () => {
@@ -1186,6 +1251,10 @@ describe('creating and editing a product', () => {
                 },
             },
         );
+        await untilVisible('kitchen-product-editor-screen-steps-packs');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-packs'));
+        });
         await untilVisible('kitchen-product-packs-add');
 
         await act(async () => {
@@ -1240,6 +1309,10 @@ describe('creating and editing a product', () => {
                 },
             },
         );
+        await untilVisible('kitchen-product-editor-screen-steps-channels');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-channels'));
+        });
         await untilVisible('kitchen-product-channel-editor');
 
         // Every channel is a row, including the ones this product is not sold through.
@@ -1413,8 +1486,12 @@ describe('creating and editing a product', () => {
                 lockVersion: 1,
             });
         });
-        // Nothing is deleted: the record comes back retired, and the editor says so.
-        await untilVisible('kitchen-product-archived');
+        // Nothing is deleted: the record comes back retired, and the editor's status says so.
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-product-editor-screen-status')).toHaveTextContent(
+                /Archived/,
+            );
+        });
         expect(stored.meta.status).toBe('retired');
     });
 
@@ -1496,6 +1573,10 @@ describe('creating and editing a product', () => {
                 },
             },
         });
+        await untilVisible('kitchen-product-editor-screen-steps-packs');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-packs'));
+        });
         await untilVisible('kitchen-product-packs-add');
 
         await act(async () => {
@@ -1525,29 +1606,26 @@ describe('editing a meal', () => {
     it('saves both halves of a bilingual name and a changed portion', async () => {
         let stored = meal({ ordinal: 1, name: 'Freekeh bowl' });
 
-        const { repositories } = await renderStubScreen(
-            <MealEditScreen meal={String(stored.id)} />,
-            {
-                session: kitchenManagerSession(),
-                repositories: {
-                    kitchenAdmin: {
-                        getMeal: async () => stored,
-                        listRecipes: async () => page(NO_RECIPES),
-                        updateMeal: async (_id, request) => {
-                            stored = {
-                                ...stored,
-                                ...(request.name === undefined ? {} : { name: request.name }),
-                                ...(request.portionFactor === undefined
-                                    ? {}
-                                    : { portionFactor: request.portionFactor }),
-                                meta: meta({ lockVersion: request.lockVersion + 1 }),
-                            };
-                            return stored;
-                        },
+        const { repositories } = await renderStubScreen(<MealListing meal={stored.id} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getMeal: async () => stored,
+                    listRecipes: async () => page(NO_RECIPES),
+                    updateMeal: async (_id, request) => {
+                        stored = {
+                            ...stored,
+                            ...(request.name === undefined ? {} : { name: request.name }),
+                            ...(request.portionFactor === undefined
+                                ? {}
+                                : { portionFactor: request.portionFactor }),
+                            meta: meta({ lockVersion: request.lockVersion + 1 }),
+                        };
+                        return stored;
                     },
                 },
             },
-        );
+        });
         await untilVisible('kitchen-meal-name-en-input');
 
         await act(async () => {
@@ -1585,18 +1663,15 @@ describe('editing a meal', () => {
     it('refuses a portion of nothing rather than dividing by it', async () => {
         const stored = meal({ ordinal: 1 });
 
-        const { repositories } = await renderStubScreen(
-            <MealEditScreen meal={String(stored.id)} />,
-            {
-                session: kitchenManagerSession(),
-                repositories: {
-                    kitchenAdmin: {
-                        getMeal: async () => stored,
-                        listRecipes: async () => page(NO_RECIPES),
-                    },
+        const { repositories } = await renderStubScreen(<MealListing meal={stored.id} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getMeal: async () => stored,
+                    listRecipes: async () => page(NO_RECIPES),
                 },
             },
-        );
+        });
         await untilVisible('kitchen-meal-portion-input');
 
         await act(async () => {
@@ -1620,26 +1695,23 @@ describe('editing a meal', () => {
     it('writes a day of availability by its calendar date, and reads it back', async () => {
         let stored = meal({ ordinal: 1, name: 'Freekeh bowl' });
 
-        const { repositories } = await renderStubScreen(
-            <MealEditScreen meal={String(stored.id)} />,
-            {
-                session: kitchenManagerSession(),
-                repositories: {
-                    kitchenAdmin: {
-                        getMeal: async () => stored,
-                        listRecipes: async () => page(NO_RECIPES),
-                        setMealAvailability: async (_id, request) => {
-                            stored = {
-                                ...stored,
-                                availability: request.days,
-                                meta: meta({ lockVersion: request.lockVersion + 1 }),
-                            };
-                            return stored;
-                        },
+        const { repositories } = await renderStubScreen(<MealListing meal={stored.id} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getMeal: async () => stored,
+                    listRecipes: async () => page(NO_RECIPES),
+                    setMealAvailability: async (_id, request) => {
+                        stored = {
+                            ...stored,
+                            availability: request.days,
+                            meta: meta({ lockVersion: request.lockVersion + 1 }),
+                        };
+                        return stored;
                     },
                 },
             },
-        );
+        });
         await untilVisible('kitchen-meal-availability-add');
 
         await act(async () => {
@@ -1688,7 +1760,7 @@ describe('editing a meal', () => {
     it('renders the confidential margin here, labelled, and never a fabricated zero', async () => {
         const stored = meal({ ordinal: 1, name: 'Freekeh bowl' });
 
-        await renderStubScreen(<MealEditScreen meal={String(stored.id)} />, {
+        await renderStubScreen(<MealListing meal={stored.id} />, {
             session: kitchenManagerSession(),
             repositories: {
                 kitchenAdmin: {
@@ -1717,7 +1789,7 @@ describe('editing a meal', () => {
             overrides: { marginPercent: null },
         });
 
-        await renderStubScreen(<MealEditScreen meal={String(stored.id)} />, {
+        await renderStubScreen(<MealListing meal={stored.id} />, {
             session: kitchenManagerSession(),
             repositories: {
                 kitchenAdmin: {
@@ -1736,150 +1808,6 @@ describe('editing a meal', () => {
 /* ------------------------------------------------------------------------------------------------
  * Publication
  * ---------------------------------------------------------------------------------------------- */
-
-describe('creating a meal', () => {
-    /**
-     * The create request, as the form holds it.
-     *
-     * Asserted on the *request* rather than on the record that comes back, because the record is
-     * the server's answer and this is the only place the screen's own reading of the form is
-     * visible. A bought-in meal — no recipe — is a legitimate draft: the picker's "not built from a
-     * recipe" answer is an answer, and `recipeId` is therefore absent from the request rather than
-     * sent as a null the contract does not describe.
-     */
-    it('sends the form it holds, and lands on the record the server answered with', async () => {
-        let created: MealAdmin | null = null;
-
-        const { repositories } = await renderStubScreen(<MealEditScreen meal="new" />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    listRecipes: async () => page(NO_RECIPES),
-                    createMeal: async (request) => {
-                        created = meal({
-                            ordinal: 9,
-                            overrides: {
-                                name: request.name,
-                                description: request.description,
-                                meta: meta({ status: 'draft', lockVersion: 0 }),
-                                // Empty because the API stores no meal type for anybody: see the
-                                // note on `publishBlockers` in `meal-edit-screen.tsx`.
-                                mealTypes: [],
-                                allergens: [],
-                            },
-                        });
-                        return created;
-                    },
-                },
-            },
-        });
-        await untilVisible('kitchen-meal-name-en-input');
-
-        /*
-         * Service days are offered on the create form, and that is deliberate: the rows are held in
-         * local state and written by the create branch the moment the meal has an id, so a day
-         * typed before the first save is not lost. The section opens on its empty state.
-         *
-         * Publishing is the thing that genuinely needs an identifier, and it is the thing withheld
-         * — there is no record yet for the server to make public.
-         */
-        expect(screen.getByTestId('kitchen-meal-availability-empty')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-meal-availability-add')).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-meal-publish')).toBeNull();
-
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId('kitchen-meal-name-en-input'),
-                'Charred aubergine bowl',
-            );
-        });
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId('kitchen-meal-name-ar-input'),
-                'وعاء الباذنجان المشوي',
-            );
-        });
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId('kitchen-meal-description-en-input'),
-                'Smoked, with tahini.',
-            );
-        });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-meal-type-lunch'));
-        });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-meal-editor-screen-save'));
-        });
-
-        await untilVisible('kitchen-meal-created-toast');
-
-        expect(repositories.kitchenAdmin.createMeal).toHaveBeenCalledTimes(1);
-        expect(repositories.kitchenAdmin.createMeal).toHaveBeenCalledWith({
-            name: { en: 'Charred aubergine bowl', ar: 'وعاء الباذنجان المشوي' },
-            description: { en: 'Smoked, with tahini.', ar: '' },
-            portionFactor: 1,
-            mealTypes: ['lunch'],
-            dietClassifications: [],
-            // The finished-stock chain, stated rather than omitted (PROD1). A new meal is cooked
-            // when it is ordered until somebody says otherwise, and these four say so explicitly:
-            // a cleared produced item has to reach the server as `null` or a meal could never be
-            // taken back off a shelf, and an exact-match assertion is what keeps the create
-            // payload honest about carrying them.
-            productionMode: null,
-            ingredientId: null,
-            sellsFromFinishedStock: false,
-            netContentQuantity: null,
-            netContentUnitId: null,
-        });
-        // Created as a draft, and moved onto its own address — the editor cannot go on calling
-        // itself "New meal" over a record that exists.
-        expect(repositories.kitchenAdmin.publishMeal).not.toHaveBeenCalled();
-        expect(routerMock.__replace).toHaveBeenCalledWith(
-            `/kitchen/meals/${String(mealIdentifier(9))}`,
-        );
-    });
-
-    /**
-     * The silent stall this suite exists to prevent.
-     *
-     * A create can fail for a reason the failure union does not carry — a mapper reading an
-     * envelope the wrong way, a bug in an invalidation effect — and until `toFailure` learned to
-     * project the uninterpretable onto `server`, such a rejection rendered *nothing*: no toast, no
-     * alert, the heading still reading "Unsaved changes". Against the live API that is exactly what
-     * a `TypeError` inside the meal read did to a save the server had already accepted.
-     */
-    it('says a create failed even when the failure is not one the contract describes', async () => {
-        const { repositories } = await renderStubScreen(<MealEditScreen meal="new" />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    listRecipes: async () => page(NO_RECIPES),
-                    createMeal: () => {
-                        throw new TypeError('allergens.map is not a function');
-                    },
-                },
-            },
-        });
-        await untilVisible('kitchen-meal-name-en-input');
-
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-meal-name-en-input'), 'Plain rice');
-        });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-meal-editor-screen-save'));
-        });
-
-        await waitFor(() => {
-            expect(repositories.kitchenAdmin.createMeal).toHaveBeenCalledTimes(1);
-        });
-
-        await untilVisible('kitchen-meal-save-error');
-        // …and nothing claims the write landed.
-        expect(screen.queryByTestId('kitchen-meal-created-toast')).toBeNull();
-        expect(routerMock.__replace).not.toHaveBeenCalled();
-    });
-});
 
 /**
  * A meal the publish gate lets through.
@@ -1906,28 +1834,25 @@ describe('publishing a meal', () => {
     it('claims public visibility only once the server has answered published', async () => {
         let stored = publishableMeal({ ordinal: 3, name: 'Charred aubergine bowl' });
 
-        const { repositories } = await renderStubScreen(
-            <MealEditScreen meal={String(stored.id)} />,
-            {
-                session: kitchenManagerSession(),
-                repositories: {
-                    kitchenAdmin: {
-                        getMeal: async () => stored,
-                        listRecipes: async () => page(NO_RECIPES),
-                        publishMeal: async (_id, request) => {
-                            stored = {
-                                ...stored,
-                                meta: meta({
-                                    status: 'published',
-                                    lockVersion: request.lockVersion + 1,
-                                }),
-                            };
-                            return stored;
-                        },
+        const { repositories } = await renderStubScreen(<MealListing meal={stored.id} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getMeal: async () => stored,
+                    listRecipes: async () => page(NO_RECIPES),
+                    publishMeal: async (_id, request) => {
+                        stored = {
+                            ...stored,
+                            meta: meta({
+                                status: 'published',
+                                lockVersion: request.lockVersion + 1,
+                            }),
+                        };
+                        return stored;
                     },
                 },
             },
-        );
+        });
 
         await untilVisible('kitchen-meal-publish');
         // A draft claims nothing: no published banner, and no route to a public page that does not
@@ -1985,28 +1910,25 @@ describe('publishing a meal', () => {
             overrides: { mealTypes: [] },
         });
 
-        const { repositories } = await renderStubScreen(
-            <MealEditScreen meal={String(stored.id)} />,
-            {
-                session: kitchenManagerSession(),
-                repositories: {
-                    kitchenAdmin: {
-                        getMeal: async () => stored,
-                        listRecipes: async () => page(NO_RECIPES),
-                        publishMeal: async (_id, request) => {
-                            stored = {
-                                ...stored,
-                                meta: meta({
-                                    status: 'published',
-                                    lockVersion: request.lockVersion + 1,
-                                }),
-                            };
-                            return stored;
-                        },
+        const { repositories } = await renderStubScreen(<MealListing meal={stored.id} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getMeal: async () => stored,
+                    listRecipes: async () => page(NO_RECIPES),
+                    publishMeal: async (_id, request) => {
+                        stored = {
+                            ...stored,
+                            meta: meta({
+                                status: 'published',
+                                lockVersion: request.lockVersion + 1,
+                            }),
+                        };
+                        return stored;
                     },
                 },
             },
-        );
+        });
 
         await untilVisible('kitchen-meal-publish');
         await act(async () => {
@@ -2039,7 +1961,7 @@ describe('publishing a meal', () => {
             overrides: { allergens: [], recipeId: null, recipeVersionId: null },
         });
 
-        await renderStubScreen(<MealEditScreen meal={String(stored.id)} />, {
+        await renderStubScreen(<MealListing meal={stored.id} />, {
             session: kitchenManagerSession(),
             repositories: {
                 kitchenAdmin: {
@@ -2070,7 +1992,7 @@ describe('publishing a meal', () => {
     it('renders a refusal on `status` as a quarantine, and the meal stays unpublished', async () => {
         const stored = publishableMeal({ ordinal: 5, name: 'Contested tabbouleh' });
 
-        await renderStubScreen(<MealEditScreen meal={String(stored.id)} />, {
+        await renderStubScreen(<MealListing meal={stored.id} />, {
             session: kitchenManagerSession(),
             repositories: {
                 kitchenAdmin: {
@@ -2116,28 +2038,25 @@ describe('publishing a meal', () => {
             overrides: { meta: meta({ status: 'published', lockVersion: 4 }) },
         });
 
-        const { repositories } = await renderStubScreen(
-            <MealEditScreen meal={String(stored.id)} />,
-            {
-                session: kitchenManagerSession(),
-                repositories: {
-                    kitchenAdmin: {
-                        getMeal: async () => stored,
-                        listRecipes: async () => page(NO_RECIPES),
-                        retireMeal: async (_id, request) => {
-                            stored = {
-                                ...stored,
-                                meta: meta({
-                                    status: 'retired',
-                                    lockVersion: request.lockVersion + 1,
-                                }),
-                            };
-                            return stored;
-                        },
+        const { repositories } = await renderStubScreen(<MealListing meal={stored.id} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getMeal: async () => stored,
+                    listRecipes: async () => page(NO_RECIPES),
+                    retireMeal: async (_id, request) => {
+                        stored = {
+                            ...stored,
+                            meta: meta({
+                                status: 'retired',
+                                lockVersion: request.lockVersion + 1,
+                            }),
+                        };
+                        return stored;
                     },
                 },
             },
-        );
+        });
         await untilVisible('kitchen-meal-retire');
         expect(screen.getByTestId('kitchen-meal-view-public')).toBeTruthy();
 
@@ -2159,7 +2078,11 @@ describe('publishing a meal', () => {
 
         // Retiring *is* the archive: nothing is deleted, the record comes back retired, and the
         // editor drops the claim that a customer can see it.
-        await untilVisible('kitchen-meal-retired');
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-meal-editor-screen-status')).toHaveTextContent(
+                /Archived/,
+            );
+        });
         await waitFor(() => {
             expect(screen.queryByTestId('kitchen-meal-view-public')).toBeNull();
         });
@@ -2208,8 +2131,10 @@ describe('converting a meal to sell from finished stock', () => {
         ],
     });
 
+    // The listing itself, not the page it sits on: a meal's page is its recipe, and these assert
+    // the Selling tab's own form. `cooked-item-page.test.tsx` covers the page that mounts it.
     const openEditor = async (stored: MealAdmin, unit: MeasureUnit = 'kg') =>
-        renderStubScreen(<MealEditScreen meal={String(stored.id)} />, {
+        renderStubScreen(<MealListing meal={stored.id} />, {
             session: kitchenManagerSession(),
             repositories: {
                 kitchenAdmin: {
@@ -2240,9 +2165,7 @@ describe('converting a meal to sell from finished stock', () => {
     });
 
     it('names the missing produced item once the kitchen says it makes the meal', async () => {
-        await openEditor(
-            meal({ ordinal: 1, overrides: { productionMode: 'production' } }),
-        );
+        await openEditor(meal({ ordinal: 1, overrides: { productionMode: 'production' } }));
         await untilVisible('kitchen-meal-finished-stock');
 
         // Half the chain: the mode is right, so the reason moves on to the shelf.

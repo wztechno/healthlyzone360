@@ -43,6 +43,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property CarbonImmutable|null $closed_at
  * @property CarbonImmutable|null $anonymised_at
  * @property string $password
+ * @property bool $must_change_password
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
  * @property CarbonImmutable|null $two_factor_confirmed_at

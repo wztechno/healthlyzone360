@@ -3,7 +3,8 @@ import { useLocalSearchParams } from 'expo-router';
 import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
 
 /**
- * `/kitchen/meals/{meal}` — the meal editor, and the publication gate with it.
+ * `/kitchen/meals/{meal}` — a meal's page: the recipe it is made from, with its listing (portion,
+ * service days, publication) on the Selling tab.
  *
  * `new` is a value of the same parameter, for the reason every other editor in this workspace gives.
  */

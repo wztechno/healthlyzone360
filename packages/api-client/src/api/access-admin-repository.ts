@@ -288,7 +288,11 @@ export function createApiAccessAdminRepository(transport: Transport): AccessAdmi
             };
         },
 
-        async updateRole(organisation, role, request: UpdateRoleRequest): Promise<OrganisationRole> {
+        async updateRole(
+            organisation,
+            role,
+            request: UpdateRoleRequest,
+        ): Promise<OrganisationRole> {
             const payload = await transport.request<{ readonly role: WireRole }>({
                 method: 'PATCH',
                 path: organisationPath(organisation, `/roles/${encodeURIComponent(role)}`),
@@ -412,7 +416,10 @@ export function createApiAccessAdminRepository(transport: Transport): AccessAdmi
         endMember(organisation, membership, request: LockedMemberRequest) {
             return memberResult(
                 'POST',
-                organisationPath(organisation, `/memberships/${encodeURIComponent(membership)}/end`),
+                organisationPath(
+                    organisation,
+                    `/memberships/${encodeURIComponent(membership)}/end`,
+                ),
                 { headers: ifMatch(request.lockVersion) },
             );
         },

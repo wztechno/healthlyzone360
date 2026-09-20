@@ -23,9 +23,10 @@ import {
     Select,
     Skeleton,
     Stack,
-    Tabs,
+    StepProgress,
     Text,
     TextInputField,
+    useFormSteps,
     useToast,
 } from '@healthy360/design-system';
 import { fieldWidth } from '@healthy360/design-tokens';
@@ -83,6 +84,7 @@ import {
     withCustomer,
     withFulfilmentType,
 } from '../order-desk/steps.ts';
+import { WithColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/order-desk/sale` — ringing up a counter, pickup or telephone sale.
@@ -226,12 +228,18 @@ export function OrderDeskSaleScreen() {
 
 function SaleWizard() {
     const { t } = useTranslation();
-    const formatter = useFormatter();
     const router = useRouter();
     const toast = useToast();
 
     const [state, setState] = useState<SaleWizardState>(initialSaleWizardState);
-    const [step, setStep] = useState<OrderDeskSaleStep>(FIRST_SALE_STEP);
+    /*
+     * The open step and the steps already left, over the steps *this* sale has — a counter sale has
+     * no Customer or Address. Which step comes next, and whether the open one may be left, is still
+     * the machine's (`order-desk/steps.ts`); the hook only holds where the agent is.
+     */
+    const steps = applicableSteps(state.fulfilmentType);
+    const form = useFormSteps(steps, { initial: FIRST_SALE_STEP });
+    const step = form.current;
     const [pickerQuery, setPickerQuery] = useState('');
     /** The finished counter sale. Non-null puts the screen into its completed state. */
     const [completed, setCompleted] = useState<KitchenOrder | null>(null);
@@ -281,7 +289,6 @@ function SaleWizard() {
     /** True while the basket has moved on from the quote on screen. The total shown is stale. */
     const quoteStale = quotedRequest !== saleRequest || quote.isFetching;
 
-    const steps = applicableSteps(state.fulfilmentType);
     const back = previousStep(state, step);
     const forward = nextStep(state, step);
     const quotable = quoted?.quotable === true;
@@ -303,7 +310,7 @@ function SaleWizard() {
         setState(next);
         // Changing the type can delete the step somebody is standing on. The machine says where
         // they land — the nearest step they had already reached, not the beginning.
-        setStep((current) => clampStep(next, current));
+        form.goTo(clampStep(next, step));
         place.reset();
     }
 
@@ -363,7 +370,7 @@ function SaleWizard() {
     function startAgain() {
         setCompleted(null);
         setState(initialSaleWizardState());
-        setStep(FIRST_SALE_STEP);
+        form.reset();
         place.reset();
     }
 
@@ -371,32 +378,28 @@ function SaleWizard() {
         return <CompletedSale order={completed} onNewSale={startAgain} />;
     }
 
-    const stepIndex = steps.indexOf(step);
-
     return (
         <Stack space="md" testID="kitchen-order-desk-sale-screen">
             {/*
-             * The steps as a strip of tabs — a progress indicator the agent can also walk *back*
-             * along. Steps ahead of the current one are disabled rather than hidden: the strip says
-             * how long the sale is, and a step that could be jumped to would skip the checks the
-             * machine makes before each one may be left.
+             * The multi-step form's progress row, as the recipe editor draws it — numbered dots on
+             * the green line — and one the agent can also walk *back* along. Steps ahead of the
+             * current one are disabled rather than hidden: the row says how long the sale is, and a
+             * step that could be jumped to would skip the checks the machine makes before each one
+             * may be left.
              */}
-            <Tabs<OrderDeskSaleStep>
+            <StepProgress
                 testID="kitchen-order-desk-sale-stepper"
                 label={t('kitchen:desk.sale.progressLabel')}
-                value={step}
-                onChange={(next) => {
-                    if (steps.indexOf(next) <= stepIndex) setStep(next);
-                }}
-                items={steps.map((candidate, index) => ({
-                    value: candidate,
-                    label: t('kitchen:desk.sale.stepTab', {
-                        number: formatter.formatNumber(index + 1),
-                        label: t(STEP_LABEL_KEYS[candidate]),
-                    }),
-                    disabled: index > stepIndex,
+                steps={steps.map((candidate, index) => ({
+                    key: candidate,
+                    label: t(STEP_LABEL_KEYS[candidate]),
+                    disabled: index > form.index,
                     testID: `kitchen-order-desk-sale-step-${candidate}`,
                 }))}
+                current={form.index}
+                completed={form.completed}
+                onSelect={form.goToIndex}
+                divided
             />
 
             {/*
@@ -553,7 +556,7 @@ function SaleWizard() {
                                 label={t('kitchen:desk.sale.back')}
                                 disabled={back === null || place.isPending}
                                 onPress={() => {
-                                    if (back !== null) setStep(back);
+                                    if (back !== null) form.goTo(back);
                                 }}
                             />
                             {step === 'review' ? (
@@ -576,7 +579,7 @@ function SaleWizard() {
                                     label={t('kitchen:desk.sale.next')}
                                     disabled={forward === null || !mayLeave(step)}
                                     onPress={() => {
-                                        if (forward !== null) setStep(forward);
+                                        if (forward !== null) form.goTo(forward);
                                     }}
                                 />
                             )}
@@ -1458,15 +1461,17 @@ function BasketStep({
                     />
                 ) : (
                     <View testID="kitchen-order-desk-sale-picker-rows">
-                        <CatalogueList
-                            testID="kitchen-order-desk-sale-picker-table"
-                            label={t('kitchen:desk.sale.pickerSearchLabel')}
-                            columns={controls.columns}
-                            rows={controls.rows}
-                            rowKey={(row) => `${row.kind}-${row.id}`}
-                            density="sm"
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
+                        <WithColumnPicker picker={controls.picker}>
+                            <CatalogueList
+                                testID="kitchen-order-desk-sale-picker-table"
+                                label={t('kitchen:desk.sale.pickerSearchLabel')}
+                                columns={controls.columns}
+                                rows={controls.rows}
+                                rowKey={(row) => `${row.kind}-${row.id}`}
+                                density="sm"
+                                rowActionsLabel={t('kitchen:list.rowActions')}
+                            />
+                        </WithColumnPicker>
                     </View>
                 )}
             </View>

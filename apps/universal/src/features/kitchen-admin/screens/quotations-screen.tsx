@@ -1,3 +1,4 @@
+import { KITCHEN_QUOTATION_STATUSES } from '@healthy360/api-client/contracts';
 import type {
     KitchenQuotation,
     KitchenQuotationLine,
@@ -7,24 +8,25 @@ import {
     Badge,
     Button,
     Callout,
-    Drawer,
+    DataList,
     EmptyState,
     ErrorState,
-    Heading,
-    Inline,
-    SegmentedControl,
+    FormSection,
+    Icon,
+    RecordWindowFieldGrid,
     Skeleton,
     Stack,
-    Table,
     Text,
-    TextInputField,
     useToast,
 } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
+import type { MenuItem } from '@healthy360/design-system';
 import type { CurrencyCode, QuotationId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
+import type { Formatter } from '@healthy360/i18n';
+import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -34,6 +36,15 @@ import {
     useQuoteQuotationMutation,
 } from '../../../data/kitchen-quotations-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
+import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
+import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
+import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
+import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
+import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import { quotationLineColumns } from '../commercial/quotation-line-columns.tsx';
 import {
     B2B_QUOTATION_QUOTE_PERMISSION,
     B2B_QUOTATION_VIEW_PERMISSION,
@@ -46,76 +57,53 @@ import {
     kitchenQuotationStatusTone,
     kitchenQuotationTotalMinor,
 } from '../ops-format.ts';
-import { OpsPanel } from '../ops-panel.tsx';
-import type { OpsMetric } from '../ops-panel.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { ColumnPicker, WithColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
- * `/kitchen/quotations` — what corporate buyers have asked this kitchen to price (B4).
+ * `/kitchen/quotations` — what corporate buyers have asked this kitchen to price (B4), as
+ * `Commercial.dc.html` draws it (§3.2).
  *
- * The seller's half of the surface `/corporate/quotations` is the buyer's half of. A buyer drafts
- * lines against a programme and submits; this screen is where somebody names a figure against each
- * line and sends it back, which is the one move in the quotation's life that neither the buyer nor
- * the platform makes on the kitchen's behalf.
+ * ```
+ * ┌ LOADED ┐ ┌ AWAITING A PRICE ┐ ┌ PRICED ┐
+ * [ ⌕ reference ]  [ All | Awaiting | Priced | Closed ]
+ * REFERENCE       CURRENCY   SUBMITTED    STATUS          ◉ ✎
+ * ```
  *
- * ## Why the detail is a slide-in and not a route
+ * The Catalogue list's parts. The row body — or ✎ — opens the **pricing page** in place of the list;
+ * ◉ opens the read-only `RecordWindow`.
  *
- * The order book's argument (`./orders-screen.tsx`), and it lands harder here: pricing is *work
- * done against a list*, and the person doing it is comparing what they just quoted one buyer with
- * what they are about to quote the next. A route would put a navigation and a back press either side
- * of every quotation and lose the filter on the way in.
+ * ## The pricing page replaces the list, it is not a route or a drawer
  *
- * ## Why the panel re-reads, and why it *must* here
+ * The side drawer is retired (Workbench §0). The editor takes the page the way the ingredient
+ * detail does: the list's filter survives Back because it is state, not a navigation, and pricing is
+ * work done against a list — somebody compares what they quoted one buyer with the next.
  *
- * On the order book the re-read is about freshness. Here it is about existence: `listQuotations`
- * answers `lines: []` on every row by the wire's own contract, so the list literally cannot render
- * the thing being priced. The panel reads the quotation on its own, and the mutation's response is
- * seeded straight back into that entry by the hook, so the badge and the totals settle without a
- * round trip.
+ * `listQuotations` answers `lines: []` on every row by the wire's contract, so the list has no Lines
+ * or Total column to show honestly (§3.2's spec names them; the endpoint cannot fill them). The page
+ * re-reads the quotation to get its lines.
  *
- * ## Filtering happens here because the endpoint offers none
+ * ## Pricing rules kept verbatim
  *
- * `GET /b2b/kitchen/quotations` takes no query parameters and no cursor — it answers every non-draft
- * quotation, newest first. So the segmented control narrows rows already held rather than issuing a
- * request, and there is no paging control: there is no next page to ask for. That is stated in
- * `data/kitchen-quotations-hooks.ts` too, because a filter argument on a hook whose endpoint has
- * none is how a client-side sieve gets mistaken for a server-side view.
+ * Major units in, minor units out through `parseMinorAmount`. **Every line, or none**: Send stays
+ * disabled until every line parses; zero is accepted, empty is not, and the sentence beside the
+ * button says so. Currency is stated, never chosen. A conflict and a stale quotation are answered
+ * with a re-read, told apart in the copy.
  *
- * ## Prices are entered in major units and sent in minor ones
+ * ## Filtering and search happen here because the endpoint offers none
  *
- * `parseMinorAmount` / `minorAmountToInput` (`../format.ts`), the same pair the price-list editor
- * uses, and string arithmetic for the same reason: `Number('5.50') * 100` is not reliably `550`, and
- * this figure ends up in an integer column somebody reconciles an invoice against. A price with more
- * decimal places than the currency has is refused rather than rounded.
+ * `GET /b2b/kitchen/quotations` takes no parameters and no cursor, so the segments and the search
+ * narrow rows already held, and there is no pager — there is no next page (§6.5).
  *
- * **Every line, or none.** The server refuses a partial set with the outstanding identifiers in
- * `details.fields.prices.missing_quotation_line_ids`, so the button stays disabled until every line
- * parses. Sending a short set to discover which lines were missed would be asking the server to do
- * arithmetic the screen can do before anybody waits on a request.
- *
- * ## Two refusals, two different remedies, and neither is retried
- *
- * `resource.conflict` means another tablet priced this quotation between this screen's read and its
- * write. `b2b.quotation_state_invalid` means the **buyer** moved it — accepted, declined, or let the
- * seven-day clock run out — while it sat open. Both are answered with a re-read rather than a retry,
- * and they are told apart in the copy because "somebody else priced this" and "the buyer has already
- * decided" are different things for a person to do next.
+ * The same is what makes every header honest in memory: Reference and Submitted sort, Currency and
+ * Status filter, and all four act on the whole queue because the whole queue is what was answered.
  */
 
-/**
- * Stable empties for the two "not loaded yet" cases.
- *
- * `?? []` would mint a fresh array on every render, and both of these feed a `useMemo` dependency —
- * so the filtered rows and the parsed prices would recompute every frame, and the price parser in
- * particular runs over every line of the open quotation.
- */
 const NO_QUOTATIONS: readonly KitchenQuotation[] = [];
 const NO_LINES: readonly KitchenQuotationLine[] = [];
 
 type StatusFilter = 'all' | 'awaiting' | 'quoted' | 'closed';
-
 const FILTERS: readonly StatusFilter[] = ['all', 'awaiting', 'quoted', 'closed'];
-
-/** Which statuses each filter admits. `all` admits everything, so it holds no list. */
 const FILTER_STATUSES: Readonly<Record<StatusFilter, readonly KitchenQuotationStatus[]>> = {
     all: [],
     awaiting: ['submitted'],
@@ -135,82 +123,348 @@ export function QuotationsScreen() {
     );
 }
 
-/** One labelled fact in the detail panel. Never a table: these are pairs, not a dataset. */
-function DetailRow({
-    testID,
-    label,
-    value,
-}: {
-    readonly testID: string;
-    readonly label: string;
-    readonly value: string;
-}) {
+function Quotations() {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+
+    const [filter, setFilter] = useState<StatusFilter>('all');
+    const [search, setSearch] = useState('');
+    const [openId, setOpenId] = useState<QuotationId | null>(null);
+    const [viewing, setViewing] = useState<KitchenQuotation | null>(null);
+
+    const quotations = useKitchenQuotationsQuery();
+    const all: readonly KitchenQuotation[] = quotations.data ?? NO_QUOTATIONS;
+
+    const rows = useMemo(() => {
+        const allowed = FILTER_STATUSES[filter];
+        const needle = search.trim().toLowerCase();
+        return all.filter(
+            (row) =>
+                (allowed.length === 0 || allowed.includes(row.status)) &&
+                (needle === '' || row.reference.toLowerCase().includes(needle)),
+        );
+    }, [all, filter, search]);
+
+    const columns: readonly ControlledColumn<
+        KitchenQuotation,
+        CatalogueColumn<KitchenQuotation>
+    >[] = [
+        {
+            key: 'reference',
+            role: 'title',
+            label: t('kitchen:ops.quotations.columnReference'),
+            width: 200,
+            priority: 100,
+            value: (row) => row.reference,
+            sort: (left, right, direction) =>
+                compareText(left.reference, right.reference, direction),
+            render: (row) => (
+                <Text
+                    variant="mono"
+                    className="font-semibold"
+                    testID={`${kitchenQuotationRowTestId(String(row.id))}-reference`}
+                >
+                    {row.reference}
+                </Text>
+            ),
+        },
+        {
+            key: 'currency',
+            role: 'meta',
+            label: t('kitchen:ops.quotations.columnCurrency'),
+            width: 90,
+            priority: 70,
+            value: (row) => row.currencyCode,
+            // The currencies the queue actually carries: a code is its own label, and offering
+            // one no quotation is in would be a choice that can only ever empty the list.
+            filter: {
+                values: (loaded) =>
+                    [...new Set(loaded.map((row) => row.currencyCode))].map((code) => ({
+                        key: code,
+                        label: code,
+                    })),
+                match: (row, value) => row.currencyCode === value,
+            },
+            render: (row) => (
+                <Text
+                    variant="mono"
+                    testID={`${kitchenQuotationRowTestId(String(row.id))}-currency`}
+                >
+                    {row.currencyCode}
+                </Text>
+            ),
+        },
+        {
+            key: 'submitted',
+            role: 'meta',
+            label: t('kitchen:ops.quotations.columnSubmitted'),
+            width: 130,
+            priority: 75,
+            value: (row) => submittedText(row, t, formatter),
+            sort: (left, right, direction) =>
+                compareText(left.submittedAt ?? '', right.submittedAt ?? '', direction),
+            render: (row) => (
+                <Text
+                    variant="mono"
+                    tone="secondary"
+                    testID={`${kitchenQuotationRowTestId(String(row.id))}-submitted`}
+                >
+                    {submittedText(row, t, formatter)}
+                </Text>
+            ),
+        },
+        {
+            key: 'status',
+            role: 'status',
+            label: t('kitchen:ops.quotations.columnStatus'),
+            width: 120,
+            priority: 85,
+            value: (row) => t(kitchenQuotationStatusKey(row.status)),
+            // One status at a time, all five — the segments fold three of them into Closed, and
+            // this is where "only the declined ones" is asked.
+            filter: {
+                values: () =>
+                    KITCHEN_QUOTATION_STATUSES.map((status) => ({
+                        key: status,
+                        label: t(kitchenQuotationStatusKey(status)),
+                    })),
+                match: (row, value) => row.status === value,
+            },
+            render: (row) => (
+                <Badge
+                    testID={`${kitchenQuotationRowTestId(String(row.id))}-status`}
+                    tone={kitchenQuotationStatusTone(row.status)}
+                    label={t(kitchenQuotationStatusKey(row.status))}
+                />
+            ),
+        },
+    ];
+
+    const controls = useColumnControls(rows, columns, 'kitchen-quotations');
+    const listFailure = toFailure(quotations.error);
+    // The segment, the search and the header filters all narrow the same held rows, so "unfiltered"
+    // and Clear have to answer for all three.
+    const unfiltered = filter === 'all' && search === '' && !controls.filtered;
+    const clearFilters = () => {
+        setFilter('all');
+        setSearch('');
+        controls.clearFilters();
+    };
+
+    if (openId !== null) {
+        return (
+            <QuotationPricing
+                id={openId}
+                onBack={() => {
+                    setOpenId(null);
+                }}
+                onListChanged={() => {
+                    void quotations.refetch();
+                }}
+            />
+        );
+    }
+
+    const loaded = quotations.isPending ? null : all.length;
+    const awaiting = all.filter((row) => row.status === 'submitted').length;
+    const quoted = all.filter((row) => row.status === 'quoted').length;
+
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-quotations-view"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={viewing.reference}
+                kind={t('kitchen:ops.quotations.viewKind')}
+                status={{
+                    label: t(kitchenQuotationStatusKey(viewing.status)),
+                    tone: kitchenQuotationStatusTone(viewing.status),
+                }}
+                fields={requestFields(viewing, t, formatter)}
+                primaryAction={{
+                    label: t('kitchen:ops.quotations.open'),
+                    icon: null,
+                    onPress: () => {
+                        const id = viewing.id;
+                        setViewing(null);
+                        setOpenId(id);
+                    },
+                }}
+            />
+        );
+    }
+
     return (
-        <Inline space="sm" align="start" justify="between" wrap>
-            <Text tone="secondary" variant="caption">
-                {label}
-            </Text>
-            <Text testID={testID}>{value}</Text>
-        </Inline>
+        <Stack space="md" testID="kitchen-quotations-screen">
+            {loaded === null || listFailure !== null ? null : (
+                <CatalogueStatCards
+                    testID="kitchen-quotations-panel-metric"
+                    cards={[
+                        {
+                            key: 'loaded',
+                            label: t('kitchen:ops.quotations.metrics.loaded'),
+                            value: String(loaded),
+                            unit: t('kitchen:list.statRecords'),
+                            caption: t('kitchen:ops.quotations.statLoadedCaption'),
+                            mark: 'calendar',
+                            tone: 'brand',
+                            onPress: clearFilters,
+                            accessibilityLabel: t('kitchen:ops.quotations.clearFilter'),
+                        },
+                        {
+                            key: 'awaiting',
+                            label: t('kitchen:ops.quotations.metrics.awaiting'),
+                            value: String(awaiting),
+                            unit: t('kitchen:list.statRecords'),
+                            caption: t('kitchen:ops.quotations.statAwaitingCaption'),
+                            mark: 'warning',
+                            tone: awaiting === 0 ? 'default' : 'warning',
+                            onPress: () => {
+                                setFilter('awaiting');
+                            },
+                            accessibilityLabel: t('kitchen:ops.quotations.filter.awaiting'),
+                        },
+                        {
+                            key: 'quoted',
+                            label: t('kitchen:ops.quotations.metrics.quoted'),
+                            value: String(quoted),
+                            unit: t('kitchen:list.statRecords'),
+                            caption: t('kitchen:ops.quotations.statQuotedCaption'),
+                            mark: 'check',
+                        },
+                    ]}
+                />
+            )}
+
+            <CatalogueToolbar<StatusFilter>
+                testID="kitchen-quotations-toolbar"
+                search={search}
+                onSearchChange={(next) => {
+                    setSearch(next);
+                    setViewing(null);
+                }}
+                searchLabel={t('kitchen:toolbar.searchLabel')}
+                searchPlaceholder={t('kitchen:ops.quotations.columnReference')}
+                statusLabel={t('kitchen:ops.quotations.filterLabel')}
+                statusSegments={FILTERS.map((value) => ({
+                    value,
+                    label: t(`kitchen:ops.quotations.filter.${value}`),
+                }))}
+                status={filter}
+                onStatusChange={(next) => {
+                    setFilter(next);
+                    setViewing(null);
+                }}
+            >
+                <ColumnPicker {...controls.picker} />
+            </CatalogueToolbar>
+
+            {quotations.isPending ? (
+                <Stack space="xs" testID="kitchen-quotations-loading">
+                    {Array.from({ length: 5 }, (_, index) => (
+                        <Skeleton key={index} heightClassName="h-row-sm" />
+                    ))}
+                </Stack>
+            ) : listFailure !== null ? (
+                <ErrorState
+                    testID="kitchen-quotations-error"
+                    title={t('kitchen:ops.quotations.loadErrorTitle')}
+                    failure={listFailure}
+                    onRetry={() => {
+                        void quotations.refetch();
+                    }}
+                    retrying={quotations.isFetching}
+                />
+            ) : controls.rows.length === 0 ? (
+                <EmptyState
+                    testID="kitchen-quotations-empty"
+                    title={t(
+                        unfiltered
+                            ? 'kitchen:ops.quotations.emptyTitle'
+                            : 'kitchen:ops.quotations.filteredEmptyTitle',
+                    )}
+                    body={t(
+                        unfiltered
+                            ? 'kitchen:ops.quotations.emptyBody'
+                            : 'kitchen:ops.quotations.filteredEmptyBody',
+                    )}
+                    actions={
+                        unfiltered ? undefined : (
+                            <Button
+                                testID="kitchen-quotations-clear"
+                                variant="secondary"
+                                size="sm"
+                                label={t('kitchen:ops.quotations.clearFilter')}
+                                onPress={clearFilters}
+                            />
+                        )
+                    }
+                />
+            ) : (
+                <CatalogueList<KitchenQuotation>
+                    testID="kitchen-quotations-table"
+                    label={t('kitchen:ops.quotations.caption')}
+                    columns={controls.columns}
+                    rows={controls.rows}
+                    rowKey={(row) => String(row.id)}
+                    density="sm"
+                    onRowPress={(row) => {
+                        setOpenId(row.id);
+                    }}
+                    rowActionsLabel={t('kitchen:list.rowActions')}
+                    rowActions={(row): readonly MenuItem[] => [
+                        {
+                            key: 'view',
+                            label: t('kitchen:list.view'),
+                            icon: CATALOGUE_ROW_ICONS.view,
+                            testID: `${kitchenQuotationRowTestId(String(row.id))}-view`,
+                            onSelect: () => {
+                                setViewing(row);
+                            },
+                        },
+                        {
+                            key: 'edit',
+                            label: t('kitchen:catalogue.edit'),
+                            icon: CATALOGUE_ROW_ICONS.edit,
+                            testID: `${kitchenQuotationRowTestId(String(row.id))}-open`,
+                            onSelect: () => {
+                                setOpenId(row.id);
+                            },
+                        },
+                    ]}
+                />
+            )}
+        </Stack>
     );
 }
 
-function Quotations() {
+/** The pricing page: the request, the lines with their price inputs, the totals and Send. */
+function QuotationPricing({
+    id,
+    onBack,
+    onListChanged,
+}: {
+    readonly id: QuotationId;
+    readonly onBack: () => void;
+    readonly onListChanged: () => void;
+}) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const toast = useToast();
     const canQuote = useCan(B2B_QUOTATION_QUOTE_PERMISSION);
 
-    const [filter, setFilter] = useState<StatusFilter>('all');
-    const [selectedId, setSelectedId] = useState<QuotationId | null>(null);
-    /** Line identifier → the major-unit string that line's field holds. Reset with the panel. */
+    /** Line id → the major-unit string typed. Empty on open: nothing is pre-filled. */
     const [prices, setPrices] = useState<Readonly<Record<string, string>>>({});
-
-    const quotations = useKitchenQuotationsQuery();
-    const detail = useKitchenQuotationQuery(selectedId);
+    const detail = useKitchenQuotationQuery(id);
     const quote = useQuoteQuotationMutation();
-
-    const all: readonly KitchenQuotation[] = quotations.data ?? NO_QUOTATIONS;
-    const rows = useMemo(() => {
-        const allowed = FILTER_STATUSES[filter];
-        if (allowed.length === 0) return all;
-        return all.filter((row) => allowed.includes(row.status));
-    }, [all, filter]);
 
     const quotation = detail.data ?? null;
     const lines: readonly KitchenQuotationLine[] = quotation?.lines ?? NO_LINES;
     const currency: CurrencyCode = quotation?.currencyCode ?? 'USD';
     const editable = quotation !== null && canQuote && canQuoteKitchenQuotation(quotation.status);
 
-    const metrics: readonly OpsMetric[] = [
-        {
-            key: 'loaded',
-            labelKey: 'kitchen:ops.quotations.metrics.loaded',
-            value: quotations.isPending ? null : all.length,
-        },
-        {
-            key: 'awaiting',
-            labelKey: 'kitchen:ops.quotations.metrics.awaiting',
-            value: quotations.isPending
-                ? null
-                : all.filter((row) => row.status === 'submitted').length,
-        },
-        {
-            key: 'quoted',
-            labelKey: 'kitchen:ops.quotations.metrics.quoted',
-            value: quotations.isPending
-                ? null
-                : all.filter((row) => row.status === 'quoted').length,
-        },
-    ];
-
-    /**
-     * Every line's price as integer minor units, or `null` when any one of them does not parse.
-     *
-     * All-or-nothing on purpose: the server refuses a partial set anyway, and a button that stayed
-     * enabled while a field held `5.505` would send a request whose only outcome is a validation
-     * error the screen already had enough information to prevent.
-     */
     const parsedPrices = useMemo(() => {
         if (lines.length === 0) return null;
         const parsed: { readonly quotationLineId: string; readonly unitAmountMinor: number }[] = [];
@@ -225,38 +479,45 @@ function Quotations() {
     const quoteFailure = toFailure(quote.error);
     const isConflict = quoteFailure?.code === 'resource.conflict';
     const isStale = quoteFailure?.code === 'b2b.quotation_state_invalid';
+    const detailFailure = toFailure(detail.error);
 
-    function closeDetail() {
-        setSelectedId(null);
-        setPrices({});
-        quote.reset();
-    }
+    const lineColumns = quotationLineColumns({
+        t,
+        formatter,
+        currency,
+        prices: editable ? prices : undefined,
+        onPrice: (lineId, value) => {
+            setPrices((current) => ({ ...current, [lineId]: value }));
+            quote.reset();
+        },
+    });
+    // The detail read carries every line, so sorting them here is the whole answer.
+    const lineControls = useColumnControls(lines, lineColumns, 'kitchen-quotations-detail-lines');
 
-    /**
-     * Opens the panel with empty fields, which is the only honest starting state.
-     *
-     * There is nothing to seed them from: `submitted` is the one status that may be priced, and a
-     * submitted quotation carries `null` on every line by definition — the absence *is* the
-     * statement that no price has been named. Pre-filling zeros would put a figure nobody typed in
-     * front of somebody about to commit to it.
-     */
-    function openDetail(row: KitchenQuotation) {
-        quote.reset();
-        setPrices({});
-        setSelectedId(row.id);
-    }
+    // While editing, the total follows what is typed; otherwise it is the record's own sum.
+    const total = editable
+        ? parsedPrices === null
+            ? null
+            : lines.reduce(
+                  (sum, line) =>
+                      sum +
+                      Math.round(
+                          Number(line.quantity) *
+                              (parsedPrices.find((price) => price.quotationLineId === line.id)
+                                  ?.unitAmountMinor ?? 0),
+                      ),
+                  0,
+              )
+        : kitchenQuotationTotalMinor(lines);
 
     function submitPrices() {
         if (quotation === null || parsedPrices === null) return;
         quote.mutate(
-            {
-                id: quotation.id,
-                lockVersion: quotation.lockVersion,
-                prices: parsedPrices,
-            },
+            { id: quotation.id, lockVersion: quotation.lockVersion, prices: parsedPrices },
             {
                 onSuccess: (next) => {
                     setPrices({});
+                    onListChanged();
                     toast.show({
                         testID: 'kitchen-quotations-quoted-toast',
                         tone: 'success',
@@ -269,276 +530,159 @@ function Quotations() {
         );
     }
 
-    const columns: readonly TableColumn<KitchenQuotation>[] = [
-        {
-            key: 'reference',
-            header: t('kitchen:ops.quotations.columnReference'),
-            rowHeader: true,
-            flex: 2,
-            render: (row) => (
-                <Text
-                    variant="bodyStrong"
-                    testID={`${kitchenQuotationRowTestId(String(row.id))}-reference`}
-                >
-                    {row.reference}
-                </Text>
-            ),
-        },
-        {
-            key: 'status',
-            header: t('kitchen:ops.quotations.columnStatus'),
-            render: (row) => (
-                <Badge
-                    testID={`${kitchenQuotationRowTestId(String(row.id))}-status`}
-                    tone={kitchenQuotationStatusTone(row.status)}
-                    label={t(kitchenQuotationStatusKey(row.status))}
+    return (
+        <Stack space="md" testID="kitchen-quotations-screen">
+            <View className="flex-row">
+                <Button
+                    testID="kitchen-quotations-back"
+                    variant="ghost"
+                    size="sm"
+                    iconStart={<Icon name="chevronStart" size="sm" />}
+                    label={t('kitchen:common.back')}
+                    onPress={onBack}
                 />
-            ),
-        },
-        {
-            key: 'submitted',
-            header: t('kitchen:ops.quotations.columnSubmitted'),
-            render: (row) => (
-                <Text
-                    variant="caption"
-                    tone="secondary"
-                    testID={`${kitchenQuotationRowTestId(String(row.id))}-submitted`}
-                >
-                    {row.submittedAt === null
-                        ? t('kitchen:common.notRecorded')
-                        : formatter.formatDate(row.submittedAt)}
-                </Text>
-            ),
-        },
-        {
-            key: 'currency',
-            header: t('kitchen:ops.quotations.columnCurrency'),
-            render: (row) => (
-                <Text testID={`${kitchenQuotationRowTestId(String(row.id))}-currency`}>
-                    {row.currencyCode}
-                </Text>
-            ),
-        },
-    ];
+            </View>
 
-    /**
-     * The line table's columns.
-     *
-     * Built inside the component rather than hoisted because the price cell closes over the
-     * quotation's currency, whether the panel is editable, and the draft prices — three things that
-     * change with the selection.
-     */
-    const lineColumns: readonly TableColumn<KitchenQuotationLine>[] = [
-        {
-            key: 'line',
-            header: t('kitchen:ops.quotations.lineColumn'),
-            rowHeader: true,
-            flex: 2,
-            render: (line) => (
-                <Stack space="none">
-                    <Text variant="bodyStrong" testID={`kitchen-quotation-line-${line.id}-name`}>
-                        {/*
-                         * The wire carries no article name on a quotation line — only the buyer's
-                         * own note and the catalogue identifier. The note is what a person wrote and
-                         * is therefore the better label when there is one; the identifier is shown
-                         * beneath either way, because it is the only thing that ties the line back
-                         * to something in this kitchen's catalogue.
-                         */}
-                        {line.note ?? t('kitchen:ops.quotations.lineUnnamed')}
-                    </Text>
-                    <Text variant="caption" tone="secondary">
-                        {line.catalogueItemId}
-                    </Text>
-                </Stack>
-            ),
-        },
-        {
-            key: 'quantity',
-            header: t('kitchen:ops.quotations.lineQuantity'),
-            numeric: true,
-            render: (line) => (
-                <Text testID={`kitchen-quotation-line-${line.id}-quantity`}>
-                    {formatter.formatNumber(Number(line.quantity))}
-                </Text>
-            ),
-        },
-        {
-            key: 'unitPrice',
-            header: t('kitchen:ops.quotations.lineUnitPrice'),
-            numeric: true,
-            flex: 2,
-            render: (line) =>
-                editable ? (
-                    <TextInputField
-                        testID={`kitchen-quotation-line-${line.id}-price`}
-                        id={`kitchen-quotation-line-${line.id}-price`}
-                        label={t('kitchen:ops.quotations.linePriceLabel', {
-                            line: line.lineNumber,
+            {detail.isPending ? (
+                <Skeleton testID="kitchen-quotations-detail-loading" heightClassName="h-40" />
+            ) : detailFailure !== null ? (
+                <ErrorState
+                    testID="kitchen-quotations-detail-error"
+                    title={t('kitchen:ops.quotations.detailLoadErrorTitle')}
+                    failure={detailFailure}
+                    onRetry={() => {
+                        void detail.refetch();
+                    }}
+                    retrying={detail.isFetching}
+                />
+            ) : quotation === null ? null : (
+                <Stack space="md" testID="kitchen-quotations-detail-body">
+                    <CataloguePageHeader
+                        testID="kitchen-quotations-detail-header"
+                        title={t('kitchen:ops.quotations.detailTitle', {
+                            reference: quotation.reference,
                         })}
-                        hint={t('kitchen:ops.quotations.linePriceHint', { currency })}
-                        value={prices[line.id] ?? ''}
-                        onChangeText={(next) => {
-                            setPrices((current) => ({ ...current, [line.id]: next }));
-                            quote.reset();
-                        }}
-                        inputMode="decimal"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        error={
-                            (prices[line.id] ?? '') !== '' &&
-                            parseMinorAmount(prices[line.id] ?? '', currency) === null
-                                ? t('kitchen:ops.quotations.linePriceInvalid')
-                                : undefined
+                        titleAside={
+                            <Badge
+                                testID="kitchen-quotations-detail-status"
+                                tone={kitchenQuotationStatusTone(quotation.status)}
+                                label={t(kitchenQuotationStatusKey(quotation.status))}
+                            />
                         }
                     />
-                ) : (
-                    <Text
-                        tone={line.unitAmountMinor === null ? 'secondary' : undefined}
-                        testID={`kitchen-quotation-line-${line.id}-unit-price`}
-                    >
-                        {line.unitAmountMinor === null
-                            ? t('kitchen:ops.quotations.lineNotPriced')
-                            : formatMoney(formatter, {
-                                  amount: line.unitAmountMinor,
-                                  currency,
-                              })}
-                    </Text>
-                ),
-        },
-        {
-            key: 'lineTotal',
-            header: t('kitchen:ops.quotations.lineTotal'),
-            numeric: true,
-            render: (line) => (
-                <Text
-                    tone={line.lineTotalMinor === null ? 'secondary' : undefined}
-                    testID={`kitchen-quotation-line-${line.id}-total`}
-                >
-                    {line.lineTotalMinor === null
-                        ? t('kitchen:ops.quotations.lineNotPriced')
-                        : formatMoney(formatter, { amount: line.lineTotalMinor, currency })}
-                </Text>
-            ),
-        },
-    ];
 
-    const listFailure = toFailure(quotations.error);
-    const detailFailure = toFailure(detail.error);
-    const total = kitchenQuotationTotalMinor(lines);
-
-    return (
-        <Stack space="lg" testID="kitchen-quotations-screen">
-            <OpsPanel
-                testID="kitchen-quotations-panel"
-                titleKey="kitchen:ops.quotations.title"
-                subtitleKey="kitchen:ops.quotations.subtitle"
-                metrics={metrics}
-                emptyTitleKey="kitchen:ops.quotations.emptyTitle"
-                emptyBodyKey="kitchen:ops.quotations.emptyBody"
-            >
-                <Stack space="md" testID="kitchen-quotations-content">
-                    <SegmentedControl<StatusFilter>
-                        testID="kitchen-quotations-filter"
-                        label={t('kitchen:ops.quotations.filterLabel')}
-                        block
-                        value={filter}
-                        onChange={setFilter}
-                        items={FILTERS.map((candidate) => ({
-                            value: candidate,
-                            label: t(`kitchen:ops.quotations.filter.${candidate}`),
-                            testID: `kitchen-quotations-filter-${candidate}`,
-                        }))}
-                    />
-
-                    {quotations.isPending ? (
-                        <Stack space="sm" testID="kitchen-quotations-loading">
-                            {Array.from({ length: 4 }, (_, index) => (
-                                <Skeleton key={index} heightClassName="h-10" />
-                            ))}
-                        </Stack>
-                    ) : listFailure !== null ? (
-                        <ErrorState
-                            testID="kitchen-quotations-error"
-                            title={t('kitchen:ops.quotations.loadErrorTitle')}
-                            failure={listFailure}
-                            onRetry={() => {
-                                void quotations.refetch();
-                            }}
-                            retrying={quotations.isFetching}
+                    {editable ? (
+                        <Callout
+                            testID="kitchen-quotations-price-guidance"
+                            tone="info"
+                            title={t('kitchen:ops.quotations.guidanceTitle')}
+                            body={t('kitchen:ops.quotations.guidanceBody', { currency })}
                         />
-                    ) : rows.length === 0 ? (
-                        <EmptyState
-                            testID="kitchen-quotations-empty"
+                    ) : null}
+
+                    {quoteFailure === null ? null : isConflict || isStale ? (
+                        <Callout
+                            testID="kitchen-quotations-conflict"
+                            tone="warning"
+                            role="alert"
                             title={t(
-                                filter === 'all'
-                                    ? 'kitchen:ops.quotations.emptyTitle'
-                                    : 'kitchen:ops.quotations.filteredEmptyTitle',
+                                isStale
+                                    ? 'kitchen:ops.quotations.staleTitle'
+                                    : 'kitchen:ops.quotations.conflictTitle',
                             )}
                             body={t(
-                                filter === 'all'
-                                    ? 'kitchen:ops.quotations.emptyBody'
-                                    : 'kitchen:ops.quotations.filteredEmptyBody',
+                                isStale
+                                    ? 'kitchen:ops.quotations.staleBody'
+                                    : 'kitchen:ops.quotations.conflictBody',
                             )}
                             actions={
-                                filter === 'all' ? undefined : (
-                                    <Button
-                                        testID="kitchen-quotations-clear"
-                                        variant="secondary"
-                                        label={t('kitchen:ops.quotations.clearFilter')}
-                                        onPress={() => {
-                                            setFilter('all');
-                                        }}
-                                    />
-                                )
+                                <Button
+                                    testID="kitchen-quotations-conflict-refresh"
+                                    size="sm"
+                                    variant="secondary"
+                                    label={t('kitchen:ops.quotations.conflictRefresh')}
+                                    loading={detail.isFetching}
+                                    onPress={() => {
+                                        quote.reset();
+                                        void detail.refetch();
+                                        onListChanged();
+                                    }}
+                                />
                             }
                         />
                     ) : (
-                        <Table<KitchenQuotation>
-                            testID="kitchen-quotations-table"
-                            caption={t('kitchen:ops.quotations.caption')}
-                            captionHidden
-                            columns={columns}
-                            rows={rows}
-                            rowKey={(row) => String(row.id)}
-                            rowAction={{
-                                header: t('kitchen:ops.quotations.columnActions'),
-                                render: (row) => (
-                                    <Button
-                                        testID={`${kitchenQuotationRowTestId(String(row.id))}-open`}
-                                        size="sm"
-                                        variant="secondary"
-                                        label={t(
-                                            canQuoteKitchenQuotation(row.status) && canQuote
-                                                ? 'kitchen:ops.quotations.price'
-                                                : 'kitchen:ops.quotations.open',
-                                        )}
-                                        onPress={() => {
-                                            openDetail(row);
-                                        }}
-                                    />
-                                ),
-                            }}
-                        />
+                        <Text testID="kitchen-quotations-action-error" tone="danger">
+                            {quoteFailure.message}
+                        </Text>
                     )}
-                </Stack>
-            </OpsPanel>
 
-            <Drawer
-                testID="kitchen-quotations-detail"
-                placement="end"
-                open={selectedId !== null}
-                onClose={closeDetail}
-                title={
-                    quotation === null
-                        ? t('kitchen:ops.quotations.title')
-                        : t('kitchen:ops.quotations.detailTitle', {
-                              reference: quotation.reference,
-                          })
-                }
-                className="w-[560px]"
-                footer={
-                    !editable ? undefined : (
-                        <Inline space="sm" wrap justify="end">
+                    <FormSection
+                        first
+                        title={t('kitchen:ops.quotations.requestHeading')}
+                        testID="kitchen-quotations-detail-request"
+                    >
+                        <RecordWindowFieldGrid
+                            testID="kitchen-quotations-detail"
+                            fields={requestFields(quotation, t, formatter)}
+                        />
+                    </FormSection>
+
+                    <FormSection
+                        title={t('kitchen:ops.quotations.linesHeading')}
+                        testID="kitchen-quotations-detail-lines-section"
+                    >
+                        {lines.length === 0 ? (
+                            <Text testID="kitchen-quotations-detail-no-lines" tone="secondary">
+                                {t('kitchen:ops.quotations.noLines')}
+                            </Text>
+                        ) : (
+                            <WithColumnPicker picker={lineControls.picker}>
+                                <DataList<KitchenQuotationLine>
+                                    testID="kitchen-quotations-detail-lines"
+                                    label={t('kitchen:ops.quotations.linesHeading')}
+                                    columns={lineControls.columns}
+                                    rows={lineControls.rows}
+                                    rowKey={(line) => line.id}
+                                />
+                            </WithColumnPicker>
+                        )}
+                        <View
+                            testID="kitchen-quotations-detail-totals"
+                            className="flex-row items-baseline justify-end gap-snug border-t border-stroke-subtle pt-tight"
+                        >
+                            <Text variant="micro" tone="secondary">
+                                {t('kitchen:ops.quotations.total')}
+                            </Text>
+                            {/* `null` is not zero: a partly priced set has no total. */}
+                            <Text
+                                variant="strong"
+                                tone={total === null ? 'danger' : 'brand'}
+                                className="tabular-nums"
+                                testID="kitchen-quotations-detail-total"
+                            >
+                                {total === null
+                                    ? t('kitchen:ops.quotations.notPricedYet')
+                                    : formatMoney(formatter, { amount: total, currency })}
+                            </Text>
+                        </View>
+                    </FormSection>
+
+                    {quotation.declineReason === null ? null : (
+                        <FormSection
+                            title={t('kitchen:ops.quotations.declineHeading')}
+                            testID="kitchen-quotations-detail-decline"
+                        >
+                            <Text testID="kitchen-quotations-detail-decline-reason">
+                                {quotation.declineReason}
+                            </Text>
+                        </FormSection>
+                    )}
+
+                    {editable ? (
+                        <View className="flex-row flex-wrap items-center justify-end gap-snug border-t border-stroke-subtle pt-snug">
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:ops.quotations.sendRule')}
+                            </Text>
                             <Button
                                 testID="kitchen-quotations-send"
                                 label={t('kitchen:ops.quotations.send')}
@@ -546,182 +690,73 @@ function Quotations() {
                                 disabled={quote.isPending || parsedPrices === null}
                                 onPress={submitPrices}
                             />
-                        </Inline>
-                    )
-                }
-            >
-                {detail.isPending ? (
-                    <Skeleton testID="kitchen-quotations-detail-loading" heightClassName="h-40" />
-                ) : detailFailure !== null ? (
-                    <ErrorState
-                        testID="kitchen-quotations-detail-error"
-                        title={t('kitchen:ops.quotations.detailLoadErrorTitle')}
-                        failure={detailFailure}
-                        onRetry={() => {
-                            void detail.refetch();
-                        }}
-                        retrying={detail.isFetching}
-                    />
-                ) : quotation === null ? null : (
-                    <Stack space="lg" testID="kitchen-quotations-detail-body">
-                        <Inline space="sm" align="center" wrap>
-                            <Badge
-                                testID="kitchen-quotations-detail-status"
-                                tone={kitchenQuotationStatusTone(quotation.status)}
-                                label={t(kitchenQuotationStatusKey(quotation.status))}
-                            />
-                        </Inline>
-
-                        {quoteFailure === null ? null : isConflict || isStale ? (
-                            <Callout
-                                testID="kitchen-quotations-conflict"
-                                tone="warning"
-                                role="alert"
-                                title={t(
-                                    isStale
-                                        ? 'kitchen:ops.quotations.staleTitle'
-                                        : 'kitchen:ops.quotations.conflictTitle',
-                                )}
-                                body={t(
-                                    isStale
-                                        ? 'kitchen:ops.quotations.staleBody'
-                                        : 'kitchen:ops.quotations.conflictBody',
-                                )}
-                                actions={
-                                    <Button
-                                        testID="kitchen-quotations-conflict-refresh"
-                                        size="sm"
-                                        variant="secondary"
-                                        label={t('kitchen:ops.quotations.conflictRefresh')}
-                                        loading={detail.isFetching}
-                                        onPress={() => {
-                                            quote.reset();
-                                            void detail.refetch();
-                                            void quotations.refetch();
-                                        }}
-                                    />
-                                }
-                            />
-                        ) : (
-                            <Text testID="kitchen-quotations-action-error" tone="danger">
-                                {quoteFailure.message}
-                            </Text>
-                        )}
-
-                        {editable ? (
-                            <Callout
-                                testID="kitchen-quotations-price-guidance"
-                                tone="info"
-                                title={t('kitchen:ops.quotations.guidanceTitle')}
-                                body={t('kitchen:ops.quotations.guidanceBody', { currency })}
-                            />
-                        ) : null}
-
-                        <Stack space="sm">
-                            <Heading level={3} testID="kitchen-quotations-detail-lines-heading">
-                                {t('kitchen:ops.quotations.linesHeading')}
-                            </Heading>
-                            {lines.length === 0 ? (
-                                <Text testID="kitchen-quotations-detail-no-lines" tone="secondary">
-                                    {t('kitchen:ops.quotations.noLines')}
-                                </Text>
-                            ) : (
-                                <Table<KitchenQuotationLine>
-                                    testID="kitchen-quotations-detail-lines"
-                                    caption={t('kitchen:ops.quotations.linesHeading')}
-                                    captionHidden
-                                    columns={lineColumns}
-                                    rows={lines}
-                                    rowKey={(line) => line.id}
-                                />
-                            )}
-                        </Stack>
-
-                        <Stack space="xs" testID="kitchen-quotations-detail-totals">
-                            <Heading level={3}>{t('kitchen:ops.quotations.totalsHeading')}</Heading>
-                            <DetailRow
-                                testID="kitchen-quotations-detail-currency"
-                                label={t('kitchen:ops.quotations.currency')}
-                                value={quotation.currencyCode}
-                            />
-                            <DetailRow
-                                testID="kitchen-quotations-detail-total"
-                                label={t('kitchen:ops.quotations.total')}
-                                // `null` is not zero. A partly-priced set has no total, and saying
-                                // so is the whole reason the sum is computed rather than defaulted.
-                                value={
-                                    total === null
-                                        ? t('kitchen:ops.quotations.notPricedYet')
-                                        : formatMoney(formatter, { amount: total, currency })
-                                }
-                            />
-                        </Stack>
-
-                        <Stack space="xs" testID="kitchen-quotations-detail-request">
-                            <Heading level={3}>
-                                {t('kitchen:ops.quotations.requestHeading')}
-                            </Heading>
-                            <DetailRow
-                                testID="kitchen-quotations-detail-programme"
-                                label={t('kitchen:ops.quotations.programme')}
-                                value={String(quotation.programmeId)}
-                            />
-                            <DetailRow
-                                testID="kitchen-quotations-detail-notes"
-                                label={t('kitchen:ops.quotations.notes')}
-                                value={quotation.notes ?? t('kitchen:ops.quotations.noNotes')}
-                            />
-                        </Stack>
-
-                        <Stack space="xs" testID="kitchen-quotations-detail-timeline">
-                            <Heading level={3}>
-                                {t('kitchen:ops.quotations.timelineHeading')}
-                            </Heading>
-                            <DetailRow
-                                testID="kitchen-quotations-detail-submitted-at"
-                                label={t('kitchen:ops.quotations.submittedAt')}
-                                value={
-                                    quotation.submittedAt === null
-                                        ? t('kitchen:common.notRecorded')
-                                        : formatter.formatDate(quotation.submittedAt)
-                                }
-                            />
-                            {quotation.quotedAt === null ? null : (
-                                <DetailRow
-                                    testID="kitchen-quotations-detail-quoted-at"
-                                    label={t('kitchen:ops.quotations.quotedAt')}
-                                    value={formatter.formatDate(quotation.quotedAt)}
-                                />
-                            )}
-                            {quotation.expiresAt === null ? null : (
-                                <DetailRow
-                                    testID="kitchen-quotations-detail-expires-at"
-                                    label={t('kitchen:ops.quotations.expiresAt')}
-                                    value={formatter.formatDate(quotation.expiresAt)}
-                                />
-                            )}
-                            {quotation.decidedAt === null ? null : (
-                                <DetailRow
-                                    testID="kitchen-quotations-detail-decided-at"
-                                    label={t('kitchen:ops.quotations.decidedAt')}
-                                    value={formatter.formatDate(quotation.decidedAt)}
-                                />
-                            )}
-                        </Stack>
-
-                        {quotation.declineReason === null ? null : (
-                            <Stack space="xs" testID="kitchen-quotations-detail-decline">
-                                <Heading level={3}>
-                                    {t('kitchen:ops.quotations.declineHeading')}
-                                </Heading>
-                                <Text testID="kitchen-quotations-detail-decline-reason">
-                                    {quotation.declineReason}
-                                </Text>
-                            </Stack>
-                        )}
-                    </Stack>
-                )}
-            </Drawer>
+                        </View>
+                    ) : null}
+                </Stack>
+            )}
         </Stack>
     );
+}
+
+function submittedText(row: KitchenQuotation, t: TFunction, formatter: Formatter): string {
+    return row.submittedAt === null
+        ? t('kitchen:common.notRecorded')
+        : formatter.formatDate(row.submittedAt);
+}
+
+/** The request as read-only pairs: programme, currency (stated, never chosen), dates, the note. */
+function requestFields(quotation: KitchenQuotation, t: TFunction, formatter: Formatter) {
+    const date = (value: string | null) =>
+        value === null ? t('kitchen:common.notRecorded') : formatter.formatDate(value);
+    return [
+        {
+            key: 'programme',
+            label: t('kitchen:ops.quotations.programme'),
+            value: String(quotation.programmeId),
+            mono: true,
+        },
+        {
+            key: 'currency',
+            label: t('kitchen:ops.quotations.currency'),
+            value: quotation.currencyCode,
+            mono: true,
+        },
+        {
+            key: 'submitted-at',
+            label: t('kitchen:ops.quotations.submittedAt'),
+            value: date(quotation.submittedAt),
+            mono: true,
+        },
+        {
+            key: 'expires-at',
+            label: t('kitchen:ops.quotations.expiresAt'),
+            value: date(quotation.expiresAt),
+            mono: true,
+        },
+        ...(quotation.quotedAt === null
+            ? []
+            : [
+                  {
+                      key: 'quoted-at',
+                      label: t('kitchen:ops.quotations.quotedAt'),
+                      value: date(quotation.quotedAt),
+                      mono: true,
+                  },
+              ]),
+        ...(quotation.decidedAt === null
+            ? []
+            : [
+                  {
+                      key: 'decided-at',
+                      label: t('kitchen:ops.quotations.decidedAt'),
+                      value: date(quotation.decidedAt),
+                      mono: true,
+                  },
+              ]),
+        {
+            key: 'notes',
+            label: t('kitchen:ops.quotations.notes'),
+            value: quotation.notes ?? t('kitchen:ops.quotations.noNotes'),
+        },
+    ];
 }

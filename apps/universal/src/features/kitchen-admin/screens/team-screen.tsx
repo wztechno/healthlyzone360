@@ -133,7 +133,9 @@ function PendingInvitations() {
             header: t('accessAdmin:team.columns.email'),
             rowHeader: true,
             flex: 2,
-            render: (row) => <Text testID={`kitchen-team-invitation-${row.id}-email`}>{row.email}</Text>,
+            render: (row) => (
+                <Text testID={`kitchen-team-invitation-${row.id}-email`}>{row.email}</Text>
+            ),
         },
         {
             key: 'role',

@@ -10,10 +10,18 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
 import { useCataloguePort } from './catalogue-nav.tsx';
 
 /**
+ * The list's panel — the same surface as the toolbar above it and every other admin panel, so the
+ * rows read as one object on the page rather than lines drawn straight onto the ground. Only drawn
+ * around rows: an empty state is the caller's own block and brings its own layout.
+ */
+const FRAME_CLASS =
+    'flex-col rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card';
+
+/**
  * Part five (§4.1): the list.
  *
  * ```
- * 10px upper column labels · 32px rows · border-b hairline · hover tint
+ * 10px upper column labels · a rule under the header · 32px rows · hover tint
  * ```
  *
  * **Ingredients, Recipes and Sauces differ by `columns` and nothing else.** Everything a spec could
@@ -21,8 +29,8 @@ import { useCataloguePort } from './catalogue-nav.tsx';
  * `role`) what each column becomes when the grid collapses. Nothing entity-specific is written
  * here, and the third entity should be a spec file with no companion component.
  *
- * No card, no panel outline, no vertical rules, no zebra. `DataList` owns that geometry and this
- * component adds none of its own.
+ * One panel around the rows (`FRAME_CLASS`), and inside it no vertical rules and no zebra.
+ * `DataList` owns the row geometry; this component adds only the frame.
  *
  * ## Why the fitting happens here and not in `DataList`
  *
@@ -97,11 +105,11 @@ export function CatalogueList<Row>({
                 role="list"
                 aria-label={label}
                 accessibilityLabel={label}
-                className="flex-col"
+                className={rows.length === 0 ? 'flex-col' : FRAME_CLASS}
             >
                 {rows.length === 0
                     ? emptyState
-                    : rows.map((row) => (
+                    : rows.map((row, index) => (
                           <CatalogueListItem
                               key={rowKey(row)}
                               title={cellText(columnForRole(columns, 'title'), row)}
@@ -117,6 +125,7 @@ export function CatalogueList<Row>({
                                             onRowPress(row);
                                         }
                               }
+                              divider={index < rows.length - 1}
                               testID={`${testID}-row-${rowKey(row)}`}
                           />
                       ))}
@@ -140,42 +149,50 @@ export function CatalogueList<Row>({
     );
 
     return (
-        <View
-            testID={`${testID}-port`}
-            // Both measurement paths, and each is inert on the other's platform: `onLayout` never
-            // fires with a useful width on web before the nav settles, and `ref` has no
-            // `getBoundingClientRect` on native.
-            ref={Platform.OS === 'web' ? port.ref : undefined}
-            onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
-            /*
-             * No scroll port of its own.
-             *
-             * This used to carry `web:overflow-x-auto` so a track sum wider than the port could be
-             * reached. Two things are wrong with that. The first is CSS: `overflow-x: auto` with
-             * `overflow-y: visible` computes `overflow-y: auto` as well, so the list grew its own
-             * *vertical* scrollbar inside the page's — the table scrolled independently of the
-             * screen it sits on, which is what the reader sees as a scrollbar appearing halfway
-             * down the page and a row list that will not move with the wheel.
-             *
-             * The second is that it should never be needed. §4.1 is explicit that columns are
-             * *dropped by priority, never scrolled away*, because a row that scrolls sideways
-             * hides its overflow menu. `fitColumns` runs twice — here against the measured port,
-             * again inside `DataList` — precisely so the track sum fits. A scroll port on top of
-             * that was a second answer to a question the fitter had already answered, and the two
-             * disagreed.
-             */
-            className="flex-col"
-        >
-            <DataList
-                columns={visible}
-                rows={rows}
-                rowKey={rowKey}
-                label={label}
-                density={density}
-                onRowPress={onRowPress}
-                emptyState={emptyState}
-                testID={testID}
-            />
+        /*
+         * The frame is outside the port, not on it: the port is measured with
+         * `getBoundingClientRect`, which includes a border, so a frame on the measured box would
+         * fit tracks two pixels wider than the space inside it.
+         */
+        <View className={rows.length === 0 ? 'flex-col' : FRAME_CLASS}>
+            <View
+                testID={`${testID}-port`}
+                // Both measurement paths, and each is inert on the other's platform: `onLayout` never
+                // fires with a useful width on web before the nav settles, and `ref` has no
+                // `getBoundingClientRect` on native.
+                ref={Platform.OS === 'web' ? port.ref : undefined}
+                onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
+                /*
+                 * No scroll port of its own.
+                 *
+                 * This used to carry `web:overflow-x-auto` so a track sum wider than the port could be
+                 * reached. Two things are wrong with that. The first is CSS: `overflow-x: auto` with
+                 * `overflow-y: visible` computes `overflow-y: auto` as well, so the list grew its own
+                 * *vertical* scrollbar inside the page's — the table scrolled independently of the
+                 * screen it sits on, which is what the reader sees as a scrollbar appearing halfway
+                 * down the page and a row list that will not move with the wheel.
+                 *
+                 * The second is that it should never be needed. §4.1 is explicit that columns are
+                 * *dropped by priority, never scrolled away*, because a row that scrolls sideways
+                 * hides its overflow menu. `fitColumns` runs twice — here against the measured port,
+                 * again inside `DataList` — precisely so the track sum fits. A scroll port on top of
+                 * that was a second answer to a question the fitter had already answered, and the two
+                 * disagreed.
+                 */
+                className="flex-col"
+            >
+                <DataList
+                    columns={visible}
+                    rows={rows}
+                    rowKey={rowKey}
+                    label={label}
+                    density={density}
+                    onRowPress={onRowPress}
+                    emptyState={emptyState}
+                    framed={rows.length > 0}
+                    testID={testID}
+                />
+            </View>
         </View>
     );
 }

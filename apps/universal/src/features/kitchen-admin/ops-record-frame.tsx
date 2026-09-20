@@ -1,4 +1,12 @@
-import { Badge, Button, Dialog, Inline, PageTransition, Stack, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Dialog,
+    Inline,
+    PageTransition,
+    Stack,
+    Text,
+} from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -40,6 +48,8 @@ import type { UnsavedGuard } from './use-unsaved-guard.ts';
 
 export interface OpsRecordFrameProps {
     readonly title: string;
+    /** Draw no heading — a stepped form, whose name is the top bar's trail. */
+    readonly hideTitle?: boolean | undefined;
     readonly guard: UnsavedGuard;
     readonly onSave: () => void;
     readonly saveLabel: string;
@@ -65,6 +75,7 @@ export interface OpsRecordFrameProps {
 
 export function OpsRecordFrame({
     title,
+    hideTitle = false,
     guard,
     onSave,
     saveLabel,
@@ -88,6 +99,7 @@ export function OpsRecordFrame({
                     testID={`${testID}-header`}
                     variant="band"
                     title={title}
+                    hideTitle={hideTitle}
                     titleTestID={`${testID}-title`}
                     back={
                         <View className="flex-row">
@@ -118,7 +130,7 @@ export function OpsRecordFrame({
 
                 {banner}
 
-                <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 md:p-5">
+                <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card md:p-5">
                     {children}
                 </View>
 

@@ -1,50 +1,59 @@
-import { Badge, Icon, IconButton, Text } from '@healthy360/design-system';
+import { Icon, IconButton, Text } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
+import { useMemo, useState } from 'react';
 import { Platform, View } from 'react-native';
 
 import { displayName, statusKey } from '../format.ts';
-import { isBlocked, reviewFamilyKey, reviewReasonKey, reviewRowTestId } from '../review-queue.ts';
-import type { ReviewSection, ReviewItem } from '../review-queue.ts';
+import { reviewFamilyKey, reviewReasonKey, reviewRowTestId } from '../review-queue.ts';
+import type { ReviewItem } from '../review-queue.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
-import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
 import { ReviewReasonChip } from './review-reason-chip.tsx';
 
 /**
- * One family in the review queue: heading, count, `N blocked`, and its rows (Workbench handoff §3.2).
+ * The review queue as one table, every family in it.
  *
  * ```
- * ─────────────────────────────────────────────────────────────────────────────
- * INGREDIENTS  3 records  [ 1 BLOCKED ]
- * DESIGNATION                  WHY IT IS HERE           LAST CHANGED        ◉ ✎
- * Zaatar blend, house          ( Quarantined — … )      2 days ago by Rana  ◉ ✎
+ * ID         DESIGNATION        WHY IT IS HERE         LAST CHANGED      ◉ ✎
+ * ING-0142   Tahini paste       [Awaiting review]      2 days ago
+ * RC-0007    Tabbouleh          [Figures out of date]  …
+ * RSL-0031   Olive oil 1 l      [Data quality]         …
+ * Meal       Chicken bowl       [Draft]                …
  * ```
  *
- * The column spec is identical for all six families, which is why one component covers them.
+ * It used to be a section per family, each with its own heading and table. The ID column says which
+ * family a row belongs to instead — the prefix is the family — so the queue reads top to bottom as
+ * one list. A family with no reference series (meals, plans, price lists)
+ * names itself in that cell, so no row is left without a way to tell what it is; the column's header
+ * menu filters by family.
  *
- * ## The row body opens the window, the pen opens the editor
+ * A reference that carries its import source — `v6-recipes.json#bbq-sauce-dip` — is shown from the
+ * `#` on: the file name is where the row came from, not what the kitchen calls it.
  *
- * The inverse of the Catalogue's list, on purpose: a queue is read far more than it is changed, so
- * the safe default is inspect-first. The handoff flags it as an open question (§6.2); if the kitchen
- * wants the two lists to agree, both change together.
- *
- * ## The second line is the record's status, not a reference
- *
- * The design draws a mono reference under the name. `ReviewItem` carries none — the queue is built
- * from six listings whose identifiers are UUIDs, and a UUID is not something a person reads down a
- * column. The status word is what the queue *does* know, and it is the fact a reader wants next to a
- * name in a review queue.
+ * Paged at 18 rows, the order desk's page, with the Catalogue's pager under the table.
  */
-export interface ReviewFamilySectionProps {
-    readonly section: ReviewSection;
-    readonly onView: (item: ReviewItem) => void;
-    readonly onOpen: (item: ReviewItem) => void;
+
+/** Rows per page — the same page the order desk's queue turns. */
+export const REVIEW_PAGE_SIZE = 18;
+
+/** Everything after the last `#`, or the whole reference when it has none. */
+export function shortReference(reference: string): string {
+    const hash = reference.lastIndexOf('#');
+    return hash === -1 ? reference : reference.slice(hash + 1);
 }
 
-/** Stops a row action's click reaching the row's own press on the web. See `catalogue-list.tsx`. */
+export interface ReviewTableProps {
+    /** Already narrowed by the screen's search and scope, in the queue's own order. */
+    readonly items: readonly ReviewItem[];
+    readonly onView: (item: ReviewItem) => void;
+    readonly onOpen: (item: ReviewItem) => void;
+    readonly testID: string;
+}
+
 const SWALLOW_CLICK =
     Platform.OS === 'web'
         ? {
@@ -54,14 +63,47 @@ const SWALLOW_CLICK =
           }
         : {};
 
-export function ReviewFamilySection({ section, onView, onOpen }: ReviewFamilySectionProps) {
+export function ReviewTable({ items, onView, onOpen, testID }: ReviewTableProps) {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const formatter = useFormatter();
-    const base = `kitchen-review-section-${section.familyKey}`;
-    const blocked = section.items.filter(isBlocked).length;
+
+    const idText = (item: ReviewItem) =>
+        item.reference === null
+            ? t(reviewFamilyKey(item.familyKey))
+            : shortReference(item.reference);
 
     const columns: readonly ControlledColumn<ReviewItem, CatalogueColumn<ReviewItem>>[] = [
+        {
+            key: 'reference',
+            role: 'meta',
+            label: t('kitchen:list.columnReference'),
+            width: 104,
+            min: 92,
+            priority: 97,
+            mono: true,
+            value: idText,
+            // Filters by family rather than sorting: a column does one or the other, and "show me
+            // the recipes" is the question this column is asked.
+            filter: {
+                values: (loaded) =>
+                    [...new Set(loaded.map((item) => item.familyKey))].map((familyKey) => ({
+                        key: familyKey,
+                        label: t(reviewFamilyKey(familyKey)),
+                    })),
+                match: (item, value) => item.familyKey === value,
+            },
+            render: (item) => (
+                <Text
+                    testID={`${reviewRowTestId(item.familyKey, item.id)}-reference`}
+                    variant={item.reference === null ? 'caption' : 'mono'}
+                    tone={item.reference === null ? 'secondary' : 'primary'}
+                    numberOfLines={1}
+                >
+                    {idText(item)}
+                </Text>
+            ),
+        },
         {
             key: 'designation',
             role: 'title',
@@ -159,7 +201,7 @@ export function ReviewFamilySection({ section, onView, onOpen }: ReviewFamilySec
                             testID={`${id}-view`}
                             variant="ghost"
                             size="sm"
-                            label={t('kitchen:review.view')}
+                            label={t('kitchen:list.view')}
                             icon={<Icon name="eye" size="sm" />}
                             onPress={() => {
                                 onView(item);
@@ -169,7 +211,7 @@ export function ReviewFamilySection({ section, onView, onOpen }: ReviewFamilySec
                             testID={`${id}-open`}
                             variant="ghost"
                             size="sm"
-                            label={t('kitchen:review.open')}
+                            label={t('kitchen:catalogue.edit')}
                             icon={<Icon name="pen" size="sm" />}
                             onPress={() => {
                                 onOpen(item);
@@ -180,37 +222,44 @@ export function ReviewFamilySection({ section, onView, onOpen }: ReviewFamilySec
             },
         },
     ];
-    const controls = useColumnControls(section.items, columns, `${base}-list`);
+    const controls = useColumnControls(items, columns, `${testID}-list`);
+
+    /**
+     * The page, remembered against what it was chosen under — so a search, a scope or a header
+     * filter lands on page one without an effect, and a shorter queue clamps rather than empties.
+     */
+    const pagingKey = useMemo(() => ({ items, controls: controls.key }), [items, controls.key]);
+    const [paging, setPaging] = useState<{ readonly key: typeof pagingKey; readonly page: number }>(
+        { key: pagingKey, page: 1 },
+    );
+    const totalPages = Math.max(1, Math.ceil(controls.rows.length / REVIEW_PAGE_SIZE));
+    const page = paging.key === pagingKey ? Math.min(paging.page, totalPages) : 1;
+    const pageRows = controls.rows.slice((page - 1) * REVIEW_PAGE_SIZE, page * REVIEW_PAGE_SIZE);
 
     return (
-        <View testID={base} className="flex-col">
-            <WorkbenchSectionHeading
-                rule="above"
-                title={t(reviewFamilyKey(section.familyKey))}
-                testID={`${base}-title`}
-                aside={
-                    <>
-                        <Text variant="caption" tone="secondary" testID={`${base}-count`}>
-                            {t('kitchen:review.sectionCount', { count: section.items.length })}
-                        </Text>
-                        {blocked === 0 ? null : (
-                            <Badge
-                                tone="danger"
-                                testID={`${base}-blocked`}
-                                label={t('kitchen:review.blockedCount', { count: blocked })}
-                            />
-                        )}
-                    </>
-                }
-            />
+        <View className="flex-col gap-snug">
             <CatalogueList<ReviewItem>
-                testID={`${base}-list`}
-                label={t(reviewFamilyKey(section.familyKey))}
+                testID={`${testID}-list`}
+                label={t('kitchen:review.title')}
                 columns={controls.columns}
-                rows={controls.rows}
-                rowKey={(item) => item.id}
+                rows={pageRows}
+                // Keyed by family as well: identifiers are only unique within a family.
+                rowKey={(item) => `${item.familyKey}-${item.id}`}
                 onRowPress={onView}
                 rowActionsLabel={t('kitchen:list.rowActions')}
+            />
+            <CataloguePager
+                testID={`${testID}-pagination`}
+                range={t('kitchen:toolbar.showing', {
+                    shown: pageRows.length,
+                    total: controls.rows.length,
+                })}
+                page={page}
+                totalPages={totalPages}
+                onPageChange={(next) => {
+                    setPaging({ key: pagingKey, page: next });
+                }}
+                label={t('kitchen:catalogue.pagerLabel')}
             />
         </View>
     );

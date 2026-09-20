@@ -36,7 +36,7 @@ export { IngredientsScreen } from './ingredients-screen.tsx';
 export { PackagingScreen } from './packaging-screen.tsx';
 export { PackagingEditScreen } from './packaging-edit-screen.tsx';
 export { KitchenHomeScreen } from './kitchen-home-screen.tsx';
-export { MealEditScreen } from './meal-edit-screen.tsx';
+export { MealEditScreen } from './cooked-item-edit-screen.tsx';
 export { MealsScreen } from './meals-screen.tsx';
 export { OrderDeskCalendarScreen } from './order-desk-calendar-screen.tsx';
 export { OrderDeskCashReportScreen } from './order-desk-cash-report-screen.tsx';

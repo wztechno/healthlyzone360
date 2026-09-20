@@ -118,6 +118,12 @@ export type ReviewableFamilyKey = (typeof REVIEWABLE_FAMILY_KEYS)[number];
 export interface ReviewItem {
     readonly familyKey: ReviewableFamilyKey;
     readonly id: string;
+    /**
+     * The record's own handle — `ING-0142`, `RC-0007`, `RSL-0031` — which is what tells the families
+     * apart in the queue's one table. `null` for a family with no reference series (meals, plans,
+     * price lists) and for a row that predates its series.
+     */
+    readonly reference: string | null;
     readonly name: LocalisedText;
     /** Deep link into the family's own editor. Built from the registry, never hand-written. */
     readonly href: string;
@@ -156,6 +162,7 @@ export function editorHref(familyKey: string, id: string): string | null {
 function itemFrom(
     familyKey: ReviewableFamilyKey,
     id: string,
+    reference: string | null,
     name: LocalisedText,
     meta: AdminEntityMeta,
     reasons: readonly ReviewReason[],
@@ -167,6 +174,7 @@ function itemFrom(
     return {
         familyKey,
         id,
+        reference,
         name,
         href,
         status: meta.status,
@@ -199,7 +207,7 @@ export function ingredientReviewItems(rows: readonly IngredientAdmin[]): readonl
             (mapping) => mapping.verification === 'unverified',
         ).length;
 
-        const item = itemFrom('ingredients', String(row.id), row.name, row.meta, [
+        const item = itemFrom('ingredients', String(row.id), row.reference, row.name, row.meta, [
             ...quarantineReason(row.meta),
             ...(unverified === 0
                 ? []
@@ -226,7 +234,7 @@ export function recipeReviewItems(
     for (const row of [...quarantinedRows, ...staleRows]) merged.set(String(row.id), row);
 
     return [...merged.values()].flatMap((row) => {
-        const item = itemFrom('recipes', String(row.id), row.name, row.meta, [
+        const item = itemFrom('recipes', String(row.id), row.reference, row.name, row.meta, [
             ...quarantineReason(row.meta),
             ...(stale.has(String(row.id))
                 ? [{ code: 'derivationStale' as const, count: null }]
@@ -239,7 +247,7 @@ export function recipeReviewItems(
 
 export function productReviewItems(rows: readonly ProductAdmin[]): readonly ReviewItem[] {
     return rows.flatMap((row) => {
-        const item = itemFrom('products', String(row.id), row.name, row.meta, [
+        const item = itemFrom('products', String(row.id), row.reference, row.name, row.meta, [
             ...quarantineReason(row.meta),
             ...(row.dataQualityFlags.length === 0
                 ? []
@@ -252,7 +260,7 @@ export function productReviewItems(rows: readonly ProductAdmin[]): readonly Revi
 
 export function mealReviewItems(rows: readonly MealAdmin[]): readonly ReviewItem[] {
     return rows.flatMap((row) => {
-        const item = itemFrom('meals', String(row.id), row.name, row.meta, [
+        const item = itemFrom('meals', String(row.id), null, row.name, row.meta, [
             ...quarantineReason(row.meta),
             ...translationReason(row.name),
         ]);
@@ -262,7 +270,7 @@ export function mealReviewItems(rows: readonly MealAdmin[]): readonly ReviewItem
 
 export function planReviewItems(rows: readonly PlanAdmin[]): readonly ReviewItem[] {
     return rows.flatMap((row) => {
-        const item = itemFrom('plans', String(row.id), row.name, row.meta, [
+        const item = itemFrom('plans', String(row.id), null, row.name, row.meta, [
             ...quarantineReason(row.meta),
             ...translationReason(row.name),
         ]);
@@ -282,7 +290,7 @@ export function priceListReviewItems(rows: readonly PriceListAdmin[]): readonly 
     return rows.flatMap((row) => {
         const inconsistent = row.entries.filter((entry) => !isPriceEntryConsistent(entry)).length;
 
-        const item = itemFrom('price-lists', String(row.id), row.name, row.meta, [
+        const item = itemFrom('price-lists', String(row.id), null, row.name, row.meta, [
             ...quarantineReason(row.meta),
             ...(inconsistent === 0
                 ? []

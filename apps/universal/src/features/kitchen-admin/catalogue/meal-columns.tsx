@@ -145,6 +145,8 @@ export function mealColumns({ t, locale }: MealColumnDeps): readonly CatalogueCo
             min: 110,
             priority: CATALOGUE_PRIORITY.unitPrice,
             role: 'meta',
+            sortable: true,
+            sortType: 'number',
             value: channelLabel,
             render: (row) => {
                 const testID = mealRowTestId(String(row.id));

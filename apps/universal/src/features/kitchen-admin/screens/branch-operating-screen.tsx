@@ -1,13 +1,13 @@
 import {
-    Badge,
+    Button,
     Callout,
-    Card,
     EmptyState,
+    FormSection,
     ErrorState,
-    Heading,
     Inline,
     Skeleton,
     Stack,
+    Tag,
     Text,
     useToast,
 } from '@healthy360/design-system';
@@ -15,6 +15,7 @@ import { KitchenBranchId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -32,6 +33,7 @@ import {
     summariseOperating,
 } from '../delivery-model.ts';
 import type { OperatingDayDraft } from '../delivery-model.ts';
+import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import { OperatingWeekRows } from '../delivery-row-editors.tsx';
 import { EditorFrame } from '../editor-frame.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
@@ -247,10 +249,48 @@ function BranchOperatingEditor() {
     return (
         <EditorFrame
             testID="kitchen-branch-hours-screen"
-            title={
-                branch === null
-                    ? t('kitchen:branchHours.title')
-                    : t('kitchen:branchHours.titleFor', { branch: branch.name })
+            title={t('kitchen:branchHours.title')}
+            titleChip={{ label: t('kitchen:branchHours.chip'), tone: 'neutral' }}
+            summary={
+                <CatalogueStatCards
+                    testID="kitchen-branch-hours-cards"
+                    cards={[
+                        {
+                            key: 'trading',
+                            label: t('kitchen:branchHours.cardTrading'),
+                            value: String(summary.openDays),
+                            unit: t('kitchen:branchHours.cardTradingUnit', {
+                                count: summary.openDays,
+                            }),
+                            caption:
+                                branch === null
+                                    ? t('kitchen:branchHours.branchUnknown')
+                                    : branch.name,
+                            mark: 'calendar',
+                            tone: summary.openDays === 0 ? 'warning' : 'default',
+                        },
+                        {
+                            key: 'closed',
+                            label: t('kitchen:branchHours.closedLabel'),
+                            value: String(7 - summary.openDays),
+                            unit: t('kitchen:branchHours.cardDayUnit', {
+                                count: 7 - summary.openDays,
+                            }),
+                            caption: t('kitchen:branchHours.cardClosedCaption'),
+                            mark: 'dotOutline',
+                        },
+                        {
+                            key: 'cut-off',
+                            label: t('kitchen:branchHours.cardCutOff'),
+                            value: String(summary.withCutOff),
+                            unit: t('kitchen:branchHours.cardDayUnit', {
+                                count: summary.withCutOff,
+                            }),
+                            caption: t('kitchen:branchHours.cardCutOffCaption'),
+                            mark: 'clock',
+                        },
+                    ]}
+                />
             }
             meta={data?.meta ?? null}
             guard={guard}
@@ -287,85 +327,99 @@ function BranchOperatingEditor() {
                 </Stack>
             }
         >
-            <Card testID="kitchen-branch-hours-context" padding="md">
-                <Stack space="sm">
-                    <Heading level={2}>{t('kitchen:branchHours.sectionContext')}</Heading>
-
-                    <Inline space="sm" wrap align="center">
-                        <Badge
-                            testID="kitchen-branch-hours-branch"
-                            tone="neutral"
-                            icon="branch"
-                            label={
-                                branch === null
-                                    ? t('kitchen:branchHours.branchUnknown')
-                                    : t('kitchen:branchHours.branchBadge', {
-                                          branch: branch.name,
-                                          code: branch.code,
-                                      })
-                            }
-                        />
-                        <Badge
-                            testID="kitchen-branch-hours-timezone"
-                            tone="info"
-                            label={t('kitchen:branchHours.timeZoneBadge', {
-                                zone: data?.timeZone ?? t('kitchen:common.notRecorded'),
-                            })}
-                        />
-                        <Badge
-                            testID="kitchen-branch-hours-open-days"
-                            tone={summary.openDays === 0 ? 'warning' : 'success'}
-                            {...(summary.openDays === 0 ? { icon: 'warning' as const } : {})}
-                            label={t('kitchen:branchHours.openDayCount', {
-                                count: summary.openDays,
-                            })}
-                        />
-                        <Badge
-                            testID="kitchen-branch-hours-cut-offs"
-                            tone="neutral"
-                            label={t('kitchen:branchHours.cutOffDayCount', {
-                                count: summary.withCutOff,
-                            })}
-                        />
-                    </Inline>
-
-                    <Text tone="secondary" testID="kitchen-branch-hours-context-note">
+            <FormSection
+                first
+                testID="kitchen-branch-hours-context"
+                title={t('kitchen:branchHours.sectionContext')}
+            >
+                <Inline space="xs" wrap align="center">
+                    <Tag
+                        testID="kitchen-branch-hours-branch"
+                        tone="brand"
+                        label={
+                            branch === null
+                                ? t('kitchen:branchHours.branchUnknown')
+                                : t('kitchen:branchHours.branchBadge', {
+                                      branch: branch.name,
+                                      code: branch.code,
+                                  })
+                        }
+                    />
+                    <Tag
+                        testID="kitchen-branch-hours-timezone"
+                        tone="neutral"
+                        label={t('kitchen:branchHours.timeZoneBadge', {
+                            zone: data?.timeZone ?? t('kitchen:common.notRecorded'),
+                        })}
+                    />
+                    <Text
+                        variant="caption"
+                        tone="secondary"
+                        testID="kitchen-branch-hours-context-note"
+                    >
                         {t('kitchen:branchHours.contextNote')}
                     </Text>
-                </Stack>
-            </Card>
+                </Inline>
+            </FormSection>
 
-            <Card testID="kitchen-branch-hours-week" padding="md">
-                <Stack space="md">
-                    <Heading level={2}>{t('kitchen:branchHours.sectionWeek')}</Heading>
-                    <Text tone="secondary">{t('kitchen:branchHours.weekIntro')}</Text>
+            <FormSection
+                testID="kitchen-branch-hours-week"
+                title={t('kitchen:branchHours.sectionWeek')}
+                description={t('kitchen:branchHours.weekIntro')}
+                aside={
+                    <Text
+                        variant="caption"
+                        tone="secondary"
+                        testID="kitchen-branch-hours-week-summary"
+                    >
+                        {`${t('kitchen:branchHours.openDayCount', { count: summary.openDays })} · ${t(
+                            'kitchen:branchHours.cutOffDayCount',
+                            { count: summary.withCutOff },
+                        )}`}
+                    </Text>
+                }
+            >
+                <OperatingWeekRows
+                    testID="kitchen-branch-hours-rows"
+                    rows={days}
+                    errors={dayErrors}
+                    canManage={canManage}
+                    announcement={announcement}
+                    onChange={(next) => {
+                        markDirty(() => {
+                            setDays(next);
+                        });
+                    }}
+                    onCopyToOpenDays={(weekday) => {
+                        markDirty(() => {
+                            const next = copyDayToOpenDays(days, weekday);
+                            setDays(next);
+                            setAnnouncement(
+                                t('kitchen:branchHours.copiedAnnouncement', {
+                                    day: t(weekdayKey(weekday)),
+                                    count: summariseOperating(next).openDays - 1,
+                                }),
+                            );
+                        });
+                    }}
+                />
 
-                    <OperatingWeekRows
-                        testID="kitchen-branch-hours-rows"
-                        rows={days}
-                        errors={dayErrors}
-                        canManage={canManage}
-                        announcement={announcement}
-                        onChange={(next) => {
-                            markDirty(() => {
-                                setDays(next);
-                            });
-                        }}
-                        onCopyToOpenDays={(weekday) => {
-                            markDirty(() => {
-                                const next = copyDayToOpenDays(days, weekday);
-                                setDays(next);
-                                setAnnouncement(
-                                    t('kitchen:branchHours.copiedAnnouncement', {
-                                        day: t(weekdayKey(weekday)),
-                                        count: summariseOperating(next).openDays - 1,
-                                    }),
-                                );
-                            });
-                        }}
-                    />
-                </Stack>
-            </Card>
+                {/* The design repeats Save under the week, beside the rule a reader most often breaks. */}
+                {canManage ? (
+                    <View className="flex-row flex-wrap items-center gap-tight px-tight pt-snug">
+                        <Button
+                            testID="kitchen-branch-hours-save-bottom"
+                            label={t('kitchen:branchHours.save')}
+                            loading={save.isPending}
+                            disabled={!dirty || dayErrors.size > 0 || save.isPending}
+                            onPress={saveWeek}
+                        />
+                        <Text variant="caption" tone="secondary">
+                            {t('kitchen:branchHours.cutOffAfterCloses')}
+                        </Text>
+                    </View>
+                ) : null}
+            </FormSection>
         </EditorFrame>
     );
 }

@@ -67,6 +67,8 @@ function colours(): Record<string, unknown> {
         'accent-subtle': variableReference('accent-subtle'),
         canopy: variableReference('surface-canopy'),
         'canopy-deep': variableReference('surface-canopy-deep'),
+        sidebar: variableReference('surface-sidebar'),
+        'sidebar-active': variableReference('sidebar-active'),
     };
 
     result['content'] = {
@@ -80,6 +82,9 @@ function colours(): Record<string, unknown> {
         'on-accent-subtle': variableReference('on-accent-subtle'),
         'on-canopy': variableReference('on-canopy'),
         'on-canopy-muted': variableReference('on-canopy-muted'),
+        'on-sidebar': variableReference('on-sidebar'),
+        'on-sidebar-muted': variableReference('on-sidebar-muted'),
+        'on-sidebar-active': variableReference('on-sidebar-active'),
     };
 
     result['stroke'] = {

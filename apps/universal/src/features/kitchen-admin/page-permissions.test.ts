@@ -68,7 +68,10 @@ describe('reading a level off a code set', () => {
 
     it('reads Manage from one code where the family has only one', () => {
         expect(
-            pageLevelFor(family('supplyOrders'), new Set(['inventory.order_supplies_organisation'])),
+            pageLevelFor(
+                family('supplyOrders'),
+                new Set(['inventory.order_supplies_organisation']),
+            ),
         ).toBe('manage');
     });
 

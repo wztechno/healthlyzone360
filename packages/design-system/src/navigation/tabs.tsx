@@ -53,12 +53,17 @@ const COMFORTABLE_LIST_VARIANT: Readonly<Record<TabsVariant, string>> = {
 
 /**
  * The admin's five recipe tabs are a 32px row, not a 44px one, and the segmented set loses its
- * 12px corner for the control radius. `p-hair` on the segmented track rather than `p-1`: the track
- * is a control, so its inset comes from the 4-point aliases like every other admin inset.
+ * 12px corner for the control radius.
+ *
+ * The segmented **track** is a control, so its outer height is a control height: `h-control-sm`,
+ * the same 28px as the `sm` input frame and the search field it sits beside in every admin toolbar
+ * and form row. That is 24px tabs (`h-control-xs`) inside a 2px inset. A 4px inset around 28px tabs
+ * made the track 36px, so a segmented set in a row of fields stood 8px taller than its neighbours
+ * and pushed its label out of line with theirs.
  */
 const COMPACT_LIST_VARIANT: Readonly<Record<TabsVariant, string>> = {
     underline: 'flex-row flex-wrap items-end gap-hair border-b border-stroke-subtle',
-    segmented: 'flex-row flex-wrap items-stretch gap-hair rounded-sm bg-surface-sunken p-hair',
+    segmented: 'flex-row flex-wrap items-stretch gap-0.5 rounded-sm bg-surface-sunken p-0.5',
 };
 
 const LIST_VARIANT: Readonly<Record<Density, Readonly<Record<TabsVariant, string>>>> = {
@@ -75,7 +80,7 @@ const COMPACT_TAB_VARIANT: Readonly<Record<TabsVariant, string>> = {
     underline:
         'h-control-md flex-row items-center justify-center gap-control-md border-b-2 px-control-md',
     segmented:
-        'h-control-sm flex-row items-center justify-center gap-control-sm rounded-sm px-control-sm',
+        'h-control-xs flex-row items-center justify-center gap-control-sm rounded-sm px-control-sm',
 };
 
 const TAB_VARIANT: Readonly<Record<Density, Readonly<Record<TabsVariant, string>>>> = {
