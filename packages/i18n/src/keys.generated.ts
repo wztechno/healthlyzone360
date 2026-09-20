@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7241 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7246 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3857,12 +3857,20 @@ export interface NamespaceKeys {
     | 'ops.production.planReserved'
     | 'ops.production.planShort'
     | 'ops.production.plannedYieldHint'
+    | 'ops.production.plannedYieldHintUnit'
     | 'ops.production.plannedYieldLabel'
     | 'ops.production.previousPage'
     | 'ops.production.producedHint'
     | 'ops.production.producedLabel'
     | 'ops.production.producedRequired'
     | 'ops.production.productionDateLabel'
+    | 'ops.production.recipeHint'
+    | 'ops.production.recipeLabel'
+    | 'ops.production.recipePlaceholder'
+    | 'ops.production.recipeRequired'
+    | 'ops.production.recipeResolving'
+    | 'ops.production.recipeUnpublished'
+    | 'ops.production.recipeVersionCaption'
     | 'ops.production.registerEmptyBody'
     | 'ops.production.registerEmptyTitle'
     | 'ops.production.registerTitle'
@@ -3909,9 +3917,6 @@ export interface NamespaceKeys {
     | 'ops.production.uncostedLines'
     | 'ops.production.unitCostLabel'
     | 'ops.production.unreferenced'
-    | 'ops.production.versionHint'
-    | 'ops.production.versionLabel'
-    | 'ops.production.versionRequired'
     | 'ops.production.wasteHeading'
     | 'ops.production.wasteHint'
     | 'ops.production.yieldPlanned'
@@ -11116,12 +11121,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.planReserved',
   'kitchen:ops.production.planShort',
   'kitchen:ops.production.plannedYieldHint',
+  'kitchen:ops.production.plannedYieldHintUnit',
   'kitchen:ops.production.plannedYieldLabel',
   'kitchen:ops.production.previousPage',
   'kitchen:ops.production.producedHint',
   'kitchen:ops.production.producedLabel',
   'kitchen:ops.production.producedRequired',
   'kitchen:ops.production.productionDateLabel',
+  'kitchen:ops.production.recipeHint',
+  'kitchen:ops.production.recipeLabel',
+  'kitchen:ops.production.recipePlaceholder',
+  'kitchen:ops.production.recipeRequired',
+  'kitchen:ops.production.recipeResolving',
+  'kitchen:ops.production.recipeUnpublished',
+  'kitchen:ops.production.recipeVersionCaption',
   'kitchen:ops.production.registerEmptyBody',
   'kitchen:ops.production.registerEmptyTitle',
   'kitchen:ops.production.registerTitle',
@@ -11168,9 +11181,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.uncostedLines',
   'kitchen:ops.production.unitCostLabel',
   'kitchen:ops.production.unreferenced',
-  'kitchen:ops.production.versionHint',
-  'kitchen:ops.production.versionLabel',
-  'kitchen:ops.production.versionRequired',
   'kitchen:ops.production.wasteHeading',
   'kitchen:ops.production.wasteHint',
   'kitchen:ops.production.yieldPlanned',
