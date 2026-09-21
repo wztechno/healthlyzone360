@@ -228,8 +228,7 @@ function RolesList() {
             label: t('accessAdmin:roles.columns.pages'),
             width: 130,
             priority: 60,
-            value: (row) =>
-                t('accessAdmin:roles.permissionCount', { count: row.permissionCount }),
+            value: (row) => t('accessAdmin:roles.permissionCount', { count: row.permissionCount }),
             sort: (left, right, direction) =>
                 compareNumber(left.permissionCount, right.permissionCount, direction),
             render: (row) => (

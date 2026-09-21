@@ -1627,15 +1627,15 @@ function ReviewStep({
         <View testID="kitchen-order-desk-sale-review" className="z-auto flex-col">
             <View className="flex-col gap-snug">
                 {/*
-                  * Set a step up from the rest of the desk — `DeskFact size="md"` and `body`
-                  * lines rather than captions.
-                  *
-                  * This is the read-aloud screen. Every other block of facts on this surface is
-                  * something an agent glances at while doing something else; this one is read to
-                  * a customer standing at the counter, and the two numbers on it — what they are
-                  * getting and what it costs — are the ones that get repeated back. Caption-sized
-                  * type is for reference, not for reciting.
-                  */}
+                 * Set a step up from the rest of the desk — `DeskFact size="md"` and `body`
+                 * lines rather than captions.
+                 *
+                 * This is the read-aloud screen. Every other block of facts on this surface is
+                 * something an agent glances at while doing something else; this one is read to
+                 * a customer standing at the counter, and the two numbers on it — what they are
+                 * getting and what it costs — are the ones that get repeated back. Caption-sized
+                 * type is for reference, not for reciting.
+                 */}
                 <View className="flex-col">
                     <DeskFact
                         testID="kitchen-order-desk-sale-review-type"

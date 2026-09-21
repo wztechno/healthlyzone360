@@ -1110,13 +1110,13 @@ function PanelNavLink({
             >
                 <View
                     className={cx(
-                        'size-3 items-center justify-center rounded-full',
+                        'h-3 w-3 items-center justify-center rounded-full',
                         active ? 'bg-surface-brand/30' : 'bg-transparent',
                     )}
                 >
                     <View
                         className={cx(
-                            'size-1.5 rounded-full',
+                            'h-1.5 w-1.5 rounded-full',
                             active ? 'bg-surface-brand' : 'bg-stroke-strong',
                         )}
                     />

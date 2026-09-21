@@ -28,7 +28,8 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
-import { WithColumnPicker } from '../catalogue/column-picker.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
 
 /**
  * `/kitchen/order-desk/requirements` — what this branch must buy to cook the days ahead.
@@ -313,30 +314,6 @@ function OrderDeskRequirements() {
 
     return (
         <Stack space="md" testID="kitchen-order-desk-requirements-screen">
-            {/* One 28px row: the window. The branch is the workspace's — see the file header. */}
-            <View
-                testID="kitchen-order-desk-requirements-content"
-                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight"
-            >
-                <DatePickerButton
-                    testID="kitchen-order-desk-requirements-from"
-                    label={t('kitchen:ops.requirements.filterFrom')}
-                    value={from}
-                    onChange={setFrom}
-                    max={to}
-                />
-                <Text variant="caption" tone="secondary" aria-hidden>
-                    {t('kitchen:ops.requirements.windowTo')}
-                </Text>
-                <DatePickerButton
-                    testID="kitchen-order-desk-requirements-to"
-                    label={t('kitchen:ops.requirements.filterTo')}
-                    value={to}
-                    onChange={setTo}
-                    min={from}
-                />
-            </View>
-
             {/*
              * The figures as cards. Absent until something has answered — a zero here would claim
              * an answer the screen does not have yet.
@@ -385,6 +362,34 @@ function OrderDeskRequirements() {
                 />
             )}
 
+            {/*
+             * The window, below the figures it produces, on the raised toolbar panel — with the
+             * column picker at its inline end rather than floating above the table. The branch is
+             * the workspace's — see the file header.
+             */}
+            <ToolbarPanel
+                testID="kitchen-order-desk-requirements-content"
+                end={<ColumnPicker {...controls.picker} />}
+            >
+                <DatePickerButton
+                    testID="kitchen-order-desk-requirements-from"
+                    label={t('kitchen:ops.requirements.filterFrom')}
+                    value={from}
+                    onChange={setFrom}
+                    max={to}
+                />
+                <Text variant="caption" tone="secondary" aria-hidden>
+                    {t('kitchen:ops.requirements.windowTo')}
+                </Text>
+                <DatePickerButton
+                    testID="kitchen-order-desk-requirements-to"
+                    label={t('kitchen:ops.requirements.filterTo')}
+                    value={to}
+                    onChange={setTo}
+                    min={from}
+                />
+            </ToolbarPanel>
+
             {branchId === null ? (
                 // Friendly rather than an error: the reader did nothing wrong, the list simply
                 // needs a shelf to compare against.
@@ -429,16 +434,14 @@ function OrderDeskRequirements() {
                             body={t('kitchen:ops.requirements.noRowsBody')}
                         />
                     ) : (
-                        <WithColumnPicker picker={controls.picker}>
-                            <CatalogueList<OrderDeskRequirement>
-                                testID="kitchen-order-desk-requirements-table"
-                                label={t('kitchen:ops.requirements.title')}
-                                columns={controls.columns}
-                                rows={controls.rows}
-                                rowKey={(row) => row.stockItemId}
-                                rowActionsLabel={t('kitchen:list.rowActions')}
-                            />
-                        </WithColumnPicker>
+                        <CatalogueList<OrderDeskRequirement>
+                            testID="kitchen-order-desk-requirements-table"
+                            label={t('kitchen:ops.requirements.title')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => row.stockItemId}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
                     )}
                 </View>
             )}

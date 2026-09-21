@@ -955,9 +955,7 @@ describe('the recipe list', () => {
         expect(screen.getByTestId(`${card}-title`)).toHaveTextContent('Tabbouleh');
         // The picture opens the recipe without a tab stop, so it is hidden from the accessibility
         // tree — the title is the announced link — and has to be asked for as such.
-        expect(
-            screen.getByTestId(`${card}-image`, { includeHiddenElements: true }),
-        ).toBeTruthy();
+        expect(screen.getByTestId(`${card}-image`, { includeHiddenElements: true })).toBeTruthy();
         expect(screen.getByTestId(`${card}-version`)).toHaveTextContent(
             `Version ${String(tabbouleh.currentVersionNumber)}`,
         );

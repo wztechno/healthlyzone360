@@ -32,7 +32,8 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
-import { WithColumnPicker } from '../catalogue/column-picker.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
 
 /**
  * `/kitchen/order-desk/cash-report` — who took what, on one day.
@@ -241,10 +242,51 @@ function OrderDeskCashReport() {
 
     return (
         <Stack space="md" testID="kitchen-order-desk-cash-report-screen">
-            {/* One 28px row: the day, and the clock it was cut on. */}
-            <View
+            {/*
+             * The figures first, and only once there are rows to count — a zero here would claim an
+             * answer the screen does not have yet.
+             */}
+            {filters === null ||
+            report.isPending ||
+            failure !== null ||
+            rows.length === 0 ? null : (
+                <CatalogueStatCards
+                    testID="kitchen-order-desk-cash-report-figures"
+                    cards={[
+                        {
+                            key: 'receipts',
+                            label: t('kitchen:ops.cashReport.kpiReceipts'),
+                            value: formatter.formatNumber(
+                                rows.reduce((sum, row) => sum + row.receiptCount, 0),
+                            ),
+                            caption: t('kitchen:ops.cashReport.kpiReceiptsCaption'),
+                            mark: 'receipt',
+                            tone: 'brand',
+                        },
+                        {
+                            key: 'rows',
+                            label: t('kitchen:ops.cashReport.kpiRows'),
+                            value: formatter.formatNumber(rows.length),
+                            caption: t('kitchen:ops.cashReport.kpiRowsCaption'),
+                            mark: 'list',
+                        },
+                        {
+                            key: 'currencies',
+                            label: t('kitchen:ops.cashReport.kpiCurrencies'),
+                            value: formatter.formatNumber(
+                                new Set(totals.map((total) => total.currencyCode)).size,
+                            ),
+                            caption: t('kitchen:ops.cashReport.kpiCurrenciesCaption'),
+                            mark: 'coins',
+                        },
+                    ]}
+                />
+            )}
+
+            {/* The day, below the figures, with the column picker at the row's inline end. */}
+            <ToolbarPanel
                 testID="kitchen-order-desk-cash-report-toolbar"
-                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
+                end={rows.length === 0 ? undefined : <ColumnPicker {...controls.picker} />}
             >
                 <DatePickerButton
                     testID="kitchen-order-desk-cash-report-date"
@@ -257,7 +299,7 @@ function OrderDeskCashReport() {
                         {t('kitchen:ops.cashReport.dateHint')}
                     </Text>
                 ) : null}
-            </View>
+            </ToolbarPanel>
 
             {filters === null ? (
                 <Callout
@@ -295,48 +337,14 @@ function OrderDeskCashReport() {
                 />
             ) : (
                 <View className="flex-col gap-loose">
-                    <CatalogueStatCards
-                        testID="kitchen-order-desk-cash-report-figures"
-                        cards={[
-                            {
-                                key: 'receipts',
-                                label: t('kitchen:ops.cashReport.kpiReceipts'),
-                                value: formatter.formatNumber(
-                                    rows.reduce((sum, row) => sum + row.receiptCount, 0),
-                                ),
-                                caption: t('kitchen:ops.cashReport.kpiReceiptsCaption'),
-                                mark: 'receipt',
-                                tone: 'brand',
-                            },
-                            {
-                                key: 'rows',
-                                label: t('kitchen:ops.cashReport.kpiRows'),
-                                value: formatter.formatNumber(rows.length),
-                                caption: t('kitchen:ops.cashReport.kpiRowsCaption'),
-                                mark: 'list',
-                            },
-                            {
-                                key: 'currencies',
-                                label: t('kitchen:ops.cashReport.kpiCurrencies'),
-                                value: formatter.formatNumber(
-                                    new Set(totals.map((total) => total.currencyCode)).size,
-                                ),
-                                caption: t('kitchen:ops.cashReport.kpiCurrenciesCaption'),
-                                mark: 'coins',
-                            },
-                        ]}
+                    <CatalogueList<OrderDeskCashReportRow>
+                        testID="kitchen-order-desk-cash-report-table"
+                        label={t('kitchen:ops.cashReport.caption')}
+                        columns={controls.columns}
+                        rows={controls.rows}
+                        rowKey={rowTestId}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
                     />
-
-                    <WithColumnPicker picker={controls.picker}>
-                        <CatalogueList<OrderDeskCashReportRow>
-                            testID="kitchen-order-desk-cash-report-table"
-                            label={t('kitchen:ops.cashReport.caption')}
-                            columns={controls.columns}
-                            rows={controls.rows}
-                            rowKey={rowTestId}
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
-                    </WithColumnPicker>
 
                     {/*
                      * The totals, as a panel of labelled pairs rather than a footer row of the list
@@ -348,10 +356,12 @@ function OrderDeskCashReport() {
                     <View
                         testID="kitchen-order-desk-cash-report-totals"
                         style={{ maxWidth: TOTALS_MAX_WIDTH }}
-                        className="flex-col rounded border border-stroke bg-surface-sunken"
+                        // The green card: the brand's subtle ground, raised like the figures.
+                        className="flex-col rounded-panel border border-brand-100 bg-surface-brand-subtle shadow-elevation-card"
                     >
-                        <View className="px-snug pb-hair pt-tight">
-                            <Text variant="micro" tone="secondary" accessibilityRole="header">
+                        {/* A heading a step above the pairs under it, so it reads as their title. */}
+                        <View className="px-snug pb-hair pt-snug">
+                            <Text variant="section" tone="brand" accessibilityRole="header">
                                 {t('kitchen:ops.cashReport.totalsHeading')}
                             </Text>
                         </View>

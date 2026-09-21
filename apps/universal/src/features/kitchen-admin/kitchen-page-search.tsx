@@ -65,7 +65,7 @@ export function KitchenPageSearch({
                 onPress={() => {
                     setOpen(true);
                 }}
-                className="h-8 flex-row items-center gap-2 rounded-lg border border-stroke-subtle bg-surface-sunken px-2.5 web:cursor-text"
+                className="h-8 flex-row items-center gap-2 rounded-lg border border-brand-100 bg-surface-raised px-2.5 shadow-elevation-card web:cursor-text"
             >
                 <Icon name="searchLens" size="sm" className="text-content-secondary" />
                 {wide ? (

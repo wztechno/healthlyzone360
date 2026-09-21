@@ -162,7 +162,9 @@ export function RecipeCardGrid({
                                                 {...(action.disabled === undefined
                                                     ? {}
                                                     : { disabled: action.disabled })}
-                                                icon={<Icon name={action.icon ?? 'more'} size="sm" />}
+                                                icon={
+                                                    <Icon name={action.icon ?? 'more'} size="sm" />
+                                                }
                                                 onPress={action.onSelect}
                                                 testID={
                                                     action.testID ??
