@@ -5,6 +5,7 @@ import {
     Callout,
     Dialog,
     ErrorState,
+    FormGrid,
     FormSection,
     Inline,
     Select,
@@ -777,8 +778,29 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                         testID="kitchen-supplier-details"
                         title={t('kitchen:ops.suppliers.sectionDetails')}
                     >
-                        <Stack space="md">
+                        {/*
+                         * The ingredient editor's grid: `sm` fields in tracks, the identifier first,
+                         * the bilingual name across two tracks with its halves side by side, and the
+                         * two free-text fields across the full row. A single column of full-width
+                         * default-size inputs was the one kitchen form still drawn the old way.
+                         */}
+                        <FormGrid testID="kitchen-supplier-details-grid">
+                            <TextInputField
+                                testID="kitchen-supplier-code"
+                                id="kitchen-supplier-code"
+                                label={t('kitchen:ops.suppliers.fieldCode')}
+                                size="sm"
+                                value={details.code}
+                                autoCapitalize="characters"
+                                disabled={!editable}
+                                onChangeText={(code) => {
+                                    editDetails({ ...details, code });
+                                }}
+                            />
+
                             <BilingualField
+                                span={2}
+                                layout="row"
                                 testID="kitchen-supplier-name"
                                 fieldLabel={t('kitchen:ops.suppliers.fieldName')}
                                 value={details.name}
@@ -793,33 +815,10 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                             />
 
                             <TextInputField
-                                testID="kitchen-supplier-code"
-                                label={t('kitchen:ops.suppliers.fieldCode')}
-                                value={details.code}
-                                autoCapitalize="characters"
-                                disabled={!editable}
-                                onChangeText={(code) => {
-                                    editDetails({ ...details, code });
-                                }}
-                            />
-
-                            {/*
-                             * Displayed, never picked. Every price in this system is booked in one
-                             * currency (there is no exchange rate — `MixedIngredientCostCurrency`), so a
-                             * picker here would offer a choice the receipt path then refuses.
-                             */}
-                            <Stack space="none" testID="kitchen-supplier-currency">
-                                <Text variant="label">
-                                    {t('kitchen:ops.suppliers.fieldCurrency')}
-                                </Text>
-                                <Text testID="kitchen-supplier-currency-value">
-                                    {data?.currencyCode ?? t('kitchen:ops.suppliers.noCurrency')}
-                                </Text>
-                            </Stack>
-
-                            <TextInputField
                                 testID="kitchen-supplier-email"
+                                id="kitchen-supplier-email"
                                 label={t('kitchen:ops.suppliers.fieldEmail')}
+                                size="sm"
                                 value={details.contactEmail}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
@@ -831,7 +830,9 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
 
                             <TextInputField
                                 testID="kitchen-supplier-phone"
+                                id="kitchen-supplier-phone"
                                 label={t('kitchen:ops.suppliers.fieldPhone')}
+                                size="sm"
                                 value={details.contactPhone}
                                 keyboardType="phone-pad"
                                 disabled={!editable}
@@ -840,21 +841,28 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 }}
                             />
 
+                            {/*
+                             * Displayed, never picked. Every price in this system is booked in one
+                             * currency (there is no exchange rate — `MixedIngredientCostCurrency`), so
+                             * a picker here would offer a choice the receipt path then refuses. A
+                             * disabled field rather than a label over a line of text, so it sits in
+                             * the grid the way the ingredient editor's read-only Id does.
+                             */}
                             <TextInputField
-                                testID="kitchen-supplier-address"
-                                label={t('kitchen:ops.suppliers.fieldAddress')}
-                                value={details.address}
-                                multiline
-                                numberOfLines={3}
-                                disabled={!editable}
-                                onChangeText={(address) => {
-                                    editDetails({ ...details, address });
-                                }}
+                                testID="kitchen-supplier-currency"
+                                id="kitchen-supplier-currency"
+                                label={t('kitchen:ops.suppliers.fieldCurrency')}
+                                size="sm"
+                                value={data?.currencyCode ?? t('kitchen:ops.suppliers.noCurrency')}
+                                disabled
+                                onChangeText={() => undefined}
                             />
 
                             <TextInputField
                                 testID="kitchen-supplier-payment-terms"
+                                id="kitchen-supplier-payment-terms"
                                 label={t('kitchen:ops.suppliers.fieldPaymentTerms')}
+                                size="sm"
                                 value={details.paymentTerms}
                                 disabled={!editable}
                                 onChangeText={(paymentTerms) => {
@@ -864,7 +872,9 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
 
                             <TextInputField
                                 testID="kitchen-supplier-lead-time"
+                                id="kitchen-supplier-lead-time"
                                 label={t('kitchen:ops.suppliers.fieldLeadTime')}
+                                size="sm"
                                 value={details.leadTimeDays}
                                 keyboardType="number-pad"
                                 disabled={!editable}
@@ -877,8 +887,26 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                             />
 
                             <TextInputField
+                                testID="kitchen-supplier-address"
+                                id="kitchen-supplier-address"
+                                label={t('kitchen:ops.suppliers.fieldAddress')}
+                                size="sm"
+                                fullWidth
+                                value={details.address}
+                                multiline
+                                numberOfLines={3}
+                                disabled={!editable}
+                                onChangeText={(address) => {
+                                    editDetails({ ...details, address });
+                                }}
+                            />
+
+                            <TextInputField
                                 testID="kitchen-supplier-notes"
+                                id="kitchen-supplier-notes"
                                 label={t('kitchen:ops.suppliers.fieldNotes')}
+                                size="sm"
+                                fullWidth
                                 value={details.notes}
                                 multiline
                                 numberOfLines={3}
@@ -887,7 +915,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                     editDetails({ ...details, notes });
                                 }}
                             />
-                        </Stack>
+                        </FormGrid>
                     </FormSection>
                 )}
 

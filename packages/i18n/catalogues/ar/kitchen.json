@@ -2249,8 +2249,7 @@
         },
         "window": {
             "kind": "بند",
-            "note": "هذه أرقام تجريبية إلى أن تتوفر التقارير الحية. لا شيء في هذه الشاشة مقروء من سجل الطلبات.",
-            "fieldAvgMinutes": "متوسط الدقائق"
+            "note": "هذه أرقام تجريبية إلى أن تتوفر التقارير الحية. لا شيء في هذه الشاشة مقروء من سجل الطلبات."
         }
     },
     "review": {
@@ -4259,13 +4258,10 @@
         "sellableNo": "لا — يُستخدم داخل الوصفات فقط",
         "whereUsedTitle": "أين يُستخدم هذا المكوّن",
         "whereUsedBody": "الوصفات والصلصات التي تستهلك هذا المكوّن، مع الكمية التي يأخذها كل منها لكل دفعة.",
-        "fieldItemsPerUnit": "عدد القطع في وحدة الشراء",
-        "fieldGramsPerUnit": "كتلة 1 {{unit}}",
         "fieldPackCost": "تكلفة العبوة",
         "identificationTitle": "التعريف",
         "identificationSubtitle": "سجل الكتالوج والتكلفة",
         "fieldOtherName": "الاسم باللغة الأخرى",
-        "fieldCostPer100g": "التكلفة لكل 100 غ",
         "fieldCapacity": "محتوى العبوة",
         "fieldWaste": "الهدر",
         "perUnitValue": "{{price}} / {{unit}}",
@@ -4287,7 +4283,6 @@
         "viewKind": "وجبة مجمّدة"
     },
     "recordView": {
-        "backToList": "العودة إلى القائمة",
         "details": "التفاصيل",
         "statusTitle": "حالة السجل",
         "version": "الإصدار {{version}}"

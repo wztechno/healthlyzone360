@@ -1748,11 +1748,12 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     fieldsTitle="Identification"
                     fieldsSubtitle="Catalogue record and costing"
                     fields={[
-                        { key: 'reference', label: 'Reference', value: 'ING-0142', mono: true },
-                        { key: 'name', label: 'Designation', value: 'Tahini paste' },
+                        // The table's own column names — a view names a field what its column does.
+                        { key: 'reference', label: 'Id', value: 'ING-0142', mono: true },
+                        { key: 'name', label: 'Item', value: 'Tahini paste' },
                         { key: 'category', label: 'Category', value: 'Sauces' },
                         { key: 'unit', label: 'Unit', value: 'kg' },
-                        { key: 'cost', label: 'Unit cost', value: 'AED 4.57', mono: true },
+                        { key: 'cost', label: 'Unit price', value: 'AED 4.57', mono: true },
                         { key: 'sellable', label: 'Available for sale', value: 'No' },
                     ]}
                     sections={[
@@ -1832,6 +1833,12 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     <Icon name="eye" size="sm" className="text-content-secondary" />
                     <Icon name="pen" size="sm" className="text-content-secondary" />
                     <Icon name="archive" size="sm" className="text-content-secondary" />
+                        // Page seven of seventeen: the range counts the walk, not the page, so it
+                        // reads 126 rather than 18 for the eleventh time.
+                        [
+                            'paged',
+                            { rows: [1], shown: 18, total: 306, page: 7, totalPages: 17 },
+                        ],
                     <Icon name="calendar" size="sm" className="text-content-secondary" />
                     <Icon name="clock" size="sm" className="text-content-secondary" />
                     <Icon name="more" size="sm" className="text-content-secondary" />

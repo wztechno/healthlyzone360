@@ -1196,3 +1196,139 @@ it('refuses an estimate flag and a note on a row a published recipe derives', fu
     expect(Ingredient::withoutTenancy()->whereKey($ingredient->getKey())->value('nutrition_estimated'))
         ->toBeNull();
 });
+
+/*
+|--------------------------------------------------------------------------
+| Sorting, which is the collection's and not the page's
+|--------------------------------------------------------------------------
+|
+| A column header that reorders the eighteen rows on screen is not a sort of a
+| seventeen-page catalogue, and reads as one: a reader pressing "Unit price" to
+| find the dearest ingredient gets the dearest of *these eighteen*. So the
+| order lives here, beside the `COUNT` and the filters, and what these pin is
+| that it survives the page boundary.
+*/
+
+it('orders the whole collection rather than the page in hand', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+
+    // The seeded platform library is in this list too, so every row these tests
+    // create carries a token and every request searches for it. Narrowing by
+    // `query` is what makes the expectation an exact array rather than a claim
+    // about the first few of three hundred.
+    $names = ['Qxsort Quinoa', 'Qxsort Almond', 'Qxsort Tahini', 'Qxsort Basil', 'Qxsort Lentil', 'Qxsort Fig'];
+
+    // Created in an order that is not the sorted one, so a page that came back
+    // sorted could not have got there by accident.
+    foreach ($names as $name) {
+        Ingredient::factory()->create([
+            'organisation_id' => $this->a->organisation->getKey(),
+            'name_en' => $name,
+        ]);
+    }
+
+    $walked = [];
+
+    for ($page = 1; $page <= 3; $page++) {
+        $response = $this
+            ->getJson(
+                "/api/v1/catalogue/ingredients?query=Qxsort&page={$page}&per_page=2&sort=name_en&direction=asc",
+                $headers,
+            )
+            ->assertOk();
+
+        foreach ($response->json('data') as $item) {
+            $walked[] = $item['name_en'];
+        }
+    }
+
+    $sorted = $names;
+    sort($sorted);
+
+    expect($walked)->toBe($sorted);
+});
+
+it('reverses on request, and sorts the empties last either way', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+
+    foreach ([['Qxprice Dear', '90.00'], ['Qxprice Cheap', '1.00'], ['Qxprice Unpriced', null]] as [$name, $price]) {
+        Ingredient::factory()->create([
+            'organisation_id' => $this->a->organisation->getKey(),
+            'name_en' => $name,
+            'unit_price_amount' => $price,
+            // The table refuses an amount with no currency beside it.
+            'price_currency_code' => $price === null ? null : 'USD',
+        ]);
+    }
+
+    $order = function (string $direction) use ($headers): array {
+        $response = $this
+            ->getJson(
+                "/api/v1/catalogue/ingredients?query=Qxprice&page=1&per_page=10&sort=unit_price&direction={$direction}",
+                $headers,
+            )
+            ->assertOk();
+
+        return array_column($response->json('data'), 'name_en');
+    };
+
+    // A row with no price is not the cheapest one — it is the one somebody has
+    // to go and fill in, and it is last in both directions so that pressing the
+    // column twice does not bury it under everything that *is* priced.
+    expect($order('asc'))->toBe(['Qxprice Cheap', 'Qxprice Dear', 'Qxprice Unpriced'])
+        ->and($order('desc'))->toBe(['Qxprice Dear', 'Qxprice Cheap', 'Qxprice Unpriced']);
+});
+
+it('orders by the code behind a foreign key, not by the key', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+
+    // Ids are uuid7 and so ascend with creation; the codes descend against
+    // them. A sort reading the key rather than the code would come back in the
+    // order they were made.
+    foreach ([['qxcat-zzz-last', 'Qxcat made first'], ['qxcat-aaa-first', 'Qxcat made second']] as [$code, $name]) {
+        $category = IngredientCategory::factory()->create([
+            'organisation_id' => null,
+            'code' => $code,
+        ]);
+
+        Ingredient::factory()->create([
+            'organisation_id' => $this->a->organisation->getKey(),
+            'name_en' => $name,
+            'ingredient_category_id' => $category->getKey(),
+        ]);
+    }
+
+    $response = $this
+        ->getJson(
+            '/api/v1/catalogue/ingredients?query=Qxcat&page=1&per_page=10&sort=category&direction=asc',
+            $headers,
+        )
+        ->assertOk();
+
+    expect(array_column($response->json('data'), 'name_en'))
+        ->toBe(['Qxcat made second', 'Qxcat made first']);
+});
+
+it('refuses a sort it does not offer, a direction it does not understand, and a sort without a page', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+
+    $this->getJson('/api/v1/catalogue/ingredients?page=1&sort=notes', $headers)
+        ->assertStatus(400)
+        ->assertJsonPath('error.code', 'request.invalid')
+        ->assertJsonPath('error.details.parameter', 'sort');
+
+    $this->getJson('/api/v1/catalogue/ingredients?page=1&sort=name_en&direction=sideways', $headers)
+        ->assertStatus(400)
+        ->assertJsonPath('error.details.parameter', 'direction');
+
+    // A keyset walk *is* its ordering — the cursor encodes a position in
+    // `(created_at, id)` — so serving the unsorted list under a `sort` the
+    // caller believes was applied is the one answer that must not happen.
+    $this->getJson('/api/v1/catalogue/ingredients?limit=5&sort=name_en', $headers)
+        ->assertStatus(400)
+        ->assertJsonPath('error.details.parameter', 'sort');
+});

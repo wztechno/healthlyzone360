@@ -1,9 +1,15 @@
-import { screen, waitFor } from '@testing-library/react-native';
-import { Text as RNText } from 'react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { useState } from 'react';
+import { Pressable, Text as RNText } from 'react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { useKitchenNavigation } from './kitchen-chrome.tsx';
+import {
+    KitchenTrailProvider,
+    useKitchenTrail,
+    useKitchenTrailLeaf,
+} from './kitchen-ops-shell.tsx';
 
 jest.mock('expo-router', () => ({
     __esModule: true,
@@ -58,5 +64,75 @@ describe('useKitchenNavigation', () => {
         expect(screen.getByTestId('probe-overview')).toBeTruthy();
         expect(screen.queryByTestId('probe-stock')).toBeNull();
         expect(screen.queryByTestId('probe-review')).toBeNull();
+    });
+});
+
+/** The trail as pressable text, so a test can read each crumb and press the ones that link. */
+function TrailProbe() {
+    const crumbs = useKitchenTrail();
+    return (
+        <>
+            {crumbs.map((crumb) => (
+                <Pressable
+                    key={crumb.key}
+                    testID={`crumb-${crumb.key}`}
+                    disabled={crumb.onPress === undefined}
+                    onPress={crumb.onPress}
+                >
+                    <RNText>{`${crumb.label}|${crumb.onPress === undefined ? 'current' : 'link'}`}</RNText>
+                </Pressable>
+            ))}
+        </>
+    );
+}
+
+/** A list page that opens one record in place, as every Catalogue View does. */
+function ListWithView() {
+    const [open, setOpen] = useState(true);
+    return open ? (
+        <OpenRecord
+            onBack={() => {
+                setOpen(false);
+            }}
+        />
+    ) : (
+        <RNText testID="list">list</RNText>
+    );
+}
+
+function OpenRecord({ onBack }: { readonly onBack: () => void }) {
+    // A fresh closure every render, as the screens pass one — the trail must not loop on it.
+    useKitchenTrailLeaf('Olive oil', () => {
+        onBack();
+    });
+    return <RNText testID="record">record</RNText>;
+}
+
+describe('useKitchenTrail with a record open inside its list', () => {
+    it('names the record and makes the list crumb the way back to the list', async () => {
+        await renderStubScreen(
+            <KitchenTrailProvider>
+                <TrailProbe />
+                <ListWithView />
+            </KitchenTrailProvider>,
+            { session: kitchenManagerSession() },
+        );
+
+        // `/kitchen/stock` is the family route itself, so without the record's back this crumb
+        // would be the current page and not a link — which is why the View pages could not drop
+        // their own Back button before.
+        await waitFor(() => {
+            expect(screen.getByTestId('crumb-leaf')).toHaveTextContent('Olive oil|current');
+        });
+        expect(screen.getByTestId('crumb-stock')).toHaveTextContent(/\|link$/);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('crumb-stock'));
+        });
+
+        expect(screen.getByTestId('list')).toBeTruthy();
+        // Closed: the trail is the list page's own two crumbs again.
+        expect(screen.queryByTestId('crumb-leaf')).toBeNull();
+        expect(screen.getByTestId('crumb-stock')).toHaveTextContent(/\|current$/);
     });
 });

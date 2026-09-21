@@ -2013,8 +2013,7 @@
         },
         "window": {
             "kind": "Line item",
-            "note": "These are sample figures until live reporting lands. Nothing on this screen is read from the order book.",
-            "fieldAvgMinutes": "Average minutes"
+            "note": "These are sample figures until live reporting lands. Nothing on this screen is read from the order book."
         }
     },
     "review": {
@@ -3703,13 +3702,10 @@
         "sellableNo": "No — used inside recipes only",
         "whereUsedTitle": "Where this ingredient is used",
         "whereUsedBody": "The recipes and sauces consuming this ingredient, with the quantity each takes per batch.",
-        "fieldItemsPerUnit": "Items per purchase unit",
-        "fieldGramsPerUnit": "Mass of 1 {{unit}}",
         "fieldPackCost": "Pack cost",
         "identificationTitle": "Identification",
         "identificationSubtitle": "Catalogue record and costing",
         "fieldOtherName": "Name in the other language",
-        "fieldCostPer100g": "Cost per 100 g",
         "fieldCapacity": "Pack contents",
         "fieldWaste": "Waste",
         "perUnitValue": "{{price}} / {{unit}}",
@@ -3731,7 +3727,6 @@
         "viewKind": "Frozen meal"
     },
     "recordView": {
-        "backToList": "Back to list",
         "details": "Details",
         "statusTitle": "Record status",
         "version": "Version {{version}}"

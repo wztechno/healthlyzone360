@@ -126,6 +126,12 @@ export function IngredientDetail({
                   name: ingredient.meta.updatedByName,
               });
 
+    /*
+     * Every field the list also draws as a column is labelled with the *column's* key, not a key of
+     * its own. The view is the row opened up, and a reader who scanned "Item" and "Cost / 100 g"
+     * down the table should find the same words here — two names for one field read as two fields.
+     * Fields with no column (the other-language name, margin, pack contents) keep their own.
+     */
     const identification: readonly RecordWindowField[] = [
         {
             key: 'reference',
@@ -135,7 +141,7 @@ export function IngredientDetail({
         },
         {
             key: 'name',
-            label: t('kitchen:list.columnName'),
+            label: t('kitchen:list.columnItem'),
             value: name.value,
         },
         {
@@ -153,7 +159,7 @@ export function IngredientDetail({
         },
         {
             key: 'subcategory',
-            label: t('kitchen:fields.subcategory'),
+            label: t('kitchen:list.columnSubcategory'),
             value:
                 ingredient.subcategoryCode === null
                     ? t('kitchen:fields.subcategoryNone')
@@ -168,19 +174,19 @@ export function IngredientDetail({
         },
         {
             key: 'cost-per-100g',
-            label: t('kitchen:ingredientDetail.fieldCostPer100g'),
+            label: t('kitchen:list.columnCostPer100g'),
             value: money(ingredient.costPer100g),
             mono: true,
         },
         {
             key: 'b2b',
-            label: t('kitchen:sale.b2bPrice'),
+            label: t('kitchen:list.columnB2bPrice'),
             value: perUnit(ingredient.b2bPrice),
             mono: true,
         },
         {
             key: 'b2c',
-            label: t('kitchen:sale.b2cPrice'),
+            label: t('kitchen:list.columnB2cPrice'),
             value: perUnit(ingredient.b2cPrice),
             mono: true,
         },
@@ -207,13 +213,13 @@ export function IngredientDetail({
     const sourcing: readonly RecordWindowField[] = [
         {
             key: 'purchase-unit',
-            label: t('kitchen:fields.purchaseUnit'),
+            label: t('kitchen:list.columnPurchaseUnit'),
             value:
                 ingredient.purchaseUnit === null ? dash : t(unitShortKey(ingredient.purchaseUnit)),
         },
         {
             key: 'items-per-unit',
-            label: t('kitchen:ingredientDetail.fieldItemsPerUnit'),
+            label: t('kitchen:list.columnItemsPerUnit'),
             value:
                 ingredient.itemsPerUnit === null
                     ? dash
@@ -236,7 +242,7 @@ export function IngredientDetail({
             : [
                   {
                       key: 'grams-per-unit',
-                      label: t('kitchen:ingredientDetail.fieldGramsPerUnit', { unit }),
+                      label: t('kitchen:list.columnGramsPerUnit'),
                       value:
                           ingredient.gramsPerUnit === null
                               ? dash

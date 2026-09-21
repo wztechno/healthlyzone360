@@ -312,7 +312,7 @@ function QualityCheckList({ onCreate }: { readonly onCreate: () => void }) {
                     },
                     {
                         key: 'subject',
-                        label: t('kitchen:ops.qc.subjectIdLabel'),
+                        label: t('kitchen:ops.qc.columnSubject'),
                         value: viewing.subjectId,
                         mono: true,
                     },

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7383 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7378 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2477,7 +2477,6 @@ export interface NamespaceKeys {
     | 'analytics.units.count'
     | 'analytics.units.minutes'
     | 'analytics.units.percent'
-    | 'analytics.window.fieldAvgMinutes'
     | 'analytics.window.kind'
     | 'analytics.window.note'
     | 'areas.chosenCount'
@@ -3185,9 +3184,6 @@ export interface NamespaceKeys {
     | 'hub.title'
     | 'ingredientDetail.allergensDietsTitle'
     | 'ingredientDetail.fieldCapacity'
-    | 'ingredientDetail.fieldCostPer100g'
-    | 'ingredientDetail.fieldGramsPerUnit'
-    | 'ingredientDetail.fieldItemsPerUnit'
     | 'ingredientDetail.fieldOtherName'
     | 'ingredientDetail.fieldPackCost'
     | 'ingredientDetail.fieldSellable'
@@ -5325,7 +5321,6 @@ export interface NamespaceKeys {
     | 'recipes.yieldQuantity'
     | 'recipes.yieldRequired'
     | 'recipes.yieldUnit'
-    | 'recordView.backToList'
     | 'recordView.details'
     | 'recordView.statusTitle'
     | 'recordView.version'
@@ -9878,7 +9873,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:analytics.units.count',
   'kitchen:analytics.units.minutes',
   'kitchen:analytics.units.percent',
-  'kitchen:analytics.window.fieldAvgMinutes',
   'kitchen:analytics.window.kind',
   'kitchen:analytics.window.note',
   'kitchen:areas.chosenCount',
@@ -10586,9 +10580,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.title',
   'kitchen:ingredientDetail.allergensDietsTitle',
   'kitchen:ingredientDetail.fieldCapacity',
-  'kitchen:ingredientDetail.fieldCostPer100g',
-  'kitchen:ingredientDetail.fieldGramsPerUnit',
-  'kitchen:ingredientDetail.fieldItemsPerUnit',
   'kitchen:ingredientDetail.fieldOtherName',
   'kitchen:ingredientDetail.fieldPackCost',
   'kitchen:ingredientDetail.fieldSellable',
@@ -12726,7 +12717,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.yieldQuantity',
   'kitchen:recipes.yieldRequired',
   'kitchen:recipes.yieldUnit',
-  'kitchen:recordView.backToList',
   'kitchen:recordView.details',
   'kitchen:recordView.statusTitle',
   'kitchen:recordView.version',

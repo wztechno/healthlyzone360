@@ -242,7 +242,7 @@ function AnalyticsDashboard() {
                     },
                     {
                         key: 'avg',
-                        label: t('kitchen:analytics.window.fieldAvgMinutes'),
+                        label: t('kitchen:analytics.table.avgMinutes'),
                         value: formatter.formatNumber(viewing.avgMinutes),
                         mono: true,
                     },

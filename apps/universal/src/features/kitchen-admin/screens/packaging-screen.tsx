@@ -282,17 +282,27 @@ function PackagingList() {
                                 list.openEditor(String(row.id));
                             },
                         },
-                        // Archive is offered only where it would be accepted: the permission,
-                        // the server's own answer for this row, and a row that is not already
-                        // archived. A kitchen browsing the shared library would otherwise be
-                        // offered Archive on every platform row and get a 403 on each.
-                        ...(canManage && row.isEditable && row.meta.status !== 'retired'
+                        /*
+                         * Archive is *drawn* for anyone who may manage the catalogue and
+                         * *enabled* only where the server would accept it — the ingredient
+                         * list's rule, and for the same reason.
+                         *
+                         * It used to be omitted on any row the server would refuse, and every
+                         * seeded packaging row is a platform-library row, so a kitchen saw no
+                         * Archive anywhere on the page and could not tell "this row cannot be
+                         * archived" from "this list has no archive". Disabled answers that and
+                         * still never fires the request that would 403. The permission stays a
+                         * hard gate: an action a role cannot perform at all is not a disabled
+                         * control, it is somebody else's button.
+                         */
+                        ...(canManage
                             ? [
                                   {
                                       key: 'archive',
                                       label: t('kitchen:list.archive'),
                                       icon: CATALOGUE_ROW_ICONS.archive,
                                       tone: 'danger' as const,
+                                      disabled: !row.isEditable || row.meta.status === 'retired',
                                       testID: `${packagingRowTestId(row.id)}-archive`,
                                       onSelect: () => {
                                           list.askToArchive(row);
