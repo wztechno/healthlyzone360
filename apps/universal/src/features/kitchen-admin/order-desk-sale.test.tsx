@@ -123,6 +123,7 @@ function adminProduct(): ProductAdmin {
         recipeId: null,
         dietClassifications: [],
         dataQualityFlags: [],
+        imagePlaceholderId: 'product-order-desk-item',
     };
 }
 

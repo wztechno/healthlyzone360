@@ -47,6 +47,19 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
  * platforms. Widening the fixed tracks is how the same row fills a desk-width port without a
  * fractional track, and the floors are what keep the fitting decision identical to the design's.
  *
+ * ## The thumbnail is 20px, and decorative
+ *
+ * The title column names the picture with `thumbnail` and `CatalogueList` draws it: inside the
+ * title cell in the wide table, because a 28px row has no track for photography, and avatar-sized
+ * on the leading edge of the narrow row. It is `decorative` in both — the designation beside it
+ * carries the meaning, and announcing both would say the name twice (WCAG H67).
+ *
+ * It is addressed by `row.slug`, not by slugifying the name here. The slug is the server's — the
+ * photograph is filed as `ingredients/<slug>.thumb.webp` by a pipeline reading the same value — and
+ * a client that derived its own would quietly miss on every record whose name does not slugify the
+ * way Laravel's does. A miss renders the generated pattern, so the failure would look like a design
+ * choice rather than a bug.
+ *
  * ## Why the reference leads
  *
  * A kitchen says "IG-044", not "the olive oil one" — the code is how a row is named out loud, on a
@@ -202,6 +215,7 @@ export function ingredientColumns({
             sortable: true,
             sortType: 'text',
             value: (row) => displayName(row.name, locale).value,
+            thumbnail: (row) => `ingredient-${row.slug}`,
             render: (row) => {
                 const name = displayName(row.name, locale);
                 return (

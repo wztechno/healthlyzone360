@@ -46,6 +46,11 @@ export const CATALOGUE_ROW_ICONS = {
 
 export interface CatalogueListItemProps {
     readonly title: string;
+    /**
+     * The row's photograph, first on the leading edge, before the status badge. Supplied by
+     * `CatalogueList` from the title column's `thumbnail`; omitted, the row is exactly as before.
+     */
+    readonly media?: ReactNode | undefined;
     /** Rendered beside the title. A `StatusBadge`, from the spec's `badge` column. */
     readonly status?: ReactNode | undefined;
     /**
@@ -68,6 +73,7 @@ export interface CatalogueListItemProps {
 
 export function CatalogueListItem({
     title,
+    media,
     status,
     meta,
     metric,
@@ -110,7 +116,19 @@ export function CatalogueListItem({
                     {overflow}
                 </View>
             }
-            leading={status}
+            // `ListItem` has one leading slot. The photograph and the badge share it, picture first,
+            // so the badge still sits beside the title; with no photograph this is the badge alone,
+            // exactly as it was.
+            leading={
+                media === undefined ? (
+                    status
+                ) : (
+                    <View className="flex-row items-center gap-tight">
+                        {media}
+                        {status}
+                    </View>
+                )
+            }
             meta={
                 meta === undefined || meta.length === 0 ? undefined : (
                     <View className="flex-row flex-wrap items-center gap-hair">

@@ -14,6 +14,7 @@ import { coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
 import { useTranslation } from 'react-i18next';
 
 import { displayName, statusShortKey, statusTone, unitDimension, unitShortKey } from '../format.ts';
+import { RecordPhoto } from './record-photo.tsx';
 import { RecordViewPage } from './record-view-page.tsx';
 import type { RecordViewSection } from './record-view-page.tsx';
 
@@ -379,6 +380,14 @@ export function IngredientDetail({
         <RecordViewPage
             testID={testID}
             title={name.value}
+            media={
+                <RecordPhoto
+                    assetId={`ingredient-${ingredient.slug}`}
+                    label={name.value}
+                    shape="square"
+                    testID={`${testID}-photo`}
+                />
+            }
             kind={t('kitchen:list.viewKind')}
             {...(ingredient.reference === null ? {} : { reference: ingredient.reference })}
             status={{

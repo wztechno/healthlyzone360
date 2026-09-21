@@ -1,4 +1,12 @@
-import { DataList, Icon, IconButton, fitColumns, useBreakpoint } from '@healthy360/design-system';
+import {
+    DataList,
+    Icon,
+    IconButton,
+    Inline,
+    Text,
+    fitColumns,
+    useBreakpoint,
+} from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { RowDensity } from '@healthy360/design-tokens';
 import type { ReactNode } from 'react';
@@ -8,6 +16,7 @@ import { CatalogueListItem } from './catalogue-list-item.tsx';
 import { CATALOGUE_PRIORITY, columnFloor, columnForRole } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 import { useCataloguePort } from './catalogue-nav.tsx';
+import { RowThumbnail } from './row-thumbnail.tsx';
 
 /**
  * The list's panel — the same surface as the toolbar above it and every other admin panel, so the
@@ -57,6 +66,14 @@ const FRAME_CLASS =
  * header, the end alignment — so three specs restating it would be three chances to get one of
  * them wrong. What an entity decides is which actions there are, which is exactly what the callback
  * returns.
+ *
+ * ## The photograph is the shell's too
+ *
+ * A spec names a row's picture with `thumbnail` on its title column and nothing else. This file
+ * draws it in both shapes — 20px inside the wide table's title cell, avatar-sized on the narrow
+ * row's leading edge — for the same reason as the overflow column. When the specs drew their own,
+ * the three that had a picture all drew it in the wide table and none on the narrow row, because
+ * the narrow row reads a column's plain `value` and never calls its renderer.
  *
  * ## The narrow branch
  *
@@ -113,6 +130,7 @@ export function CatalogueList<Row>({
                           <CatalogueListItem
                               key={rowKey(row)}
                               title={cellText(columnForRole(columns, 'title'), row)}
+                              media={narrowThumbnail(columns, row, rowKey, testID)}
                               status={renderRole(columns, 'status', row)}
                               metric={renderRole(columns, 'metric', row)}
                               meta={metaEntries(columns, row)}
@@ -133,10 +151,11 @@ export function CatalogueList<Row>({
         );
     }
 
+    const drawn = withTableThumbnail(columns, rowKey, testID);
     const withActions =
         rowActions === undefined
-            ? columns
-            : [...columns, actionColumn<Row>(rowActions, rows, rowActionsLabel, rowKey, testID)];
+            ? drawn
+            : [...drawn, actionColumn<Row>(rowActions, rows, rowActionsLabel, rowKey, testID)];
 
     // `columnFloor` is the fitting currency; the tracks `DataList` draws are still `width`. Fitting
     // on a floor and drawing on a width is the whole reason the spec carries both.
@@ -199,6 +218,67 @@ export function CatalogueList<Row>({
 
 function cellText<Row>(column: CatalogueColumn<Row> | undefined, row: Row): string {
     return column?.value?.(row) ?? '';
+}
+
+/**
+ * The spec's columns with the row photograph drawn into the title cell, when the spec names one.
+ *
+ * The title's own renderer is kept and wrapped, not replaced, so a spec still owns how its title
+ * reads — the missing-Arabic badge, the weight — and only the picture is added in front of it.
+ */
+function withTableThumbnail<Row>(
+    columns: readonly CatalogueColumn<Row>[],
+    rowKey: (row: Row) => string,
+    testID: string,
+): readonly CatalogueColumn<Row>[] {
+    return columns.map((column) => {
+        const thumbnail = column.thumbnail;
+        if (column.role !== 'title' || thumbnail === undefined) return column;
+
+        const titleCell = (row: Row): ReactNode =>
+            column.render === undefined ? (
+                <Text variant="label">{cellText(column, row)}</Text>
+            ) : (
+                column.render(row)
+            );
+
+        return {
+            ...column,
+            render: (row: Row) => (
+                <Inline space="xs" align="center">
+                    <RowThumbnail
+                        assetId={thumbnail(row)}
+                        seed={rowKey(row)}
+                        label={cellText(column, row)}
+                        size="table"
+                        testID={`${testID}-row-${rowKey(row)}-image`}
+                    />
+                    {titleCell(row)}
+                </Inline>
+            ),
+        };
+    });
+}
+
+/** The same photograph for the two-line row below `md`, or nothing when the spec names none. */
+function narrowThumbnail<Row>(
+    columns: readonly CatalogueColumn<Row>[],
+    row: Row,
+    rowKey: (row: Row) => string,
+    testID: string,
+): ReactNode {
+    const title = columnForRole(columns, 'title');
+    if (title?.thumbnail === undefined) return undefined;
+
+    return (
+        <RowThumbnail
+            assetId={title.thumbnail(row)}
+            seed={rowKey(row)}
+            label={cellText(title, row)}
+            size="narrow"
+            testID={`${testID}-row-${rowKey(row)}-image`}
+        />
+    );
 }
 
 function renderRole<Row>(

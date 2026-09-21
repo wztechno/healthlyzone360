@@ -19,6 +19,7 @@ import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
+import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
@@ -163,6 +164,14 @@ function RecipesList() {
         return (
             <RecordViewPage
                 testID="kitchen-recipes-view"
+                media={
+                    <RecordPhoto
+                        assetId={`recipe-${viewed.slug}`}
+                        label={displayName(viewed.name, locale).value}
+                        shape="wide"
+                        testID="kitchen-recipes-view-photo"
+                    />
+                }
                 kind={t('kitchen:recipes.viewKind')}
                 reference={viewed.slug}
                 title={displayName(viewed.name, locale).value}

@@ -282,6 +282,16 @@ export interface IngredientAdmin {
     readonly id: IngredientId;
     readonly meta: AdminEntityMeta;
     readonly name: LocalisedText;
+    /**
+     * The stable handle the ingredient's photograph is filed under, as
+     * `ingredients/<slug>.thumb.webp`.
+     *
+     * Carried rather than derived from {@link name} because the slug is the server's — a
+     * client that slugified `Mustard, wholegrain (a l'ancienne)` for itself would address a
+     * file that does not exist, and the miss would show as a placeholder rather than an
+     * error. It is already on the wire and required by the schema, so this costs nothing.
+     */
+    readonly slug: string;
     /** The kitchen's own reference, e.g. `IG-014`. `null` for a platform-library row. */
     readonly reference: string | null;
     readonly categoryCode: string;
@@ -1280,6 +1290,13 @@ export interface ProductAdmin {
     readonly dietClassifications: readonly DietClassification[];
     /** Import findings the operator has not resolved, e.g. `dual_pack_single_price`. */
     readonly dataQualityFlags: readonly string[];
+    /**
+     * The photograph id, resolved by `EntityImage` — the stored one when a kitchen set it,
+     * otherwise `<item_type>-<slug>`, the same id the storefront derives. Most products have no
+     * photograph and draw the generated pattern; the imported dishes, which are product rows,
+     * resolve to their own under `meals/`.
+     */
+    readonly imagePlaceholderId: string;
 }
 
 export interface ProductAdminFilter extends CursorPageRequest, OffsetPageRequest {

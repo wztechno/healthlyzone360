@@ -132,6 +132,7 @@ function item({ ordinal, name, overrides = {} }: ItemSeed): IngredientAdmin {
         id: itemIdentifier(ordinal),
         meta: meta(),
         name: { en: label, ar: `${label} بالعربية` },
+        slug: `ingredient-${String(ordinal)}`,
         reference: `PKG-00${String(ordinal)}`,
         categoryCode: PACKAGING_CATEGORY_CODE,
         subcategoryCode: SUBCATEGORY_CODE,
@@ -288,6 +289,14 @@ describe('the packaging list', () => {
         await untilVisible('kitchen-packaging-table');
 
         const base = `kitchen-packaging-row-${String(row.id)}`;
+
+        // A packaging row is an ingredient row, so its photograph is `ingredient-<slug>`, drawn
+        // by `CatalogueList` from the spec's `thumbnail` — the packaging list had none before.
+        expect(
+            screen.getByTestId(`kitchen-packaging-table-row-${String(row.id)}-image`, {
+                includeHiddenElements: true,
+            }),
+        ).toBeTruthy();
 
         /*
          * The column that names the row, on the `label` step — what the other five Catalogue lists

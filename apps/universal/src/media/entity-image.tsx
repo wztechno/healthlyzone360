@@ -273,7 +273,7 @@ export function EntityImage({
         );
 
     if (resolved === null || resolved === undefined) {
-        return withOverlays(
+        const placeholder = (
             <ImagePlaceholder
                 testID={testID}
                 seed={seed}
@@ -281,7 +281,25 @@ export function EntityImage({
                 aspect={aspect}
                 flush={flush}
                 className={className}
-            />,
+            />
+        );
+
+        // `decorative` has to hold in both branches. The placeholder is a named `image` role, so
+        // without this a decorative frame with no photograph behind it was announced anyway — the
+        // record's name read out twice, once as the title and once as a picture of it, on every
+        // Catalogue row that has no photograph. The photograph branch below already hid itself.
+        return withOverlays(
+            decorative ? (
+                <View
+                    aria-hidden
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                >
+                    {placeholder}
+                </View>
+            ) : (
+                placeholder
+            ),
         );
     }
 
