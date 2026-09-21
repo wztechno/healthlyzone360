@@ -414,6 +414,10 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
         { key: 'dietitians', labelKey: 'marketplace:nav.dietitians', href: '/dietitians' },
         { key: 'how-it-works', labelKey: 'marketplace:nav.howItWorks', href: '/how-it-works' },
         { key: 'for-business', labelKey: 'marketplace:nav.forBusiness', href: '/for-business' },
+        // Not decoration: CC BY and CC BY-SA ask for attribution reasonable to the medium, and for
+        // the images that cannot carry a credit beside them — a grid card, a tile, a 20px
+        // catalogue thumbnail — this link is where that obligation is actually discharged.
+        { key: 'image-credits', labelKey: 'marketplace:nav.imageCredits', href: '/image-credits' },
         signedIn
             ? { key: 'my-home', labelKey: 'marketplace:nav.myHome', href: '/customer' }
             : { key: 'sign-in', labelKey: 'marketplace:nav.signIn', href: '/sign-in' },

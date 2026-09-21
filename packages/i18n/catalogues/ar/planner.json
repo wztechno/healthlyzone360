@@ -337,7 +337,7 @@
         "recipeVersion": "إصدار الوصفة {{version}}",
         "nutritionVersion": "حُسبت الأرقام من إصدار الوصفة {{version}}",
         "calculatedAt": "حُسبت في {{timestamp}}",
-        "attribution": "المصدر: {{source}}. والتصوير الأصلي ونسب المصادر الخارجية ليسا جزءًا من هذا النموذج الأولي.",
+        "attribution": "المصدر: {{source}}.",
         "staleTitle": "هذه الأرقام متأخّرة عن الوصفة",
         "staleBody": "عُدّلت الوصفة بعد حساب هذه الأرقام، فعاملها كتقدير إلى أن يُعاد حسابها.",
         "ingredientsTitle": "المكوّنات",

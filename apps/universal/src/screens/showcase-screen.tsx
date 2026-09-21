@@ -3231,6 +3231,42 @@ export function ShowcaseScreen() {
                         seed="showcase-meal-01"
                         label={t('designSystem:showcase.placeholderLabel')}
                     />
+                    {/*
+                     * The three families that carry a record's own photograph, side by side, so the
+                     * square ingredient thumbnail can be compared against the 4:3 dish crop rather
+                     * than reviewed on its own. The third is deliberately an id with no bundled
+                     * file: the generated pattern beside two real photographs is what a blocked
+                     * record looks like on screen, and reviewing that here is the point.
+                     */}
+                    <Inline space="md" testID="showcase-entity-images">
+                        <View className="w-16">
+                            <EntityImage
+                                testID="showcase-entity-image-ingredient"
+                                assetId="ingredient-black-pepper"
+                                seed="showcase-ingredient"
+                                label={t('designSystem:showcase.placeholderLabel')}
+                                aspect="square"
+                            />
+                        </View>
+                        <View className="w-40">
+                            <EntityImage
+                                testID="showcase-entity-image-dish"
+                                assetId="recipe-herbed-chicken-freekeh"
+                                seed="showcase-dish"
+                                label={t('designSystem:showcase.placeholderLabel')}
+                                aspect="card"
+                            />
+                        </View>
+                        <View className="w-16">
+                            <EntityImage
+                                testID="showcase-entity-image-unmapped"
+                                assetId="ingredient-not-sourced"
+                                seed="showcase-unmapped"
+                                label={t('designSystem:showcase.placeholderLabel')}
+                                aspect="square"
+                            />
+                        </View>
+                    </Inline>
                     {CALLOUT_TONES.map((tone) => (
                         <Callout
                             key={tone}
