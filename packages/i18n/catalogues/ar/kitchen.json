@@ -2249,8 +2249,7 @@
         },
         "window": {
             "kind": "بند",
-            "note": "هذه أرقام تجريبية إلى أن تتوفر التقارير الحية. لا شيء في هذه الشاشة مقروء من سجل الطلبات.",
-            "fieldAvgMinutes": "متوسط الدقائق"
+            "note": "هذه أرقام تجريبية إلى أن تتوفر التقارير الحية. لا شيء في هذه الشاشة مقروء من سجل الطلبات."
         }
     },
     "review": {
@@ -2387,7 +2386,9 @@
         "columnUpdated": "آخر تحديث",
         "close": "إغلاق",
         "columnSort": "رتّب حسب {{column}}",
-        "columnsButton": "الأعمدة {{shown}}/{{max}}",
+        "columnsButton": "عرض الأعمدة · {{shown}} من {{max}}",
+        "columnsClear": "إلغاء تحديد الكل",
+        "columnsHint": "اختر الأعمدة التي تظهر في الجدول، حتى {{max}} في المرة الواحدة.",
         "columnsLabel": "اختر الأعمدة المعروضة",
         "columnsHeading": "اعرض حتى {{max}} أعمدة",
         "columnsReset": "استعادة الافتراضي",
@@ -2438,6 +2439,9 @@
         "columnStatus": "الحالة",
         "columnUpdated": "آخر تغيير",
         "actionHeader": "إجراءات",
+        "layoutLabel": "طريقة العرض",
+        "layoutTable": "جدول",
+        "layoutCards": "بطاقات",
         "open": "فتح",
         "archive": "أرشفة",
         "emptyTitle": "لا توجد مكوّنات في هذا المطبخ بعد",
@@ -2767,6 +2771,7 @@
         "resultCount_many": "{{count}} نتيجةً",
         "resultCount_other": "{{count}} نتيجة",
         "versionNumber": "النسخة {{number}}",
+        "imageLabel": "صورة {{recipe}}",
         "versionCount_zero": "لا توجد نسخ",
         "versionCount_one": "نسخة واحدة",
         "versionCount_two": "نسختان",
@@ -4259,13 +4264,10 @@
         "sellableNo": "لا — يُستخدم داخل الوصفات فقط",
         "whereUsedTitle": "أين يُستخدم هذا المكوّن",
         "whereUsedBody": "الوصفات والصلصات التي تستهلك هذا المكوّن، مع الكمية التي يأخذها كل منها لكل دفعة.",
-        "fieldItemsPerUnit": "عدد القطع في وحدة الشراء",
-        "fieldGramsPerUnit": "كتلة 1 {{unit}}",
         "fieldPackCost": "تكلفة العبوة",
         "identificationTitle": "التعريف",
         "identificationSubtitle": "سجل الكتالوج والتكلفة",
         "fieldOtherName": "الاسم باللغة الأخرى",
-        "fieldCostPer100g": "التكلفة لكل 100 غ",
         "fieldCapacity": "محتوى العبوة",
         "fieldWaste": "الهدر",
         "perUnitValue": "{{price}} / {{unit}}",
@@ -4287,9 +4289,18 @@
         "viewKind": "وجبة مجمّدة"
     },
     "recordView": {
-        "backToList": "العودة إلى القائمة",
         "details": "التفاصيل",
         "statusTitle": "حالة السجل",
         "version": "الإصدار {{version}}"
+    },
+    "search": {
+        "label": "البحث في الصفحات",
+        "trigger": "ابحث في الصفحات…",
+        "placeholder": "اكتب للبحث في الصفحات…",
+        "empty": "لا توجد صفحة تطابق «{{query}}».",
+        "general": "عام",
+        "hintMove": "للتنقل",
+        "hintOpen": "للفتح",
+        "hintClose": "للإغلاق"
     }
 }

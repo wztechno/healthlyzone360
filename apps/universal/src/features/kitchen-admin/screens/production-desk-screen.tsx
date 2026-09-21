@@ -298,7 +298,7 @@ function ProductionDesk() {
                             value: tile(countByStatus(rows, 'draft', hasMore)),
                             unit: t('kitchen:ops.production.statUnit'),
                             caption: t('kitchen:ops.production.statDraftCaption'),
-                            mark: 'calendar',
+                            mark: 'fileDraft',
                             tone: 'default',
                             onPress: () => {
                                 refilter('draft');
@@ -311,7 +311,7 @@ function ProductionDesk() {
                             value: tile(countByStatus(rows, 'confirmed', hasMore)),
                             unit: t('kitchen:ops.production.statUnit'),
                             caption: t('kitchen:ops.production.statConfirmedCaption'),
-                            mark: 'check',
+                            mark: 'circleCheck',
                             tone: 'brand',
                             onPress: () => {
                                 refilter('confirmed');
@@ -324,7 +324,7 @@ function ProductionDesk() {
                             value: tile(countByStatus(rows, 'in_production', hasMore)),
                             unit: t('kitchen:ops.production.statUnit'),
                             caption: t('kitchen:ops.production.statInProductionCaption'),
-                            mark: 'calendar',
+                            mark: 'cookingPot',
                             tone: 'brand',
                             onPress: () => {
                                 refilter('in_production');
@@ -337,7 +337,7 @@ function ProductionDesk() {
                             value: tile(countUnvalued(rows, hasMore)),
                             unit: t('kitchen:ops.production.statUnit'),
                             caption: t('kitchen:ops.production.statUnvaluedCaption'),
-                            mark: 'warning',
+                            mark: 'coins',
                             tone: (countUnvalued(rows, hasMore) ?? 0) > 0 ? 'danger' : 'default',
                         },
                     ]}

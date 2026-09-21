@@ -390,7 +390,7 @@ describe('supplier detail', () => {
         );
         expect(screen.getByTestId('kitchen-supplier-lead-time-input').props.value).toBe('2');
         // Displayed, never picked — every purchase is booked in one currency.
-        expect(screen.getByTestId('kitchen-supplier-currency-value')).toHaveTextContent('USD');
+        expect(screen.getByTestId('kitchen-supplier-currency-input').props.value).toBe('USD');
 
         // One step at a time: Contacts is not drawn until its step is opened.
         expect(screen.queryByTestId('kitchen-supplier-contacts')).toBeNull();

@@ -522,7 +522,38 @@ export interface IngredientAdminFilter extends CursorPageRequest, OffsetPageRequ
     readonly allergenCodes?: readonly AllergenCode[] | undefined;
     /** Only rows this organisation owns; omit for the library plus the kitchen's own forks. */
     readonly ownedOnly?: boolean | undefined;
+    /**
+     * How the collection is ordered, across every page of it.
+     *
+     * Numbered pages only — a keyset walk *is* its ordering, so the endpoint refuses the pair
+     * rather than serving an unsorted list under a `sort` the caller believes was applied.
+     *
+     * Absent means the collection's own `(created_at, id)`, which is what every caller got before
+     * this field existed.
+     */
+    readonly sort?: IngredientAdminSort | undefined;
+    readonly sortDirection?: 'asc' | 'desc' | undefined;
+    /**
+     * Which name the `name` sort orders by. Defaults to English.
+     *
+     * The list renders the reader's own language and has to sort on what it renders: a catalogue
+     * ordered by `name_en` under an Arabic interface is in no order the reader can see. Ignored by
+     * every other sort.
+     */
+    readonly sortLanguage?: 'en' | 'ar' | undefined;
 }
+
+/**
+ * What the ingredient list may be ordered by — the seven tracks its header sorts.
+ *
+ * `allergens` is not among them, for the reason the list states: the cell is a *set* drawn as a
+ * comma run, and ordering a set by its first member sorts "Egg, Mustard" above "Milk" for reasons
+ * no reader can see.
+ *
+ * `category` and `unit` order by the *code* the row draws, not by the foreign key behind it.
+ */
+export type IngredientAdminSort =
+    'reference' | 'name' | 'category' | 'unit' | 'unitPrice' | 'status' | 'updatedAt';
 
 /**
  * The two series the ingredient table is numbered in.

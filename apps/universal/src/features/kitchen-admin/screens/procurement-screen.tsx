@@ -971,7 +971,7 @@ function receiptStatCards(
             value: String(unpriced),
             unit: t('kitchen:ops.procurement.statReceiptsUnit'),
             caption: t('kitchen:ops.procurement.statUnpricedCaption'),
-            mark: 'warning',
+            mark: 'coins',
             tone: unpriced === 0 ? 'default' : 'warning',
         },
         {
@@ -980,7 +980,7 @@ function receiptStatCards(
             value: String(partial),
             unit: t('kitchen:ops.procurement.statReceiptsUnit'),
             caption: t('kitchen:ops.procurement.statPartialCaption'),
-            mark: 'warning',
+            mark: 'alert',
             tone: partial === 0 ? 'default' : 'warning',
         },
         {
@@ -989,7 +989,7 @@ function receiptStatCards(
             value: String(count('complete')),
             unit: t('kitchen:ops.procurement.statReceiptsUnit'),
             caption: t('kitchen:ops.procurement.statCompleteCaption'),
-            mark: 'check',
+            mark: 'circleCheck',
         },
     ];
 }

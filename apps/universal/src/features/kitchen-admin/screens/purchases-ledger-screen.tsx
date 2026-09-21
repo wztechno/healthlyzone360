@@ -732,7 +732,7 @@ function ledgerStatCards(
             value: String(unpriced),
             unit: t('kitchen:ops.ledger.statLinesUnit'),
             caption: t('kitchen:ops.ledger.statUnpricedCaption'),
-            mark: 'warning',
+            mark: 'coins',
             tone: unpriced === 0 ? 'default' : 'warning',
         },
         {
@@ -749,7 +749,7 @@ function ledgerStatCards(
             value: String(count('priced')),
             unit: t('kitchen:ops.ledger.statLinesUnit'),
             caption: t('kitchen:ops.ledger.statPricedCaption'),
-            mark: 'check',
+            mark: 'circleCheck',
         },
     ];
 }

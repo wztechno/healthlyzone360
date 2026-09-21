@@ -1,5 +1,6 @@
-import { ActivityIndicator, Pressable, Text as RNText } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text as RNText } from 'react-native';
 import type { PressableProps } from 'react-native';
+import { useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import { useDensity } from '../hooks/use-density.tsx';
@@ -12,6 +13,8 @@ import {
     LABEL_VARIANT,
 } from './button-shared.ts';
 import type { ButtonSize, ButtonVariant } from './button-shared.ts';
+import { showFloatingLabel } from './floating-label.ts';
+import type { FloatingLabel } from './floating-label.ts';
 
 /**
  * Button.
@@ -120,6 +123,14 @@ export interface ButtonProps extends Omit<
     readonly iconEnd?: ReactNode | undefined;
     /** Stretch to the container width. */
     readonly block?: boolean | undefined;
+    /**
+     * One sentence saying what the control is for, beyond its label — "Choose which columns
+     * appear in the table" under "Show columns · 6 of 6". On the web it floats under the button
+     * while the pointer rests on it, drawn the way `IconButton` draws its name
+     * (`floating-label.ts`); everywhere it is the control's `accessibilityHint`, so a screen reader
+     * reads it after the label instead of the reader having to hover.
+     */
+    readonly hint?: string | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -133,8 +144,11 @@ export function Button({
     iconStart,
     iconEnd,
     block = false,
+    hint,
     className,
     onPress,
+    onHoverIn,
+    onHoverOut,
     accessibilityLabel,
     testID,
     ...rest
@@ -143,6 +157,13 @@ export function Button({
     // A loading button is not merely styled as busy — it must not fire again, or a double tap
     // submits the form twice while the first request is still in flight.
     const inert = disabled || loading;
+
+    const floating = useRef<FloatingLabel | null>(null);
+    const hideHint = useCallback(() => {
+        floating.current?.hide();
+        floating.current = null;
+    }, []);
+    useEffect(() => hideHint, [hideHint]);
 
     return (
         <Pressable
@@ -155,7 +176,30 @@ export function Button({
             aria-disabled={inert}
             aria-busy={loading}
             disabled={inert}
-            onPress={inert ? undefined : onPress}
+            {...(hint === undefined ? {} : { accessibilityHint: hint })}
+            onPress={
+                inert || onPress === undefined || onPress === null
+                    ? undefined
+                    : (event) => {
+                          hideHint();
+                          onPress(event);
+                      }
+            }
+            onHoverIn={(event) => {
+                if (hint !== undefined && Platform.OS === 'web') {
+                    hideHint();
+                    floating.current = showFloatingLabel(
+                        (event as unknown as { currentTarget?: unknown }).currentTarget,
+                        hint,
+                        testID === undefined ? undefined : `${testID}-hint`,
+                    );
+                }
+                onHoverIn?.(event);
+            }}
+            onHoverOut={(event) => {
+                hideHint();
+                onHoverOut?.(event);
+            }}
             className={cx(
                 'flex-row items-center justify-center',
                 CONTAINER_VARIANT[variant],

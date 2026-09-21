@@ -240,12 +240,13 @@ function CalendarSquare({
     return (
         <View
             testID={testID}
-            // No outline: structure comes from alignment and the gap between squares. Today's
-            // column takes the brand tint so the eye finds it without reading a date.
+            // A raised card, like the stat cards on every other admin page: border, fill and the
+            // card cast. Today's column takes the brand tint so the eye finds it without reading a
+            // date.
             className={
                 today
-                    ? 'rounded bg-surface-brand-subtle px-tight py-tight'
-                    : 'rounded bg-surface-raised px-tight py-tight'
+                    ? 'rounded-panel border border-brand-100 bg-surface-brand-subtle px-tight py-tight shadow-elevation-card'
+                    : 'rounded-panel border border-brand-100 bg-surface-raised px-tight py-tight shadow-elevation-card'
             }
         >
             <View className="flex-col gap-hair">
@@ -404,8 +405,8 @@ function OrderDeskCalendarWeek() {
                 testID={testID}
                 className={
                     isToday
-                        ? 'rounded bg-surface-brand-subtle px-tight py-tight'
-                        : 'rounded bg-surface-sunken px-tight py-tight'
+                        ? 'rounded-panel border border-brand-100 bg-surface-brand-subtle px-tight py-tight shadow-elevation-card'
+                        : 'rounded-panel border border-brand-100 bg-surface-raised px-tight py-tight shadow-elevation-card'
                 }
             >
                 <Text variant="section" tone={isToday ? 'brand' : 'primary'}>

@@ -363,7 +363,7 @@ function statCards(list: IngredientListState, t: TFunction): readonly CatalogueS
             caption: list.isUnfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),
-            mark: 'calendar',
+            mark: 'list',
             tone: 'brand',
             // Pressable in both states: clearing nothing is a no-op, and a card that stopped being
             // a target once the filters were clear would move the row's one affordance around.
@@ -376,7 +376,7 @@ function statCards(list: IngredientListState, t: TFunction): readonly CatalogueS
             value: String(list.draftCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:list.statDraftCaption'),
-            mark: 'eyeOff',
+            mark: 'fileDraft',
             // Amber only while there is something to act on — see the note in the component.
             tone: list.draftCount === 0 ? 'default' : 'warning',
             onPress: () => {
@@ -390,7 +390,7 @@ function statCards(list: IngredientListState, t: TFunction): readonly CatalogueS
             value: String(list.missingArabicCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:list.statMissingArabicCaption'),
-            mark: 'warning',
+            mark: 'languages',
             tone: list.missingArabicCount === 0 ? 'default' : 'danger',
         },
         {
@@ -399,7 +399,7 @@ function statCards(list: IngredientListState, t: TFunction): readonly CatalogueS
             value: String(list.uncostedCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:list.statUncostedCaption'),
-            mark: 'warning',
+            mark: 'coins',
             tone: list.uncostedCount === 0 ? 'default' : 'warning',
         },
     ];

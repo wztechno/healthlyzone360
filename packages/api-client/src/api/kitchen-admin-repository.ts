@@ -19,6 +19,7 @@ import type {
     DeliveryZoneAdminFilter,
     IngredientAdmin,
     IngredientAdminFilter,
+    IngredientAdminSort,
     IngredientCategoryAdmin,
     KitchenAdminRepository,
     MealAdmin,
@@ -262,6 +263,24 @@ function soleAllergen(codes?: readonly AllergenCode[] | undefined): string | und
     return codes === undefined || codes.length === 0 ? undefined : codes[0];
 }
 
+/**
+ * A sort key's wire spelling.
+ *
+ * The map is stated rather than derived from the key's own text because two of the seven are not
+ * named after the column they sort by: `unitPrice` is `unit_price_amount` on the row, and `name`
+ * is whichever of the two name columns the interface is reading. A `camelCase` → `snake_case`
+ * transform would be right five times out of seven, which is the worst kind of right.
+ */
+function ingredientSortParameter(
+    sort: IngredientAdminSort,
+    language: 'en' | 'ar' | undefined,
+): string {
+    if (sort === 'name') return language === 'ar' ? 'name_ar' : 'name_en';
+    if (sort === 'unitPrice') return 'unit_price';
+    if (sort === 'updatedAt') return 'updated_at';
+    return sort;
+}
+
 export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdminReads {
     let unitCodeLookup: ReadonlyMap<string, string> | null = null;
 
@@ -479,6 +498,19 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
 
             if (serverAllergen !== undefined) {
                 search.set('allergen', serverAllergen);
+            }
+
+            /*
+             * The order, for every page rather than the one in hand.
+             *
+             * `name` is the only key whose wire spelling is a decision: the list draws the
+             * reader's own language and sorts on what it draws, so the column it names depends on
+             * the interface, not on the row. The endpoint takes `name_en` / `name_ar` and does not
+             * guess — see `IngredientAdminFilter.sortLanguage`.
+             */
+            if (filter?.sort !== undefined) {
+                search.set('sort', ingredientSortParameter(filter.sort, filter.sortLanguage));
+                search.set('direction', filter.sortDirection ?? 'asc');
             }
 
             const rendered = search.toString();

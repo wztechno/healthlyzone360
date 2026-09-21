@@ -312,7 +312,7 @@ function QualityCheckList({ onCreate }: { readonly onCreate: () => void }) {
                     },
                     {
                         key: 'subject',
-                        label: t('kitchen:ops.qc.subjectIdLabel'),
+                        label: t('kitchen:ops.qc.columnSubject'),
                         value: viewing.subjectId,
                         mono: true,
                     },
@@ -476,7 +476,7 @@ function qcCards(rows: readonly QualityCheck[], t: TFunction): readonly Catalogu
             value: String(held),
             unit: t('kitchen:ops.qc.statUnit'),
             caption: t('kitchen:ops.qc.statHoldCaption'),
-            mark: 'warning',
+            mark: 'alert',
             tone: held === 0 ? 'default' : 'danger',
         },
         {
@@ -485,7 +485,7 @@ function qcCards(rows: readonly QualityCheck[], t: TFunction): readonly Catalogu
             value: String(count('released')),
             unit: t('kitchen:ops.qc.statUnit'),
             caption: t('kitchen:ops.qc.statReleasedCaption'),
-            mark: 'check',
+            mark: 'circleCheck',
         },
     ];
 }

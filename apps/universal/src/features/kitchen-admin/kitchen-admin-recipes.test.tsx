@@ -928,6 +928,47 @@ describe('the recipe list', () => {
         expect(screen.getByTestId('kitchen-recipes-clear')).toBeTruthy();
     });
 
+    it('switches the same rows between the table and cards, and back', async () => {
+        const tabbouleh = recipe({ ordinal: 1, name: 'Tabbouleh' });
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [
+                        tabbouleh,
+                        recipe({ ordinal: 2, name: 'Fattoush' }),
+                    ]),
+                    getRecipe: async () => tabbouleh,
+                },
+            },
+        });
+        await untilVisible('kitchen-recipes-table');
+        expect(screen.queryByTestId('kitchen-recipes-cards')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-layout-cards'));
+        });
+
+        await untilVisible('kitchen-recipes-cards');
+        expect(screen.queryByTestId('kitchen-recipes-table')).toBeNull();
+        const card = `kitchen-recipe-${String(tabbouleh.id)}-card`;
+        expect(screen.getByTestId(`${card}-title`)).toHaveTextContent('Tabbouleh');
+        // The picture opens the recipe without a tab stop, so it is hidden from the accessibility
+        // tree — the title is the announced link — and has to be asked for as such.
+        expect(screen.getByTestId(`${card}-image`, { includeHiddenElements: true })).toBeTruthy();
+        expect(screen.getByTestId(`${card}-version`)).toHaveTextContent(
+            `Version ${String(tabbouleh.currentVersionNumber)}`,
+        );
+        // One card per row of the same page — a second drawing, not a second query.
+        expect(screen.getAllByTestId(/^kitchen-recipe-.+-card$/)).toHaveLength(2);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-layout-table'));
+        });
+        await untilVisible('kitchen-recipes-table');
+        expect(screen.queryByTestId('kitchen-recipes-cards')).toBeNull();
+    });
+
     it('renders the error state when the listing fails', async () => {
         await renderStubScreen(<RecipesScreen />, {
             session: kitchenManagerSession(),

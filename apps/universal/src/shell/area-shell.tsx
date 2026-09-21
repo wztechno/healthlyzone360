@@ -67,6 +67,8 @@ export interface AreaShellProps {
     readonly sidebarStartCollapsed?: ReactNode | undefined;
     /** Drawn in the top bar in place of the area title — the kitchen's breadcrumb trail. */
     readonly topbarTitle?: ReactNode | undefined;
+    /** Leads the top bar's trailing controls — the kitchen area's page search. */
+    readonly topbarSearch?: ReactNode | undefined;
     /**
      * Move Sign out from the top bar to the bottom of the sidebar (KITCHEN.md sidebar spec). Only
      * where the sidebar exists: below `lg` the top bar keeps it, because the drawer is a light
@@ -110,6 +112,7 @@ function GuardedAreaShell({
     sidebarStart,
     sidebarStartCollapsed,
     topbarTitle,
+    topbarSearch,
     signOutInSidebar = false,
     authAside,
     testID = 'app-shell',
@@ -160,6 +163,7 @@ function GuardedAreaShell({
     const topbarEnd =
         resolvedVariant === 'auth' || resolvedVariant === 'kiosk' ? undefined : (
             <Inline space="xs" wrap={false}>
+                {topbarSearch}
                 <Button
                     testID="locale-toggle"
                     size="sm"
@@ -222,7 +226,7 @@ function GuardedAreaShell({
                 testID="sign-out-rail"
                 label={t('common:action.signOut')}
                 disabled={logout.isPending}
-                icon={<Icon name="signOut" className="text-content-on-sidebar" />}
+                icon={<Icon name="signOut" size="lg" className="text-content-on-sidebar" />}
                 onPress={signOut}
             />
         </View>

@@ -5,11 +5,13 @@
         "subtitle": "كل من يمكنه تسجيل الدخول إلى هذا المطبخ، وما يستطيع كل منهم الوصول إليه.",
         "caption": "العاملون في هذا المطبخ",
         "columns": {
-            "person": "الشخص",
+            "person": "المستخدم",
             "email": "يسجّل الدخول باسم",
             "roles": "الأدوار",
             "scope": "يعمل في",
-            "status": "الحالة"
+            "status": "الحالة",
+            "joined": "تاريخ الانضمام",
+            "userEmail": "البريد الإلكتروني"
         },
         "organisationWide": "المطبخ بأكمله",
         "noRoles": "لا أدوار بعد",
@@ -19,7 +21,7 @@
         "filteredEmptyTitle": "لا أحد يطابق ذلك",
         "filteredEmptyBody": "جرّب حالة أخرى، أو امسح عامل التصفية.",
         "showEnded": "أدرج من غادروا",
-        "add": "إضافة شخص",
+        "add": "إضافة مستخدم",
         "open": "فتح",
         "invitations": {
             "title": "بانتظار القبول",
@@ -29,8 +31,25 @@
             "revoked": "تم سحب الدعوة المرسلة إلى {{email}}.",
             "sent": "أُرسلت دعوة إلى {{email}}.",
             "expires": "تنتهي في {{date}}",
-            "empty": "لا دعوات معلّقة."
-        }
+            "empty": "لا دعوات معلّقة.",
+            "columnExpires": "تنتهي"
+        },
+        "searchLabel": "ابحث في الفريق",
+        "searchHint": "الاسم أو البريد الإلكتروني",
+        "searchPageHint": "ابحث في هذه الصفحة",
+        "segmentLabel": "من يُعرض",
+        "segmentWorking": "على رأس العمل",
+        "segmentEveryone": "الجميع",
+        "notJoined": "ليس بعد",
+        "statWorking": "على رأس العمل",
+        "statWorkingCaption": "يستطيعون الدخول اليوم",
+        "statInvitations": "الدعوات",
+        "statInvitationsCaption": "بانتظار القبول",
+        "statNoRoles": "بلا أدوار",
+        "statNoRolesCaption": "يدخلون ولا يصلون إلى شيء",
+        "statPeople": "أشخاص",
+        "statOffers": "دعوات",
+        "moreRoles": "+{{n}} أخرى"
     },
     "member": {
         "title": "{{name}}",
@@ -78,7 +97,9 @@
         "columns": {
             "role": "الدور",
             "holders": "يحمله",
-            "pages": "الصلاحيات"
+            "pages": "الصلاحيات",
+            "kind": "النوع",
+            "description": "الوصف"
         },
         "holdersNone": "لا أحد بعد",
         "copy": "نسخ",
@@ -98,7 +119,25 @@
         "permissionCount_two": "صلاحيتان",
         "permissionCount_few": "{{count}} صلاحيات",
         "permissionCount_many": "{{count}} صلاحية",
-        "permissionCount_other": "{{count}} صلاحية"
+        "permissionCount_other": "{{count}} صلاحية",
+        "searchLabel": "ابحث في الأدوار",
+        "searchHint": "الاسم أو الرمز",
+        "segmentLabel": "أي الأدوار",
+        "segmentAll": "الكل",
+        "segmentOwn": "أدوار هذا المطبخ",
+        "segmentTemplates": "القياسية",
+        "kindOwn": "خاص",
+        "kindTemplate": "قياسي",
+        "noDescription": "بلا وصف",
+        "statOwn": "أدوار هذا المطبخ",
+        "statOwnCaption": "قابلة للتعديل هنا",
+        "statTemplates": "القياسية",
+        "statTemplatesCaption": "انسخ واحدًا لتغييره",
+        "statUnheld": "غير مُسندة",
+        "statUnheldCaption": "لا يحملها أحد",
+        "statRoles": "أدوار",
+        "filteredEmptyTitle": "لا دور يطابق ذلك",
+        "filteredEmptyBody": "جرّب بحثًا أقصر، أو اعرض كل الأدوار."
     },
     "role": {
         "back": "العودة إلى الأدوار",

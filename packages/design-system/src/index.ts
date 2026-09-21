@@ -30,6 +30,7 @@ export type { PointerKind } from './hooks/use-pointer.ts';
 
 export {
     DIRECTIONAL_ICON_NAMES,
+    DRAWN_ICON_FALLBACKS,
     ICON_GLYPHS,
     ICON_SIZES,
     Icon,
@@ -37,6 +38,7 @@ export {
 } from './icons/icon.tsx';
 export type {
     DirectionalIconName,
+    DrawnIconName,
     IconGlyphName,
     IconName,
     IconProps,
@@ -269,6 +271,13 @@ export {
     resolveFlip,
 } from './overlays/anchored-surface.ts';
 export type { AnchorAlign, FlipInput } from './overlays/anchored-surface.ts';
+export {
+    CommandPalette,
+    commandShortcutLabel,
+    filterCommandItems,
+    useCommandShortcut,
+} from './overlays/command-palette.tsx';
+export type { CommandPaletteItem, CommandPaletteProps } from './overlays/command-palette.tsx';
 export { Dropdown } from './overlays/dropdown.tsx';
 export type {
     DropdownProps,

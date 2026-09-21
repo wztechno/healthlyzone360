@@ -33,6 +33,16 @@ import { TeamScreen } from './screens/team-screen.tsx';
  *    entirely on that tab, and the tab must say so rather than merely doing it.
  */
 
+/*
+ * The access console is a desk surface: at desk width its lists draw every column and the row's
+ * actions as buttons. Jest's default window is phone-sized, where the same lists collapse to
+ * two-line rows with the actions behind an overflow menu.
+ */
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+    __esModule: true,
+    default: () => ({ width: 1280, height: 900, scale: 1, fontScale: 1 }),
+}));
+
 jest.mock('expo-router', () => {
     const push = jest.fn();
     const replace = jest.fn();
@@ -250,7 +260,7 @@ describe('the team list', () => {
         expect(listTeam.mock.calls[0]?.[1]).toMatchObject({ status: 'active' });
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-team-former-filter'));
+            fireEvent.press(screen.getByTestId('kitchen-team-toolbar-status-everyone'));
         });
 
         await waitFor(() => {
@@ -324,9 +334,10 @@ describe('the roles list', () => {
             },
         });
 
-        await untilVisible('kitchen-roles-own-table');
+        await untilVisible('kitchen-roles-table');
 
-        expect(screen.getByTestId('kitchen-roles-template-table')).toBeTruthy();
+        expect(screen.getByTestId(`kitchen-roles-row-${String(ROLE_ID)}-kind`)).toBeTruthy();
+        expect(screen.getByTestId(`kitchen-roles-row-${String(TEMPLATE_ID)}-kind`)).toBeTruthy();
         expect(screen.getByTestId(`kitchen-roles-row-${String(ROLE_ID)}-name`)).toBeTruthy();
         expect(screen.getByTestId(`kitchen-roles-row-${String(TEMPLATE_ID)}-name`)).toBeTruthy();
     });
@@ -343,7 +354,7 @@ describe('the roles list', () => {
             },
         });
 
-        await untilVisible('kitchen-roles-own-table');
+        await untilVisible('kitchen-roles-table');
 
         expect(screen.getByTestId(`kitchen-roles-row-${String(TEMPLATE_ID)}-copy`)).toBeTruthy();
         expect(screen.queryByTestId(`kitchen-roles-row-${String(ROLE_ID)}-copy`)).toBeNull();
@@ -357,7 +368,7 @@ describe('the roles list', () => {
             },
         });
 
-        await untilVisible('kitchen-roles-template-table');
+        await untilVisible('kitchen-roles-table');
 
         await act(async () => {
             fireEvent.press(screen.getByTestId(`kitchen-roles-row-${String(TEMPLATE_ID)}-copy`));
@@ -383,7 +394,7 @@ describe('the roles list', () => {
             },
         });
 
-        await untilVisible('kitchen-roles-own-table');
+        await untilVisible('kitchen-roles-table');
 
         expect(screen.getByTestId(`kitchen-roles-row-${String(ROLE_ID)}-holders`)).toBeTruthy();
         expect(screen.getByTestId(`kitchen-roles-row-${String(TEMPLATE_ID)}-holders`)).toBeTruthy();

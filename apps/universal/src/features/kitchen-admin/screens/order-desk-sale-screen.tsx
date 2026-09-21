@@ -1626,24 +1626,36 @@ function ReviewStep({
     return (
         <View testID="kitchen-order-desk-sale-review" className="z-auto flex-col">
             <View className="flex-col gap-snug">
+                {/*
+                 * Set a step up from the rest of the desk — `DeskFact size="md"` and `body`
+                 * lines rather than captions.
+                 *
+                 * This is the read-aloud screen. Every other block of facts on this surface is
+                 * something an agent glances at while doing something else; this one is read to
+                 * a customer standing at the counter, and the two numbers on it — what they are
+                 * getting and what it costs — are the ones that get repeated back. Caption-sized
+                 * type is for reference, not for reciting.
+                 */}
                 <View className="flex-col">
                     <DeskFact
                         testID="kitchen-order-desk-sale-review-type"
                         label={t('kitchen:desk.sale.reviewType')}
+                        size="md"
                         value={t(FULFILMENT_LABEL_KEYS[state.fulfilmentType])}
                     />
                     <DeskFact
                         testID="kitchen-order-desk-sale-review-items"
                         label={t('kitchen:desk.sale.reviewItems')}
                         mono
+                        size="md"
                         value={formatter.formatNumber(itemCount)}
                     />
                     <View
                         testID="kitchen-order-desk-sale-review-lines"
-                        className="flex-col border-b border-stroke-subtle py-tight"
+                        className="flex-col gap-hair border-b border-stroke-subtle py-tight"
                     >
                         {state.lines.map((line) => (
-                            <Text key={lineKey(line)} variant="caption" tone="secondary">
+                            <Text key={lineKey(line)} variant="body" tone="secondary">
                                 {t('kitchen:desk.sale.reviewLine', {
                                     quantity: line.quantity,
                                     item: displayName(line.name, locale).value,
@@ -1655,6 +1667,7 @@ function ReviewStep({
                         testID="kitchen-order-desk-sale-review-total"
                         label={t('kitchen:desk.sale.total')}
                         mono
+                        size="md"
                         value={
                             quote === null
                                 ? EM_DASH
@@ -1668,6 +1681,7 @@ function ReviewStep({
                         <DeskFact
                             testID="kitchen-order-desk-sale-review-method"
                             label={t('kitchen:desk.paymentMethod')}
+                            size="md"
                             value={t(kitchenOrderPaymentMethodKey(state.paymentMethod))}
                         />
                     ) : null}
@@ -1678,7 +1692,7 @@ function ReviewStep({
                     // recorded for later, with no transaction to describe, and a whole step for one
                     // control is a step somebody presses Next through.
                     <View className="flex-col gap-hair">
-                        <Text variant="label">{t('kitchen:desk.sale.methodLabel')}</Text>
+                        <Text variant="strong">{t('kitchen:desk.sale.methodLabel')}</Text>
                         <MethodChoices
                             testID="kitchen-order-desk-sale-review-method"
                             state={state}
