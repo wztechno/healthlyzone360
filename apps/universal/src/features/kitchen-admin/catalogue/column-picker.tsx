@@ -197,7 +197,14 @@ export interface ColumnPickerProps {
 }
 
 /** The toolbar button and its menu of columns. Toggling keeps the menu open. */
-export function ColumnPicker({ options, shown, max, onToggle, onReset, testID }: ColumnPickerProps) {
+export function ColumnPicker({
+    options,
+    shown,
+    max,
+    onToggle,
+    onReset,
+    testID,
+}: ColumnPickerProps) {
     const { t } = useTranslation();
 
     return (
