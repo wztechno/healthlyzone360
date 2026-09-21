@@ -568,12 +568,24 @@ function CommandPaletteStory({ prefix }: { readonly prefix: string }) {
     };
     const pages: readonly CommandPaletteItem[] = [
         { key: 'overview', label: 'Overview', icon: 'dashboard', onSelect: close },
-        { key: 'ingredients', label: 'Ingredients', icon: 'wheat', group: 'Catalogue', onSelect: close },
+        {
+            key: 'ingredients',
+            label: 'Ingredients',
+            icon: 'wheat',
+            group: 'Catalogue',
+            onSelect: close,
+        },
         { key: 'recipes', label: 'Recipes', icon: 'bookOpen', group: 'Catalogue', onSelect: close },
         { key: 'meals', label: 'Meals', icon: 'utensils', group: 'Catalogue', onSelect: close },
         { key: 'orders', label: 'Orders', icon: 'receipt', group: 'Operations', onSelect: close },
         { key: 'stock', label: 'Stock', icon: 'boxes', group: 'Operations', onSelect: close },
-        { key: 'suppliers', label: 'Suppliers', icon: 'truck', group: 'Operations', onSelect: close },
+        {
+            key: 'suppliers',
+            label: 'Suppliers',
+            icon: 'truck',
+            group: 'Operations',
+            onSelect: close,
+        },
         { key: 'team', label: 'Team', icon: 'users', group: 'Access', onSelect: close },
     ];
     return (
@@ -622,9 +634,28 @@ function RecipeCardsStory({ prefix }: { readonly prefix: string }) {
                 onOpen={() => undefined}
                 rowActionsLabel={t('kitchen:list.rowActions')}
                 rowActions={(row) => [
-                    { key: 'view', label: 'View', icon: 'eye', onSelect: () => undefined, testID: `${prefix}-recipe-${String(row.id)}-view` },
-                    { key: 'edit', label: 'Edit', icon: 'pen', onSelect: () => undefined, testID: `${prefix}-recipe-${String(row.id)}-edit` },
-                    { key: 'archive', label: 'Archive', icon: 'archive', tone: 'danger', onSelect: () => undefined, testID: `${prefix}-recipe-${String(row.id)}-archive` },
+                    {
+                        key: 'view',
+                        label: 'View',
+                        icon: 'eye',
+                        onSelect: () => undefined,
+                        testID: `${prefix}-recipe-${String(row.id)}-view`,
+                    },
+                    {
+                        key: 'edit',
+                        label: 'Edit',
+                        icon: 'pen',
+                        onSelect: () => undefined,
+                        testID: `${prefix}-recipe-${String(row.id)}-edit`,
+                    },
+                    {
+                        key: 'archive',
+                        label: 'Archive',
+                        icon: 'archive',
+                        tone: 'danger',
+                        onSelect: () => undefined,
+                        testID: `${prefix}-recipe-${String(row.id)}-archive`,
+                    },
                 ]}
             />
         </Stack>
@@ -1834,10 +1865,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         ['rows', { rows: [1], shown: 25, total: 306, totalPages: 13 }],
                         // Page seven of seventeen: the range counts the walk, not the page, so it
                         // reads 126 rather than 18 for the eleventh time.
-                        [
-                            'paged',
-                            { rows: [1], shown: 18, total: 306, page: 7, totalPages: 17 },
-                        ],
+                        ['paged', { rows: [1], shown: 18, total: 306, page: 7, totalPages: 17 }],
                     ] as const
                 ).map(([state, over]) => (
                     <CatalogueListBody
@@ -3466,18 +3494,20 @@ export function ShowcaseScreen() {
                      * drawn-only names (the workspace rail's marks) follow the glyphs.
                      */}
                     <Inline space="sm" wrap testID="showcase-icons">
-                        {[...Object.keys(ICON_GLYPHS), ...Object.keys(DRAWN_ICON_FALLBACKS)].map((name) => (
-                            <View
-                                key={name}
-                                testID={`showcase-icon-${name}`}
-                                className="min-w-[92px] flex-row items-center gap-2 rounded-lg border border-stroke-subtle px-3 py-2"
-                            >
-                                <Icon name={name as IconName} />
-                                <Text variant="caption" tone="secondary">
-                                    {name}
-                                </Text>
-                            </View>
-                        ))}
+                        {[...Object.keys(ICON_GLYPHS), ...Object.keys(DRAWN_ICON_FALLBACKS)].map(
+                            (name) => (
+                                <View
+                                    key={name}
+                                    testID={`showcase-icon-${name}`}
+                                    className="min-w-[92px] flex-row items-center gap-2 rounded-lg border border-stroke-subtle px-3 py-2"
+                                >
+                                    <Icon name={name as IconName} />
+                                    <Text variant="caption" tone="secondary">
+                                        {name}
+                                    </Text>
+                                </View>
+                            ),
+                        )}
                     </Inline>
                     <Accordion
                         testID="showcase-accordion"

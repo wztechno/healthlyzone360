@@ -194,7 +194,10 @@ export function spreadColumns<Row>(
     const count = growable.filter((grows) => grows).length;
     if (count === 0) return widths;
 
-    const fixed = widths.reduce((sum, width, index) => (growable[index] === true ? sum : sum + width), 0);
+    const fixed = widths.reduce(
+        (sum, width, index) => (growable[index] === true ? sum : sum + width),
+        0,
+    );
     const spare = port - fixed;
     const share = Math.floor(spare / count);
     const remainder = spare - share * count;

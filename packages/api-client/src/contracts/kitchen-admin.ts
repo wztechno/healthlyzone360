@@ -553,13 +553,7 @@ export interface IngredientAdminFilter extends CursorPageRequest, OffsetPageRequ
  * `category` and `unit` order by the *code* the row draws, not by the foreign key behind it.
  */
 export type IngredientAdminSort =
-    | 'reference'
-    | 'name'
-    | 'category'
-    | 'unit'
-    | 'unitPrice'
-    | 'status'
-    | 'updatedAt';
+    'reference' | 'name' | 'category' | 'unit' | 'unitPrice' | 'status' | 'updatedAt';
 
 /**
  * The two series the ingredient table is numbered in.

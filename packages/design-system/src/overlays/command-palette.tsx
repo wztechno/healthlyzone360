@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Platform, Pressable, Text as RNText, ScrollView, TextInput, View } from 'react-native';
+import {
+    Modal,
+    Platform,
+    Pressable,
+    Text as RNText,
+    ScrollView,
+    TextInput,
+    View,
+} from 'react-native';
 
 import { neutral } from '@healthy360/design-tokens';
 
@@ -78,7 +86,10 @@ export interface CommandPaletteProps {
 }
 
 function fold(text: string): string {
-    return text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase();
+    return text
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLocaleLowerCase();
 }
 
 /** The items that match every word of the query, best first, in the caller's order otherwise. */
@@ -86,20 +97,25 @@ export function filterCommandItems(
     items: readonly CommandPaletteItem[],
     query: string,
 ): readonly CommandPaletteItem[] {
-    const words = fold(query).split(/\s+/).filter((word) => word !== '');
+    const words = fold(query)
+        .split(/\s+/)
+        .filter((word) => word !== '');
     if (words.length === 0) return items;
     const scored = items
         .map((item, index) => {
             const label = fold(item.label);
-            const haystack = [label, fold(item.group ?? ''), ...(item.keywords ?? []).map(fold)].join(
-                ' ',
-            );
+            const haystack = [
+                label,
+                fold(item.group ?? ''),
+                ...(item.keywords ?? []).map(fold),
+            ].join(' ');
             if (!words.every((word) => haystack.includes(word))) return null;
             const rank = label.startsWith(words.join(' ')) ? 0 : label.includes(words[0]!) ? 1 : 2;
             return { item, index, rank };
         })
-        .filter((entry): entry is { item: CommandPaletteItem; index: number; rank: number } =>
-            entry !== null,
+        .filter(
+            (entry): entry is { item: CommandPaletteItem; index: number; rank: number } =>
+                entry !== null,
         );
     scored.sort((a, b) => a.rank - b.rank || a.index - b.index);
     return scored.map((entry) => entry.item);
@@ -179,7 +195,6 @@ export function CommandPalette({
         } | null;
         node?.scrollIntoView?.({ block: 'nearest' });
     }, [activeKey]);
-
 
     const onKeyPress = (event: KeyEvent) => {
         const key = event.nativeEvent.key;
@@ -276,14 +291,20 @@ export function CommandPalette({
                                                         ref={(node) => {
                                                             if (node === null)
                                                                 rowRefs.current.delete(item.key);
-                                                            else rowRefs.current.set(item.key, node);
+                                                            else
+                                                                rowRefs.current.set(item.key, node);
                                                         }}
-                                                        testID={item.testID ?? `${testID}-item-${item.key}`}
+                                                        testID={
+                                                            item.testID ??
+                                                            `${testID}-item-${item.key}`
+                                                        }
                                                         role="option"
                                                         accessibilityRole="button"
                                                         accessibilityLabel={item.label}
                                                         aria-selected={highlighted}
-                                                        accessibilityState={{ selected: highlighted }}
+                                                        accessibilityState={{
+                                                            selected: highlighted,
+                                                        }}
                                                         onHoverIn={() => {
                                                             setActive(flat.indexOf(item));
                                                         }}

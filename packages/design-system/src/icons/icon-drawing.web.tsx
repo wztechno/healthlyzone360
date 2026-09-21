@@ -618,9 +618,7 @@ export function drawIcon(
             viewBox={grid24 === undefined ? '0 0 14 14' : '0 0 24 24'}
             fill="none"
             stroke="currentColor"
-            strokeWidth={
-                grid24 === undefined ? 1.25 : Math.min(2, (RENDERED_STROKE_PX * 24) / px)
-            }
+            strokeWidth={grid24 === undefined ? 1.25 : Math.min(2, (RENDERED_STROKE_PX * 24) / px)}
             strokeLinecap="round"
             strokeLinejoin="round"
             className={cx('shrink-0', className)}

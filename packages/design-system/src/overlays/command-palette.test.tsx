@@ -52,9 +52,7 @@ describe('CommandPalette', () => {
             <CommandPalette
                 open
                 onClose={onClose}
-                items={ITEMS.map((item) =>
-                    item.key === 'recipes' ? { ...item, onSelect } : item,
-                )}
+                items={ITEMS.map((item) => (item.key === 'recipes' ? { ...item, onSelect } : item))}
                 label="Search pages"
                 placeholder="Type to search pages…"
                 emptyText={(query) => `Nothing for ${query}`}
@@ -68,9 +66,9 @@ describe('CommandPalette', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('command-palette-input'), 'rec');
         });
-        expect(
-            screen.getByTestId('command-palette-item-recipes').props.accessibilityState,
-        ).toEqual(expect.objectContaining({ selected: true }));
+        expect(screen.getByTestId('command-palette-item-recipes').props.accessibilityState).toEqual(
+            expect.objectContaining({ selected: true }),
+        );
 
         await act(async () => {
             fireEvent(screen.getByTestId('command-palette-input'), 'submitEditing');
