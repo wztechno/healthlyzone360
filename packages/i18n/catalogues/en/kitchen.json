@@ -2193,7 +2193,7 @@
         "summaryMissingArabic": "{{n}} missing Arabic",
         "summaryUncosted": "{{n}} uncosted",
         "rowActions": "Row actions",
-        "columnReference": "Id",
+        "columnReference": "ID",
         "mayContain": "may contain: {{classes}}",
         "import": "Import",
         "importUnavailable": "Import is not available yet",

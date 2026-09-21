@@ -417,7 +417,9 @@ export function DataList<Row>({
                      */
                     className={cx(
                         'min-h-row-sm z-raised flex-row items-center border-b border-stroke-subtle',
-                        'bg-surface-base web:sticky web:top-0',
+                        // The brand's subtle ground: the header reads as the table's green band.
+                        // Opaque, which the sticky header needs so rows do not show through.
+                        'bg-surface-brand-subtle web:sticky web:top-0',
                         framed ? 'rounded-t-panel' : null,
                     )}
                 >
@@ -445,7 +447,7 @@ export function DataList<Row>({
                                         // `strong`: a step larger and heavier than the 12px cells
                                         // under it, so the header reads as the column's name — the
                                         // same role the sort and filter headers draw with.
-                                        'text-role-strong text-content-secondary',
+                                        'text-role-strong text-content-on-brand-subtle',
                                         TEXT_ALIGN_CLASS[column.align ?? 'start'],
                                     )}
                                 >

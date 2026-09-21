@@ -429,75 +429,87 @@ function AppShellLayout({
         onlyGroup?: string,
     ) => {
         const onSidebar = tone === 'sidebar';
+        // The workspace page panel — one module's pages beside the rail.
+        const panel = onlyGroup !== undefined && !compact;
         const source =
             onlyGroup === undefined
                 ? navigation
                 : navigation.filter((item) => item.group === onlyGroup);
 
-        const renderItem = (item: NavigationItem) => (
-            <Pressable
-                key={item.key}
-                testID={item.testID}
-                role="link"
-                accessibilityRole="link"
-                accessibilityLabel={item.label}
-                accessibilityState={{ selected: item.active === true }}
-                aria-current={item.active === true ? 'page' : undefined}
-                focusable
-                onPress={() => {
-                    setDrawerOpen(false);
-                    item.onPress();
-                }}
-                className={cx(
-                    'min-h-touch flex-row items-center gap-2 rounded-lg px-3 py-2',
-                    compact ? 'justify-center' : null,
-                    item.active !== true
-                        ? 'bg-transparent'
-                        : onSidebar
-                          ? 'bg-surface-sidebar-active'
-                          : 'bg-surface-brand-subtle',
-                )}
-            >
-                {/*
-                 * The item's own icon only on the compact rail, where it is the whole item. With
-                 * labels, every destination takes the same bullet: the module heading above names
-                 * the group, so a distinct glyph per item was a second thing to read.
-                 */}
-                {compact && item.icon === undefined ? null : (
-                    <Icon
-                        name={compact && item.icon !== undefined ? item.icon : 'dot'}
-                        {...(compact ? {} : { size: 'sm' as const })}
-                        className={
-                            item.active === true
-                                ? onSidebar
-                                    ? 'text-content-on-sidebar-active'
-                                    : 'text-content-on-brand-subtle'
-                                : onSidebar
-                                  ? 'text-content-on-sidebar-muted'
-                                  : 'text-content-secondary'
-                        }
-                    />
-                )}
-                {compact ? null : (
-                    <RNText
-                        numberOfLines={1}
-                        className={cx(
-                            'flex-1 text-sm text-start',
-                            item.active === true
-                                ? onSidebar
-                                    ? 'text-content-on-sidebar-active font-bold'
-                                    : 'text-content-on-brand-subtle font-medium'
-                                : onSidebar
-                                  ? 'text-content-on-sidebar font-medium'
-                                  : 'text-content-primary',
-                        )}
-                    >
-                        {item.label}
-                    </RNText>
-                )}
-                {compact ? null : item.badge}
-            </Pressable>
-        );
+        const renderItem = (item: NavigationItem) =>
+            panel ? (
+                <PanelNavLink
+                    key={item.key}
+                    item={item}
+                    onPress={() => {
+                        setDrawerOpen(false);
+                        item.onPress();
+                    }}
+                />
+            ) : (
+                <Pressable
+                    key={item.key}
+                    testID={item.testID}
+                    role="link"
+                    accessibilityRole="link"
+                    accessibilityLabel={item.label}
+                    accessibilityState={{ selected: item.active === true }}
+                    aria-current={item.active === true ? 'page' : undefined}
+                    focusable
+                    onPress={() => {
+                        setDrawerOpen(false);
+                        item.onPress();
+                    }}
+                    className={cx(
+                        'min-h-touch flex-row items-center gap-2 rounded-lg px-3 py-2',
+                        compact ? 'justify-center' : null,
+                        item.active !== true
+                            ? 'bg-transparent'
+                            : onSidebar
+                              ? 'bg-surface-sidebar-active'
+                              : 'bg-surface-brand-subtle',
+                    )}
+                >
+                    {/*
+                     * The item's own icon only on the compact rail, where it is the whole item. With
+                     * labels, every destination takes the same bullet: the module heading above names
+                     * the group, so a distinct glyph per item was a second thing to read.
+                     */}
+                    {compact && item.icon === undefined ? null : (
+                        <Icon
+                            name={compact && item.icon !== undefined ? item.icon : 'dot'}
+                            {...(compact ? {} : { size: 'sm' as const })}
+                            className={
+                                item.active === true
+                                    ? onSidebar
+                                        ? 'text-content-on-sidebar-active'
+                                        : 'text-content-on-brand-subtle'
+                                    : onSidebar
+                                      ? 'text-content-on-sidebar-muted'
+                                      : 'text-content-secondary'
+                            }
+                        />
+                    )}
+                    {compact ? null : (
+                        <RNText
+                            numberOfLines={1}
+                            className={cx(
+                                'flex-1 text-sm text-start',
+                                item.active === true
+                                    ? onSidebar
+                                        ? 'text-content-on-sidebar-active font-bold'
+                                        : 'text-content-on-brand-subtle font-medium'
+                                    : onSidebar
+                                      ? 'text-content-on-sidebar font-medium'
+                                      : 'text-content-primary',
+                            )}
+                        >
+                            {item.label}
+                        </RNText>
+                    )}
+                    {compact ? null : item.badge}
+                </Pressable>
+            );
 
         // Grouped by first appearance rather than by sorting, so the caller's order survives and a
         // group split across the table stays split rather than being silently reassembled.
@@ -1048,6 +1060,96 @@ export const SIDEBAR_TRANSITION_MS = 200;
  * One glyph on the module rail. White on the green strip, and a white pill in green when lit. Its
  * name floats beside it on hover, at the rail's inline end.
  */
+/**
+ * One destination in the workspace page panel — the module's pages beside the rail.
+ *
+ * ```
+ *  ·   Ingredients
+ *  ◉  ( Recipes          )   <- current: brand dot in a soft halo, the pill in brand-subtle
+ *  ·   Products              <- hover: the pill takes the sunken tint
+ * ```
+ *
+ * The dot is a sibling of the pill in the row, not an absolutely positioned child hanging out of
+ * it: react-native-web clips and stacks an escaped child unpredictably, and the first version of
+ * this marker, drawn at `-start-5`, did not paint at all. As a flex sibling it always has a box.
+ *
+ * Hover is state, not a `hover:` class, because the tint belongs on the pill while the pointer
+ * target is the whole row — dot included — and a class on the row would tint the gutter too.
+ */
+function PanelNavLink({
+    item,
+    onPress,
+}: {
+    readonly item: NavigationItem;
+    readonly onPress: () => void;
+}) {
+    const [hovered, setHovered] = useState(false);
+    const active = item.active === true;
+
+    return (
+        <Pressable
+            testID={item.testID}
+            role="link"
+            accessibilityRole="link"
+            accessibilityLabel={item.label}
+            accessibilityState={{ selected: active }}
+            aria-current={active ? 'page' : undefined}
+            focusable
+            onPress={onPress}
+            onHoverIn={() => {
+                setHovered(true);
+            }}
+            onHoverOut={() => {
+                setHovered(false);
+            }}
+            className="flex-row items-center gap-1"
+        >
+            <View
+                testID={item.testID === undefined ? undefined : `${item.testID}-marker`}
+                className="w-4 items-center justify-center"
+            >
+                <View
+                    className={cx(
+                        'size-3 items-center justify-center rounded-full',
+                        active ? 'bg-surface-brand/30' : 'bg-transparent',
+                    )}
+                >
+                    <View
+                        className={cx(
+                            'size-1.5 rounded-full',
+                            active ? 'bg-surface-brand' : 'bg-stroke-strong',
+                        )}
+                    />
+                </View>
+            </View>
+            <View
+                className={cx(
+                    'min-h-control-md flex-1 flex-row items-center gap-2 rounded-lg px-3 py-1.5',
+                    active
+                        ? 'bg-surface-brand-subtle'
+                        : hovered
+                          ? 'bg-surface-sunken'
+                          : 'bg-transparent',
+                )}
+            >
+                {/* A step smaller than the module heading above it, so they read as its pages. */}
+                <RNText
+                    numberOfLines={1}
+                    className={cx(
+                        'flex-1 text-xs text-start',
+                        active
+                            ? 'font-semibold text-content-on-brand-subtle'
+                            : 'text-content-primary',
+                    )}
+                >
+                    {item.label}
+                </RNText>
+                {item.badge}
+            </View>
+        </Pressable>
+    );
+}
+
 function RailButton({
     label,
     icon,

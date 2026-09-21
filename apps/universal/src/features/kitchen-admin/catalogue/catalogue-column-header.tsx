@@ -129,14 +129,17 @@ export function CatalogueColumnHeader({
     const arrow = (
         <Icon
             name={arrowDown ? 'arrowDown' : 'arrowUp'}
-            className={arrowInk ? 'text-content-primary' : 'text-content-disabled'}
+            // On the header's green ground: the brand ink, full strength on the sorted column.
+            className={
+                arrowInk ? 'text-content-primary' : 'text-content-on-brand-subtle opacity-60'
+            }
             testID={active ? `${testID}-sorted` : `${testID}-affordance`}
         />
     );
 
     // `strong`: 13px at 600 — a column's name, set heavier and larger than the 12px cells under it.
     const labelText = (
-        <Text variant="strong" tone={active || filtered ? 'primary' : 'secondary'}>
+        <Text variant="strong" tone={active || filtered ? 'primary' : 'brand'}>
             {label}
         </Text>
     );
