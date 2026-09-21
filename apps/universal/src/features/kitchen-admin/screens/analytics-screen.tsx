@@ -458,7 +458,13 @@ function kpiCard(
         value: formatter.formatNumber(kpi.value),
         unit: t(`kitchen:analytics.units.${kpi.unit}`),
         caption,
-        mark: kpi.deltaPercent === 0 || good ? 'calendar' : 'warning',
+        // The mark follows the direction; the tone says whether that direction is good.
+        mark:
+            kpi.deltaPercent > 0
+                ? 'trendingUp'
+                : kpi.deltaPercent < 0
+                  ? 'trendingDown'
+                  : 'trendFlat',
         tone: kpi.deltaPercent === 0 || good ? 'default' : 'danger',
     };
 }

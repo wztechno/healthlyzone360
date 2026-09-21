@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7378 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7392 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2628,7 +2628,9 @@ export interface NamespaceKeys {
     | 'catalogue.columnSort'
     | 'catalogue.columnUpdated'
     | 'catalogue.columnsButton'
+    | 'catalogue.columnsClear'
     | 'catalogue.columnsHeading'
+    | 'catalogue.columnsHint'
     | 'catalogue.columnsLabel'
     | 'catalogue.columnsReset'
     | 'catalogue.edit'
@@ -3257,6 +3259,9 @@ export interface NamespaceKeys {
     | 'list.filteredEmptyTitle'
     | 'list.import'
     | 'list.importUnavailable'
+    | 'list.layoutCards'
+    | 'list.layoutLabel'
+    | 'list.layoutTable'
     | 'list.loadMore'
     | 'list.loadingMore'
     | 'list.mayContain'
@@ -5138,6 +5143,7 @@ export interface NamespaceKeys {
     | 'recipes.formSubtitle'
     | 'recipes.grossMargin'
     | 'recipes.identityDescription'
+    | 'recipes.imageLabel'
     | 'recipes.immutableBody'
     | 'recipes.immutableTitle'
     | 'recipes.kitchenFilterAll'
@@ -5427,6 +5433,14 @@ export interface NamespaceKeys {
     | 'sauces.searchPlaceholder'
     | 'sauces.title'
     | 'sauces.viewKind'
+    | 'search.empty'
+    | 'search.general'
+    | 'search.hintClose'
+    | 'search.hintMove'
+    | 'search.hintOpen'
+    | 'search.label'
+    | 'search.placeholder'
+    | 'search.trigger'
     | 'status.all'
     | 'status.draft'
     | 'status.label'
@@ -10024,7 +10038,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:catalogue.columnSort',
   'kitchen:catalogue.columnUpdated',
   'kitchen:catalogue.columnsButton',
+  'kitchen:catalogue.columnsClear',
   'kitchen:catalogue.columnsHeading',
+  'kitchen:catalogue.columnsHint',
   'kitchen:catalogue.columnsLabel',
   'kitchen:catalogue.columnsReset',
   'kitchen:catalogue.edit',
@@ -10653,6 +10669,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:list.filteredEmptyTitle',
   'kitchen:list.import',
   'kitchen:list.importUnavailable',
+  'kitchen:list.layoutCards',
+  'kitchen:list.layoutLabel',
+  'kitchen:list.layoutTable',
   'kitchen:list.loadMore',
   'kitchen:list.loadingMore',
   'kitchen:list.mayContain',
@@ -12534,6 +12553,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.formSubtitle',
   'kitchen:recipes.grossMargin',
   'kitchen:recipes.identityDescription',
+  'kitchen:recipes.imageLabel',
   'kitchen:recipes.immutableBody',
   'kitchen:recipes.immutableTitle',
   'kitchen:recipes.kitchenFilterAll',
@@ -12823,6 +12843,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:sauces.searchPlaceholder',
   'kitchen:sauces.title',
   'kitchen:sauces.viewKind',
+  'kitchen:search.empty',
+  'kitchen:search.general',
+  'kitchen:search.hintClose',
+  'kitchen:search.hintMove',
+  'kitchen:search.hintOpen',
+  'kitchen:search.label',
+  'kitchen:search.placeholder',
+  'kitchen:search.trigger',
   'kitchen:status.all',
   'kitchen:status.draft',
   'kitchen:status.label',

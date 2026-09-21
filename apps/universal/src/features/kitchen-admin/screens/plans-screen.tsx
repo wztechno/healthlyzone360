@@ -337,7 +337,7 @@ function PlansList() {
             caption: unfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),
-            mark: 'calendar',
+            mark: 'list',
             tone: 'brand',
             onPress: () => {
                 setQuery('');
@@ -351,7 +351,7 @@ function PlansList() {
             value: String(published),
             unit: t('kitchen:plans.statPlansUnit'),
             caption: t('kitchen:plans.statPublishedCaption'),
-            mark: 'check',
+            mark: 'circleCheck',
             tone: 'default',
             onPress: () => {
                 setStatus('published');
@@ -364,7 +364,7 @@ function PlansList() {
             value: String(drafts),
             unit: t('kitchen:plans.statPlansUnit'),
             caption: t('kitchen:plans.statDraftCaption'),
-            mark: 'eyeOff',
+            mark: 'fileDraft',
             tone: drafts === 0 ? 'default' : 'warning',
             onPress: () => {
                 setStatus('draft');

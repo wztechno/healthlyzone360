@@ -91,7 +91,14 @@ export function Dialog({
                     className="absolute inset-0 bg-overlay"
                 />
 
-                <FadeIn className="w-full max-w-[480px]">
+                {/*
+                 * The width bound is on a plain `View`, not on `FadeIn`. `FadeIn` is an
+                 * `Animated.View`, which drops `className` on the web, so a bound written there
+                 * was never applied: the panel sized to its content, and a dialog with a wide
+                 * body — the column picker's eighteen checkboxes — spread across the screen.
+                 */}
+                <View className="w-full max-w-[480px]">
+                <FadeIn>
                     <View
                         testID={base}
                         role="dialog"
@@ -153,6 +160,7 @@ export function Dialog({
                         )}
                     </View>
                 </FadeIn>
+                </View>
             </View>
         </Modal>
     );

@@ -5,6 +5,7 @@ import { Pressable, Text as RNText } from 'react-native';
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { useKitchenNavigation } from './kitchen-chrome.tsx';
+import { KitchenPageSearch } from './kitchen-page-search.tsx';
 import {
     KitchenTrailProvider,
     useKitchenTrail,
@@ -64,6 +65,32 @@ describe('useKitchenNavigation', () => {
         expect(screen.getByTestId('probe-overview')).toBeTruthy();
         expect(screen.queryByTestId('probe-stock')).toBeNull();
         expect(screen.queryByTestId('probe-review')).toBeNull();
+    });
+});
+
+/** The page search over the rail's own items, as the kitchen layout wires it. */
+function SearchProbe() {
+    const navigation = useKitchenNavigation();
+    return <KitchenPageSearch navigation={navigation} />;
+}
+
+describe('KitchenPageSearch', () => {
+    it('opens from the top-bar box and finds a page among the rail items', async () => {
+        await renderStubScreen(<SearchProbe />, { session: kitchenManagerSession() });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-page-search-trigger'));
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-page-search-item-stock')).toBeTruthy();
+        });
+        expect(screen.getByTestId('kitchen-page-search-item-ingredients')).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-page-search-input'), 'stock');
+        });
+        expect(screen.getByTestId('kitchen-page-search-item-stock')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-page-search-item-ingredients')).toBeNull();
     });
 });
 

@@ -40,13 +40,13 @@ import { Pressable, View } from 'react-native';
  * narrowing, so clearing it meant remembering which header you had pressed and hoping the menu
  * still held a `Clear`. That is the bug this component exists to close.
  *
- * A filtered column gains the filter mark `▽`, absent until something is applied. A glyph that
- * *arrives* is the strongest signal available here and the only one that survives the package's
- * standing rule that meaning is never colour alone — a reader who cannot separate
- * `content-secondary` from `content-primary` at 10px, which is most readers at that size, still
- * sees a shape appear. For the same reason it takes an accessible `label` in that state and only in
- * that state: `Icon` is decorative by default because meaning normally lives in the text beside it,
- * and this is the one case where it does not.
+ * A filtered column gains the filter mark — Lucide's funnel (`funnel`) on the web, `▽` on native —
+ * absent until something is applied. A glyph that *arrives* is the strongest signal available here
+ * and the only one that survives the package's standing rule that meaning is never colour alone —
+ * a reader who cannot separate `content-secondary` from `content-primary` at 10px, which is most
+ * readers at that size, still sees a shape appear. For the same reason it takes an accessible
+ * `label` in that state and only in that state: `Icon` is decorative by default because meaning
+ * normally lives in the text beside it, and this is the one case where it does not.
  *
  * It is a *second* mark rather than a replacement for the arrow, because sorting and filtering are
  * independent — a column can be sorted, filtered, both or neither, and one glyph made to mean four
@@ -124,17 +124,14 @@ export function CatalogueColumnHeader({
      */
     const arrowDown = sortDirection === 'desc' || (!split && filtered);
     const arrowInk = active || (!split && filtered);
+    // Lucide's `arrow-up` / `arrow-down` on the web, the same two characters on native. `Icon` is
+    // decorative by default, which is what the bare `Text` here used to set by hand.
     const arrow = (
-        <Text
-            variant="title"
-            tone={arrowInk ? 'primary' : 'disabled'}
-            aria-hidden
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
+        <Icon
+            name={arrowDown ? 'arrowDown' : 'arrowUp'}
+            className={arrowInk ? 'text-content-primary' : 'text-content-disabled'}
             testID={active ? `${testID}-sorted` : `${testID}-affordance`}
-        >
-            {arrowDown ? '↓' : '↑'}
-        </Text>
+        />
     );
 
     // `strong`: 13px at 600 — a column's name, set heavier and larger than the 12px cells under it.
@@ -184,7 +181,7 @@ export function CatalogueColumnHeader({
                         {labelText}
                         {filtered ? (
                             <Icon
-                                name="filter"
+                                name="funnel"
                                 size="sm"
                                 label={t('kitchen:catalogue.columnFiltered')}
                                 className="text-content-primary"

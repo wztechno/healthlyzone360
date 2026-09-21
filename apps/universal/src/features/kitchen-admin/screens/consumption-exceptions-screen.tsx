@@ -392,7 +392,7 @@ function ConsumptionExceptions() {
                             value: formatter.formatNumber(rows.length),
                             unit: t('kitchen:ops.exceptions.statUnit'),
                             caption: t('kitchen:ops.exceptions.statShownCaption'),
-                            mark: 'calendar',
+                            mark: 'list',
                             tone: 'brand',
                             onPress: () => {
                                 setStatus('all');
@@ -406,7 +406,7 @@ function ConsumptionExceptions() {
                             value: formatter.formatNumber(unresolved),
                             unit: t('kitchen:ops.exceptions.statUnit'),
                             caption: t('kitchen:ops.exceptions.statUnresolvedCaption'),
-                            mark: 'warning',
+                            mark: 'alert',
                             tone: unresolved === 0 ? 'default' : 'danger',
                             onPress: () => {
                                 setStatus('unresolved');
@@ -420,7 +420,7 @@ function ConsumptionExceptions() {
                             value: formatter.formatNumber(rows.length - unresolved),
                             unit: t('kitchen:ops.exceptions.statUnit'),
                             caption: t('kitchen:ops.exceptions.statResolvedCaption'),
-                            mark: 'check',
+                            mark: 'circleCheck',
                             tone: 'default',
                             onPress: () => {
                                 setStatus('resolved');

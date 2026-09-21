@@ -2118,7 +2118,9 @@
         "columnUpdated": "Updated",
         "close": "Close",
         "columnSort": "Sort by {{column}}",
-        "columnsButton": "Columns {{shown}}/{{max}}",
+        "columnsButton": "Show columns · {{shown}} of {{max}}",
+        "columnsClear": "Clear all",
+        "columnsHint": "Choose which columns appear in the table. Up to {{max}} at a time.",
         "columnsLabel": "Choose the columns to show",
         "columnsHeading": "Show up to {{max}} columns",
         "columnsReset": "Reset to default",
@@ -2165,6 +2167,9 @@
         "columnStatus": "Status",
         "columnUpdated": "Last changed",
         "actionHeader": "Actions",
+        "layoutLabel": "Layout",
+        "layoutTable": "Table",
+        "layoutCards": "Cards",
         "open": "Open",
         "archive": "Archive",
         "emptyTitle": "This kitchen has no ingredients yet",
@@ -2478,6 +2483,7 @@
         "resultCount_one": "{{count}} match",
         "resultCount_other": "{{count}} matches",
         "versionNumber": "Version {{number}}",
+        "imageLabel": "Photo of {{recipe}}",
         "versionCount_one": "{{count}} version",
         "versionCount_other": "{{count}} versions",
         "quarantined": "Awaiting review",
@@ -3730,5 +3736,15 @@
         "details": "Details",
         "statusTitle": "Record status",
         "version": "Version {{version}}"
+    },
+    "search": {
+        "label": "Search pages",
+        "trigger": "Search pages…",
+        "placeholder": "Type to search pages…",
+        "empty": "No page matches “{{query}}”.",
+        "general": "General",
+        "hintMove": "to move",
+        "hintOpen": "to open",
+        "hintClose": "to close"
     }
 }

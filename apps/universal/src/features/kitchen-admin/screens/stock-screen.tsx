@@ -789,7 +789,7 @@ function statCards(
             caption: unfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),
-            mark: 'calendar',
+            mark: 'list',
             tone: 'brand',
             onPress: clear,
             accessibilityLabel: t('kitchen:list.statShownAction'),
@@ -800,7 +800,7 @@ function statCards(
             value: String(low),
             unit: t('kitchen:ops.stock.statUnit'),
             caption: t('kitchen:ops.stock.statLowCaption'),
-            mark: 'warning',
+            mark: 'alert',
             tone: low === 0 ? 'default' : 'warning',
         },
         {
@@ -809,7 +809,7 @@ function statCards(
             value: String(out),
             unit: t('kitchen:ops.stock.statUnit'),
             caption: t('kitchen:ops.stock.statOutCaption'),
-            mark: 'error',
+            mark: 'circleX',
             tone: out === 0 ? 'default' : 'danger',
         },
         {
@@ -818,7 +818,7 @@ function statCards(
             value: String(ok),
             unit: t('kitchen:ops.stock.statUnit'),
             caption: t('kitchen:ops.stock.statOkCaption'),
-            mark: 'check',
+            mark: 'circleCheck',
         },
     ];
 }

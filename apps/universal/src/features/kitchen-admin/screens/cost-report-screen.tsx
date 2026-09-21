@@ -488,21 +488,21 @@ function CostReport() {
                         testID="kitchen-cost-report-tile"
                         cards={(
                             [
-                                ['spend', 'tileSpend', latest.spendAmount, 'hintSpend', 'basket'],
-                                ['cogs', 'tileCogs', latest.cogsAmount, 'hintCogs', 'warning'],
+                                ['spend', 'tileSpend', latest.spendAmount, 'hintSpend', 'shoppingCart'],
+                                ['cogs', 'tileCogs', latest.cogsAmount, 'hintCogs', 'cookingPot'],
                                 [
                                     'revenue',
                                     'tileRevenue',
                                     latest.revenueAmount,
                                     'hintRevenue',
-                                    'calendar',
+                                    'trendingUp',
                                 ],
                                 [
                                     'margin',
                                     'tileMargin',
                                     latest.grossMarginAmount,
                                     'hintMargin',
-                                    'check',
+                                    'percent',
                                 ],
                             ] as const
                         ).map(([key, labelKey, value, hintKey, mark]) => ({

@@ -665,31 +665,33 @@ describe('the ingredient list', () => {
         // The six defaults: Allergens in, Unit one pick away.
         expect(screen.getByTestId(cell('allergens-none'))).toBeTruthy();
         expect(screen.queryByTestId(cell('unit'))).toBeNull();
-        expect(screen.getByTestId('kitchen-ingredients-columns-trigger')).toHaveTextContent(/6\/6/);
+        expect(screen.getByTestId('kitchen-ingredients-columns-trigger')).toHaveTextContent(
+            /Show columns · 6 of 6/,
+        );
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-trigger'));
         });
-        await untilVisible('kitchen-ingredients-columns-unit');
+        await untilVisible('kitchen-ingredients-columns-unit-control');
 
         // Full: an unticked column cannot be added, and Item can never be dropped.
         expect(
-            screen.getByTestId('kitchen-ingredients-columns-unit').props.accessibilityState,
+            screen.getByTestId('kitchen-ingredients-columns-unit-control').props.accessibilityState,
         ).toEqual(expect.objectContaining({ disabled: true, checked: false }));
         expect(
-            screen.getByTestId('kitchen-ingredients-columns-name').props.accessibilityState,
+            screen.getByTestId('kitchen-ingredients-columns-name-control').props.accessibilityState,
         ).toEqual(expect.objectContaining({ disabled: true, checked: true }));
 
         // Drop Allergens, which frees the slot Unit then takes.
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-allergens'));
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-allergens-control'));
         });
         expect(screen.queryByTestId(cell('allergens-none'))).toBeNull();
         expect(
-            screen.getByTestId('kitchen-ingredients-columns-unit').props.accessibilityState,
+            screen.getByTestId('kitchen-ingredients-columns-unit-control').props.accessibilityState,
         ).toEqual(expect.objectContaining({ disabled: false }));
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-unit'));
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-unit-control'));
         });
         expect(screen.getByTestId(cell('unit'))).toBeTruthy();
 
@@ -698,6 +700,27 @@ describe('the ingredient list', () => {
         });
         expect(screen.getByTestId(cell('allergens-none'))).toBeTruthy();
         expect(screen.queryByTestId(cell('unit'))).toBeNull();
+
+        // Clear all unticks everything but the locked title, and then has nothing left to do.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-clear'));
+        });
+        expect(screen.queryByTestId(cell('allergens-none'))).toBeNull();
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-name-control').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ checked: true }));
+        expect(screen.getByTestId('kitchen-ingredients-columns-trigger')).toHaveTextContent(
+            /Show columns · 1 of 6/,
+        );
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-clear').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ disabled: true }));
+
+        // The window stays open through every toggle and closes on Done.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-done'));
+        });
+        expect(screen.queryByTestId('kitchen-ingredients-columns-unit-control')).toBeNull();
     });
 
     it('answers a search nothing matches with the filtered empty state', async () => {

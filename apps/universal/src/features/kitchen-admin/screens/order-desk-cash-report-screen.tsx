@@ -305,7 +305,7 @@ function OrderDeskCashReport() {
                                     rows.reduce((sum, row) => sum + row.receiptCount, 0),
                                 ),
                                 caption: t('kitchen:ops.cashReport.kpiReceiptsCaption'),
-                                mark: 'basket',
+                                mark: 'receipt',
                                 tone: 'brand',
                             },
                             {
@@ -313,7 +313,7 @@ function OrderDeskCashReport() {
                                 label: t('kitchen:ops.cashReport.kpiRows'),
                                 value: formatter.formatNumber(rows.length),
                                 caption: t('kitchen:ops.cashReport.kpiRowsCaption'),
-                                mark: 'user',
+                                mark: 'list',
                             },
                             {
                                 key: 'currencies',
@@ -322,7 +322,7 @@ function OrderDeskCashReport() {
                                     new Set(totals.map((total) => total.currencyCode)).size,
                                 ),
                                 caption: t('kitchen:ops.cashReport.kpiCurrenciesCaption'),
-                                mark: 'calendar',
+                                mark: 'coins',
                             },
                         ]}
                     />

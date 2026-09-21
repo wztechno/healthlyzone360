@@ -1176,7 +1176,7 @@ function statCards(
             caption: unfiltered
                 ? t('kitchen:ops.orders.statLoadedCaption')
                 : t('kitchen:list.statShownFiltered'),
-            mark: 'basket',
+            mark: 'list',
             tone: 'brand',
             onPress: clear,
             accessibilityLabel: t('kitchen:list.statShownAction'),
@@ -1200,7 +1200,7 @@ function statCards(
             value: String(count('confirmed')),
             unit,
             caption: t('kitchen:ops.orders.statConfirmedCaption'),
-            mark: 'plate',
+            mark: 'circleCheck',
             onPress: () => {
                 narrow('confirmed');
             },
@@ -1212,7 +1212,7 @@ function statCards(
             value: String(count('fulfilled')),
             unit,
             caption: t('kitchen:ops.orders.statFulfilledCaption'),
-            mark: 'check',
+            mark: 'packageCheck',
             onPress: () => {
                 narrow('fulfilled');
             },

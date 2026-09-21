@@ -379,7 +379,7 @@ function statCards(list: PackagingListState, t: TFunction): readonly CatalogueSt
             caption: list.isUnfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),
-            mark: 'calendar',
+            mark: 'list',
             tone: 'brand',
             onPress: list.clearFilters,
             accessibilityLabel: t('kitchen:list.statShownAction'),
@@ -390,7 +390,7 @@ function statCards(list: PackagingListState, t: TFunction): readonly CatalogueSt
             value: String(list.unpricedCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:packaging.statUnpricedCaption'),
-            mark: 'warning',
+            mark: 'coins',
             // Amber only while there is something to act on — see the note in the component.
             tone: list.unpricedCount === 0 ? 'default' : 'warning',
         },
@@ -400,7 +400,7 @@ function statCards(list: PackagingListState, t: TFunction): readonly CatalogueSt
             value: String(list.inactiveCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:packaging.statInactiveCaption'),
-            mark: 'eyeOff',
+            mark: 'hidden',
             onPress: () => {
                 list.setStatuses(['draft']);
             },
@@ -412,7 +412,7 @@ function statCards(list: PackagingListState, t: TFunction): readonly CatalogueSt
             value: String(list.missingArabicCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:packaging.statMissingArabicCaption'),
-            mark: 'warning',
+            mark: 'languages',
             tone: list.missingArabicCount === 0 ? 'default' : 'danger',
         },
     ];

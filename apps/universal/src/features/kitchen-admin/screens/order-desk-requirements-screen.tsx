@@ -352,7 +352,7 @@ function OrderDeskRequirements() {
                                 ? EM_DASH
                                 : formatter.formatNumber(rows.length),
                             caption: t('kitchen:ops.requirements.kpiIngredientsCaption'),
-                            mark: 'basket',
+                            mark: 'wheat',
                             tone: 'brand',
                         },
                         {
@@ -362,7 +362,7 @@ function OrderDeskRequirements() {
                                 ? EM_DASH
                                 : formatter.formatNumber(shortCount),
                             caption: t('kitchen:ops.requirements.kpiShortCaption'),
-                            mark: 'warning',
+                            mark: 'alert',
                             tone: shortCount > 0 ? 'danger' : 'default',
                         },
                         {
@@ -375,7 +375,7 @@ function OrderDeskRequirements() {
                                 notComputable !== null && notComputable.days > 0
                                     ? reasonSummary(notComputable.reasons)
                                     : t('kitchen:ops.requirements.kpiNotComputableNone'),
-                            mark: 'calendar',
+                            mark: 'circleHelp',
                             tone:
                                 notComputable !== null && notComputable.days > 0
                                     ? 'warning'

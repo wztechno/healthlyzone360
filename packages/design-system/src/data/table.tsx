@@ -443,7 +443,7 @@ export function Table<Row>({
                                         <Icon
                                             testID={`${base}-sort-indicator-${column.key}`}
                                             name={
-                                                active && !ascending ? 'chevronDown' : 'chevronUp'
+                                                active && !ascending ? 'arrowDown' : 'arrowUp'
                                             }
                                             size="sm"
                                             className={

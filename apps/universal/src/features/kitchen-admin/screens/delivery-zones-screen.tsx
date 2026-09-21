@@ -323,7 +323,7 @@ function DeliveryZonesList() {
             caption: unfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),
-            mark: 'calendar',
+            mark: 'list',
             tone: 'brand',
             onPress: () => {
                 setQuery('');
@@ -337,7 +337,7 @@ function DeliveryZonesList() {
             value: String(noAreas),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:zones.statNoAreasCaption'),
-            mark: 'warning',
+            mark: 'alert',
             tone: noAreas === 0 ? 'default' : 'warning',
         },
         {
@@ -346,7 +346,7 @@ function DeliveryZonesList() {
             value: String(noWindows),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:zones.statNoWindowsCaption'),
-            mark: 'warning',
+            mark: 'clock',
             tone: noWindows === 0 ? 'default' : 'warning',
         },
     ];

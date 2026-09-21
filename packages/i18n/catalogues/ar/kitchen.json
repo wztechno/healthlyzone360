@@ -2386,7 +2386,9 @@
         "columnUpdated": "آخر تحديث",
         "close": "إغلاق",
         "columnSort": "رتّب حسب {{column}}",
-        "columnsButton": "الأعمدة {{shown}}/{{max}}",
+        "columnsButton": "عرض الأعمدة · {{shown}} من {{max}}",
+        "columnsClear": "إلغاء تحديد الكل",
+        "columnsHint": "اختر الأعمدة التي تظهر في الجدول، حتى {{max}} في المرة الواحدة.",
         "columnsLabel": "اختر الأعمدة المعروضة",
         "columnsHeading": "اعرض حتى {{max}} أعمدة",
         "columnsReset": "استعادة الافتراضي",
@@ -2437,6 +2439,9 @@
         "columnStatus": "الحالة",
         "columnUpdated": "آخر تغيير",
         "actionHeader": "إجراءات",
+        "layoutLabel": "طريقة العرض",
+        "layoutTable": "جدول",
+        "layoutCards": "بطاقات",
         "open": "فتح",
         "archive": "أرشفة",
         "emptyTitle": "لا توجد مكوّنات في هذا المطبخ بعد",
@@ -2766,6 +2771,7 @@
         "resultCount_many": "{{count}} نتيجةً",
         "resultCount_other": "{{count}} نتيجة",
         "versionNumber": "النسخة {{number}}",
+        "imageLabel": "صورة {{recipe}}",
         "versionCount_zero": "لا توجد نسخ",
         "versionCount_one": "نسخة واحدة",
         "versionCount_two": "نسختان",
@@ -4286,5 +4292,15 @@
         "details": "التفاصيل",
         "statusTitle": "حالة السجل",
         "version": "الإصدار {{version}}"
+    },
+    "search": {
+        "label": "البحث في الصفحات",
+        "trigger": "ابحث في الصفحات…",
+        "placeholder": "اكتب للبحث في الصفحات…",
+        "empty": "لا توجد صفحة تطابق «{{query}}».",
+        "general": "عام",
+        "hintMove": "للتنقل",
+        "hintOpen": "للفتح",
+        "hintClose": "للإغلاق"
     }
 }

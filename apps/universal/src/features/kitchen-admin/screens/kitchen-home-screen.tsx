@@ -90,7 +90,7 @@ function FamilyCardShell({
         >
             <Stack space="sm" grow>
                 <Inline space="sm" align="center">
-                    <Icon name={family.icon} size="md" className="text-brand-600" />
+                    <Icon name={family.icon} size="lg" className="text-brand-600" />
                     <Heading level={3} testID={`${testID}-name`} className="text-brand-600">
                         {t(family.nameKey)}
                     </Heading>
@@ -273,7 +273,7 @@ function BranchOperatingCard({ family }: { readonly family: EntityFamily }) {
                         <Badge
                             testID={`${testID}-cut-offs`}
                             tone={summary.withCutOff === 0 ? 'warning' : 'info'}
-                            {...(summary.withCutOff === 0 ? { icon: 'warning' as const } : {})}
+                            {...(summary.withCutOff === 0 ? { icon: 'alert' as const } : {})}
                             label={t('kitchen:branchHours.cutOffDayCount', {
                                 count: summary.withCutOff,
                             })}
@@ -320,7 +320,7 @@ function ReviewCard({ family }: { readonly family: EntityFamily }) {
                     <Badge
                         testID={`${testID}-total`}
                         tone={queue === null || queue.total === 0 ? 'success' : 'warning'}
-                        icon={queue === null || queue.total === 0 ? 'check' : 'warning'}
+                        icon={queue === null || queue.total === 0 ? 'circleCheck' : 'alert'}
                         label={
                             queue === null
                                 ? t('kitchen:hub.countUnavailable')
@@ -333,7 +333,7 @@ function ReviewCard({ family }: { readonly family: EntityFamily }) {
                         <Badge
                             testID={`${testID}-blocked`}
                             tone="danger"
-                            icon="warning"
+                            icon="alert"
                             label={t('kitchen:review.blockedCount', { count: queue.blocked })}
                         />
                     )}
@@ -353,7 +353,7 @@ function AnalyticsCard({ family }: { readonly family: EntityFamily }) {
                 <Badge
                     testID={`${testID}-sample`}
                     tone="info"
-                    icon="info"
+                    icon="infoCircle"
                     label={t('kitchen:analytics.sampleBadge')}
                 />
             </Inline>
@@ -380,7 +380,7 @@ function ConsumptionExceptionsCard({ family }: { readonly family: EntityFamily }
                     <Badge
                         testID={`${testID}-total`}
                         tone={value === null || value === 0 ? 'success' : 'warning'}
-                        icon={value === null || value === 0 ? 'check' : 'warning'}
+                        icon={value === null || value === 0 ? 'circleCheck' : 'alert'}
                         label={
                             value === null
                                 ? t('kitchen:hub.countUnavailable')
@@ -928,7 +928,7 @@ export function KitchenHomeScreen() {
                                             </Stack>
                                             <Badge
                                                 tone="success"
-                                                icon="check"
+                                                icon="circleCheck"
                                                 label={t('kitchen:review.clearBadge')}
                                             />
                                         </Inline>

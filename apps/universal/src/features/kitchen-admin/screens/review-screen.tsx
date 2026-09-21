@@ -364,7 +364,7 @@ function statCards(
             value: String(shown),
             unit: t('kitchen:list.statShownUnit', { total: queue.total }),
             caption: t('kitchen:review.statShownCaption', { count: sections.length }),
-            mark: 'calendar',
+            mark: 'list',
             tone: 'brand',
             onPress: () => {
                 setScope('all');
@@ -377,7 +377,7 @@ function statCards(
             value: String(blocked),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:review.statBlockedCaption'),
-            mark: 'warning',
+            mark: 'alert',
             tone: blocked === 0 ? 'default' : 'danger',
             onPress: () => {
                 setScope('blocked');
@@ -390,7 +390,7 @@ function statCards(
             value: String(shown - blocked),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:review.statToFinishCaption'),
-            mark: 'eyeOff',
+            mark: 'lockOpen',
             tone: shown - blocked === 0 ? 'default' : 'warning',
             onPress: () => {
                 setScope('unblocked');

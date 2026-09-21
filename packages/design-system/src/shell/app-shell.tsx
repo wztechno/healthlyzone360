@@ -1101,8 +1101,10 @@ function RailButton({
                 active ? 'bg-surface-sidebar-active' : 'bg-transparent',
             )}
         >
+            {/* 20px in the 40px button — the rail's marks are drawn, and read best at full size. */}
             <Icon
                 name={icon}
+                size="lg"
                 className={active ? 'text-content-on-sidebar-active' : 'text-content-on-sidebar'}
             />
         </Pressable>
