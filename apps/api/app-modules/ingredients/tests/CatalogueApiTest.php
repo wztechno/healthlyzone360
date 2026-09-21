@@ -18,6 +18,7 @@ use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Organisations\Models\OrganisationType;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Illuminate\Support\Str;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -138,9 +139,9 @@ function gramsId(): string
     return (string) MeasurementUnit::query()->where('code', 'g')->sole()->getKey();
 }
 
-beforeEach(function (): void {
-    $this->seed();
+pest()->use(SeedDatabaseOnce::class);
 
+beforeEach(function (): void {
     $this->a = catalogueTenant('chef-a@kitchen.test');
     $this->b = catalogueTenant('chef-b@kitchen.test');
 });

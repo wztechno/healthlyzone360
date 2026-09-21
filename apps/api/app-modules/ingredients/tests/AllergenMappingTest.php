@@ -8,6 +8,7 @@ use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Organisations\Models\Organisation;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -24,9 +25,9 @@ use Healthy360\Organisations\Models\Organisation;
 |
 */
 
-beforeEach(function (): void {
-    $this->seed();
+pest()->use(SeedDatabaseOnce::class);
 
+beforeEach(function (): void {
     $this->a = catalogueTenant('mapper-a@kitchen.test');
     $this->b = catalogueTenant('mapper-b@kitchen.test');
 

@@ -7,6 +7,7 @@ use Healthy360\Organisations\Models\Organisation;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -19,9 +20,9 @@ use Illuminate\Testing\TestResponse;
 |
 */
 
-beforeEach(function (): void {
-    $this->seed();
+pest()->use(SeedDatabaseOnce::class);
 
+beforeEach(function (): void {
     $this->cedar = Organisation::query()->where('slug', 'cedar-clinic')->sole();
     $this->verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
     $this->owner = User::query()->where('email', 'owner@cedar.test')->sole();

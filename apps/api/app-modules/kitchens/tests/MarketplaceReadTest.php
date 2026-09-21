@@ -3,11 +3,11 @@
 declare(strict_types=1);
 
 use App\Models\User;
-use Database\Seeders\DatabaseSeeder;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Organisations\Enums\OrganisationStatus;
 use Healthy360\Organisations\Models\Organisation;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,9 +26,7 @@ use Healthy360\Organisations\Models\Organisation;
 |
 */
 
-beforeEach(function (): void {
-    $this->seed(DatabaseSeeder::class);
-});
+pest()->use(SeedDatabaseOnce::class);
 
 it('lists the demonstration kitchen to an anonymous caller', function (): void {
     $response = $this->getJson('/api/v1/marketplace/kitchens')->assertOk();
