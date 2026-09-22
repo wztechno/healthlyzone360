@@ -20,6 +20,7 @@ use Healthy360\Organisations\Models\OrganisationMembership;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -42,14 +43,14 @@ use Illuminate\Support\Str;
 |
 */
 
-beforeEach(function (): void {
-    // The full seed, for the reason the B1 smoke takes it: the
-    // platform-operator organisation and the bespoke role carrying the platform
-    // codes are the only supported way to hold `b2b_offboarding.*_platform`, and
-    // the demo seeder is where that grant is expressed. A test that hand-built
-    // the grant would be asserting against its own fixture.
-    $this->seed();
+// The full seed, for the reason the B1 smoke takes it: the platform-operator
+// organisation and the bespoke role carrying the platform codes are the only
+// supported way to hold `b2b_offboarding.*_platform`, and PlatformOperatorSeeder
+// is where that grant is expressed. A test that hand-built the grant would be
+// asserting against its own fixture. Seeded once for the file.
+pest()->use(SeedDatabaseOnce::class);
 
+beforeEach(function (): void {
     Storage::fake('private');
 
     $this->platform = Organisation::query()->where('slug', 'healthy360-operations')->sole();

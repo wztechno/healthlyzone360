@@ -277,7 +277,7 @@ function BranchOperatingEditor() {
                                 count: 7 - summary.openDays,
                             }),
                             caption: t('kitchen:branchHours.cardClosedCaption'),
-                            mark: 'dotOutline',
+                            mark: 'ban',
                         },
                         {
                             key: 'cut-off',

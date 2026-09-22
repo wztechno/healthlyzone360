@@ -29,6 +29,7 @@ import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
 import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
+import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -234,6 +235,14 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
         return (
             <RecordViewPage
                 testID="kitchen-products-view"
+                media={
+                    <RecordPhoto
+                        assetId={viewing.imagePlaceholderId}
+                        label={displayName(viewing.name, locale).value}
+                        shape="wide"
+                        testID="kitchen-products-view-photo"
+                    />
+                }
                 kind={t(family.viewKind)}
                 title={displayName(viewing.name, locale).value}
                 status={{
@@ -436,7 +445,7 @@ function statCards(list: ProductListState, t: TFunction): readonly CatalogueStat
             caption: list.isUnfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),
-            mark: 'calendar',
+            mark: 'list',
             tone: 'brand',
             onPress: list.clearFilters,
             accessibilityLabel: t('kitchen:list.statShownAction'),
@@ -447,7 +456,7 @@ function statCards(list: ProductListState, t: TFunction): readonly CatalogueStat
             value: String(list.draftCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:list.statDraftCaption'),
-            mark: 'eyeOff',
+            mark: 'fileDraft',
             // Amber only while there is something to act on.
             tone: list.draftCount === 0 ? 'default' : 'warning',
             onPress: () => {
@@ -461,7 +470,7 @@ function statCards(list: ProductListState, t: TFunction): readonly CatalogueStat
             value: String(list.missingArabicCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:list.statMissingArabicCaption'),
-            mark: 'warning',
+            mark: 'languages',
             tone: list.missingArabicCount === 0 ? 'default' : 'danger',
         },
         {
@@ -470,7 +479,7 @@ function statCards(list: ProductListState, t: TFunction): readonly CatalogueStat
             value: String(list.noPackCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:products.statNoPackCaption'),
-            mark: 'warning',
+            mark: 'package',
             tone: list.noPackCount === 0 ? 'default' : 'warning',
         },
     ];

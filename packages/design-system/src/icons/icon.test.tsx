@@ -1,7 +1,8 @@
 import { screen } from '@testing-library/react-native';
 
 import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
-import { ICON_GLYPHS, Icon, resolveIconGlyph } from './icon.tsx';
+import { DRAWN_ICON_FALLBACKS, ICON_GLYPHS, Icon, resolveIconGlyph } from './icon.tsx';
+import type { DrawnIconName } from './icon.tsx';
 
 describe('resolveIconGlyph', () => {
     it('mirrors the directional chevrons by swapping the character, not a style', () => {
@@ -15,6 +16,18 @@ describe('resolveIconGlyph', () => {
         for (const isRtl of [false, true]) {
             expect(resolveIconGlyph('check', isRtl)).toBe(ICON_GLYPHS.check);
             expect(resolveIconGlyph('menu', isRtl)).toBe(ICON_GLYPHS.menu);
+        }
+    });
+
+    it('falls a drawn-only name back to the glyph it names, so native renders what it did', () => {
+        for (const [drawn, glyph] of Object.entries(DRAWN_ICON_FALLBACKS)) {
+            expect(resolveIconGlyph(drawn as DrawnIconName, false)).toBe(ICON_GLYPHS[glyph]);
+        }
+    });
+
+    it('keeps drawn-only names out of the glyph vocabulary', () => {
+        for (const drawn of Object.keys(DRAWN_ICON_FALLBACKS)) {
+            expect(Object.keys(ICON_GLYPHS)).not.toContain(drawn);
         }
     });
 
@@ -125,6 +138,8 @@ describe('glyph repertoire', () => {
         sun: 'BLACK SUN WITH RAYS',
         moon: 'LAST QUARTER MOON',
         clock: 'WHITE CIRCLE WITH UPPER RIGHT QUADRANT',
+        arrowUp: 'UPWARDS ARROW',
+        arrowDown: 'DOWNWARDS ARROW',
     };
 
     it('has a reviewed entry for every glyph, and no entry without one', () => {
@@ -215,4 +230,6 @@ const CODEPOINT_BY_UNICODE_NAME: Readonly<Record<string, number>> = {
     'BLACK SUN WITH RAYS': 0x2600,
     'LAST QUARTER MOON': 0x263e,
     'WHITE CIRCLE WITH UPPER RIGHT QUADRANT': 0x25f7,
+    'UPWARDS ARROW': 0x2191,
+    'DOWNWARDS ARROW': 0x2193,
 };

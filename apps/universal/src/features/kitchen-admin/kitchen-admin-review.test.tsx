@@ -150,6 +150,7 @@ function ingredient(overrides: Partial<IngredientAdmin> = {}): IngredientAdmin {
         id: IngredientId.unsafe('01935f6d-0000-7000-8000-00000000a001'),
         meta: meta(),
         name: { en: 'Burghul', ar: 'برغل' },
+        slug: 'burghul',
         reference: null,
         subcategoryCode: null,
         categoryCode: 'store-cupboard',
@@ -353,6 +354,7 @@ describe('the review model', () => {
             recipeId: null,
             dietClassifications: [],
             dataQualityFlags: ['dual_pack_single_price', 'assorted_members_expanded'],
+            imagePlaceholderId: 'product-mixed-mezze-tray',
         };
 
         expect(productReviewItems([product])[0]?.reasons).toEqual([

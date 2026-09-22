@@ -20,6 +20,7 @@ import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
 import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
+import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import {
@@ -163,6 +164,14 @@ function PackagingList() {
         return (
             <RecordViewPage
                 testID="kitchen-packaging-view"
+                media={
+                    <RecordPhoto
+                        assetId={`ingredient-${viewing.slug}`}
+                        label={displayName(viewing.name, locale).value}
+                        shape="square"
+                        testID="kitchen-packaging-view-photo"
+                    />
+                }
                 kind={t('kitchen:packaging.viewKind')}
                 {...(viewing.reference === null ? {} : { reference: viewing.reference })}
                 title={displayName(viewing.name, locale).value}
@@ -282,17 +291,27 @@ function PackagingList() {
                                 list.openEditor(String(row.id));
                             },
                         },
-                        // Archive is offered only where it would be accepted: the permission,
-                        // the server's own answer for this row, and a row that is not already
-                        // archived. A kitchen browsing the shared library would otherwise be
-                        // offered Archive on every platform row and get a 403 on each.
-                        ...(canManage && row.isEditable && row.meta.status !== 'retired'
+                        /*
+                         * Archive is *drawn* for anyone who may manage the catalogue and
+                         * *enabled* only where the server would accept it — the ingredient
+                         * list's rule, and for the same reason.
+                         *
+                         * It used to be omitted on any row the server would refuse, and every
+                         * seeded packaging row is a platform-library row, so a kitchen saw no
+                         * Archive anywhere on the page and could not tell "this row cannot be
+                         * archived" from "this list has no archive". Disabled answers that and
+                         * still never fires the request that would 403. The permission stays a
+                         * hard gate: an action a role cannot perform at all is not a disabled
+                         * control, it is somebody else's button.
+                         */
+                        ...(canManage
                             ? [
                                   {
                                       key: 'archive',
                                       label: t('kitchen:list.archive'),
                                       icon: CATALOGUE_ROW_ICONS.archive,
                                       tone: 'danger' as const,
+                                      disabled: !row.isEditable || row.meta.status === 'retired',
                                       testID: `${packagingRowTestId(row.id)}-archive`,
                                       onSelect: () => {
                                           list.askToArchive(row);
@@ -369,7 +388,7 @@ function statCards(list: PackagingListState, t: TFunction): readonly CatalogueSt
             caption: list.isUnfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),
-            mark: 'calendar',
+            mark: 'list',
             tone: 'brand',
             onPress: list.clearFilters,
             accessibilityLabel: t('kitchen:list.statShownAction'),
@@ -380,7 +399,7 @@ function statCards(list: PackagingListState, t: TFunction): readonly CatalogueSt
             value: String(list.unpricedCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:packaging.statUnpricedCaption'),
-            mark: 'warning',
+            mark: 'coins',
             // Amber only while there is something to act on — see the note in the component.
             tone: list.unpricedCount === 0 ? 'default' : 'warning',
         },
@@ -390,7 +409,7 @@ function statCards(list: PackagingListState, t: TFunction): readonly CatalogueSt
             value: String(list.inactiveCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:packaging.statInactiveCaption'),
-            mark: 'eyeOff',
+            mark: 'hidden',
             onPress: () => {
                 list.setStatuses(['draft']);
             },
@@ -402,7 +421,7 @@ function statCards(list: PackagingListState, t: TFunction): readonly CatalogueSt
             value: String(list.missingArabicCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:packaging.statMissingArabicCaption'),
-            mark: 'warning',
+            mark: 'languages',
             tone: list.missingArabicCount === 0 ? 'default' : 'danger',
         },
     ];

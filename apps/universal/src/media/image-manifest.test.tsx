@@ -61,6 +61,49 @@ describe('resolveEntityImage', () => {
         expect(resolveEntityImage('diet-high-protein', 'detail')).toBeTruthy();
     });
 
+    it('sends an ingredient to its one square file, whatever variant is asked for', () => {
+        // `thumb` is a single file per ingredient, so the variant is ignored — the same
+        // contract `dietitian` and `diet` have. A 20px row and an 80px detail pane both
+        // want the square, not a 16:9 crop of it.
+        expect(resolveEntityImage('ingredient-black-pepper', 'card')).toBe(
+            resolveEntityImage('ingredient-black-pepper', 'detail'),
+        );
+    });
+
+    it('keeps hyphenated slugs whole', () => {
+        // The resolver splits on the FIRST dash only. If it ever split on the last, every
+        // multi-word slug would address a family that does not exist and quietly fall back
+        // to the generated pattern — a miss that looks like a design choice.
+        expect(resolveEntityImage('ingredient-apple-cider-vinegar', 'card')).toBe(
+            IMAGE_ASSETS['ingredients/apple-cider-vinegar.thumb'] ?? null,
+        );
+    });
+
+    it('sends a catalogue item with no prototype recipe to its own photograph', () => {
+        // The prototype's forty meals alias onto twenty dish photos because they are
+        // portions of the same dish. Everything else owns its picture.
+        expect(resolveEntityImage('meal-chicken-crispy', 'card')).toBe(
+            IMAGE_ASSETS['meals/chicken-crispy.card'] ?? null,
+        );
+        expect(resolveEntityImage('meal-verdant-herb-garden-bowl', 'card')).toBe(
+            IMAGE_ASSETS['dishes/herbed-chicken-freekeh.card'] ?? null,
+        );
+    });
+
+    it('resolves an imported catalogue item, which arrives as `product-`', () => {
+        // The importer writes every row as CatalogueItemType::Product and the marketplace
+        // presenter derives the id from that, so a HealthZone360 dish is `product-<slug>`.
+        // The v6 stand-in table this replaced was keyed on `meal-` and therefore never fired;
+        // if this assertion ever goes back to null, thirty-eight dishes have silently lost
+        // their photographs again.
+        expect(resolveEntityImage('product-chicken-crispy', 'card')).toBe(
+            IMAGE_ASSETS['meals/chicken-crispy.card'] ?? null,
+        );
+        expect(resolveEntityImage('product-chicken-crispy', 'card')).toBe(
+            resolveEntityImage('meal-chicken-crispy', 'card'),
+        );
+    });
+
     it('falls back to null for unknown ids and undefined', () => {
         expect(resolveEntityImage('meal-does-not-exist', 'card')).toBeNull();
         expect(resolveEntityImage('gibberish', 'card')).toBeNull();

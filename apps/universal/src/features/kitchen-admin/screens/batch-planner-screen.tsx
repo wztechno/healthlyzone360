@@ -374,7 +374,7 @@ function facts(
                     : t('kitchen:ops.batch.versionCell', { number: version.versionNumber }),
             ...(version === null ? {} : { unit: t(statusShortKey(version.status)) }),
             caption: recipeLine ?? t('kitchen:ops.batch.noRecipeCaption'),
-            mark: 'check',
+            mark: 'layers',
             tone: version !== null && version.status !== 'published' ? 'warning' : 'default',
         },
         {
@@ -388,7 +388,7 @@ function facts(
                     : pieces === null
                       ? t('kitchen:ops.batch.factYieldCaption')
                       : t('kitchen:ops.batch.factPortionsPerBatch', { count: pieces }),
-            mark: 'basket',
+            mark: 'package',
         },
         {
             key: 'batches',
@@ -399,7 +399,7 @@ function facts(
                 factor === null
                     ? t('kitchen:ops.batch.awaitingTarget')
                     : t('kitchen:ops.batch.roundedUpFrom', { factor: number(factor) }),
-            mark: 'calendar',
+            mark: 'cookingPot',
         },
         {
             key: 'portions',
@@ -412,7 +412,7 @@ function facts(
                     : t('kitchen:ops.batch.wasteAppliesToCost', {
                           percent: number(version.wastePercent),
                       }),
-            mark: 'plate',
+            mark: 'utensils',
             tone: factor === null ? 'default' : 'brand',
         },
     ];

@@ -2,9 +2,7 @@ import type { MealAdmin } from '@healthy360/api-client/contracts';
 import { Badge, Inline, Text } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
-import { View } from 'react-native';
 
-import { EntityImage } from '../../../media/entity-image.tsx';
 import {
     availableChannels,
     channelKey,
@@ -53,10 +51,13 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
  *
  * ## The thumbnail stays, at 20px
  *
- * A 28px Catalogue row has no track for photography, and every other list in this workspace is text
- * — but this is the only surface in the admin that shows the picture a shopper sees, because the
- * meal editor has no image field either. Twenty pixels inside the title cell is what that costs,
- * and it is decorative: the name beside it carries the meaning (WCAG H67).
+ * A 28px Catalogue row has no track for photography — but this list shows the picture a shopper
+ * sees, and the meal editor has no image field to show it instead. `thumbnail` names it and
+ * `CatalogueList` draws it: twenty pixels inside the title cell of the wide table, avatar-sized on
+ * the narrow row, decorative in both because the name beside it carries the meaning (WCAG H67).
+ *
+ * The id is the stored one when a kitchen set it and otherwise `<item_type>-<slug>`, which is what
+ * the storefront derives, so the admin and the shop cannot show two different pictures of one meal.
  *
  * ## Allergens is a comma run and says so when it is empty
  *
@@ -108,21 +109,12 @@ export function mealColumns({ t, locale }: MealColumnDeps): readonly CatalogueCo
             sortable: true,
             sortType: 'text',
             value: (row) => displayName(row.name, locale).value,
+            thumbnail: (row) => row.imagePlaceholderId,
             render: (row) => {
                 const name = displayName(row.name, locale);
                 const testID = mealRowTestId(String(row.id));
                 return (
                     <Inline space="xs" align="center">
-                        <View className="w-5">
-                            <EntityImage
-                                assetId={row.imagePlaceholderId}
-                                seed={String(row.id)}
-                                label={name.value}
-                                aspect="square"
-                                variant="card"
-                                decorative
-                            />
-                        </View>
                         <Text variant="label" testID={`${testID}-name`}>
                             {name.value}
                         </Text>

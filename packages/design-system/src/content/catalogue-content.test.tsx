@@ -72,11 +72,10 @@ describe('spreadColumns', () => {
     /** `COLUMNS` without the action track, which opts out of the share. */
     const GROWING = COLUMNS.filter((column) => column.key !== 'actions');
 
-    it('leaves the declared widths alone when there is nothing spare', () => {
-        // 680 is exactly the sum, and 0 is the port before `onLayout` has reported one.
-        expect(spreadColumns(GROWING, 680)).toEqual([240, 100, 100, 120, 120]);
-        expect(spreadColumns(GROWING, 400)).toEqual([240, 100, 100, 120, 120]);
-        expect(spreadColumns(GROWING, 0)).toEqual([240, 100, 100, 120, 120]);
+    it('draws every growable column at the same width', () => {
+        // The complaint the equal track answers: 240 / 100 / 100 / 120 / 120 put a different run
+        // of whitespace at every boundary on the row, however wide the port grew.
+        expect(spreadColumns(GROWING, 1020)).toEqual([204, 204, 204, 204, 204]);
     });
 
     it('fills the port exactly, leaving no dead space after the last column', () => {
@@ -86,10 +85,12 @@ describe('spreadColumns', () => {
         }
     });
 
-    it('shares the slack equally rather than in proportion to the declared width', () => {
-        // 340 spare over five columns is 68 each. Proportional would have given Designation 120 of
-        // it — compounding the widest gap on the row, which is what it was drawing before.
-        expect(spreadColumns(GROWING, 1020)).toEqual([308, 168, 168, 188, 188]);
+    it('divides the track sum when the port is narrower than it, or not yet measured', () => {
+        // The row carries `min-width: <track sum>` and scrolls rather than squeezing, so a port
+        // under the sum is not a narrower row. 680 over five columns is 136 each. Zero is the
+        // port before anything has been measured and takes the same answer.
+        expect(spreadColumns(GROWING, 400)).toEqual([136, 136, 136, 136, 136]);
+        expect(spreadColumns(GROWING, 0)).toEqual([136, 136, 136, 136, 136]);
     });
 
     it('holds a column that opted out at its declared width', () => {
@@ -106,20 +107,25 @@ describe('spreadColumns', () => {
         expect(name).toBe(960);
     });
 
-    it('gives the division remainder to the widest growable column', () => {
-        // 1 spare over five tracks floors to nothing anywhere, so it lands on Designation rather
-        // than opening a seam between the header and its rows.
-        expect(spreadColumns(GROWING, 681)).toEqual([241, 100, 100, 120, 120]);
+    it('splits what is left after the fixed tracks, not the whole port', () => {
+        const [name, cost, actions] = spreadColumns(
+            [
+                { key: 'name', label: 'Designation', width: 240, priority: 100 },
+                { key: 'cost', label: 'Cost', width: 100, priority: 85 },
+                { key: 'actions', label: '', width: 108, priority: 95, grow: false },
+            ],
+            1000,
+        );
+
+        expect(actions).toBe(108);
+        expect(name).toBe(446);
+        expect(cost).toBe(446);
     });
 
-    it('does not widen a narrow column past a wide one', () => {
-        // The reason the share is equal and not proportional: whatever the port, the order the spec
-        // declared is the order the tracks come out in. A `Cost` column can catch `Designation` up
-        // but never overtake it.
-        for (const port of [700, 1020, 1600, 2400]) {
-            const [name, cost] = spreadColumns(GROWING, port);
-            expect(name).toBeGreaterThan(cost ?? 0);
-        }
+    it('gives the division remainder to the first growable column', () => {
+        // 681 over five tracks is 136.2, and a floor everywhere would leave the row a pixel short
+        // of the port — a seam between the header and the rows under it.
+        expect(spreadColumns(GROWING, 681)).toEqual([137, 136, 136, 136, 136]);
     });
 });
 

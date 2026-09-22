@@ -537,7 +537,7 @@ function statCards(
             caption: unfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),
-            mark: 'calendar',
+            mark: 'list',
             tone: 'brand',
             onPress: clear,
             accessibilityLabel: t('kitchen:list.statShownAction'),
@@ -548,7 +548,7 @@ function statCards(
             value: String(nothingPriced),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:priceLists.statNothingPricedCaption'),
-            mark: 'warning',
+            mark: 'coins',
             tone: nothingPriced === 0 ? 'default' : 'warning',
         },
         {
@@ -557,7 +557,7 @@ function statCards(
             value: String(agreement),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:priceLists.statAgreementCaption'),
-            mark: 'lock',
+            mark: 'handshake',
         },
     ];
 }

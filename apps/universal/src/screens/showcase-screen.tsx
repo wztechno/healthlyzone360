@@ -14,6 +14,7 @@ import {
     Callout,
     CALLOUT_TONES,
     Card,
+    CommandPalette,
     CARD_TONES,
     CARD_PADDINGS,
     Checkbox,
@@ -42,6 +43,7 @@ import {
     FormSection,
     Heading,
     Icon,
+    DRAWN_ICON_FALLBACKS,
     ICON_GLYPHS,
     IconButton,
     ImagePlaceholder,
@@ -93,6 +95,7 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type {
+    CommandPaletteItem,
     DataListColumn,
     IconName,
     RangeValue,
@@ -106,15 +109,26 @@ import { useColorScheme } from 'nativewind';
 import { Text as RNText, View } from 'react-native';
 
 import { EntityImage, MediaChip } from '../media/entity-image.tsx';
-import type { PublishableStatus } from '@healthy360/api-client/contracts';
+import type { PublishableStatus, RecipeAdminSummary } from '@healthy360/api-client/contracts';
+import { AllergenCode, KitchenId, RecipeId } from '@healthy360/domain-types';
 import { BilingualField } from '../features/kitchen-admin/bilingual-field.tsx';
 import { DerivedPanel } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
+import { CatalogueList } from '../features/kitchen-admin/catalogue/catalogue-list.tsx';
+import { CatalogueListItem } from '../features/kitchen-admin/catalogue/catalogue-list-item.tsx';
+import type { CatalogueColumn } from '../features/kitchen-admin/catalogue/catalogue-column-spec.ts';
 import { CatalogueListBody } from '../features/kitchen-admin/catalogue/catalogue-list-body.tsx';
+import { RecordPhoto } from '../features/kitchen-admin/catalogue/record-photo.tsx';
+import { RowThumbnail } from '../features/kitchen-admin/catalogue/row-thumbnail.tsx';
 import type { CatalogueListBodyState } from '../features/kitchen-admin/catalogue/catalogue-list-body.tsx';
 import { CatalogueStatCards } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../features/kitchen-admin/catalogue/catalogue-toolbar.tsx';
 import { CatalogueColumnHeader } from '../features/kitchen-admin/catalogue/catalogue-column-header.tsx';
+import { RecipeCardGrid } from '../features/kitchen-admin/catalogue/recipe-card-grid.tsx';
+import {
+    ColumnPicker,
+    useColumnVisibility,
+} from '../features/kitchen-admin/catalogue/column-picker.tsx';
 import { RecordViewPage } from '../features/kitchen-admin/catalogue/record-view-page.tsx';
 import { GateRailCard } from '../features/kitchen-admin/gate-rail-card.tsx';
 import { KitchenPageHeader } from '../features/kitchen-admin/kitchen-page-header.tsx';
@@ -229,6 +243,41 @@ const CATALOGUE_ROWS: readonly CatalogueRow[] = [
 ];
 
 const CATALOGUE_KINDS = ['paste', 'spice', 'dairy'] as const;
+
+/**
+ * The smallest spec that shows a row photograph: a title column naming it through `thumbnail`,
+ * which `CatalogueList` draws at 20px in the title cell. The three ingredients are real records
+ * with bundled photographs, so the block shows the shipped files rather than a pattern.
+ */
+const CATALOGUE_PHOTO_COLUMNS: readonly CatalogueColumn<CatalogueRow>[] = [
+    {
+        key: 'designation',
+        label: 'Designation',
+        width: 200,
+        priority: 100,
+        role: 'title',
+        value: (row) => row.designation,
+        thumbnail: (row) => `ingredient-${row.key}`,
+    },
+    {
+        key: 'reference',
+        label: 'Reference',
+        width: 110,
+        priority: 70,
+        role: 'meta',
+        mono: true,
+        value: (row) => row.reference,
+    },
+    {
+        key: 'status',
+        label: 'Status',
+        width: 110,
+        priority: 80,
+        role: 'status',
+        value: (row) => row.statusLabel,
+        render: (row) => <StatusBadge status={row.status} label={row.statusLabel} />,
+    },
+];
 
 /**
  * The recipe editor's five, with the counts the two line tabs carry.
@@ -457,6 +506,197 @@ function StepsStory({ prefix }: { readonly prefix: string }) {
                         />
                     </>
                 }
+            />
+        </Stack>
+    );
+}
+
+/**
+ * The recipe list's Cards layout: one recipe the bundled photo set covers, one it does not (the
+ * generated pattern), one draft with no Arabic name and no allergens.
+ */
+const SHOWCASE_RECIPES: readonly RecipeAdminSummary[] = [
+    {
+        slug: 'lemon-tahini-salmon',
+        name: { en: 'Lemon tahini salmon', ar: 'سلمون بالطحينة والليمون' },
+        reference: 'RC-0012',
+        status: 'published',
+        category: 'main_course',
+        allergens: ['fish', 'sesame'],
+        version: 3,
+    },
+    {
+        slug: 'bbq-sauce-dip',
+        name: { en: 'BBQ sauce dip', ar: 'صلصة باربكيو' },
+        reference: 'RC-0031',
+        status: 'review_required',
+        category: 'cooking_sauce',
+        allergens: ['mustard', 'celery', 'soy', 'gluten', 'sulphites'],
+        version: 2,
+    },
+    {
+        slug: 'green-herb-dressing',
+        name: { en: 'Green herb dressing', ar: '' },
+        reference: 'RC-0044',
+        status: 'draft',
+        category: null,
+        allergens: [],
+        version: 1,
+    },
+].map((seed, index) => ({
+    id: RecipeId.unsafe('00000000-0000-4000-8000-00000000000' + String(index + 1)),
+    meta: {
+        status: seed.status as PublishableStatus,
+        lockVersion: 1,
+        updatedAt: '2026-09-01T08:00:00Z',
+        updatedByName: null,
+    },
+    name: seed.name,
+    slug: seed.slug,
+    reference: seed.reference,
+    kitchenId: KitchenId.unsafe('00000000-0000-4000-8000-0000000000aa'),
+    sourceKind: null,
+    recipeCategory: seed.category,
+    currentVersionNumber: seed.version,
+    versionCount: seed.version,
+    currentVersionStatus: seed.status as PublishableStatus,
+    allergenCodes: seed.allergens.map((code) => AllergenCode.unsafe(code)),
+}));
+
+/** The ingredient table's eighteen columns, for the column picker story. */
+const SHOWCASE_PICKABLE_COLUMNS = [
+    { key: 'reference', label: 'Id' },
+    { key: 'name', label: 'Item' },
+    { key: 'category', label: 'Category' },
+    { key: 'subCategory', label: 'Sub-category' },
+    { key: 'unit', label: 'Unit' },
+    { key: 'allergens', label: 'Allergens' },
+    { key: 'price', label: 'Unit price' },
+    { key: 'purchaseUnit', label: 'Purchase unit' },
+    { key: 'itemsPerPack', label: 'Items / pack' },
+    { key: 'gramsPerUnit', label: 'Grams / unit' },
+    { key: 'costPer100g', label: 'Cost / 100 g' },
+    { key: 'b2bPrice', label: 'B2B price' },
+    { key: 'b2cPrice', label: 'B2C price' },
+    { key: 'composition', label: 'Composition' },
+    { key: 'updated', label: 'Last changed' },
+    { key: 'status', label: 'Status' },
+] as const;
+
+function ColumnPickerStory({ prefix }: { readonly prefix: string }) {
+    const { picker } = useColumnVisibility(`${prefix}-picker`, SHOWCASE_PICKABLE_COLUMNS, {
+        defaults: ['reference', 'name', 'category', 'allergens', 'status'],
+        locked: ['name'],
+    });
+    return (
+        <Stack space="xs">
+            <Text variant="section" tone="secondary">
+                Column picker
+            </Text>
+            <View className="flex-row justify-end">
+                <ColumnPicker {...picker} />
+            </View>
+        </Stack>
+    );
+}
+
+/** The kitchen's page search, on a handful of its own pages. */
+function CommandPaletteStory({ prefix }: { readonly prefix: string }) {
+    const [open, setOpen] = useState(false);
+    const close = () => {
+        setOpen(false);
+    };
+    const pages: readonly CommandPaletteItem[] = [
+        { key: 'overview', label: 'Overview', icon: 'dashboard', onSelect: close },
+        {
+            key: 'ingredients',
+            label: 'Ingredients',
+            icon: 'wheat',
+            group: 'Catalogue',
+            onSelect: close,
+        },
+        { key: 'recipes', label: 'Recipes', icon: 'bookOpen', group: 'Catalogue', onSelect: close },
+        { key: 'meals', label: 'Meals', icon: 'utensils', group: 'Catalogue', onSelect: close },
+        { key: 'orders', label: 'Orders', icon: 'receipt', group: 'Operations', onSelect: close },
+        { key: 'stock', label: 'Stock', icon: 'boxes', group: 'Operations', onSelect: close },
+        {
+            key: 'suppliers',
+            label: 'Suppliers',
+            icon: 'truck',
+            group: 'Operations',
+            onSelect: close,
+        },
+        { key: 'team', label: 'Team', icon: 'users', group: 'Access', onSelect: close },
+    ];
+    return (
+        <Stack space="xs">
+            <Text variant="section" tone="secondary">
+                Page search
+            </Text>
+            <Button
+                testID={`${prefix}-page-search-open`}
+                variant="secondary"
+                label="Search pages…"
+                iconStart={<Icon name="searchLens" size="sm" className="text-content-primary" />}
+                onPress={() => {
+                    setOpen(true);
+                }}
+            />
+            <CommandPalette
+                testID={`${prefix}-page-search`}
+                open={open}
+                onClose={close}
+                items={pages}
+                label="Search pages"
+                placeholder="Type to search pages…"
+                emptyText={(query) => `No page matches “${query}”.`}
+                ungroupedLabel="General"
+                hints={{ move: 'to move', open: 'to open', close: 'to close' }}
+            />
+        </Stack>
+    );
+}
+
+function RecipeCardsStory({ prefix }: { readonly prefix: string }) {
+    const { t } = useTranslation();
+    const { locale } = useLocale();
+    return (
+        <Stack space="xs">
+            <Text variant="section" tone="secondary">
+                Recipe cards
+            </Text>
+            <RecipeCardGrid
+                testID={`${prefix}-recipe-cards`}
+                rows={SHOWCASE_RECIPES}
+                t={t}
+                locale={locale}
+                kitchenName={() => 'Test Kitchen'}
+                onOpen={() => undefined}
+                rowActionsLabel={t('kitchen:list.rowActions')}
+                rowActions={(row) => [
+                    {
+                        key: 'view',
+                        label: 'View',
+                        icon: 'eye',
+                        onSelect: () => undefined,
+                        testID: `${prefix}-recipe-${String(row.id)}-view`,
+                    },
+                    {
+                        key: 'edit',
+                        label: 'Edit',
+                        icon: 'pen',
+                        onSelect: () => undefined,
+                        testID: `${prefix}-recipe-${String(row.id)}-edit`,
+                    },
+                    {
+                        key: 'archive',
+                        label: 'Archive',
+                        icon: 'archive',
+                        tone: 'danger',
+                        onSelect: () => undefined,
+                        testID: `${prefix}-recipe-${String(row.id)}-archive`,
+                    },
+                ]}
             />
         </Stack>
     );
@@ -1575,7 +1815,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             value: '18',
                             unit: 'of 306',
                             caption: 'Filtered — clear',
-                            mark: 'calendar',
+                            mark: 'list',
                             tone: 'brand',
                             onPress: () => undefined,
                             accessibilityLabel: 'Clear every filter',
@@ -1586,7 +1826,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             value: '2',
                             unit: 'records',
                             caption: 'not published yet',
-                            mark: 'eyeOff',
+                            mark: 'fileDraft',
                             tone: 'warning',
                             onPress: () => undefined,
                             accessibilityLabel: 'Show only draft records',
@@ -1597,7 +1837,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             value: '3',
                             unit: 'records',
                             caption: 'blocked from publishing',
-                            mark: 'warning',
+                            mark: 'languages',
                             tone: 'danger',
                         },
                         {
@@ -1606,11 +1846,17 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             value: '0',
                             unit: 'records',
                             caption: 'no unit price on file',
-                            mark: 'warning',
+                            mark: 'coins',
                         },
                     ]}
                 />
             </Stack>
+
+            <RecipeCardsStory prefix={prefix} />
+
+            <ColumnPickerStory prefix={prefix} />
+
+            <CommandPaletteStory prefix={prefix} />
 
             {/*
              * The Catalogue's toolbar, drawn on a full-width ground so its centring is visible.
@@ -1657,6 +1903,9 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             { failure: apiFailure('network', { correlationId: 'showcase-0002' }) },
                         ],
                         ['rows', { rows: [1], shown: 25, total: 306, totalPages: 13 }],
+                        // Page seven of seventeen: the range counts the walk, not the page, so it
+                        // reads 126 rather than 18 for the eleventh time.
+                        ['paged', { rows: [1], shown: 18, total: 306, page: 7, totalPages: 17 }],
                     ] as const
                 ).map(([state, over]) => (
                     <CatalogueListBody
@@ -1679,7 +1928,8 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
              * The workspace sidebar: the module panel filled with the primary green, white items,
              * and the active item as a white pill in #16A34A text. Framed at a fixed height so the shell
              * sits inside the page rather than taking it over; the sidebar itself appears from
-             * `lg` up, as it does in the product.
+             * `lg` up, as it does in the product. The modules and their rail marks are the kitchen's
+             * own (`kitchen-chrome.tsx`), so the drawn Lucide set is reviewed here as it ships.
              */}
             <Stack space="xs">
                 <Text variant="section" tone="secondary">
@@ -1687,7 +1937,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                 </Text>
                 <View
                     className="overflow-hidden rounded border border-stroke-subtle"
-                    style={{ height: 320 }}
+                    style={{ height: 480 }}
                 >
                     <AppShell
                         testID={id('sidebar-shell')}
@@ -1697,29 +1947,64 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             {
                                 key: 'home',
                                 label: 'Overview',
-                                icon: 'home',
+                                icon: 'dashboard',
                                 active: true,
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'orderDesk',
+                                label: 'Order desk',
+                                group: 'Order desk',
+                                groupIcon: 'receipt',
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'review',
+                                label: 'Review',
+                                group: 'Workbench',
+                                groupIcon: 'clipboardCheck',
                                 onPress: () => undefined,
                             },
                             {
                                 key: 'ingredients',
                                 label: 'Ingredients',
-                                icon: 'basket',
                                 group: 'Catalogue',
+                                groupIcon: 'chefHat',
                                 onPress: () => undefined,
                             },
                             {
                                 key: 'recipes',
                                 label: 'Recipes',
-                                icon: 'plate',
                                 group: 'Catalogue',
+                                groupIcon: 'chefHat',
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'price-lists',
+                                label: 'Price lists',
+                                group: 'Commercial',
+                                groupIcon: 'tag',
                                 onPress: () => undefined,
                             },
                             {
                                 key: 'batch',
                                 label: 'Batch planner',
-                                icon: 'calendar',
                                 group: 'Operations',
+                                groupIcon: 'package',
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'team',
+                                label: 'Team',
+                                group: 'Access',
+                                groupIcon: 'shield',
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'profile',
+                                label: 'Profile',
+                                group: 'Workspace',
+                                groupIcon: 'userCircle',
                                 onPress: () => undefined,
                             },
                         ]}
@@ -1740,6 +2025,15 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                 </Text>
                 <RecordViewPage
                     testID={id('record-view')}
+                    media={
+                        // Public domain, so the card carries no credit; the credited case is below.
+                        <RecordPhoto
+                            assetId="ingredient-tahini"
+                            label="Tahini paste"
+                            shape="square"
+                            testID={id('record-view-photo')}
+                        />
+                    }
                     onBack={() => undefined}
                     kind="Ingredient"
                     reference="ING-0142"
@@ -1748,11 +2042,12 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     fieldsTitle="Identification"
                     fieldsSubtitle="Catalogue record and costing"
                     fields={[
-                        { key: 'reference', label: 'Reference', value: 'ING-0142', mono: true },
-                        { key: 'name', label: 'Designation', value: 'Tahini paste' },
+                        // The table's own column names — a view names a field what its column does.
+                        { key: 'reference', label: 'Id', value: 'ING-0142', mono: true },
+                        { key: 'name', label: 'Item', value: 'Tahini paste' },
                         { key: 'category', label: 'Category', value: 'Sauces' },
                         { key: 'unit', label: 'Unit', value: 'kg' },
-                        { key: 'cost', label: 'Unit cost', value: 'AED 4.57', mono: true },
+                        { key: 'cost', label: 'Unit price', value: 'AED 4.57', mono: true },
                         { key: 'sellable', label: 'Available for sale', value: 'No' },
                     ]}
                     sections={[
@@ -2055,6 +2350,54 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     title="Static"
                     description="No onPress, so no chevron and no target."
                 />
+            </Stack>
+
+            {/*
+             * Row photographs. The spec names each row's picture once (`thumbnail`) and
+             * `CatalogueList` draws it: 20px inside the wide table's title cell, 32px on the
+             * narrow row's leading edge beside the status badge. Both shapes are drawn here,
+             * because the showcase is wide enough that `CatalogueList` alone would only ever
+             * show the first.
+             */}
+            <Stack space="xs">
+                <Text variant="section" tone="secondary">
+                    Catalogue row photographs
+                </Text>
+                <CatalogueList
+                    testID={id('catalogue-photos')}
+                    label="Ingredients, with photographs"
+                    columns={CATALOGUE_PHOTO_COLUMNS}
+                    rows={CATALOGUE_ROWS}
+                    rowKey={(row) => row.key}
+                    rowActionsLabel="Row actions"
+                />
+                <View className="flex-col rounded-panel border border-brand-100 bg-surface-raised">
+                    <CatalogueListItem
+                        testID={id('catalogue-photos-narrow')}
+                        title="Zaatar blend"
+                        media={
+                            <RowThumbnail
+                                assetId="ingredient-zaatar"
+                                seed="zaatar"
+                                label="Zaatar blend"
+                                size="narrow"
+                                testID={id('catalogue-photos-narrow-image')}
+                            />
+                        }
+                        status={<StatusBadge status="draft" label="Draft" />}
+                        meta={['ING-0207', 'spice']}
+                        actionsLabel="Row actions"
+                    />
+                </View>
+                {/* A dish's rail card: the wide shape, and a CC BY photograph, so its credit. */}
+                <View className="max-w-[400px]">
+                    <RecordPhoto
+                        assetId="recipe-marinated-chicken-breast"
+                        label="Marinated chicken breast"
+                        shape="wide"
+                        testID={id('record-photo-wide')}
+                    />
+                </View>
             </Stack>
 
             {/* Overlays. Dropdown is the mechanism; Menu is Dropdown plus a list. */}
@@ -3231,6 +3574,42 @@ export function ShowcaseScreen() {
                         seed="showcase-meal-01"
                         label={t('designSystem:showcase.placeholderLabel')}
                     />
+                    {/*
+                     * The three families that carry a record's own photograph, side by side, so the
+                     * square ingredient thumbnail can be compared against the 4:3 dish crop rather
+                     * than reviewed on its own. The third is deliberately an id with no bundled
+                     * file: the generated pattern beside two real photographs is what a blocked
+                     * record looks like on screen, and reviewing that here is the point.
+                     */}
+                    <Inline space="md" testID="showcase-entity-images">
+                        <View className="w-16">
+                            <EntityImage
+                                testID="showcase-entity-image-ingredient"
+                                assetId="ingredient-black-pepper"
+                                seed="showcase-ingredient"
+                                label={t('designSystem:showcase.placeholderLabel')}
+                                aspect="square"
+                            />
+                        </View>
+                        <View className="w-40">
+                            <EntityImage
+                                testID="showcase-entity-image-dish"
+                                assetId="recipe-herbed-chicken-freekeh"
+                                seed="showcase-dish"
+                                label={t('designSystem:showcase.placeholderLabel')}
+                                aspect="card"
+                            />
+                        </View>
+                        <View className="w-16">
+                            <EntityImage
+                                testID="showcase-entity-image-unmapped"
+                                assetId="ingredient-not-sourced"
+                                seed="showcase-unmapped"
+                                label={t('designSystem:showcase.placeholderLabel')}
+                                aspect="square"
+                            />
+                        </View>
+                    </Inline>
                     {CALLOUT_TONES.map((tone) => (
                         <Callout
                             key={tone}
@@ -3244,21 +3623,24 @@ export function ShowcaseScreen() {
                      * Every glyph in the vocabulary, iterated from the exported constant so a new
                      * one cannot be added without appearing here. Names are shown beside the marks
                      * because the point of review is whether the glyph reads as its name — a
-                     * basket that reads as a bin is a defect this page is supposed to catch.
+                     * basket that reads as a bin is a defect this page is supposed to catch. The
+                     * drawn-only names (the workspace rail's marks) follow the glyphs.
                      */}
                     <Inline space="sm" wrap testID="showcase-icons">
-                        {Object.keys(ICON_GLYPHS).map((name) => (
-                            <View
-                                key={name}
-                                testID={`showcase-icon-${name}`}
-                                className="min-w-[92px] flex-row items-center gap-2 rounded-lg border border-stroke-subtle px-3 py-2"
-                            >
-                                <Icon name={name as IconName} />
-                                <Text variant="caption" tone="secondary">
-                                    {name}
-                                </Text>
-                            </View>
-                        ))}
+                        {[...Object.keys(ICON_GLYPHS), ...Object.keys(DRAWN_ICON_FALLBACKS)].map(
+                            (name) => (
+                                <View
+                                    key={name}
+                                    testID={`showcase-icon-${name}`}
+                                    className="min-w-[92px] flex-row items-center gap-2 rounded-lg border border-stroke-subtle px-3 py-2"
+                                >
+                                    <Icon name={name as IconName} />
+                                    <Text variant="caption" tone="secondary">
+                                        {name}
+                                    </Text>
+                                </View>
+                            ),
+                        )}
                     </Inline>
                     <Accordion
                         testID="showcase-accordion"

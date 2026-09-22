@@ -83,8 +83,13 @@ describe('consumption exceptions at desk width', () => {
         const list = harness.repositories.kitchenOps.listConsumptionExceptions;
 
         await untilVisible('kitchen-consumption-exceptions-table-column-status-trigger');
-        // The queue opens on what is still open, and the header says so.
-        expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ resolved: false }));
+        // The queue opens on every status, from today: no `resolved` at all, and a `from`.
+        expect(list).toHaveBeenLastCalledWith(
+            expect.not.objectContaining({ resolved: expect.anything() }),
+        );
+        expect(list).toHaveBeenLastCalledWith(
+            expect.objectContaining({ from: expect.any(String) }),
+        );
 
         await act(async () => {
             fireEvent.press(

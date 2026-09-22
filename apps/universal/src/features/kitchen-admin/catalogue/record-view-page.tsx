@@ -23,8 +23,8 @@ import { CataloguePageHeader } from './catalogue-page-header.tsx';
  * The read-only record page behind every kitchen-admin row's View — `IngredientView.dc.html`.
  *
  * ```
- * Kitchen workspace › Ingredients › Tahini paste            <- the shell's trail, leaf named here
- * Tahini paste  ING-0142 [ Live ]              [ ‹ Back to list ] [ ✎ Edit ingredient ]
+ * Kitchen workspace › Ingredients › Tahini paste            <- the shell's trail, and the way back
+ * Tahini paste  ING-0142 [ Live ]
  * ┌ Identification ─────────────────────┐  ┌ Record status ───────┐
  * │ REFERENCE        DESIGNATION        │  │ [ Live ]             │
  * │ …                                   │  │ Updated … by …       │
@@ -43,11 +43,21 @@ import { CataloguePageHeader } from './catalogue-page-header.tsx';
  * so Back is a state change — the list's page, sort and filters are still in the hook above it —
  * rather than a navigation that would drop them.
  *
+ * ## The trail is the way back, and Edit is drawn once
+ *
+ * The header used to carry `‹ Back to list` and an Edit button, and the status card carried a second
+ * Edit — two identical controls on one screen, and a Back that repeated the trail's own job. Both
+ * are gone from the header. `onBack` is handed to the shell's trail instead
+ * (`useKitchenTrailLeaf`), which draws `… › Ingredients › Tahini paste` with **Ingredients** as the
+ * link that closes the record — so the trail means the same thing here as on a record that is a
+ * route of its own. Edit lives in the status card, beside the facts that decide whether to press it.
+ *
  * ## One shape for every module
  *
  * The props are `RecordWindow`'s, so a screen moves across by swapping the element and turning
  * `onClose` into `onBack`. The test-id suffixes that suites already name — `-title`, `-kind`,
- * `-status`, `-note`, `-field-{key}`, `-chips`, `-body`, `-primary` — are kept. What a module adds
+ * `-status`, `-note`, `-field-{key}`, `-chips`, `-body`, `-primary` — are kept; `-primary` (or the
+ * action's own `testID`) now names the status card's Edit, the only one there is. What a module adds
  * beyond the field grid goes into `sections` (main column) and `rail` (beside it); the ingredient
  * page is the reference for both.
  *
@@ -77,6 +87,7 @@ export interface RecordViewPageProps {
     readonly status?: { readonly label: string; readonly tone: BadgeTone } | undefined;
     /** A status the caller already renders as a node — a list's own badge. Beside `status`. */
     readonly titleAside?: ReactNode | undefined;
+    /** Closes the record. Handed to the shell's trail, whose list crumb is the way back. */
     readonly onBack: () => void;
     /** One info banner above the columns, saying what this page cannot do or why it matters. */
     readonly note?: string | undefined;
@@ -107,6 +118,15 @@ export interface RecordViewPageProps {
     readonly statusContent?: ReactNode | undefined;
     /** Rail cards after status and chips. */
     readonly rail?: readonly RecordViewSection[] | undefined;
+    /**
+     * The record's photograph — a `RecordPhoto` — first in the rail, above the status card.
+     *
+     * Its own slot rather than `titleAside`, which sits on the title line among the badges and is
+     * sized for one, or a `rail` section, which draws after status and chips. A picture is what
+     * the eye lands on first in a record page, so it leads the rail; below `xl`, where the rail
+     * drops under the main column, it leads that.
+     */
+    readonly media?: ReactNode | undefined;
     /** The page's one way into the editor. Omit on a record nobody may change here. */
     readonly primaryAction?:
         | {
@@ -147,12 +167,13 @@ export function RecordViewPage({
     footNote,
     statusContent,
     rail = [],
+    media,
     primaryAction,
     testID,
 }: RecordViewPageProps) {
     const { t } = useTranslation();
 
-    useKitchenTrailLeaf(title);
+    useKitchenTrailLeaf(title, onBack);
 
     const hasChips =
         chipsLabel !== undefined && (chips !== undefined || chipsContent !== undefined);
@@ -190,38 +211,6 @@ export function RecordViewPage({
                                 />
                             )}
                             {titleAside}
-                        </Inline>
-                    }
-                    primaryAction={
-                        <Inline space="xs" align="center">
-                            <Button
-                                testID={`${testID}-back`}
-                                variant="ghost"
-                                size="sm"
-                                label={t('kitchen:recordView.backToList')}
-                                iconStart={<Icon name="chevronBackward" size="sm" />}
-                                onPress={onBack}
-                            />
-                            {primaryAction === undefined ? null : (
-                                <Button
-                                    testID={primaryAction.testID ?? `${testID}-primary`}
-                                    size="sm"
-                                    label={primaryAction.label}
-                                    {...(primaryAction.icon === null
-                                        ? {}
-                                        : {
-                                              iconStart: (
-                                                  <Icon
-                                                      name={primaryAction.icon ?? 'pen'}
-                                                      size="sm"
-                                                  />
-                                              ),
-                                          })}
-                                    loading={primaryAction.loading}
-                                    disabled={primaryAction.disabled}
-                                    onPress={primaryAction.onPress}
-                                />
-                            )}
                         </Inline>
                     }
                 />
@@ -267,6 +256,8 @@ export function RecordViewPage({
                         testID={`${testID}-rail`}
                         className="min-w-0 flex-col gap-base xl:flex-[10]"
                     >
+                        {media}
+
                         {hasStatusCard ? (
                             <Card
                                 testID={`${testID}-record-status`}
@@ -302,11 +293,20 @@ export function RecordViewPage({
                                     {statusContent}
                                     {primaryAction === undefined ? null : (
                                         <Button
-                                            testID={`${testID}-rail-edit`}
-                                            variant="secondary"
+                                            testID={primaryAction.testID ?? `${testID}-primary`}
                                             size="sm"
                                             block
                                             label={primaryAction.label}
+                                            {...(primaryAction.icon === null
+                                                ? {}
+                                                : {
+                                                      iconStart: (
+                                                          <Icon
+                                                              name={primaryAction.icon ?? 'pen'}
+                                                              size="sm"
+                                                          />
+                                                      ),
+                                                  })}
                                             loading={primaryAction.loading}
                                             disabled={primaryAction.disabled}
                                             onPress={primaryAction.onPress}

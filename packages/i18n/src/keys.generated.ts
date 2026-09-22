@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7385 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7431 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -197,7 +197,9 @@ export interface NamespaceKeys {
     | 'role.tabs.pages'
     | 'role.templateNotice'
     | 'roles.caption'
+    | 'roles.columns.description'
     | 'roles.columns.holders'
+    | 'roles.columns.kind'
     | 'roles.columns.pages'
     | 'roles.columns.role'
     | 'roles.copy'
@@ -205,12 +207,30 @@ export interface NamespaceKeys {
     | 'roles.edit'
     | 'roles.emptyBody'
     | 'roles.emptyTitle'
+    | 'roles.filteredEmptyBody'
+    | 'roles.filteredEmptyTitle'
     | 'roles.holders'
     | 'roles.holdersNone'
+    | 'roles.kindOwn'
+    | 'roles.kindTemplate'
+    | 'roles.noDescription'
     | 'roles.open'
     | 'roles.ownHeading'
     | 'roles.ownHint'
     | 'roles.permissionCount'
+    | 'roles.searchHint'
+    | 'roles.searchLabel'
+    | 'roles.segmentAll'
+    | 'roles.segmentLabel'
+    | 'roles.segmentOwn'
+    | 'roles.segmentTemplates'
+    | 'roles.statOwn'
+    | 'roles.statOwnCaption'
+    | 'roles.statRoles'
+    | 'roles.statTemplates'
+    | 'roles.statTemplatesCaption'
+    | 'roles.statUnheld'
+    | 'roles.statUnheldCaption'
     | 'roles.subtitle'
     | 'roles.templatesHeading'
     | 'roles.templatesHint'
@@ -224,15 +244,18 @@ export interface NamespaceKeys {
     | 'team.add'
     | 'team.caption'
     | 'team.columns.email'
+    | 'team.columns.joined'
     | 'team.columns.person'
     | 'team.columns.roles'
     | 'team.columns.scope'
     | 'team.columns.status'
+    | 'team.columns.userEmail'
     | 'team.emptyBody'
     | 'team.emptyTitle'
     | 'team.filteredEmptyBody'
     | 'team.filteredEmptyTitle'
     | 'team.invitations.caption'
+    | 'team.invitations.columnExpires'
     | 'team.invitations.empty'
     | 'team.invitations.expires'
     | 'team.invitations.revoke'
@@ -240,10 +263,26 @@ export interface NamespaceKeys {
     | 'team.invitations.sent'
     | 'team.invitations.subtitle'
     | 'team.invitations.title'
+    | 'team.moreRoles'
     | 'team.noRoles'
+    | 'team.notJoined'
     | 'team.open'
     | 'team.organisationWide'
+    | 'team.searchHint'
+    | 'team.searchLabel'
+    | 'team.searchPageHint'
+    | 'team.segmentEveryone'
+    | 'team.segmentLabel'
+    | 'team.segmentWorking'
     | 'team.showEnded'
+    | 'team.statInvitations'
+    | 'team.statInvitationsCaption'
+    | 'team.statNoRoles'
+    | 'team.statNoRolesCaption'
+    | 'team.statOffers'
+    | 'team.statPeople'
+    | 'team.statWorking'
+    | 'team.statWorkingCaption'
     | 'team.subtitle'
     | 'team.title'
     | 'team.unnamed'
@@ -1975,6 +2014,16 @@ export interface NamespaceKeys {
     | 'network.reconnectingBody'
     | 'network.reconnectingTitle'
     | 'notifications.count'
+    | 'photoCredit.byline'
+    | 'photoCredit.modified'
+    | 'photoCredit.provider.flickr'
+    | 'photoCredit.provider.nappy'
+    | 'photoCredit.provider.other'
+    | 'photoCredit.provider.rawpixel'
+    | 'photoCredit.provider.stocksnap'
+    | 'photoCredit.provider.unsplash'
+    | 'photoCredit.provider.wikimedia'
+    | 'photoCredit.via'
     | 'state.empty'
     | 'state.loading'
     | 'state.restoringSession'
@@ -2477,7 +2526,6 @@ export interface NamespaceKeys {
     | 'analytics.units.count'
     | 'analytics.units.minutes'
     | 'analytics.units.percent'
-    | 'analytics.window.fieldAvgMinutes'
     | 'analytics.window.kind'
     | 'analytics.window.note'
     | 'areas.chosenCount'
@@ -2629,7 +2677,9 @@ export interface NamespaceKeys {
     | 'catalogue.columnSort'
     | 'catalogue.columnUpdated'
     | 'catalogue.columnsButton'
+    | 'catalogue.columnsClear'
     | 'catalogue.columnsHeading'
+    | 'catalogue.columnsHint'
     | 'catalogue.columnsLabel'
     | 'catalogue.columnsReset'
     | 'catalogue.edit'
@@ -3185,9 +3235,6 @@ export interface NamespaceKeys {
     | 'hub.title'
     | 'ingredientDetail.allergensDietsTitle'
     | 'ingredientDetail.fieldCapacity'
-    | 'ingredientDetail.fieldCostPer100g'
-    | 'ingredientDetail.fieldGramsPerUnit'
-    | 'ingredientDetail.fieldItemsPerUnit'
     | 'ingredientDetail.fieldOtherName'
     | 'ingredientDetail.fieldPackCost'
     | 'ingredientDetail.fieldSellable'
@@ -3261,6 +3308,9 @@ export interface NamespaceKeys {
     | 'list.filteredEmptyTitle'
     | 'list.import'
     | 'list.importUnavailable'
+    | 'list.layoutCards'
+    | 'list.layoutLabel'
+    | 'list.layoutTable'
     | 'list.loadMore'
     | 'list.loadingMore'
     | 'list.mayContain'
@@ -5144,6 +5194,7 @@ export interface NamespaceKeys {
     | 'recipes.formSubtitle'
     | 'recipes.grossMargin'
     | 'recipes.identityDescription'
+    | 'recipes.imageLabel'
     | 'recipes.immutableBody'
     | 'recipes.immutableTitle'
     | 'recipes.kitchenFilterAll'
@@ -5327,7 +5378,6 @@ export interface NamespaceKeys {
     | 'recipes.yieldQuantity'
     | 'recipes.yieldRequired'
     | 'recipes.yieldUnit'
-    | 'recordView.backToList'
     | 'recordView.details'
     | 'recordView.statusTitle'
     | 'recordView.version'
@@ -5434,6 +5484,14 @@ export interface NamespaceKeys {
     | 'sauces.searchPlaceholder'
     | 'sauces.title'
     | 'sauces.viewKind'
+    | 'search.empty'
+    | 'search.general'
+    | 'search.hintClose'
+    | 'search.hintMove'
+    | 'search.hintOpen'
+    | 'search.label'
+    | 'search.placeholder'
+    | 'search.trigger'
     | 'status.all'
     | 'status.draft'
     | 'status.label'
@@ -5838,6 +5896,10 @@ export interface NamespaceKeys {
     | 'howItWorks.step.tell.title'
     | 'howItWorks.subtitle'
     | 'howItWorks.title'
+    | 'imageCredits.intro'
+    | 'imageCredits.none'
+    | 'imageCredits.synthetic'
+    | 'imageCredits.title'
     | 'itemTypes.dressing'
     | 'itemTypes.meal'
     | 'itemTypes.product'
@@ -5954,6 +6016,7 @@ export interface NamespaceKeys {
     | 'nav.forBusiness'
     | 'nav.home'
     | 'nav.howItWorks'
+    | 'nav.imageCredits'
     | 'nav.kitchens'
     | 'nav.meals'
     | 'nav.myHome'
@@ -7612,7 +7675,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:role.tabs.pages',
   'accessAdmin:role.templateNotice',
   'accessAdmin:roles.caption',
+  'accessAdmin:roles.columns.description',
   'accessAdmin:roles.columns.holders',
+  'accessAdmin:roles.columns.kind',
   'accessAdmin:roles.columns.pages',
   'accessAdmin:roles.columns.role',
   'accessAdmin:roles.copy',
@@ -7620,12 +7685,30 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:roles.edit',
   'accessAdmin:roles.emptyBody',
   'accessAdmin:roles.emptyTitle',
+  'accessAdmin:roles.filteredEmptyBody',
+  'accessAdmin:roles.filteredEmptyTitle',
   'accessAdmin:roles.holders',
   'accessAdmin:roles.holdersNone',
+  'accessAdmin:roles.kindOwn',
+  'accessAdmin:roles.kindTemplate',
+  'accessAdmin:roles.noDescription',
   'accessAdmin:roles.open',
   'accessAdmin:roles.ownHeading',
   'accessAdmin:roles.ownHint',
   'accessAdmin:roles.permissionCount',
+  'accessAdmin:roles.searchHint',
+  'accessAdmin:roles.searchLabel',
+  'accessAdmin:roles.segmentAll',
+  'accessAdmin:roles.segmentLabel',
+  'accessAdmin:roles.segmentOwn',
+  'accessAdmin:roles.segmentTemplates',
+  'accessAdmin:roles.statOwn',
+  'accessAdmin:roles.statOwnCaption',
+  'accessAdmin:roles.statRoles',
+  'accessAdmin:roles.statTemplates',
+  'accessAdmin:roles.statTemplatesCaption',
+  'accessAdmin:roles.statUnheld',
+  'accessAdmin:roles.statUnheldCaption',
   'accessAdmin:roles.subtitle',
   'accessAdmin:roles.templatesHeading',
   'accessAdmin:roles.templatesHint',
@@ -7639,15 +7722,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:team.add',
   'accessAdmin:team.caption',
   'accessAdmin:team.columns.email',
+  'accessAdmin:team.columns.joined',
   'accessAdmin:team.columns.person',
   'accessAdmin:team.columns.roles',
   'accessAdmin:team.columns.scope',
   'accessAdmin:team.columns.status',
+  'accessAdmin:team.columns.userEmail',
   'accessAdmin:team.emptyBody',
   'accessAdmin:team.emptyTitle',
   'accessAdmin:team.filteredEmptyBody',
   'accessAdmin:team.filteredEmptyTitle',
   'accessAdmin:team.invitations.caption',
+  'accessAdmin:team.invitations.columnExpires',
   'accessAdmin:team.invitations.empty',
   'accessAdmin:team.invitations.expires',
   'accessAdmin:team.invitations.revoke',
@@ -7655,10 +7741,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:team.invitations.sent',
   'accessAdmin:team.invitations.subtitle',
   'accessAdmin:team.invitations.title',
+  'accessAdmin:team.moreRoles',
   'accessAdmin:team.noRoles',
+  'accessAdmin:team.notJoined',
   'accessAdmin:team.open',
   'accessAdmin:team.organisationWide',
+  'accessAdmin:team.searchHint',
+  'accessAdmin:team.searchLabel',
+  'accessAdmin:team.searchPageHint',
+  'accessAdmin:team.segmentEveryone',
+  'accessAdmin:team.segmentLabel',
+  'accessAdmin:team.segmentWorking',
   'accessAdmin:team.showEnded',
+  'accessAdmin:team.statInvitations',
+  'accessAdmin:team.statInvitationsCaption',
+  'accessAdmin:team.statNoRoles',
+  'accessAdmin:team.statNoRolesCaption',
+  'accessAdmin:team.statOffers',
+  'accessAdmin:team.statPeople',
+  'accessAdmin:team.statWorking',
+  'accessAdmin:team.statWorkingCaption',
   'accessAdmin:team.subtitle',
   'accessAdmin:team.title',
   'accessAdmin:team.unnamed',
@@ -9383,6 +9485,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:network.reconnectingBody',
   'common:network.reconnectingTitle',
   'common:notifications.count',
+  'common:photoCredit.byline',
+  'common:photoCredit.modified',
+  'common:photoCredit.provider.flickr',
+  'common:photoCredit.provider.nappy',
+  'common:photoCredit.provider.other',
+  'common:photoCredit.provider.rawpixel',
+  'common:photoCredit.provider.stocksnap',
+  'common:photoCredit.provider.unsplash',
+  'common:photoCredit.provider.wikimedia',
+  'common:photoCredit.via',
   'common:state.empty',
   'common:state.loading',
   'common:state.restoringSession',
@@ -9880,7 +9992,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:analytics.units.count',
   'kitchen:analytics.units.minutes',
   'kitchen:analytics.units.percent',
-  'kitchen:analytics.window.fieldAvgMinutes',
   'kitchen:analytics.window.kind',
   'kitchen:analytics.window.note',
   'kitchen:areas.chosenCount',
@@ -10032,7 +10143,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:catalogue.columnSort',
   'kitchen:catalogue.columnUpdated',
   'kitchen:catalogue.columnsButton',
+  'kitchen:catalogue.columnsClear',
   'kitchen:catalogue.columnsHeading',
+  'kitchen:catalogue.columnsHint',
   'kitchen:catalogue.columnsLabel',
   'kitchen:catalogue.columnsReset',
   'kitchen:catalogue.edit',
@@ -10588,9 +10701,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.title',
   'kitchen:ingredientDetail.allergensDietsTitle',
   'kitchen:ingredientDetail.fieldCapacity',
-  'kitchen:ingredientDetail.fieldCostPer100g',
-  'kitchen:ingredientDetail.fieldGramsPerUnit',
-  'kitchen:ingredientDetail.fieldItemsPerUnit',
   'kitchen:ingredientDetail.fieldOtherName',
   'kitchen:ingredientDetail.fieldPackCost',
   'kitchen:ingredientDetail.fieldSellable',
@@ -10664,6 +10774,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:list.filteredEmptyTitle',
   'kitchen:list.import',
   'kitchen:list.importUnavailable',
+  'kitchen:list.layoutCards',
+  'kitchen:list.layoutLabel',
+  'kitchen:list.layoutTable',
   'kitchen:list.loadMore',
   'kitchen:list.loadingMore',
   'kitchen:list.mayContain',
@@ -12547,6 +12660,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.formSubtitle',
   'kitchen:recipes.grossMargin',
   'kitchen:recipes.identityDescription',
+  'kitchen:recipes.imageLabel',
   'kitchen:recipes.immutableBody',
   'kitchen:recipes.immutableTitle',
   'kitchen:recipes.kitchenFilterAll',
@@ -12730,7 +12844,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.yieldQuantity',
   'kitchen:recipes.yieldRequired',
   'kitchen:recipes.yieldUnit',
-  'kitchen:recordView.backToList',
   'kitchen:recordView.details',
   'kitchen:recordView.statusTitle',
   'kitchen:recordView.version',
@@ -12837,6 +12950,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:sauces.searchPlaceholder',
   'kitchen:sauces.title',
   'kitchen:sauces.viewKind',
+  'kitchen:search.empty',
+  'kitchen:search.general',
+  'kitchen:search.hintClose',
+  'kitchen:search.hintMove',
+  'kitchen:search.hintOpen',
+  'kitchen:search.label',
+  'kitchen:search.placeholder',
+  'kitchen:search.trigger',
   'kitchen:status.all',
   'kitchen:status.draft',
   'kitchen:status.label',
@@ -13240,6 +13361,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:howItWorks.step.tell.title',
   'marketplace:howItWorks.subtitle',
   'marketplace:howItWorks.title',
+  'marketplace:imageCredits.intro',
+  'marketplace:imageCredits.none',
+  'marketplace:imageCredits.synthetic',
+  'marketplace:imageCredits.title',
   'marketplace:itemTypes.dressing',
   'marketplace:itemTypes.meal',
   'marketplace:itemTypes.product',
@@ -13356,6 +13481,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:nav.forBusiness',
   'marketplace:nav.home',
   'marketplace:nav.howItWorks',
+  'marketplace:nav.imageCredits',
   'marketplace:nav.kitchens',
   'marketplace:nav.meals',
   'marketplace:nav.myHome',

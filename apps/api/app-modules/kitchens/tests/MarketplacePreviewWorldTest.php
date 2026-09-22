@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\MarketplaceKitchensSeeder;
 use Database\Seeders\MarketplacePlansSeeder;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
@@ -18,6 +17,7 @@ use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Models\PriceList;
 use Healthy360\Pricing\Models\PriceListItem;
+use Tests\SeedPreviewWorldOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -34,18 +34,14 @@ use Healthy360\Pricing\Models\PriceListItem;
 | the photographs are keyed to — a meal that moves kitchens loses its picture.
 |
 | `DatabaseSeeder` keeps the preview seeders out of PHPUnit (~115 test cases
-| seed that graph and only this one reads it), so they are called explicitly
-| here. Everything they write goes through the same readiness gate the demo
-| kitchen's menu does: a listing that reaches these assertions is one the
-| publication gate agreed to.
+| seed that graph and only this one reads it), so this file seeds them itself,
+| once for the whole file (`SeedPreviewWorldOnce`). Everything they write goes
+| through the same readiness gate the demo kitchen's menu does: a listing that
+| reaches these assertions is one the publication gate agreed to.
 |
 */
 
-beforeEach(function (): void {
-    $this->seed(DatabaseSeeder::class);
-    $this->seed(MarketplaceKitchensSeeder::class);
-    $this->seed(MarketplacePlansSeeder::class);
-});
+pest()->use(SeedPreviewWorldOnce::class);
 
 /** The six kitchens the customer prototype's photographs are keyed to. */
 const PREVIEW_KITCHENS = [

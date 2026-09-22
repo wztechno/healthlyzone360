@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Testing\TestResponse;
 use PragmaRX\Google2FA\Google2FA;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,9 +23,9 @@ use PragmaRX\Google2FA\Google2FA;
 |
 */
 
-beforeEach(function (): void {
-    $this->seed();
+pest()->use(SeedDatabaseOnce::class);
 
+beforeEach(function (): void {
     $this->cedar = Organisation::query()->where('slug', 'cedar-clinic')->sole();
     $this->owner = User::query()->where('email', 'owner@cedar.test')->sole();
 });

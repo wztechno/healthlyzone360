@@ -116,6 +116,7 @@ export function packagingColumns({
             sortable: true,
             sortType: 'text',
             value: (row) => displayName(row.name, locale).value,
+            thumbnail: (row) => `ingredient-${row.slug}`,
             /*
              * The `label` step, which is what the other five Catalogue lists give the column that
              * names the row — ingredients, products, recipes, meals and allergen classes all draw

@@ -29,16 +29,16 @@ import { buildReviewQueue } from './review-queue.ts';
  */
 
 /**
- * Each module's glyph on the collapsed rail, where a group is drawn as one icon. From the icon set's
- * own shapes, so every one renders as a symbol in both scripts.
+ * Each module's mark on the rail, where a group is drawn as one icon. Drawn on the web (Lucide, see
+ * `icon-drawing.web.tsx`); on native each falls back to the glyph it replaced.
  */
 const GROUP_ICONS: Readonly<Record<EntityGroup, IconName>> = {
-    orderDesk: 'basket',
-    workbench: 'check',
-    catalogue: 'leaf',
-    commercial: 'organisation',
-    operations: 'calendar',
-    access: 'lock',
+    orderDesk: 'receipt',
+    workbench: 'clipboardCheck',
+    catalogue: 'chefHat',
+    commercial: 'tag',
+    operations: 'package',
+    access: 'shield',
 };
 
 /** KITCHEN.md sidebar spec: the family rail is 232px. */
@@ -189,7 +189,7 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
             {
                 key: 'overview',
                 label: t('kitchen:nav.overview'),
-                icon: 'home',
+                icon: 'dashboard',
                 active: isKitchenNavActive(pathname, OVERVIEW_HREF),
                 testID: 'nav-overview',
                 onPress: () => {
@@ -208,7 +208,7 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
                 label: t(item.labelKey),
                 icon: item.icon,
                 group: t('kitchen:nav.groups.workspace'),
-                groupIcon: 'user',
+                groupIcon: 'userCircle',
                 active: pathname === item.href,
                 testID: `nav-${item.key}`,
                 onPress: () => {

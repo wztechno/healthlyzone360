@@ -230,6 +230,7 @@ function ingredient(ordinal: number, overrides: Partial<IngredientAdmin> = {}): 
         id: ingredientIdentifier(ordinal),
         meta: meta({ status: 'published' }),
         name: { en: `Ingredient ${String(ordinal)}`, ar: `مكوّن ${String(ordinal)}` },
+        slug: `ingredient-${String(ordinal)}`,
         reference: `IG-00${String(ordinal)}`,
         subcategoryCode: null,
         categoryCode: 'store-cupboard',
@@ -928,6 +929,47 @@ describe('the recipe list', () => {
         expect(screen.getByTestId('kitchen-recipes-clear')).toBeTruthy();
     });
 
+    it('switches the same rows between the table and cards, and back', async () => {
+        const tabbouleh = recipe({ ordinal: 1, name: 'Tabbouleh' });
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [
+                        tabbouleh,
+                        recipe({ ordinal: 2, name: 'Fattoush' }),
+                    ]),
+                    getRecipe: async () => tabbouleh,
+                },
+            },
+        });
+        await untilVisible('kitchen-recipes-table');
+        expect(screen.queryByTestId('kitchen-recipes-cards')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-layout-cards'));
+        });
+
+        await untilVisible('kitchen-recipes-cards');
+        expect(screen.queryByTestId('kitchen-recipes-table')).toBeNull();
+        const card = `kitchen-recipe-${String(tabbouleh.id)}-card`;
+        expect(screen.getByTestId(`${card}-title`)).toHaveTextContent('Tabbouleh');
+        // The picture opens the recipe without a tab stop, so it is hidden from the accessibility
+        // tree — the title is the announced link — and has to be asked for as such.
+        expect(screen.getByTestId(`${card}-image`, { includeHiddenElements: true })).toBeTruthy();
+        expect(screen.getByTestId(`${card}-version`)).toHaveTextContent(
+            `Version ${String(tabbouleh.currentVersionNumber)}`,
+        );
+        // One card per row of the same page — a second drawing, not a second query.
+        expect(screen.getAllByTestId(/^kitchen-recipe-.+-card$/)).toHaveLength(2);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-layout-table'));
+        });
+        await untilVisible('kitchen-recipes-table');
+        expect(screen.queryByTestId('kitchen-recipes-cards')).toBeNull();
+    });
+
     it('renders the error state when the listing fails', async () => {
         await renderStubScreen(<RecipesScreen />, {
             session: kitchenManagerSession(),
@@ -1083,6 +1125,14 @@ describe('the recipe list at desk width', () => {
         });
 
         await untilVisible(`kitchen-recipe-${String(gluten.id)}-name`);
+        // The wide table draws the title cell through the column's `render`, so the row's 20px
+        // thumbnail is here, addressed by the recipe's own slug. (The narrow list draws the title
+        // from the column's plain `value` and carries no thumbnail — table-only, as for meals.)
+        expect(
+            screen.getByTestId(`kitchen-recipes-table-row-${String(gluten.id)}-image`, {
+                includeHiddenElements: true,
+            }),
+        ).toBeTruthy();
 
         await untilVisible('kitchen-recipes-column-allergens-trigger');
         fireEvent.press(screen.getByTestId('kitchen-recipes-column-allergens-trigger'));

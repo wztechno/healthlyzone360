@@ -57,8 +57,24 @@ import { parseQuantity } from '../format.ts';
 import { isOutOfStock, stockItemLabel, stockItemRowTestId } from '../ops-format.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
+import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+
+/**
+ * The photograph of what is on the shelf: the ingredient's own, or the product's.
+ *
+ * A stock item's `code` is its backing record's slug (`StockItemDerivationService::create`), so
+ * `ingredient-<code>` and `product-<code>` address the same files the ingredient and product lists
+ * do, without the stock contract having to carry a second copy of the slug.
+ *
+ * ponytail: the code gains a `-2` suffix when an ingredient and a product in one kitchen share a
+ * slug, and that row falls back to the generated pattern. One slug collides in the current data
+ * (`caramelised-onions`). If more appear, expose the backing record's slug on `StockItem`.
+ */
+function stockPhotoId(item: StockItem): string {
+    return `${item.backing === 'ingredient' ? 'ingredient' : 'product'}-${item.code}`;
+}
 
 /**
  * `/kitchen/stock` — the inventory ledger (O1, reworked by INV2.0, rebuilt on the Operations
@@ -247,6 +263,7 @@ function Stock() {
             width: 220,
             priority: 100,
             value: (row) => row.item.nameEn,
+            thumbnail: (row) => stockPhotoId(row.item),
             sort: (left, right, direction) =>
                 compareText(left.item.nameEn, right.item.nameEn, direction),
             render: (row) => {
@@ -575,6 +592,14 @@ function Stock() {
         return (
             <RecordViewPage
                 testID="kitchen-stock-view"
+                media={
+                    <RecordPhoto
+                        assetId={stockPhotoId(viewing.item)}
+                        label={viewing.item.nameEn}
+                        shape={viewing.item.backing === 'ingredient' ? 'square' : 'wide'}
+                        testID="kitchen-stock-view-photo"
+                    />
+                }
                 onBack={() => {
                     setViewing(null);
                 }}
@@ -789,7 +814,7 @@ function statCards(
             caption: unfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),
-            mark: 'calendar',
+            mark: 'list',
             tone: 'brand',
             onPress: clear,
             accessibilityLabel: t('kitchen:list.statShownAction'),
@@ -800,7 +825,7 @@ function statCards(
             value: String(low),
             unit: t('kitchen:ops.stock.statUnit'),
             caption: t('kitchen:ops.stock.statLowCaption'),
-            mark: 'warning',
+            mark: 'alert',
             tone: low === 0 ? 'default' : 'warning',
         },
         {
@@ -809,7 +834,7 @@ function statCards(
             value: String(out),
             unit: t('kitchen:ops.stock.statUnit'),
             caption: t('kitchen:ops.stock.statOutCaption'),
-            mark: 'error',
+            mark: 'circleX',
             tone: out === 0 ? 'default' : 'danger',
         },
         {
@@ -818,7 +843,7 @@ function statCards(
             value: String(ok),
             unit: t('kitchen:ops.stock.statUnit'),
             caption: t('kitchen:ops.stock.statOkCaption'),
-            mark: 'check',
+            mark: 'circleCheck',
         },
     ];
 }

@@ -17,6 +17,7 @@ import {
 } from '@healthy360/design-system';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
+import { PhotoCredit } from '../../../media/photo-credit.tsx';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { MealId } from '@healthy360/domain-types';
 import type { DietClassification } from '@healthy360/domain-types';
@@ -173,6 +174,10 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                                         seed={item.slug}
                                         label={t('catalogue:meal.imageLabel', { meal: item.name })}
                                         aspect="wide"
+                                    />
+                                    <PhotoCredit
+                                        assetId={item.imagePlaceholderId}
+                                        testID="meal-detail-photo-credit"
                                     />
                                 </View>
 

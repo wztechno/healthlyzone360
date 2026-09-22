@@ -10,6 +10,7 @@ use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Illuminate\Support\Facades\Cache;
 use PragmaRX\Google2FA\Google2FA;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -25,9 +26,9 @@ use PragmaRX\Google2FA\Google2FA;
 |
 */
 
-beforeEach(function (): void {
-    $this->seed();
+pest()->use(SeedDatabaseOnce::class);
 
+beforeEach(function (): void {
     $this->withHeaders(firstPartyHeaders());
 
     $this->cedar = Organisation::query()->where('slug', 'cedar-clinic')->sole();

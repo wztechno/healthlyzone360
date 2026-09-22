@@ -2015,8 +2015,7 @@
         },
         "window": {
             "kind": "Line item",
-            "note": "These are sample figures until live reporting lands. Nothing on this screen is read from the order book.",
-            "fieldAvgMinutes": "Average minutes"
+            "note": "These are sample figures until live reporting lands. Nothing on this screen is read from the order book."
         }
     },
     "review": {
@@ -2121,7 +2120,9 @@
         "columnUpdated": "Updated",
         "close": "Close",
         "columnSort": "Sort by {{column}}",
-        "columnsButton": "Columns {{shown}}/{{max}}",
+        "columnsButton": "Show columns · {{shown}} of {{max}}",
+        "columnsClear": "Clear all",
+        "columnsHint": "Choose which columns appear in the table. Up to {{max}} at a time.",
         "columnsLabel": "Choose the columns to show",
         "columnsHeading": "Show up to {{max}} columns",
         "columnsReset": "Reset to default",
@@ -2168,6 +2169,9 @@
         "columnStatus": "Status",
         "columnUpdated": "Last changed",
         "actionHeader": "Actions",
+        "layoutLabel": "Layout",
+        "layoutTable": "Table",
+        "layoutCards": "Cards",
         "open": "Open",
         "archive": "Archive",
         "emptyTitle": "This kitchen has no ingredients yet",
@@ -2191,7 +2195,7 @@
         "summaryMissingArabic": "{{n}} missing Arabic",
         "summaryUncosted": "{{n}} uncosted",
         "rowActions": "Row actions",
-        "columnReference": "Id",
+        "columnReference": "ID",
         "mayContain": "may contain: {{classes}}",
         "import": "Import",
         "importUnavailable": "Import is not available yet",
@@ -2481,6 +2485,7 @@
         "resultCount_one": "{{count}} match",
         "resultCount_other": "{{count}} matches",
         "versionNumber": "Version {{number}}",
+        "imageLabel": "Photo of {{recipe}}",
         "versionCount_one": "{{count}} version",
         "versionCount_other": "{{count}} versions",
         "quarantined": "Awaiting review",
@@ -3705,13 +3710,10 @@
         "sellableNo": "No — used inside recipes only",
         "whereUsedTitle": "Where this ingredient is used",
         "whereUsedBody": "The recipes and sauces consuming this ingredient, with the quantity each takes per batch.",
-        "fieldItemsPerUnit": "Items per purchase unit",
-        "fieldGramsPerUnit": "Mass of 1 {{unit}}",
         "fieldPackCost": "Pack cost",
         "identificationTitle": "Identification",
         "identificationSubtitle": "Catalogue record and costing",
         "fieldOtherName": "Name in the other language",
-        "fieldCostPer100g": "Cost per 100 g",
         "fieldCapacity": "Pack contents",
         "fieldWaste": "Waste",
         "perUnitValue": "{{price}} / {{unit}}",
@@ -3733,9 +3735,18 @@
         "viewKind": "Frozen meal"
     },
     "recordView": {
-        "backToList": "Back to list",
         "details": "Details",
         "statusTitle": "Record status",
         "version": "Version {{version}}"
+    },
+    "search": {
+        "label": "Search pages",
+        "trigger": "Search pages…",
+        "placeholder": "Type to search pages…",
+        "empty": "No page matches “{{query}}”.",
+        "general": "General",
+        "hintMove": "to move",
+        "hintOpen": "to open",
+        "hintClose": "to close"
     }
 }

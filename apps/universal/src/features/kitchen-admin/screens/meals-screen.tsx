@@ -21,6 +21,7 @@ import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
 import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
+import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -133,6 +134,14 @@ function MealsList() {
         return (
             <RecordViewPage
                 testID="kitchen-meals-view"
+                media={
+                    <RecordPhoto
+                        assetId={viewing.imagePlaceholderId}
+                        label={displayName(viewing.name, locale).value}
+                        shape="wide"
+                        testID="kitchen-meals-view-photo"
+                    />
+                }
                 kind={t('kitchen:meals.viewKind')}
                 title={displayName(viewing.name, locale).value}
                 status={{
@@ -349,7 +358,7 @@ function statCards(list: MealListState, t: TFunction): readonly CatalogueStatCar
             caption: list.isUnfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),
-            mark: 'calendar',
+            mark: 'list',
             tone: 'brand',
             onPress: list.clearFilters,
             accessibilityLabel: t('kitchen:list.statShownAction'),
@@ -372,7 +381,7 @@ function statCards(list: MealListState, t: TFunction): readonly CatalogueStatCar
             value: String(list.draftCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:list.statDraftCaption'),
-            mark: 'eyeOff',
+            mark: 'fileDraft',
             tone: list.draftCount === 0 ? 'default' : 'warning',
             onPress: () => {
                 list.setStatuses(['draft']);
@@ -385,7 +394,7 @@ function statCards(list: MealListState, t: TFunction): readonly CatalogueStatCar
             value: String(list.missingArabicCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:list.statMissingArabicCaption'),
-            mark: 'warning',
+            mark: 'languages',
             tone: list.missingArabicCount === 0 ? 'default' : 'danger',
         },
     ];

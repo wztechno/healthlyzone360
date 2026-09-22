@@ -73,5 +73,19 @@
         "profile": "الملف الشخصي",
         "devices": "الأجهزة والجلسات",
         "showcase": "نظام التصميم"
+    },
+    "photoCredit": {
+        "byline": "صورة: {{creator}}",
+        "via": "عبر",
+        "modified": "مقصوصة ومعاد تحجيمها",
+        "provider": {
+            "wikimedia": "ويكيميديا كومنز",
+            "flickr": "فليكر",
+            "rawpixel": "رو بيكسل",
+            "stocksnap": "ستوك سناب",
+            "nappy": "نابي",
+            "unsplash": "أنسبلاش",
+            "other": "الناشر الأصلي"
+        }
     }
 }

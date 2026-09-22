@@ -27,6 +27,18 @@ export interface CatalogueColumn<Row> extends DataListColumn<Row> {
     readonly sortType?: 'text' | 'number' | undefined;
     /** What this column becomes in the two-line row below `md`. */
     readonly role?: CatalogueColumnRole | undefined;
+    /**
+     * The row's photograph id — `ingredient-<slug>`, `recipe-<slug>`, `product-<slug>` — as
+     * `EntityImage` resolves it. Read on the `title` column only.
+     *
+     * An id rather than an element, so the two renderers can each draw it at their own size: the
+     * wide table at 20px inside the title cell, because a 28px row has no photography track; the
+     * narrow row at avatar size on the leading edge, where a two-line row has the height for it.
+     * `CatalogueList` draws both, so a spec states the picture once and neither layout can forget
+     * it. An id with no bundled photograph draws the generated pattern, which is the designed
+     * fallback, not a gap.
+     */
+    readonly thumbnail?: ((row: Row) => string) | undefined;
 }
 
 export const CATALOGUE_COLUMN_ROLES = ['title', 'status', 'metric', 'meta', 'actions'] as const;
