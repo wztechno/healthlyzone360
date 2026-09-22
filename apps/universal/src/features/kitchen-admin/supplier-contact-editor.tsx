@@ -1,5 +1,5 @@
 import type { SupplierContact, SupplierContactInput } from '@healthy360/api-client/contracts';
-import { Badge, Button, Stack, Text, TextInputField } from '@healthy360/design-system';
+import { Badge, Button, FormGrid, Stack, Text, TextInputField } from '@healthy360/design-system';
 import type { SupplierContactId } from '@healthy360/domain-types';
 import { useTranslation } from 'react-i18next';
 
@@ -159,61 +159,77 @@ export function SupplierContactCard({
             }
         >
             <Stack space="sm">
-                <TextInputField
-                    testID={`${testID}-name`}
-                    label={t('kitchen:ops.suppliers.fieldContactName')}
-                    value={draft.name}
-                    required
-                    disabled={!canManage}
-                    onChangeText={(value) => {
-                        onChange({ ...draft, name: value });
-                    }}
-                />
+                {/*
+                 * The fields in the editor grid at the compact size, as every other kitchen form
+                 * draws them — not five full-width inputs stacked one under another.
+                 */}
+                <FormGrid testID={`${testID}-grid`}>
+                    <TextInputField
+                        testID={`${testID}-name`}
+                        id={`${testID}-name`}
+                        size="sm"
+                        label={t('kitchen:ops.suppliers.fieldContactName')}
+                        value={draft.name}
+                        required
+                        disabled={!canManage}
+                        onChangeText={(value) => {
+                            onChange({ ...draft, name: value });
+                        }}
+                    />
 
-                <TextInputField
-                    testID={`${testID}-role`}
-                    label={t('kitchen:ops.suppliers.fieldContactRole')}
-                    value={draft.roleTitle}
-                    disabled={!canManage}
-                    onChangeText={(value) => {
-                        onChange({ ...draft, roleTitle: value });
-                    }}
-                />
+                    <TextInputField
+                        testID={`${testID}-role`}
+                        id={`${testID}-role`}
+                        size="sm"
+                        label={t('kitchen:ops.suppliers.fieldContactRole')}
+                        value={draft.roleTitle}
+                        disabled={!canManage}
+                        onChangeText={(value) => {
+                            onChange({ ...draft, roleTitle: value });
+                        }}
+                    />
 
-                <TextInputField
-                    testID={`${testID}-email`}
-                    label={t('kitchen:ops.suppliers.fieldContactEmail')}
-                    value={draft.email}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    disabled={!canManage}
-                    onChangeText={(value) => {
-                        onChange({ ...draft, email: value });
-                    }}
-                />
+                    <TextInputField
+                        testID={`${testID}-email`}
+                        id={`${testID}-email`}
+                        size="sm"
+                        label={t('kitchen:ops.suppliers.fieldContactEmail')}
+                        value={draft.email}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        disabled={!canManage}
+                        onChangeText={(value) => {
+                            onChange({ ...draft, email: value });
+                        }}
+                    />
 
-                <TextInputField
-                    testID={`${testID}-phone`}
-                    label={t('kitchen:ops.suppliers.fieldContactPhone')}
-                    value={draft.phone}
-                    keyboardType="phone-pad"
-                    disabled={!canManage}
-                    onChangeText={(value) => {
-                        onChange({ ...draft, phone: value });
-                    }}
-                />
+                    <TextInputField
+                        testID={`${testID}-phone`}
+                        id={`${testID}-phone`}
+                        size="sm"
+                        label={t('kitchen:ops.suppliers.fieldContactPhone')}
+                        value={draft.phone}
+                        keyboardType="phone-pad"
+                        disabled={!canManage}
+                        onChangeText={(value) => {
+                            onChange({ ...draft, phone: value });
+                        }}
+                    />
 
-                <TextInputField
-                    testID={`${testID}-whatsapp`}
-                    label={t('kitchen:ops.suppliers.fieldContactWhatsapp')}
-                    hint={t('kitchen:ops.suppliers.whatsappHint')}
-                    value={draft.whatsappPhone}
-                    keyboardType="phone-pad"
-                    disabled={!canManage}
-                    onChangeText={(value) => {
-                        onChange({ ...draft, whatsappPhone: value });
-                    }}
-                />
+                    <TextInputField
+                        testID={`${testID}-whatsapp`}
+                        id={`${testID}-whatsapp`}
+                        size="sm"
+                        label={t('kitchen:ops.suppliers.fieldContactWhatsapp')}
+                        hint={t('kitchen:ops.suppliers.whatsappHint')}
+                        value={draft.whatsappPhone}
+                        keyboardType="phone-pad"
+                        disabled={!canManage}
+                        onChangeText={(value) => {
+                            onChange({ ...draft, whatsappPhone: value });
+                        }}
+                    />
+                </FormGrid>
 
                 {/*
                  * A refusal stated where it can still be acted on, rather than after a failed save.

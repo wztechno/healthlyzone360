@@ -304,6 +304,21 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
         return base;
     });
 
+    /** Lets go of a column's filter, as hiding it must — see `onToggle` and `onClear` below. */
+    const dropFilterOf = (key: string): void => {
+        const hiding = columns.find((column) => column.key === key);
+        const filter = hiding?.filter;
+        if (filter === undefined) return;
+        if ('external' in filter) {
+            if (filter.external.value !== null) filter.external.onChange(null);
+        } else if (filters[key] !== undefined) {
+            setFilters((existing) => {
+                const { [key]: _dropped, ...others } = existing;
+                return others;
+            });
+        }
+    };
+
     return {
         rows: visible,
         columns: controlled,
@@ -315,19 +330,17 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
         picker: {
             ...visibility.picker,
             onToggle: (key) => {
-                const hiding = columns.find((column) => column.key === key);
-                const filter = hiding?.filter;
-                if (filter !== undefined) {
-                    if ('external' in filter) {
-                        if (filter.external.value !== null) filter.external.onChange(null);
-                    } else if (filters[key] !== undefined) {
-                        setFilters((existing) => {
-                            const { [key]: _dropped, ...others } = existing;
-                            return others;
-                        });
-                    }
-                }
+                dropFilterOf(key);
                 visibility.picker.onToggle(key);
+            },
+            // The same rule as hiding one column: every column Clear all hides lets go of its
+            // filter, so no hidden column goes on narrowing the list out of sight.
+            onClear: () => {
+                for (const option of visibility.picker.options) {
+                    const locked = option.shown && option.disabled;
+                    if (option.shown && !locked) dropFilterOf(option.key);
+                }
+                visibility.picker.onClear();
             },
         },
     };

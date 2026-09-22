@@ -1,4 +1,4 @@
-import { Button, Icon, Menu } from '@healthy360/design-system';
+import { Button, Checkbox, Dialog, Icon, Text } from '@healthy360/design-system';
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,14 +15,18 @@ import { createKeyValueStore } from '../../../session/storage.ts';
  * the reader keep the six they work from.
  *
  * ```
- * [ Columns 6/6 ▾ ]
- *   Show up to 6 columns
- *   ✓ Id
- *   ✓ Item            ← locked: the row's title is how a row is named
- *   ✓ Category
- *     Sub-category    ← disabled while six are already on
- *   ...
- *   Reset to default
+ * [ ▦ Show columns · 6 of 6 ]   opens, centred over the dimmed page:
+ *
+ *        ┌──────────────────────────────────────┐
+ *        │ Choose the columns to show           │
+ *        │ Show up to 6 columns                 │
+ *        │ Show columns · 6 of 6                │
+ *        │ ☑ Id              ☑ Item  ← locked   │
+ *        │ ☑ Category        ☐ Sub-category     │
+ *        │ ☐ Unit            ☑ Allergens        │
+ *        │ ...                ← unticked rows disabled while six are on
+ *        │   Clear all   Reset to default   Done   │
+ *        └──────────────────────────────────────┘
  * ```
  *
  * ## Six, and the cap is a disabled row rather than a refusal
@@ -175,6 +179,11 @@ export function useColumnVisibility<Column extends PickableColumn>(
             onReset: () => {
                 commit(normalise(defaults, locked, known, max));
             },
+            // Everything off but the locked columns, which cannot be — the title always stays.
+            canClear: [...shown].some((key) => !locked.includes(key)),
+            onClear: () => {
+                commit(normalise([], locked, known, max));
+            },
         },
     };
 }
@@ -193,61 +202,105 @@ export interface ColumnPickerProps {
     readonly max: number;
     readonly onToggle: (key: string) => void;
     readonly onReset: () => void;
+    /** Unticks every column the reader may untick; the locked ones stay. */
+    readonly onClear: () => void;
+    /** False once only locked columns are left, when Clear all would do nothing. */
+    readonly canClear: boolean;
     readonly testID: string;
 }
 
-/** The toolbar button and its menu of columns. Toggling keeps the menu open. */
+/**
+ * The toolbar button, and the window it opens in the middle of the screen.
+ *
+ * A `Dialog` rather than a menu hanging off the button: choosing columns is setting several
+ * switches and then looking at the table, so the choice gets a window of its own — dimmed page
+ * behind it, the design system's own entrance, focus held inside until it closes. It stays open
+ * through every toggle and closes on Done, a click on the backdrop or Escape.
+ *
+ * The columns are checkboxes laid out two to a row, so a record with fourteen fields is a short
+ * square window rather than a long strip. The running count sits above them, so the cap is visible
+ * before it is reached. Each row is the design system's `Checkbox`, which takes the desk density on
+ * its own; its checked and disabled state are on its `-control` element, as every checkbox in the
+ * app has them.
+ */
 export function ColumnPicker({
     options,
     shown,
     max,
     onToggle,
     onReset,
+    onClear,
+    canClear,
     testID,
 }: ColumnPickerProps) {
     const { t } = useTranslation();
+    const [open, setOpen] = useState(false);
+    const close = useCallback(() => {
+        setOpen(false);
+    }, []);
 
     return (
-        <Menu
-            testID={testID}
-            label={t('kitchen:catalogue.columnsLabel')}
-            align="end"
-            className="z-sticky"
-            sections={[
-                {
-                    label: t('kitchen:catalogue.columnsHeading', { max }),
-                    items: options.map((option) => ({
-                        key: option.key,
-                        label: option.label,
-                        selected: option.shown,
-                        disabled: option.disabled,
-                        testID: `${testID}-${option.key}`,
-                        onSelect: () => {
-                            onToggle(option.key);
-                        },
-                    })),
-                },
-            ]}
-            footer={
-                <Button
-                    testID={`${testID}-reset`}
-                    size="sm"
-                    variant="ghost"
-                    label={t('kitchen:catalogue.columnsReset')}
-                    onPress={onReset}
-                />
-            }
-            trigger={({ triggerProps, toggle }) => (
-                <Button
-                    {...triggerProps}
-                    testID={`${testID}-trigger`}
-                    variant="secondary"
-                    label={t('kitchen:catalogue.columnsButton', { shown, max })}
-                    iconEnd={<Icon name="chevronDown" size="sm" />}
-                    onPress={toggle}
-                />
-            )}
-        />
+        <View testID={testID}>
+            <Button
+                testID={`${testID}-trigger`}
+                variant="secondary"
+                label={t('kitchen:catalogue.columnsButton', { shown, max })}
+                iconStart={<Icon name="layoutGrid" size="sm" className="text-content-primary" />}
+                hint={t('kitchen:catalogue.columnsHint', { max })}
+                aria-haspopup="dialog"
+                onPress={() => {
+                    setOpen(true);
+                }}
+            />
+            <Dialog
+                testID={`${testID}-dialog`}
+                open={open}
+                onClose={close}
+                title={t('kitchen:catalogue.columnsLabel')}
+                description={t('kitchen:catalogue.columnsHeading', { max })}
+                actions={
+                    <>
+                        <Button
+                            testID={`${testID}-clear`}
+                            variant="ghost"
+                            label={t('kitchen:catalogue.columnsClear')}
+                            disabled={!canClear}
+                            onPress={onClear}
+                        />
+                        <Button
+                            testID={`${testID}-reset`}
+                            variant="ghost"
+                            label={t('kitchen:catalogue.columnsReset')}
+                            onPress={onReset}
+                        />
+                        <Button
+                            testID={`${testID}-done`}
+                            label={t('common:action.done')}
+                            onPress={close}
+                        />
+                    </>
+                }
+            >
+                <Text variant="mono" tone="secondary" testID={`${testID}-count`}>
+                    {t('kitchen:catalogue.columnsButton', { shown, max })}
+                </Text>
+                <View className="flex-row flex-wrap gap-y-hair">
+                    {options.map((option) => (
+                        <View key={option.key} className="w-1/2 pe-tight">
+                            <Checkbox
+                                testID={`${testID}-${option.key}`}
+                                label={option.label}
+                                checked={option.shown}
+                                disabled={option.disabled}
+                                onChange={() => {
+                                    onToggle(option.key);
+                                }}
+                            />
+                        </View>
+                    ))}
+                </View>
+            </Dialog>
+        </View>
     );
 }
 

@@ -239,7 +239,7 @@ function ProductionBatches() {
                             value: tile(countByStatus(rows, status, hasMore)),
                             unit: t('kitchen:ops.production.statUnit'),
                             caption: t('kitchen:ops.production.statCompletedCaption'),
-                            mark: 'check',
+                            mark: 'circleCheck',
                             tone: 'default',
                         },
                         {
@@ -248,7 +248,7 @@ function ProductionBatches() {
                             value: tile(countExpired(rows, hasMore)),
                             unit: t('kitchen:ops.production.statUnit'),
                             caption: t('kitchen:ops.production.statExpiredCaption'),
-                            mark: 'warning',
+                            mark: 'alert',
                             tone: (countExpired(rows, hasMore) ?? 0) > 0 ? 'danger' : 'default',
                         },
                     ]}

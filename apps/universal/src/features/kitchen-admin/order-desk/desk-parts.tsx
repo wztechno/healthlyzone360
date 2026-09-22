@@ -14,6 +14,9 @@ import { View } from 'react-native';
 /** How wide a fact's label column is. A style, not a class: there is no 118px width token. */
 const FACT_LABEL_WIDTH = 118;
 
+/** The same column at `size="md"`, where a 13px label needs the extra run. No token for it either. */
+const FACT_LABEL_WIDTH_MD = 148;
+
 /**
  * One labelled fact on a hairline: `Paying by   Cash on delivery`.
  *
@@ -21,29 +24,49 @@ const FACT_LABEL_WIDTH = 118;
  * table there would announce rows and columns a screen reader then has to walk. The label column is
  * fixed so the values down a section share one leading edge, which is what makes a block of facts
  * scannable without a rule between the two halves.
+ *
+ * ## `size`, and the one surface that needs the larger one
+ *
+ * `sm` is the drawer's step — a caption beside a label — and is right where a block of facts is
+ * *reference*: something the agent glances at while doing something else. The sale wizard's review
+ * step is not that. It is the screen where somebody reads a total and an item count out loud to a
+ * customer standing in front of them, often from a metre back, and 11px against 12px is a size for
+ * reading, not for reciting. `md` sets the same pair two steps up the ladder without leaving it.
  */
 export function DeskFact({
     label,
     value,
     mono = false,
+    size = 'sm',
     testID,
 }: {
     readonly label: string;
     readonly value: string;
     /** Times, money, quantities and references take the numeric role. */
     readonly mono?: boolean | undefined;
+    /** `md` is the read-aloud step. See the note above before reaching for it. */
+    readonly size?: 'sm' | 'md' | undefined;
     readonly testID?: string | undefined;
 }) {
+    const large = size === 'md';
+
     return (
         <View className="flex-row items-baseline gap-snug border-b border-stroke-subtle py-tight">
-            <View style={{ width: FACT_LABEL_WIDTH }}>
-                <Text variant="caption" tone="secondary">
+            <View style={{ width: large ? FACT_LABEL_WIDTH_MD : FACT_LABEL_WIDTH }}>
+                <Text variant={large ? 'strong' : 'caption'} tone="secondary">
                     {label}
                 </Text>
             </View>
             {/* eslint-disable-next-line no-restricted-syntax -- the value column is the row's filler. */}
             <View className="min-w-0 flex-1">
-                <Text variant={mono ? 'mono' : 'label'} testID={testID}>
+                <Text
+                    // `title` carries the numerics too: the ladder has no mono step above `body`,
+                    // and `tabular-nums` is what `mono` was actually buying here — the figures
+                    // lining up down the column — so it is spelled out rather than lost.
+                    variant={large ? 'title' : mono ? 'mono' : 'label'}
+                    {...(large && mono ? { className: 'tabular-nums' } : {})}
+                    testID={testID}
+                >
                     {value}
                 </Text>
             </View>

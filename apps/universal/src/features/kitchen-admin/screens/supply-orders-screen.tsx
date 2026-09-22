@@ -830,7 +830,7 @@ function statCards({
             value: outOfStock === null ? EM_DASH : String(outOfStock),
             unit: t('kitchen:ops.supplyOrders.statItemsUnit'),
             caption: t('kitchen:ops.supplyOrders.statOutCaption'),
-            mark: 'warning',
+            mark: 'circleX',
             tone: outOfStock !== null && outOfStock > 0 ? 'danger' : 'default',
         },
         {
@@ -839,7 +839,7 @@ function statCards({
             value: low === null ? EM_DASH : String(low),
             unit: t('kitchen:ops.supplyOrders.statItemsUnit'),
             caption: t('kitchen:ops.supplyOrders.statLowCaption'),
-            mark: 'warning',
+            mark: 'alert',
             tone: low !== null && low > 0 ? 'warning' : 'default',
         },
         {
@@ -848,7 +848,7 @@ function statCards({
             value: count(['draft']),
             unit: t('kitchen:ops.supplyOrders.statOrdersUnit'),
             caption: t('kitchen:ops.supplyOrders.statDraftCaption'),
-            mark: 'clock',
+            mark: 'fileDraft',
             onPress: showDrafts,
             accessibilityLabel: t('kitchen:ops.supplyOrders.statDraftAction'),
         },
@@ -858,7 +858,7 @@ function statCards({
             value: count(['issued', 'partially_received']),
             unit: t('kitchen:ops.supplyOrders.statOrdersUnit'),
             caption: t('kitchen:ops.supplyOrders.statIssuedCaption'),
-            mark: 'basket',
+            mark: 'send',
         },
     ];
 }

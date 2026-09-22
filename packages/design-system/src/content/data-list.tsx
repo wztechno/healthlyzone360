@@ -38,14 +38,16 @@ import { GRID_CONTENT_ATTR } from '../overlays/anchored-surface.ts';
  * scrolls hides its overflow menu — the one control that must always be reachable. Designation
  * (100) and the action column (95) are pinned above the drop threshold and never leave.
  *
- * ## And the tracks fill the port they fit in
+ * ## And the tracks are equal, and fill the port they fit in
  *
  * Dropping answers the narrow case. The wide one is the opposite problem: eight fixed tracks add up
  * to about 1050px and the shell's content area on a laptop is nearer 1450, so the list drew itself
  * against the leading edge with 400px of nothing after the last column — while the cells inside
- * those tracks clipped their values to one line. `spreadColumns` shares the leftover out over the
- * columns in proportion to their declared width, so the row ends where the page ends and the
- * designation column gets most of what was going spare.
+ * those tracks clipped their values to one line.
+ *
+ * Every column that has not opted out is drawn at the same width, so the row ends where the page
+ * ends and the boundaries between columns land on a constant pitch. {@link spreadColumns} states
+ * the arithmetic and why it is an equal *total* rather than an equal share of the leftover.
  */
 
 export const UNDROPPABLE_PRIORITY = 95;
@@ -55,9 +57,12 @@ export interface DataListColumn<Row> {
     /** Column label, translated. Rendered on the `label` step — 12px, sentence case. */
     readonly label: string;
     /**
-     * The track's floor in dp — what {@link fitColumns} charges against the port, and what the
-     * column is drawn at when the tracks exactly fill it. It is not the final width: leftover port
-     * width is shared out over the growable columns by {@link spreadColumns}.
+     * The track's floor in dp — what {@link fitColumns} charges against the port when it decides
+     * which columns are worth drawing, and what the whole row's minimum width is summed from.
+     *
+     * It is **not** the drawn width. A column that grows is drawn at the same width as every
+     * other column that grows; see {@link spreadColumns}. Declare what the content needs, not
+     * what the column should get.
      */
     readonly width: number;
     /**
@@ -67,12 +72,12 @@ export interface DataListColumn<Row> {
      */
     readonly priority: number;
     /**
-     * Whether the column takes a share of the port's leftover width. Defaults to `true`.
+     * Whether the column takes an equal share of the row. Defaults to `true`.
      *
      * `false` is for a track whose width is its content and nothing else — the row-action column,
-     * which is sized to the buttons in it. Widening that one only pushes the buttons away from the
-     * edge they are anchored to, and spends on padding the width the designation column needs to
-     * say `Condiments and sweeteners` without an ellipsis.
+     * which is sized to the buttons in it. It is paid its declared width and the rest of the row
+     * is divided over the columns that do grow. Giving it an equal share would only push the
+     * buttons away from the edge they are anchored to.
      */
     readonly grow?: boolean | undefined;
     /**
@@ -135,7 +140,7 @@ export function fitColumns<Row>(
 }
 
 /**
- * The drawn width of each column, once the port's leftover width has been shared out.
+ * The drawn width of each column.
  *
  * `fitColumns` answers "which columns"; this answers "how wide". They are separate because the
  * first is charged against a floor — the narrowest a column is worth drawing at — and the widths
@@ -143,25 +148,38 @@ export function fitColumns<Row>(
  * is roughly 400px of nothing after the last column, and every text cell clipped to one line
  * *inside* its track while the space it needed sat unused beside it.
  *
- * ## The share is equal, not proportional
+ * ## Every growable column gets the same track
  *
- * Every growable column takes the same number of pixels. The first version of this shared the slack
- * out in proportion to the declared width, on the argument that a column declared at 260 holds a
- * sentence and one declared at 88 holds `4%`, so the wide one has more use for the space. What that
- * actually does is compound the widest track: `Designation` was already the biggest gap on the row
- * and proportional handed it the biggest share of the remainder as well, so the run between a short
- * name and the category beside it opened to nearly 200px while `Condiment & Sweetener` wrapped in
- * the column next door.
+ * Two earlier answers, both wrong for the same reason. Sharing the slack *in proportion to the
+ * declared width* compounded the widest track: `Designation` was already the biggest gap on the
+ * row and took the biggest share of the remainder as well. Sharing the slack *equally* — an equal
+ * share of the leftover on top of unequal declared widths — was better and still unequal: a 72px
+ * `Unit` beside a 200px `Designation` stayed 128px narrower however the port grew, so the run of
+ * whitespace between one column's value and the next changed at every boundary on the row.
  *
- * Equal shares put the leftover where it is least visible — spread thinly across every boundary
- * instead of banked behind one. The declared width still says how much room a column's *content*
- * needs, which is what `fitColumns` ranks and drops on; it just stops being a claim on the page's
- * spare width too.
+ * An equal *total* is the answer to the question actually being asked, which is "why are the gaps
+ * between my columns all different sizes". The boundaries land on a constant pitch, so the eye
+ * reads the row as a grid rather than as six differently-sized boxes.
+ *
+ * The declared `width` keeps its other job. It is still what `fitColumns` charges and ranks and
+ * drops on — "this column needs 96px to be worth drawing at all" — and still the floor the whole
+ * row is held to. It has simply stopped being a claim on how much of the page the column gets
+ * once it is drawn.
+ *
+ * ## A port narrower than the tracks is not a narrower row
+ *
+ * The row carries `min-width: <track sum>`, so a port below that sum does not squeeze the
+ * columns — the box stays at the sum and scrolls. This mirrors that: the share is computed
+ * against the port *or* the track sum, whichever is larger, so the numbers it returns are the
+ * numbers on screen.
+ *
+ * A column that opted out of growing (`grow: false` — the row-action track, sized to its buttons)
+ * is paid its declared width first and the rest is split over what remains.
  *
  * Exported and pure for the same reason as `fitColumns`: "nine columns in a 1213px port" is
  * arithmetic, and arithmetic is worth a test rather than a screenshot.
  *
- * Integer widths throughout, with the division's remainder given to the widest growable column, so
+ * Integer widths throughout, with the division's remainder given to the first growable column, so
  * the tracks sum to the port exactly and no sub-pixel seam opens between the header and its rows.
  */
 export function spreadColumns<Row>(
@@ -170,44 +188,41 @@ export function spreadColumns<Row>(
 ): readonly number[] {
     const widths = columns.map((column) => column.width);
     const floor = widths.reduce((sum, width) => sum + width, 0);
-    const slack = Math.floor(available) - floor;
-    if (slack <= 0) return widths;
+    const port = Math.max(Math.floor(available), floor);
 
     const growable = columns.map((column) => column.grow !== false);
     const count = growable.filter((grows) => grows).length;
     if (count === 0) return widths;
 
-    // `count > 0` guarantees a growable column, so this always resolves to one of them.
-    let widest = 0;
-    let widestWidth = -1;
-    widths.forEach((width, index) => {
-        if (growable[index] !== true || width <= widestWidth) return;
-        widest = index;
-        widestWidth = width;
-    });
-
-    const share = Math.floor(slack / count);
-    const remainder = slack - share * count;
+    const fixed = widths.reduce(
+        (sum, width, index) => (growable[index] === true ? sum : sum + width),
+        0,
+    );
+    const spare = port - fixed;
+    const share = Math.floor(spare / count);
+    const remainder = spare - share * count;
+    const first = growable.indexOf(true);
 
     return widths.map((width, index) => {
         if (growable[index] !== true) return width;
-        return width + share + (index === widest ? remainder : 0);
+        return share + (index === first ? remainder : 0);
     });
 }
 
 /**
- * One column's track, as flex: its declared `width` is the basis, and a growable column takes an
- * equal share of the row's leftover width — `spreadColumns`, done by the layout engine. The header
- * and every row use the same style on the same content width, so the tracks line up without a
- * number ever being passed between them.
+ * One column's track, as flex: a growable column has no basis of its own and an equal share of
+ * the row, which is `spreadColumns` done by the layout engine. A column that opted out keeps its
+ * declared width. The header and every row use the same style on the same content width, so the
+ * tracks line up without a number ever being passed between them.
  */
 function trackStyle<Row>(column: DataListColumn<Row>) {
-    return {
-        flexBasis: column.width,
-        flexGrow: column.grow === false ? 0 : 1,
-        flexShrink: 0,
-        minWidth: 0,
-    } as const;
+    if (column.grow === false) {
+        return { flexBasis: column.width, flexGrow: 0, flexShrink: 0, minWidth: 0 } as const;
+    }
+
+    // `flexBasis: 0` is what makes the shares equal rather than equal-on-top-of-unequal: with a
+    // basis the engine hands out the *leftover* evenly and the declared difference survives.
+    return { flexBasis: 0, flexGrow: 1, flexShrink: 0, minWidth: 0 } as const;
 }
 
 export interface DataListProps<Row> {
@@ -405,7 +420,9 @@ export function DataList<Row>({
                      */
                     className={cx(
                         'min-h-row-sm z-raised flex-row items-center border-b border-stroke-subtle',
-                        'bg-surface-base web:sticky web:top-0',
+                        // The brand's subtle ground: the header reads as the table's green band.
+                        // Opaque, which the sticky header needs so rows do not show through.
+                        'bg-surface-brand-subtle web:sticky web:top-0',
                         framed ? 'rounded-t-panel' : null,
                     )}
                 >
@@ -433,7 +450,7 @@ export function DataList<Row>({
                                         // `strong`: a step larger and heavier than the 12px cells
                                         // under it, so the header reads as the column's name — the
                                         // same role the sort and filter headers draw with.
-                                        'text-role-strong text-content-secondary',
+                                        'text-role-strong text-content-on-brand-subtle',
                                         TEXT_ALIGN_CLASS[column.align ?? 'start'],
                                     )}
                                 >

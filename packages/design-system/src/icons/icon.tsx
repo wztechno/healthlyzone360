@@ -116,6 +116,12 @@ export const ICON_GLYPHS = {
      * Shapes block as `archive` and `basket`.
      */
     clock: '◷',
+    /*
+     * The sort direction on a table header. These two were already shipping as bare text in the
+     * Catalogue's column headers, so their coverage is proven; naming them lets the web draw them.
+     */
+    arrowUp: '↑',
+    arrowDown: '↓',
 } as const;
 
 export type IconGlyphName = keyof typeof ICON_GLYPHS;
@@ -124,7 +130,76 @@ export type IconGlyphName = keyof typeof ICON_GLYPHS;
 export const DIRECTIONAL_ICON_NAMES = ['chevronStart', 'chevronEnd'] as const;
 export type DirectionalIconName = (typeof DIRECTIONAL_ICON_NAMES)[number];
 
-export type IconName = IconGlyphName | DirectionalIconName;
+/**
+ * Names that exist to be drawn — the workspace module rail's marks, the list pages' stat-card
+ * marks and the kitchen modules' own marks, from Lucide (ISC). Each has no character of its own: on native, where nothing is drawn, it
+ * falls back to a glyph the reviewed repertoire already holds — the one its call sites carried
+ * before, as near as one name allows — so the repertoire does not grow by characters nobody needs.
+ */
+export const DRAWN_ICON_FALLBACKS = {
+    dashboard: 'home',
+    receipt: 'basket',
+    clipboardCheck: 'check',
+    chefHat: 'leaf',
+    tag: 'organisation',
+    package: 'calendar',
+    shield: 'lock',
+    userCircle: 'user',
+    list: 'calendar',
+    fileDraft: 'eyeOff',
+    hidden: 'eyeOff',
+    alert: 'warning',
+    languages: 'warning',
+    coins: 'warning',
+    circleCheck: 'check',
+    circleX: 'error',
+    truck: 'user',
+    wallet: 'basket',
+    utensils: 'plate',
+    cookingPot: 'calendar',
+    layers: 'check',
+    wheat: 'basket',
+    circleHelp: 'info',
+    handshake: 'lock',
+    ban: 'dotOutline',
+    infoCircle: 'info',
+    trendingUp: 'calendar',
+    trendingDown: 'warning',
+    trendFlat: 'minus',
+    send: 'basket',
+    lockOpen: 'eyeOff',
+    clipboardList: 'calendar',
+    shoppingCart: 'basket',
+    packageCheck: 'check',
+    percent: 'check',
+    calendarDays: 'calendar',
+    listChecks: 'calendar',
+    banknote: 'calendar',
+    chartColumn: 'calendar',
+    calculator: 'menu',
+    bookOpen: 'calendar',
+    shoppingBag: 'device',
+    droplet: 'device',
+    salad: 'device',
+    snowflake: 'device',
+    wheatOff: 'warning',
+    fileText: 'menu',
+    calendarRange: 'calendar',
+    mapPin: 'filter',
+    boxes: 'menu',
+    packageOpen: 'branch',
+    notebookText: 'menu',
+    scrollText: 'calendar',
+    badgeCheck: 'search',
+    users: 'user',
+    keyRound: 'lock',
+    layoutGrid: 'basket',
+    funnel: 'filter',
+    searchLens: 'search',
+} as const satisfies Readonly<Record<string, IconGlyphName>>;
+export type DrawnIconName = keyof typeof DRAWN_ICON_FALLBACKS;
+
+export type IconName = IconGlyphName | DirectionalIconName | DrawnIconName;
 
 export const ICON_SIZES = ['sm', 'md', 'lg'] as const;
 export type IconSize = (typeof ICON_SIZES)[number];
@@ -154,7 +229,10 @@ export function resolveIconGlyph(name: IconName, isRtl: boolean): string {
     if (name === 'chevronStart') {
         return isRtl ? ICON_GLYPHS.chevronForward : ICON_GLYPHS.chevronBackward;
     }
-    return ICON_GLYPHS[name];
+    if (name in DRAWN_ICON_FALLBACKS) {
+        return ICON_GLYPHS[DRAWN_ICON_FALLBACKS[name as DrawnIconName]];
+    }
+    return ICON_GLYPHS[name as IconGlyphName];
 }
 
 export function Icon({ name, size = 'md', className, label, testID, ...rest }: IconProps) {
@@ -167,8 +245,11 @@ export function Icon({ name, size = 'md', className, label, testID, ...rest }: I
      * `clock`. A character cannot carry the stroke the design asks for, and a stroked SVG inherits
      * the text colour exactly as the glyph does. Native keeps the glyph — `react-native-svg` is a
      * native module this file has already declined — so `drawIcon` answers `null` there.
+     *
+     * The workspace rail's marks (`DRAWN_ICON_FALLBACKS`, plus `signOut`) are drawn the same way,
+     * and they and the three row actions are Lucide's drawings rather than the handoff's.
      */
-    const drawing = drawIcon(name, size, className, decorative ? undefined : label, testID);
+    const drawing = drawIcon(name, size, className, decorative ? undefined : label, testID, isRtl);
     if (drawing !== null) return drawing;
 
     return (

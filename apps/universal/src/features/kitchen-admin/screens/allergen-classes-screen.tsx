@@ -297,7 +297,7 @@ function statCards(list: AllergenListState, t: TFunction): readonly CatalogueSta
             caption: list.isUnfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),
-            mark: 'calendar',
+            mark: 'list',
             tone: 'brand',
             onPress: list.clearFilters,
             accessibilityLabel: t('kitchen:list.statShownAction'),
@@ -308,7 +308,7 @@ function statCards(list: AllergenListState, t: TFunction): readonly CatalogueSta
             value: String(list.severeCount),
             unit: t('kitchen:classes.statUnit'),
             caption: t('kitchen:classes.statSevereCaption'),
-            mark: 'warning',
+            mark: 'alert',
             tone: 'danger',
         },
         {
@@ -317,7 +317,7 @@ function statCards(list: AllergenListState, t: TFunction): readonly CatalogueSta
             value: String(list.withdrawnCount),
             unit: t('kitchen:classes.statUnit'),
             caption: t('kitchen:classes.statWithdrawnCaption'),
-            mark: 'eyeOff',
+            mark: 'hidden',
             tone: 'warning',
             onPress: () => {
                 list.setStatus(list.status === 'withdrawn' ? 'all' : 'withdrawn');
@@ -330,7 +330,7 @@ function statCards(list: AllergenListState, t: TFunction): readonly CatalogueSta
             value: String(list.thresholdCount),
             unit: t('kitchen:classes.statUnit'),
             caption: t('kitchen:classes.statThresholdCaption'),
-            mark: 'info',
+            mark: 'infoCircle',
         },
     ];
 }

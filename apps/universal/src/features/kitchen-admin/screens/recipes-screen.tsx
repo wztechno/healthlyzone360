@@ -1,10 +1,19 @@
-import { Button, Dialog, Icon, Inline, Stack, Text, useToast } from '@healthy360/design-system';
+import {
+    Button,
+    Dialog,
+    Icon,
+    Inline,
+    SegmentedControl,
+    Stack,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { PublishableStatus, RecipeAdminSummary } from '@healthy360/api-client/contracts';
 import type { KitchenId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
@@ -14,6 +23,7 @@ import { useSession } from '../../../session/session-provider.tsx';
 import { RECIPE_MANAGE_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { RecipeCardGrid } from '../catalogue/recipe-card-grid.tsx';
 import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
@@ -94,6 +104,8 @@ export function RecipesScreen() {
 /** The kitchen a recipe belongs to, by name. See `RecipeColumnDeps.kitchenName`. */
 type KitchenName = (kitchenId: KitchenId) => string;
 
+type RecipeLayout = 'table' | 'cards';
+
 function RecipesList() {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -101,6 +113,12 @@ function RecipesList() {
     const toast = useToast();
     const canManage = useCan(RECIPE_MANAGE_PERMISSION);
     const list = useRecipeList();
+    /*
+     * Table or cards — two drawings of the same `list.rows`. Screen state rather than list state:
+     * it changes nothing about which rows are asked for, so it has no business in the query key,
+     * and the page, sort and filters survive the switch untouched.
+     */
+    const [layout, setLayout] = useState<RecipeLayout>('table');
 
     /*
      * A recipe's `kitchenId` is the id of the organisation that owns it, and the session already
@@ -234,7 +252,30 @@ function RecipesList() {
                 status={segments.value}
                 onStatusChange={segments.onChange}
             >
-                <ColumnPicker {...controls.picker} />
+                <Inline space="xs" align="center">
+                    <SegmentedControl<RecipeLayout>
+                        testID="kitchen-recipes-layout"
+                        label={t('kitchen:list.layoutLabel')}
+                        value={layout}
+                        onChange={setLayout}
+                        items={[
+                            {
+                                value: 'table',
+                                label: t('kitchen:list.layoutTable'),
+                                icon: 'list',
+                                testID: 'kitchen-recipes-layout-table',
+                            },
+                            {
+                                value: 'cards',
+                                label: t('kitchen:list.layoutCards'),
+                                icon: 'layoutGrid',
+                                testID: 'kitchen-recipes-layout-cards',
+                            },
+                        ]}
+                    />
+                    {/* Columns are a table's question; a card draws every field it has. */}
+                    {layout === 'table' ? <ColumnPicker {...controls.picker} /> : null}
+                </Inline>
                 {canManage ? (
                     <Inline space="xs" align="center">
                         <CatalogueTransferActions testID="kitchen-recipes-toolbar" />
@@ -265,20 +306,35 @@ function RecipesList() {
                         : undefined
                 }
             >
-                <CatalogueList
-                    testID="kitchen-recipes-table"
-                    label={t('kitchen:recipes.caption')}
-                    columns={controls.columns}
-                    rows={list.rows}
-                    rowKey={(row) => String(row.id)}
-                    // Fixed, not switchable: the S/M/L control is gone.
-                    density="sm"
-                    onRowPress={(row) => {
-                        list.openEditor(String(row.id));
-                    }}
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                    rowActions={(row) => rowActions(row, list, t, toast, canManage)}
-                />
+                {layout === 'cards' ? (
+                    <RecipeCardGrid
+                        testID="kitchen-recipes-cards"
+                        rows={list.rows}
+                        t={t}
+                        locale={locale}
+                        kitchenName={kitchenName}
+                        onOpen={(row) => {
+                            list.openEditor(String(row.id));
+                        }}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        rowActions={(row) => rowActions(row, list, t, toast, canManage)}
+                    />
+                ) : (
+                    <CatalogueList
+                        testID="kitchen-recipes-table"
+                        label={t('kitchen:recipes.caption')}
+                        columns={controls.columns}
+                        rows={list.rows}
+                        rowKey={(row) => String(row.id)}
+                        // Fixed, not switchable: the S/M/L control is gone.
+                        density="sm"
+                        onRowPress={(row) => {
+                            list.openEditor(String(row.id));
+                        }}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        rowActions={(row) => rowActions(row, list, t, toast, canManage)}
+                    />
+                )}
             </CatalogueListBody>
 
             {/*
@@ -431,7 +487,7 @@ function statCards(list: RecipeListState, t: TFunction): readonly CatalogueStatC
             caption: list.isUnfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),
-            mark: 'calendar',
+            mark: 'list',
             tone: 'brand',
             // Pressable in both states: clearing nothing is a no-op, and a card that stopped being
             // a target once the filters were clear would move the row's one affordance around.
@@ -444,7 +500,7 @@ function statCards(list: RecipeListState, t: TFunction): readonly CatalogueStatC
             value: String(list.draftCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:list.statDraftCaption'),
-            mark: 'eyeOff',
+            mark: 'fileDraft',
             // Amber only while there is something to act on — see the note in the component.
             tone: list.draftCount === 0 ? 'default' : 'warning',
             onPress: () => {
@@ -458,7 +514,7 @@ function statCards(list: RecipeListState, t: TFunction): readonly CatalogueStatC
             value: String(list.reviewCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:recipes.statReviewCaption'),
-            mark: 'warning',
+            mark: 'alert',
             // The one figure that blocks publication outright, so it takes the danger ink while
             // there is anything in it — and the ordinary raised fill, because the row spends its
             // one coloured panel on Draft.
@@ -474,7 +530,7 @@ function statCards(list: RecipeListState, t: TFunction): readonly CatalogueStatC
             value: String(list.missingArabicCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:list.statMissingArabicCaption'),
-            mark: 'warning',
+            mark: 'languages',
             tone: list.missingArabicCount === 0 ? 'default' : 'warning',
         },
     ];

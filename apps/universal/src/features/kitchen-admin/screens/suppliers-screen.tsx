@@ -501,7 +501,7 @@ function statCards(
             caption: unfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),
-            mark: 'calendar',
+            mark: 'list',
             tone: 'brand',
             onPress: clear,
             accessibilityLabel: t('kitchen:list.statShownAction'),
@@ -512,7 +512,7 @@ function statCards(
             value: String(active),
             unit: t('kitchen:ops.suppliers.statUnit'),
             caption: t('kitchen:ops.suppliers.statActiveCaption'),
-            mark: 'check',
+            mark: 'circleCheck',
         },
         {
             key: 'archived',
@@ -520,7 +520,7 @@ function statCards(
             value: String(archived),
             unit: t('kitchen:ops.suppliers.statUnit'),
             caption: t('kitchen:ops.suppliers.statArchivedCaption'),
-            mark: 'eyeOff',
+            mark: 'hidden',
         },
     ];
 }
