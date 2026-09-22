@@ -915,7 +915,39 @@ describe('the ingredient editor', () => {
         expect(repositories.kitchenAdmin.createIngredient).not.toHaveBeenCalled();
     });
 
-    it('keeps a platform-library record read-only and offers the fork as the writable path', async () => {
+    it('forks a platform-library record on arrival and lands on the copy', async () => {
+        const record = platformIngredient(5, { meta: meta({ status: 'published' }) });
+        const copy = ingredient(6, { name: record.name });
+
+        const { repositories } = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(record.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [record]),
+                        getIngredient: async () => record,
+                        forkIngredient: async () => copy,
+                    },
+                },
+            },
+        );
+
+        // Opening the row to edit it is the request: nobody presses "Edit for this kitchen".
+        await waitFor(
+            () => {
+                expect(routerMock.__replace).toHaveBeenCalledWith(
+                    `/kitchen/ingredients/${String(copy.id)}`,
+                );
+            },
+            { timeout: 10_000 },
+        );
+        expect(repositories.kitchenAdmin.forkIngredient).toHaveBeenCalledTimes(1);
+        expect(repositories.kitchenAdmin.forkIngredient).toHaveBeenCalledWith(record.id);
+        expect(screen.queryByTestId('kitchen-ingredient-platform-library')).toBeNull();
+    });
+
+    it('keeps a platform-library record read-only when the fork fails, and offers it again', async () => {
         const record = platformIngredient(5, {
             meta: meta({ status: 'published' }),
             allergens: [mapping('gluten')],
@@ -927,23 +959,23 @@ describe('the ingredient editor', () => {
                 kitchenAdmin: {
                     ...editorReads(() => [record]),
                     getIngredient: async () => record,
+                    forkIngredient: async () =>
+                        throwFailure(apiFailure('server', { message: 'Boom.' })),
                 },
             },
         });
 
-        await untilVisible('kitchen-ingredient-platform-library');
+        await untilVisible('kitchen-ingredient-fork-error');
+        expect(screen.getByTestId('kitchen-ingredient-platform-library')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-ingredient-editor-screen-save')).toBeNull();
         expect(screen.queryByTestId('kitchen-ingredient-archive')).toBeNull();
 
         /*
-         * Fork, and nothing else.
+         * Fork, and nothing else — now as the retry.
          *
-         * This test used to end on the allergen mapping editor, on the argument that a shared
-         * library row could not be renamed but *could* have its determination corrected in place.
-         * The screen no longer works that way: composition and allergens are read-only for every
-         * record (§6.2), so there is no writable path on a platform row at all — copying it into
-         * this kitchen is the one thing that can happen next, and offering it is the whole point of
-         * the banner above.
+         * Composition and allergens are read-only for every record (§6.2), so there is no writable
+         * path on a platform row at all: copying it into this kitchen is the one thing that can
+         * happen next, and when the automatic copy fails the notice's button is how it happens.
          */
         await untilVisible('kitchen-ingredient-fork');
         await openIngredientStep('allergens');
