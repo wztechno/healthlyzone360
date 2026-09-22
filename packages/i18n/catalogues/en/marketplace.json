@@ -25,7 +25,8 @@
         "searchPlaceholder": "Meals, ingredients, kitchens",
         "skipToContent": "Skip to content",
         "plannedSuffix": "{{label}} (soon)",
-        "plannedNotice": "{{label}} is not built yet. Nothing was changed."
+        "plannedNotice": "{{label}} is not built yet. Nothing was changed.",
+        "imageCredits": "Image credits"
     },
     "footer": {
         "about": "An original meal-planning and kitchen marketplace prototype. Every kitchen, meal, plan and professional shown here is synthetic.",
@@ -495,5 +496,11 @@
         "emptyBody": "This kitchen has not published anything to order. Browse the directory to find another.",
         "addLabel": "Add {{meal}} to the basket",
         "openMeal": "{{meal}} — open the dish"
+    },
+    "imageCredits": {
+        "title": "Image credits",
+        "intro": "Photography used across Healthy360 is openly licensed and bundled with the app. Where a licence requires attribution, the credit is shown here and beside the image itself. Every photograph has been cropped to a fixed frame and re-encoded.",
+        "synthetic": "These are stock photographs chosen to match each record — not photographs of real Healthy360 products, premises or staff. Public-domain and CC0 images require no attribution and are recorded in the project’s provenance file rather than listed here.",
+        "none": "No image currently in use requires attribution."
     }
 }

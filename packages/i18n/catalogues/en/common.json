@@ -69,5 +69,19 @@
         "profile": "Profile",
         "devices": "Devices and sessions",
         "showcase": "Design system"
+    },
+    "photoCredit": {
+        "byline": "Photo: {{creator}}",
+        "via": "via",
+        "modified": "cropped and resized",
+        "provider": {
+            "wikimedia": "Wikimedia Commons",
+            "flickr": "Flickr",
+            "rawpixel": "rawpixel",
+            "stocksnap": "StockSnap",
+            "nappy": "Nappy",
+            "unsplash": "Unsplash",
+            "other": "the original publisher"
+        }
     }
 }

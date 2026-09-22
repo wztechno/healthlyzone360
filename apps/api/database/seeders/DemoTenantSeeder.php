@@ -7,10 +7,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Closure;
 use Healthy360\AccessControl\Models\MembershipRole;
-use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
-use Healthy360\AccessControl\Models\RolePermission;
-use Healthy360\AccessControl\Services\PermissionRegistry;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\CatalogueStatus;
@@ -76,16 +73,11 @@ use RuntimeException;
 /**
  * Demonstration tenants exercising the multi-organisation identity model
  * (plan §9): a Lebanese clinic with two branches, an Emirati kitchen with
- * one, a dietitian who belongs to both, a patient connected to the clinic,
- * and — since K1.1 — the platform operator's own organisation.
+ * one, a dietitian who belongs to both, and a patient connected to the clinic.
  *
- * The platform organisation is what makes the platform-permission split
- * demonstrable rather than theoretical. `reference.*_platform` cannot be
- * granted through a template role (an organisation template must never carry
- * a platform code), so it is granted the only way it ever will be: a bespoke
- * organisation-scoped role inside an organisation whose *type* is
- * `platform_operator`. Both gates — the type and the grant — are visible in
- * one place, and the feature tests use exactly this path.
+ * The platform operator's own organisation, and the bespoke role that is the
+ * only way to hold a platform code, are `PlatformOperatorSeeder`'s: they are
+ * the way in rather than a demo, so they are seeded whether or not this is.
  *
  * Guarded to local and testing environments: these accounts share one
  * well-known password and must never reach a deployed environment.
@@ -188,8 +180,6 @@ class DemoTenantSeeder extends Seeder
         // holding whatever the web shop holds, and the product catalogue seeder
         // above is the last writer to put anything on the web shop.
         $this->openTheOrderDesk($verdant, $verdantOwner);
-
-        $this->seedPlatformOperator();
     }
 
     /**
@@ -310,8 +300,8 @@ class DemoTenantSeeder extends Seeder
 
     /**
      * A synthetic Emirati area — demo data, mechanism (b), never the committed
-     * gazetteer. The `ae-demo-` prefix is what says so at a glance and is what
-     * `DatabaseSeederTest` excludes when it pins the Lebanese count at 125.
+     * gazetteer. The `ae-demo-` prefix is what says so at a glance;
+     * `DeliveryAreaSeederTest` pins the gazetteer itself at 125 without them.
      */
     private function demoArea(string $code, string $nameEn, string $nameAr, int $displayOrder): DeliveryArea
     {
@@ -1481,74 +1471,6 @@ class DemoTenantSeeder extends Seeder
                 'created_by' => $creator->getKey(),
             ],
         ));
-    }
-
-    /**
-     * The platform operator's own workspace, and the only supported way to
-     * hold a platform permission.
-     */
-    private function seedPlatformOperator(): void
-    {
-        $ops = $this->user('ops@healthy360.test', 'Yara', 'Deeb', 'en', 'LB');
-
-        $platform = $this->organisation('Healthy360 Operations', 'healthy360-operations', 'platform_operator', 'LB', 'USD', 'en', $ops);
-
-        $this->membership($platform, $ops, null, 'member', $ops);
-
-        // A bespoke, organisation-scoped role — deliberately not a template.
-        // Template roles are built from organisationPermissions() alone, so no
-        // template can ever carry a platform code; this is what "granted
-        // deliberately, one organisation at a time" looks like in practice.
-        $role = $this->forOrganisation((string) $platform->getKey(), fn (): Role => Role::withoutTenancy()->updateOrCreate(
-            ['organisation_id' => $platform->getKey(), 'code' => 'reference_editor'],
-            [
-                'name_en' => 'Reference editor',
-                'name_ar' => 'محرّر البيانات المرجعية',
-                'is_system' => false,
-                'created_by' => $ops->getKey(),
-            ],
-        ));
-
-        foreach (array_keys(PermissionRegistry::platformPermissions()) as $code) {
-            $permission = Permission::query()->where('code', $code)->firstOrFail();
-
-            RolePermission::withoutTenancy()->updateOrCreate(
-                ['role_id' => $role->getKey(), 'permission_id' => $permission->getKey()],
-                ['organisation_id' => $platform->getKey()],
-            );
-        }
-
-        // Platform operators also curate the shared ingredient library and can
-        // exercise the kitchen operating surface, both organisation-scoped
-        // capabilities like any other. INV1.0 moved that surface onto its own
-        // `inventory.*` domain, so the bespoke role gains the three inventory
-        // codes alongside the catalogue pair to keep the demo consistent.
-        foreach ([
-            'catalogue.view_organisation',
-            'catalogue.manage_organisation',
-            'inventory.view_organisation',
-            'inventory.manage_organisation',
-            'inventory.view_costs_organisation',
-        ] as $code) {
-            $permission = Permission::query()->where('code', $code)->firstOrFail();
-
-            RolePermission::withoutTenancy()->updateOrCreate(
-                ['role_id' => $role->getKey(), 'permission_id' => $permission->getKey()],
-                ['organisation_id' => $platform->getKey()],
-            );
-        }
-
-        $this->forOrganisation((string) $platform->getKey(), function () use ($platform, $ops, $role): void {
-            $membership = OrganisationMembership::withoutTenancy()
-                ->where('organisation_id', $platform->getKey())
-                ->where('user_id', $ops->getKey())
-                ->firstOrFail();
-
-            MembershipRole::withoutTenancy()->updateOrCreate(
-                ['membership_id' => $membership->getKey(), 'role_id' => $role->getKey()],
-                ['organisation_id' => $platform->getKey(), 'created_by' => $ops->getKey()],
-            );
-        });
     }
 
     /**

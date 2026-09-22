@@ -24,6 +24,9 @@ packages/design-tokens/generated/
 packages/api-client/src/generated/
 apps/universal/expo-env.d.ts
 apps/universal/src/media/image-manifest.generated.ts
+apps/universal/assets/images/CREDITS.md
+apps/universal/assets/images/provenance.json
+apps/universal/assets/images/image-inventory.json
 design_handoff_wellness_green/
 desing_handoff_admin_components/
 design_handoff_order_desk/
@@ -36,4 +39,7 @@ design_handoff_operations/
 /image-slot.js
 # Local / untracked config — not part of the shared source tree.
 .claude/settings.local.json
+# Git-ignored by its own nested .gitignore, which prettier does not read. Holds the image
+# pipeline's cache of Commons API responses — thousands of files nobody authors.
+scratchpad/
 /tsconfig.json

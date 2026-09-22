@@ -28,6 +28,7 @@ use Healthy360\Recipes\Models\RecipeVersionOutput;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -40,11 +41,11 @@ use Illuminate\Support\Facades\DB;
 | `db:seed` — which happens on every deploy of the demo instance — runs straight
 | over the top of that work.
 |
-| DatabaseSeederTest already pins the shape the seeder produces. This file pins
-| the *second* run: what an insert-if-absent seeder is allowed to add (nothing),
-| what its one non-insert write is allowed to touch (a null threshold, and only
-| a null one), and what it must never come near — a moved quantity, a moved
-| preferred supplier, and the weighted ingredient cost behind both.
+| This file pins the *second* run: what an insert-if-absent seeder is allowed
+| to add (nothing), what its one non-insert write is allowed to touch (a null
+| threshold, and only a null one), and what it must never come near — a moved
+| quantity, a moved preferred supplier, and the weighted ingredient cost behind
+| both.
 |
 | The seeder is asserted to write no purchase orders at all, and — since PROD1 —
 | to write its two demonstration receipts **through** `GoodsReceiptService` and
@@ -57,11 +58,12 @@ use Illuminate\Support\Facades\DB;
 | below pin both halves: the movements and the cost events exist behind the
 | receipts, and a second run adds neither.
 |
+| The world is seeded once for the file (`SeedDatabaseOnce`); each case's
+| edits and re-runs are rolled back before the next case starts.
+|
 */
 
-beforeEach(function (): void {
-    $this->seed();
-});
+pest()->use(SeedDatabaseOnce::class);
 
 /**
  * The demonstration kitchen and the branch its stock hangs off.

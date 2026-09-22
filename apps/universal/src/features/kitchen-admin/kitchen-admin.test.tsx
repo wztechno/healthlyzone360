@@ -216,6 +216,7 @@ function ingredient(ordinal: number, overrides: Partial<IngredientAdmin> = {}): 
         id: ingredientId(ordinal),
         meta: meta(),
         name: { en: `Ingredient ${String(ordinal)}`, ar: `مكوّن ${String(ordinal)}` },
+        slug: `ingredient-${String(ordinal)}`,
         reference: `IG-00${String(ordinal)}`,
         subcategoryCode: null,
         categoryCode: 'store-cupboard',
@@ -628,6 +629,12 @@ describe('the ingredient list at desk width', () => {
         await untilVisible('kitchen-ingredients-table');
 
         expect(screen.getByTestId(`kitchen-ingredient-${String(mapped.id)}-name`)).toBeTruthy();
+        // The 20px thumbnail sits in the title cell, addressed by the server's slug.
+        expect(
+            screen.getByTestId(`kitchen-ingredients-table-row-${String(mapped.id)}-image`, {
+                includeHiddenElements: true,
+            }),
+        ).toBeTruthy();
         expect(
             screen.getByTestId(`kitchen-ingredient-${String(mapped.id)}-allergens`),
         ).toBeTruthy();

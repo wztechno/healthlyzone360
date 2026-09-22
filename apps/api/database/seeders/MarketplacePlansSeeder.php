@@ -42,10 +42,10 @@ class MarketplacePlansSeeder extends Seeder
 
     /**
      * Verdant already has an active public tariff for plans, wired to its web
-     * shop by `DemoTenantSeeder`, and its prices are pinned by
-     * `DatabaseSeederTest`. The preview plans join that list rather than
-     * opening a rival one — two public tariffs on one channel would only raise
-     * the question of which quotes.
+     * shop by `DemoTenantSeeder`, which refuses to publish its plan unless both
+     * configurations are priced there. The preview plans join that list rather
+     * than opening a rival one — two public tariffs on one channel would only
+     * raise the question of which quotes.
      */
     private const string VERDANT_PLAN_TARIFF = 'verdant-marketplace-plans-usd';
 

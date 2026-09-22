@@ -17,6 +17,18 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
  * `ingredient-columns.tsx` claims for its own entity. The ninth track — the row's controls —
  * belongs to `CatalogueList` and is appended there.
  *
+ * ## The thumbnail is 20px, and decorative
+ *
+ * Same bargain as the ingredient and meal lists: `thumbnail` names the picture and `CatalogueList`
+ * draws it — in the title cell of the wide table, on the leading edge of the narrow row — and it is
+ * `decorative`, because the designation beside it already carries the meaning (WCAG H67). It is
+ * keyed by `row.slug`, the server's own, because that is what the photograph is filed under.
+ *
+ * Recipes share the `dishes/` family with the prototype's meals, which is why a recipe photograph
+ * is a plated dish rather than a mid-preparation shot where one exists — a sauce, a marinade and a
+ * patty are all photographed as themselves, and where no honest photograph of a preparation exists
+ * the row keeps the generated pattern rather than borrowing a picture of something else.
+ *
  * ## The tracks, and where the numbers come from
  *
  * | column        | track | floor | priority | note                                        |
@@ -158,6 +170,7 @@ export function recipeColumns({
             sortable: true,
             sortType: 'text',
             value: (row) => displayName(row.name, locale).value,
+            thumbnail: (row) => `recipe-${row.slug}`,
             render: (row) => {
                 const name = displayName(row.name, locale);
                 return (

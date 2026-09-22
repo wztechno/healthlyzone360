@@ -114,7 +114,12 @@ import { AllergenCode, KitchenId, RecipeId } from '@healthy360/domain-types';
 import { BilingualField } from '../features/kitchen-admin/bilingual-field.tsx';
 import { DerivedPanel } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
+import { CatalogueList } from '../features/kitchen-admin/catalogue/catalogue-list.tsx';
+import { CatalogueListItem } from '../features/kitchen-admin/catalogue/catalogue-list-item.tsx';
+import type { CatalogueColumn } from '../features/kitchen-admin/catalogue/catalogue-column-spec.ts';
 import { CatalogueListBody } from '../features/kitchen-admin/catalogue/catalogue-list-body.tsx';
+import { RecordPhoto } from '../features/kitchen-admin/catalogue/record-photo.tsx';
+import { RowThumbnail } from '../features/kitchen-admin/catalogue/row-thumbnail.tsx';
 import type { CatalogueListBodyState } from '../features/kitchen-admin/catalogue/catalogue-list-body.tsx';
 import { CatalogueStatCards } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../features/kitchen-admin/catalogue/catalogue-toolbar.tsx';
@@ -238,6 +243,41 @@ const CATALOGUE_ROWS: readonly CatalogueRow[] = [
 ];
 
 const CATALOGUE_KINDS = ['paste', 'spice', 'dairy'] as const;
+
+/**
+ * The smallest spec that shows a row photograph: a title column naming it through `thumbnail`,
+ * which `CatalogueList` draws at 20px in the title cell. The three ingredients are real records
+ * with bundled photographs, so the block shows the shipped files rather than a pattern.
+ */
+const CATALOGUE_PHOTO_COLUMNS: readonly CatalogueColumn<CatalogueRow>[] = [
+    {
+        key: 'designation',
+        label: 'Designation',
+        width: 200,
+        priority: 100,
+        role: 'title',
+        value: (row) => row.designation,
+        thumbnail: (row) => `ingredient-${row.key}`,
+    },
+    {
+        key: 'reference',
+        label: 'Reference',
+        width: 110,
+        priority: 70,
+        role: 'meta',
+        mono: true,
+        value: (row) => row.reference,
+    },
+    {
+        key: 'status',
+        label: 'Status',
+        width: 110,
+        priority: 80,
+        role: 'status',
+        value: (row) => row.statusLabel,
+        render: (row) => <StatusBadge status={row.status} label={row.statusLabel} />,
+    },
+];
 
 /**
  * The recipe editor's five, with the counts the two line tabs carry.
@@ -1985,6 +2025,15 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                 </Text>
                 <RecordViewPage
                     testID={id('record-view')}
+                    media={
+                        // Public domain, so the card carries no credit; the credited case is below.
+                        <RecordPhoto
+                            assetId="ingredient-tahini"
+                            label="Tahini paste"
+                            shape="square"
+                            testID={id('record-view-photo')}
+                        />
+                    }
                     onBack={() => undefined}
                     kind="Ingredient"
                     reference="ING-0142"
@@ -2301,6 +2350,54 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     title="Static"
                     description="No onPress, so no chevron and no target."
                 />
+            </Stack>
+
+            {/*
+             * Row photographs. The spec names each row's picture once (`thumbnail`) and
+             * `CatalogueList` draws it: 20px inside the wide table's title cell, 32px on the
+             * narrow row's leading edge beside the status badge. Both shapes are drawn here,
+             * because the showcase is wide enough that `CatalogueList` alone would only ever
+             * show the first.
+             */}
+            <Stack space="xs">
+                <Text variant="section" tone="secondary">
+                    Catalogue row photographs
+                </Text>
+                <CatalogueList
+                    testID={id('catalogue-photos')}
+                    label="Ingredients, with photographs"
+                    columns={CATALOGUE_PHOTO_COLUMNS}
+                    rows={CATALOGUE_ROWS}
+                    rowKey={(row) => row.key}
+                    rowActionsLabel="Row actions"
+                />
+                <View className="flex-col rounded-panel border border-brand-100 bg-surface-raised">
+                    <CatalogueListItem
+                        testID={id('catalogue-photos-narrow')}
+                        title="Zaatar blend"
+                        media={
+                            <RowThumbnail
+                                assetId="ingredient-zaatar"
+                                seed="zaatar"
+                                label="Zaatar blend"
+                                size="narrow"
+                                testID={id('catalogue-photos-narrow-image')}
+                            />
+                        }
+                        status={<StatusBadge status="draft" label="Draft" />}
+                        meta={['ING-0207', 'spice']}
+                        actionsLabel="Row actions"
+                    />
+                </View>
+                {/* A dish's rail card: the wide shape, and a CC BY photograph, so its credit. */}
+                <View className="max-w-[400px]">
+                    <RecordPhoto
+                        assetId="recipe-marinated-chicken-breast"
+                        label="Marinated chicken breast"
+                        shape="wide"
+                        testID={id('record-photo-wide')}
+                    />
+                </View>
             </Stack>
 
             {/* Overlays. Dropdown is the mechanism; Menu is Dropdown plus a list. */}
@@ -3477,6 +3574,42 @@ export function ShowcaseScreen() {
                         seed="showcase-meal-01"
                         label={t('designSystem:showcase.placeholderLabel')}
                     />
+                    {/*
+                     * The three families that carry a record's own photograph, side by side, so the
+                     * square ingredient thumbnail can be compared against the 4:3 dish crop rather
+                     * than reviewed on its own. The third is deliberately an id with no bundled
+                     * file: the generated pattern beside two real photographs is what a blocked
+                     * record looks like on screen, and reviewing that here is the point.
+                     */}
+                    <Inline space="md" testID="showcase-entity-images">
+                        <View className="w-16">
+                            <EntityImage
+                                testID="showcase-entity-image-ingredient"
+                                assetId="ingredient-black-pepper"
+                                seed="showcase-ingredient"
+                                label={t('designSystem:showcase.placeholderLabel')}
+                                aspect="square"
+                            />
+                        </View>
+                        <View className="w-40">
+                            <EntityImage
+                                testID="showcase-entity-image-dish"
+                                assetId="recipe-herbed-chicken-freekeh"
+                                seed="showcase-dish"
+                                label={t('designSystem:showcase.placeholderLabel')}
+                                aspect="card"
+                            />
+                        </View>
+                        <View className="w-16">
+                            <EntityImage
+                                testID="showcase-entity-image-unmapped"
+                                assetId="ingredient-not-sourced"
+                                seed="showcase-unmapped"
+                                label={t('designSystem:showcase.placeholderLabel')}
+                                aspect="square"
+                            />
+                        </View>
+                    </Inline>
                     {CALLOUT_TONES.map((tone) => (
                         <Callout
                             key={tone}

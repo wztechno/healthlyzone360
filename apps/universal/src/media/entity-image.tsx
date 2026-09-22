@@ -10,16 +10,22 @@ import { IMAGE_ASSETS } from './image-manifest.generated.ts';
  * Real photography for the fixture-backed image slots, with the generated pattern placeholder as the
  * fallback for anything unmapped.
  *
- * The prototype's photographs are bundled, same-origin WebP (the `no-external-requests` e2e gate
- * forbids any other kind), keyed by the fixture `imagePlaceholderId`. This module turns that id into
- * a manifest key and renders a real `<Image>` when one exists — otherwise it delegates to the design
- * system's {@link ImagePlaceholder}/{@link Avatar}, so an unmapped meal, a synthetic showcase seed,
- * or a future fixture still renders something rather than a blank box, and every existing testID is
- * preserved because the wrapper carries it in both branches.
+ * Every photograph is bundled, same-origin WebP (D-035 forbids any other kind), keyed by the
+ * `imagePlaceholderId` a record carries or, for ingredients and recipes, by its server-issued slug.
+ * This module turns that id into a manifest key and renders a real `<Image>` when one exists —
+ * otherwise it delegates to the design system's {@link ImagePlaceholder}/{@link Avatar}, so an
+ * unmapped record, a synthetic showcase seed, or a future fixture still renders something rather
+ * than a blank box, and every existing testID is preserved because the wrapper carries it in both
+ * branches.
  *
- * The photos are illustrative licensed stock, not photographs of real Healthy360 products; the
- * fixtures they decorate remain labelled synthetic on screen. Attribution is in
- * `assets/images/CREDITS.md`.
+ * Families: `ingredients/<slug>.thumb`, `dishes/<recipe>.{card,detail}`, `meals/<slug>.{card,detail}`,
+ * `kitchens/`, `plans/`, `dietitians/`, `diets/`, plus the marketing slots.
+ *
+ * The photos are illustrative openly licensed stock, not photographs of real Healthy360 products;
+ * the fixtures they decorate remain labelled synthetic on screen. Provenance for every file —
+ * source, creator, licence and whether it obliges a visible credit — is machine-readable in
+ * `assets/images/provenance.json`, from which `assets/images/CREDITS.md` is generated. Where a
+ * licence requires attribution, {@link PhotoCredit} renders it beside the image.
  */
 
 const cx = (...parts: Array<string | undefined | false>): string => parts.filter(Boolean).join(' ');
@@ -50,14 +56,19 @@ const AVATAR_SIZE_CLASS: Readonly<Record<AvatarSize, string>> = {
 };
 
 /**
- * Which dish photograph a marketplace meal or recipe shows.
+ * Which dish photograph a prototype marketplace meal shows.
  *
  * Forty meals are built from twenty recipes, so the twenty dish photographs are reused across them —
- * a meal and its larger-portion sibling are literally the same dish. This table mirrors the
- * meal→recipe relationship in the prototype fixtures; it is duplicated here rather than imported
- * because app code may not import the mock world (an eslint-enforced invariant), and the mapping is a
- * stable fact of the fixture set. Keys are the meal `imagePlaceholderId` minus its `meal-` prefix;
- * values are the dish photo base name (the recipe key).
+ * a meal and its larger-portion sibling are literally the same dish, which is the one kind of reuse
+ * that is honest and the only kind D-035 sanctions. This table mirrors the meal→recipe relationship
+ * in the prototype fixtures; it is duplicated here rather than imported because app code may not
+ * import the mock world (an eslint-enforced invariant), and the mapping is a stable fact of the
+ * fixture set. Keys are the meal `imagePlaceholderId` minus its `meal-` prefix; values are the dish
+ * photo base name (the recipe key).
+ *
+ * A meal that is *not* in this table is not a portion of a prototype recipe, and owns its own
+ * photograph under `meals/`. The v6 catalogue's thirty-eight meals used to be listed here too,
+ * aliased onto whichever bundled dish looked nearest; they now have their own.
  */
 const DISH_FOR_MEAL: Readonly<Record<string, string>> = {
     // The API demonstration menu is separate from the 40-meal prototype world
@@ -106,48 +117,6 @@ const DISH_FOR_MEAL: Readonly<Record<string, string>> = {
     'verdant-tofu-kale-box': 'smoky-tofu-kale-bowl',
     'saffron-calamari-salad': 'calamari-rocket-salad',
     'daily-pot-calamari-plate': 'calamari-rocket-salad',
-
-    // The v6 kitchen catalogue (HealthZone360). Approximate stand-ins from the bundled, credited
-    // photo set — nearest visual family, not the actual dish — so imported cards render a real
-    // photograph until the kitchen's own photography lands and replaces this block.
-    'chicken-breast-marinated': 'herbed-chicken-freekeh',
-    'chicken-burger-patty': 'herbed-chicken-freekeh',
-    'chicken-red-tawouk': 'mint-yoghurt-chicken-skewers',
-    'chicken-white-tawouk': 'mint-yoghurt-chicken-skewers',
-    'chicken-wings': 'mint-yoghurt-chicken-skewers',
-    'chicken-wings-marinated': 'mint-yoghurt-chicken-skewers',
-    'chicken-crispy': 'turkey-sweet-potato-hash',
-    'chicken-nuggets': 'turkey-sweet-potato-hash',
-    'chicken-popcorn': 'turkey-sweet-potato-hash',
-    'chicken-strips': 'turkey-sweet-potato-hash',
-    'chicken-zinger': 'turkey-sweet-potato-hash',
-    escalope: 'turkey-sweet-potato-hash',
-    'escalope-milanaise': 'turkey-sweet-potato-hash',
-    'cordon-bleu': 'herbed-chicken-freekeh',
-    'chicken-fajita': 'red-bean-pepper-chilli',
-    'beef-fajita': 'red-bean-pepper-chilli',
-    'burger-patty-beef': 'slow-braised-lamb-bulgur',
-    'smashed-burger-patty': 'slow-braised-lamb-bulgur',
-    kebbe: 'slow-braised-lamb-bulgur',
-    'sambousek-lahme': 'slow-braised-lamb-bulgur',
-    'makanek-lebanese-sausage': 'slow-braised-lamb-bulgur',
-    'breaded-fish-filet': 'citrus-sea-bass-green-beans',
-    'breaded-shrimps': 'harbour-prawn-quinoa',
-    'cheese-balls': 'grilled-halloumi-rocket',
-    'halloumi-sticks': 'grilled-halloumi-rocket',
-    'mozzarella-sticks': 'grilled-halloumi-rocket',
-    'mozzarella-sticks-small': 'grilled-halloumi-rocket',
-    'rkakat-cheese': 'grilled-halloumi-rocket',
-    'sambousek-cheese': 'grilled-halloumi-rocket',
-    'caramelised-onions': 'charred-aubergine-chickpea',
-    'roasted-mushroom': 'charred-aubergine-chickpea',
-    'stuffed-vine-leaves-warak-enab': 'smoky-tofu-kale-bowl',
-    guacamole: 'smoky-tofu-kale-bowl',
-    coleslaw: 'calamari-rocket-salad',
-    'hummus-dip': 'sunrise-labneh-sourdough',
-    'pain-perdu': 'sunrise-labneh-sourdough',
-    'chocolate-fondant': 'pistachio-pomegranate-bowl',
-    tiramisu: 'morning-oats-dates-almonds',
 };
 
 /** Turns a fixture `imagePlaceholderId` into a manifest key, or null when there is no photo family. */
@@ -158,12 +127,32 @@ function manifestKey(placeholderId: string, variant: EntityImageVariant): string
     const rest = placeholderId.slice(dash + 1);
 
     switch (kind) {
-        case 'meal': {
+        // `product` is here with `meal` on purpose, and it is the case that makes the imported
+        // catalogue resolve at all. `MarketplaceMealPresenter` derives the id as
+        // `item_type.value + '-' + slug`, and the v6 importer writes *every* row it creates as
+        // `CatalogueItemType::Product` (`ProductWriter.php:165`) — nothing reclassifies a dish to
+        // `Meal`. So a HealthZone360 meal arrives here as `product-chicken-crispy`, never
+        // `meal-chicken-crispy`.
+        //
+        // That is what made the v6 stand-in block this table used to carry dead on arrival: it was
+        // keyed on a `meal-` prefix those rows never produce, so the borrowed photographs it
+        // assigned were never actually shown. The block is gone, and both prefixes now resolve to
+        // a catalogue item's own photograph.
+        case 'meal':
+        case 'product': {
+            // The prototype's forty meals are portions of twenty recipes, so they alias onto the
+            // dish photograph of the recipe that makes them — the one reuse that is honest.
+            // Everything else owns its picture.
             const dish = DISH_FOR_MEAL[rest];
-            return dish ? `dishes/${dish}.${variant}` : null;
+            return dish ? `dishes/${dish}.${variant}` : `meals/${rest}.${variant}`;
         }
         case 'recipe':
             return `dishes/${rest}.${variant}`;
+        // One square file, so the variant is ignored — the same contract `dietitian` and `diet`
+        // already have. An ingredient is drawn at 20px in a catalogue row and at thumbnail size
+        // in its detail pane; neither wants the 16:9 crop a `card` would give it.
+        case 'ingredient':
+            return `ingredients/${rest}.thumb`;
         case 'kitchen':
             return `kitchens/${rest}.${variant}`;
         case 'plan':
@@ -190,6 +179,21 @@ export function resolveEntityImage(
 /** The bundled photo for a marketing slot, addressed by manifest key directly (e.g. `landing/hero.hero`). */
 export function resolveMarketingImage(key: string): ImageRequireSource | null {
     return IMAGE_ASSETS[key] ?? null;
+}
+
+/**
+ * The provenance key for a record's photograph — `<family>/<base>`, without the variant.
+ *
+ * A card and its detail crop are two files cut from one photograph, so they share one credit. This
+ * strips the variant that {@link manifestKey} appends, which is what {@link IMAGE_CREDITS} is keyed
+ * on. Returns null when the id maps to no photograph at all.
+ */
+export function creditKeyFor(placeholderId: string | undefined): string | null {
+    if (placeholderId === undefined) return null;
+    const key = manifestKey(placeholderId, 'card');
+    if (key === null) return null;
+    const dot = key.lastIndexOf('.');
+    return dot === -1 ? key : key.slice(0, dot);
 }
 
 export interface EntityImageProps {
@@ -269,7 +273,7 @@ export function EntityImage({
         );
 
     if (resolved === null || resolved === undefined) {
-        return withOverlays(
+        const placeholder = (
             <ImagePlaceholder
                 testID={testID}
                 seed={seed}
@@ -277,7 +281,25 @@ export function EntityImage({
                 aspect={aspect}
                 flush={flush}
                 className={className}
-            />,
+            />
+        );
+
+        // `decorative` has to hold in both branches. The placeholder is a named `image` role, so
+        // without this a decorative frame with no photograph behind it was announced anyway — the
+        // record's name read out twice, once as the title and once as a picture of it, on every
+        // Catalogue row that has no photograph. The photograph branch below already hid itself.
+        return withOverlays(
+            decorative ? (
+                <View
+                    aria-hidden
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                >
+                    {placeholder}
+                </View>
+            ) : (
+                placeholder
+            ),
         );
     }
 

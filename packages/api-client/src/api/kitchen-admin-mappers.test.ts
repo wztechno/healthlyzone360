@@ -5,6 +5,7 @@ import {
     mapIngredientPublishableStatus,
     mapMealAdminFromItem,
     mapPlanVariantsFromCells,
+    mapProductAdminFromItem,
 } from './kitchen-admin-mappers.ts';
 
 describe('mapIngredientPublishableStatus', () => {
@@ -180,5 +181,48 @@ describe('mapMealAdminFromItem — the finished-stock chain', () => {
         delete (legacy as Record<string, unknown>).sells_from_finished_stock;
 
         expect(mapMealAdminFromItem(legacy).sellsFromFinishedStock).toBe(false);
+    });
+});
+
+describe('the admin image id for a catalogue item', () => {
+    const wire = (overrides: Partial<AdminCatalogueItem> = {}): AdminCatalogueItem => ({
+        id: '019ffc6a-68d2-70d1-9f6c-6ddc160642c1',
+        organisation_id: '019ffc6a-68d2-70d1-9f6c-6ddc160642c2',
+        catalogue_id: '019ffc6a-68d2-70d1-9f6c-6ddc160642c3',
+        item_type: 'product',
+        slug: 'chicken-crispy',
+        name_en: 'Chicken Crispy',
+        name_ar: 'Chicken Crispy',
+        is_market_priced: false,
+        is_assorted: false,
+        portion_factor: '1.000',
+        sells_from_finished_stock: false,
+        status: 'draft',
+        data_quality_flags: [],
+        lock_version: 0,
+        ...overrides,
+    });
+
+    it('keeps the id a kitchen stored', () => {
+        const stored = wire({ item_type: 'meal', image_placeholder_id: 'meal-house-special' });
+
+        expect(mapMealAdminFromItem(stored).imagePlaceholderId).toBe('meal-house-special');
+        expect(mapProductAdminFromItem(stored).imagePlaceholderId).toBe('meal-house-special');
+    });
+
+    it('derives item_type and slug when none is stored, exactly as the storefront does', () => {
+        // Every row the v6 import wrote has no stored id and is a `product`. The derived id is the
+        // one `MarketplaceMealPresenter` sends, so the admin and the shop show the same picture —
+        // for this dish, its own under `meals/`.
+        const imported = wire({ image_placeholder_id: null });
+
+        expect(mapProductAdminFromItem(imported).imagePlaceholderId).toBe('product-chicken-crispy');
+        expect(mapMealAdminFromItem(imported).imagePlaceholderId).toBe('product-chicken-crispy');
+    });
+
+    it('never falls back to an empty id, which resolves to no picture at all', () => {
+        const meal = wire({ item_type: 'meal', slug: 'freekeh-bowl', image_placeholder_id: null });
+
+        expect(mapMealAdminFromItem(meal).imagePlaceholderId).toBe('meal-freekeh-bowl');
     });
 });
