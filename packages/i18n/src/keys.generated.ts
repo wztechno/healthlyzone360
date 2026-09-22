@@ -3994,6 +3994,7 @@ export interface NamespaceKeys {
     | 'ops.production.planShort'
     | 'ops.production.plannedLabel'
     | 'ops.production.plannedYieldHint'
+    | 'ops.production.plannedYieldHintUnit'
     | 'ops.production.plannedYieldLabel'
     | 'ops.production.previousPage'
     | 'ops.production.producedHint'
@@ -4003,6 +4004,10 @@ export interface NamespaceKeys {
     | 'ops.production.recipeHint'
     | 'ops.production.recipeLabel'
     | 'ops.production.recipePlaceholder'
+    | 'ops.production.recipeRequired'
+    | 'ops.production.recipeResolving'
+    | 'ops.production.recipeUnpublished'
+    | 'ops.production.recipeVersionCaption'
     | 'ops.production.registerEmptyBody'
     | 'ops.production.registerEmptyTitle'
     | 'ops.production.registerTitle'
@@ -4054,9 +4059,6 @@ export interface NamespaceKeys {
     | 'ops.production.unitCostLabel'
     | 'ops.production.unpublishedTitle'
     | 'ops.production.unreferenced'
-    | 'ops.production.versionHint'
-    | 'ops.production.versionLabel'
-    | 'ops.production.versionRequired'
     | 'ops.production.viewKind'
     | 'ops.production.wasteHeading'
     | 'ops.production.wasteHint'
@@ -11458,6 +11460,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.planShort',
   'kitchen:ops.production.plannedLabel',
   'kitchen:ops.production.plannedYieldHint',
+  'kitchen:ops.production.plannedYieldHintUnit',
   'kitchen:ops.production.plannedYieldLabel',
   'kitchen:ops.production.previousPage',
   'kitchen:ops.production.producedHint',
@@ -11467,6 +11470,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.recipeHint',
   'kitchen:ops.production.recipeLabel',
   'kitchen:ops.production.recipePlaceholder',
+  'kitchen:ops.production.recipeRequired',
+  'kitchen:ops.production.recipeResolving',
+  'kitchen:ops.production.recipeUnpublished',
+  'kitchen:ops.production.recipeVersionCaption',
   'kitchen:ops.production.registerEmptyBody',
   'kitchen:ops.production.registerEmptyTitle',
   'kitchen:ops.production.registerTitle',
@@ -11518,9 +11525,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.unitCostLabel',
   'kitchen:ops.production.unpublishedTitle',
   'kitchen:ops.production.unreferenced',
-  'kitchen:ops.production.versionHint',
-  'kitchen:ops.production.versionLabel',
-  'kitchen:ops.production.versionRequired',
   'kitchen:ops.production.viewKind',
   'kitchen:ops.production.wasteHeading',
   'kitchen:ops.production.wasteHint',
