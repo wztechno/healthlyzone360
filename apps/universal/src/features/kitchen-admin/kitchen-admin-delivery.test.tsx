@@ -1442,11 +1442,9 @@ describe('the branch operating week', () => {
                 screen.getByTestId(`kitchen-branch-hours-rows-day-${String(weekday)}`),
             ).toBeTruthy();
         }
-        // The branch and its time zone are stated: a cut-off is meaningless without the zone it is
-        // read in.
-        expect(screen.getByTestId('kitchen-branch-hours-timezone')).toHaveTextContent(
-            new RegExp(BRANCH_OPERATING.timeZone.replace('/', '\\/')),
-        );
+        // No context band and no week heading: the title and the rows carry the page.
+        expect(screen.queryByTestId('kitchen-branch-hours-context')).toBeNull();
+        expect(screen.queryByTestId('kitchen-branch-hours-week-summary')).toBeNull();
     });
 
     it('clears and disables the time fields when a day is closed, and restores them empty', async () => {

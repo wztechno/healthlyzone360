@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7455 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7465 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2593,8 +2593,6 @@ export interface NamespaceKeys {
     | 'branchHours.allClosedBody'
     | 'branchHours.allClosedTitle'
     | 'branchHours.backToHub'
-    | 'branchHours.branchBadge'
-    | 'branchHours.branchUnknown'
     | 'branchHours.cardClosedCaption'
     | 'branchHours.cardCutOff'
     | 'branchHours.cardCutOffCaption'
@@ -2611,7 +2609,6 @@ export interface NamespaceKeys {
     | 'branchHours.columnDay'
     | 'branchHours.columnSays'
     | 'branchHours.columnTrading'
-    | 'branchHours.contextNote'
     | 'branchHours.copiedAnnouncement'
     | 'branchHours.copyShort'
     | 'branchHours.copyToOpenDays'
@@ -2631,14 +2628,10 @@ export interface NamespaceKeys {
     | 'branchHours.save'
     | 'branchHours.saveError'
     | 'branchHours.savedToast'
-    | 'branchHours.sectionContext'
-    | 'branchHours.sectionWeek'
-    | 'branchHours.timeZoneBadge'
     | 'branchHours.title'
     | 'branchHours.titleFor'
     | 'branchHours.tradingLabel'
     | 'branchHours.tradingOpen'
-    | 'branchHours.weekIntro'
     | 'calendar.a11y.nothing'
     | 'calendar.a11y.projected'
     | 'calendar.a11y.showing'
@@ -10083,8 +10076,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:branchHours.allClosedBody',
   'kitchen:branchHours.allClosedTitle',
   'kitchen:branchHours.backToHub',
-  'kitchen:branchHours.branchBadge',
-  'kitchen:branchHours.branchUnknown',
   'kitchen:branchHours.cardClosedCaption',
   'kitchen:branchHours.cardCutOff',
   'kitchen:branchHours.cardCutOffCaption',
@@ -10101,7 +10092,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:branchHours.columnDay',
   'kitchen:branchHours.columnSays',
   'kitchen:branchHours.columnTrading',
-  'kitchen:branchHours.contextNote',
   'kitchen:branchHours.copiedAnnouncement',
   'kitchen:branchHours.copyShort',
   'kitchen:branchHours.copyToOpenDays',
@@ -10121,14 +10111,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:branchHours.save',
   'kitchen:branchHours.saveError',
   'kitchen:branchHours.savedToast',
-  'kitchen:branchHours.sectionContext',
-  'kitchen:branchHours.sectionWeek',
-  'kitchen:branchHours.timeZoneBadge',
   'kitchen:branchHours.title',
   'kitchen:branchHours.titleFor',
   'kitchen:branchHours.tradingLabel',
   'kitchen:branchHours.tradingOpen',
-  'kitchen:branchHours.weekIntro',
   'kitchen:calendar.a11y.nothing',
   'kitchen:calendar.a11y.projected',
   'kitchen:calendar.a11y.showing',
