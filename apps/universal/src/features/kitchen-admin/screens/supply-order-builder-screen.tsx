@@ -25,7 +25,7 @@ import {
     useFormSteps,
     useToast,
 } from '@healthy360/design-system';
-import type { AccordionItem, SelectOption, TableColumn } from '@healthy360/design-system';
+import type { AccordionItem, SelectOption, TabItem, TableColumn } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -43,6 +43,7 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
+import { TabStepNavigation } from '../editor-steps.tsx';
 import { displayName } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { RecordFormOpening } from '../record-form-opening.tsx';
@@ -644,6 +645,29 @@ function SupplyOrderBuilder() {
 
     const loaded = branchId !== null && !proposal.isPending && failure === null;
 
+    const stepItems: readonly TabItem<BuilderStep>[] = stepKeys.map((key) => ({
+        value: key,
+        label: stepLabels[key],
+        count:
+            key === 'needs'
+                ? assigned.length
+                : key === 'unlinked'
+                  ? unlinked.length
+                  : plan.groups.length,
+        ...(key === 'unlinked' && plan.unassigned.length > 0
+            ? {
+                  issues: {
+                      count: plan.unassigned.length,
+                      tone: 'warning' as const,
+                      label: t('kitchen:forms.warningCount', {
+                          count: plan.unassigned.length,
+                      }),
+                  },
+              }
+            : {}),
+        testID: `kitchen-supply-order-builder-screen-steps-${key}`,
+    }));
+
     return (
         <Stack space="md" testID="kitchen-supply-order-builder-screen">
             {/*
@@ -704,28 +728,7 @@ function SupplyOrderBuilder() {
                               label: t('kitchen:editor.stepsLabel'),
                               value: form.current,
                               onChange: form.goTo,
-                              items: stepKeys.map((key) => ({
-                                  value: key,
-                                  label: stepLabels[key],
-                                  count:
-                                      key === 'needs'
-                                          ? assigned.length
-                                          : key === 'unlinked'
-                                            ? unlinked.length
-                                            : plan.groups.length,
-                                  ...(key === 'unlinked' && plan.unassigned.length > 0
-                                      ? {
-                                            issues: {
-                                                count: plan.unassigned.length,
-                                                tone: 'warning' as const,
-                                                label: t('kitchen:forms.warningCount', {
-                                                    count: plan.unassigned.length,
-                                                }),
-                                            },
-                                        }
-                                      : {}),
-                                  testID: `kitchen-supply-order-builder-screen-steps-${key}`,
-                              })),
+                              items: stepItems,
                           },
                       }
                     : {})}
@@ -967,6 +970,15 @@ function SupplyOrderBuilder() {
                     )}
                 </View>
             )}
+
+            {loaded ? (
+                <TabStepNavigation<BuilderStep>
+                    testID="kitchen-supply-order-builder-screen-steps-nav"
+                    items={stepItems}
+                    value={form.current}
+                    onChange={form.goTo}
+                />
+            ) : null}
 
             <Dialog
                 open={confirmingCreate}

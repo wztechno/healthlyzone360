@@ -1,5 +1,5 @@
 import { Button, FormNavigation, Icon, StepProgress } from '@healthy360/design-system';
-import type { FormSteps } from '@healthy360/design-system';
+import type { FormSteps, TabItem } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -107,6 +107,76 @@ export function EditorStepNavigation<Key extends string>({
                         iconEnd={<Icon name="chevronEnd" size="sm" />}
                         disabled={nextDisabled}
                         onPress={form.next}
+                    />
+                )
+            }
+        />
+    );
+}
+
+/**
+ * The same footer for a form whose steps are a `Tabs variant="steps"` row rather than
+ * `useFormSteps` — the recipe, plan, delivery zone, supplier and supply order pages. The numbered
+ * row is how a reader jumps; this is how they walk it, one step at a time, without scrolling back
+ * up to the row. A disabled step is skipped, the way the row itself will not open it.
+ *
+ * On the last step Next stays drawn and disabled unless the caller hands a `finalAction`, so the
+ * row keeps its width; the page's own commit is in its header.
+ */
+export interface TabStepNavigationProps<Key extends string> {
+    readonly items: readonly TabItem<Key>[];
+    readonly value: Key;
+    readonly onChange: (value: Key) => void;
+    readonly finalAction?: ReactNode | undefined;
+    /** The row. Its buttons are `{testID}-previous` and `{testID}-next`. */
+    readonly testID: string;
+}
+
+export function TabStepNavigation<Key extends string>({
+    items,
+    value,
+    onChange,
+    finalAction,
+    testID,
+}: TabStepNavigationProps<Key>) {
+    const { t } = useTranslation();
+    const index = items.findIndex((item) => item.value === value);
+
+    if (items.length <= 1 || index < 0) return null;
+
+    const previous = items
+        .slice(0, index)
+        .reverse()
+        .find((item) => item.disabled !== true);
+    const next = items.slice(index + 1).find((item) => item.disabled !== true);
+
+    return (
+        <FormNavigation
+            testID={testID}
+            previousTestID={`${testID}-previous`}
+            previousLabel={t('kitchen:editor.previous')}
+            previousDisabled={previous === undefined}
+            onPrevious={() => {
+                if (previous !== undefined) onChange(previous.value);
+            }}
+            counter={t('kitchen:editor.stepCounter', {
+                current: index + 1,
+                total: items.length,
+                label: items[index]?.label ?? '',
+            })}
+            sticky
+            actions={
+                next === undefined && finalAction !== undefined ? (
+                    finalAction
+                ) : (
+                    <Button
+                        testID={`${testID}-next`}
+                        label={t('kitchen:editor.next')}
+                        iconEnd={<Icon name="chevronEnd" size="sm" />}
+                        disabled={next === undefined}
+                        onPress={() => {
+                            if (next !== undefined) onChange(next.value);
+                        }}
                     />
                 )
             }

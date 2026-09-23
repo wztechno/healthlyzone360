@@ -17,7 +17,7 @@ import {
     useFormSteps,
     useToast,
 } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
+import type { TabItem, TableColumn } from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -39,6 +39,7 @@ import {
     useUpsertSupplierLinkMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { BilingualField } from '../bilingual-field.tsx';
+import { TabStepNavigation } from '../editor-steps.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
@@ -739,6 +740,30 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
     };
     const detailsIssueCount = shownIssues.length;
 
+    const stepItems: readonly TabItem<SupplierStep>[] = (
+        isCreating ? SUPPLIER_CREATE_STEPS : SUPPLIER_STEPS
+    ).map((key) => ({
+        value: key,
+        label: stepLabels[key],
+        ...(key === 'contacts'
+            ? { count: contacts.length }
+            : key === 'items'
+              ? { count: suppliedItems.length }
+              : {}),
+        ...(key === 'details' && detailsIssueCount > 0
+            ? {
+                  issues: {
+                      count: detailsIssueCount,
+                      tone: 'danger' as const,
+                      label: t('kitchen:forms.toFixCount', {
+                          count: detailsIssueCount,
+                      }),
+                  },
+              }
+            : {}),
+        testID: `kitchen-supplier-screen-steps-${key}`,
+    }));
+
     return (
         <Stack space="md" testID="kitchen-supplier-screen">
             <RecordFormOpening<SupplierStep>
@@ -839,27 +864,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                     value: form.current,
                     onChange: form.goTo,
                     // One step until the first save: contacts and supplied items hang off a record.
-                    items: (isCreating ? SUPPLIER_CREATE_STEPS : SUPPLIER_STEPS).map((key) => ({
-                        value: key,
-                        label: stepLabels[key],
-                        ...(key === 'contacts'
-                            ? { count: contacts.length }
-                            : key === 'items'
-                              ? { count: suppliedItems.length }
-                              : {}),
-                        ...(key === 'details' && detailsIssueCount > 0
-                            ? {
-                                  issues: {
-                                      count: detailsIssueCount,
-                                      tone: 'danger' as const,
-                                      label: t('kitchen:forms.toFixCount', {
-                                          count: detailsIssueCount,
-                                      }),
-                                  },
-                              }
-                            : {}),
-                        testID: `kitchen-supplier-screen-steps-${key}`,
-                    })),
+                    items: stepItems,
                 }}
             />
 
@@ -1244,6 +1249,13 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                     </FormSection>
                 )}
             </View>
+
+            <TabStepNavigation<SupplierStep>
+                testID="kitchen-supplier-screen-steps-nav"
+                items={stepItems}
+                value={form.current}
+                onChange={form.goTo}
+            />
 
             {/* ── supplier item reference ──────────────────────────────────────────────────── */}
             <Dialog

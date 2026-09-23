@@ -16,6 +16,7 @@ import {
     useFormSteps,
     useToast,
 } from '@healthy360/design-system';
+import type { TabItem } from '@healthy360/design-system';
 import { CURRENCY_CODES, DeliveryZoneId } from '@healthy360/domain-types';
 import type { CurrencyCode, ServiceAreaId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
@@ -53,6 +54,7 @@ import {
 } from '../delivery-model.ts';
 import type { DeliveryWindowDraft } from '../delivery-model.ts';
 import { DeliveryWindowRows, ServiceAreaPicker } from '../delivery-row-editors.tsx';
+import { TabStepNavigation } from '../editor-steps.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import { displayName, minorAmountToInput, statusKey, statusTone } from '../format.ts';
@@ -642,6 +644,30 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
               };
     };
 
+    const stepItems: readonly TabItem<ZoneStep>[] = [
+        {
+            value: 'zone',
+            label: t('kitchen:zones.sectionDetails'),
+            issues: stepIssues('zone'),
+            testID: 'kitchen-zone-editor-screen-steps-zone',
+        },
+        {
+            value: 'areas',
+            label: t('kitchen:zones.sectionAreas'),
+            count: areas.length,
+            disabled: !stepsUnlocked,
+            testID: 'kitchen-zone-editor-screen-steps-areas',
+        },
+        {
+            value: 'windows',
+            label: t('kitchen:zones.sectionWindows'),
+            count: windows.length,
+            disabled: !stepsUnlocked,
+            issues: stepIssues('windows'),
+            testID: 'kitchen-zone-editor-screen-steps-windows',
+        },
+    ];
+
     return (
         <Stack space="md" testID="kitchen-zone-editor-screen">
             <RecordFormOpening<ZoneStep>
@@ -722,29 +748,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                      * refuse are not a state to walk away from. Nothing else gates them — the walk
                      * writes at the end, so both are editable before the zone exists.
                      */
-                    items: [
-                        {
-                            value: 'zone',
-                            label: t('kitchen:zones.sectionDetails'),
-                            issues: stepIssues('zone'),
-                            testID: 'kitchen-zone-editor-screen-steps-zone',
-                        },
-                        {
-                            value: 'areas',
-                            label: t('kitchen:zones.sectionAreas'),
-                            count: areas.length,
-                            disabled: !stepsUnlocked,
-                            testID: 'kitchen-zone-editor-screen-steps-areas',
-                        },
-                        {
-                            value: 'windows',
-                            label: t('kitchen:zones.sectionWindows'),
-                            count: windows.length,
-                            disabled: !stepsUnlocked,
-                            issues: stepIssues('windows'),
-                            testID: 'kitchen-zone-editor-screen-steps-windows',
-                        },
-                    ],
+                    items: stepItems,
                 }}
             />
 
@@ -1011,6 +1015,13 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                     </Stack>
                 </FormSection>
             )}
+
+            <TabStepNavigation<ZoneStep>
+                testID="kitchen-zone-editor-screen-steps-nav"
+                items={stepItems}
+                value={form.current}
+                onChange={form.goTo}
+            />
 
             {/* ── archive ──────────────────────────────────────────────────────────────────── */}
             <Dialog

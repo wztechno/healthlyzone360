@@ -72,6 +72,7 @@ import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
+import { TabStepNavigation } from '../editor-steps.tsx';
 import {
     RECIPE_MANAGE_PERMISSION,
     RECIPE_VIEW_COSTS_PERMISSION,
@@ -130,8 +131,8 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * a summary line under it, and the tabs as numbered steps on a sunken track, each carrying its count
  * and — when something on it needs attention — a solid pill with the number of problems. The
  * banner under the header names each of those problems and takes the reader to it, switching tab
- * on the way; the pills are what tells a reader *which* tab to open without opening all five. There
- * is no Previous/Next footer any more: the numbered row is both the map and the way through it.
+ * on the way; the pills are what tells a reader *which* tab to open without opening all five. The
+ * row is how a reader jumps; the Previous/Next footer (`TabStepNavigation`) is how they walk it.
  *
  * The yield moved from Description to Production, where it sits with the production waste as
  * "Yield & waste" above the lines it divides; the packaging waste sits above the packaging lines
@@ -2729,6 +2730,14 @@ function RecipeEditor({
                     </View>
                 </View>
             )}
+
+            {/* ── Previous / Next — walks the tab row one step at a time ─────────────────────── */}
+            <TabStepNavigation<RecipeTab>
+                testID="kitchen-recipe-steps-nav"
+                items={tabItems}
+                value={tab}
+                onChange={setTab}
+            />
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog
