@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7465 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7474 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4384,6 +4384,7 @@ export interface NamespaceKeys {
     | 'ops.stock.waste'
     | 'ops.stock.wastedToast'
     | 'ops.suppliers.addContact'
+    | 'ops.suppliers.addressPlaceholder'
     | 'ops.suppliers.allItemsLinked'
     | 'ops.suppliers.archiveBody'
     | 'ops.suppliers.archiveConfirm'
@@ -4395,6 +4396,7 @@ export interface NamespaceKeys {
     | 'ops.suppliers.archivedToast'
     | 'ops.suppliers.backToList'
     | 'ops.suppliers.caption'
+    | 'ops.suppliers.codePlaceholder'
     | 'ops.suppliers.columnContact'
     | 'ops.suppliers.columnItem'
     | 'ops.suppliers.columnItems'
@@ -4412,6 +4414,7 @@ export interface NamespaceKeys {
     | 'ops.suppliers.editRefBody'
     | 'ops.suppliers.editRefTitle'
     | 'ops.suppliers.editTitle'
+    | 'ops.suppliers.emailPlaceholder'
     | 'ops.suppliers.emptyBody'
     | 'ops.suppliers.emptyTitle'
     | 'ops.suppliers.fieldAddress'
@@ -4437,12 +4440,15 @@ export interface NamespaceKeys {
     | 'ops.suppliers.itemsTitle'
     | 'ops.suppliers.leadTimeDays'
     | 'ops.suppliers.leadTimeInvalid'
+    | 'ops.suppliers.leadTimePlaceholder'
     | 'ops.suppliers.linkItem'
     | 'ops.suppliers.linkItemLabel'
     | 'ops.suppliers.linkedToast'
     | 'ops.suppliers.loadErrorTitle'
     | 'ops.suppliers.makePreferred'
     | 'ops.suppliers.makePrimary'
+    | 'ops.suppliers.namePlaceholderAr'
+    | 'ops.suppliers.namePlaceholderEn'
     | 'ops.suppliers.nameRequired'
     | 'ops.suppliers.neverBoughtHere'
     | 'ops.suppliers.noContact'
@@ -4456,6 +4462,9 @@ export interface NamespaceKeys {
     | 'ops.suppliers.noTerms'
     | 'ops.suppliers.notFoundBody'
     | 'ops.suppliers.notFoundTitle'
+    | 'ops.suppliers.notesPlaceholder'
+    | 'ops.suppliers.paymentTermsPlaceholder'
+    | 'ops.suppliers.phonePlaceholder'
     | 'ops.suppliers.pickItem'
     | 'ops.suppliers.preferredBadge'
     | 'ops.suppliers.preferredToast'
@@ -11867,6 +11876,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.waste',
   'kitchen:ops.stock.wastedToast',
   'kitchen:ops.suppliers.addContact',
+  'kitchen:ops.suppliers.addressPlaceholder',
   'kitchen:ops.suppliers.allItemsLinked',
   'kitchen:ops.suppliers.archiveBody',
   'kitchen:ops.suppliers.archiveConfirm',
@@ -11878,6 +11888,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.archivedToast',
   'kitchen:ops.suppliers.backToList',
   'kitchen:ops.suppliers.caption',
+  'kitchen:ops.suppliers.codePlaceholder',
   'kitchen:ops.suppliers.columnContact',
   'kitchen:ops.suppliers.columnItem',
   'kitchen:ops.suppliers.columnItems',
@@ -11895,6 +11906,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.editRefBody',
   'kitchen:ops.suppliers.editRefTitle',
   'kitchen:ops.suppliers.editTitle',
+  'kitchen:ops.suppliers.emailPlaceholder',
   'kitchen:ops.suppliers.emptyBody',
   'kitchen:ops.suppliers.emptyTitle',
   'kitchen:ops.suppliers.fieldAddress',
@@ -11920,12 +11932,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.itemsTitle',
   'kitchen:ops.suppliers.leadTimeDays',
   'kitchen:ops.suppliers.leadTimeInvalid',
+  'kitchen:ops.suppliers.leadTimePlaceholder',
   'kitchen:ops.suppliers.linkItem',
   'kitchen:ops.suppliers.linkItemLabel',
   'kitchen:ops.suppliers.linkedToast',
   'kitchen:ops.suppliers.loadErrorTitle',
   'kitchen:ops.suppliers.makePreferred',
   'kitchen:ops.suppliers.makePrimary',
+  'kitchen:ops.suppliers.namePlaceholderAr',
+  'kitchen:ops.suppliers.namePlaceholderEn',
   'kitchen:ops.suppliers.nameRequired',
   'kitchen:ops.suppliers.neverBoughtHere',
   'kitchen:ops.suppliers.noContact',
@@ -11939,6 +11954,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.noTerms',
   'kitchen:ops.suppliers.notFoundBody',
   'kitchen:ops.suppliers.notFoundTitle',
+  'kitchen:ops.suppliers.notesPlaceholder',
+  'kitchen:ops.suppliers.paymentTermsPlaceholder',
+  'kitchen:ops.suppliers.phonePlaceholder',
   'kitchen:ops.suppliers.pickItem',
   'kitchen:ops.suppliers.preferredBadge',
   'kitchen:ops.suppliers.preferredToast',

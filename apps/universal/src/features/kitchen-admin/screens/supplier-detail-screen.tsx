@@ -908,6 +908,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 testID="kitchen-supplier-code"
                                 id="kitchen-supplier-code"
                                 label={t('kitchen:ops.suppliers.fieldCode')}
+                                placeholder={t('kitchen:ops.suppliers.codePlaceholder')}
                                 size="sm"
                                 value={details.code}
                                 autoCapitalize="characters"
@@ -922,6 +923,10 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 layout="row"
                                 testID="kitchen-supplier-name"
                                 fieldLabel={t('kitchen:ops.suppliers.fieldName')}
+                                placeholder={{
+                                    en: t('kitchen:ops.suppliers.namePlaceholderEn'),
+                                    ar: t('kitchen:ops.suppliers.namePlaceholderAr'),
+                                }}
                                 value={details.name}
                                 requiredEnglish
                                 disabled={!editable}
@@ -937,6 +942,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 testID="kitchen-supplier-email"
                                 id="kitchen-supplier-email"
                                 label={t('kitchen:ops.suppliers.fieldEmail')}
+                                placeholder={t('kitchen:ops.suppliers.emailPlaceholder')}
                                 size="sm"
                                 value={details.contactEmail}
                                 keyboardType="email-address"
@@ -951,6 +957,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 testID="kitchen-supplier-phone"
                                 id="kitchen-supplier-phone"
                                 label={t('kitchen:ops.suppliers.fieldPhone')}
+                                placeholder={t('kitchen:ops.suppliers.phonePlaceholder')}
                                 size="sm"
                                 value={details.contactPhone}
                                 keyboardType="phone-pad"
@@ -981,6 +988,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 testID="kitchen-supplier-payment-terms"
                                 id="kitchen-supplier-payment-terms"
                                 label={t('kitchen:ops.suppliers.fieldPaymentTerms')}
+                                placeholder={t('kitchen:ops.suppliers.paymentTermsPlaceholder')}
                                 size="sm"
                                 value={details.paymentTerms}
                                 disabled={!editable}
@@ -993,6 +1001,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 testID="kitchen-supplier-lead-time"
                                 id="kitchen-supplier-lead-time"
                                 label={t('kitchen:ops.suppliers.fieldLeadTime')}
+                                placeholder={t('kitchen:ops.suppliers.leadTimePlaceholder')}
                                 size="sm"
                                 value={details.leadTimeDays}
                                 keyboardType="number-pad"
@@ -1009,6 +1018,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 testID="kitchen-supplier-address"
                                 id="kitchen-supplier-address"
                                 label={t('kitchen:ops.suppliers.fieldAddress')}
+                                placeholder={t('kitchen:ops.suppliers.addressPlaceholder')}
                                 size="sm"
                                 fullWidth
                                 value={details.address}
@@ -1024,6 +1034,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 testID="kitchen-supplier-notes"
                                 id="kitchen-supplier-notes"
                                 label={t('kitchen:ops.suppliers.fieldNotes')}
+                                placeholder={t('kitchen:ops.suppliers.notesPlaceholder')}
                                 size="sm"
                                 fullWidth
                                 value={details.notes}
