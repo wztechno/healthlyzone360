@@ -170,6 +170,7 @@ function Quotations() {
         },
         {
             key: 'currency',
+            align: 'center',
             role: 'meta',
             label: t('kitchen:ops.quotations.columnCurrency'),
             width: 90,

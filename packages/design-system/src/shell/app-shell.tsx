@@ -1104,23 +1104,15 @@ function PanelNavLink({
             }}
             className="flex-row items-center gap-1"
         >
+            {/*
+             * The same bullet on every page, the current one included. The pill behind the label
+             * is what says which page is open; a haloed, brand-filled dot beside it said it twice.
+             */}
             <View
                 testID={item.testID === undefined ? undefined : `${item.testID}-marker`}
                 className="w-4 items-center justify-center"
             >
-                <View
-                    className={cx(
-                        'h-3 w-3 items-center justify-center rounded-full',
-                        active ? 'bg-surface-brand/30' : 'bg-transparent',
-                    )}
-                >
-                    <View
-                        className={cx(
-                            'h-1.5 w-1.5 rounded-full',
-                            active ? 'bg-surface-brand' : 'bg-stroke-strong',
-                        )}
-                    />
-                </View>
+                <View className="h-1.5 w-1.5 rounded-full bg-stroke-strong" />
             </View>
             <View
                 className={cx(

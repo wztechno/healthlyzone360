@@ -121,13 +121,13 @@ export function DeliveryWindowRows({
         onChange(rows.map((row, position) => (position === index ? { ...row, ...next } : row)));
     };
 
-    const head = (label: string, width?: number, end = false) => (
+    /*
+     * Every header at the start of its column, over the start of the field under it. Capacity used
+     * to sit at the end, over the empty half of its box and away from the number it names.
+     */
+    const head = (label: string, width?: number) => (
         <View {...(width === undefined ? { className: 'min-w-0 flex-1' } : { style: { width } })}>
-            <Text
-                variant="micro"
-                tone="secondary"
-                className={cx('uppercase', end ? 'text-end' : null)}
-            >
+            <Text variant="micro" tone="secondary" className="uppercase">
                 {label}
             </Text>
         </View>
@@ -141,7 +141,7 @@ export function DeliveryWindowRows({
                     {head(t('kitchen:windows.weekdaysLabel'), WINDOW_TRACKS.days)}
                     {head(t('kitchen:windows.startsLabel'), WINDOW_TRACKS.starts)}
                     {head(t('kitchen:windows.endsLabel'), WINDOW_TRACKS.ends)}
-                    {head(t('kitchen:windows.capacityColumn'), WINDOW_TRACKS.capacity, true)}
+                    {head(t('kitchen:windows.capacityColumn'), WINDOW_TRACKS.capacity)}
                     {head(t('kitchen:windows.offeredColumn'), WINDOW_TRACKS.offered)}
                     <View style={{ width: WINDOW_TRACKS.remove }} />
                 </View>
@@ -175,6 +175,12 @@ export function DeliveryWindowRows({
                                         requiredEnglish
                                         labelHidden
                                         layout="fill"
+                                        // What a window is called, by example: the name a customer
+                                        // picks a delivery slot by — "Morning", not "Window 1".
+                                        placeholder={{
+                                            en: t('kitchen:windows.labelPlaceholderEn'),
+                                            ar: t('kitchen:windows.labelPlaceholderAr'),
+                                        }}
                                         disabled={!canManage}
                                         onChange={(next) => {
                                             patch(index, { label: next });

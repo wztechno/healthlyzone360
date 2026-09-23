@@ -527,7 +527,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnPerBatch'),
             width: 96,
             priority: 50,
-            align: 'end',
+            align: 'center',
             mono: true,
             sort: (left, right, direction) =>
                 compareNumber(left.quantity, right.quantity, direction),
@@ -542,7 +542,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnToIssue'),
             width: 96,
             priority: 90,
-            align: 'end',
+            align: 'center',
             mono: true,
             sort: (left, right, direction) =>
                 compareNumber(
@@ -600,7 +600,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnPerBatch'),
             width: 96,
             priority: 50,
-            align: 'end',
+            align: 'center',
             mono: true,
             sort: (left, right, direction) =>
                 compareNumber(left.quantity, right.quantity, direction),
@@ -611,7 +611,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnToIssue'),
             width: 140,
             priority: 90,
-            align: 'end',
+            align: 'center',
             mono: true,
             // By what is issued, the rounded-up count: the figure the cell leads with.
             sort: (left, right, direction) =>

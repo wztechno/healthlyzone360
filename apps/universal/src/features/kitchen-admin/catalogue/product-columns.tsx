@@ -201,6 +201,7 @@ export function productColumns({
         },
         {
             key: 'packs',
+            align: 'center',
             label: t('kitchen:products.columnPacks'),
             width: 160,
             min: 118,

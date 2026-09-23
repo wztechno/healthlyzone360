@@ -10,4 +10,4 @@
  * Everything shared lives in `grid-shared.ts` and is exported from there, never through this file.
  */
 export { FormGrid } from './grid.web.tsx';
-export type { GridColumnCount, GridProps, GridSpanProps } from './grid-shared.ts';
+export type { GridColumnCount, GridProps, GridSpanProps, GridTrack } from './grid-shared.ts';

@@ -71,6 +71,7 @@ export function Select<T extends string = string>({
     placeholder,
     hint,
     error,
+    warning,
     required = false,
     disabled = false,
     searchable = false,
@@ -104,6 +105,7 @@ export function Select<T extends string = string>({
             labelHidden={labelHidden}
             {...(hint === undefined ? {} : { hint })}
             {...(error === undefined ? {} : { error })}
+            {...(warning === undefined ? {} : { warning })}
             required={required}
             disabled={disabled}
             {...(id === undefined ? {} : { id })}
@@ -143,6 +145,7 @@ export function Select<T extends string = string>({
                     trigger={({ triggerProps, toggle, close, open }) => {
                         const frame = inputFrameClassName({
                             invalid: error !== undefined,
+                            caution: error === undefined && warning !== undefined,
                             focused: open,
                             disabled,
                             density,

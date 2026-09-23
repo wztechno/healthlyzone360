@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7431 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7455 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2701,7 +2701,6 @@ export interface NamespaceKeys {
     | 'channels.createFirst'
     | 'channels.fromHint'
     | 'channels.fromLabel'
-    | 'channels.save'
     | 'channels.saveError'
     | 'channels.savedToast'
     | 'channels.sectionHint'
@@ -2957,7 +2956,6 @@ export interface NamespaceKeys {
     | 'desk.sale.notesLabel'
     | 'desk.sale.orderRefusalsTitle'
     | 'desk.sale.paymentDescription'
-    | 'desk.sale.pickerAdd'
     | 'desk.sale.pickerAddItem'
     | 'desk.sale.pickerAdded'
     | 'desk.sale.pickerColumnAllergens'
@@ -3204,6 +3202,37 @@ export interface NamespaceKeys {
     | 'fields.unitPrice'
     | 'fields.unitPriceHint'
     | 'fields.unitPricePlaceholder'
+    | 'forms.aboveWaste'
+    | 'forms.allergensTitle'
+    | 'forms.atZeroCount'
+    | 'forms.cost'
+    | 'forms.costPerItem'
+    | 'forms.days'
+    | 'forms.description'
+    | 'forms.expiryAndWaste'
+    | 'forms.expiryPeriod'
+    | 'forms.holds'
+    | 'forms.holdsUnit'
+    | 'forms.image'
+    | 'forms.imagePick'
+    | 'forms.imageRemove'
+    | 'forms.incompleteLines'
+    | 'forms.issueUnit'
+    | 'forms.itemsPerPack'
+    | 'forms.itemsPerUnit'
+    | 'forms.marginBelowCost'
+    | 'forms.marginLow'
+    | 'forms.noFigures'
+    | 'forms.nutritionTitle'
+    | 'forms.pack'
+    | 'forms.price'
+    | 'forms.required'
+    | 'forms.requiredCount'
+    | 'forms.toFixCount'
+    | 'forms.warningCount'
+    | 'forms.waste'
+    | 'forms.yieldAndWaste'
+    | 'forms.zeroQuantity'
     | 'frozenMeals.caption'
     | 'frozenMeals.create'
     | 'frozenMeals.emptyBody'
@@ -4862,6 +4891,7 @@ export interface NamespaceKeys {
     | 'plans.statDraftCaption'
     | 'plans.statPlansUnit'
     | 'plans.statPublishedCaption'
+    | 'plans.stepsLabel'
     | 'plans.subtitle'
     | 'plans.summaryLabel'
     | 'plans.tabMatrix'
@@ -4978,21 +5008,20 @@ export interface NamespaceKeys {
     | 'priceStatus.marketPriced'
     | 'priceStatus.placeholder'
     | 'products.addPack'
+    | 'products.archiveAlready'
     | 'products.archiveBody'
     | 'products.archiveConfirm'
     | 'products.archiveConsequence'
     | 'products.archiveFailed'
+    | 'products.archiveHint'
+    | 'products.archiveNoPermission'
     | 'products.archiveTitle'
+    | 'products.archiveUnsaved'
     | 'products.archivedToast'
     | 'products.assortedHint'
     | 'products.assortedLabel'
     | 'products.assortedShort'
     | 'products.backToList'
-    | 'products.blockCategory'
-    | 'products.blockChannels'
-    | 'products.blockName'
-    | 'products.blockPacks'
-    | 'products.blockUnsaved'
     | 'products.caption'
     | 'products.categoryFilterAll'
     | 'products.categoryFilterLabel'
@@ -5013,7 +5042,6 @@ export interface NamespaceKeys {
     | 'products.dietsLabel'
     | 'products.dietsNone'
     | 'products.dietsRailEmpty'
-    | 'products.dietsRailTitle'
     | 'products.editTitle'
     | 'products.emptyBody'
     | 'products.emptyTitle'
@@ -5021,11 +5049,6 @@ export interface NamespaceKeys {
     | 'products.filteredEmptyTitle'
     | 'products.formulationStart'
     | 'products.formulationStartedToast'
-    | 'products.gateCheckCategory'
-    | 'products.gateCheckChannels'
-    | 'products.gateCheckName'
-    | 'products.gateCheckPacks'
-    | 'products.gateTitle'
     | 'products.loadErrorTitle'
     | 'products.marketPricedHint'
     | 'products.marketPricedLabel'
@@ -5081,7 +5104,6 @@ export interface NamespaceKeys {
     | 'products.resultCount'
     | 'products.searchPlaceholder'
     | 'products.sectionDetails'
-    | 'products.sectionIdentity'
     | 'products.sectionPacks'
     | 'products.sectionRecipe'
     | 'products.statNoPack'
@@ -5596,6 +5618,8 @@ export interface NamespaceKeys {
     | 'windows.endsLabel'
     | 'windows.inactiveBadge'
     | 'windows.labelField'
+    | 'windows.labelPlaceholderAr'
+    | 'windows.labelPlaceholderEn'
     | 'windows.labelRequired'
     | 'windows.none'
     | 'windows.offeredColumn'
@@ -10167,7 +10191,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:channels.createFirst',
   'kitchen:channels.fromHint',
   'kitchen:channels.fromLabel',
-  'kitchen:channels.save',
   'kitchen:channels.saveError',
   'kitchen:channels.savedToast',
   'kitchen:channels.sectionHint',
@@ -10423,7 +10446,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.notesLabel',
   'kitchen:desk.sale.orderRefusalsTitle',
   'kitchen:desk.sale.paymentDescription',
-  'kitchen:desk.sale.pickerAdd',
   'kitchen:desk.sale.pickerAddItem',
   'kitchen:desk.sale.pickerAdded',
   'kitchen:desk.sale.pickerColumnAllergens',
@@ -10670,6 +10692,37 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.unitPrice',
   'kitchen:fields.unitPriceHint',
   'kitchen:fields.unitPricePlaceholder',
+  'kitchen:forms.aboveWaste',
+  'kitchen:forms.allergensTitle',
+  'kitchen:forms.atZeroCount',
+  'kitchen:forms.cost',
+  'kitchen:forms.costPerItem',
+  'kitchen:forms.days',
+  'kitchen:forms.description',
+  'kitchen:forms.expiryAndWaste',
+  'kitchen:forms.expiryPeriod',
+  'kitchen:forms.holds',
+  'kitchen:forms.holdsUnit',
+  'kitchen:forms.image',
+  'kitchen:forms.imagePick',
+  'kitchen:forms.imageRemove',
+  'kitchen:forms.incompleteLines',
+  'kitchen:forms.issueUnit',
+  'kitchen:forms.itemsPerPack',
+  'kitchen:forms.itemsPerUnit',
+  'kitchen:forms.marginBelowCost',
+  'kitchen:forms.marginLow',
+  'kitchen:forms.noFigures',
+  'kitchen:forms.nutritionTitle',
+  'kitchen:forms.pack',
+  'kitchen:forms.price',
+  'kitchen:forms.required',
+  'kitchen:forms.requiredCount',
+  'kitchen:forms.toFixCount',
+  'kitchen:forms.warningCount',
+  'kitchen:forms.waste',
+  'kitchen:forms.yieldAndWaste',
+  'kitchen:forms.zeroQuantity',
   'kitchen:frozenMeals.caption',
   'kitchen:frozenMeals.create',
   'kitchen:frozenMeals.emptyBody',
@@ -12328,6 +12381,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.statDraftCaption',
   'kitchen:plans.statPlansUnit',
   'kitchen:plans.statPublishedCaption',
+  'kitchen:plans.stepsLabel',
   'kitchen:plans.subtitle',
   'kitchen:plans.summaryLabel',
   'kitchen:plans.tabMatrix',
@@ -12444,21 +12498,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:priceStatus.marketPriced',
   'kitchen:priceStatus.placeholder',
   'kitchen:products.addPack',
+  'kitchen:products.archiveAlready',
   'kitchen:products.archiveBody',
   'kitchen:products.archiveConfirm',
   'kitchen:products.archiveConsequence',
   'kitchen:products.archiveFailed',
+  'kitchen:products.archiveHint',
+  'kitchen:products.archiveNoPermission',
   'kitchen:products.archiveTitle',
+  'kitchen:products.archiveUnsaved',
   'kitchen:products.archivedToast',
   'kitchen:products.assortedHint',
   'kitchen:products.assortedLabel',
   'kitchen:products.assortedShort',
   'kitchen:products.backToList',
-  'kitchen:products.blockCategory',
-  'kitchen:products.blockChannels',
-  'kitchen:products.blockName',
-  'kitchen:products.blockPacks',
-  'kitchen:products.blockUnsaved',
   'kitchen:products.caption',
   'kitchen:products.categoryFilterAll',
   'kitchen:products.categoryFilterLabel',
@@ -12479,7 +12532,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.dietsLabel',
   'kitchen:products.dietsNone',
   'kitchen:products.dietsRailEmpty',
-  'kitchen:products.dietsRailTitle',
   'kitchen:products.editTitle',
   'kitchen:products.emptyBody',
   'kitchen:products.emptyTitle',
@@ -12487,11 +12539,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.filteredEmptyTitle',
   'kitchen:products.formulationStart',
   'kitchen:products.formulationStartedToast',
-  'kitchen:products.gateCheckCategory',
-  'kitchen:products.gateCheckChannels',
-  'kitchen:products.gateCheckName',
-  'kitchen:products.gateCheckPacks',
-  'kitchen:products.gateTitle',
   'kitchen:products.loadErrorTitle',
   'kitchen:products.marketPricedHint',
   'kitchen:products.marketPricedLabel',
@@ -12547,7 +12594,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.resultCount',
   'kitchen:products.searchPlaceholder',
   'kitchen:products.sectionDetails',
-  'kitchen:products.sectionIdentity',
   'kitchen:products.sectionPacks',
   'kitchen:products.sectionRecipe',
   'kitchen:products.statNoPack',
@@ -13062,6 +13108,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:windows.endsLabel',
   'kitchen:windows.inactiveBadge',
   'kitchen:windows.labelField',
+  'kitchen:windows.labelPlaceholderAr',
+  'kitchen:windows.labelPlaceholderEn',
   'kitchen:windows.labelRequired',
   'kitchen:windows.none',
   'kitchen:windows.offeredColumn',

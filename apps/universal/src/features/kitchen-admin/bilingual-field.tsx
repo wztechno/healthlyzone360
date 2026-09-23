@@ -197,6 +197,12 @@ export interface BilingualFieldProps extends GridSpanProps {
      * under a table's column header (the delivery window table).
      */
     readonly labelHidden?: boolean | undefined;
+    /**
+     * An example for each half — `Morning` in the English box, `الصباح` in the Arabic one. Each
+     * language gets its own, written in that language: a placeholder is read in the box it sits in,
+     * and an English example in the right-to-left box would show the reader the wrong script.
+     */
+    readonly placeholder?: { readonly en?: string; readonly ar?: string } | undefined;
     readonly testID: string;
 }
 
@@ -210,9 +216,14 @@ export function BilingualField({
     disabled = false,
     layout = 'stacked',
     labelHidden = false,
+    placeholder,
     testID,
 }: BilingualFieldProps) {
     const { t } = useTranslation();
+    const hintFor = (language: 'en' | 'ar'): { readonly placeholder?: string } => {
+        const text = placeholder?.[language];
+        return text === undefined ? {} : { placeholder: text };
+    };
     const arabicMissing = value.ar.trim() === '';
     const row = layout === 'row';
 
@@ -236,6 +247,7 @@ export function BilingualField({
                             onChange({ ...value, en: next });
                         }}
                         direction="ltr"
+                        {...hintFor('en')}
                         required={requiredEnglish}
                         multiline={multiline}
                         disabled={disabled}
@@ -252,6 +264,7 @@ export function BilingualField({
                             onChange({ ...value, ar: next });
                         }}
                         direction="rtl"
+                        {...hintFor('ar')}
                         multiline={multiline}
                         disabled={disabled}
                     />
@@ -281,6 +294,7 @@ export function BilingualField({
                             onChange({ ...value, en: next });
                         }}
                         direction="ltr"
+                        {...hintFor('en')}
                         required={requiredEnglish}
                         multiline={multiline}
                         disabled={disabled}
@@ -296,6 +310,7 @@ export function BilingualField({
                             onChange({ ...value, ar: next });
                         }}
                         direction="rtl"
+                        {...hintFor('ar')}
                         multiline={multiline}
                         disabled={disabled}
                     />
@@ -315,6 +330,7 @@ export function BilingualField({
                     onChange({ ...value, en: next });
                 }}
                 direction="ltr"
+                {...hintFor('en')}
                 required={requiredEnglish}
                 multiline={multiline}
                 disabled={disabled}
@@ -330,6 +346,7 @@ export function BilingualField({
                     onChange({ ...value, ar: next });
                 }}
                 direction="rtl"
+                {...hintFor('ar')}
                 multiline={multiline}
                 disabled={disabled}
             />

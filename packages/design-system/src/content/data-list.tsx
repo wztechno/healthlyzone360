@@ -6,6 +6,8 @@ import type { LayoutChangeEvent } from 'react-native';
 
 import { cx } from '../internal/class-names.ts';
 import { GRID_CONTENT_ATTR } from '../overlays/anchored-surface.ts';
+import { TableCellTextContext } from '../primitives/text.tsx';
+import type { TableCellText } from '../primitives/text.tsx';
 
 /**
  * DataList — the Catalogue's list, driven by a column spec.
@@ -81,9 +83,9 @@ export interface DataListColumn<Row> {
      */
     readonly grow?: boolean | undefined;
     /**
-     * Cell and header alignment. Defaults to `start`, which is where the Catalogue's numeric
-     * columns sit too: a price read down a left edge lines up with the label above it, and the
-     * tracks are no longer narrow enough for `end` or `center` to be doing any work.
+     * Cell and header alignment. Defaults to `center` for a `mono` column and `start` for any
+     * other — see {@link dataListColumnAlign}. `end` is for a control column: the row's ⋯ or its
+     * one button, anchored to the edge the reader's eye finishes the row on.
      */
     readonly align?: 'start' | 'end' | 'center' | undefined;
     /** Sets the cell in the mono role. Quantities, costs, references and versions (§1.2). */
@@ -274,13 +276,34 @@ const JUSTIFY_CLASS: Readonly<Record<'start' | 'end' | 'center', string>> = {
     center: 'justify-center',
 };
 
+/**
+ * Where a column's header and cells sit.
+ *
+ * A column of figures — quantities, units, costs, counts, the `mono` columns — is centred under its
+ * header, the way the recipe editor's line table sets its figures: the number and its unit read as
+ * one block in the middle of the track, and the header above names the block rather than the empty
+ * space beside it. Every other column starts at the inline start. A column that states its own
+ * alignment keeps it.
+ *
+ * Exported so a custom header — the Catalogue's sort-and-filter header — sits where its cells do.
+ */
+export function dataListColumnAlign(
+    column: Pick<DataListColumn<unknown>, 'align' | 'mono'>,
+): 'start' | 'end' | 'center' {
+    return column.align ?? (column.mono === true ? 'center' : 'start');
+}
+
+/** The text of a cell with no renderer — the one size and ink every cell is set in. */
 function cellClass(column: DataListColumn<unknown>): string {
     return cx(
         'text-role-body text-content-primary',
         column.mono === true ? 'tabular-nums' : null,
-        TEXT_ALIGN_CLASS[column.align ?? 'start'],
+        TEXT_ALIGN_CLASS[dataListColumnAlign(column)],
     );
 }
+
+/** One value for every cell: the context is compared by identity, so a new object each time would re-render every text. */
+const CELL_TEXT: TableCellText = {};
 
 export function DataList<Row>({
     columns,
@@ -451,7 +474,9 @@ export function DataList<Row>({
                                         // under it, so the header reads as the column's name — the
                                         // same role the sort and filter headers draw with.
                                         'text-role-strong text-content-on-brand-subtle',
-                                        TEXT_ALIGN_CLASS[column.align ?? 'start'],
+                                        TEXT_ALIGN_CLASS[
+                                            dataListColumnAlign(column as DataListColumn<unknown>)
+                                        ],
                                     )}
                                 >
                                     {column.label}
@@ -477,7 +502,9 @@ export function DataList<Row>({
                                       // floor, and a padded cell would raise every row above the
                                       // density it was asked for.
                                       'flex-row items-center px-control-sm',
-                                      JUSTIFY_CLASS[column.align ?? 'start'],
+                                      JUSTIFY_CLASS[
+                                          dataListColumnAlign(column as DataListColumn<unknown>)
+                                      ],
                                   )}
                               >
                                   {column.render === undefined ? (
@@ -491,7 +518,14 @@ export function DataList<Row>({
                                           {column.value?.(row) ?? ''}
                                       </RNText>
                                   ) : (
-                                      column.render(row)
+                                      /*
+                                       * A renderer's own text takes the cell's size and ink — see
+                                       * `TableCellTextContext` — so a column reads in one voice
+                                       * whatever variant each renderer reached for.
+                                       */
+                                      <TableCellTextContext.Provider value={CELL_TEXT}>
+                                          {column.render(row)}
+                                      </TableCellTextContext.Provider>
                                   )}
                               </View>
                           ));

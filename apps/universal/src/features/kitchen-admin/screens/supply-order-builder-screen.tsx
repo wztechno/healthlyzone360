@@ -42,11 +42,10 @@ import {
     useUpsertSupplierLinkMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import { EditorStepNavigation, EditorStepProgress } from '../editor-steps.tsx';
-import type { EditorStep } from '../editor-steps.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { RecordFormOpening } from '../record-form-opening.tsx';
 import { stockItemLabel, supplyOrderGroupTestId, supplyOrderRowTestId } from '../ops-format.ts';
 import {
     buildGroups,
@@ -238,10 +237,6 @@ function SupplyOrderBuilder() {
         unlinked: t('kitchen:ops.supplyOrders.unlinkedTitle'),
         review: t('kitchen:ops.supplyOrders.readyTitle'),
     };
-    const steps: readonly EditorStep<BuilderStep>[] = stepKeys.map((key) => ({
-        key,
-        label: stepLabels[key],
-    }));
 
     /**
      * One number for the bar, two for the dialog.
@@ -353,6 +348,7 @@ function SupplyOrderBuilder() {
             },
             {
                 key: 'onHand',
+                numeric: true,
                 header: t('kitchen:ops.supplyOrders.columnOnHand'),
                 flex: 2,
                 render: (row) => {
@@ -400,6 +396,7 @@ function SupplyOrderBuilder() {
             },
             {
                 key: 'quantity',
+                numeric: true,
                 header: t('kitchen:ops.supplyOrders.columnQuantity'),
                 flex: 2,
                 render: (row) => {
@@ -645,8 +642,95 @@ function SupplyOrderBuilder() {
         ),
     }));
 
+    const loaded = branchId !== null && !proposal.isPending && failure === null;
+
     return (
-        <Stack space="lg" testID="kitchen-supply-order-builder-screen">
+        <Stack space="md" testID="kitchen-supply-order-builder-screen">
+            {/*
+             * The opening the record forms share: the title, Cancel and the one create at the inline
+             * end, and the steps as numbered tabs — each with its count, and the unlinked step with a
+             * warning pill for the shelves that will not be ordered. The create sits in the header on
+             * every step, because the counts on the tabs already say what it will make; it waits
+             * only for there to be something to order.
+             */}
+            <RecordFormOpening<BuilderStep>
+                testID="kitchen-supply-order-builder-screen"
+                title={t('kitchen:ops.supplyOrders.builderTitle')}
+                dirty={touched}
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-supply-order-builder-cancel"
+                            variant="secondary"
+                            label={t('kitchen:editor.cancel')}
+                            onPress={() => {
+                                router.push('/kitchen/supply-orders' as never);
+                            }}
+                        />
+                        {loaded ? (
+                            <Button
+                                testID="kitchen-supply-order-create"
+                                label={t('kitchen:ops.supplyOrders.createDrafts', {
+                                    count: plan.groups.length,
+                                })}
+                                loading={createOrders.isPending}
+                                disabled={plan.groups.length === 0}
+                                onPress={() => {
+                                    setCreateFailed(false);
+                                    setConfirmingCreate(true);
+                                }}
+                            />
+                        ) : null}
+                    </>
+                }
+                warnings={{
+                    summary: t('kitchen:forms.warningCount', { count: plan.unassigned.length }),
+                    items:
+                        !loaded || plan.unassigned.length === 0 || !stepKeys.includes('unlinked')
+                            ? []
+                            : [
+                                  {
+                                      key: 'unlinked',
+                                      label: stepLabels.unlinked,
+                                      onPress: () => {
+                                          form.goTo('unlinked');
+                                      },
+                                  },
+                              ],
+                }}
+                {...(loaded
+                    ? {
+                          steps: {
+                              label: t('kitchen:editor.stepsLabel'),
+                              value: form.current,
+                              onChange: form.goTo,
+                              items: stepKeys.map((key) => ({
+                                  value: key,
+                                  label: stepLabels[key],
+                                  count:
+                                      key === 'needs'
+                                          ? assigned.length
+                                          : key === 'unlinked'
+                                            ? unlinked.length
+                                            : plan.groups.length,
+                                  ...(key === 'unlinked' && plan.unassigned.length > 0
+                                      ? {
+                                            issues: {
+                                                count: plan.unassigned.length,
+                                                tone: 'warning' as const,
+                                                label: t('kitchen:forms.warningCount', {
+                                                    count: plan.unassigned.length,
+                                                }),
+                                            },
+                                        }
+                                      : {}),
+                                  testID: `kitchen-supply-order-builder-screen-steps-${key}`,
+                              })),
+                          },
+                      }
+                    : {})}
+            />
+
             {branchId === null ? null : (
                 <Callout
                     testID="kitchen-supply-order-read-at"
@@ -705,17 +789,12 @@ function SupplyOrderBuilder() {
                     retrying={proposal.isFetching}
                 />
             ) : (
-                <>
-                    <EditorStepProgress
-                        form={form}
-                        steps={steps}
-                        testID="kitchen-supply-order-builder-screen-steps"
-                    />
-
+                <View className="z-auto flex-col gap-loose">
                     {form.current !== 'needs' ? null : (
                         <>
                             <FormSection
                                 first
+                                variant="underlined"
                                 testID="kitchen-supply-order-needs"
                                 title={t('kitchen:ops.supplyOrders.previewTitle')}
                             >
@@ -739,6 +818,8 @@ function SupplyOrderBuilder() {
                             </FormSection>
 
                             <FormSection
+                                first
+                                variant="underlined"
                                 testID="kitchen-supply-order-add"
                                 title={t('kitchen:ops.supplyOrders.addTitle')}
                             >
@@ -767,6 +848,7 @@ function SupplyOrderBuilder() {
                     {form.current !== 'unlinked' ? null : (
                         <FormSection
                             first
+                            variant="underlined"
                             testID="kitchen-supply-order-unlinked"
                             title={t('kitchen:ops.supplyOrders.unlinkedTitle')}
                             actions={
@@ -796,6 +878,7 @@ function SupplyOrderBuilder() {
                         <>
                             <FormSection
                                 first
+                                variant="underlined"
                                 testID="kitchen-supply-order-preview"
                                 title={t('kitchen:ops.supplyOrders.readyTitle')}
                             >
@@ -882,28 +965,7 @@ function SupplyOrderBuilder() {
                             )}
                         </>
                     )}
-
-                    <EditorStepNavigation
-                        form={form}
-                        steps={steps}
-                        testID="kitchen-supply-order-builder-screen-steps"
-                        finalAction={
-                            // The one create: the counts above say what it will make.
-                            <Button
-                                testID="kitchen-supply-order-create"
-                                label={t('kitchen:ops.supplyOrders.createDrafts', {
-                                    count: plan.groups.length,
-                                })}
-                                loading={createOrders.isPending}
-                                disabled={plan.groups.length === 0}
-                                onPress={() => {
-                                    setCreateFailed(false);
-                                    setConfirmingCreate(true);
-                                }}
-                            />
-                        }
-                    />
-                </>
+                </View>
             )}
 
             <Dialog

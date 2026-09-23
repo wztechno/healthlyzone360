@@ -1,6 +1,10 @@
 import {
+    Badge,
     Button,
+    Callout,
     EmptyState,
+    FormGrid,
+    FormSection,
     QuantityInput,
     SegmentedControl,
     Select,
@@ -19,12 +23,18 @@ import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import { recipesFromPages, useRecipeQuery, useRecipesQuery } from '../../../data/kitchen-admin-hooks.ts';
+import {
+    recipesFromPages,
+    useRecipeQuery,
+    useRecipesQuery,
+} from '../../../data/kitchen-admin-hooks.ts';
 import { useCreateProductionOrderMutation } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { PRODUCTION_MANAGE_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
-import { displayName, statusKey, unitShortKey } from '../format.ts';
-import { KitchenPageHeader } from '../kitchen-page-header.tsx';
+import { focusField } from '../field-focus.ts';
+import { displayName, statusKey, statusTone, unitShortKey } from '../format.ts';
+import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { RecordFormOpening } from '../record-form-opening.tsx';
 import { readNumber } from '../production-desk/completion-model.ts';
 
 /**
@@ -143,8 +153,10 @@ function ProductionBatchNew() {
      */
     const outputUnit =
         recipe !== null && recipe.currentVersion.status === 'published'
-            ? (recipe.currentVersion.outputs.find((output) => output.isPrimary) ??
-              recipe.currentVersion.outputs[0])?.unit ?? null
+            ? ((
+                  recipe.currentVersion.outputs.find((output) => output.isPrimary) ??
+                  recipe.currentVersion.outputs[0]
+              )?.unit ?? null)
             : null;
 
     const parsedAmount = readNumber(amount);
@@ -168,6 +180,8 @@ function ProductionBatchNew() {
                 })
               : undefined;
 
+    useKitchenTrailLeaf(t('kitchen:ops.production.newTitle'));
+
     if (branchId === null) {
         return (
             <EmptyState
@@ -178,8 +192,52 @@ function ProductionBatchNew() {
         );
     }
 
+    /*
+     * What stops the create, each naming the field that fixes it. A recipe not yet chosen and an
+     * amount not yet typed are blanks, named once the create is pressed; a recipe with nothing
+     * published is named as soon as it is picked, because it was chosen, not left blank — the same
+     * split `recipeError` above draws on the field itself.
+     */
+    const issues: readonly {
+        readonly key: string;
+        readonly label: string;
+        readonly fieldId: string;
+        readonly required: boolean;
+    }[] = [
+        ...(recipeId === null || recipeUnpublished
+            ? [
+                  {
+                      key: 'recipe',
+                      label: t('kitchen:ops.production.recipeLabel'),
+                      fieldId: 'kitchen-production-batch-new-recipe',
+                      required: recipeId === null,
+                  },
+              ]
+            : []),
+        ...(amountValid
+            ? []
+            : [
+                  {
+                      key: 'amount',
+                      label: t(
+                          scale === 'yield'
+                              ? 'kitchen:ops.production.plannedYieldLabel'
+                              : 'kitchen:ops.production.batchFactorLabel',
+                      ),
+                      fieldId: 'kitchen-production-batch-new-amount',
+                      required: true,
+                  },
+              ]),
+    ];
+    const shownIssues = submitted ? issues : issues.filter((entry) => !entry.required);
+
     const submit = () => {
         setSubmitted(true);
+        const first = issues[0];
+        if (first !== undefined) {
+            focusField(first.fieldId);
+            return;
+        }
         // The version is resolved from a second read, so unlike the pasted-id form this cannot
         // submit the instant the button is pressed: a recipe whose detail is still in flight has no
         // version to send yet, and one with nothing published never will.
@@ -207,153 +265,236 @@ function ProductionBatchNew() {
         );
     };
 
+    const amountHint =
+        scale === 'factor'
+            ? t('kitchen:ops.production.batchFactorHint')
+            : outputUnit === null
+              ? t('kitchen:ops.production.plannedYieldHint')
+              : t('kitchen:ops.production.plannedYieldHintUnit', {
+                    unit: t(unitShortKey(outputUnit)),
+                });
+
     return (
-        <Stack space="lg" testID="kitchen-production-batch-new-screen">
-            <KitchenPageHeader
-                testID="kitchen-production-batch-new-header"
+        <Stack space="md" testID="kitchen-production-batch-new-screen">
+            {/*
+             * The record forms' opening: the title with the state the batch will be opened in,
+             * Cancel and the create at the inline end, and the banner naming what stops the create.
+             * One page, so a hairline rather than a step row.
+             */}
+            <RecordFormOpening
+                testID="kitchen-production-batch-new"
                 title={t('kitchen:ops.production.newTitle')}
-                subtitle={t('kitchen:ops.production.newSubtitle')}
-                back={
-                    <View className="flex-row">
+                dirty={false}
+                badges={
+                    <Badge
+                        variant="caps"
+                        testID="kitchen-production-batch-new-status"
+                        tone={statusTone('draft')}
+                        icon={null}
+                        label={t(statusKey('draft'))}
+                    />
+                }
+                actions={
+                    <>
                         <Button
                             testID="kitchen-production-batch-new-back"
-                            variant="ghost"
-                            size="sm"
-                            label={t('kitchen:ops.production.backToDesk')}
+                            variant="secondary"
+                            label={t('kitchen:editor.cancel')}
                             onPress={() => {
                                 router.push('/kitchen/production-desk');
                             }}
                         />
-                    </View>
+                        <Button
+                            testID="kitchen-production-batch-new-submit"
+                            label={t('kitchen:ops.production.createSubmit')}
+                            /*
+                             * Also while the version is being resolved, not only while the batch
+                             * is being created. The id is fetched rather than typed, so there is a
+                             * moment after picking a recipe when the form looks complete and has
+                             * nothing to send — and a press in that moment used to be swallowed by
+                             * the guard in `submit`, leaving a button that did nothing and said
+                             * nothing.
+                             */
+                            loading={create.isPending || recipeResolving}
+                            onPress={submit}
+                        />
+                    </>
                 }
+                errors={{
+                    summary: t(
+                        shownIssues.every((entry) => entry.required)
+                            ? 'kitchen:forms.requiredCount'
+                            : 'kitchen:forms.toFixCount',
+                        { count: shownIssues.length },
+                    ),
+                    items: shownIssues.map((entry) => ({
+                        key: entry.key,
+                        label: entry.label,
+                        onPress: () => {
+                            focusField(entry.fieldId);
+                        },
+                    })),
+                }}
             />
 
-            <Stack space="md">
+            {/*
+             * Said before anything is pressed, because it changes how many batches somebody opens:
+             * a draft claims nothing, and only confirming it does.
+             */}
+            <Callout
+                testID="kitchen-production-batch-new-note"
+                role="note"
+                tone="info"
+                title={t('kitchen:ops.production.newSubtitle')}
+            />
+
+            {failure === null ? null : (
+                <Callout
+                    testID="kitchen-production-batch-new-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('kitchen:editor.saveError')}
+                    body={failure.message}
+                />
+            )}
+
+            {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
+            <View className="z-auto flex-col gap-loose">
                 {/*
-                  * `relative z-raised`, or the panel opens underneath the segmented control below
-                  * it: react-native-web gives every View `position: relative; z-index: 0`, so a
-                  * later sibling paints over an earlier one's overflow. Same fix, same reason, as
-                  * the batch planner's own picker.
-                  */}
+                 * `relative z-raised`, or the picker's panel opens underneath the sections below
+                 * it: react-native-web gives every View `position: relative; z-index: 0`, so a
+                 * later sibling paints over an earlier one's overflow. Same fix, same reason, as
+                 * the batch planner's own picker.
+                 */}
                 <View className="relative z-raised">
-                    <Select
-                        testID="kitchen-production-batch-new-recipe"
-                        id="kitchen-production-batch-new-recipe"
-                        label={t('kitchen:ops.production.recipeLabel')}
-                        placeholder={t('kitchen:ops.production.recipePlaceholder')}
-                        hint={
-                            recipeResolving
-                                ? t('kitchen:ops.production.recipeResolving')
-                                : publishedVersion === null
-                                  ? t('kitchen:ops.production.recipeHint')
-                                  : t('kitchen:ops.production.recipeVersionCaption', {
-                                        number: publishedVersion.versionNumber,
-                                    })
-                        }
-                        searchable
-                        required
-                        options={recipeOptions}
-                        value={recipeId === null ? null : String(recipeId)}
-                        {...(recipeError === undefined ? {} : { error: recipeError })}
-                        onChange={(value) => {
-                            setRecipeId(RecipeId.safeParse(value));
-                        }}
-                    />
+                    <FormSection
+                        first
+                        variant="underlined"
+                        testID="kitchen-production-batch-new-recipe-section"
+                        title={t('kitchen:ops.production.recipeLabel')}
+                    >
+                        <FormGrid track="half" maxColumns={4}>
+                            <Select
+                                span={4}
+                                testID="kitchen-production-batch-new-recipe"
+                                id="kitchen-production-batch-new-recipe"
+                                label={t('kitchen:ops.production.recipeLabel')}
+                                placeholder={t('kitchen:ops.production.recipePlaceholder')}
+                                hint={
+                                    recipeResolving
+                                        ? t('kitchen:ops.production.recipeResolving')
+                                        : publishedVersion === null
+                                          ? t('kitchen:ops.production.recipeHint')
+                                          : t('kitchen:ops.production.recipeVersionCaption', {
+                                                number: publishedVersion.versionNumber,
+                                            })
+                                }
+                                searchable
+                                required
+                                options={recipeOptions}
+                                value={recipeId === null ? null : String(recipeId)}
+                                {...(recipeError === undefined ? {} : { error: recipeError })}
+                                onChange={(value) => {
+                                    setRecipeId(RecipeId.safeParse(value));
+                                }}
+                            />
+                        </FormGrid>
+                    </FormSection>
                 </View>
 
-                <SegmentedControl<Scale>
-                    testID="kitchen-production-batch-new-scale"
-                    label={t('kitchen:ops.production.scaleLabel')}
-                    value={scale}
-                    onChange={(next) => {
-                        setScale(next);
-                        // The number means something different under each option — litres against
-                        // multiples — so carrying it across would silently plan a batch four
-                        // hundred times the size of the one somebody typed.
-                        setAmount('');
-                    }}
-                    items={[
-                        {
-                            value: 'yield',
-                            label: t('kitchen:ops.production.scaleYield'),
-                            testID: 'kitchen-production-batch-new-scale-yield',
-                        },
-                        {
-                            value: 'factor',
-                            label: t('kitchen:ops.production.scaleFactor'),
-                            testID: 'kitchen-production-batch-new-scale-factor',
-                        },
-                    ]}
-                />
-                <Text variant="caption" tone="secondary">
-                    {t('kitchen:ops.production.scaleHint')}
-                </Text>
+                {/*
+                 * One of the two scales, never both: the segmented control is the question and the
+                 * one figure under it is the answer, on the half track like every figure here.
+                 */}
+                <FormSection
+                    first
+                    variant="underlined"
+                    testID="kitchen-production-batch-new-scale-section"
+                    title={t('kitchen:ops.production.scaleLabel')}
+                >
+                    <Stack space="sm">
+                        <View className="self-start">
+                            <SegmentedControl<Scale>
+                                testID="kitchen-production-batch-new-scale"
+                                label={t('kitchen:ops.production.scaleLabel')}
+                                value={scale}
+                                onChange={(next) => {
+                                    setScale(next);
+                                    // The number means something different under each option —
+                                    // litres against multiples — so carrying it across would
+                                    // silently plan a batch four hundred times the size of the one
+                                    // somebody typed.
+                                    setAmount('');
+                                }}
+                                items={[
+                                    {
+                                        value: 'yield',
+                                        label: t('kitchen:ops.production.scaleYield'),
+                                        testID: 'kitchen-production-batch-new-scale-yield',
+                                    },
+                                    {
+                                        value: 'factor',
+                                        label: t('kitchen:ops.production.scaleFactor'),
+                                        testID: 'kitchen-production-batch-new-scale-factor',
+                                    },
+                                ]}
+                            />
+                        </View>
+                        <Text variant="caption" tone="secondary">
+                            {t('kitchen:ops.production.scaleHint')}
+                        </Text>
+                        <FormGrid track="half">
+                            <QuantityInput
+                                testID="kitchen-production-batch-new-amount"
+                                id="kitchen-production-batch-new-amount"
+                                size="sm"
+                                label={t(
+                                    scale === 'yield'
+                                        ? 'kitchen:ops.production.plannedYieldLabel'
+                                        : 'kitchen:ops.production.batchFactorLabel',
+                                )}
+                                required
+                                // The suffix only appears once the unit is actually known. A box
+                                // labelled with a unit the screen guessed is worse than one with
+                                // none: the figure is typed against it.
+                                {...(scale === 'yield' && outputUnit !== null
+                                    ? { unit: t(unitShortKey(outputUnit)) }
+                                    : {})}
+                                value={amount}
+                                {...(submitted && !amountValid
+                                    ? { error: t('kitchen:ops.production.amountRequired') }
+                                    : {})}
+                                onChangeText={setAmount}
+                            />
+                        </FormGrid>
+                        <Text variant="caption" tone="secondary">
+                            {amountHint}
+                        </Text>
+                    </Stack>
+                </FormSection>
 
-                <QuantityInput
-                    testID="kitchen-production-batch-new-amount"
-                    id="kitchen-production-batch-new-amount"
-                    label={t(
-                        scale === 'yield'
-                            ? 'kitchen:ops.production.plannedYieldLabel'
-                            : 'kitchen:ops.production.batchFactorLabel',
-                    )}
-                    hint={
-                        scale === 'factor'
-                            ? t('kitchen:ops.production.batchFactorHint')
-                            : outputUnit === null
-                              ? t('kitchen:ops.production.plannedYieldHint')
-                              : t('kitchen:ops.production.plannedYieldHintUnit', {
-                                    unit: t(unitShortKey(outputUnit)),
-                                })
-                    }
-                    required
-                    // The suffix only appears once the unit is actually known. A box labelled with
-                    // a unit the screen guessed is worse than one with none: the figure is typed
-                    // against it.
-                    {...(scale === 'yield' && outputUnit !== null
-                        ? { unit: t(unitShortKey(outputUnit)) }
-                        : {})}
-                    value={amount}
-                    error={
-                        submitted && !amountValid
-                            ? t('kitchen:ops.production.amountRequired')
-                            : undefined
-                    }
-                    onChangeText={setAmount}
-                />
-
-                <TextInputField
-                    testID="kitchen-production-batch-new-notes"
-                    id="kitchen-production-batch-new-notes"
-                    label={t('kitchen:ops.production.notesLabel')}
-                    hint={t('kitchen:ops.production.notesHint')}
-                    value={notes}
-                    multiline
-                    onChangeText={setNotes}
-                />
-
-                {failure === null ? null : (
-                    <Text tone="danger" testID="kitchen-production-batch-new-error">
-                        {failure.message}
-                    </Text>
-                )}
-
-                <View className="flex-row justify-end">
-                    <Button
-                        testID="kitchen-production-batch-new-submit"
-                        label={t('kitchen:ops.production.createSubmit')}
-                        /*
-                         * Also while the version is being resolved, not only while the batch is
-                         * being created. The id is fetched rather than typed now, so there is a
-                         * moment after picking a recipe when the form looks complete and has
-                         * nothing to send — and a press in that moment used to be swallowed by the
-                         * guard in `submit`, leaving a button that did nothing and said nothing.
-                         */
-                        loading={create.isPending || recipeResolving}
-                        onPress={submit}
-                    />
-                </View>
-            </Stack>
+                <FormSection
+                    first
+                    variant="underlined"
+                    testID="kitchen-production-batch-new-notes-section"
+                    title={t('kitchen:ops.production.notesLabel')}
+                >
+                    <FormGrid track="half" maxColumns={4}>
+                        <TextInputField
+                            span={4}
+                            testID="kitchen-production-batch-new-notes"
+                            id="kitchen-production-batch-new-notes"
+                            size="sm"
+                            label={t('kitchen:ops.production.notesLabel')}
+                            labelHidden
+                            hint={t('kitchen:ops.production.notesHint')}
+                            value={notes}
+                            multiline
+                            onChangeText={setNotes}
+                        />
+                    </FormGrid>
+                </FormSection>
+            </View>
         </Stack>
     );
 }

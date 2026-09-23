@@ -1,3 +1,4 @@
+import { createContext, useContext } from 'react';
 import { Text as RNText } from 'react-native';
 import type { TextProps as RNTextProps } from 'react-native';
 
@@ -141,6 +142,44 @@ export function densityFontClass(_density: Density, _variant: TextVariant = 'bod
     return null;
 }
 
+/**
+ * What a table cell asks of the text inside it.
+ *
+ * A table is read down its columns, and a column whose rows are set in three sizes and four inks
+ * cannot be read that way: a caption-sized reference beside a body-sized name beside a muted
+ * price reads as three kinds of thing where there is one row. So every text in a cell of
+ * `DataList` or `Table` is set at one size and in one ink, whatever variant or tone the
+ * column's renderer asked for.
+ *
+ * - **Size**: the body step, always. Weight survives — a name set strong stays strong — and a
+ *   figure keeps its fixed-advance digits, so a column of prices still lines up on its digits.
+ * - **Ink**: primary. `secondary`, `disabled`, `brand` and `info` are decoration in a cell and
+ *   are dropped; `danger`, `warning` and `success` are kept, because in a cell they are the
+ *   value's meaning — a negative margin, a shelf below its par — and a table that painted them
+ *   black would be saying something false.
+ *
+ * Badges, tags, buttons and inputs draw their own text and are untouched: their colour is what
+ * they are. `strong` is the table's `primary` column — the one figure a reader compares — which
+ * keeps its weight, not a larger size.
+ */
+export interface TableCellText {
+    readonly strong?: boolean | undefined;
+}
+
+export const TableCellTextContext = createContext<TableCellText | null>(null);
+
+/** The tones a cell keeps, because each of them is part of the value rather than its styling. */
+const CELL_TONES: ReadonlySet<TextTone> = new Set(['danger', 'warning', 'success']);
+
+function cellVariantClass(density: Density, variant: TextVariant, strong: boolean): string {
+    return cx(
+        VARIANT_CLASS[density].body,
+        variant === 'mono' ? 'tabular-nums' : null,
+        strong || variant === 'bodyStrong' || variant === 'strong' ? 'font-semibold' : null,
+        variant === 'label' ? 'font-medium' : null,
+    );
+}
+
 export interface TextProps extends Omit<RNTextProps, 'className' | 'style'> {
     readonly variant?: TextVariant | undefined;
     readonly tone?: TextTone | undefined;
@@ -171,6 +210,9 @@ export function Text({
     ...rest
 }: TextProps) {
     const density = useDensity();
+    // Inside a table cell the column decides the size and the ink, not the renderer — see
+    // `TableCellTextContext`.
+    const cell = useContext(TableCellTextContext);
 
     return (
         <RNText
@@ -178,8 +220,10 @@ export function Text({
             // No family class: one Latin family, set on `html` per script. `mono` differs by
             // asking for fixed-advance digits (`tabular-nums`), not by asking for another face.
             className={cx(
-                VARIANT_CLASS[density][variant],
-                TONE_CLASS[tone],
+                cell === null
+                    ? VARIANT_CLASS[density][variant]
+                    : cellVariantClass(density, variant, cell.strong === true),
+                TONE_CLASS[cell === null || CELL_TONES.has(tone) ? tone : 'primary'],
                 ALIGN_CLASS[align],
                 className,
             )}

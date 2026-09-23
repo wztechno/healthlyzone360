@@ -23,6 +23,7 @@ import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -38,8 +39,6 @@ import {
     useUpsertSupplierLinkMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { BilingualField } from '../bilingual-field.tsx';
-import { EditorStepNavigation, EditorStepProgress } from '../editor-steps.tsx';
-import type { EditorStep } from '../editor-steps.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
@@ -47,7 +46,8 @@ import {
 } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
-import { OpsRecordFrame } from '../ops-record-frame.tsx';
+import { focusField } from '../field-focus.ts';
+import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { suppliedItemRowTestId } from '../ops-format.ts';
 import {
     SupplierContactCard,
@@ -71,7 +71,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * was halfway through adding. Each section tracks its own dirty flag and the frame's unsaved guard
  * is the union of them, so leaving with either half unsaved still prompts.
  *
- * ## Why {@link OpsRecordFrame} rather than `EditorFrame`
+ * ## Why no lock version, and so no conflict dialog
  *
  * A supplier carries no `updatedAt`, no `updatedByName`, no status and no lock version. `EditorFrame`
  * renders a `draft` status badge and the words "never saved" for a null meta — on a supplier the
@@ -230,6 +230,8 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
     const [ordinal, setOrdinal] = useState(1);
 
     const [showArchive, setShowArchive] = useState(false);
+    /** Whether Save has been pressed — what lets an empty required field call itself out. */
+    const [attempted, setAttempted] = useState(false);
 
     // The supplied-items section (SUP2). No dirty flag and no draft of the set: every action is
     // its own idempotent write, so the only local state is what the picker and the two dialogs
@@ -564,6 +566,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
         },
         {
             key: 'lastPrice',
+            numeric: true,
             header: t('kitchen:ops.suppliers.columnLastPrice'),
             flex: 2,
             render: priceCell,
@@ -677,104 +680,215 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
     const contactsBlocked = !supplierContactsWellFormed(contacts);
     const linkFailure = toFailure(linkItem.error ?? unlinkItem.error);
 
+    /*
+     * What stops the save, each naming the field that fixes it. A blank waits for Save to be
+     * pressed; a lead time typed wrong is named at once.
+     */
+    const issues: readonly {
+        readonly key: string;
+        readonly label: string;
+        readonly fieldId: string;
+        readonly required: boolean;
+    }[] = [
+        ...(nameMissing
+            ? [
+                  {
+                      key: 'name',
+                      label: t('kitchen:bilingual.englishShort', {
+                          field: t('kitchen:ops.suppliers.fieldName'),
+                      }),
+                      fieldId: 'kitchen-supplier-name-en',
+                      required: true,
+                  },
+              ]
+            : []),
+        ...(leadTime === undefined
+            ? [
+                  {
+                      key: 'lead-time',
+                      label: t('kitchen:ops.suppliers.fieldLeadTime'),
+                      fieldId: 'kitchen-supplier-lead-time',
+                      required: false,
+                  },
+              ]
+            : []),
+    ];
+    const shownIssues = attempted ? issues : issues.filter((entry) => !entry.required);
+    const shows = (key: string): boolean => shownIssues.some((entry) => entry.key === key);
+
+    /*
+     * Save is pressable over an incomplete form. The press marks the form attempted and takes the
+     * reader to the first thing that stops it, on the details step where every one of them lives.
+     */
+    const attemptSave = () => {
+        if (!editable) return;
+        setAttempted(true);
+        const first = issues[0];
+        if (first !== undefined) {
+            form.goTo('details');
+            focusField(first.fieldId);
+            return;
+        }
+        saveDetails();
+    };
+
     const stepLabels: Readonly<Record<SupplierStep, string>> = {
         details: t('kitchen:ops.suppliers.sectionDetails'),
         contacts: t('kitchen:ops.suppliers.sectionContacts'),
         items: t('kitchen:ops.suppliers.itemsTitle'),
     };
-    const steps: readonly EditorStep<SupplierStep>[] = (
-        isCreating ? SUPPLIER_CREATE_STEPS : SUPPLIER_STEPS
-    ).map((key) => ({
-        key,
-        label: stepLabels[key],
-    }));
+    const detailsIssueCount = shownIssues.length;
 
     return (
-        <OpsRecordFrame
-            testID="kitchen-supplier-screen"
-            hideTitle
-            title={
-                isCreating
-                    ? t('kitchen:ops.suppliers.createTitle')
-                    : data === undefined
-                      ? t('kitchen:ops.suppliers.editTitle')
-                      : displayName(data.name, locale).value
-            }
-            guard={guard}
-            onSave={saveDetails}
-            saveLabel={t('kitchen:ops.suppliers.saveDetails')}
-            saving={create.isPending || update.isPending}
-            saveDisabled={!editable || detailsBlocked}
-            hideSave={!canManage || isArchived}
-            backLabel={t('kitchen:ops.suppliers.backToList')}
-            onBack={() => {
-                router.push('/kitchen/suppliers' as never);
-            }}
-            primaryAction={
-                isCreating || !canManage ? null : isArchived ? (
-                    <Button
-                        testID="kitchen-supplier-restore"
-                        variant="secondary"
-                        label={t('kitchen:ops.suppliers.restore')}
-                        loading={restore.isPending}
-                        onPress={() => {
-                            if (parsed === null) return;
-                            restore.mutate(parsed, {
-                                onSuccess: () => {
-                                    toast.show({
-                                        testID: 'kitchen-supplier-restored-toast',
-                                        tone: 'success',
-                                        message: t('kitchen:ops.suppliers.restoredToast'),
+        <Stack space="md" testID="kitchen-supplier-screen">
+            <RecordFormOpening<SupplierStep>
+                testID="kitchen-supplier-screen"
+                title={
+                    isCreating
+                        ? t('kitchen:ops.suppliers.createTitle')
+                        : data === undefined
+                          ? t('kitchen:ops.suppliers.editTitle')
+                          : displayName(data.name, locale).value
+                }
+                dirty={guard.isDirty}
+                badges={
+                    details.code.trim() === '' || isCreating ? null : (
+                        <Text
+                            testID="kitchen-supplier-screen-reference"
+                            variant="mono"
+                            tone="secondary"
+                        >
+                            {details.code}
+                        </Text>
+                    )
+                }
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-supplier-screen-back"
+                            variant="secondary"
+                            label={t('kitchen:editor.cancel')}
+                            onPress={() => {
+                                guard.intercept(() => {
+                                    router.push('/kitchen/suppliers' as never);
+                                });
+                            }}
+                        />
+                        {isCreating || !canManage ? null : isArchived ? (
+                            <Button
+                                testID="kitchen-supplier-restore"
+                                variant="secondary"
+                                label={t('kitchen:ops.suppliers.restore')}
+                                loading={restore.isPending}
+                                onPress={() => {
+                                    if (parsed === null) return;
+                                    restore.mutate(parsed, {
+                                        onSuccess: () => {
+                                            toast.show({
+                                                testID: 'kitchen-supplier-restored-toast',
+                                                tone: 'success',
+                                                message: t('kitchen:ops.suppliers.restoredToast'),
+                                            });
+                                        },
                                     });
-                                },
-                            });
-                        }}
-                    />
-                ) : (
-                    <Button
-                        testID="kitchen-supplier-archive"
-                        variant="secondary"
-                        label={t('kitchen:list.archive')}
-                        onPress={() => {
-                            setShowArchive(true);
-                        }}
-                    />
-                )
-            }
-            banner={
-                <Stack space="sm">
-                    {isArchived ? (
-                        <Callout
-                            testID="kitchen-supplier-archived"
-                            role="note"
-                            tone="info"
-                            title={t('kitchen:ops.suppliers.archivedTitle')}
-                        />
-                    ) : null}
+                                }}
+                            />
+                        ) : (
+                            <Button
+                                testID="kitchen-supplier-archive"
+                                variant="quiet"
+                                label={t('kitchen:list.archive')}
+                                onPress={() => {
+                                    setShowArchive(true);
+                                }}
+                            />
+                        )}
+                        {/*
+                         * Hidden rather than disabled on an archived supplier: every field is locked
+                         * and the callout below says why, so a Save that could never work is noise.
+                         */}
+                        {!canManage || isArchived ? null : (
+                            <Button
+                                testID="kitchen-supplier-screen-save"
+                                label={t('kitchen:ops.suppliers.saveDetails')}
+                                loading={create.isPending || update.isPending}
+                                disabled={create.isPending || update.isPending}
+                                onPress={attemptSave}
+                            />
+                        )}
+                    </>
+                }
+                errors={{
+                    summary: t(
+                        shownIssues.every((entry) => entry.required)
+                            ? 'kitchen:forms.requiredCount'
+                            : 'kitchen:forms.toFixCount',
+                        { count: shownIssues.length },
+                    ),
+                    items: shownIssues.map((entry) => ({
+                        key: entry.key,
+                        label: entry.label,
+                        onPress: () => {
+                            form.goTo('details');
+                            focusField(entry.fieldId);
+                        },
+                    })),
+                }}
+                steps={{
+                    label: t('kitchen:editor.stepsLabel'),
+                    value: form.current,
+                    onChange: form.goTo,
+                    // One step until the first save: contacts and supplied items hang off a record.
+                    items: (isCreating ? SUPPLIER_CREATE_STEPS : SUPPLIER_STEPS).map((key) => ({
+                        value: key,
+                        label: stepLabels[key],
+                        ...(key === 'contacts'
+                            ? { count: contacts.length }
+                            : key === 'items'
+                              ? { count: suppliedItems.length }
+                              : {}),
+                        ...(key === 'details' && detailsIssueCount > 0
+                            ? {
+                                  issues: {
+                                      count: detailsIssueCount,
+                                      tone: 'danger' as const,
+                                      label: t('kitchen:forms.toFixCount', {
+                                          count: detailsIssueCount,
+                                      }),
+                                  },
+                              }
+                            : {}),
+                        testID: `kitchen-supplier-screen-steps-${key}`,
+                    })),
+                }}
+            />
 
-                    {saveFailure === null ? null : (
-                        <Callout
-                            testID="kitchen-supplier-save-error"
-                            role="alert"
-                            tone="danger"
-                            title={t('kitchen:editor.saveError')}
-                            body={saveFailure.message}
-                        />
-                    )}
-                </Stack>
-            }
-        >
-            <Stack space="lg">
-                <EditorStepProgress
-                    form={form}
-                    steps={steps}
-                    testID="kitchen-supplier-screen-steps"
+            {isArchived ? (
+                <Callout
+                    testID="kitchen-supplier-archived"
+                    role="note"
+                    tone="info"
+                    title={t('kitchen:ops.suppliers.archivedTitle')}
                 />
+            ) : null}
 
+            {saveFailure === null ? null : (
+                <Callout
+                    testID="kitchen-supplier-save-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('kitchen:editor.saveError')}
+                    body={saveFailure.message}
+                />
+            )}
+
+            {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
+            <View className="z-auto flex-col">
                 {/* ── 1. the record ────────────────────────────────────────────────────────── */}
                 {form.current !== 'details' ? null : (
                     <FormSection
                         first
+                        variant="underlined"
                         testID="kitchen-supplier-details"
                         title={t('kitchen:ops.suppliers.sectionDetails')}
                     >
@@ -809,8 +923,8 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 onChange={(name) => {
                                     editDetails({ ...details, name });
                                 }}
-                                {...(nameMissing && detailsDirty
-                                    ? { englishError: t('kitchen:ops.suppliers.nameRequired') }
+                                {...(shows('name')
+                                    ? { englishError: t('kitchen:forms.required') }
                                     : {})}
                             />
 
@@ -881,7 +995,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 onChangeText={(leadTimeDays) => {
                                     editDetails({ ...details, leadTimeDays });
                                 }}
-                                {...(leadTime === undefined
+                                {...(shows('lead-time')
                                     ? { error: t('kitchen:ops.suppliers.leadTimeInvalid') }
                                     : {})}
                             />
@@ -923,6 +1037,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                 {isCreating || form.current !== 'contacts' ? null : (
                     <FormSection
                         first
+                        variant="underlined"
                         testID="kitchen-supplier-contacts"
                         title={t('kitchen:ops.suppliers.sectionContacts')}
                         actions={
@@ -1022,6 +1137,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                 {isCreating || form.current !== 'items' ? null : (
                     <FormSection
                         first
+                        variant="underlined"
                         testID="kitchen-supplier-supplied-items"
                         title={t('kitchen:ops.suppliers.itemsTitle')}
                         actions={
@@ -1127,29 +1243,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                         </Stack>
                     </FormSection>
                 )}
-
-                <EditorStepNavigation
-                    form={form}
-                    steps={steps}
-                    testID="kitchen-supplier-screen-steps"
-                    finalAction={
-                        !canManage || isArchived ? null : (
-                            <Button
-                                testID="kitchen-supplier-screen-steps-save"
-                                label={t('kitchen:ops.suppliers.saveDetails')}
-                                loading={create.isPending || update.isPending}
-                                disabled={
-                                    !editable ||
-                                    detailsBlocked ||
-                                    create.isPending ||
-                                    update.isPending
-                                }
-                                onPress={saveDetails}
-                            />
-                        )
-                    }
-                />
-            </Stack>
+            </View>
 
             {/* ── supplier item reference ──────────────────────────────────────────────────── */}
             <Dialog
@@ -1271,6 +1365,8 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                     {t('kitchen:ops.suppliers.archiveConsequence')}
                 </Text>
             </Dialog>
-        </OpsRecordFrame>
+
+            <EditorGuardDialogs testID="kitchen-supplier-screen" guard={guard} />
+        </Stack>
     );
 }

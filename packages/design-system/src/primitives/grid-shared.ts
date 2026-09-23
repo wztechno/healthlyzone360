@@ -31,6 +31,24 @@ export const RESPONSIVE_COLUMNS = { sm: 1, md: 2, lg: 3 } as const;
 /** Gaps, in dp. Row gap is tighter than column gap: fields stack closer than they sit apart. */
 export const GRID_GAP = { row: 12, column: 16 } as const;
 
+/**
+ * The half track - 132px, which is a field *less its gap*, halved.
+ *
+ * Derived rather than stated, because the relationship is the point: two half tracks and the gap
+ * between them are exactly one 280px field, so a `span={2}` item on a half grid lands on the same
+ * width as a plain field on a full one and the two kinds of form line up column for column. The
+ * desk editors (Catalogue Forms) set a unit picker or a percentage at one half track - a
+ * two-character value in a 280px box is the stretch the no-stretch rule exists to prevent, one
+ * size down - and a designation at two.
+ */
+export const HALF_TRACK_WIDTH = (fieldWidth - GRID_GAP.column) / 2;
+
+/** The half grid's ladder: the full ladder, doubled, so every breakpoint holds the same width. */
+export const HALF_TRACK_COLUMNS = { sm: 2, md: 4, lg: 6 } as const;
+
+export const GRID_TRACKS = ['field', 'half'] as const;
+export type GridTrack = (typeof GRID_TRACKS)[number];
+
 export interface GridSpanProps {
     /**
      * How many columns this child occupies. Clamped to the grid's column count, because a
@@ -48,8 +66,37 @@ export interface GridProps {
      * wants; state it when a layout is deliberately not responsive (a two-up comparison).
      */
     readonly columns?: GridColumnCount | undefined;
+    /**
+     * `field` (the default) is the 280px track; `half` is {@link HALF_TRACK_WIDTH}, for a form that
+     * sets short values at half a field and states `span={2}` on the rest.
+     */
+    readonly track?: GridTrack | undefined;
+    /**
+     * Caps the responsive ladder without fixing it - a half grid beside an image slot that has
+     * room for four tracks at most, and should still fall to two on a phone.
+     */
+    readonly maxColumns?: number | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
+}
+
+/**
+ * The column count a grid resolves to at this breakpoint: the fixed count when one is stated,
+ * otherwise the track's ladder, capped by `maxColumns`.
+ */
+export function resolveColumns(
+    atLeast: (name: 'md' | 'lg') => boolean,
+    { columns, track = 'field', maxColumns }: Pick<GridProps, 'columns' | 'track' | 'maxColumns'>,
+): number {
+    if (columns !== undefined) return columns;
+    const ladder = track === 'half' ? HALF_TRACK_COLUMNS : RESPONSIVE_COLUMNS;
+    const laddered = atLeast('lg') ? ladder.lg : atLeast('md') ? ladder.md : ladder.sm;
+    return maxColumns === undefined ? laddered : Math.max(1, Math.min(laddered, maxColumns));
+}
+
+/** The track width a grid draws, in dp. */
+export function trackWidthOf(track: GridTrack = 'field'): number {
+    return track === 'half' ? HALF_TRACK_WIDTH : fieldWidth;
 }
 
 /** The width one grid item resolves to, in dp — the fixed track times its span, plus the gaps it swallows. */

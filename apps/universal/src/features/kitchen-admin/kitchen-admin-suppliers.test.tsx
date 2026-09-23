@@ -403,22 +403,26 @@ describe('supplier detail', () => {
         expect(screen.getByTestId(`${card}-primary-badge`)).toBeTruthy();
     });
 
-    it('refuses a lead time the server would refuse, before the save is offered', async () => {
-        await renderStubScreen(<SupplierDetailScreen supplier={String(GULF.id)} />, {
-            session: kitchenManagerSession(),
-            repositories: { kitchenOps: { getSupplier: async () => GULF_DETAIL } },
-        });
+    it('refuses a lead time the server would refuse, before anything is sent', async () => {
+        const { repositories } = await renderStubScreen(
+            <SupplierDetailScreen supplier={String(GULF.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: { kitchenOps: { getSupplier: async () => GULF_DETAIL } },
+            },
+        );
 
         await untilVisible('kitchen-supplier-details');
 
+        // Named at once — it was typed, not left blank — and Save answers by naming it again.
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-supplier-lead-time-input'), '400');
         });
-        await waitFor(() => {
-            expect(
-                screen.getByTestId('kitchen-supplier-screen-save').props.accessibilityState,
-            ).toMatchObject({ disabled: true });
+        await untilVisible('kitchen-supplier-screen-issues-errors');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-supplier-screen-save'));
         });
+        expect(repositories.kitchenOps.updateSupplier).not.toHaveBeenCalled();
     });
 
     it('saves the details section on its own', async () => {

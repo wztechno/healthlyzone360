@@ -188,6 +188,7 @@ function PlansList() {
         },
         {
             key: 'variants',
+            align: 'center',
             role: 'metric',
             label: t('kitchen:plans.columnVariants'),
             width: 200,
@@ -210,6 +211,7 @@ function PlansList() {
         },
         {
             key: 'durations',
+            align: 'center',
             label: t('kitchen:plans.columnDurations'),
             width: 130,
             priority: 60,
@@ -231,6 +233,7 @@ function PlansList() {
         },
         {
             key: 'prices',
+            align: 'center',
             label: t('kitchen:plans.columnPrices'),
             width: 150,
             priority: 80,

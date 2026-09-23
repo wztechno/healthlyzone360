@@ -118,14 +118,11 @@ function untilVisible(testID: string) {
 }
 
 /**
- * Opens one step of the ingredient editor. The editor is a multi-step form that opens on Identity, so
- * a field on any later section is one press on the step row away.
+ * Waits for one section of the ingredient editor. The editor is one page with every section open,
+ * so a field on any of them is there once the record has loaded.
  */
 async function openIngredientStep(key: string) {
-    await untilVisible(`kitchen-ingredient-steps-${key}`);
-    await act(async () => {
-        fireEvent.press(screen.getByTestId(`kitchen-ingredient-steps-${key}`));
-    });
+    await untilVisible(`kitchen-ingredient-${key}`);
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -918,23 +915,30 @@ describe('the ingredient editor', () => {
         });
     });
 
-    it('opens the step holding a missing required field when Save is pressed from another', async () => {
+    it('names every missing required field once Save is pressed, and writes nothing', async () => {
         const { repositories } = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
             session: kitchenManagerSession(),
             repositories: { kitchenAdmin: editorReads(() => []) },
         });
 
-        await openIngredientStep('measurement');
-        await untilVisible('kitchen-ingredient-items-per-unit-input');
-        expect(screen.queryByTestId('kitchen-ingredient-name-en-input')).toBeNull();
+        await untilVisible('kitchen-ingredient-name-en-input');
+        // Nothing is flagged on a form nobody has tried to save: a new record opens blank.
+        expect(screen.queryByTestId('kitchen-ingredient-issues-errors')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ingredient-name-en-error')).toBeNull();
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
         });
 
-        // The name is required and lives on Identity: the press opens that step rather than
-        // doing nothing, and writes nothing.
-        await untilVisible('kitchen-ingredient-name-en-input');
+        // The banner names each field, and each field says so under itself.
+        await untilVisible('kitchen-ingredient-issues-errors');
+        expect(screen.getByTestId('kitchen-ingredient-issues-errors-summary')).toHaveTextContent(
+            '2 required',
+        );
+        expect(screen.getByTestId('kitchen-ingredient-issues-errors-name')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-ingredient-issues-errors-category')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-ingredient-name-en-error')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-ingredient-category-error')).toBeTruthy();
         expect(repositories.kitchenAdmin.createIngredient).not.toHaveBeenCalled();
     });
 
@@ -970,8 +974,6 @@ describe('the ingredient editor', () => {
          */
         await untilVisible('kitchen-ingredient-fork');
         await openIngredientStep('allergens');
-        // The last step draws no Save either: the footer mirrors the header.
-        expect(screen.queryByTestId('kitchen-ingredient-editor-screen-steps-save')).toBeNull();
         // The determination is still *shown*, as a chip on the read-only panel — read-only is not
         // the same as hidden, and a kitchen deciding whether to fork needs to see what it is
         // forking.

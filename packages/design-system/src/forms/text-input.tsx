@@ -49,6 +49,8 @@ export interface TextInputFieldProps
     readonly labelHidden?: boolean | undefined;
     readonly hint?: string | undefined;
     readonly error?: string | undefined;
+    /** A non-blocking caution under the field — see `FormField`. */
+    readonly warning?: string | undefined;
     readonly required?: boolean | undefined;
     readonly disabled?: boolean | undefined;
     readonly size?: InputSize | undefined;
@@ -108,6 +110,8 @@ const MULTILINE_FRAME_SIZE: Readonly<Record<Density, Readonly<Record<InputSize, 
 
 export function inputFrameClassName(options: {
     readonly invalid: boolean;
+    /** A non-blocking caution — the warning border. `invalid` wins when both are set. */
+    readonly caution?: boolean | undefined;
     readonly focused: boolean;
     readonly disabled: boolean;
     /**
@@ -134,7 +138,17 @@ export function inputFrameClassName(options: {
         'flex-row border bg-surface-raised',
         multiline ? 'items-stretch' : 'items-center',
         (multiline ? MULTILINE_FRAME_SIZE : FRAME_SIZE)[density][size],
-        options.invalid ? 'border-danger-border' : 'border-stroke',
+        /*
+         * An invalid or cautioned field glows: its border takes the tone and a 2px ring of the
+         * tone's subtle fill sits outside it, as the Catalogue Forms fields draw it. The ring is a
+         * `box-shadow`, so it is `web:` — React Native has no spread shadow, and on a phone the
+         * border and the message under the field already carry the state.
+         */
+        options.invalid
+            ? 'border-danger-border web:shadow-[0_0_0_2px_rgb(var(--h360-color-danger-subtle))]'
+            : options.caution === true
+              ? 'border-warning-border web:shadow-[0_0_0_2px_rgb(var(--h360-color-warning-subtle))]'
+              : 'border-stroke',
         // A visible focus ring is a WCAG 2.4.7 requirement, and on native there is no browser
         // default to fall back on, so it is drawn explicitly.
         options.focused ? 'border-stroke-focus border-focus' : null,
@@ -159,9 +173,14 @@ export function inputFrameClassName(options: {
  * On web, `TextInput` becomes a real `<input>` and the UA stylesheet draws its own border and
  * focus outline. Leaving those on produces a black rectangle nested inside the green frame ring —
  * the frame already owns focus indication, so the inner control must be borderless and transparent.
+ *
+ * `min-w-0` because an `<input>` has an intrinsic width of about twenty characters and a flex item
+ * will not shrink below its content by default: in a 132px half-track cell the input stayed ~150px
+ * wide and pushed the searchable Select's chevron out past the frame. `QuantityInput` already
+ * carried it for the same reason.
  */
 export const inputControlClassName =
-    'flex-1 border-0 bg-transparent text-base text-content-primary outline-none';
+    'min-w-0 flex-1 border-0 bg-transparent text-base text-content-primary outline-none';
 
 /**
  * The same styles at a stated density. A separate function rather than a `cx` on the constant:
@@ -170,7 +189,7 @@ export const inputControlClassName =
  */
 export function inputControlClass(density: Density): string {
     if (density !== 'compact') return inputControlClassName;
-    return 'flex-1 border-0 bg-transparent text-role-body text-content-primary outline-none';
+    return 'min-w-0 flex-1 border-0 bg-transparent text-role-body text-content-primary outline-none';
 }
 
 export function TextInputField({
@@ -178,6 +197,7 @@ export function TextInputField({
     labelHidden = false,
     hint,
     error,
+    warning,
     required = false,
     disabled = false,
     size = 'md',
@@ -203,6 +223,7 @@ export function TextInputField({
             labelHidden={labelHidden}
             hint={hint}
             error={error}
+            warning={warning}
             required={required}
             disabled={disabled}
             id={id}
@@ -213,6 +234,7 @@ export function TextInputField({
                 <View
                     className={inputFrameClassName({
                         invalid: error !== undefined,
+                        caution: warning !== undefined,
                         focused,
                         disabled,
                         density,

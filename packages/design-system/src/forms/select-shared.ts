@@ -1,3 +1,5 @@
+import type { GridSpanProps } from '../primitives/grid-shared.ts';
+
 /**
  * Everything both halves of `Select` agree on.
  *
@@ -18,7 +20,11 @@ export interface SelectOption<T extends string = string> {
     readonly disabled?: boolean | undefined;
 }
 
-export interface SelectProps<T extends string = string> {
+/**
+ * `span` is read by `FormGrid` off the element, exactly as it is for `FormField`; neither half of
+ * `Select` spreads its props anywhere, so it never reaches the DOM.
+ */
+export interface SelectProps<T extends string = string> extends GridSpanProps {
     readonly label: string;
     /** See `FormField`'s `labelHidden` — for a control named by a column header. */
     readonly labelHidden?: boolean | undefined;
@@ -28,6 +34,8 @@ export interface SelectProps<T extends string = string> {
     readonly placeholder?: string | undefined;
     readonly hint?: string | undefined;
     readonly error?: string | undefined;
+    /** A non-blocking caution under the field — see `FormField`. */
+    readonly warning?: string | undefined;
     readonly required?: boolean | undefined;
     readonly disabled?: boolean | undefined;
     /**

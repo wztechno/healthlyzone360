@@ -328,7 +328,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                 label: t('kitchen:ops.supplyOrders.columnLines'),
                 width: 70,
                 priority: 85,
-                align: 'end',
+                align: 'center',
                 value: (row) => formatter.formatNumber(row.lineCount),
                 sort: (left, right, direction) =>
                     compareNumber(left.lineCount, right.lineCount, direction),
@@ -401,6 +401,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
         },
         {
             key: 'onHand',
+            align: 'center',
             role: 'metric',
             label: t('kitchen:ops.supplyOrders.columnOnHand'),
             width: 180,
@@ -455,7 +456,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
             label: t('kitchen:ops.supplyOrders.columnReorderAt'),
             width: 120,
             priority: 88,
-            align: 'end',
+            align: 'center',
             value: (row) =>
                 row.reorderThreshold === null
                     ? EM_DASH

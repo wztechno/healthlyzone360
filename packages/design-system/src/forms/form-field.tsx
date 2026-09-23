@@ -57,6 +57,12 @@ export interface FormFieldProps extends GridSpanProps {
     readonly hint?: string | undefined;
     /** Validation message. Its presence is what marks the control invalid. */
     readonly error?: string | undefined;
+    /**
+     * A caution that does not block — `Above 10%` under a waste rate. Drawn under the control with
+     * the warning mark, and never `aria-invalid`: the value is legal, it is only unusual. Ignored
+     * while `error` is set, because a field states one problem at a time.
+     */
+    readonly warning?: string | undefined;
     readonly required?: boolean | undefined;
     readonly disabled?: boolean | undefined;
     /** Stable id root. Generated when omitted, which is fine for everything except tests. */
@@ -74,6 +80,7 @@ export function FormField({
     labelHidden = false,
     hint,
     error,
+    warning,
     required = false,
     disabled = false,
     id,
@@ -85,17 +92,23 @@ export function FormField({
     const density = useDensity();
     const base = id ?? `field-${generated.replace(/:/g, '')}`;
 
+    // One message under the control: an error outranks a warning on the same field.
+    const caution = error === undefined ? warning : undefined;
+
     const labelId = `${base}-label`;
     const hintId = hint === undefined ? undefined : `${base}-hint`;
     const errorId = error === undefined ? undefined : `${base}-error`;
-    const described = [hintId, errorId].filter((value): value is string => value !== undefined);
+    const warningId = caution === undefined ? undefined : `${base}-warning`;
+    const described = [hintId, errorId, warningId].filter(
+        (value): value is string => value !== undefined,
+    );
 
     const control: FieldControlProps = {
         nativeID: base,
         ...(labelHidden ? {} : { 'aria-labelledby': labelId }),
         accessibilityLabel: required ? `${label} ${REQUIRED_MARK}` : label,
         ...(described.length > 0 ? { 'aria-describedby': described.join(' ') } : {}),
-        ...((error ?? hint) ? { accessibilityHint: error ?? hint } : {}),
+        ...((error ?? caution ?? hint) ? { accessibilityHint: error ?? caution ?? hint } : {}),
         'aria-invalid': error !== undefined,
         'aria-required': required,
         accessibilityState: { disabled },
@@ -149,8 +162,12 @@ export function FormField({
 
             {error === undefined ? null : (
                 <View className="flex-row items-center gap-1">
-                    {/* An error is never signalled by colour alone: the icon carries it too. */}
-                    <Icon name="warning" size="sm" className="text-danger-strong" />
+                    {/*
+                     * An error is never signalled by colour alone: the icon carries it too. The
+                     * cross, not the triangle — the triangle is the warning's, and a field that can
+                     * carry either needs the two to differ in shape as well as ink.
+                     */}
+                    <Icon name="error" size="sm" className="text-danger-strong" />
                     <RNText
                         nativeID={errorId}
                         testID={testID === undefined ? undefined : `${testID}-error`}
@@ -160,6 +177,22 @@ export function FormField({
                         className={cx(supportClass, 'flex-1 text-danger-strong text-start')}
                     >
                         {error}
+                    </RNText>
+                </View>
+            )}
+
+            {caution === undefined ? null : (
+                <View className="flex-row items-center gap-1">
+                    <Icon name="warning" size="sm" className="text-warning-strong" />
+                    {/* `status`, not `alert`: a caution is news, not an interruption. */}
+                    <RNText
+                        nativeID={warningId}
+                        testID={testID === undefined ? undefined : `${testID}-warning`}
+                        role="status"
+                        aria-live="polite"
+                        className={cx(supportClass, 'flex-1 text-warning-strong text-start')}
+                    >
+                        {caution}
                     </RNText>
                 </View>
             )}

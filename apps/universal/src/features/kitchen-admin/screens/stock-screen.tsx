@@ -286,7 +286,7 @@ function Stock() {
             label: t('kitchen:ops.stock.columnQuantity'),
             width: 110,
             priority: 90,
-            align: 'end',
+            align: 'center',
             value: quantityText,
             sort: (left, right, direction) =>
                 compareNumber(
@@ -306,6 +306,7 @@ function Stock() {
         },
         {
             key: 'unit',
+            align: 'center',
             role: 'meta',
             label: t('kitchen:ops.stock.columnUnit'),
             width: 80,
@@ -325,6 +326,7 @@ function Stock() {
         },
         {
             key: 'reorder',
+            align: 'center',
             label: t('kitchen:ops.stock.columnReorderPar'),
             width: 130,
             priority: 50,
