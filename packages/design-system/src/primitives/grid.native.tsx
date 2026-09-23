@@ -4,10 +4,10 @@ import { View } from 'react-native';
 
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
 import { cx } from '../internal/class-names.ts';
-import { GRID_GAP, RESPONSIVE_COLUMNS, fieldWidth, resolveSpan, spanWidth } from './grid-shared.ts';
-import type { GridColumnCount, GridProps, GridSpanProps } from './grid-shared.ts';
+import { GRID_GAP, resolveColumns, resolveSpan, spanWidth, trackWidthOf } from './grid-shared.ts';
+import type { GridProps, GridSpanProps } from './grid-shared.ts';
 
-export type { GridColumnCount, GridProps, GridSpanProps } from './grid-shared.ts';
+export type { GridColumnCount, GridProps, GridSpanProps, GridTrack } from './grid-shared.ts';
 
 /**
  * Grid — native.
@@ -22,12 +22,6 @@ export type { GridColumnCount, GridProps, GridSpanProps } from './grid-shared.ts
  * single field, but a `span={2}` item is 280×2 *plus the gap it swallows* — arithmetic a utility
  * class cannot do, and {@link spanWidth} is where it lives so both halves agree on the answer.
  */
-
-function columnsFor(atLeast: (name: 'md' | 'lg') => boolean): GridColumnCount {
-    if (atLeast('lg')) return RESPONSIVE_COLUMNS.lg;
-    if (atLeast('md')) return RESPONSIVE_COLUMNS.md;
-    return RESPONSIVE_COLUMNS.sm;
-}
 
 function cells(children: ReactNode, columns: number, trackWidth: number): ReactNode {
     return Children.map(children, (child) => {
@@ -45,12 +39,14 @@ function cells(children: ReactNode, columns: number, trackWidth: number): ReactN
 function GridBase({
     children,
     columns,
+    track,
+    maxColumns,
     className,
     testID,
     trackWidth,
 }: GridProps & { readonly trackWidth: number }) {
     const { atLeast } = useBreakpoint();
-    const resolved = columns ?? columnsFor(atLeast);
+    const resolved = resolveColumns(atLeast, { columns, track, maxColumns });
 
     return (
         <View
@@ -63,7 +59,7 @@ function GridBase({
     );
 }
 
-/** FormGrid — `sm: 1 · md: 2 · lg+: 3`, and 280px at every one of them. */
+/** FormGrid — `sm: 1 · md: 2 · lg+: 3` at 280px, or `2 · 4 · 6` at 132px with `track="half"`. */
 export function FormGrid(props: GridProps) {
-    return <GridBase {...props} trackWidth={fieldWidth} />;
+    return <GridBase {...props} trackWidth={trackWidthOf(props.track)} />;
 }

@@ -46,6 +46,8 @@ export interface QuantityInputProps {
     readonly unit?: string | undefined;
     readonly hint?: string | undefined;
     readonly error?: string | undefined;
+    /** A non-blocking caution under the field — `Above 10%`. See `FormField`. */
+    readonly warning?: string | undefined;
     readonly required?: boolean | undefined;
     readonly disabled?: boolean | undefined;
     /** Read-only, on the sunken fill — a derived total in the cost cascade (§6.2). */
@@ -73,6 +75,7 @@ export function QuantityInput({
     unit,
     hint,
     error,
+    warning,
     required = false,
     disabled = false,
     readOnly = false,
@@ -91,6 +94,7 @@ export function QuantityInput({
             label={label}
             {...(hint === undefined ? {} : { hint })}
             {...(error === undefined ? {} : { error })}
+            {...(warning === undefined ? {} : { warning })}
             required={required}
             disabled={disabled}
             {...(id === undefined ? {} : { id })}
@@ -101,6 +105,7 @@ export function QuantityInput({
                 <View
                     className={inputFrameClassName({
                         invalid: error !== undefined,
+                        caution: warning !== undefined,
                         focused,
                         // A derived total takes the sunken fill and the lighter border for the same
                         // reason a disabled field does — it is not editable — but it is *not*

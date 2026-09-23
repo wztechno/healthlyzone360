@@ -1,7 +1,8 @@
-import { Card, Text } from '@healthy360/design-system';
-import { cardWidth } from '@healthy360/design-tokens';
+import { Card, Text, cx } from '@healthy360/design-system';
+import { cardWidth, neutral } from '@healthy360/design-tokens';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Text as RNText, View } from 'react-native';
+import { Text as RNText, TextInput, View } from 'react-native';
 
 /**
  * A read-only confirmation panel for figures that resolve from somewhere else — handoff §6.2.
@@ -75,6 +76,32 @@ export interface DerivedFigure {
     readonly value: string | null;
     /** The basis, e.g. `kcal / 100 g`. Sits under the figure. */
     readonly unit: string;
+    /**
+     * Makes the figure typeable — `outline` only. See {@link DerivedFigureInput}. `value` is then
+     * ignored: the input's own text is the figure.
+     */
+    readonly input?: DerivedFigureInput | undefined;
+}
+
+/**
+ * The figure as an input inside its own card — the ingredient editor's nutrition, where a kitchen
+ * records the per-100 g figures it reads off a supplier's label.
+ *
+ * The same tile as the read-only one, on purpose: the design draws the nutrition of an ingredient
+ * and of a recipe as one row of cards, and a reader moving between the two should meet one shape.
+ * What changes is that the figure is a borderless input and the *card* is its frame — the card's
+ * hairline takes the focus ring and the error border that an input frame would otherwise carry, so
+ * the tile never grows a box inside a box.
+ */
+export interface DerivedFigureInput {
+    readonly value: string;
+    readonly onChangeText: (next: string) => void;
+    readonly disabled?: boolean | undefined;
+    /** Draws the danger border. The message lives beside the row, not on eight cards. */
+    readonly invalid?: boolean | undefined;
+    /** The control's id — what a banner chip focuses. */
+    readonly nativeID?: string | undefined;
+    readonly testID?: string | undefined;
 }
 
 export interface DerivedPanelProps {
@@ -98,6 +125,14 @@ export interface DerivedPanelProps {
     readonly emptyValue: string;
     /** Read-only `Tag`s — an ingredient's allergen classes. An empty set simply draws nothing. */
     readonly chips?: ReactNode | undefined;
+    /**
+     * `sunken` (the default) is the confirmation well described above: recessed fill, secondary
+     * ink, the unit under the figure. `outline` is the Catalogue Forms tile — a raised card with a
+     * hairline, the figure in primary ink and the unit beside it on the baseline — for a sheet the
+     * reader opens *to read* the figures, the recipe's technical sheet, rather than to confirm them
+     * on the way past. An absent figure still reads as absent: the em dash drops to secondary ink.
+     */
+    readonly variant?: 'sunken' | 'outline' | undefined;
     readonly testID: string;
 }
 
@@ -106,6 +141,7 @@ export function DerivedPanel({
     figures,
     emptyValue,
     chips,
+    variant = 'sunken',
     testID,
 }: DerivedPanelProps) {
     return (
@@ -125,34 +161,43 @@ export function DerivedPanel({
                  * to three-plus-one on a narrow port instead of squeezing four.
                  */
                 <View testID={`${testID}-figures`} className="flex-row flex-wrap gap-tight">
-                    {figures.map((figure) => (
-                        <View key={figure.key} style={{ width: cardWidth.min }}>
-                            <Card
+                    {figures.map((figure) =>
+                        variant === 'outline' ? (
+                            <OutlineTile
+                                key={figure.key}
+                                figure={figure}
+                                emptyValue={emptyValue}
                                 testID={`${testID}-figure-${figure.key}`}
-                                tone="sunken"
-                                padding="sm"
-                            >
-                                <Text variant="micro" tone="secondary">
-                                    {figure.label}
-                                </Text>
-                                <RNText
-                                    testID={`${testID}-figure-${figure.key}-value`}
-                                    className="text-role-display tabular-nums text-content-secondary text-start"
+                            />
+                        ) : (
+                            <View key={figure.key} style={{ width: cardWidth.min }}>
+                                <Card
+                                    testID={`${testID}-figure-${figure.key}`}
+                                    tone="sunken"
+                                    padding="sm"
                                 >
-                                    {figure.value ?? emptyValue}
-                                </RNText>
-                                {/*
-                                 * `caption`, not `micro`. The design sets this line at 10px,
-                                 * which is `micro`'s size — but `micro` is the column-label step,
-                                 * 600 weight, and `kcal / 100 g` is a unit rather than a label for
-                                 * the figure above it. 11px at regular weight is what a unit is.
-                                 */}
-                                <Text variant="caption" tone="secondary">
-                                    {figure.unit}
-                                </Text>
-                            </Card>
-                        </View>
-                    ))}
+                                    <Text variant="micro" tone="secondary">
+                                        {figure.label}
+                                    </Text>
+                                    <RNText
+                                        testID={`${testID}-figure-${figure.key}-value`}
+                                        className="text-role-display tabular-nums text-content-secondary text-start"
+                                    >
+                                        {figure.value ?? emptyValue}
+                                    </RNText>
+                                    {/*
+                                     * `caption`, not `micro`. The design sets this line at 10px,
+                                     * which is `micro`'s size — but `micro` is the column-label step,
+                                     * 600 weight, and `kcal / 100 g` is a unit rather than a label for
+                                     * the figure above it. 11px at regular weight is what a unit is.
+                                     */}
+                                    <Text variant="caption" tone="secondary">
+                                        {figure.unit}
+                                    </Text>
+                                </Card>
+                            </View>
+                        ),
+                    )}
                 </View>
             )}
 
@@ -161,6 +206,91 @@ export function DerivedPanel({
                     {chips}
                 </View>
             )}
+        </View>
+    );
+}
+
+/**
+ * One `outline` card. A component of its own because an editable one holds its focus state, and the
+ * card's border is where that state is drawn.
+ */
+function OutlineTile({
+    figure,
+    emptyValue,
+    testID,
+}: {
+    readonly figure: DerivedFigure;
+    readonly emptyValue: string;
+    readonly testID: string;
+}) {
+    const [focused, setFocused] = useState(false);
+    const input = figure.input;
+
+    return (
+        <View
+            testID={testID}
+            style={{ width: cardWidth.min }}
+            className={cx(
+                'flex-col gap-hair rounded-md border px-snug py-tight',
+                input?.disabled === true ? 'bg-surface-sunken' : 'bg-surface-raised',
+                input?.invalid === true
+                    ? 'border-danger-border'
+                    : focused
+                      ? 'border-stroke-focus'
+                      : 'border-stroke-subtle',
+            )}
+        >
+            <Text variant="micro" tone="secondary">
+                {figure.label}
+            </Text>
+            <View className="flex-row items-baseline gap-hair">
+                {input === undefined ? (
+                    <RNText
+                        testID={`${testID}-value`}
+                        className={
+                            figure.value === null
+                                ? 'text-role-display tabular-nums text-content-secondary text-start'
+                                : 'text-role-display tabular-nums text-content-primary text-start'
+                        }
+                    >
+                        {figure.value ?? emptyValue}
+                    </RNText>
+                ) : (
+                    <TextInput
+                        testID={input.testID}
+                        nativeID={input.nativeID}
+                        value={input.value}
+                        onChangeText={input.onChangeText}
+                        editable={input.disabled !== true}
+                        // The label and unit are two separate texts on the card; the control
+                        // carries both, because "Energy" alone does not say kilocalories.
+                        accessibilityLabel={`${figure.label} (${figure.unit})`}
+                        aria-invalid={input.invalid === true}
+                        inputMode="decimal"
+                        keyboardType="decimal-pad"
+                        placeholder={emptyValue}
+                        placeholderTextColor={neutral[600]}
+                        onFocus={() => {
+                            setFocused(true);
+                        }}
+                        onBlur={() => {
+                            setFocused(false);
+                        }}
+                        // `min-w-0` releases a web `<input>`'s intrinsic width, or the unit is
+                        // pushed out past the card's edge.
+                        className={cx(
+                            // eslint-disable-next-line no-restricted-syntax -- the card is a fixed 200px tile; the input fills what its unit leaves.
+                            'min-w-0 flex-1 border-0 bg-transparent p-0 text-role-display tabular-nums text-start outline-none',
+                            input.disabled === true
+                                ? 'text-content-secondary'
+                                : 'text-content-primary',
+                        )}
+                    />
+                )}
+                <Text variant="caption" tone="secondary">
+                    {figure.unit}
+                </Text>
+            </View>
         </View>
     );
 }

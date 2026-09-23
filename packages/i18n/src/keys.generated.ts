@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7431 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7461 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3194,6 +3194,36 @@ export interface NamespaceKeys {
     | 'fields.unitPrice'
     | 'fields.unitPriceHint'
     | 'fields.unitPricePlaceholder'
+    | 'forms.aboveWaste'
+    | 'forms.allergensTitle'
+    | 'forms.atZeroCount'
+    | 'forms.cost'
+    | 'forms.costPerItem'
+    | 'forms.days'
+    | 'forms.expiryAndWaste'
+    | 'forms.expiryPeriod'
+    | 'forms.holds'
+    | 'forms.holdsUnit'
+    | 'forms.image'
+    | 'forms.imagePick'
+    | 'forms.imageRemove'
+    | 'forms.incompleteLines'
+    | 'forms.issueUnit'
+    | 'forms.itemsPerPack'
+    | 'forms.itemsPerUnit'
+    | 'forms.marginBelowCost'
+    | 'forms.marginLow'
+    | 'forms.noFigures'
+    | 'forms.nutritionTitle'
+    | 'forms.pack'
+    | 'forms.price'
+    | 'forms.required'
+    | 'forms.requiredCount'
+    | 'forms.toFixCount'
+    | 'forms.warningCount'
+    | 'forms.waste'
+    | 'forms.yieldAndWaste'
+    | 'forms.zeroQuantity'
     | 'frozenMeals.caption'
     | 'frozenMeals.create'
     | 'frozenMeals.emptyBody'
@@ -10643,6 +10673,36 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.unitPrice',
   'kitchen:fields.unitPriceHint',
   'kitchen:fields.unitPricePlaceholder',
+  'kitchen:forms.aboveWaste',
+  'kitchen:forms.allergensTitle',
+  'kitchen:forms.atZeroCount',
+  'kitchen:forms.cost',
+  'kitchen:forms.costPerItem',
+  'kitchen:forms.days',
+  'kitchen:forms.expiryAndWaste',
+  'kitchen:forms.expiryPeriod',
+  'kitchen:forms.holds',
+  'kitchen:forms.holdsUnit',
+  'kitchen:forms.image',
+  'kitchen:forms.imagePick',
+  'kitchen:forms.imageRemove',
+  'kitchen:forms.incompleteLines',
+  'kitchen:forms.issueUnit',
+  'kitchen:forms.itemsPerPack',
+  'kitchen:forms.itemsPerUnit',
+  'kitchen:forms.marginBelowCost',
+  'kitchen:forms.marginLow',
+  'kitchen:forms.noFigures',
+  'kitchen:forms.nutritionTitle',
+  'kitchen:forms.pack',
+  'kitchen:forms.price',
+  'kitchen:forms.required',
+  'kitchen:forms.requiredCount',
+  'kitchen:forms.toFixCount',
+  'kitchen:forms.warningCount',
+  'kitchen:forms.waste',
+  'kitchen:forms.yieldAndWaste',
+  'kitchen:forms.zeroQuantity',
   'kitchen:frozenMeals.caption',
   'kitchen:frozenMeals.create',
   'kitchen:frozenMeals.emptyBody',

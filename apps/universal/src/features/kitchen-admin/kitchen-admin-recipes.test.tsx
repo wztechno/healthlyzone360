@@ -1743,7 +1743,7 @@ describe('the line editor', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('the steps', () => {
-    it('walks forward and back, and stops at both ends', async () => {
+    it('numbers the tabs and pills the one a problem lives on', async () => {
         const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
 
         await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
@@ -1751,35 +1751,37 @@ describe('the steps', () => {
             repositories: { kitchenAdmin: editorReads(() => stored) },
         });
 
-        await untilVisible('kitchen-recipe-tab-steps');
+        await untilVisible('kitchen-recipe-tabs');
+        // No footer to walk: the numbered row is both the map and the way through it.
+        expect(screen.queryByTestId('kitchen-recipe-tab-steps')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-tab-issues')).toBeNull();
 
-        // Description opens the sequence, so there is nowhere before it. The control stays drawn
-        // rather than disappearing: a row that changed width as it was walked would be worse.
-        expect(
-            screen.getByTestId('kitchen-recipe-tab-previous').props.accessibilityState.disabled,
-        ).toBe(true);
-
+        // A price that does not parse is flagged as it is typed, and the tab it is on says so —
+        // spoken as well as drawn, because a pill a screen reader cannot hear is not a signal.
+        await openTab('costing');
+        await untilVisible('kitchen-recipe-b2b-price-input');
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-tab-next'));
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-b2b-price-input'), 'abc');
         });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-tab-next'));
-        });
-        // Description → Production → Packaging, in the order the tab row draws.
-        await untilVisible('kitchen-recipe-packaging');
+        await waitFor(
+            () => {
+                expect(
+                    screen.getByTestId('kitchen-recipe-tab-costing').props.accessibilityLabel,
+                ).toBe('Costing, 1 to fix');
+            },
+            { timeout: 10_000 },
+        );
+        expect(screen.getByTestId('kitchen-recipe-issues-errors')).toBeTruthy();
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-tab-previous'));
-        });
-        await untilVisible('kitchen-recipe-lines-table');
-
-        // On the last step Next gives way to the form's final commit rather than going disabled.
+        // The banner's chip takes the reader back to it from anywhere.
         await openTab('sheet');
-        expect(screen.queryByTestId('kitchen-recipe-tab-next')).toBeNull();
-        expect(screen.getByTestId('kitchen-recipe-publish')).toBeTruthy();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-issues-errors-b2b-price'));
+        });
+        await untilVisible('kitchen-recipe-b2b-price-input');
     });
 
-    it('opens Production with the yield and Packaging with both waste coefficients', async () => {
+    it('puts each waste rate on the tab whose lines it applies to', async () => {
         const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
 
         await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
@@ -1790,14 +1792,16 @@ describe('the steps', () => {
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('production');
         await untilVisible('kitchen-recipe-yield-quantity');
+        // Yield & waste: the production loss sits beside the yield it is taken from, above the
+        // lines it applies to.
         expect(screen.getByTestId('kitchen-recipe-yield-pieces')).toBeTruthy();
-        // The waste figures moved together, so neither is left behind beside the yield.
-        expect(screen.queryByTestId('kitchen-recipe-waste')).toBeNull();
+        expect(screen.getByTestId('kitchen-recipe-waste')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-recipe-packaging-waste')).toBeNull();
 
         await openTab('packaging');
         await untilVisible('kitchen-recipe-packaging-coefficients');
-        expect(screen.getByTestId('kitchen-recipe-waste')).toBeTruthy();
         expect(screen.getByTestId('kitchen-recipe-packaging-waste')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-recipe-waste')).toBeNull();
         expect(screen.queryByTestId('kitchen-recipe-yield-quantity')).toBeNull();
     });
 
@@ -1813,7 +1817,11 @@ describe('the steps', () => {
         });
 
         await untilVisible('kitchen-recipe-name-en-input');
-        expect(screen.getByTestId('kitchen-recipe-editor-screen-mode')).toHaveTextContent(/New/);
+        // The handle the save is about to take, beside the title.
+        await untilVisible('kitchen-recipe-editor-screen-reference');
+        expect(screen.getByTestId('kitchen-recipe-editor-screen-reference')).toHaveTextContent(
+            'RC-0010',
+        );
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'Hummus');
         });
@@ -1835,9 +1843,9 @@ describe('the steps', () => {
             '1 Kg per batch',
         );
 
-        // Nothing to publish before the first save makes a version: the last step commits a create.
+        // Nothing to publish before the first save makes a version: Save draft is the commit.
         expect(screen.queryByTestId('kitchen-recipe-publish')).toBeNull();
-        expect(screen.getByTestId('kitchen-recipe-create')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-recipe-editor-screen-save')).toBeTruthy();
     });
 
     it('writes unsaved edits before it opens the publish dialog', async () => {

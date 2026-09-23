@@ -1,7 +1,16 @@
 import { fieldWidth } from '@healthy360/design-tokens';
 import { screen } from '@testing-library/react-native';
 
-import { GRID_GAP, RESPONSIVE_COLUMNS, resolveSpan, spanWidth } from './grid-shared.ts';
+import {
+    GRID_GAP,
+    HALF_TRACK_COLUMNS,
+    HALF_TRACK_WIDTH,
+    RESPONSIVE_COLUMNS,
+    resolveColumns,
+    resolveSpan,
+    spanWidth,
+    trackWidthOf,
+} from './grid-shared.ts';
 import { Separator } from './separator.tsx';
 import { renderWithI18n } from '../testing/render.tsx';
 
@@ -14,6 +23,38 @@ import { renderWithI18n } from '../testing/render.tsx';
  * second field starts at 296px" here would be asserting on a mock. The width a span resolves to,
  * on the other hand, is a number this system commits to, and it is the one a regression would move.
  */
+
+describe('the half track', () => {
+    const at = (breakpoint: 'sm' | 'md' | 'lg') => (name: 'md' | 'lg') =>
+        breakpoint === 'lg' || (breakpoint === 'md' && name === 'md');
+
+    it('is half a field less its gap, so two of them are exactly one field', () => {
+        // The relationship, not the number, is the contract: a `span={2}` item on a half grid has
+        // to line up with a plain field on a full one, column for column.
+        expect(HALF_TRACK_WIDTH).toBe(132);
+        expect(spanWidth(2, HALF_TRACK_WIDTH)).toBe(fieldWidth);
+        expect(spanWidth(4, HALF_TRACK_WIDTH)).toBe(spanWidth(2));
+        expect(trackWidthOf('half')).toBe(HALF_TRACK_WIDTH);
+        expect(trackWidthOf()).toBe(fieldWidth);
+    });
+
+    it('doubles the ladder, so every breakpoint holds the same width', () => {
+        expect(Object.values(HALF_TRACK_COLUMNS)).toEqual(
+            Object.values(RESPONSIVE_COLUMNS).map((count) => count * 2),
+        );
+        expect(resolveColumns(at('lg'), { track: 'half' })).toBe(6);
+        expect(resolveColumns(at('md'), { track: 'half' })).toBe(4);
+        expect(resolveColumns(at('sm'), { track: 'half' })).toBe(2);
+    });
+
+    it('caps the ladder without fixing it, and a stated count still wins', () => {
+        // Beside an image slot: four at most, still two on a phone.
+        expect(resolveColumns(at('lg'), { track: 'half', maxColumns: 4 })).toBe(4);
+        expect(resolveColumns(at('sm'), { track: 'half', maxColumns: 4 })).toBe(2);
+        expect(resolveColumns(at('lg'), { track: 'half', columns: 2 })).toBe(2);
+        expect(resolveColumns(at('lg'), {})).toBe(3);
+    });
+});
 
 describe('grid geometry', () => {
     it('keeps the field width constant across every breakpoint', () => {

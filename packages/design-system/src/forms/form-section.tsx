@@ -38,6 +38,16 @@ export interface FormSectionProps {
     readonly actions?: ReactNode | undefined;
     /** Suppresses the leading hairline. Pass on the first section of a form. */
     readonly first?: boolean | undefined;
+    /**
+     * Where the section's one rule goes.
+     *
+     * `divided` (the default) is described above: a hairline *between* sections, none over the
+     * first. `underlined` is the Catalogue Forms heading — the title in capitals with the hairline
+     * directly *under* it, on every section including the first — for a long one-page editor where
+     * each section is a place the reader jumps to rather than the next paragraph of one form. The
+     * rule then belongs to the heading it closes, so `first` has nothing to suppress and is ignored.
+     */
+    readonly variant?: 'divided' | 'underlined' | undefined;
     readonly children: ReactNode;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
@@ -49,18 +59,26 @@ export function FormSection({
     aside,
     actions,
     first = false,
+    variant = 'divided',
     children,
     className,
     testID,
 }: FormSectionProps) {
+    const underlined = variant === 'underlined';
+
     return (
         // `z-auto` for the reason `FormField` states: every React Native Web `View` is a stacking
         // context at z-0, and a section that is one traps a dropdown opened in its first field
         // under the section below it.
         <View testID={testID} className={cx('z-auto flex-col', className)}>
-            {first ? null : <Separator className="mb-loose" />}
+            {first || underlined ? null : <Separator className="mb-loose" />}
 
-            <View className="mb-snug flex-col gap-hair">
+            <View
+                className={cx(
+                    'mb-snug flex-col gap-hair',
+                    underlined ? 'border-b border-stroke-subtle pb-1.5' : null,
+                )}
+            >
                 <View className="flex-row items-center justify-between gap-tight">
                     {/*
                      * The title and its aside are one group so `justify-between` separates *them*
@@ -73,7 +91,12 @@ export function FormSection({
                             testID={testID === undefined ? undefined : `${testID}-title`}
                             accessibilityRole="header"
                             aria-level={3}
-                            className="text-role-section text-content-primary text-start"
+                            className={cx(
+                                'text-role-section text-content-primary text-start',
+                                // Capitals from the stylesheet, never from the catalogue: Arabic
+                                // has no case, and a translator should not be handed SHOUTING.
+                                underlined ? 'uppercase tracking-wide' : null,
+                            )}
                         >
                             {title}
                         </RNText>

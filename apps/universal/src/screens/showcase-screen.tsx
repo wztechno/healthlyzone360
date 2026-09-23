@@ -39,6 +39,7 @@ import {
     FilterChip,
     FormField,
     FormGrid,
+    FormIssueBanner,
     FormNavigation,
     FormSection,
     Heading,
@@ -247,9 +248,19 @@ const CATALOGUE_KINDS = ['paste', 'spice', 'dairy'] as const;
  * is a form has nothing to count. `0` still draws — an empty Packaging tab saying so is the point.
  */
 const RECIPE_TABS = [
-    { value: 'description', label: 'Description' },
+    {
+        value: 'description',
+        label: 'Description',
+        // Drawn by the `steps` variant only; the other two ignore it.
+        issues: { count: 1, tone: 'danger', label: '1 required' },
+    },
     { value: 'production', label: 'Production', count: 9 },
-    { value: 'packaging', label: 'Packaging', count: 0 },
+    {
+        value: 'packaging',
+        label: 'Packaging',
+        count: 3,
+        issues: { count: 1, tone: 'warning', label: '1 warning' },
+    },
     { value: 'costing', label: 'Costing' },
     { value: 'sheet', label: 'Technical sheet' },
 ] as const;
@@ -1085,6 +1096,32 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         <Badge key={tone} testID={id(`badge-${tone}`)} tone={tone} label={tone} />
                     ))}
                 </Inline>
+                {/*
+                 * The Catalogue Forms labels: `label` beside a section title, `caps` beside a page
+                 * title — square corners, the subtle fill, no border.
+                 */}
+                <Inline space="sm">
+                    {BADGE_TONES.map((tone) => (
+                        <Badge
+                            key={tone}
+                            testID={id(`badge-label-${tone}`)}
+                            variant="label"
+                            tone={tone}
+                            label={tone}
+                        />
+                    ))}
+                </Inline>
+                <Inline space="sm">
+                    {BADGE_TONES.map((tone) => (
+                        <Badge
+                            key={tone}
+                            testID={id(`badge-caps-${tone}`)}
+                            variant="caps"
+                            tone={tone}
+                            label={tone}
+                        />
+                    ))}
+                </Inline>
                 <Inline space="sm">
                     {RECORD_STATUSES.map((status) => (
                         <StatusBadge
@@ -1406,6 +1443,86 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                 </FormSection>
             </Stack>
 
+            {/*
+             * Catalogue Forms: the issue banners, a field in each tone, the half track and the
+             * underlined heading — the four pieces the one-page editors are built from.
+             */}
+            <Stack space="xs">
+                <Text variant="section" tone="secondary">
+                    Form issues and field tones
+                </Text>
+                <Inline space="xs" wrap>
+                    <FormIssueBanner
+                        testID={id('issues-danger')}
+                        tone="danger"
+                        summary="3 required"
+                        items={[
+                            { key: 'name', label: 'Designation (EN)', onPress: () => undefined },
+                            { key: 'category', label: 'Category', onPress: () => undefined },
+                            { key: 'price', label: 'Unit price', onPress: () => undefined },
+                        ]}
+                    />
+                    <FormIssueBanner
+                        testID={id('issues-warning')}
+                        tone="warning"
+                        summary="1 at zero"
+                        items={[{ key: 'label', label: 'Sleeve label', onPress: () => undefined }]}
+                    />
+                    <FormIssueBanner
+                        testID={id('issues-info')}
+                        tone="info"
+                        summary="Synced"
+                        items={[{ key: 'ref', label: 'ING-307', onPress: () => undefined }]}
+                    />
+                </Inline>
+                <FormSection
+                    testID={id('form-section-underlined')}
+                    first
+                    variant="underlined"
+                    title="Cost"
+                    aside={<Badge tone="info" icon={null} label="From database" />}
+                >
+                    {/* The half track: a figure at one 132px track, a name at two. */}
+                    <FormGrid track="half" testID={id('half-grid')}>
+                        <TextInputField
+                            testID={id('half-name')}
+                            id={id('half-name')}
+                            span={2}
+                            size="sm"
+                            label="Item (EN)"
+                            value="Bottle 500 ml"
+                        />
+                        <QuantityInput
+                            testID={id('half-error')}
+                            id={id('half-error')}
+                            label="Pack price"
+                            unit="SAR"
+                            value=""
+                            error="Required"
+                            onChangeText={() => undefined}
+                        />
+                        <QuantityInput
+                            testID={id('half-warning')}
+                            id={id('half-warning')}
+                            label="Waste"
+                            unit="%"
+                            value="12"
+                            warning="Above 10%"
+                            onChangeText={() => undefined}
+                        />
+                        <QuantityInput
+                            testID={id('half-readonly')}
+                            id={id('half-readonly')}
+                            label="Cost per item"
+                            unit="SAR"
+                            value="0.0833"
+                            readOnly
+                            onChangeText={() => undefined}
+                        />
+                    </FormGrid>
+                </FormSection>
+            </Stack>
+
             {/* The multi-step form: step progress in four states, and the footer that walks it. */}
             <Stack space="xs">
                 <Text variant="section" tone="secondary">
@@ -1512,6 +1629,38 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         ]}
                     />
                 </FormSection>
+                {/*
+                 * The outline tile — the recipe's technical sheet, a surface opened *to read* the
+                 * figures: primary ink, the unit on the baseline, an absent figure dropping back to
+                 * secondary.
+                 */}
+                <DerivedPanel
+                    testID={id('derived-panel-outline')}
+                    variant="outline"
+                    figures={SHOWCASE_NUTRIENTS.map((figure, index) =>
+                        index === 3 ? { ...figure, value: null } : figure,
+                    )}
+                    emptyValue="—"
+                />
+                {/*
+                 * The same card, typeable — the ingredient editor's nutrition. The card is the
+                 * input's frame: its hairline takes the focus ring and, on a gap in a part-filled
+                 * set, the danger border.
+                 */}
+                <DerivedPanel
+                    testID={id('derived-panel-editable')}
+                    variant="outline"
+                    figures={SHOWCASE_NUTRIENTS.map((figure, index) => ({
+                        ...figure,
+                        input: {
+                            testID: id(`derived-editable-${figure.key}`),
+                            value: index === 1 ? '' : (figure.value ?? ''),
+                            invalid: index === 1,
+                            onChangeText: () => undefined,
+                        },
+                    }))}
+                    emptyValue="—"
+                />
                 {/* The same four tiles with nothing behind them — em dashes, never zeroes. */}
                 <DerivedPanel
                     testID={id('derived-panel-empty')}

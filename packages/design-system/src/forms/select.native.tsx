@@ -50,6 +50,7 @@ export function Select<T extends string = string>({
     placeholder,
     hint,
     error,
+    warning,
     required = false,
     disabled = false,
     searchable = false,
@@ -64,6 +65,9 @@ export function Select<T extends string = string>({
     const labelId = `${base}-label`;
     const hintId = hint === undefined ? undefined : `${base}-hint`;
     const errorId = error === undefined ? undefined : `${base}-error`;
+    // One message under the control, as `FormField` draws it: an error outranks a caution.
+    const caution = error === undefined ? warning : undefined;
+    const warningId = caution === undefined ? undefined : `${base}-warning`;
     const statusId = `${base}-search-status`;
 
     const [open, setOpen] = useState(false);
@@ -129,7 +133,7 @@ export function Select<T extends string = string>({
                 accessibilityLabel={accessibleName}
                 aria-label={accessibleName}
                 {...(labelHidden ? {} : { 'aria-labelledby': labelId })}
-                {...descriptionProps([hintId, errorId], error ?? hint)}
+                {...descriptionProps([hintId, errorId, warningId], error ?? caution ?? hint)}
                 aria-invalid={error !== undefined}
                 /*
                  * No `aria-required` here. The trigger is a `button`, and ARIA 1.2 does not support
@@ -146,6 +150,7 @@ export function Select<T extends string = string>({
                 }}
                 className={inputFrameClassName({
                     invalid: error !== undefined,
+                    caution: caution !== undefined,
                     focused: open,
                     disabled,
                     density,
@@ -168,7 +173,7 @@ export function Select<T extends string = string>({
 
             {error === undefined ? null : (
                 <View className="flex-row items-center gap-1">
-                    <Icon name="warning" size="sm" className="text-danger-strong" />
+                    <Icon name="error" size="sm" className="text-danger-strong" />
                     <RNText
                         nativeID={errorId}
                         testID={testID === undefined ? undefined : `${testID}-error`}
@@ -177,6 +182,20 @@ export function Select<T extends string = string>({
                         className="flex-1 text-xs text-danger-strong text-start"
                     >
                         {error}
+                    </RNText>
+                </View>
+            )}
+
+            {caution === undefined ? null : (
+                <View className="flex-row items-center gap-1">
+                    <Icon name="warning" size="sm" className="text-warning-strong" />
+                    <RNText
+                        nativeID={warningId}
+                        testID={testID === undefined ? undefined : `${testID}-warning`}
+                        role="status"
+                        className="flex-1 text-xs text-warning-strong text-start"
+                    >
+                        {caution}
                     </RNText>
                 </View>
             )}

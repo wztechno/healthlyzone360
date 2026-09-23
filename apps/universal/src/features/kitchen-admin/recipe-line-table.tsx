@@ -187,6 +187,14 @@ export interface RecipeLineTableProps {
      */
     readonly flaggedIngredientIds?: readonly string[] | undefined;
     /**
+     * Mark a line whose quantity is zero — the Catalogue Forms packaging warning. The row takes the
+     * warning fill, its Qty cell the warning border, and the designation a mark whose accessible
+     * name says why. Packaging only in practice: a sleeve label at `0` is a line that costs nothing
+     * and ships nothing, which is almost always a count somebody meant to type. A zero raw material
+     * is refused outright on save, so it needs no second signal here.
+     */
+    readonly warnZeroQuantity?: boolean | undefined;
+    /**
      * The server's figures for these rows — the half of the draft's `computedCost` this table lists.
      *
      * `null` draws a dash in every money cell: nothing costed yet, nothing to divide by, or costs this
@@ -282,6 +290,7 @@ export function RecipeLineTable({
     ingredients,
     source = 'ingredients',
     flaggedIngredientIds = [],
+    warnZeroQuantity = false,
     costs,
     canManage,
     nextKey,
@@ -419,7 +428,10 @@ export function RecipeLineTable({
                     testID={`${testID}-picker`}
                     placeholder={pickerPlaceholder}
                     query={query}
-                    loading={search.isFetching && term !== ''}
+                    // Only while there is no answer for *this* term. `isFetching` is also true of a
+                    // background refetch, and swapping a list the reader is scrolling for
+                    // "Searching…" threw them back to the top of it.
+                    loading={(search.isPending || search.isPlaceholderData) && term !== ''}
                     onQueryChange={(next) => {
                         setQuery(next);
                         setHighlighted(0);
@@ -447,12 +459,17 @@ export function RecipeLineTable({
                         row.ingredientId === null ? undefined : byId.get(String(row.ingredientId));
                     const figure = figures.get(row.key);
                     const rowTestId = `${testID}-row-${row.key}`;
+                    const zero = warnZeroQuantity && parseQuantity(row.quantity) === 0;
 
                     return (
                         <View
                             key={row.key}
                             testID={rowTestId}
-                            className="min-h-row-md flex-row items-center gap-tight border-b border-stroke-subtle px-tight py-hair"
+                            className={
+                                zero
+                                    ? 'min-h-row-md flex-row items-center gap-tight border-b border-stroke-subtle bg-warning-subtle px-tight py-hair'
+                                    : 'min-h-row-md flex-row items-center gap-tight border-b border-stroke-subtle px-tight py-hair'
+                            }
                         >
                             <View
                                 style={DESIGNATION_TRACK}
@@ -481,6 +498,15 @@ export function RecipeLineTable({
                                         className="text-warning-strong"
                                     />
                                 ) : null}
+                                {zero ? (
+                                    <Icon
+                                        testID={`${rowTestId}-zero`}
+                                        name="warning"
+                                        size="sm"
+                                        label={t('kitchen:forms.zeroQuantity')}
+                                        className="text-warning-strong"
+                                    />
+                                ) : null}
                             </View>
 
                             <View style={{ width: TRACK.unit }}>
@@ -494,8 +520,9 @@ export function RecipeLineTable({
                                     testID={`${rowTestId}-qty`}
                                     value={row.quantity}
                                     disabled={!canManage}
-                                    align="start"
+                                    align="center"
                                     mono
+                                    caution={zero}
                                     label={t('kitchen:recipes.lineQuantity')}
                                     onChangeText={(next) => {
                                         patch(row.key, { quantity: next });
@@ -511,7 +538,7 @@ export function RecipeLineTable({
                             <View style={{ width: TRACK.unitPrice }}>
                                 <Text
                                     variant="mono"
-                                    align="start"
+                                    align="center"
                                     tone={figure?.unitCost == null ? 'secondary' : 'primary'}
                                     numberOfLines={1}
                                     testID={`${rowTestId}-unit-price`}
@@ -523,7 +550,7 @@ export function RecipeLineTable({
                             <View style={{ width: TRACK.total }}>
                                 <Text
                                     variant="mono"
-                                    align="start"
+                                    align="center"
                                     numberOfLines={1}
                                     testID={`${rowTestId}-total`}
                                 >
@@ -628,7 +655,7 @@ const LINE_TOTAL: Intl.NumberFormatOptions = {
 
 function LineHeaderRow({ t }: { readonly t: (key: string) => string }) {
     return (
-        <View className="h-control-xs flex-row items-center gap-tight border-b border-stroke px-tight">
+        <View className="h-control-sm flex-row items-center gap-tight border-b border-stroke px-tight">
             <View style={DESIGNATION_TRACK}>
                 <HeaderCell label={t('kitchen:list.columnName')} />
             </View>
@@ -661,7 +688,9 @@ function HeaderCell({
     readonly align?: 'start' | 'end' | 'center' | undefined;
 }) {
     return (
-        <Text variant="micro" tone="secondary" numberOfLines={1} align={align}>
+        // `label`, not `micro`: the column names are the one key to a table of figures, and at 10px
+        // they read as a hairline over the rows rather than as headings anybody consults.
+        <Text variant="label" tone="secondary" numberOfLines={1} align={align}>
             {label}
         </Text>
     );
@@ -722,6 +751,8 @@ interface CellInputProps {
     readonly mono?: boolean | undefined;
     /** The Comments column: no frame until it is hovered or focused. */
     readonly quiet?: boolean | undefined;
+    /** The warning border — a quantity that is legal and almost certainly wrong. */
+    readonly caution?: boolean | undefined;
     readonly testID: string;
 }
 
@@ -742,6 +773,7 @@ function CellInput({
     align,
     mono,
     quiet,
+    caution = false,
     testID,
 }: CellInputProps) {
     const [focused, setFocused] = useState(false);
@@ -755,6 +787,7 @@ function CellInput({
                       'h-control-xs flex-row items-center gap-control-xs rounded-sm border border-transparent px-control-xs'
                     : inputFrameClassName({
                           invalid: false,
+                          caution,
                           focused,
                           disabled,
                           density: 'compact',
@@ -851,6 +884,14 @@ const PICKER_WIDTH = 320;
 const PANEL_WIDTH = 360;
 /** One option row, `h-control-sm`. What the keyboard's scroll arithmetic counts in. */
 const PANEL_ROW_HEIGHT = 28;
+/**
+ * The list's own height ceiling: the panel's `max-h-80` less its 4px inset top and bottom.
+ *
+ * Stated on the `ScrollView` itself, not only on the panel around it. A scroll view with no bound
+ * of its own grows to its content, so the panel clipped it and the wheel went to the page behind —
+ * which is what made the list feel as though it scrolled far too fast.
+ */
+const PANEL_LIST_HEIGHT = 312;
 
 function Picker({
     placeholder,
@@ -871,6 +912,10 @@ function Picker({
     const formatter = useFormatter();
     const [focused, setFocused] = useState(false);
     const panel = useRef<ScrollView>(null);
+    /** Where the list is scrolled to, so the keyboard can tell whether a row is already in view. */
+    const scrolledTo = useRef(0);
+    /** Set by the arrow keys only — the one kind of highlight the list should move for. */
+    const movedByKey = useRef(false);
 
     const commit = (index: number) => {
         const entry = results[index];
@@ -879,18 +924,28 @@ function Picker({
 
     /*
      * The panel scrolls, so the arrow keys have to carry it — a highlight the reader cannot see is a
-     * cursor that has gone missing. Three rows of lead-in keeps the highlighted row off the top edge
-     * while walking down, which is what makes the next few matches readable.
+     * cursor that has gone missing.
+     *
+     * **Only the arrow keys.** A row also highlights on hover, and this used to scroll on every
+     * highlight change: wheeling through the list passed the pointer over row after row, each one
+     * re-positioned the list under it, and the list lurched ahead of the wheel and then snapped back
+     * to the top whenever the highlight returned to the first row. Hover now highlights and nothing
+     * more, and a key moves the list only as far as it takes to bring the row into view.
      *
      * ponytail: assumes uniform 28px rows (`h-control-sm`). Measure with `onLayout` per row if an
      * option ever wraps to two lines.
      */
     useEffect(() => {
-        if (!open) return;
-        panel.current?.scrollTo({
-            y: Math.max(0, (highlighted - 3) * PANEL_ROW_HEIGHT),
-            animated: false,
-        });
+        if (!open || !movedByKey.current) return;
+        movedByKey.current = false;
+
+        const top = highlighted * PANEL_ROW_HEIGHT;
+        const bottom = top + PANEL_ROW_HEIGHT;
+        if (top < scrolledTo.current) {
+            panel.current?.scrollTo({ y: top, animated: false });
+        } else if (bottom > scrolledTo.current + PANEL_LIST_HEIGHT) {
+            panel.current?.scrollTo({ y: bottom - PANEL_LIST_HEIGHT, animated: false });
+        }
     }, [highlighted, open]);
 
     /*
@@ -919,10 +974,12 @@ function Picker({
                   onKeyDown: (event: { key: string; preventDefault: () => void }) => {
                       if (event.key === 'ArrowDown') {
                           event.preventDefault();
+                          movedByKey.current = true;
                           onHighlight(Math.min(highlighted + 1, Math.max(results.length - 1, 0)));
                           onOpen();
                       } else if (event.key === 'ArrowUp') {
                           event.preventDefault();
+                          movedByKey.current = true;
                           onHighlight(Math.max(highlighted - 1, 0));
                       } else if (event.key === 'Enter') {
                           event.preventDefault();
@@ -999,7 +1056,15 @@ function Picker({
                      * what keeps a tap on a row from being eaten by the keyboard dismissing first,
                      * the same pairing `Select`'s own panel uses.
                      */}
-                    <ScrollView ref={panel} keyboardShouldPersistTaps="handled">
+                    <ScrollView
+                        ref={panel}
+                        keyboardShouldPersistTaps="handled"
+                        style={{ maxHeight: PANEL_LIST_HEIGHT }}
+                        scrollEventThrottle={16}
+                        onScroll={(event) => {
+                            scrolledTo.current = event.nativeEvent.contentOffset.y;
+                        }}
+                    >
                         {loading ? (
                             /*
                              * "Searching…" rather than "no match", while a request is in flight.

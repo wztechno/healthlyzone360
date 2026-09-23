@@ -20,7 +20,7 @@ import {
     Dialog,
     ErrorState,
     FormGrid,
-    FormNavigation,
+    FormIssueBanner,
     FormSection,
     Icon,
     Inline,
@@ -34,7 +34,7 @@ import {
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
-import type { CardTone, SelectOption, TagTone } from '@healthy360/design-system';
+import type { CardTone, FormIssueItem, SelectOption, TagTone } from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
 import { IngredientId } from '@healthy360/domain-types';
 import type { CurrencyCode } from '@healthy360/domain-types';
@@ -77,6 +77,7 @@ import {
     RECIPE_VIEW_COSTS_PERMISSION,
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
+import { focusField } from '../field-focus.ts';
 import {
     amountToInput,
     currencySymbol,
@@ -92,6 +93,7 @@ import {
     statusTone,
     unitShortKey,
 } from '../format.ts';
+import { ImageSlot } from '../image-slot.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import {
     RecipeLineTable,
@@ -117,10 +119,23 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ```
  * Kitchen workspace › Recipes › Thousand Islands   <- the shell's trail
- * Thousand Islands  DRAFT  RESTRICTED       [ Discard ] [ Save draft ] [ Publish ]
- * RC-0104 · Production · yields 1.7 kg · 9 raw materials · 6.66 SAR/kg
- * ── Description │ Production 9 │ Packaging 3 │ Costing │ Technical sheet ────────
+ * Thousand Islands  DRAFT  RC-0104  RESTRICTED    [ Cancel ] [ Save draft ] [ Publish ]
+ * ⚠ 1 at zero  [ Sleeve label ]                   <- once there is something to say
+ * ┌─────────────────────────────────────────────────────────────────────────────┐
+ * │(1) Description │(2) Production 9 │(3) Packaging 3 ① │(4) Costing │(5) Sheet │
+ * └─────────────────────────────────────────────────────────────────────────────┘
  * ```
+ *
+ * `Catalogue Forms.dc.html` (`isRecipe`) redraws the opening: the handle beside the title instead of
+ * a summary line under it, and the tabs as numbered steps on a sunken track, each carrying its count
+ * and — when something on it needs attention — a solid pill with the number of problems. The
+ * banner under the header names each of those problems and takes the reader to it, switching tab
+ * on the way; the pills are what tells a reader *which* tab to open without opening all five. There
+ * is no Previous/Next footer any more: the numbered row is both the map and the way through it.
+ *
+ * The yield moved from Description to Production, where it sits with the production waste as
+ * "Yield & waste" above the lines it divides; the packaging waste sits above the packaging lines
+ * the same way. Each coefficient is on the tab whose table it applies to.
  *
  * Five tabs, in the design's order. The two-pane layout this replaced put the formulation on the
  * left and the derived label on the right; the design splits the same material along a different
@@ -131,13 +146,16 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * What the right-hand roll-up pane used to say lives on **Technical sheet** now: the derived
  * nutrients, the inherited allergen classes and the print view, in one place instead of two.
  *
- * ## Three of the design's fields this contract cannot store
+ * ## Two of the design's fields this contract cannot store
  *
- * Shelf life and Storage on Description exist in the prototype's own state and nowhere on
- * `KitchenAdminRepository`, and neither does a Category outside the routes that supply one. They are
- * simply not drawn. A `Select` that wrote nowhere is a control that lies twice — once when you set
- * it, again when it comes back empty. The ingredient editor made the same call about the four fields
- * the design dropped from it.
+ * The photo on Description and the expiry period on Packaging exist in the prototype's own state
+ * and nowhere on `KitchenAdminRepository`. They are drawn, at the kitchen's request, and held in
+ * this screen's state only — never sent, never marking the record dirty, and never blocking a save,
+ * which is why the expiry period carries no required mark although the design's shelf life does.
+ * It is on Packaging rather than Description because how long a batch keeps is a property of what
+ * it is packed in as much as of the formulation. A required field whose value
+ * is thrown away is a gate with nothing behind it. Storage and the Restricted switch belong to the
+ * Method section below and are not drawn, for the reason that section gives.
  *
  * **Everything on Packaging and Costing persists.** `setRecipePackaging` is a real endpoint
  * (`PUT …/versions/{version}/packaging`) and the save below calls it on create and on update alike;
@@ -525,6 +543,11 @@ function RecipeEditor({
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
     const [tab, setTab] = useState<RecipeTab>('description');
+    /** Whether a save has been pressed — what lets an empty required field call itself out. */
+    const [attempted, setAttempted] = useState(false);
+    /** The design's photo and the packed batch's expiry period. Not saved: see the docblock. */
+    const [image, setImage] = useState<string | null>(null);
+    const [expiryDays, setExpiryDays] = useState('');
 
     const [details, setDetails] = useState<DetailsDraft>(EMPTY_DETAILS);
     const [lines, setLinesDraft] = useState<readonly LineDraft[]>([]);
@@ -945,6 +968,170 @@ function RecipeEditor({
         currencyMissing ||
         incompleteLines.length > 0;
 
+    /*
+     * Everything that stops the save, in tab order, each naming the tab it lives on and the field
+     * that fixes it. The banner, the tab pills and the fields all read this one list, so the three
+     * cannot disagree about what is wrong.
+     *
+     * `required` separates a blank that only matters once Save is pressed from a value already
+     * typed that does not parse — flagged as it is typed, because it is about something the reader
+     * has just done.
+     */
+    const blockers: readonly {
+        readonly key: string;
+        readonly label: string;
+        readonly tab: RecipeTab;
+        readonly fieldId: string | null;
+        readonly required: boolean;
+    }[] = [
+        ...(nameMissing
+            ? [
+                  {
+                      key: 'name',
+                      label: t('kitchen:bilingual.englishShort', {
+                          field: t('kitchen:recipes.columnName'),
+                      }),
+                      tab: 'description' as const,
+                      fieldId: 'kitchen-recipe-name-en',
+                      required: true,
+                  },
+              ]
+            : []),
+        ...(yieldInvalid
+            ? [
+                  {
+                      key: 'yield',
+                      label: t('kitchen:recipes.yieldQuantity'),
+                      tab: 'production' as const,
+                      fieldId: 'kitchen-recipe-yield-quantity',
+                      required: details.yieldQuantity.trim() === '',
+                  },
+              ]
+            : []),
+        ...(incompleteLines.length > 0
+            ? [
+                  {
+                      key: 'lines',
+                      label: t('kitchen:forms.incompleteLines', {
+                          count: incompleteLines.length,
+                      }),
+                      tab: 'production' as const,
+                      fieldId: null,
+                      required: false,
+                  },
+              ]
+            : []),
+        ...(b2bPriceValue === undefined
+            ? [
+                  {
+                      key: 'b2b-price',
+                      label: t('kitchen:recipes.b2bPricePerUnit', {
+                          unit: t(unitShortKey(details.yieldUnit)),
+                      }),
+                      tab: 'costing' as const,
+                      fieldId: 'kitchen-recipe-b2b-price',
+                      required: false,
+                  },
+              ]
+            : []),
+        ...(b2cPriceValue === undefined
+            ? [
+                  {
+                      key: 'b2c-price',
+                      label: t('kitchen:recipes.b2cPricePerUnit', {
+                          unit: t(unitShortKey(details.yieldUnit)),
+                      }),
+                      tab: 'costing' as const,
+                      fieldId: 'kitchen-recipe-b2c-price',
+                      required: false,
+                  },
+              ]
+            : []),
+    ];
+
+    const shownBlockers = attempted ? blockers : blockers.filter((entry) => !entry.required);
+    const shows = (key: string) => shownBlockers.some((entry) => entry.key === key);
+
+    /*
+     * The two cautions the design draws. Neither blocks: a label at zero and a thin margin are both
+     * legal, and both are almost always a mistake somebody wants pointed out.
+     *
+     * A packaging line at zero ships nothing and costs nothing — a sleeve label the count was never
+     * typed for. A margin under the floor is priced below what the kitchen treats as viable, and one
+     * under zero is priced below cost, which is the one this screen raises as an error rather than a
+     * warning even though it still saves: it is a loss on every unit sold.
+     */
+    const zeroPackaging = packaging.filter((row) => parseQuantity(row.quantity) === 0);
+    const marginLow = margin !== null && margin < MARGIN_WARNING_PERCENT;
+    const marginNegative = margin !== null && margin < 0;
+
+    const goTo = (target: RecipeTab, fieldId: string | null) => {
+        setTab(target);
+        if (fieldId !== null) focusField(fieldId);
+    };
+
+    const blockerItems: readonly FormIssueItem[] = shownBlockers.map((entry) => ({
+        key: entry.key,
+        label: entry.label,
+        onPress: () => {
+            goTo(entry.tab, entry.fieldId);
+        },
+    }));
+
+    const zeroItems: readonly FormIssueItem[] = zeroPackaging.map((row) => {
+        const entry = packagingLibrary.find((candidate) => candidate.id === row.ingredientId);
+        return {
+            key: `zero-${row.key}`,
+            label:
+                entry === undefined
+                    ? t('kitchen:recipes.unnamedLine')
+                    : displayName(entry.name, locale).value,
+            onPress: () => {
+                goTo('packaging', null);
+            },
+        };
+    });
+
+    /** What each tab's pill says: the blockers on it, or failing those its cautions. */
+    const tabIssues = (target: RecipeTab) => {
+        const errors = shownBlockers.filter((entry) => entry.tab === target).length;
+        if (errors > 0) {
+            return {
+                count: errors,
+                tone: 'danger' as const,
+                label: t('kitchen:forms.toFixCount', { count: errors }),
+            };
+        }
+        const cautions =
+            target === 'packaging'
+                ? zeroPackaging.length
+                : target === 'costing' && marginLow
+                  ? 1
+                  : 0;
+        if (cautions === 0) return undefined;
+        return {
+            count: cautions,
+            tone:
+                target === 'costing' && marginNegative ? ('danger' as const) : ('warning' as const),
+            label: t('kitchen:forms.warningCount', { count: cautions }),
+        };
+    };
+
+    /*
+     * Save draft is pressable over an incomplete form. The press marks the form attempted — the
+     * blank required fields say so, the banner names each — and takes the reader to the first,
+     * switching tab on the way. Only a clean draft reaches `saveAll`.
+     */
+    const attemptSave = () => {
+        setAttempted(true);
+        const first = blockers[0];
+        if (first !== undefined) {
+            goTo(first.tab, first.fieldId);
+            return;
+        }
+        saveAll();
+    };
+
     /**
      * Everything that stands between this version and a published label.
      *
@@ -1242,32 +1429,12 @@ function RecipeEditor({
         publishFailure !== null && isValidationFailure(publishFailure) ? publishFailure.fields : {};
     const publishQuarantined = Object.keys(publishFields).includes('status');
 
-    /* ── the header's own line ───────────────────────────────────────────────────────────────── */
-
-    const summary = [
-        data === undefined ? null : data.slug,
-        data?.sourceKind ?? null,
-        t('kitchen:recipes.summaryYield', {
-            quantity: formatter.formatNumber(servings, YIELD_DIGITS),
-            unit: t(unitShortKey(details.yieldUnit)),
-        }),
-        t('kitchen:recipes.summaryLines', { count: lines.length }),
-        // Left off rather than drawn as a dash: a header that says "— SAR/kg" on every recipe a
-        // member may not cost is noise, and the Costing tab is where the absence is explained.
-        totalPerUnit === null
-            ? null
-            : t('kitchen:recipes.summaryPerUnit', {
-                  cost: formatMoney(
-                      formatter,
-                      totalPerUnit.amount,
-                      totalPerUnit.currency,
-                      COST_DIGITS,
-                  ),
-                  unit: t(unitShortKey(details.yieldUnit)),
-              }),
-    ]
-        .filter((part): part is string => part !== null && part !== '')
-        .join(' · ');
+    /*
+     * The handle beside the title — the record's own `RC-0104`, or while creating the one the save
+     * is about to take. It replaces the summary line that stood under the title: the design keeps
+     * the opening to one row, and every figure that line carried is now on the tab that owns it.
+     */
+    const headerReference = isCreating ? (nextReference.data ?? '') : (data?.reference ?? '');
 
     /* ── the technical sheet's own reading, and what still stands between it and a label ─────── */
 
@@ -1447,23 +1614,27 @@ function RecipeEditor({
         {
             value: 'description' as const,
             label: t('kitchen:recipes.tabDescription'),
+            issues: tabIssues('description'),
             testID: 'kitchen-recipe-tab-description',
         },
         {
             value: 'production' as const,
             label: t('kitchen:recipes.tabProduction'),
             count: lines.length,
+            issues: tabIssues('production'),
             testID: 'kitchen-recipe-tab-production',
         },
         {
             value: 'packaging' as const,
             label: t('kitchen:recipes.tabPackaging'),
             count: packaging.length,
+            issues: tabIssues('packaging'),
             testID: 'kitchen-recipe-tab-packaging',
         },
         {
             value: 'costing' as const,
             label: t('kitchen:recipes.tabCosting'),
+            issues: tabIssues('costing'),
             testID: 'kitchen-recipe-tab-costing',
         },
         // After the cost and before the sheet: what it costs, what it sells as, what it is.
@@ -1483,16 +1654,6 @@ function RecipeEditor({
         },
     ];
 
-    /*
-     * The tab row, as an order to walk.
-     *
-     * Read off `tabItems` rather than written out, so a tab that is only sometimes drawn is stepped
-     * over rather than fallen into. `-1` is unreachable in practice and still guarded:
-     * `indexOf` answering it would disable both controls rather than stepping off the end.
-     */
-    const order = tabItems.map((item) => item.value);
-    const at = order.indexOf(tab);
-
     return (
         <Stack space="md" testID="kitchen-recipe-editor-screen">
             {/*
@@ -1501,29 +1662,33 @@ function RecipeEditor({
              * tighten theirs. No trail here: `KitchenOpsShell` draws it and this screen names its
              * last crumb through `useKitchenTrailLeaf`.
              */}
-            <Stack space="xs">
+            <Stack space="sm">
                 <CataloguePageHeader
                     testID="kitchen-recipe-editor-screen-header"
                     titleTestID="kitchen-recipe-editor-screen-title"
                     title={title}
                     titleAside={
                         <Inline space="xs" align="center" wrap>
-                            {isCreating ? (
-                                <Badge
-                                    testID="kitchen-recipe-editor-screen-mode"
-                                    tone="brand"
-                                    label={t('kitchen:recipes.modeNew')}
-                                />
-                            ) : null}
                             <Badge
+                                variant="caps"
                                 testID="kitchen-recipe-editor-screen-status"
-                                tone={data === undefined ? 'neutral' : statusTone(data.meta.status)}
+                                tone={data === undefined ? 'warning' : statusTone(data.meta.status)}
+                                icon={null}
                                 label={
                                     data === undefined
                                         ? t('kitchen:statusShort.draft')
                                         : t(statusShortKey(data.meta.status))
                                 }
                             />
+                            {headerReference === '' ? null : (
+                                <Text
+                                    testID="kitchen-recipe-editor-screen-reference"
+                                    variant="mono"
+                                    tone="secondary"
+                                >
+                                    {headerReference}
+                                </Text>
+                            )}
                             {/*
                              * On every recipe, not on the ones somebody remembered to mark. A
                              * formulation and its costs are confidential by their nature (plan
@@ -1531,13 +1696,14 @@ function RecipeEditor({
                              * that its absence means "safe to share".
                              */}
                             <Badge
+                                variant="caps"
                                 testID="kitchen-recipe-editor-screen-restricted"
                                 tone="danger"
-                                icon="eyeOff"
                                 label={t('kitchen:recipes.restricted')}
                             />
                             {guard.isDirty ? (
                                 <Badge
+                                    variant="label"
                                     testID="kitchen-recipe-editor-screen-dirty"
                                     tone="warning"
                                     icon="warning"
@@ -1548,24 +1714,28 @@ function RecipeEditor({
                     }
                     primaryAction={
                         <Inline space="xs" align="center">
-                            {/* The design's Discard · Save draft · Publish, at the header's one `md`. */}
+                            {/*
+                             * The design's Cancel · Save draft · Publish, at the header's one `md`.
+                             * While creating there is nothing to publish yet, so Save draft — which
+                             * creates the record — takes the primary's weight: it is the commit that
+                             * used to wait at the end of the step footer, now where every tab can
+                             * reach it.
+                             */}
                             <Button
                                 testID="kitchen-recipe-editor-screen-discard"
                                 variant="secondary"
-                                label={t('kitchen:recipes.discard')}
+                                label={t('kitchen:editor.cancel')}
                                 onPress={() => {
                                     guard.intercept(goBack);
                                 }}
                             />
                             <Button
                                 testID="kitchen-recipe-editor-screen-save"
-                                variant="secondary"
+                                variant={isCreating ? 'primary' : 'secondary'}
                                 label={t('kitchen:common.saveDraft')}
                                 loading={create.isPending || update.isPending || setLines.isPending}
-                                disabled={saveBlocked || !isEditable}
-                                onPress={() => {
-                                    saveAll();
-                                }}
+                                disabled={!canManage || !isEditable}
+                                onPress={attemptSave}
                             />
                             {isCreating || !canManage ? null : (
                                 <Button
@@ -1579,13 +1749,54 @@ function RecipeEditor({
                     }
                 />
 
-                <Text
-                    testID="kitchen-recipe-editor-screen-summary"
-                    tone="secondary"
-                    variant="caption"
-                >
-                    {summary}
-                </Text>
+                {blockerItems.length === 0 && zeroItems.length === 0 && !marginLow ? null : (
+                    <Inline space="xs" wrap testID="kitchen-recipe-issues">
+                        {blockerItems.length === 0 ? null : (
+                            <FormIssueBanner
+                                testID="kitchen-recipe-issues-errors"
+                                tone="danger"
+                                summary={t(
+                                    shownBlockers.every((entry) => entry.required)
+                                        ? 'kitchen:forms.requiredCount'
+                                        : 'kitchen:forms.toFixCount',
+                                    { count: blockerItems.length },
+                                )}
+                                items={blockerItems}
+                            />
+                        )}
+                        {zeroItems.length === 0 ? null : (
+                            <FormIssueBanner
+                                testID="kitchen-recipe-issues-zero"
+                                tone="warning"
+                                summary={t('kitchen:forms.atZeroCount', {
+                                    count: zeroItems.length,
+                                })}
+                                items={zeroItems}
+                            />
+                        )}
+                        {!marginLow ? null : (
+                            <FormIssueBanner
+                                testID="kitchen-recipe-issues-margin"
+                                tone={marginNegative ? 'danger' : 'warning'}
+                                summary={t(
+                                    marginNegative
+                                        ? 'kitchen:forms.marginBelowCost'
+                                        : 'kitchen:forms.marginLow',
+                                    { percent: MARGIN_WARNING_PERCENT },
+                                )}
+                                items={[
+                                    {
+                                        key: 'margin',
+                                        label: t('kitchen:recipes.grossMargin'),
+                                        onPress: () => {
+                                            goTo('costing', 'kitchen-recipe-margin');
+                                        },
+                                    },
+                                ]}
+                            />
+                        )}
+                    </Inline>
+                )}
 
                 <Tabs<RecipeTab>
                     testID="kitchen-recipe-tabs"
@@ -1593,6 +1804,7 @@ function RecipeEditor({
                     items={tabItems}
                     value={tab}
                     onChange={setTab}
+                    variant="steps"
                 />
             </Stack>
 
@@ -1617,7 +1829,7 @@ function RecipeEditor({
 
             {/* ── Description ──────────────────────────────────────────────────────────────── */}
             {tab !== 'description' ? null : (
-                <View className="relative z-raised">
+                <View className="relative z-raised flex-col gap-loose">
                     {/*
                      * Every tab body is one raised layer, and the same is true of the four below.
                      *
@@ -1632,124 +1844,112 @@ function RecipeEditor({
                      */}
                     <FormSection
                         first
+                        variant="underlined"
                         testID="kitchen-recipe-identity"
                         title={t('kitchen:recipes.sectionIdentity')}
-                        description={t('kitchen:recipes.identityDescription')}
                     >
-                        <FormGrid testID="kitchen-recipe-identity-grid">
-                            {/*
-                             * Id first, before the designation.
-                             *
-                             * It is the field a reader identifies the record by and the one they
-                             * read back to somebody on the phone, so it opens the section rather
-                             * than closing it. Read, never written: the series is the server's to
-                             * issue.
-                             *
-                             * Creating, it is the handle this record is *about* to take, read from
-                             * the same scan the save performs. A preview and not a reservation:
-                             * two forms open at once are both shown it, and the second save lands
-                             * one number later. Empty while it is in flight, and empty if the read
-                             * fails — better than a number nothing stands behind.
-                             */}
-                            <TextInputField
-                                testID="kitchen-recipe-reference"
-                                id="kitchen-recipe-reference"
-                                label={t('kitchen:list.columnReference')}
-                                size="sm"
-                                placeholder={t('kitchen:fields.referencePlaceholder')}
-                                // The record's own `RC-0001`, not its slug: a slug follows the name,
-                                // so it moves when the name is edited and sorts alphabetically
-                                // rather than by age.
-                                value={
-                                    isCreating
-                                        ? (nextReference.data ?? '')
-                                        : (data?.reference ?? '')
-                                }
-                                disabled
-                                onChangeText={() => undefined}
-                            />
-                            <BilingualField
-                                span={2}
-                                layout="row"
-                                testID="kitchen-recipe-name"
-                                // The word the recipe list's own title column uses, so the form
-                                // and the table name the same thing the same way.
-                                fieldLabel={t('kitchen:recipes.columnName')}
-                                value={details.name}
-                                requiredEnglish
+                        <View className="z-auto flex-row flex-wrap items-start gap-base">
+                            <ImageSlot
+                                testID="kitchen-recipe-image"
+                                uri={image}
                                 disabled={!editable}
-                                {...(nameMissing
-                                    ? { englishError: t('kitchen:recipes.nameRequired') }
-                                    : {})}
-                                onChange={(next) => {
-                                    setDetails({ ...details, name: next });
-                                    markDirty('details');
-                                }}
+                                onChange={setImage}
                             />
                             {/*
-                             * Classification — the other half of this section's own title, and
-                             * drawn only where the route knows the vocabulary.
+                             * Four half tracks beside the photo — two 280px fields: the designation
+                             * pair on the first row, the filing and the handle under it.
                              *
-                             * The category is stated, not asked: a form reached through Sauces &
-                             * marinades cannot be filed anywhere else, and a picker whose every
-                             * other option is wrong is a choice offered only to be a mistake. The
-                             * sub-category is the real question, and it is the four words the v6
-                             * sheets file these rows under.
-                             *
-                             * They are two children of the grid, never one wrapper around both:
-                             * `FormGrid` gives each *element* child its own cell, and a fragment is
-                             * one child — wrapping the pair put them in a single track, stacked,
-                             * with the sub-category under the category instead of beside it.
-                             *
-                             * Before `Ref.`, so the category lands beside the designation the way
-                             * the ingredient editor's identity grid places it. The designation pair
-                             * claims two of the three tracks, which leaves exactly one next to it,
-                             * and the filing is what a reader checks there — a reference they
-                             * cannot type is the last thing on the row rather than the middle of it.
+                             * The classification cells are two children of the grid, never one
+                             * wrapper around both: `FormGrid` gives each *element* child its own
+                             * cell, and a fragment is one child. Drawn only where the route knows
+                             * the vocabulary — the category is stated, not asked, because a form
+                             * reached through Sauces & marinades cannot be filed anywhere else.
                              */}
-                            {classification === undefined ? null : (
-                                <TextInputField
-                                    testID="kitchen-recipe-category"
-                                    id="kitchen-recipe-category"
-                                    label={t('kitchen:fields.category')}
-                                    size="sm"
-                                    value={classification.categoryLabel}
-                                    disabled
-                                    onChangeText={() => undefined}
-                                />
-                            )}
-                            {/*
-                             * Dressings pass no options: the sheets file all fourteen alike, and a
-                             * picker with one option is a label wearing a chevron.
-                             */}
-                            {classification === undefined ||
-                            classification.options.length === 0 ? null : (
-                                <Select
-                                    testID="kitchen-recipe-subcategory"
-                                    id="kitchen-recipe-subcategory"
-                                    label={classification.subcategoryLabel}
-                                    placeholder={classification.subcategoryPlaceholder}
+                            <FormGrid
+                                track="half"
+                                maxColumns={4}
+                                testID="kitchen-recipe-identity-grid"
+                            >
+                                <BilingualField
+                                    span={4}
+                                    layout="row"
+                                    testID="kitchen-recipe-name"
+                                    fieldLabel={t('kitchen:recipes.columnName')}
+                                    value={details.name}
+                                    requiredEnglish
                                     disabled={!editable}
-                                    options={classification.options}
-                                    value={
-                                        details.recipeCategory === ''
-                                            ? null
-                                            : details.recipeCategory
-                                    }
+                                    {...(shows('name')
+                                        ? { englishError: t('kitchen:forms.required') }
+                                        : {})}
                                     onChange={(next) => {
-                                        setDetails({ ...details, recipeCategory: next });
+                                        setDetails({ ...details, name: next });
                                         markDirty('details');
                                     }}
                                 />
-                            )}
-                        </FormGrid>
+                                {classification === undefined ? null : (
+                                    <TextInputField
+                                        span={2}
+                                        testID="kitchen-recipe-category"
+                                        id="kitchen-recipe-category"
+                                        label={t('kitchen:fields.category')}
+                                        size="sm"
+                                        value={classification.categoryLabel}
+                                        disabled
+                                        onChangeText={() => undefined}
+                                    />
+                                )}
+                                {/*
+                                 * Dressings pass no options: the sheets file all fourteen alike,
+                                 * and a picker with one option is a label wearing a chevron.
+                                 */}
+                                {classification === undefined ||
+                                classification.options.length === 0 ? null : (
+                                    <Select
+                                        span={2}
+                                        testID="kitchen-recipe-subcategory"
+                                        id="kitchen-recipe-subcategory"
+                                        label={classification.subcategoryLabel}
+                                        placeholder={classification.subcategoryPlaceholder}
+                                        disabled={!editable}
+                                        options={classification.options}
+                                        value={
+                                            details.recipeCategory === ''
+                                                ? null
+                                                : details.recipeCategory
+                                        }
+                                        onChange={(next) => {
+                                            setDetails({ ...details, recipeCategory: next });
+                                            markDirty('details');
+                                        }}
+                                    />
+                                )}
+                                {/*
+                                 * Read, never written: the series is the server's to issue.
+                                 * Creating, it is the handle this record is *about* to take — a
+                                 * preview and not a reservation, so two forms open at once are both
+                                 * shown it and the second save lands one number later. The record's
+                                 * own `RC-0001`, not its slug: a slug follows the name.
+                                 */}
+                                <TextInputField
+                                    span={2}
+                                    testID="kitchen-recipe-reference"
+                                    id="kitchen-recipe-reference"
+                                    label={t('kitchen:list.columnReference')}
+                                    size="sm"
+                                    placeholder={t('kitchen:fields.referencePlaceholder')}
+                                    value={headerReference}
+                                    disabled
+                                    onChangeText={() => undefined}
+                                />
+                            </FormGrid>
+                        </View>
                     </FormSection>
 
                     {isCreating ? null : (
                         <FormSection
+                            variant="underlined"
                             testID="kitchen-recipe-versions"
                             title={t('kitchen:recipes.sectionVersions')}
-                            description={t('kitchen:recipes.versionsDescription')}
                             actions={
                                 data?.meta.status === 'published' && canManage ? (
                                     <Button
@@ -1904,51 +2104,43 @@ function RecipeEditor({
 
             {/* ── Production ───────────────────────────────────────────────────────────────── */}
             {tab !== 'production' ? null : (
-                <View className="relative z-raised">
+                <View className="relative z-raised flex-col gap-loose">
                     {/*
-                     * The hint sits on the title's baseline, not under it — `aside`, not
-                     * `description`. The design writes `RAW MATERIALS  Type to add — the picker
-                     * stays inline, no modal` as one line, and it reads as a gloss on the heading
-                     * rather than as a paragraph the reader has to clear before the table.
-                     */}
-                    {/*
-                     * Yield above the formulation rather than on Description.
-                     *
-                     * They belong to the same reading: a yield is only meaningful beside the lines
-                     * it is divided into — "1.7 kg from these nine rows" — and having it a step away
-                     * meant checking a formulation required remembering a figure from another
-                     * screen, which is exactly the kind of thing a reader gets wrong. The two waste
-                     * coefficients are read against *each other* rather than against the yield, so
-                     * they sit together on Packaging.
+                     * Yield & waste above the formulation, as one reading: a yield is only
+                     * meaningful beside the lines it is divided into — "1.7 kg from these nine
+                     * rows" — and the production loss is a property of the same pan. The packaging
+                     * loss sits above the packaging lines the same way.
                      */}
                     <FormSection
                         first
+                        variant="underlined"
                         testID="kitchen-recipe-yield"
-                        title={t('kitchen:recipes.sectionYieldOnly')}
-                        description={t('kitchen:recipes.yieldDescription')}
+                        title={t('kitchen:forms.yieldAndWaste')}
                     >
-                        <FormGrid testID="kitchen-recipe-yield-grid">
+                        <FormGrid track="half" testID="kitchen-recipe-yield-grid">
                             {/*
-                             * `QuantityInput`, not `TextInputField`: it is the numeric field the
-                             * ingredient editor uses, so a figure on this form is the same 28px box
-                             * with the same digits-only keyboard as a figure on that one.
-                             *
                              * The unit rides on the field as a suffix rather than sitting in a
-                             * picker beside it. Every recipe in this kitchen yields a mass, the
-                             * cost cascade divides by kilograms, and a unit selector whose other
-                             * options all produce a cost per portion the costing tab cannot read is
-                             * a choice offered only to be wrong. `kg` is stated, not chosen.
+                             * picker beside it. Every recipe in this kitchen yields a mass, the cost
+                             * cascade divides by kilograms, and a unit selector whose other options
+                             * all produce a cost per portion the costing tab cannot read is a choice
+                             * offered only to be wrong. `kg` is stated, not chosen.
                              */}
                             <QuantityInput
                                 testID="kitchen-recipe-yield-quantity"
                                 id="kitchen-recipe-yield-quantity"
                                 label={t('kitchen:recipes.yieldQuantity')}
                                 size="sm"
+                                required
                                 unit={t(unitShortKey('kg'))}
                                 value={details.yieldQuantity}
                                 disabled={!editable}
-                                {...(yieldInvalid
-                                    ? { error: t('kitchen:recipes.yieldRequired') }
+                                {...(shows('yield')
+                                    ? {
+                                          error:
+                                              details.yieldQuantity.trim() === ''
+                                                  ? t('kitchen:forms.required')
+                                                  : t('kitchen:recipes.yieldRequired'),
+                                      }
                                     : {})}
                                 onChangeText={(next) => {
                                     setDetails({ ...details, yieldQuantity: next });
@@ -1967,17 +2159,26 @@ function RecipeEditor({
                                     markDirty('details');
                                 }}
                             />
+                            <QuantityInput
+                                testID="kitchen-recipe-waste"
+                                id="kitchen-recipe-waste"
+                                label={t('kitchen:recipes.productionWastePercent')}
+                                size="sm"
+                                unit="%"
+                                value={details.wastePercent}
+                                disabled={!editable}
+                                onChangeText={(next) => {
+                                    setDetails({ ...details, wastePercent: next });
+                                    markDirty('details');
+                                }}
+                            />
                         </FormGrid>
                     </FormSection>
 
                     <FormSection
+                        variant="underlined"
                         testID="kitchen-recipe-lines"
                         title={t('kitchen:recipes.sectionRawMaterials')}
-                        aside={
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:recipes.linesPickerHint')}
-                            </Text>
-                        }
                     >
                         <RecipeLineTable
                             testID="kitchen-recipe-lines-table"
@@ -1999,79 +2200,28 @@ function RecipeEditor({
 
             {/* ── Packaging ────────────────────────────────────────────────────────────────── */}
             {tab !== 'packaging' ? null : (
-                <View className="relative z-raised">
-                    {/*
-                     * The picker's panel has to out-rank what is drawn *after* it, and the raise
-                     * belongs on *this* section rather than on a wrapper around both.
-                     *
-                     * `Picker` raises its own wrapper while open, which was enough on the Production
-                     * tab while the table was the last thing on the page (the Previous/Next row now
-                     * follows every tab, which is why each body is raised whole — see the
-                     * Description tab). It was not enough here and
-                     * a wrapper around the pair did not help either: a z-index orders an element
-                     * against its siblings in one stacking context, and both sections were inside
-                     * that wrapper — so the panel still had to beat Packaging waste, which is drawn
-                     * after it and therefore on top. Raising the section the panel hangs from is
-                     * what actually orders the two: this subtree paints above the next one whatever
-                     * the views in between do with their own z-indexes.
-                     */}
-                    <View className="relative z-sticky">
-                        <FormSection
-                            first
-                            testID="kitchen-recipe-packaging"
-                            title={t('kitchen:recipes.sectionPackaging')}
-                            aside={
-                                <Text variant="caption" tone="secondary">
-                                    {t('kitchen:recipes.packagingHint')}
-                                </Text>
-                            }
-                        >
-                            <RecipeLineTable
-                                testID="kitchen-recipe-packaging-table"
-                                rows={packaging}
-                                ingredients={packagingLibrary}
-                                source="packaging"
-                                costs={computed?.packaging ?? null}
-                                canManage={canManage}
-                                nextKey={nextKey}
-                                pickerPlaceholder={t('kitchen:recipes.packagingPlaceholder')}
-                                onChange={(next) => {
-                                    setPackaging(next);
-                                    markDirty('packaging');
-                                }}
-                            />
-                        </FormSection>
-                    </View>
-
-                    {/*
-                     * Both waste coefficients, moved here from Costing.
-                     *
-                     * They were filed with the money because the cost cascade divides by them, but
-                     * neither is a commercial figure: each is a property of a step, measured in the
-                     * kitchen. The design puts the pair side by side because they are read against
-                     * each other — a formulation that loses 3% in the pan and 2% at the packing
-                     * bench is two different problems. Costing still reads both and edits neither.
-                     * Saved with the version.
-                     */}
+                <View className="relative z-raised flex-col gap-loose">
                     <FormSection
+                        first
+                        variant="underlined"
                         testID="kitchen-recipe-packaging-coefficients"
-                        title={t('kitchen:recipes.sectionWaste')}
-                        description={t('kitchen:recipes.wasteHint')}
+                        title={t('kitchen:forms.expiryAndWaste')}
                     >
-                        <FormGrid testID="kitchen-recipe-packaging-waste-grid">
+                        <FormGrid track="half" testID="kitchen-recipe-packaging-waste-grid">
+                            {/*
+                             * How long a packed batch keeps — a property of the pack as much as of
+                             * the formulation, so it sits with the packaging. Not saved: see the
+                             * docblock.
+                             */}
                             <QuantityInput
-                                testID="kitchen-recipe-waste"
-                                id="kitchen-recipe-waste"
-                                label={t('kitchen:recipes.productionWastePercent')}
+                                testID="kitchen-recipe-expiry"
+                                id="kitchen-recipe-expiry"
                                 size="sm"
-                                unit="%"
-                                hint={t('kitchen:recipes.productionWasteHelp')}
-                                value={details.wastePercent}
+                                label={t('kitchen:forms.expiryPeriod')}
+                                unit={t('kitchen:forms.days')}
+                                value={expiryDays}
                                 disabled={!editable}
-                                onChangeText={(next) => {
-                                    setDetails({ ...details, wastePercent: next });
-                                    markDirty('details');
-                                }}
+                                onChangeText={setExpiryDays}
                             />
                             <QuantityInput
                                 testID="kitchen-recipe-packaging-waste"
@@ -2088,19 +2238,54 @@ function RecipeEditor({
                             />
                         </FormGrid>
                     </FormSection>
+
+                    {/*
+                     * The picker's panel opens downward into whatever is drawn after the table, so
+                     * the section it hangs from is raised: a z-index orders an element against its
+                     * siblings in one stacking context, and this subtree has to paint above the
+                     * next one whatever the views in between do with their own.
+                     */}
+                    <View className="relative z-sticky">
+                        <FormSection
+                            first
+                            variant="underlined"
+                            testID="kitchen-recipe-packaging"
+                            title={t('kitchen:recipes.sectionPackaging')}
+                        >
+                            <RecipeLineTable
+                                testID="kitchen-recipe-packaging-table"
+                                rows={packaging}
+                                ingredients={packagingLibrary}
+                                source="packaging"
+                                warnZeroQuantity
+                                costs={computed?.packaging ?? null}
+                                canManage={canManage}
+                                nextKey={nextKey}
+                                pickerPlaceholder={t('kitchen:recipes.packagingPlaceholder')}
+                                onChange={(next) => {
+                                    setPackaging(next);
+                                    markDirty('packaging');
+                                }}
+                            />
+                        </FormSection>
+                    </View>
                 </View>
             )}
 
             {/* ── Costing ──────────────────────────────────────────────────────────────────── */}
             {tab !== 'costing' ? null : (
-                <View className="relative z-raised">
+                <View className="relative z-raised flex-col gap-loose">
                     <FormSection
                         first
+                        variant="underlined"
                         testID="kitchen-recipe-cost-cascade"
                         title={t('kitchen:recipes.sectionCostCascade')}
+                        // Kept where the design drops its subtitles: it says which price the
+                        // figures are built on, so a number that moves tomorrow can be traced.
                         description={t('kitchen:recipes.costCascadeHint')}
                         aside={
                             <Badge
+                                variant="label"
                                 tone="danger"
                                 icon="eyeOff"
                                 label={t('kitchen:recipes.confidential')}
@@ -2159,9 +2344,9 @@ function RecipeEditor({
                      */}
                     {!canViewCosts ? null : (
                         <FormSection
+                            variant="underlined"
                             testID="kitchen-recipe-package-costs"
                             title={t('kitchen:recipes.sectionPackageCosts')}
-                            description={t('kitchen:recipes.packageCostsHint')}
                         >
                             <PackageCosts
                                 testID="kitchen-recipe-package-costs"
@@ -2188,9 +2373,9 @@ function RecipeEditor({
                      * material and a recipe in one sitting meets one control twice, not two.
                      */}
                     <FormSection
+                        variant="underlined"
                         testID="kitchen-recipe-coefficients"
-                        title={t('kitchen:recipes.sectionCoefficients')}
-                        description={t('kitchen:recipes.coefficientsHint')}
+                        title={t('kitchen:forms.price')}
                     >
                         <Stack space="sm">
                             {currencyMissing ? (
@@ -2202,7 +2387,7 @@ function RecipeEditor({
                                 />
                             ) : null}
 
-                            <FormGrid testID="kitchen-recipe-coefficients-grid">
+                            <FormGrid track="half" testID="kitchen-recipe-coefficients-grid">
                                 <QuantityInput
                                     testID="kitchen-recipe-b2b-price"
                                     id="kitchen-recipe-b2b-price"
@@ -2210,7 +2395,6 @@ function RecipeEditor({
                                     label={t('kitchen:recipes.b2bPricePerUnit', {
                                         unit: t(unitShortKey(details.yieldUnit)),
                                     })}
-                                    hint={t('kitchen:recipes.b2bPriceHint')}
                                     value={details.b2bPrice}
                                     disabled={!canManage}
                                     {...(currency === null
@@ -2224,7 +2408,7 @@ function RecipeEditor({
                                                   currency,
                                               ),
                                           })}
-                                    {...(b2bPriceValue === undefined
+                                    {...(shows('b2b-price')
                                         ? { error: t('kitchen:sale.priceInvalid') }
                                         : {})}
                                     onChangeText={(next) => {
@@ -2240,7 +2424,6 @@ function RecipeEditor({
                                     label={t('kitchen:recipes.b2cPricePerUnit', {
                                         unit: t(unitShortKey(details.yieldUnit)),
                                     })}
-                                    hint={t('kitchen:recipes.b2cPriceHint')}
                                     value={details.b2cPrice}
                                     disabled={!canManage}
                                     {...(currency === null
@@ -2251,7 +2434,7 @@ function RecipeEditor({
                                                   currency,
                                               ),
                                           })}
-                                    {...(b2cPriceValue === undefined
+                                    {...(shows('b2c-price')
                                         ? { error: t('kitchen:sale.priceInvalid') }
                                         : {})}
                                     onChangeText={(next) => {
@@ -2275,6 +2458,15 @@ function RecipeEditor({
                                     label={t('kitchen:recipes.grossMargin')}
                                     unit="%"
                                     placeholder={t('kitchen:sale.marginUnavailable')}
+                                    {...(marginNegative
+                                        ? { error: t('kitchen:forms.marginBelowCost') }
+                                        : marginLow
+                                          ? {
+                                                warning: t('kitchen:forms.marginLow', {
+                                                    percent: MARGIN_WARNING_PERCENT,
+                                                }),
+                                            }
+                                          : {})}
                                     value={
                                         margin === null
                                             ? ''
@@ -2282,19 +2474,6 @@ function RecipeEditor({
                                                   minimumFractionDigits: 1,
                                                   maximumFractionDigits: 1,
                                                   signDisplay: 'exceptZero',
-                                              })
-                                    }
-                                    hint={
-                                        margin === null
-                                            ? t('kitchen:recipes.marginNoBasis')
-                                            : t('kitchen:recipes.marginHint', {
-                                                  // Not null here: no total, no margin.
-                                                  cost: formatMoney(
-                                                      formatter,
-                                                      totalPerUnit?.amount ?? 0,
-                                                      totalPerUnit?.currency ?? null,
-                                                      COST_DIGITS,
-                                                  ),
                                               })
                                     }
                                     onChangeText={() => undefined}
@@ -2324,7 +2503,7 @@ function RecipeEditor({
             {/* ── Technical sheet ──────────────────────────────────────────────────────────── */}
             {tab !== 'sheet' ? null : (
                 <View className="relative z-raised flex-col gap-loose lg:flex-row lg:items-start">
-                    <View className="min-w-0 flex-1 flex-col">
+                    <View className="min-w-0 flex-1 flex-col gap-loose">
                         {/*
                          * The sheet as a reader checks it before publishing: one ledger of the figures
                          * the other steps produced, from the draft rather than the saved version, so it
@@ -2332,6 +2511,7 @@ function RecipeEditor({
                          */}
                         <FormSection
                             first
+                            variant="underlined"
                             testID="kitchen-recipe-sheet-summary"
                             title={t('kitchen:recipes.sheetTitle')}
                         >
@@ -2360,20 +2540,20 @@ function RecipeEditor({
 
                         <FormSection
                             first
+                            variant="underlined"
                             testID="kitchen-recipe-composition"
-                            title={t('kitchen:composition.title')}
-                            description={t('kitchen:recipes.compositionHint')}
+                            title={t('kitchen:forms.nutritionTitle')}
                             aside={
                                 <Badge
+                                    variant="label"
                                     tone="info"
-                                    icon={null}
                                     label={t('kitchen:composition.fromDatabase')}
                                 />
                             }
                         >
                             <DerivedPanel
                                 testID="kitchen-recipe-composition-panel"
-                                description={t('kitchen:composition.description')}
+                                variant="outline"
                                 figures={nutrientFigures(
                                     rollup.data?.per100g ?? null,
                                     t,
@@ -2410,11 +2590,16 @@ function RecipeEditor({
                          * derivation by definition — so nothing here claims a hand-declared entry.
                          */}
                         <FormSection
+                            variant="underlined"
                             testID="kitchen-recipe-allergens"
-                            title={t('kitchen:recipes.sectionAllergenClasses')}
-                            description={t('kitchen:recipes.allergensInheritedFrom', {
-                                count: lines.length,
-                            })}
+                            title={t('kitchen:forms.allergensTitle')}
+                            aside={
+                                <Badge
+                                    variant="label"
+                                    tone="info"
+                                    label={t('kitchen:composition.fromDatabase')}
+                                />
+                            }
                         >
                             {allergenSources.length === 0 ? (
                                 <Text
@@ -2472,9 +2657,9 @@ function RecipeEditor({
                          * is no version to snapshot until the recipe exists.
                          */}
                         <FormSection
+                            variant="underlined"
                             testID="kitchen-recipe-sheet"
-                            title={t('kitchen:recipes.sheetTitle')}
-                            description={t('kitchen:recipes.sheetPrintHint')}
+                            title={t('kitchen:recipes.sheetPrintTitle')}
                         >
                             {data === undefined ? (
                                 <Text
@@ -2505,7 +2690,11 @@ function RecipeEditor({
                         testID="kitchen-recipe-publish-checks"
                         className="flex-col lg:w-72 lg:shrink-0"
                     >
-                        <FormSection first title={t('kitchen:recipes.publishChecksTitle')}>
+                        <FormSection
+                            first
+                            variant="underlined"
+                            title={t('kitchen:recipes.publishChecksTitle')}
+                        >
                             <View className="flex-col">
                                 {publishChecks.map((check) => (
                                     <View
@@ -2540,62 +2729,6 @@ function RecipeEditor({
                     </View>
                 </View>
             )}
-
-            {/*
-             * Back and forward through the tabs, under whichever one is open.
-             *
-             * The tab row at the top is how a reader *jumps*; this is how they *work through* — five
-             * tabs is a sequence with an order that means something (identity, then formulation, then
-             * what it is packed in, then what it costs), and the design's own sale flow uses the same
-             * pair for the same reason.
-             *
-             * Previous stays drawn and goes disabled on the first step, so the row does not change
-             * width as it is walked. Next does not: on the last step it gives way to the form's own
-             * commit — Create while there is no recipe yet, and nothing once there is one, since a
-             * saved recipe's Publish is in the header where every step can reach it.
-             */}
-            <FormNavigation
-                testID="kitchen-recipe-tab-steps"
-                previousTestID="kitchen-recipe-tab-previous"
-                previousLabel={t('kitchen:recipes.tabPrevious')}
-                previousDisabled={at <= 0}
-                onPrevious={() => {
-                    const previous = order[at - 1];
-                    if (previous !== undefined) setTab(previous);
-                }}
-                counter={t('kitchen:recipes.stepCounter', {
-                    current: at + 1,
-                    total: order.length,
-                    label: tabItems[at]?.label ?? '',
-                })}
-                sticky
-                actions={
-                    at >= 0 && at === order.length - 1 ? (
-                        isCreating ? (
-                            <Button
-                                testID="kitchen-recipe-create"
-                                label={t('kitchen:recipes.createAction')}
-                                loading={create.isPending || update.isPending || setLines.isPending}
-                                disabled={saveBlocked || !isEditable}
-                                onPress={() => {
-                                    saveAll();
-                                }}
-                            />
-                        ) : null
-                    ) : (
-                        <Button
-                            testID="kitchen-recipe-tab-next"
-                            iconEnd={<Icon name="chevronEnd" size="sm" />}
-                            label={t('kitchen:recipes.tabNext')}
-                            disabled={at < 0}
-                            onPress={() => {
-                                const next = order[at + 1];
-                                if (next !== undefined) setTab(next);
-                            }}
-                        />
-                    )
-                }
-            />
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog
@@ -2909,6 +3042,14 @@ function RecipeEditor({
 /* ------------------------------------------------------------------------------------------------
  * The cost cascade
  * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * Below this gross margin a price is flagged — the design's amber field. A warning and not a
+ * refusal: a loss-leader is a decision a kitchen is allowed to make, and the flag is there so it is
+ * made on purpose. Below zero the same field turns to an error, because that price loses money on
+ * every unit sold — it still saves, for the same reason.
+ */
+const MARGIN_WARNING_PERCENT = 30;
 
 const YIELD_DIGITS: Intl.NumberFormatOptions = {
     minimumFractionDigits: 0,
@@ -3292,18 +3433,62 @@ function PackageCosts({
  * ---------------------------------------------------------------------------------------------- */
 
 /**
- * The four tiles the design draws, always four, whether or not the roll-up has facts behind them.
+ * The eight tiles the design draws, always eight, whether or not the roll-up has facts behind them.
  *
- * Same set and the same reasoning as the ingredient editor's panel: a figure the version has not got
- * comes back `null` and the panel draws an em dash, never a zero, and the row does not collapse.
- * `per100g` is the basis because that is the one the design labels and the one a label is written
- * in; it is `null` until the total mass is known, which is what the dashes mean before then.
+ * The same set, in the same order, as the ingredient editor's inputs: a figure the version has not
+ * got comes back `null` and the panel draws an em dash, never a zero, and the row does not collapse.
+ * `per100g` is the basis because that is the one the section title states and the one a label is
+ * written in — which is why each tile carries its bare unit and not `/ 100 g` again. It is `null`
+ * until the total mass is known, which is what the dashes mean before then.
+ *
+ * Both keys are written out rather than assembled from the id: an interpolated key that does not
+ * exist is an English string appearing in Arabic at run time instead of a compile error.
  */
-const PANEL_NUTRIENTS: readonly { readonly id: string; readonly labelKey: string }[] = [
-    { id: 'energy', labelKey: 'nutrition:nutrients.energy' },
-    { id: 'fat', labelKey: 'nutrition:nutrients.fat' },
-    { id: 'carbohydrate', labelKey: 'nutrition:nutrients.carbohydrate' },
-    { id: 'protein', labelKey: 'nutrition:nutrients.protein' },
+const PANEL_NUTRIENTS: readonly {
+    readonly id: string;
+    readonly labelKey: string;
+    readonly unitKey: string;
+}[] = [
+    {
+        id: 'energy',
+        labelKey: 'nutrition:nutrients.energy',
+        unitKey: 'kitchen:nutritionFacts.unitKcal',
+    },
+    {
+        id: 'protein',
+        labelKey: 'nutrition:nutrients.protein',
+        unitKey: 'kitchen:nutritionFacts.unitGrams',
+    },
+    {
+        id: 'carbohydrate',
+        labelKey: 'nutrition:nutrients.carbohydrate',
+        unitKey: 'kitchen:nutritionFacts.unitGrams',
+    },
+    {
+        id: 'fat',
+        labelKey: 'nutrition:nutrients.fat',
+        unitKey: 'kitchen:nutritionFacts.unitGrams',
+    },
+    {
+        id: 'fibre',
+        labelKey: 'nutrition:nutrients.fibre',
+        unitKey: 'kitchen:nutritionFacts.unitGrams',
+    },
+    {
+        id: 'sugars',
+        labelKey: 'nutrition:nutrients.sugars',
+        unitKey: 'kitchen:nutritionFacts.unitGrams',
+    },
+    {
+        id: 'sodium',
+        labelKey: 'nutrition:nutrients.sodium',
+        unitKey: 'kitchen:nutritionFacts.unitMilligrams',
+    },
+    {
+        id: 'saturated_fat',
+        labelKey: 'nutrition:nutrients.saturatedFat',
+        unitKey: 'kitchen:nutritionFacts.unitGrams',
+    },
 ];
 
 function nutrientFigures(
@@ -3328,9 +3513,7 @@ function nutrientFigures(
                               minimumFractionDigits: definition.precision,
                               maximumFractionDigits: definition.precision,
                           }),
-                unit: t('kitchen:composition.per100g', {
-                    unit: amount?.unit ?? definition.unit,
-                }),
+                unit: t(nutrient.unitKey),
             },
         ];
     });

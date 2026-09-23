@@ -49,6 +49,8 @@ export interface TextInputFieldProps
     readonly labelHidden?: boolean | undefined;
     readonly hint?: string | undefined;
     readonly error?: string | undefined;
+    /** A non-blocking caution under the field — see `FormField`. */
+    readonly warning?: string | undefined;
     readonly required?: boolean | undefined;
     readonly disabled?: boolean | undefined;
     readonly size?: InputSize | undefined;
@@ -108,6 +110,8 @@ const MULTILINE_FRAME_SIZE: Readonly<Record<Density, Readonly<Record<InputSize, 
 
 export function inputFrameClassName(options: {
     readonly invalid: boolean;
+    /** A non-blocking caution — the warning border. `invalid` wins when both are set. */
+    readonly caution?: boolean | undefined;
     readonly focused: boolean;
     readonly disabled: boolean;
     /**
@@ -134,7 +138,11 @@ export function inputFrameClassName(options: {
         'flex-row border bg-surface-raised',
         multiline ? 'items-stretch' : 'items-center',
         (multiline ? MULTILINE_FRAME_SIZE : FRAME_SIZE)[density][size],
-        options.invalid ? 'border-danger-border' : 'border-stroke',
+        options.invalid
+            ? 'border-danger-border'
+            : options.caution === true
+              ? 'border-warning-border'
+              : 'border-stroke',
         // A visible focus ring is a WCAG 2.4.7 requirement, and on native there is no browser
         // default to fall back on, so it is drawn explicitly.
         options.focused ? 'border-stroke-focus border-focus' : null,
@@ -178,6 +186,7 @@ export function TextInputField({
     labelHidden = false,
     hint,
     error,
+    warning,
     required = false,
     disabled = false,
     size = 'md',
@@ -203,6 +212,7 @@ export function TextInputField({
             labelHidden={labelHidden}
             hint={hint}
             error={error}
+            warning={warning}
             required={required}
             disabled={disabled}
             id={id}
@@ -213,6 +223,7 @@ export function TextInputField({
                 <View
                     className={inputFrameClassName({
                         invalid: error !== undefined,
+                        caution: warning !== undefined,
                         focused,
                         disabled,
                         density,

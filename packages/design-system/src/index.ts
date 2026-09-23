@@ -80,7 +80,13 @@ export type {
  * `grid-shared.ts` carries the geometry both halves agree on.
  */
 export { FormGrid } from './primitives/grid';
-export type { GridColumnCount, GridProps, GridSpanProps } from './primitives/grid-shared.ts';
+export { GRID_TRACKS, HALF_TRACK_WIDTH } from './primitives/grid-shared.ts';
+export type {
+    GridColumnCount,
+    GridProps,
+    GridSpanProps,
+    GridTrack,
+} from './primitives/grid-shared.ts';
 export {
     GRID_COLUMNS,
     GRID_GAP,
@@ -110,6 +116,12 @@ export {
 export type { InputSize, TextInputFieldProps } from './forms/text-input.tsx';
 export { FormSection } from './forms/form-section.tsx';
 export type { FormSectionProps } from './forms/form-section.tsx';
+export { FORM_ISSUE_TONES, FormIssueBanner } from './forms/form-issue-banner.tsx';
+export type {
+    FormIssueBannerProps,
+    FormIssueItem,
+    FormIssueTone,
+} from './forms/form-issue-banner.tsx';
 export { FormNavigation } from './forms/form-navigation.tsx';
 export type { FormNavigationProps } from './forms/form-navigation.tsx';
 export { SearchInput } from './forms/search-input.tsx';
@@ -190,8 +202,8 @@ export { DataList, UNDROPPABLE_PRIORITY, fitColumns, spreadColumns } from './con
 export type { DataListColumn, DataListProps } from './content/data-list.tsx';
 export { RECORD_STATUSES, STATUS_TONE, StatusBadge } from './content/status-badge.tsx';
 export type { RecordStatus, StatusBadgeProps } from './content/status-badge.tsx';
-export { BADGE_TONES, Badge, NUTRITION_LEVELS } from './content/badge.tsx';
-export type { BadgeProps, BadgeTone, NutritionLevel } from './content/badge.tsx';
+export { BADGE_TONES, BADGE_VARIANTS, Badge, NUTRITION_LEVELS } from './content/badge.tsx';
+export type { BadgeProps, BadgeTone, BadgeVariant, NutritionLevel } from './content/badge.tsx';
 export { CHIP_TONES, Chip, FilterChip } from './content/chip.tsx';
 export type { ChipProps, ChipTone, FilterChipProps } from './content/chip.tsx';
 export { TAG_TONES, Tag, TagRow } from './content/tag.tsx';

@@ -15,6 +15,29 @@ import {
 export const BADGE_TONES = ['neutral', 'success', 'warning', 'danger', 'info', 'brand'] as const;
 export type BadgeTone = (typeof BADGE_TONES)[number];
 
+export const BADGE_VARIANTS = ['pill', 'label', 'caps'] as const;
+export type BadgeVariant = (typeof BADGE_VARIANTS)[number];
+
+/** The mark on a `label`: the tone's strong ink, so the glyph carries the tone at 10px. */
+const TONE_MARK_CLASS: Readonly<Record<BadgeTone, string>> = {
+    neutral: 'text-content-secondary',
+    success: 'text-success-strong',
+    warning: 'text-warning-strong',
+    danger: 'text-danger-strong',
+    info: 'text-info-strong',
+    brand: 'text-content-on-brand-subtle',
+};
+
+/** The fill of a `label` or `caps`: the subtle surface alone, no border. */
+const TONE_FILL_CLASS: Readonly<Record<BadgeTone, string>> = {
+    neutral: 'bg-surface-sunken',
+    success: 'bg-success-subtle',
+    warning: 'bg-warning-subtle',
+    danger: 'bg-danger-subtle',
+    info: 'bg-info-subtle',
+    brand: 'bg-surface-brand-subtle',
+};
+
 const TONE_CLASS: Readonly<Record<BadgeTone, string>> = {
     neutral: 'bg-surface-sunken border-stroke-subtle',
     success: 'bg-success-subtle border-success-border',
@@ -64,11 +87,31 @@ export interface BadgeProps {
     readonly nutrition?: NutritionLevel | undefined;
     /** Overrides the tone's default icon. Pass `null` only when the label alone is unambiguous. */
     readonly icon?: IconName | null | undefined;
+    /**
+     * `pill` (the default) is the badge described above. The other two are the Catalogue Forms
+     * labels (`Labels` in the design), for the desk surfaces:
+     *
+     * - `label` — a 20px tag at the control corner, the subtle fill with no border, the tone's mark
+     *   in its strong ink before the text. What sits beside a section title: `ⓘ From database`,
+     *   `⚠ Estimated`.
+     * - `caps` — the record's state beside a page title: `DRAFT`, `RESTRICTED`. Capitals from the
+     *   stylesheet (Arabic has no case), 10px on a 17px tag, and no mark unless one is passed,
+     *   because the word is the whole of it and a glyph at that size is noise.
+     */
+    readonly variant?: BadgeVariant | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
 
-export function Badge({ label, tone = 'neutral', nutrition, icon, className, testID }: BadgeProps) {
+export function Badge({
+    label,
+    tone = 'neutral',
+    nutrition,
+    icon,
+    variant = 'pill',
+    className,
+    testID,
+}: BadgeProps) {
     const density = useDensity();
     // A badge stays a pill — it is the one exception §1.3 grants — but in the admin it sets its
     // label on the ramp's smallest step, so a status chip sits inside a 32px row without setting
@@ -103,6 +146,46 @@ export function Badge({ label, tone = 'neutral', nutrition, icon, className, tes
     }
 
     const resolvedIcon = icon === undefined ? TONE_ICON[tone] : icon;
+
+    if (variant !== 'pill') {
+        const caps = variant === 'caps';
+        // `caps` draws no mark by default; an explicit `icon` still wins.
+        const mark = caps ? (icon ?? null) : resolvedIcon;
+        return (
+            <View
+                testID={testID}
+                accessibilityRole="text"
+                accessibilityLabel={label}
+                className={cx(
+                    'flex-row items-center self-start',
+                    caps
+                        ? 'h-[17px] gap-1 rounded-[3px] px-1.5'
+                        : 'h-5 gap-[5px] rounded-sm pe-[7px] ps-1.5',
+                    TONE_FILL_CLASS[tone],
+                    className,
+                )}
+            >
+                {mark === null ? null : (
+                    <Icon
+                        testID={testID === undefined ? undefined : `${testID}-icon`}
+                        name={mark}
+                        size="sm"
+                        className={TONE_MARK_CLASS[tone]}
+                    />
+                )}
+                <RNText
+                    className={cx(
+                        caps
+                            ? 'text-role-micro uppercase tracking-wide'
+                            : 'text-role-caption font-medium',
+                        TONE_TEXT_CLASS[tone],
+                    )}
+                >
+                    {label}
+                </RNText>
+            </View>
+        );
+    }
 
     return (
         <View
