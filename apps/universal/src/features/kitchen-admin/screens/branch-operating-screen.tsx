@@ -299,6 +299,13 @@ function BranchOperatingEditor() {
             saveLabel={t('kitchen:branchHours.save')}
             saving={save.isPending}
             saveDisabled={!canManage || !dirty || dayErrors.size > 0}
+            /*
+             * No Back and no Save in the header. The trail already leads back to the workspace, and
+             * the week's one Save sits under the week, beside the rule a reader most often breaks —
+             * two Saves for one form was one too many. The unsaved guard still stands on every exit.
+             */
+            hideSave
+            hideBack
             backLabel={t('kitchen:branchHours.backToHub')}
             onBack={() => {
                 router.push('/kitchen' as never);
@@ -404,7 +411,7 @@ function BranchOperatingEditor() {
                     }}
                 />
 
-                {/* The design repeats Save under the week, beside the rule a reader most often breaks. */}
+                {/* The page's only Save, under the week, beside the rule a reader most often breaks. */}
                 {canManage ? (
                     <View className="flex-row flex-wrap items-center gap-tight px-tight pt-snug">
                         <Button

@@ -206,6 +206,7 @@ function RolesList() {
         },
         {
             key: 'holders',
+            align: 'center',
             role: 'metric',
             label: t('accessAdmin:roles.columns.holders'),
             width: 120,
@@ -224,6 +225,7 @@ function RolesList() {
         },
         {
             key: 'permissions',
+            align: 'center',
             role: 'meta',
             label: t('accessAdmin:roles.columns.pages'),
             width: 130,

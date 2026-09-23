@@ -4,9 +4,9 @@ import {
     Button,
     Callout,
     FormGrid,
+    FormSection,
     Dialog,
     ErrorState,
-    Inline,
     Select,
     Skeleton,
     Stack,
@@ -53,9 +53,11 @@ import {
 } from '../delivery-model.ts';
 import type { DeliveryWindowDraft } from '../delivery-model.ts';
 import { DeliveryWindowRows, ServiceAreaPicker } from '../delivery-row-editors.tsx';
-import { EditorFrame } from '../editor-frame.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import { focusField } from '../field-focus.ts';
 import { displayName, minorAmountToInput, statusKey, statusTone } from '../format.ts';
+import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -139,6 +141,7 @@ export interface DeliveryZoneEditScreenProps {
 }
 
 const ZONE_STEPS = ['zone', 'areas', 'windows'] as const;
+type ZoneStep = (typeof ZONE_STEPS)[number];
 
 export function DeliveryZoneEditScreen({ zone }: DeliveryZoneEditScreenProps) {
     return (
@@ -254,8 +257,18 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
     const [ordinal, setOrdinal] = useState(1);
 
     const [showArchive, setShowArchive] = useState(false);
+    /** Whether Save has been pressed — what lets an empty required field call itself out. */
+    const [attempted, setAttempted] = useState(false);
 
     const data = record.data;
+
+    const title = isCreating
+        ? t('kitchen:zones.createTitle')
+        : data === undefined
+          ? t('kitchen:zones.editTitle')
+          : displayName(data.name, locale).value;
+    // The trail's last crumb. A saved zone waits for its record rather than naming a placeholder.
+    useKitchenTrailLeaf(isCreating || data !== undefined ? title : null);
     const branchNames = useZoneBranches(data?.branchIds);
     const serverKey =
         data === undefined ? null : `${String(data.id)}:${String(data.meta.lockVersion)}`;
@@ -360,6 +373,79 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
         [windows, t],
     );
 
+    /*
+     * Everything that stops the save, in step order, each naming the step and the field that fixes
+     * it — the ingredient editor's list on the zone's three steps. A blank waits for Save to be
+     * pressed; a value typed wrong is named at once.
+     */
+    const issues: readonly {
+        readonly key: string;
+        readonly label: string;
+        readonly step: ZoneStep;
+        readonly fieldId: string | null;
+        readonly required: boolean;
+    }[] = [
+        ...(nameMissing
+            ? [
+                  {
+                      key: 'name',
+                      label: t('kitchen:bilingual.englishShort', {
+                          field: t('kitchen:fields.name'),
+                      }),
+                      step: 'zone' as const,
+                      fieldId: 'kitchen-zone-name-en',
+                      required: true,
+                  },
+              ]
+            : []),
+        ...(currency === null
+            ? [
+                  {
+                      key: 'currency',
+                      label: t('kitchen:zones.currencyLabel'),
+                      step: 'zone' as const,
+                      fieldId: 'kitchen-zone-currency-select',
+                      required: true,
+                  },
+              ]
+            : []),
+        ...(feeState === 'invalid'
+            ? [
+                  {
+                      key: 'fee',
+                      label: t('kitchen:zones.feeLabel', { currency: currency ?? '' }),
+                      step: 'zone' as const,
+                      fieldId: 'kitchen-zone-fee',
+                      required: false,
+                  },
+              ]
+            : []),
+        ...(minimumState === 'invalid'
+            ? [
+                  {
+                      key: 'minimum',
+                      label: t('kitchen:zones.minimumLabel', { currency: currency ?? '' }),
+                      step: 'zone' as const,
+                      fieldId: 'kitchen-zone-minimum',
+                      required: false,
+                  },
+              ]
+            : []),
+        ...(windowRowErrors.size > 0
+            ? [
+                  {
+                      key: 'windows',
+                      label: t('kitchen:zones.sectionWindows'),
+                      step: 'windows' as const,
+                      fieldId: null,
+                      required: false,
+                  },
+              ]
+            : []),
+    ];
+    const shownIssues = attempted ? issues : issues.filter((entry) => !entry.required);
+    const shows = (key: string): boolean => shownIssues.some((entry) => entry.key === key);
+
     /* ── the step ladder ─────────────────────────────────────────────────────────────────────── */
 
     /**
@@ -459,6 +545,26 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
         })();
     };
 
+    const goTo = (step: ZoneStep, fieldId: string | null) => {
+        form.goTo(step);
+        if (fieldId !== null) focusField(fieldId);
+    };
+
+    /*
+     * Save the zone is pressable over an incomplete form. The press marks the form attempted and
+     * takes the reader to the first thing that stops it; only a clean form reaches `finish`.
+     */
+    const attemptSave = () => {
+        if (!canManage) return;
+        setAttempted(true);
+        const first = issues[0];
+        if (first !== undefined) {
+            goTo(first.step, first.fieldId);
+            return;
+        }
+        finish();
+    };
+
     const saving =
         create.isPending ||
         update.isPending ||
@@ -524,82 +630,142 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
     const gazetteerFailure = toFailure(gazetteer.error);
     const isRetired = data?.meta.status === 'retired';
 
-    return (
-        <EditorFrame
-            testID="kitchen-zone-editor-screen"
-            // The step footer carries the wizard's controls and the breadcrumb already names the
-            // record, so the frame draws no header of its own.
-            chromeless
-            hideBack
-            hideSave
-            steps={{
-                form,
-                steps: [
-                    { key: 'zone', label: t('kitchen:zones.sectionDetails') },
-                    {
-                        key: 'areas',
-                        label: t('kitchen:zones.sectionAreas'),
-                        disabled: !stepsUnlocked,
-                    },
-                    {
-                        key: 'windows',
-                        label: t('kitchen:zones.sectionWindows'),
-                        disabled: !stepsUnlocked,
-                    },
-                ],
-                finalAction: canManage ? (
-                    <Button
-                        testID="kitchen-zone-windows-save"
-                        label={t('kitchen:zones.saveZone')}
-                        loading={saving}
-                        disabled={detailsBlocked || windowRowErrors.size > 0 || saving}
-                        onPress={finish}
-                    />
-                ) : null,
-            }}
-            title={
-                isCreating
-                    ? t('kitchen:zones.createTitle')
-                    : data === undefined
-                      ? t('kitchen:zones.editTitle')
-                      : displayName(data.name, locale).value
-            }
-            meta={data?.meta ?? null}
-            guard={guard}
-            concurrency={concurrency}
-            onSaveDraft={finish}
-            saveLabel={t('kitchen:zones.saveZone')}
-            backLabel={t('kitchen:zones.backToList')}
-            onBack={() => {
-                router.push('/kitchen/delivery-zones' as never);
-            }}
-            banner={
-                <Stack space="sm">
-                    {isRetired ? (
-                        <Inline space="xs">
-                            <Badge
-                                testID="kitchen-zone-archived"
-                                tone={statusTone('retired')}
-                                label={t(statusKey('retired'))}
-                            />
-                        </Inline>
-                    ) : null}
+    const status = data?.meta.status ?? 'draft';
+    const stepIssues = (step: ZoneStep) => {
+        const count = shownIssues.filter((entry) => entry.step === step).length;
+        return count === 0
+            ? undefined
+            : {
+                  count,
+                  tone: 'danger' as const,
+                  label: t('kitchen:forms.toFixCount', { count }),
+              };
+    };
 
-                    {saveFailure === null ? null : (
-                        <Callout
-                            testID="kitchen-zone-save-error"
-                            role="alert"
-                            tone="danger"
-                            title={t('kitchen:editor.saveError')}
-                            body={saveFailure.message}
+    return (
+        <Stack space="md" testID="kitchen-zone-editor-screen">
+            <RecordFormOpening<ZoneStep>
+                testID="kitchen-zone-editor-screen"
+                title={title}
+                dirty={guard.isDirty}
+                badges={
+                    <Badge
+                        variant="caps"
+                        testID={
+                            isRetired
+                                ? 'kitchen-zone-archived'
+                                : 'kitchen-zone-editor-screen-status'
+                        }
+                        tone={statusTone(status)}
+                        icon={null}
+                        label={t(statusKey(status))}
+                    />
+                }
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-zone-editor-screen-back"
+                            variant="secondary"
+                            label={t('kitchen:editor.cancel')}
+                            onPress={() => {
+                                guard.intercept(() => {
+                                    router.push('/kitchen/delivery-zones' as never);
+                                });
+                            }}
                         />
-                    )}
-                </Stack>
-            }
-        >
+                        {isCreating || !canManage || isRetired ? null : (
+                            <Button
+                                testID="kitchen-zone-archive"
+                                variant="quiet"
+                                label={t('kitchen:list.archive')}
+                                onPress={() => {
+                                    setShowArchive(true);
+                                }}
+                            />
+                        )}
+                        {/*
+                         * The one Save, on every step rather than only the last: the walk writes at
+                         * the end, and the end is wherever the reader stops.
+                         */}
+                        {canManage ? (
+                            <Button
+                                testID="kitchen-zone-windows-save"
+                                label={t('kitchen:zones.saveZone')}
+                                loading={saving}
+                                disabled={saving}
+                                onPress={attemptSave}
+                            />
+                        ) : null}
+                    </>
+                }
+                errors={{
+                    summary: t(
+                        shownIssues.every((entry) => entry.required)
+                            ? 'kitchen:forms.requiredCount'
+                            : 'kitchen:forms.toFixCount',
+                        { count: shownIssues.length },
+                    ),
+                    items: shownIssues.map((entry) => ({
+                        key: entry.key,
+                        label: entry.label,
+                        onPress: () => {
+                            goTo(entry.step, entry.fieldId);
+                        },
+                    })),
+                }}
+                steps={{
+                    label: t('kitchen:editor.stepsLabel'),
+                    value: form.current,
+                    onChange: form.goTo,
+                    /*
+                     * Areas and windows wait for a record that would save: details the server would
+                     * refuse are not a state to walk away from. Nothing else gates them — the walk
+                     * writes at the end, so both are editable before the zone exists.
+                     */
+                    items: [
+                        {
+                            value: 'zone',
+                            label: t('kitchen:zones.sectionDetails'),
+                            issues: stepIssues('zone'),
+                            testID: 'kitchen-zone-editor-screen-steps-zone',
+                        },
+                        {
+                            value: 'areas',
+                            label: t('kitchen:zones.sectionAreas'),
+                            count: areas.length,
+                            disabled: !stepsUnlocked,
+                            testID: 'kitchen-zone-editor-screen-steps-areas',
+                        },
+                        {
+                            value: 'windows',
+                            label: t('kitchen:zones.sectionWindows'),
+                            count: windows.length,
+                            disabled: !stepsUnlocked,
+                            issues: stepIssues('windows'),
+                            testID: 'kitchen-zone-editor-screen-steps-windows',
+                        },
+                    ],
+                }}
+            />
+
+            {saveFailure === null ? null : (
+                <Callout
+                    testID="kitchen-zone-save-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('kitchen:editor.saveError')}
+                    body={saveFailure.message}
+                />
+            )}
+
             {/* ── the record ───────────────────────────────────────────────────────────────── */}
             {form.current !== 'zone' ? null : (
-                <View testID="kitchen-zone-details" className="flex-col gap-loose">
+                <FormSection
+                    first
+                    variant="underlined"
+                    testID="kitchen-zone-details"
+                    title={t('kitchen:zones.sectionDetails')}
+                >
                     {/*
                      * The design's 280px tracks. The name pair takes two of them, so the Arabic
                      * name sits beside the English one rather than under it.
@@ -612,8 +778,8 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                             fieldLabel={t('kitchen:fields.name')}
                             value={details.name}
                             requiredEnglish
-                            {...(nameMissing
-                                ? { englishError: t('kitchen:zones.nameRequired') }
+                            {...(shows('name')
+                                ? { englishError: t('kitchen:forms.required') }
                                 : {})}
                             onChange={(next) => {
                                 markDirty(() => {
@@ -630,6 +796,9 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                                 label={t('kitchen:zones.currencyLabel')}
                                 searchable
                                 required
+                                {...(shows('currency')
+                                    ? { error: t('kitchen:forms.required') }
+                                    : {})}
                                 value={currency}
                                 options={CURRENCY_CODES.map((code) => ({
                                     value: code,
@@ -749,25 +918,17 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                             )}
                         </ReadOnlyCell>
                     </FormGrid>
-
-                    {isCreating || !canManage || isRetired ? null : (
-                        <Inline space="sm" wrap testID="kitchen-zone-details-actions">
-                            <Button
-                                testID="kitchen-zone-archive"
-                                variant="secondary"
-                                label={t('kitchen:list.archive')}
-                                onPress={() => {
-                                    setShowArchive(true);
-                                }}
-                            />
-                        </Inline>
-                    )}
-                </View>
+                </FormSection>
             )}
 
             {/* ── areas ────────────────────────────────────────────────────────────────────── */}
             {form.current !== 'areas' ? null : (
-                <View testID="kitchen-zone-areas">
+                <FormSection
+                    first
+                    variant="underlined"
+                    testID="kitchen-zone-areas"
+                    title={t('kitchen:zones.sectionAreas')}
+                >
                     <Stack space="md">
                         {gazetteer.isPending ? (
                             <Skeleton testID="kitchen-zone-areas-loading" heightClassName="h-24" />
@@ -807,12 +968,17 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                             />
                         )}
                     </Stack>
-                </View>
+                </FormSection>
             )}
 
             {/* ── delivery windows ─────────────────────────────────────────────────────────── */}
             {form.current !== 'windows' ? null : (
-                <View testID="kitchen-zone-windows">
+                <FormSection
+                    first
+                    variant="underlined"
+                    testID="kitchen-zone-windows"
+                    title={t('kitchen:zones.sectionWindows')}
+                >
                     <Stack space="md">
                         <DeliveryWindowRows
                             testID="kitchen-zone-window-rows"
@@ -843,7 +1009,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                             />
                         )}
                     </Stack>
-                </View>
+                </FormSection>
             )}
 
             {/* ── archive ──────────────────────────────────────────────────────────────────── */}
@@ -930,6 +1096,12 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                     )}
                 </Stack>
             </Dialog>
-        </EditorFrame>
+
+            <EditorGuardDialogs
+                testID="kitchen-zone-editor-screen"
+                guard={guard}
+                concurrency={concurrency}
+            />
+        </Stack>
     );
 }

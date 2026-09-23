@@ -2943,6 +2943,18 @@ export function ShowcaseScreen() {
                             label="disabled"
                             onPress={() => undefined}
                         />
+                        {/*
+                         * Disabled with a reason: the hint still floats under it on hover (web),
+                         * which is how the resale editor's Archive says why it cannot be pressed.
+                         */}
+                        <Button
+                            testID="showcase-button-disabled-hint"
+                            variant="quiet"
+                            disabled
+                            label="disabled + hint"
+                            hint="Save the item first. Only a saved item can be archived."
+                            onPress={() => undefined}
+                        />
                         <IconButton
                             testID="showcase-icon-button"
                             label={t('common:action.close')}

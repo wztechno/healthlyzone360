@@ -1,4 +1,4 @@
-import { ActivityIndicator, Platform, Pressable, Text as RNText } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text as RNText, View } from 'react-native';
 import type { PressableProps } from 'react-native';
 import { useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
@@ -165,7 +165,17 @@ export function Button({
     }, []);
     useEffect(() => hideHint, [hideHint]);
 
-    return (
+    const showHint = (target: unknown) => {
+        if (hint === undefined || Platform.OS !== 'web') return;
+        hideHint();
+        floating.current = showFloatingLabel(
+            target,
+            hint,
+            testID === undefined ? undefined : `${testID}-hint`,
+        );
+    };
+
+    const button = (
         <Pressable
             {...rest}
             testID={testID}
@@ -186,14 +196,7 @@ export function Button({
                       }
             }
             onHoverIn={(event) => {
-                if (hint !== undefined && Platform.OS === 'web') {
-                    hideHint();
-                    floating.current = showFloatingLabel(
-                        (event as unknown as { currentTarget?: unknown }).currentTarget,
-                        hint,
-                        testID === undefined ? undefined : `${testID}-hint`,
-                    );
-                }
+                showHint((event as unknown as { currentTarget?: unknown }).currentTarget);
                 onHoverIn?.(event);
             }}
             onHoverOut={(event) => {
@@ -234,6 +237,34 @@ export function Button({
             {iconEnd}
         </Pressable>
     );
+
+    /*
+     * A disabled button still says what it is for — and, more usefully, why it cannot be pressed
+     * yet — when the pointer rests on it.
+     *
+     * React Native Web switches hover off on a disabled `Pressable` and gives it
+     * `pointer-events: box-none`, so `onHoverIn` never fires on the very buttons whose hint matters
+     * most. The pointer then lands on whatever is under the button's box, which is this wrapper:
+     * it listens instead, and the button keeps every other disabled behaviour — no press, no focus
+     * stop, no hover fill. Web only, and only when there is a hint to show; everywhere else the hint
+     * is the `accessibilityHint` either way.
+     */
+    if (inert && hint !== undefined && Platform.OS === 'web') {
+        return (
+            <View
+                testID={testID === undefined ? undefined : `${testID}-hint-target`}
+                className={block ? 'self-stretch' : 'self-start'}
+                onPointerEnter={(event) => {
+                    showHint(event.currentTarget);
+                }}
+                onPointerLeave={hideHint}
+            >
+                {button}
+            </View>
+        );
+    }
+
+    return button;
 }
 
 /**

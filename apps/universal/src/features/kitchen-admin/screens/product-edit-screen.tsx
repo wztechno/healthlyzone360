@@ -882,7 +882,21 @@ function ProductEditor({
         blockers.length > 0 || noChannel || detailsDirty || channelsDirty || quarantined;
     const offersPublish =
         !isCreating && canManage && status !== 'published' && status !== 'retired';
-    const offersArchive = !isCreating && canManage && status !== 'retired';
+    /*
+     * Archive is always drawn, and says on hover why it cannot be pressed when it cannot. A button
+     * that appears only once it works leaves a new record's header missing a control the reader
+     * then has to discover later; a disabled one with its reason says where the act lives and what
+     * it is waiting for. The reasons in the order they apply: nobody without the permission can
+     * archive anything, a record that does not exist yet has nothing to archive, and an archived
+     * one is already there.
+     */
+    const archiveBlockedKey = !canManage
+        ? 'kitchen:products.archiveNoPermission'
+        : isCreating
+          ? 'kitchen:products.archiveUnsaved'
+          : status === 'retired'
+            ? 'kitchen:products.archiveAlready'
+            : null;
 
     const openRecipe = () => {
         const target = details.recipeId;
@@ -922,16 +936,16 @@ function ProductEditor({
      */
     const actions = (
         <Inline space="xs" align="center" wrap justify="end">
-            {offersArchive ? (
-                <Button
-                    testID="kitchen-product-archive"
-                    variant="quiet"
-                    label={t('kitchen:list.archive')}
-                    onPress={() => {
-                        setShowArchive(true);
-                    }}
-                />
-            ) : null}
+            <Button
+                testID="kitchen-product-archive"
+                variant="quiet"
+                label={t('kitchen:list.archive')}
+                disabled={archiveBlockedKey !== null}
+                hint={t(archiveBlockedKey ?? 'kitchen:products.archiveHint')}
+                onPress={() => {
+                    setShowArchive(true);
+                }}
+            />
             {embedded ? null : (
                 <Button
                     testID="kitchen-product-editor-screen-back"

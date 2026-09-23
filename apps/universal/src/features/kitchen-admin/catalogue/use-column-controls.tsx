@@ -1,3 +1,4 @@
+import { dataListColumnAlign } from '@healthy360/design-system';
 import type { DataListColumn, MenuItem } from '@healthy360/design-system';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -274,7 +275,7 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
                 renderHeader: (): ReactNode => (
                     <CatalogueColumnHeader
                         label={column.label}
-                        align={column.align}
+                        align={dataListColumnAlign(column)}
                         sections={items.length === 0 ? [] : [{ items }]}
                         filtered={current !== null}
                         sortDirection={direction}
@@ -291,7 +292,7 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
                 renderHeader: (): ReactNode => (
                     <CatalogueColumnHeader
                         label={column.label}
-                        align={column.align}
+                        align={dataListColumnAlign(column)}
                         sections={[]}
                         sortDirection={direction}
                         onToggleSort={toggleSort}

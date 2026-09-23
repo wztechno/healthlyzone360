@@ -323,6 +323,7 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
         },
         {
             key: 'quantity',
+            align: 'center',
             role: 'metric',
             label: t('kitchen:ops.ledger.columnQuantity'),
             width: 100,
@@ -334,6 +335,7 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
         },
         {
             key: 'lineTotal',
+            align: 'center',
             role: 'metric',
             label: t('kitchen:ops.ledger.columnLineTotal'),
             width: 120,

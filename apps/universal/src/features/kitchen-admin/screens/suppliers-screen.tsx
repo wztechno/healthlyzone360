@@ -264,6 +264,7 @@ function SuppliersList() {
         },
         {
             key: 'suppliedItems',
+            align: 'center',
             role: 'metric',
             label: t('kitchen:ops.suppliers.columnItems'),
             width: 130,
@@ -282,6 +283,7 @@ function SuppliersList() {
         },
         {
             key: 'currency',
+            align: 'center',
             role: 'meta',
             label: t('kitchen:ops.suppliers.fieldCurrency'),
             width: 110,

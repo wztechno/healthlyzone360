@@ -53,11 +53,13 @@ export {
     TEXT_ALIGNMENTS,
     TEXT_TONES,
     TEXT_VARIANTS,
+    TableCellTextContext,
     Text,
 } from './primitives/text.tsx';
 export type {
     HeadingLevel,
     HeadingProps,
+    TableCellText,
     TextAlignment,
     TextProps,
     TextTone,
@@ -198,7 +200,13 @@ export type {
 } from './content/list-summary-cards.tsx';
 export { ListItem } from './content/list-item.tsx';
 export type { ListItemProps } from './content/list-item.tsx';
-export { DataList, UNDROPPABLE_PRIORITY, fitColumns, spreadColumns } from './content/data-list.tsx';
+export {
+    DataList,
+    UNDROPPABLE_PRIORITY,
+    dataListColumnAlign,
+    fitColumns,
+    spreadColumns,
+} from './content/data-list.tsx';
 export type { DataListColumn, DataListProps } from './content/data-list.tsx';
 export { RECORD_STATUSES, STATUS_TONE, StatusBadge } from './content/status-badge.tsx';
 export type { RecordStatus, StatusBadgeProps } from './content/status-badge.tsx';

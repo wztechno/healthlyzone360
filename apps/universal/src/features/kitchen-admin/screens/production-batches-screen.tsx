@@ -202,7 +202,7 @@ function ProductionBatches() {
                 label: t('kitchen:ops.production.columnYield'),
                 width: 140,
                 priority: 75,
-                align: 'end',
+                align: 'center',
                 render: (row) => (
                     <Text variant="mono" testID={`${productionBatchTestId(String(row.id))}-yield`}>
                         {yieldSummary(row) ?? noValue}

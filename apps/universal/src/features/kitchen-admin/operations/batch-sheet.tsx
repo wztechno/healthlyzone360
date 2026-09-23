@@ -168,6 +168,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         },
         {
             key: 'unit',
+            numeric: true,
             header: t('kitchen:ops.batch.columnUnit'),
             // The unit the required figure is read in — grams under a kilogram. See `displayQuantity`.
             render: (line) => (
@@ -289,6 +290,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         },
         {
             key: 'unit',
+            numeric: true,
             header: t('kitchen:ops.batch.columnUnit'),
             render: (row) => (
                 <Text tone="secondary">

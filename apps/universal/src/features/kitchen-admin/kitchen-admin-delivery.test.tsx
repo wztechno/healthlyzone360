@@ -953,19 +953,21 @@ describe('the delivery-zone editor', () => {
         });
         await untilVisible('kitchen-zone-editor-screen');
 
-        // A typo blocks the step rather than silently sending `null` and erasing the fee.
+        // A typo locks the later steps rather than silently sending `null` and erasing the fee,
+        // and it is named at once — it was typed, not left blank.
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-zone-fee-input'), '12.505');
         });
         expect(
-            screen.getByTestId('kitchen-zone-editor-screen-steps-next').props.accessibilityState,
+            screen.getByTestId('kitchen-zone-editor-screen-steps-areas').props.accessibilityState,
         ).toEqual(expect.objectContaining({ disabled: true }));
+        expect(screen.getByTestId('kitchen-zone-editor-screen-issues-errors')).toBeTruthy();
 
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-zone-fee-input'), '12.50');
         });
         expect(
-            screen.getByTestId('kitchen-zone-editor-screen-steps-next').props.accessibilityState,
+            screen.getByTestId('kitchen-zone-editor-screen-steps-areas').props.accessibilityState,
         ).toEqual(expect.objectContaining({ disabled: false }));
     });
 
@@ -1223,9 +1225,15 @@ describe('the delivery-zone editor', () => {
         });
 
         expect(screen.getByTestId(`${rowId}-error`)).toBeTruthy();
-        expect(screen.getByTestId('kitchen-zone-windows-save').props.accessibilityState).toEqual(
-            expect.objectContaining({ disabled: true }),
+        // Named in the banner as it is typed, and on the step's tab; Save answers by naming it
+        // again rather than writing.
+        expect(screen.getByTestId('kitchen-zone-editor-screen-issues-errors')).toHaveTextContent(
+            /windows/i,
         );
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-zone-windows-save'));
+        });
+        expect(screen.queryByTestId('kitchen-zone-saved-toast')).toBeNull();
     });
 
     it('offers reload-or-keep when somebody else has moved the zone on', async () => {
@@ -1319,10 +1327,6 @@ describe('the delivery-zone editor', () => {
                     .accessibilityState,
             ).toEqual(expect.objectContaining({ disabled: true }));
         }
-        expect(
-            screen.getByTestId('kitchen-zone-editor-screen-steps-next').props.accessibilityState,
-        ).toEqual(expect.objectContaining({ disabled: true }));
-
         // Pressing one anyway leaves the form where it is.
         await openZoneStep('areas');
         expect(screen.getByTestId('kitchen-zone-details')).toBeTruthy();
@@ -1492,7 +1496,7 @@ describe('the branch operating week', () => {
 
         expect(screen.getByTestId(`${row}-error`)).toBeTruthy();
         expect(
-            screen.getByTestId('kitchen-branch-hours-screen-save').props.accessibilityState,
+            screen.getByTestId('kitchen-branch-hours-save-bottom').props.accessibilityState,
         ).toEqual(expect.objectContaining({ disabled: true }));
 
         // A cut-off after closing is the second rule, and it is reported on its own day.
@@ -1556,7 +1560,7 @@ describe('the branch operating week', () => {
         );
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-branch-hours-screen-save'));
+            fireEvent.press(screen.getByTestId('kitchen-branch-hours-save-bottom'));
         });
 
         await waitFor(() => {

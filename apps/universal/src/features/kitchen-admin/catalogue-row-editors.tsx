@@ -126,8 +126,13 @@ export function PackVariantEditor({ rows, onChange, errors, canManage, testID }:
         remove: 'w-8',
     } as const;
 
-    const header = (label: string, width: string, align?: string) => (
-        <Text key={label} variant="micro" tone="secondary" className={cx(width, align)}>
+    /*
+     * Every header at the start of its column, Net qty included: the quantity box below it is a
+     * plain text field whose figure starts at the inline start, so an end-aligned header sat over
+     * the empty half of the box, away from the number it names.
+     */
+    const header = (label: string, width: string) => (
+        <Text key={label} variant="micro" tone="secondary" className={width}>
             {label}
         </Text>
     );
@@ -148,7 +153,7 @@ export function PackVariantEditor({ rows, onChange, errors, canManage, testID }:
                     <View className="hidden flex-row items-end gap-base md:flex" aria-hidden>
                         {header(t('kitchen:products.packCodeHeader'), COL.code)}
                         {header(t('kitchen:products.packLabelHeader'), COL.label)}
-                        {header(t('kitchen:products.packQtyHeader'), COL.quantity, 'text-end')}
+                        {header(t('kitchen:products.packQtyHeader'), COL.quantity)}
                         {header(t('kitchen:products.packUnitHeader'), COL.unit)}
                         {header(t('kitchen:products.packPerPackHeader'), COL.perPack)}
                         <View className={COL.remove} />

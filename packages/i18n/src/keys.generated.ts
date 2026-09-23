@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7449 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7455 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2946,7 +2946,6 @@ export interface NamespaceKeys {
     | 'desk.sale.notesLabel'
     | 'desk.sale.orderRefusalsTitle'
     | 'desk.sale.paymentDescription'
-    | 'desk.sale.pickerAdd'
     | 'desk.sale.pickerAddItem'
     | 'desk.sale.pickerAdded'
     | 'desk.sale.pickerColumnAllergens'
@@ -4880,6 +4879,7 @@ export interface NamespaceKeys {
     | 'plans.statDraftCaption'
     | 'plans.statPlansUnit'
     | 'plans.statPublishedCaption'
+    | 'plans.stepsLabel'
     | 'plans.subtitle'
     | 'plans.summaryLabel'
     | 'plans.tabMatrix'
@@ -4996,11 +4996,15 @@ export interface NamespaceKeys {
     | 'priceStatus.marketPriced'
     | 'priceStatus.placeholder'
     | 'products.addPack'
+    | 'products.archiveAlready'
     | 'products.archiveBody'
     | 'products.archiveConfirm'
     | 'products.archiveConsequence'
     | 'products.archiveFailed'
+    | 'products.archiveHint'
+    | 'products.archiveNoPermission'
     | 'products.archiveTitle'
+    | 'products.archiveUnsaved'
     | 'products.archivedToast'
     | 'products.assortedHint'
     | 'products.assortedLabel'
@@ -5602,6 +5606,8 @@ export interface NamespaceKeys {
     | 'windows.endsLabel'
     | 'windows.inactiveBadge'
     | 'windows.labelField'
+    | 'windows.labelPlaceholderAr'
+    | 'windows.labelPlaceholderEn'
     | 'windows.labelRequired'
     | 'windows.none'
     | 'windows.offeredColumn'
@@ -10413,7 +10419,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.notesLabel',
   'kitchen:desk.sale.orderRefusalsTitle',
   'kitchen:desk.sale.paymentDescription',
-  'kitchen:desk.sale.pickerAdd',
   'kitchen:desk.sale.pickerAddItem',
   'kitchen:desk.sale.pickerAdded',
   'kitchen:desk.sale.pickerColumnAllergens',
@@ -12347,6 +12352,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.statDraftCaption',
   'kitchen:plans.statPlansUnit',
   'kitchen:plans.statPublishedCaption',
+  'kitchen:plans.stepsLabel',
   'kitchen:plans.subtitle',
   'kitchen:plans.summaryLabel',
   'kitchen:plans.tabMatrix',
@@ -12463,11 +12469,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:priceStatus.marketPriced',
   'kitchen:priceStatus.placeholder',
   'kitchen:products.addPack',
+  'kitchen:products.archiveAlready',
   'kitchen:products.archiveBody',
   'kitchen:products.archiveConfirm',
   'kitchen:products.archiveConsequence',
   'kitchen:products.archiveFailed',
+  'kitchen:products.archiveHint',
+  'kitchen:products.archiveNoPermission',
   'kitchen:products.archiveTitle',
+  'kitchen:products.archiveUnsaved',
   'kitchen:products.archivedToast',
   'kitchen:products.assortedHint',
   'kitchen:products.assortedLabel',
@@ -13069,6 +13079,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:windows.endsLabel',
   'kitchen:windows.inactiveBadge',
   'kitchen:windows.labelField',
+  'kitchen:windows.labelPlaceholderAr',
+  'kitchen:windows.labelPlaceholderEn',
   'kitchen:windows.labelRequired',
   'kitchen:windows.none',
   'kitchen:windows.offeredColumn',

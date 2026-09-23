@@ -1,6 +1,10 @@
 import {
+    Badge,
     Button,
+    Callout,
     EmptyState,
+    FormGrid,
+    FormSection,
     QuantityInput,
     SegmentedControl,
     Stack,
@@ -19,7 +23,10 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useCreateProductionOrderMutation } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { PRODUCTION_MANAGE_PERMISSION } from '../entity-registry.ts';
-import { KitchenPageHeader } from '../kitchen-page-header.tsx';
+import { focusField } from '../field-focus.ts';
+import { statusKey, statusTone } from '../format.ts';
+import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { RecordFormOpening } from '../record-form-opening.tsx';
 import { readNumber } from '../production-desk/completion-model.ts';
 
 /**
@@ -77,6 +84,8 @@ function ProductionBatchNew() {
     const amountValid = parsedAmount !== null && parsedAmount > 0;
     const failure = toFailure(create.error);
 
+    useKitchenTrailLeaf(t('kitchen:ops.production.newTitle'));
+
     if (branchId === null) {
         return (
             <EmptyState
@@ -87,9 +96,43 @@ function ProductionBatchNew() {
         );
     }
 
+    /*
+     * What stops the create, each naming the field that fixes it. Both are blanks until something is
+     * typed, so neither is named before the first press — the ingredient editor's rule.
+     */
+    const issues = [
+        ...(parsedVersion === null
+            ? [
+                  {
+                      key: 'version',
+                      label: t('kitchen:ops.production.versionLabel'),
+                      fieldId: 'kitchen-production-batch-new-version',
+                  },
+              ]
+            : []),
+        ...(amountValid
+            ? []
+            : [
+                  {
+                      key: 'amount',
+                      label: t(
+                          scale === 'yield'
+                              ? 'kitchen:ops.production.plannedYieldLabel'
+                              : 'kitchen:ops.production.batchFactorLabel',
+                      ),
+                      fieldId: 'kitchen-production-batch-new-amount',
+                  },
+              ]),
+    ];
+
     const submit = () => {
         setSubmitted(true);
-        if (parsedVersion === null || !amountValid) return;
+        const first = issues[0];
+        if (first !== undefined) {
+            focusField(first.fieldId);
+            return;
+        }
+        if (parsedVersion === null) return;
 
         create.mutate(
             {
@@ -114,120 +157,198 @@ function ProductionBatchNew() {
     };
 
     return (
-        <Stack space="lg" testID="kitchen-production-batch-new-screen">
-            <KitchenPageHeader
-                testID="kitchen-production-batch-new-header"
+        <Stack space="md" testID="kitchen-production-batch-new-screen">
+            {/*
+             * The record forms' opening: the title with the state the batch will be opened in,
+             * Cancel and the create at the inline end, and the banner naming what is missing once
+             * the create has been pressed. One page, so a hairline rather than a step row.
+             */}
+            <RecordFormOpening
+                testID="kitchen-production-batch-new"
                 title={t('kitchen:ops.production.newTitle')}
-                subtitle={t('kitchen:ops.production.newSubtitle')}
-                back={
-                    <View className="flex-row">
+                dirty={false}
+                badges={
+                    <Badge
+                        variant="caps"
+                        testID="kitchen-production-batch-new-status"
+                        tone={statusTone('draft')}
+                        icon={null}
+                        label={t(statusKey('draft'))}
+                    />
+                }
+                actions={
+                    <>
                         <Button
                             testID="kitchen-production-batch-new-back"
-                            variant="ghost"
-                            size="sm"
-                            label={t('kitchen:ops.production.backToDesk')}
+                            variant="secondary"
+                            label={t('kitchen:editor.cancel')}
                             onPress={() => {
                                 router.push('/kitchen/production-desk');
                             }}
                         />
-                    </View>
+                        <Button
+                            testID="kitchen-production-batch-new-submit"
+                            label={t('kitchen:ops.production.createSubmit')}
+                            loading={create.isPending}
+                            disabled={create.isPending}
+                            onPress={submit}
+                        />
+                    </>
                 }
+                errors={{
+                    summary: t('kitchen:forms.requiredCount', { count: issues.length }),
+                    items: submitted
+                        ? issues.map((entry) => ({
+                              key: entry.key,
+                              label: entry.label,
+                              onPress: () => {
+                                  focusField(entry.fieldId);
+                              },
+                          }))
+                        : [],
+                }}
             />
 
-            <Stack space="md">
-                <TextInputField
-                    testID="kitchen-production-batch-new-version"
-                    id="kitchen-production-batch-new-version"
-                    label={t('kitchen:ops.production.versionLabel')}
-                    hint={t('kitchen:ops.production.versionHint')}
-                    value={versionId}
-                    required
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    error={
-                        submitted && parsedVersion === null
-                            ? t('kitchen:ops.production.versionRequired')
-                            : undefined
-                    }
-                    onChangeText={setVersionId}
+            {/*
+             * Said before anything is pressed, because it changes how many batches somebody opens:
+             * a draft claims nothing, and only confirming it does.
+             */}
+            <Callout
+                testID="kitchen-production-batch-new-note"
+                role="note"
+                tone="info"
+                title={t('kitchen:ops.production.newSubtitle')}
+            />
+
+            {failure === null ? null : (
+                <Callout
+                    testID="kitchen-production-batch-new-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('kitchen:editor.saveError')}
+                    body={failure.message}
                 />
+            )}
 
-                <SegmentedControl<Scale>
-                    testID="kitchen-production-batch-new-scale"
-                    label={t('kitchen:ops.production.scaleLabel')}
-                    value={scale}
-                    onChange={(next) => {
-                        setScale(next);
-                        // The number means something different under each option — litres against
-                        // multiples — so carrying it across would silently plan a batch four
-                        // hundred times the size of the one somebody typed.
-                        setAmount('');
-                    }}
-                    items={[
-                        {
-                            value: 'yield',
-                            label: t('kitchen:ops.production.scaleYield'),
-                            testID: 'kitchen-production-batch-new-scale-yield',
-                        },
-                        {
-                            value: 'factor',
-                            label: t('kitchen:ops.production.scaleFactor'),
-                            testID: 'kitchen-production-batch-new-scale-factor',
-                        },
-                    ]}
-                />
-                <Text variant="caption" tone="secondary">
-                    {t('kitchen:ops.production.scaleHint')}
-                </Text>
+            {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
+            <View className="z-auto flex-col gap-loose">
+                <FormSection
+                    first
+                    variant="underlined"
+                    testID="kitchen-production-batch-new-recipe"
+                    title={t('kitchen:ops.production.recipeLabel')}
+                >
+                    <FormGrid track="half" maxColumns={4}>
+                        <TextInputField
+                            span={4}
+                            testID="kitchen-production-batch-new-version"
+                            id="kitchen-production-batch-new-version"
+                            size="sm"
+                            label={t('kitchen:ops.production.versionLabel')}
+                            hint={t('kitchen:ops.production.versionHint')}
+                            value={versionId}
+                            required
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            {...(submitted && parsedVersion === null
+                                ? { error: t('kitchen:ops.production.versionRequired') }
+                                : {})}
+                            onChangeText={setVersionId}
+                        />
+                    </FormGrid>
+                </FormSection>
 
-                <QuantityInput
-                    testID="kitchen-production-batch-new-amount"
-                    id="kitchen-production-batch-new-amount"
-                    label={t(
-                        scale === 'yield'
-                            ? 'kitchen:ops.production.plannedYieldLabel'
-                            : 'kitchen:ops.production.batchFactorLabel',
-                    )}
-                    hint={t(
-                        scale === 'yield'
-                            ? 'kitchen:ops.production.plannedYieldHint'
-                            : 'kitchen:ops.production.batchFactorHint',
-                    )}
-                    required
-                    value={amount}
-                    error={
-                        submitted && !amountValid
-                            ? t('kitchen:ops.production.amountRequired')
-                            : undefined
-                    }
-                    onChangeText={setAmount}
-                />
+                {/*
+                 * One of the two scales, never both: the segmented control is the question and the
+                 * one figure under it is the answer, on the half track like every figure here.
+                 */}
+                <FormSection
+                    first
+                    variant="underlined"
+                    testID="kitchen-production-batch-new-scale-section"
+                    title={t('kitchen:ops.production.scaleLabel')}
+                >
+                    <Stack space="sm">
+                        <View className="self-start">
+                            <SegmentedControl<Scale>
+                                testID="kitchen-production-batch-new-scale"
+                                label={t('kitchen:ops.production.scaleLabel')}
+                                value={scale}
+                                onChange={(next) => {
+                                    setScale(next);
+                                    // The number means something different under each option —
+                                    // litres against multiples — so carrying it across would
+                                    // silently plan a batch four hundred times the size of the one
+                                    // somebody typed.
+                                    setAmount('');
+                                }}
+                                items={[
+                                    {
+                                        value: 'yield',
+                                        label: t('kitchen:ops.production.scaleYield'),
+                                        testID: 'kitchen-production-batch-new-scale-yield',
+                                    },
+                                    {
+                                        value: 'factor',
+                                        label: t('kitchen:ops.production.scaleFactor'),
+                                        testID: 'kitchen-production-batch-new-scale-factor',
+                                    },
+                                ]}
+                            />
+                        </View>
+                        <Text variant="caption" tone="secondary">
+                            {t('kitchen:ops.production.scaleHint')}
+                        </Text>
+                        <FormGrid track="half">
+                            <QuantityInput
+                                testID="kitchen-production-batch-new-amount"
+                                id="kitchen-production-batch-new-amount"
+                                size="sm"
+                                label={t(
+                                    scale === 'yield'
+                                        ? 'kitchen:ops.production.plannedYieldLabel'
+                                        : 'kitchen:ops.production.batchFactorLabel',
+                                )}
+                                required
+                                value={amount}
+                                {...(submitted && !amountValid
+                                    ? { error: t('kitchen:ops.production.amountRequired') }
+                                    : {})}
+                                onChangeText={setAmount}
+                            />
+                        </FormGrid>
+                        <Text variant="caption" tone="secondary">
+                            {t(
+                                scale === 'yield'
+                                    ? 'kitchen:ops.production.plannedYieldHint'
+                                    : 'kitchen:ops.production.batchFactorHint',
+                            )}
+                        </Text>
+                    </Stack>
+                </FormSection>
 
-                <TextInputField
-                    testID="kitchen-production-batch-new-notes"
-                    id="kitchen-production-batch-new-notes"
-                    label={t('kitchen:ops.production.notesLabel')}
-                    hint={t('kitchen:ops.production.notesHint')}
-                    value={notes}
-                    multiline
-                    onChangeText={setNotes}
-                />
-
-                {failure === null ? null : (
-                    <Text tone="danger" testID="kitchen-production-batch-new-error">
-                        {failure.message}
-                    </Text>
-                )}
-
-                <View className="flex-row justify-end">
-                    <Button
-                        testID="kitchen-production-batch-new-submit"
-                        label={t('kitchen:ops.production.createSubmit')}
-                        loading={create.isPending}
-                        onPress={submit}
-                    />
-                </View>
-            </Stack>
+                <FormSection
+                    first
+                    variant="underlined"
+                    testID="kitchen-production-batch-new-notes-section"
+                    title={t('kitchen:ops.production.notesLabel')}
+                >
+                    <FormGrid track="half" maxColumns={4}>
+                        <TextInputField
+                            span={4}
+                            testID="kitchen-production-batch-new-notes"
+                            id="kitchen-production-batch-new-notes"
+                            size="sm"
+                            label={t('kitchen:ops.production.notesLabel')}
+                            labelHidden
+                            hint={t('kitchen:ops.production.notesHint')}
+                            value={notes}
+                            multiline
+                            onChangeText={setNotes}
+                        />
+                    </FormGrid>
+                </FormSection>
+            </View>
         </Stack>
     );
 }

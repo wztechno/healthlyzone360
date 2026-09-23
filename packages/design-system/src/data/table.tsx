@@ -11,6 +11,12 @@ import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
 import { GAP_CLASS } from '../primitives/stack.tsx';
 import type { SpaceStep } from '../primitives/stack.tsx';
+import { TableCellTextContext } from '../primitives/text.tsx';
+import type { TableCellText } from '../primitives/text.tsx';
+
+/** The two values a cell can give its text — constants, because the context compares by identity. */
+const PLAIN_CELL: TableCellText = {};
+const STRONG_CELL: TableCellText = { strong: true };
 
 export type TableSortDirection = 'asc' | 'desc';
 
@@ -51,7 +57,12 @@ export interface TableRowAction<Row> {
 export interface TableColumn<Row> {
     readonly key: string;
     readonly header: string;
-    /** Aligns to the trailing edge so figures line up on their last digit. */
+    /**
+     * A column of figures. On the admin's compact tables it is centred under its header — a number
+     * and its unit read as one block, and the header names the block — as `DataList` sets its figure
+     * columns. The customer's tables and the stacked card keep it at the trailing edge, where a value
+     * sits opposite its label.
+     */
     readonly numeric?: boolean | undefined;
     /**
      * The one figure in the row a reader is actually comparing — a total, a price, a count. It is
@@ -181,6 +192,15 @@ export function Table<Row>({
     const { t } = useTranslation();
     const { atLeast } = useBreakpoint();
     const density = useDensity();
+    /*
+     * The admin's figures centre under their header and every cell reads at one size and ink; the
+     * customer's tables — a nutrition label, a plan comparison — keep figures on the trailing edge,
+     * where a label-and-amount table has always put them, and keep their own type ramp.
+     */
+    const desk = density === 'compact';
+    const figureText = desk ? 'text-center' : 'text-end';
+    const figureJustify = desk ? 'justify-center' : 'justify-end';
+    const figureItems = desk ? 'items-center' : 'items-end';
     const HEADER_CELL_CLASS = headerCellClass(density);
     const generated = useId();
     const base = testID ?? `table-${generated.replace(/:/g, '')}`;
@@ -374,7 +394,7 @@ export function Table<Row>({
                                         numberOfLines={2}
                                         className={cx(
                                             HEADER_CELL_CLASS,
-                                            column.numeric === true ? 'text-end' : 'text-start',
+                                            column.numeric === true ? figureText : 'text-start',
                                         )}
                                         style={{ flex: column.flex ?? 1 }}
                                     >
@@ -425,7 +445,7 @@ export function Table<Row>({
                                         className={cx(
                                             'flex-row items-center gap-1 min-h-touch',
                                             column.numeric === true
-                                                ? 'justify-end'
+                                                ? figureJustify
                                                 : 'justify-start',
                                         )}
                                     >
@@ -435,7 +455,7 @@ export function Table<Row>({
                                                 'shrink',
                                                 HEADER_CELL_CLASS,
                                                 active ? 'text-content-primary' : null,
-                                                column.numeric === true ? 'text-end' : 'text-start',
+                                                column.numeric === true ? figureText : 'text-start',
                                             )}
                                         >
                                             {column.header}
@@ -488,7 +508,7 @@ export function Table<Row>({
                                     testID={`${base}-cell-${rowKey(row)}-${column.key}`}
                                     role={column.rowHeader === true ? 'rowheader' : 'cell'}
                                     className={cx(
-                                        column.numeric === true ? 'items-end' : 'items-start',
+                                        column.numeric === true ? figureItems : 'items-start',
                                         // The emphasis is applied to the *cell*, so a caller gets
                                         // the treatment by declaring which column matters rather
                                         // than by repeating a class in every `render`.
@@ -507,7 +527,22 @@ export function Table<Row>({
                                     )}
                                     style={{ flex: column.flex ?? 1 }}
                                 >
-                                    {column.render(row)}
+                                    {/*
+                                     * One size and one ink down every column — see
+                                     * `TableCellTextContext`. The `primary` column keeps its
+                                     * weight, not a larger size.
+                                     */}
+                                    <TableCellTextContext.Provider
+                                        value={
+                                            !desk
+                                                ? null
+                                                : column.primary === true
+                                                  ? STRONG_CELL
+                                                  : PLAIN_CELL
+                                        }
+                                    >
+                                        {column.render(row)}
+                                    </TableCellTextContext.Provider>
                                 </View>
                             ))}
                             {rowAction === undefined ? null : (

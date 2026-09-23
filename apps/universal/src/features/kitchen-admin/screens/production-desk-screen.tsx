@@ -213,7 +213,7 @@ function ProductionDesk() {
                 label: t('kitchen:ops.production.columnYield'),
                 width: 140,
                 priority: 70,
-                align: 'end',
+                align: 'center',
                 render: (row) => (
                     <Text
                         variant="mono"

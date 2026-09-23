@@ -2009,12 +2009,26 @@ describe('publishing a plan', () => {
                         };
                         return created;
                     },
+                    // The two writes the one Save chains after the create, each at the version the
+                    // previous answer carried.
+                    setPlanVariants: async (_id, request) => {
+                        created = {
+                            ...created!,
+                            meta: meta({ status: 'draft', lockVersion: request.lockVersion + 1 }),
+                        };
+                        return created;
+                    },
+                    setPlanDurations: async (_id, request) => {
+                        created = {
+                            ...created!,
+                            meta: meta({ status: 'draft', lockVersion: request.lockVersion + 1 }),
+                        };
+                        return created;
+                    },
                 },
             },
         });
-        // Opens on the configurations; the plan's own details have a step of their own.
-        await untilVisible('kitchen-plan-variants');
-        await openPlanStep('plan');
+        // Opens on the plan itself: its name comes before its configurations.
         await untilVisible('kitchen-plan-details');
 
         // A new plan is the whole editor with nothing in it (Commercial §3.3): the matrix,
@@ -2034,11 +2048,58 @@ describe('publishing a plan', () => {
                 'إعادة ضبط الخريف',
             );
         });
+
+        /*
+         * One configuration and one duration are already there, and neither can be removed while
+         * it is the only one. Left blank they are required fields like any other: nothing is
+         * flagged until Save is pressed, and then the Save names them and writes nothing.
+         */
+        await openPlanStep('variants');
+        const configuration = 'kitchen-plan-variants-row-variant-starter';
+        await untilVisible(configuration);
+        expect(screen.queryByTestId(`${configuration}-remove`)).toBeNull();
+        expect(screen.queryByTestId('kitchen-plan-issues')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
+        });
+        await untilVisible('kitchen-plan-issues');
+        expect(repositories.kitchenAdmin.createPlan).not.toHaveBeenCalled();
+
+        const fields: readonly (readonly [string, string])[] = [
+            ['name', 'Standard 1500'],
+            ['meals', '3'],
+            ['snacks', '1'],
+            ['energy-min', '1400'],
+            ['energy-max', '1600'],
+        ];
+        for (const [field, value] of fields) {
+            await act(async () => {
+                fireEvent.changeText(screen.getByTestId(`${configuration}-${field}-input`), value);
+            });
+        }
+
+        await openPlanStep('durations');
+        const duration = 'kitchen-plan-duration-rows-row-duration-starter';
+        await untilVisible(duration);
+        expect(screen.queryByTestId(`${duration}-remove`)).toBeNull();
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${duration}-days-input`), '20');
+        });
+
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
         });
 
         await untilVisible('kitchen-plan-created-toast');
+        expect(repositories.kitchenAdmin.setPlanVariants).toHaveBeenCalledWith(
+            planIdentifier(9),
+            expect.objectContaining({ lockVersion: 1 }),
+        );
+        expect(repositories.kitchenAdmin.setPlanDurations).toHaveBeenCalledWith(
+            planIdentifier(9),
+            expect.objectContaining({ lockVersion: 2 }),
+        );
 
         expect(repositories.kitchenAdmin.createPlan).toHaveBeenCalledTimes(1);
         expect(repositories.kitchenAdmin.createPlan).toHaveBeenCalledWith(

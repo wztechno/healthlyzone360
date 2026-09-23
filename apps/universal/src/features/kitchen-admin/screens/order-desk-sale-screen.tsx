@@ -17,13 +17,15 @@ import {
     EmptyState,
     ErrorState,
     FormGrid,
+    FormSection,
     Icon,
+    IconButton,
     Inline,
     SearchInput,
     Select,
     Skeleton,
     Stack,
-    StepProgress,
+    Tabs,
     Text,
     TextInputField,
     useFormSteps,
@@ -59,6 +61,7 @@ import { CATALOGUE_PRIORITY } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
+import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { ORDER_CREATE_ON_BEHALF_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
@@ -84,7 +87,7 @@ import {
     withCustomer,
     withFulfilmentType,
 } from '../order-desk/steps.ts';
-import { WithColumnPicker } from '../catalogue/column-picker.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/order-desk/sale` — ringing up a counter, pickup or telephone sale.
@@ -246,8 +249,7 @@ function SaleWizard() {
 
     const place = usePlaceOrderDeskSaleMutation();
 
-    // No title and no Leave button: the trail reads `Kitchen workspace › Order desk › New sale`,
-    // and naming a leaf is what makes "Order desk" a link back.
+    // Naming the leaf is what makes "Order desk" in the trail a link back.
     useKitchenTrailLeaf(t('kitchen:desk.sale.title'));
 
     /*
@@ -381,212 +383,242 @@ function SaleWizard() {
     return (
         <Stack space="md" testID="kitchen-order-desk-sale-screen">
             {/*
-             * The multi-step form's progress row, as the recipe editor draws it — numbered dots on
-             * the green line — and one the agent can also walk *back* along. Steps ahead of the
-             * current one are disabled rather than hidden: the row says how long the sale is, and a
-             * step that could be jumped to would skip the checks the machine makes before each one
-             * may be left.
+             * The opening, as the Catalogue editors draw theirs: the title with what kind of sale
+             * this is beside it, then the steps as numbered tabs on a sunken track — the recipe
+             * editor's row. The agent can walk *back* along it; steps ahead of the open one are
+             * disabled rather than hidden, because the row says how long the sale is and a step
+             * that could be jumped to would skip the checks the machine makes before each one may
+             * be left. Back and Next stay on the rail, beside the total they move past.
              */}
-            <StepProgress
-                testID="kitchen-order-desk-sale-stepper"
-                label={t('kitchen:desk.sale.progressLabel')}
-                steps={steps.map((candidate, index) => ({
-                    key: candidate,
-                    label: t(STEP_LABEL_KEYS[candidate]),
-                    disabled: index > form.index,
-                    testID: `kitchen-order-desk-sale-step-${candidate}`,
-                }))}
-                current={form.index}
-                completed={form.completed}
-                onSelect={form.goToIndex}
-                divided
-            />
+            <Stack space="sm">
+                <CataloguePageHeader
+                    testID="kitchen-order-desk-sale-header"
+                    titleTestID="kitchen-order-desk-sale-title"
+                    title={t('kitchen:desk.sale.title')}
+                    titleAside={
+                        <Badge
+                            variant="caps"
+                            testID="kitchen-order-desk-sale-kind"
+                            tone="brand"
+                            icon={null}
+                            label={t(FULFILMENT_LABEL_KEYS[state.fulfilmentType])}
+                        />
+                    }
+                />
+
+                <Tabs<OrderDeskSaleStep>
+                    testID="kitchen-order-desk-sale-stepper"
+                    label={t('kitchen:desk.sale.progressLabel')}
+                    items={steps.map((candidate, index) => ({
+                        value: candidate,
+                        label: t(STEP_LABEL_KEYS[candidate]),
+                        // The basket says how many lines it holds, as Production does on a recipe.
+                        ...(candidate === 'basket' ? { count: state.lines.length } : {}),
+                        disabled: index > form.index,
+                        testID: `kitchen-order-desk-sale-step-${candidate}`,
+                    }))}
+                    value={step}
+                    onChange={form.goTo}
+                    variant="steps"
+                />
+            </Stack>
 
             {/*
-             * Every step's opening lives in one slot of one height above the row, so the rail and
-             * the step's content start on the same line on every step — the basket's search takes
-             * the slot a heading takes elsewhere.
+             * The open step is one underlined section across the whole width — its name and a
+             * hairline — with the step on the left and the basket on the right.
+             *
+             * Both columns open on the same 32px slot: the step's one line of explanation, or on
+             * the basket its search and Columns button, and on the rail an empty slot of the same
+             * height. So the first thing in every step — the kind-of-sale cards, the customer
+             * search, the picker table — starts on the basket card's top edge, and the card sits at
+             * the same height on every tab instead of moving with whatever the step opens on.
              */}
-            <View style={{ minHeight: STEP_HEADER_HEIGHT }} className="justify-end">
-                {step === 'basket' ? (
-                    <View style={{ width: fieldWidth }}>
-                        <SearchInput
-                            testID="kitchen-order-desk-sale-picker-search"
-                            label={t('kitchen:desk.sale.pickerSearchLabel')}
-                            placeholder={t('kitchen:desk.sale.pickerSearchPlaceholder')}
-                            value={pickerQuery}
-                            onChangeText={setPickerQuery}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                        />
+            <FormSection
+                first
+                variant="underlined"
+                testID={`kitchen-order-desk-sale-section-${step}`}
+                title={t(step === 'basket' ? STEP_LABEL_KEYS.basket : STEP_HEADER_KEYS[step].title)}
+            >
+                <View className="z-auto flex-row flex-wrap items-start gap-loose">
+                    <View
+                        // eslint-disable-next-line no-restricted-syntax -- the step column is the row's filler beside the fixed rail.
+                        className="z-auto min-w-0 flex-1 flex-col gap-base"
+                        style={{ minWidth: STEP_MIN_WIDTH }}
+                    >
+                        {/* The basket fills this slot with its own toolbar. */}
+                        {step === 'basket' ? null : (
+                            <View className="h-control-md justify-center">
+                                <Text
+                                    testID="kitchen-order-desk-sale-step-intro"
+                                    variant="caption"
+                                    tone="secondary"
+                                >
+                                    {t(STEP_HEADER_KEYS[step].description, {
+                                        count: CUSTOMER_SEARCH_MIN_LENGTH,
+                                    })}
+                                </Text>
+                            </View>
+                        )}
+
+                        {step === 'type' ? (
+                            <TypeStep
+                                state={state}
+                                onChange={(type) => {
+                                    update(withFulfilmentType(state, type));
+                                }}
+                            />
+                        ) : null}
+
+                        {step === 'customer' ? (
+                            <CustomerStep
+                                state={state}
+                                onChoose={(customer) => {
+                                    update(withCustomer(state, customer.id));
+                                }}
+                            />
+                        ) : null}
+
+                        {step === 'address' ? (
+                            <AddressStep
+                                state={state}
+                                onSaved={(addressId) => {
+                                    update({ ...state, customerAddressId: addressId });
+                                }}
+                            />
+                        ) : null}
+
+                        {step === 'basket' ? (
+                            <BasketStep
+                                state={state}
+                                query={pickerQuery}
+                                onQuery={setPickerQuery}
+                                onLines={(lines) => {
+                                    update({ ...state, lines });
+                                }}
+                            />
+                        ) : null}
+
+                        {step === 'payment' ? (
+                            <PaymentStep
+                                state={state}
+                                onChange={(payment) => {
+                                    update({
+                                        ...state,
+                                        payment,
+                                        paymentMethod: payment.method,
+                                    });
+                                }}
+                            />
+                        ) : null}
+
+                        {step === 'review' ? (
+                            <ReviewStep
+                                state={state}
+                                quote={quoted}
+                                onMethod={(method) => {
+                                    update({ ...state, paymentMethod: method });
+                                }}
+                            />
+                        ) : null}
+
+                        {placeFailure === null ? null : (
+                            <Callout
+                                testID="kitchen-order-desk-sale-refusal"
+                                tone="danger"
+                                role="alert"
+                                title={t('kitchen:desk.sale.refusedTitle')}
+                                body={
+                                    refusalReasons.length === 0
+                                        ? t('kitchen:desk.sale.refusedBody')
+                                        : undefined
+                                }
+                            >
+                                {refusalReasons.length === 0 ? null : (
+                                    <View
+                                        testID="kitchen-order-desk-sale-refusal-reasons"
+                                        className="flex-col gap-hair"
+                                    >
+                                        {/*
+                                         * Every reason, never just the first: one sentence saying the
+                                         * order could not be placed sends an agent back to a basket
+                                         * with nothing to change. A reason this build has no copy for
+                                         * still appears, as the server's own code — a refusal nobody
+                                         * has translated yet is still a fact about somebody's dinner.
+                                         */}
+                                        {refusalReasons.map((entry) => (
+                                            <Text
+                                                key={entry.reason}
+                                                variant="caption"
+                                                testID={`kitchen-order-desk-sale-refusal-${entry.reason}`}
+                                            >
+                                                {`• ${t(`kitchen:desk.refusal.${entry.reason}`, {
+                                                    defaultValue: entry.reason,
+                                                })}`}
+                                            </Text>
+                                        ))}
+                                    </View>
+                                )}
+                            </Callout>
+                        )}
                     </View>
-                ) : (
-                    <View className="flex-col gap-hair">
-                        <Text variant="section" role="heading" aria-level={3}>
-                            {t(STEP_HEADER_KEYS[step].title)}
-                        </Text>
-                        <Text variant="caption" tone="secondary">
-                            {t(STEP_HEADER_KEYS[step].description, {
-                                count: CUSTOMER_SEARCH_MIN_LENGTH,
-                            })}
-                        </Text>
-                    </View>
-                )}
-            </View>
 
-            <View className="flex-row flex-wrap items-start gap-loose">
-                <View
-                    // eslint-disable-next-line no-restricted-syntax -- the step column is the row's filler beside the fixed rail.
-                    className="min-w-0 flex-1 flex-col gap-loose"
-                    style={{ minWidth: STEP_MIN_WIDTH }}
-                >
-                    {step === 'type' ? (
-                        <TypeStep
-                            state={state}
-                            onChange={(type) => {
-                                update(withFulfilmentType(state, type));
-                            }}
-                        />
-                    ) : null}
-
-                    {step === 'customer' ? (
-                        <CustomerStep
-                            state={state}
-                            onChoose={(customer) => {
-                                update(withCustomer(state, customer.id));
-                            }}
-                        />
-                    ) : null}
-
-                    {step === 'address' ? (
-                        <AddressStep
-                            state={state}
-                            onSaved={(addressId) => {
-                                update({ ...state, customerAddressId: addressId });
-                            }}
-                        />
-                    ) : null}
-
-                    {step === 'basket' ? (
-                        <BasketStep
-                            state={state}
-                            query={pickerQuery}
+                    <View
+                        testID="kitchen-order-desk-sale-rail-column"
+                        className="flex-col gap-base"
+                    >
+                        <View className="h-control-md" />
+                        <BasketRail
+                            testID="kitchen-order-desk-sale-rail"
+                            lines={state.lines}
+                            quote={quoted}
+                            quoteStale={quoteStale}
+                            quoteFailed={toFailure(quote.error) !== null}
+                            quoteFailureMessage={toFailure(quote.error)?.message}
                             onLines={(lines) => {
                                 update({ ...state, lines });
                             }}
-                        />
-                    ) : null}
-
-                    {step === 'payment' ? (
-                        <PaymentStep
-                            state={state}
-                            onChange={(payment) => {
-                                update({ ...state, payment, paymentMethod: payment.method });
-                            }}
-                        />
-                    ) : null}
-
-                    {step === 'review' ? (
-                        <ReviewStep
-                            state={state}
-                            quote={quoted}
-                            onMethod={(method) => {
-                                update({ ...state, paymentMethod: method });
-                            }}
-                        />
-                    ) : null}
-
-                    {placeFailure === null ? null : (
-                        <Callout
-                            testID="kitchen-order-desk-sale-refusal"
-                            tone="danger"
-                            role="alert"
-                            title={t('kitchen:desk.sale.refusedTitle')}
-                            body={
-                                refusalReasons.length === 0
-                                    ? t('kitchen:desk.sale.refusedBody')
-                                    : undefined
-                            }
-                        >
-                            {refusalReasons.length === 0 ? null : (
-                                <View
-                                    testID="kitchen-order-desk-sale-refusal-reasons"
-                                    className="flex-col gap-hair"
-                                >
-                                    {/*
-                                     * Every reason, never just the first: one sentence saying the
-                                     * order could not be placed sends an agent back to a basket
-                                     * with nothing to change. A reason this build has no copy for
-                                     * still appears, as the server's own code — a refusal nobody
-                                     * has translated yet is still a fact about somebody's dinner.
-                                     */}
-                                    {refusalReasons.map((entry) => (
-                                        <Text
-                                            key={entry.reason}
-                                            variant="caption"
-                                            testID={`kitchen-order-desk-sale-refusal-${entry.reason}`}
-                                        >
-                                            {`• ${t(`kitchen:desk.refusal.${entry.reason}`, {
-                                                defaultValue: entry.reason,
-                                            })}`}
-                                        </Text>
-                                    ))}
-                                </View>
-                            )}
-                        </Callout>
-                    )}
-                </View>
-
-                <BasketRail
-                    testID="kitchen-order-desk-sale-rail"
-                    lines={state.lines}
-                    quote={quoted}
-                    quoteStale={quoteStale}
-                    quoteFailed={toFailure(quote.error) !== null}
-                    quoteFailureMessage={toFailure(quote.error)?.message}
-                    onLines={(lines) => {
-                        update({ ...state, lines });
-                    }}
-                    navigation={
-                        <>
-                            <Button
-                                testID="kitchen-order-desk-sale-back"
-                                variant="secondary"
-                                size="sm"
-                                label={t('kitchen:desk.sale.back')}
-                                disabled={back === null || place.isPending}
-                                onPress={() => {
-                                    if (back !== null) form.goTo(back);
-                                }}
-                            />
-                            {step === 'review' ? (
-                                <Button
-                                    testID="kitchen-order-desk-sale-submit"
-                                    size="sm"
-                                    label={t(
-                                        state.fulfilmentType === 'counter'
-                                            ? 'kitchen:desk.sale.complete'
-                                            : 'kitchen:desk.sale.place',
+                            navigation={
+                                <>
+                                    <Button
+                                        testID="kitchen-order-desk-sale-back"
+                                        variant="secondary"
+                                        size="sm"
+                                        label={t('kitchen:desk.sale.back')}
+                                        disabled={back === null || place.isPending}
+                                        onPress={() => {
+                                            if (back !== null) form.goTo(back);
+                                        }}
+                                    />
+                                    {step === 'review' ? (
+                                        <Button
+                                            testID="kitchen-order-desk-sale-submit"
+                                            size="sm"
+                                            label={t(
+                                                state.fulfilmentType === 'counter'
+                                                    ? 'kitchen:desk.sale.complete'
+                                                    : 'kitchen:desk.sale.place',
+                                            )}
+                                            loading={place.isPending}
+                                            disabled={!mayLeave('review')}
+                                            onPress={onPlace}
+                                        />
+                                    ) : (
+                                        <Button
+                                            testID="kitchen-order-desk-sale-next"
+                                            size="sm"
+                                            label={t('kitchen:desk.sale.next')}
+                                            disabled={forward === null || !mayLeave(step)}
+                                            onPress={() => {
+                                                if (forward !== null) form.goTo(forward);
+                                            }}
+                                        />
                                     )}
-                                    loading={place.isPending}
-                                    disabled={!mayLeave('review')}
-                                    onPress={onPlace}
-                                />
-                            ) : (
-                                <Button
-                                    testID="kitchen-order-desk-sale-next"
-                                    size="sm"
-                                    label={t('kitchen:desk.sale.next')}
-                                    disabled={forward === null || !mayLeave(step)}
-                                    onPress={() => {
-                                        if (forward !== null) form.goTo(forward);
-                                    }}
-                                />
-                            )}
-                        </>
-                    }
-                />
-            </View>
+                                </>
+                            }
+                        />
+                    </View>
+                </View>
+            </FormSection>
         </Stack>
     );
 }
@@ -596,9 +628,6 @@ function SaleWizard() {
  * number, with no token behind it.
  */
 const STEP_MIN_WIDTH = 320;
-
-/** Tall enough for the basket's labelled search, the tallest opening. A style: no token for it. */
-const STEP_HEADER_HEIGHT = 64;
 
 const STEP_HEADER_KEYS = {
     type: {
@@ -1228,11 +1257,13 @@ interface PickerRow {
 function BasketStep({
     state,
     query,
+    onQuery,
     onLines,
 }: {
     readonly state: SaleWizardState;
-    /** Held by the screen: the search sits above the row so the table and the rail share a top. */
+    /** Held by the screen, so a search survives a walk to another step and back. */
     readonly query: string;
+    readonly onQuery: (query: string) => void;
     readonly onLines: (lines: readonly BasketLine[]) => void;
 }) {
     const { t } = useTranslation();
@@ -1393,8 +1424,9 @@ function BasketStep({
             {
                 key: 'add',
                 label: '',
-                width: 96,
-                min: 80,
+                // One square control, not a worded button: the column only has to hold a +.
+                width: 56,
+                min: 48,
                 priority: CATALOGUE_PRIORITY.actions,
                 // `metric`, not `actions`: below `md` the list draws a two-line row that renders only
                 // title / status / metric / meta, and a picker whose Add vanished on a narrow window
@@ -1406,14 +1438,14 @@ function BasketStep({
                 render: (row) => {
                     const name = displayName(row.name, locale).value;
                     return (
-                        <Button
+                        <IconButton
                             testID={`kitchen-order-desk-sale-picker-${row.id}-add`}
                             size="sm"
-                            variant="quiet"
-                            label={t('kitchen:desk.sale.pickerAdd')}
-                            accessibilityLabel={t('kitchen:desk.sale.pickerAddItem', {
-                                item: name,
-                            })}
+                            variant="secondary"
+                            // The name is the whole label — spoken, and shown on hover — because
+                            // a bare + says what it does only once the reader knows the table.
+                            label={t('kitchen:desk.sale.pickerAddItem', { item: name })}
+                            icon={<Icon name="plus" size="sm" />}
                             onPress={() => {
                                 onLines(
                                     addItem(state.lines, {
@@ -1434,8 +1466,32 @@ function BasketStep({
     const controls = useColumnControls(rows, columns, 'kitchen-order-desk-sale-picker');
 
     return (
-        // No heading: the step tab above already says "Basket", and the rail beside it is the basket.
-        <View testID="kitchen-order-desk-sale-basket">
+        // No heading: the section above already says "Basket", and the rail beside it is the basket.
+        <View testID="kitchen-order-desk-sale-basket" className="z-auto flex-col gap-base">
+            {/*
+             * The step's opening slot, the height of every other step's: the search at the start
+             * and the Columns button at the end, one control tall, so the button sits over the
+             * table's end edge and the table starts on the basket card's top edge.
+             */}
+            <View
+                testID="kitchen-order-desk-sale-picker-toolbar"
+                className="h-control-md flex-row items-center justify-between gap-tight"
+            >
+                <View style={{ width: fieldWidth }} className="min-w-0 shrink">
+                    <SearchInput
+                        testID="kitchen-order-desk-sale-picker-search"
+                        size="md"
+                        label={t('kitchen:desk.sale.pickerSearchLabel')}
+                        placeholder={t('kitchen:desk.sale.pickerSearchPlaceholder')}
+                        value={query}
+                        onChangeText={onQuery}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                    />
+                </View>
+                <ColumnPicker {...controls.picker} />
+            </View>
+
             <View testID="kitchen-order-desk-sale-picker" className="flex-col gap-tight">
                 {loading ? (
                     <Skeleton
@@ -1461,17 +1517,15 @@ function BasketStep({
                     />
                 ) : (
                     <View testID="kitchen-order-desk-sale-picker-rows">
-                        <WithColumnPicker picker={controls.picker}>
-                            <CatalogueList
-                                testID="kitchen-order-desk-sale-picker-table"
-                                label={t('kitchen:desk.sale.pickerSearchLabel')}
-                                columns={controls.columns}
-                                rows={controls.rows}
-                                rowKey={(row) => `${row.kind}-${row.id}`}
-                                density="sm"
-                                rowActionsLabel={t('kitchen:list.rowActions')}
-                            />
-                        </WithColumnPicker>
+                        <CatalogueList
+                            testID="kitchen-order-desk-sale-picker-table"
+                            label={t('kitchen:desk.sale.pickerSearchLabel')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => `${row.kind}-${row.id}`}
+                            density="sm"
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
                     </View>
                 )}
             </View>

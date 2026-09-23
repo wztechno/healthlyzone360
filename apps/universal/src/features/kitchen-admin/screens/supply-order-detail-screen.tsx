@@ -403,6 +403,7 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
         : [
               {
                   key: 'received',
+                  numeric: true,
                   header: t('kitchen:ops.supplyOrders.columnReceived'),
                   render: (line) => (
                       <Text
@@ -461,6 +462,7 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
         },
         {
             key: 'quantity',
+            numeric: true,
             header: t('kitchen:ops.supplyOrders.columnQuantity'),
             flex: 2,
             render: (line) => {

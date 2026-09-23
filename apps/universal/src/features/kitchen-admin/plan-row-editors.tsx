@@ -50,6 +50,12 @@ export interface PlanVariantRowsProps {
     readonly onChange: (rows: readonly VariantDraft[]) => void;
     readonly errors: ReadonlyMap<string, string>;
     readonly canManage: boolean;
+    /**
+     * Never offers to remove the only row. A new plan opens on one configuration and one duration
+     * and is not written without them, so taking the last one away would only put back an empty
+     * section and a required field with nothing to type into.
+     */
+    readonly keepOne?: boolean | undefined;
     readonly testID: string;
 }
 
@@ -74,6 +80,7 @@ export function PlanVariantRows({
     onChange,
     errors,
     canManage,
+    keepOne = false,
     testID,
 }: PlanVariantRowsProps) {
     const { t } = useTranslation();
@@ -120,7 +127,7 @@ export function PlanVariantRows({
                                         }
                                     />
                                 }
-                                canManage={canManage}
+                                canManage={canManage && !(keepOne && rows.length === 1)}
                                 onRemove={() => {
                                     setRemoved({ row, index });
                                     onChange(rows.filter((entry) => entry.key !== row.key));
@@ -350,6 +357,12 @@ export interface PlanDurationRowsProps {
     readonly onChange: (rows: readonly DurationDraft[]) => void;
     readonly errors: ReadonlyMap<string, string>;
     readonly canManage: boolean;
+    /**
+     * Never offers to remove the only row. A new plan opens on one configuration and one duration
+     * and is not written without them, so taking the last one away would only put back an empty
+     * section and a required field with nothing to type into.
+     */
+    readonly keepOne?: boolean | undefined;
     readonly testID: string;
 }
 
@@ -379,6 +392,7 @@ export function PlanDurationRows({
     onChange,
     errors,
     canManage,
+    keepOne = false,
     testID,
 }: PlanDurationRowsProps) {
     const { t } = useTranslation();
@@ -399,6 +413,11 @@ export function PlanDurationRows({
                 </Text>
             ) : (
                 <>
+                    {/*
+                     * Every header at the start of its column, over the start of the field below
+                     * it. Days and Discount used to sit at the end, which put each one over the empty
+                     * half of its box, away from the figure it names.
+                     */}
                     <View className="h-6 flex-row items-center gap-snug border-b border-stroke px-tight">
                         <View style={{ width: KIND_TRACK }}>
                             <Text variant="micro" tone="secondary">
@@ -406,12 +425,12 @@ export function PlanDurationRows({
                             </Text>
                         </View>
                         <View style={{ width: DAYS_TRACK }}>
-                            <Text variant="micro" tone="secondary" align="end">
+                            <Text variant="micro" tone="secondary">
                                 {t('kitchen:plans.daysLabel')}
                             </Text>
                         </View>
                         <View style={{ width: DISCOUNT_TRACK }}>
-                            <Text variant="micro" tone="secondary" align="end">
+                            <Text variant="micro" tone="secondary">
                                 {t('kitchen:plans.discountLabel')}
                             </Text>
                         </View>
@@ -489,7 +508,7 @@ export function PlanDurationRows({
                                                 )}
                                                 className="h-control-sm justify-center rounded-sm border border-stroke-subtle bg-surface-sunken px-control-sm"
                                             >
-                                                <Text tone="secondary" align="end">
+                                                <Text tone="secondary">
                                                     {t('kitchen:plans.daysNone')}
                                                 </Text>
                                             </View>
@@ -528,7 +547,7 @@ export function PlanDurationRows({
                                         </Text>
                                     </View>
 
-                                    {canManage ? (
+                                    {canManage && !(keepOne && rows.length === 1) ? (
                                         <RemoveButton
                                             testID={rowTestId}
                                             onRemove={() => {
