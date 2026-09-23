@@ -575,7 +575,7 @@ final class PermissionRegistry
             // organisation template must never carry a platform code, so the
             // platform-operator organisation grants `reference.*_platform`
             // through a bespoke organisation-scoped role instead
-            // (DemoTenantSeeder demonstrates the path).
+            // (PlatformOperatorSeeder writes it).
             'kitchen_manager' => [
                 'name_en' => 'Kitchen manager',
                 'name_ar' => 'مدير المطبخ',

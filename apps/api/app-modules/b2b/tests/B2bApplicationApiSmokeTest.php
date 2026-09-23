@@ -19,6 +19,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -38,15 +39,15 @@ use Illuminate\Testing\TestResponse;
 |
 */
 
-beforeEach(function (): void {
-    // The full seed, for the same reason AllergenClassApiTest takes it: the
-    // platform-operator organisation and the bespoke role carrying the
-    // platform permission codes are the only supported way to hold
-    // `b2b_application.*_platform`, and DemoTenantSeeder is where that grant
-    // is expressed. A test that hand-built the grant would be asserting
-    // against its own fixture rather than against the platform's.
-    $this->seed();
+// The full seed, for the same reason AllergenClassApiTest takes it: the
+// platform-operator organisation and the bespoke role carrying the platform
+// permission codes are the only supported way to hold
+// `b2b_application.*_platform`, and PlatformOperatorSeeder is where that grant
+// is expressed. A test that hand-built the grant would be asserting against its
+// own fixture rather than against the platform's. Seeded once for the file.
+pest()->use(SeedDatabaseOnce::class);
 
+beforeEach(function (): void {
     Storage::fake('private');
 
     $this->applicant = B2bWorld::applicant();

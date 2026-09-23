@@ -21,6 +21,7 @@ import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
 import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
+import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -133,6 +134,14 @@ function MealsList() {
         return (
             <RecordViewPage
                 testID="kitchen-meals-view"
+                media={
+                    <RecordPhoto
+                        assetId={viewing.imagePlaceholderId}
+                        label={displayName(viewing.name, locale).value}
+                        shape="wide"
+                        testID="kitchen-meals-view-photo"
+                    />
+                }
                 kind={t('kitchen:meals.viewKind')}
                 title={displayName(viewing.name, locale).value}
                 status={{

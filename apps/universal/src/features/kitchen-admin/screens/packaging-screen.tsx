@@ -20,6 +20,7 @@ import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
 import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
+import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import {
@@ -163,6 +164,14 @@ function PackagingList() {
         return (
             <RecordViewPage
                 testID="kitchen-packaging-view"
+                media={
+                    <RecordPhoto
+                        assetId={`ingredient-${viewing.slug}`}
+                        label={displayName(viewing.name, locale).value}
+                        shape="square"
+                        testID="kitchen-packaging-view-photo"
+                    />
+                }
                 kind={t('kitchen:packaging.viewKind')}
                 {...(viewing.reference === null ? {} : { reference: viewing.reference })}
                 title={displayName(viewing.name, locale).value}

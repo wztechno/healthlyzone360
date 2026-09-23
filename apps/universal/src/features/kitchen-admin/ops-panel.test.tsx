@@ -158,6 +158,13 @@ describe('ops panels', () => {
         expect(screen.getByTestId(rowFor(1))).toBeTruthy();
         expect(screen.getByTestId(rowFor(25))).toBeTruthy();
         expect(screen.queryByTestId(rowFor(26))).toBeNull();
+        // Each shelf shows what is on it: the backing ingredient's photograph, addressed by the
+        // stock code, which is that ingredient's slug.
+        expect(
+            screen.getByTestId(`kitchen-stock-table-row-${String(stockItem(1).id)}-image`, {
+                includeHiddenElements: true,
+            }),
+        ).toBeTruthy();
 
         // The point of the page: the price read asks about what is on screen. Asking about the
         // whole library is what made this request a `414` at the edge.

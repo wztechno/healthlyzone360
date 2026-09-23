@@ -12,6 +12,7 @@ use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Identity\Models\UserProfile;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Support\Facades\Notification;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -24,9 +25,9 @@ use Illuminate\Support\Facades\Notification;
 |
 */
 
-beforeEach(function (): void {
-    $this->seed();
+pest()->use(SeedDatabaseOnce::class);
 
+beforeEach(function (): void {
     Notification::fake();
 
     $this->withHeaders(firstPartyHeaders());

@@ -310,6 +310,7 @@ export function mapIngredientAdmin(
             updatedByName: null,
         },
         name: { en: wire.name_en, ar: wire.name_ar },
+        slug: wire.slug,
         reference: wire.source_ref ?? null,
         ...categoryPairFor(lookup, wire.ingredient_category_id, wire.ingredient_subcategory_id),
         measurementUnit: mapMeasureUnit(wire.default_unit_code),
@@ -586,6 +587,23 @@ function mapCatalogueItemMeta(wire: AdminCatalogueItem): IngredientAdmin['meta']
     };
 }
 
+/**
+ * The photograph id for a catalogue item, as the admin draws it.
+ *
+ * The stored `image_placeholder_id` wins when a kitchen has set one. When it has not — which is
+ * every row the v6 import wrote — the id is derived exactly as `MarketplaceMealPresenter` derives
+ * it, `item_type + '-' + slug`, so the admin and the storefront always show the same picture for
+ * the same item. Both halves come from the server; nothing here slugifies a name.
+ *
+ * Meals used to fall back to an empty string, which resolves to nothing, so any meal without a
+ * stored id drew the generated pattern; products carried no image id at all. The v6 dishes are
+ * written as `product` rows (`ProductWriter.php:165`), so this is what lets the thirty-seven of them
+ * with photographs show one in the admin.
+ */
+function catalogueImageId(wire: AdminCatalogueItem): string {
+    return wire.image_placeholder_id ?? `${wire.item_type}-${wire.slug}`;
+}
+
 export function mapProductAdminFromItem(
     wire: AdminCatalogueItem,
     options?: {
@@ -621,6 +639,7 @@ export function mapProductAdminFromItem(
         recipeId: wire.recipe_id == null ? null : RecipeId.unsafe(wire.recipe_id),
         dietClassifications: options?.dietClassifications ?? [],
         dataQualityFlags: wire.data_quality_flags,
+        imagePlaceholderId: catalogueImageId(wire),
     };
 }
 
@@ -679,7 +698,7 @@ export function mapMealAdminFromItem(
         allergens: options?.allergens ?? [],
         channelAvailability: options?.channelAvailability ?? [],
         availability: options?.availability ?? availabilityFromWire ?? [],
-        imagePlaceholderId: wire.image_placeholder_id ?? '',
+        imagePlaceholderId: catalogueImageId(wire),
         marginPercent: null,
     };
 }

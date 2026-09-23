@@ -126,6 +126,7 @@ function ingredient(id: IngredientId, name: string): IngredientAdmin {
         id,
         meta: meta(),
         name: { en: name, ar: `${name} بالعربية` },
+        slug: `ingredient-${name.toLowerCase().replace(/ /g, '-')}`,
         reference: null,
         subcategoryCode: null,
         categoryCode: 'store-cupboard',

@@ -38,7 +38,7 @@ function organisationTemplateRoleCodes(): array
         // Phase K1: kitchen roles. Organisation-scoped like every template —
         // no platform template role exists, and the platform codes are granted
         // through a bespoke role inside the platform-operator organisation
-        // instead (DemoTenantSeeder).
+        // instead (PlatformOperatorSeeder).
         'kitchen_manager', 'kitchen_chef', 'kitchen_staff', 'commercial_manager',
 
         // C2: the order desk. The ninth, and organisation-scoped like the rest
@@ -275,4 +275,155 @@ it('gives finance every number and no way to change one', function (): void {
     ] as $withheld) {
         expect($finance)->not->toContain($withheld);
     }
+});
+
+/*
+|--------------------------------------------------------------------------
+| Grant counts and role splits
+|--------------------------------------------------------------------------
+|
+| These used to be asserted against the seeded rows in `DatabaseSeederTest`, at
+| the price of a full seed per case. They are facts about the registry, so they
+| are pinned here, hard-coded; `DatabaseSeederTest` pins that the seeder copies
+| the registry exactly, which makes each rule below a rule about the seeded
+| roles too (D-141).
+|
+*/
+
+/**
+ * The template roles holding a code.
+ *
+ * @return list<string>
+ */
+function templateRolesHolding(string $code): array
+{
+    return array_keys(array_filter(
+        PermissionRegistry::templateRoles(),
+        static fn (array $template): bool => in_array($code, $template['permissions'], true),
+    ));
+}
+
+it('grants each template role the expected number of codes', function (string $role, int $expectedGrants): void {
+    expect(PermissionRegistry::templateRoles()[$role]['permissions'])->toHaveCount($expectedGrants);
+})->with([
+    'organisation owner grants every organisation permission' => ['organisation_owner', 46],
+    // Forty-five either way, which is why this row stayed green through AA1 while
+    // its name stopped being true: the console swapped `role.manage_organisation`
+    // in and `organisation.update_current` out, one for one. The count is the
+    // weakest half of the pin; `separates the administrator from the owner`
+    // above names which code is missing.
+    'organisation administrator runs everything except the legal identity of the business' => ['organisation_admin', 45],
+    'branch manager is limited to its branch and roster' => ['branch_manager', 3],
+    'member holds the organisation view plus the own-scope permissions' => ['member', 7],
+    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs, orders its supplies and holds the order desk in full' => ['kitchen_manager', 31],
+    // Nine since PROD1: the chef gained `production.view_organisation` and
+    // `production.manage_organisation` and not the costs code. Running the line
+    // is the job; what the line cost is the commercial side's, which is the same
+    // line `inventory.view_costs_organisation` already draws through this role.
+    'chef edits recipes and their costs and runs inventory and batches, but never publishes and never sees a price or a cost outside a recipe' => ['kitchen_chef', 9],
+    'kitchen staff read the catalogue, recipes and stock quantities, and no money at all' => ['kitchen_staff', 3],
+    'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans, prices delivery, reads the subscription book, reads inventory and its costs and sees who is buying' => ['commercial_manager', 16],
+    // Eight, not seven: the role gained `catalogue.view_organisation` with the
+    // sale wizard's item picker, which reads the kitchen's own catalogue to
+    // find out what there is to sell and 403s without it. Reading the range is
+    // still not deciding it — the manage and publish codes stay absent, which
+    // is the half of this row the name is about.
+    'order desk agent works the queue, sells across the counter and opens accounts for cold callers, reads the range and decides neither it nor the tariff' => ['order_desk_agent', 8],
+    // AA1's two. They were absent from this dataset for a day after the console
+    // shipped — and a dataset only asserts about the rows it lists, so their
+    // absence was silent rather than red. `classifies every template role as
+    // organisation-scoped` above pins the full role list, which is what notices
+    // a new role that this dataset has not heard of.
+    'purchasing manager spends the kitchen money without seeing what it charges' => ['procurement_manager', 7],
+    'finance manager reads every number and can change exactly one, the unit cost of a recipe line' => ['finance_manager', 12],
+]);
+
+it('gives the delivery map to the two commercial roles and the branch hours to the kitchen manager', function (): void {
+    // K1.7's half of the same split. Where a kitchen delivers and what it
+    // charges to get there is a logistics-and-money decision, so the two
+    // commercial roles hold it and neither the chef nor kitchen staff do.
+    //
+    // `branch.manage_current` is deliberately different: it is a fact about a
+    // *place*, so the kitchen manager gains it — a manager who cannot say "we
+    // close at six on Fridays" cannot run the kitchen — while the commercial
+    // manager does not, because a commercial manager who could rewrite opening
+    // hours could close a kitchen from a spreadsheet.
+    expect(templateRolesHolding('delivery_zone.manage_organisation'))->toEqualCanonicalizing([
+        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'commercial_manager',
+    ])->and(templateRolesHolding('branch.manage_current'))->toEqualCanonicalizing([
+        'organisation_owner', 'organisation_admin', 'branch_manager', 'kitchen_manager',
+    ]);
+});
+
+it('gives the plan authority to the two commercial roles and to neither the chef nor the staff', function (): void {
+    // K1.6's half of the same split the cost test below asserts. A subscription
+    // is a commercial instrument — cut-offs, pause rights, long-run discounts —
+    // so a chef who designs the food does not thereby decide the terms it is
+    // sold on, and kitchen staff hold neither code.
+    foreach (['plan.manage_organisation', 'plan.publish_organisation'] as $code) {
+        expect(templateRolesHolding($code))->toEqualCanonicalizing([
+            'organisation_owner', 'organisation_admin', 'kitchen_manager', 'commercial_manager',
+        ], "Unexpected holders of {$code}.");
+    }
+});
+
+it('withholds cost visibility from kitchen staff, and gives it to finance', function (): void {
+    // The split appendix C asks for, asserted where it is actually decided.
+    // A line cook reading the method to make the dish must not thereby read
+    // the margin on it, and a docblock is not a mechanism.
+    //
+    // `finance_manager` joined the holders with AA1's access console, and it is
+    // the one role here that reads a cost without being able to move a dish:
+    // finance is who knows what a thing cost, and six of the reports in
+    // `report-catalogue.md` are unopenable without the cost codes. The rule this
+    // test protects is about the line cook, and it is unchanged — the list grew
+    // at the other end.
+    expect(templateRolesHolding('recipe.view_costs_organisation'))->toEqualCanonicalizing([
+        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'kitchen_chef',
+        'commercial_manager', 'finance_manager',
+    ]);
+});
+
+it('grants the publication permission to the kitchen manager and to nobody else', function (): void {
+    // Publishing freezes an allergen label that reaches a diner and withdraws
+    // whatever was live before. A chef writing a formulation is a different
+    // authority, and the separation has to be real in the template roles rather
+    // than a sentence in a docblock.
+    expect(templateRolesHolding('recipe.publish_organisation'))
+        ->toEqualCanonicalizing(['organisation_owner', 'organisation_admin', 'kitchen_manager']);
+});
+
+it('grants the catalogue publication permission to the two roles that decide the range', function (): void {
+    // The kitchen manager and the commercial manager, and neither the chef nor
+    // the staff. Deciding what a customer can buy is a different authority
+    // from writing the listing, and the commercial manager holds it *without*
+    // `catalogue.manage_organisation`: a merchandiser may put a dish on sale
+    // without being able to change a line of how it is made.
+    expect(templateRolesHolding('catalogue.publish_organisation'))->toEqualCanonicalizing([
+        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'commercial_manager',
+    ]);
+});
+
+it('keeps price visibility away from the chef and the kitchen staff entirely', function (): void {
+    // The K1.5 split, and the one that would have been easiest to get wrong.
+    // Folding prices into `catalogue.view_organisation` would have handed a
+    // negotiated amount — the most commercially sensitive figure in the
+    // schema — to every line cook who can read an ingredient, and would have
+    // quietly undone K1.3's cost split too, since a margin is reconstructable
+    // from a cost and a price. Note the chef holds the *cost* permission and
+    // neither price code: those are different questions with different answers.
+    //
+    // The two codes no longer have the same holders, and the difference is K1.5's
+    // split doing the work it was made for: `finance_manager` reads the tariff
+    // and cannot set one. A finance manager who cannot see a price cannot
+    // reconcile a total; deciding the price is the commercial manager's. Asserted
+    // as two lists rather than one loop precisely so that widening the read can
+    // never quietly widen the write.
+    expect(templateRolesHolding('price_list.view_organisation'))->toEqualCanonicalizing([
+        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'commercial_manager',
+        'finance_manager',
+    ], 'Unexpected holders of price_list.view_organisation.')
+        ->and(templateRolesHolding('price_list.manage_organisation'))->toEqualCanonicalizing([
+            'organisation_owner', 'organisation_admin', 'kitchen_manager', 'commercial_manager',
+        ], 'Unexpected holders of price_list.manage_organisation.');
 });

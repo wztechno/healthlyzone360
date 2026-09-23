@@ -337,7 +337,7 @@
         "recipeVersion": "Recipe version {{version}}",
         "nutritionVersion": "Figures computed from recipe version {{version}}",
         "calculatedAt": "Calculated {{timestamp}}",
-        "attribution": "Source: {{source}}. Original photography and third-party attribution are not part of this prototype.",
+        "attribution": "Source: {{source}}.",
         "staleTitle": "These figures are behind the recipe",
         "staleBody": "The recipe has been edited since these figures were computed, so treat them as an estimate until they are recalculated.",
         "ingredientsTitle": "Ingredients",

@@ -204,6 +204,7 @@ function product({ ordinal, name, overrides = {} }: ProductSeed): ProductAdmin {
         recipeId: null,
         dietClassifications: [],
         dataQualityFlags: [],
+        imagePlaceholderId: `product-${String(ordinal)}`,
         ...overrides,
     };
 }
@@ -524,6 +525,13 @@ describe('the product list', () => {
         const base = `kitchen-product-${String(row.id)}`;
         expect(screen.getByTestId(`${base}-name`)).toBeTruthy();
         expect(screen.getByTestId(`${base}-category`)).toBeTruthy();
+        // The product list had no photograph at all; the imported dishes are product rows, so
+        // this is where their photographs appear in the admin.
+        expect(
+            screen.getByTestId(`kitchen-products-table-row-${String(row.id)}-image`, {
+                includeHiddenElements: true,
+            }),
+        ).toBeTruthy();
         expect(screen.getByTestId(`${base}-packs`)).toBeTruthy();
         // Two packs, because this test authored two.
         expect(row.packVariants).toHaveLength(2);
@@ -716,6 +724,11 @@ describe('the meal list', () => {
         const base = `kitchen-meal-${String(row.id)}`;
         expect(screen.getByTestId(`${base}-name`)).toBeTruthy();
         expect(screen.getByTestId(`${base}-meal-types`)).toBeTruthy();
+        expect(
+            screen.getByTestId(`kitchen-meals-table-row-${String(row.id)}-image`, {
+                includeHiddenElements: true,
+            }),
+        ).toBeTruthy();
         // "Live", not "Published": the Catalogue's status badges take the short vocabulary every
         // one of its lists uses, so a kitchen reads the same word down every column.
         expect(screen.getByTestId(`${base}-status`)).toHaveTextContent(/Published/);
@@ -2181,6 +2194,7 @@ describe('converting a meal to sell from finished stock', () => {
             id: IngredientId.unsafe(SALAD_INGREDIENT),
             meta: meta(),
             name: { en: 'Prepared Caesar salad', ar: 'سلطة سيزر جاهزة' },
+            slug: 'prepared-caesar-salad',
             reference: 'IG-900',
             categoryCode: 'prepared',
             subcategoryCode: null,
@@ -2194,6 +2208,7 @@ describe('converting a meal to sell from finished stock', () => {
             capacity: null,
             status: 'published',
             dataQualityFlags: [],
+            imagePlaceholderId: 'product-prepared-caesar-salad',
         }) as unknown as IngredientAdmin;
 
     const units = (): ProcurementReference => ({

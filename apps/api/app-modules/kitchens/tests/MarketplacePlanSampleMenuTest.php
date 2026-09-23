@@ -2,15 +2,13 @@
 
 declare(strict_types=1);
 
-use Database\Seeders\DatabaseSeeder;
-use Database\Seeders\MarketplaceKitchensSeeder;
-use Database\Seeders\MarketplacePlansSeeder;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\PlanMenuEntry;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Kitchens\Services\MarketplacePlans;
+use Tests\SeedPreviewWorldOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,11 +35,9 @@ use Healthy360\Kitchens\Services\MarketplacePlans;
 |
 */
 
-beforeEach(function (): void {
-    $this->seed(DatabaseSeeder::class);
-    $this->seed(MarketplaceKitchensSeeder::class);
-    $this->seed(MarketplacePlansSeeder::class);
+pest()->use(SeedPreviewWorldOnce::class);
 
+beforeEach(function (): void {
     $this->plan = CatalogueItem::withoutTenancy()
         ->where('item_type', CatalogueItemType::SubscriptionPlan->value)
         ->where('slug', 'balanced-week')

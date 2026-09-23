@@ -230,6 +230,7 @@ function ingredient(ordinal: number, overrides: Partial<IngredientAdmin> = {}): 
         id: ingredientIdentifier(ordinal),
         meta: meta({ status: 'published' }),
         name: { en: `Ingredient ${String(ordinal)}`, ar: `مكوّن ${String(ordinal)}` },
+        slug: `ingredient-${String(ordinal)}`,
         reference: `IG-00${String(ordinal)}`,
         subcategoryCode: null,
         categoryCode: 'store-cupboard',
@@ -1124,6 +1125,14 @@ describe('the recipe list at desk width', () => {
         });
 
         await untilVisible(`kitchen-recipe-${String(gluten.id)}-name`);
+        // The wide table draws the title cell through the column's `render`, so the row's 20px
+        // thumbnail is here, addressed by the recipe's own slug. (The narrow list draws the title
+        // from the column's plain `value` and carries no thumbnail — table-only, as for meals.)
+        expect(
+            screen.getByTestId(`kitchen-recipes-table-row-${String(gluten.id)}-image`, {
+                includeHiddenElements: true,
+            }),
+        ).toBeTruthy();
 
         await untilVisible('kitchen-recipes-column-allergens-trigger');
         fireEvent.press(screen.getByTestId('kitchen-recipes-column-allergens-trigger'));

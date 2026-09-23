@@ -11,6 +11,7 @@ use Healthy360\Allergens\Models\Allergen;
 use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationMembership;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -25,9 +26,9 @@ use Healthy360\Organisations\Models\OrganisationMembership;
 |
 */
 
-beforeEach(function (): void {
-    $this->seed();
+pest()->use(SeedDatabaseOnce::class);
 
+beforeEach(function (): void {
     $this->platform = Organisation::query()->where('slug', 'healthy360-operations')->sole();
     $this->ops = User::query()->where('email', 'ops@healthy360.test')->sole();
 });

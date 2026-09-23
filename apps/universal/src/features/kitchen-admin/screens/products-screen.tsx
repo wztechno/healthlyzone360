@@ -29,6 +29,7 @@ import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
 import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
+import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -234,6 +235,14 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
         return (
             <RecordViewPage
                 testID="kitchen-products-view"
+                media={
+                    <RecordPhoto
+                        assetId={viewing.imagePlaceholderId}
+                        label={displayName(viewing.name, locale).value}
+                        shape="wide"
+                        testID="kitchen-products-view-photo"
+                    />
+                }
                 kind={t(family.viewKind)}
                 title={displayName(viewing.name, locale).value}
                 status={{

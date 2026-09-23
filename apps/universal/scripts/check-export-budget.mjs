@@ -17,7 +17,25 @@
  *
  * ## Where the numbers come from
  *
- * Re-measured from the `all-dev` **api** export on 2026-09-10, after the admin Catalogue landed:
+ * Re-measured from the `all-dev` **api** export on 2026-09-21, after ingredient, recipe and v6
+ * meal photography landed (D-131 to D-137). The total rose because the bundled WebP set grew from
+ * 100 files to 533 (7.9 MB → 18.6 MB): 376 newly sourced, reviewed, openly licensed photographs
+ * at 256×256 for ingredients and 640×360 + 1280×720 for recipes and meals. That is the photography
+ * arriving, not accumulation, and it is bounded — 40 records remain unimaged, and
+ * each future one costs a known ~16 KB (ingredient) or ~130 KB (dish). The entry chunk grew too,
+ * but stays inside its **unchanged** budget: 433 more static imports and the `IMAGE_CREDITS` map
+ * are a few tens of kilobytes of it, so the chunk budget was measured and deliberately not raised.
+ *
+ * The budget below was set from a 30 738 838 B measurement. Thirteen more photographs, found
+ * through Openverse for records Commons could not serve, brought the export to 31 478 480 B —
+ * inside the budget at 89 %, so it was left where it was rather than raised again.
+ *
+ * | measure                | actual        | ×1.15 → budget |
+ * | ---------------------- | ------------- | -------------- |
+ * | total `dist-api` bytes | 30 738 838    | 35 349 664     |
+ * | largest JS chunk       |  4 711 728    |  4 934 436 (not raised — 95.5 % used) |
+ *
+ * The previous measurement, 2026-09-10, after the admin Catalogue landed:
  * its control ladder, layout and overlay components, the column spec every Catalogue list is drawn
  * from, and the record editors for ingredients, packaging and pricing behind them. Against the
  * 2026-08-13 baseline (19 128 695 B / 3 789 839 B, the first `dist-api`-only measurement after the
@@ -44,16 +62,16 @@ import { readdir, stat } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 
 /** Total bytes of the exported directory. */
-export const TOTAL_BUDGET_BYTES = 25_431_626;
+export const TOTAL_BUDGET_BYTES = 35_349_664;
 
 /** Bytes of the single largest `.js` file. */
 export const LARGEST_CHUNK_BUDGET_BYTES = 4_934_436;
 
 /** The measurement the budgets were derived from, kept so a report can show the drift. */
 export const BASELINE = {
-    totalBytes: 22_114_458,
-    largestChunkBytes: 4_290_814,
-    measuredOn: '2026-09-10',
+    totalBytes: 31_478_480,
+    largestChunkBytes: 4_711_728,
+    measuredOn: '2026-09-21',
     export: 'APP_MODE=all-dev EXPO_PUBLIC_API_URL=http://localhost:8080 expo export -p web --output-dir dist-api',
 };
 

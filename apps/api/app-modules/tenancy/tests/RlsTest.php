@@ -961,11 +961,13 @@ it('still migrates and seeds under the owner role with row-level security enable
     // enforces is not that. The history below is kept because it is the evidence
     // for the rule rather than decoration.
     //
-    // **Three, not two.** This comment said "both halves" and meant
-    // PermissionRegistryTest and this file, which is how the third sat red for a
-    // day after the console: `tests/Feature/DatabaseSeederTest.php` counts the
-    // seeded rows and was never swept. Naming all three here is the only thing
-    // that makes the next sweep findable from any one of them.
+    // **Three, not two — and since D-141 the third keeps itself in step.** This
+    // comment said "both halves" and meant PermissionRegistryTest and this file,
+    // which is how the third sat red for a day after the console:
+    // `tests/Feature/DatabaseSeederTest.php` counted the seeded rows and was
+    // never swept. It now compares the seeded roles with the registry rather
+    // than counting them, so the halves a sweep has to find are
+    // `organisationTemplateRoleCodes()` in PermissionRegistryTest and this count.
     //
     // Previously nine since C2: the four foundation roles,
     // K1.1's kitchen_manager, kitchen_chef, kitchen_staff and
@@ -984,8 +986,8 @@ it('still migrates and seeds under the owner role with row-level security enable
     // a counter workable, and no existing role is that shape — kitchen_staff
     // holds no order codes at all, and kitchen_manager holds strictly more.
     // `organisationTemplateRoleCodes()` in PermissionRegistryTest names the same
-    // set, and `DatabaseSeederTest` counts what the seeder actually wrote; the
-    // three together are this pin.
+    // set, and `DatabaseSeederTest` checks that the seeder wrote exactly the
+    // registry's roles; the three together are this pin.
     expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(11)
         ->and(OrganisationBranch::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(OrganisationMembership::withoutTenancy()->count())->toBeGreaterThan(2)

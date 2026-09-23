@@ -119,9 +119,15 @@ export interface RecordViewPageProps {
     /** Rail cards after status and chips. */
     readonly rail?: readonly RecordViewSection[] | undefined;
     /**
-     * The page's one way into the editor, drawn in the status card. Omit on a record nobody may
-     * change here.
+     * The record's photograph — a `RecordPhoto` — first in the rail, above the status card.
+     *
+     * Its own slot rather than `titleAside`, which sits on the title line among the badges and is
+     * sized for one, or a `rail` section, which draws after status and chips. A picture is what
+     * the eye lands on first in a record page, so it leads the rail; below `xl`, where the rail
+     * drops under the main column, it leads that.
      */
+    readonly media?: ReactNode | undefined;
+    /** The page's one way into the editor. Omit on a record nobody may change here. */
     readonly primaryAction?:
         | {
               readonly label: string;
@@ -161,6 +167,7 @@ export function RecordViewPage({
     footNote,
     statusContent,
     rail = [],
+    media,
     primaryAction,
     testID,
 }: RecordViewPageProps) {
@@ -249,6 +256,8 @@ export function RecordViewPage({
                         testID={`${testID}-rail`}
                         className="min-w-0 flex-col gap-base xl:flex-[10]"
                     >
+                        {media}
+
                         {hasStatusCard ? (
                             <Card
                                 testID={`${testID}-record-status`}

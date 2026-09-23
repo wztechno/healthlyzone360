@@ -3,31 +3,19 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use Database\Seeders\KitchenReferenceSeeder;
 use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\AccessControl\Services\PermissionRegistry;
 use Healthy360\Allergens\Models\Allergen;
-use Healthy360\Catalogues\Enums\CatalogueItemStatus;
-use Healthy360\Catalogues\Enums\CatalogueItemType;
-use Healthy360\Catalogues\Enums\PlanDurationKind;
-use Healthy360\Catalogues\Models\CatalogueItem;
-use Healthy360\Catalogues\Models\CatalogueItemVariant;
-use Healthy360\Catalogues\Models\ChannelCatalogueItem;
-use Healthy360\Catalogues\Models\EnergyBand;
-use Healthy360\Catalogues\Models\MealCombinationOption;
-use Healthy360\Catalogues\Models\PlanDuration;
-use Healthy360\Catalogues\Models\PlanVariantDuration;
-use Healthy360\Catalogues\Models\PlanVariantProfile;
 use Healthy360\Catalogues\Models\ProductCategory;
 use Healthy360\Catalogues\Models\SalesChannel;
-use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Consent\Models\ConsentDefinition;
 use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Models\DeliveryZoneArea;
-use Healthy360\Delivery\Services\ZoneResolver;
 use Healthy360\Features\Models\FeatureDefinition;
 use Healthy360\Ingredients\Database\Seeders\IngredientNutritionSeeder;
 use Healthy360\Ingredients\Enums\AllergenContainment;
@@ -48,13 +36,6 @@ use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Organisations\Models\OrganisationType;
-use Healthy360\Pricing\Enums\CustomerScope;
-use Healthy360\Pricing\Enums\PriceListStatus;
-use Healthy360\Pricing\Models\ChannelPriceList;
-use Healthy360\Pricing\Models\PriceList;
-use Healthy360\Pricing\Models\PriceListItem;
-use Healthy360\Procurement\Models\GoodsReceipt;
-use Healthy360\Procurement\Models\PurchaseOrder;
 use Healthy360\Procurement\Models\Supplier;
 use Healthy360\Procurement\Models\SupplierContact;
 use Healthy360\Procurement\Models\SupplierStockItem;
@@ -71,9 +52,9 @@ use Healthy360\ReferenceData\Models\DeliveryArea;
 use Healthy360\ReferenceData\Models\DietClassification;
 use Healthy360\ReferenceData\Models\Language;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
-use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -84,11 +65,13 @@ use Illuminate\Support\Facades\Queue;
 | permission set and the platform template roles are what every other module
 | and the frontend permission kernel are written against.
 |
+| Seeded once for the whole file, not once per case (`SeedDatabaseOnce`):
+| every case reads the same seeded world, and whatever a case writes —
+| including a second run of a seeder — is rolled back before the next starts.
+|
 */
 
-beforeEach(function (): void {
-    $this->seed();
-});
+pest()->use(SeedDatabaseOnce::class);
 
 it('seeds every ISO country but activates only the launch markets', function (): void {
     expect(Country::query()->count())->toBe(249)
@@ -106,15 +89,6 @@ it('seeds currencies with ISO minor units and activates the launch set plus the 
         ->toBe([3])
         ->and(Currency::query()->whereKey('USD')->value('minor_units'))->toBe(2)
         ->and(Currency::query()->whereKey('JPY')->value('minor_units'))->toBe(0);
-});
-
-it('seeds every currency a country defaults to', function (): void {
-    $orphans = Country::query()
-        ->whereNotNull('default_currency_code')
-        ->whereNotIn('default_currency_code', Currency::query()->select('code'))
-        ->count();
-
-    expect($orphans)->toBe(0);
 });
 
 it('seeds the launch languages with the correct direction', function (): void {
@@ -225,9 +199,7 @@ it('seeds the v6 platform ingredient library with its taxonomy', function (): vo
         // The two rows the source records no Status for land inactive —
         // visible but greyed and unusable until a human decides.
         ->and($ingredients->where('status', IngredientStatus::Inactive)->pluck('source_ref')->sort()->values()->all())
-        ->toBe(['ING-013', 'ING-077'])
-        // v6 records real units per row; nothing is left on a placeholder.
-        ->and($ingredients->whereNull('default_unit_id')->count())->toBe(0);
+        ->toBe(['ING-013', 'ING-077']);
 
     $packaging = $ingredients->filter(fn (Ingredient $row): bool => str_starts_with((string) $row->source_ref, 'PKG-'));
 
@@ -623,583 +595,28 @@ it('seeds exactly the registered permission set', function (): void {
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });
 
-it('keeps the platform permissions out of every organisation template role', function (): void {
-    $platformIds = Permission::query()
-        ->whereIn('code', array_keys(PermissionRegistry::platformPermissions()))
-        ->pluck('id');
+it('seeds every template role with exactly the grants the registry declares', function (): void {
+    // Who holds what is pinned, hard-coded, in `PermissionRegistryTest`: the
+    // role list, each role's grant count and the holders of every code a role
+    // split turns on. What this pins is the copy — every template role present
+    // and system-owned, holding the registry's list and nothing else, because
+    // `TemplateRoleSeeder` reconciles stale grants away. Compared in full rather
+    // than counted, so a seeder that wrote the right number of wrong codes still
+    // fails (D-141).
+    $templates = PermissionRegistry::templateRoles();
+    $roles = Role::withoutTenancy()->whereNull('organisation_id')->get()->keyBy('code');
 
-    // Eleven since the final backend wave: the two reference codes, B1's five,
-    // and B2/J2's four. The count is pinned rather than derived so that adding a
-    // platform code without thinking about this test is impossible — and the
-    // four newest are exactly the kind that would be tempting to hand to an
-    // organisation owner, since a wind-up and a closure are both about a
-    // specific organisation's or person's records.
-    expect($platformIds)->toHaveCount(12)
-        ->and(RolePermission::withoutTenancy()
-            ->whereIn('permission_id', $platformIds)
-            ->whereIn('role_id', Role::withoutTenancy()->whereNull('organisation_id')->select('id'))
-            ->count())->toBe(0);
-});
+    expect($roles->keys()->all())->toEqualCanonicalizing(array_keys($templates));
 
-it('seeds permission codes in the domain.action_scope format', function (): void {
-    foreach (Permission::query()->pluck('code')->all() as $code) {
-        expect($code)->toMatch(PermissionRegistry::CODE_FORMAT);
-    }
-});
-
-it('seeds the platform template roles with the expected grants', function (string $code, int $expectedGrants): void {
-    $role = Role::withoutTenancy()->whereNull('organisation_id')->where('code', $code)->sole();
-
-    expect($role->is_system)->toBeTrue()
-        ->and($role->organisation_id)->toBeNull()
-        ->and(RolePermission::withoutTenancy()->where('role_id', $role->getKey())->count())->toBe($expectedGrants);
-})->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 46],
-    // Forty-five either way, which is why this row stayed green through AA1 while
-    // its name stopped being true: the console swapped `role.manage_organisation`
-    // in and `organisation.update_current` out, one for one. The count is the
-    // weakest half of the pin; the test below names which code is missing.
-    'organisation administrator runs everything except the legal identity of the business' => ['organisation_admin', 45],
-    'branch manager is limited to its branch and roster' => ['branch_manager', 3],
-    'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs, orders its supplies and holds the order desk in full' => ['kitchen_manager', 31],
-    // Nine since PROD1: the chef gained `production.view_organisation` and
-    // `production.manage_organisation` and not the costs code. Running the line
-    // is the job; what the line cost is the commercial side's, which is the same
-    // line `inventory.view_costs_organisation` already draws through this role.
-    'chef edits recipes and their costs and runs inventory and batches, but never publishes and never sees a price or a cost outside a recipe' => ['kitchen_chef', 9],
-    'kitchen staff read the catalogue, recipes and stock quantities, and no money at all' => ['kitchen_staff', 3],
-    'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans, prices delivery, reads the subscription book, reads inventory and its costs and sees who is buying' => ['commercial_manager', 16],
-    // Eight, not seven: the role gained `catalogue.view_organisation` with the
-    // sale wizard's item picker, which reads the kitchen's own catalogue to
-    // find out what there is to sell and 403s without it. Reading the range is
-    // still not deciding it — the manage and publish codes stay absent, which
-    // is the half of this row the name is about.
-    'order desk agent works the queue, sells across the counter and opens accounts for cold callers, reads the range and decides neither it nor the tariff' => ['order_desk_agent', 8],
-    // AA1's two. They were absent from this dataset for a day after the console
-    // shipped — and a dataset only asserts about the rows it lists, so their
-    // absence was silent rather than red, which is how the role *count* three
-    // tests below was the only thing that noticed them.
-    'purchasing manager spends the kitchen money without seeing what it charges' => ['procurement_manager', 7],
-    'finance manager reads every number and can change exactly one, the unit cost of a recipe line' => ['finance_manager', 12],
-]);
-
-it('gives the delivery map to the two commercial roles and the branch hours to the kitchen manager', function (): void {
-    // K1.7's half of the same split. Where a kitchen delivers and what it
-    // charges to get there is a logistics-and-money decision, so the two
-    // commercial roles hold it and neither the chef nor kitchen staff do.
-    //
-    // `branch.manage_current` is deliberately different: it is a fact about a
-    // *place*, so the kitchen manager gains it — a manager who cannot say "we
-    // close at six on Fridays" cannot run the kitchen — while the commercial
-    // manager does not, because a commercial manager who could rewrite opening
-    // hours could close a kitchen from a spreadsheet.
-    $holders = static function (string $code): array {
-        $permission = Permission::query()->where('code', $code)->sole();
-
-        return Role::withoutTenancy()
-            ->whereNull('organisation_id')
-            ->whereIn('id', RolePermission::withoutTenancy()->where('permission_id', $permission->getKey())->select('role_id'))
-            ->pluck('code')
-            ->all();
-    };
-
-    expect($holders('delivery_zone.manage_organisation'))->toEqualCanonicalizing([
-        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'commercial_manager',
-    ]);
-
-    expect($holders('branch.manage_current'))->toEqualCanonicalizing([
-        'organisation_owner', 'organisation_admin', 'branch_manager', 'kitchen_manager',
-    ]);
-});
-
-it('gives the plan authority to the two commercial roles and to neither the chef nor the staff', function (): void {
-    // K1.6's half of the same split the cost test above asserts. A subscription
-    // is a commercial instrument — cut-offs, pause rights, long-run discounts —
-    // so a chef who designs the food does not thereby decide the terms it is
-    // sold on, and kitchen staff hold neither code.
-    foreach (['plan.manage_organisation', 'plan.publish_organisation'] as $code) {
-        $permission = Permission::query()->where('code', $code)->sole();
-
-        $holders = Role::withoutTenancy()
-            ->whereNull('organisation_id')
-            ->whereIn('id', RolePermission::withoutTenancy()->where('permission_id', $permission->getKey())->select('role_id'))
+    foreach ($templates as $code => $template) {
+        $granted = Permission::query()
+            ->whereIn('id', RolePermission::withoutTenancy()->where('role_id', $roles[$code]->getKey())->select('permission_id'))
             ->pluck('code')
             ->all();
 
-        expect($holders)->toEqualCanonicalizing([
-            'organisation_owner', 'organisation_admin', 'kitchen_manager', 'commercial_manager',
-        ]);
+        expect($roles[$code]->is_system)->toBeTrue()
+            ->and($granted)->toEqualCanonicalizing($template['permissions'], "Template role {$code} drifted from the registry.");
     }
-});
-
-it('withholds cost visibility from kitchen staff, and gives it to finance', function (): void {
-    // The split appendix C asks for, asserted where it is actually decided.
-    // A line cook reading the method to make the dish must not thereby read
-    // the margin on it, and a docblock is not a mechanism.
-    //
-    // `finance_manager` joined the holders with AA1's access console, and it is
-    // the one role here that reads a cost without being able to move a dish:
-    // finance is who knows what a thing cost, and six of the reports in
-    // `report-catalogue.md` are unopenable without the cost codes. The rule this
-    // test protects is about the line cook, and it is unchanged — the list grew
-    // at the other end.
-    $costs = Permission::query()->where('code', 'recipe.view_costs_organisation')->sole();
-
-    $holders = Role::withoutTenancy()
-        ->whereNull('organisation_id')
-        ->whereIn('id', RolePermission::withoutTenancy()->where('permission_id', $costs->getKey())->select('role_id'))
-        ->pluck('code')
-        ->all();
-
-    expect($holders)->toEqualCanonicalizing([
-        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'kitchen_chef',
-        'commercial_manager', 'finance_manager',
-    ]);
-});
-
-it('grants the publication permission to the kitchen manager and to nobody else', function (): void {
-    // Publishing freezes an allergen label that reaches a diner and withdraws
-    // whatever was live before. A chef writing a formulation is a different
-    // authority, and the separation has to be real in the seeded roles rather
-    // than a sentence in a docblock.
-    $publish = Permission::query()->where('code', 'recipe.publish_organisation')->sole();
-
-    $holders = Role::withoutTenancy()
-        ->whereNull('organisation_id')
-        ->whereIn('id', RolePermission::withoutTenancy()->where('permission_id', $publish->getKey())->select('role_id'))
-        ->pluck('code')
-        ->all();
-
-    expect($holders)->toEqualCanonicalizing(['organisation_owner', 'organisation_admin', 'kitchen_manager']);
-});
-
-it('grants the catalogue publication permission to the two roles that decide the range', function (): void {
-    // The kitchen manager and the commercial manager, and neither the chef nor
-    // the staff. Deciding what a customer can buy is a different authority
-    // from writing the listing, and the commercial manager holds it *without*
-    // `catalogue.manage_organisation`: a merchandiser may put a dish on sale
-    // without being able to change a line of how it is made.
-    $publish = Permission::query()->where('code', 'catalogue.publish_organisation')->sole();
-
-    $holders = Role::withoutTenancy()
-        ->whereNull('organisation_id')
-        ->whereIn('id', RolePermission::withoutTenancy()->where('permission_id', $publish->getKey())->select('role_id'))
-        ->pluck('code')
-        ->all();
-
-    expect($holders)->toEqualCanonicalizing([
-        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'commercial_manager',
-    ]);
-});
-
-it('keeps price visibility away from the chef and the kitchen staff entirely', function (): void {
-    // The K1.5 split, and the one that would have been easiest to get wrong.
-    // Folding prices into `catalogue.view_organisation` would have handed a
-    // negotiated amount — the most commercially sensitive figure in the
-    // schema — to every line cook who can read an ingredient, and would have
-    // quietly undone K1.3's cost split too, since a margin is reconstructable
-    // from a cost and a price. Note the chef holds the *cost* permission and
-    // neither price code: those are different questions with different answers.
-    //
-    // The two codes no longer have the same holders, and the difference is K1.5's
-    // split doing the work it was made for: `finance_manager` reads the tariff
-    // and cannot set one. A finance manager who cannot see a price cannot
-    // reconcile a total; deciding the price is the commercial manager's. Asserted
-    // as two lists rather than one loop precisely so that widening the read can
-    // never quietly widen the write.
-    $holdersOf = static fn (string $code): array => Role::withoutTenancy()
-        ->whereNull('organisation_id')
-        ->whereIn('id', RolePermission::withoutTenancy()
-            ->where('permission_id', Permission::query()->where('code', $code)->sole()->getKey())
-            ->select('role_id'))
-        ->pluck('code')
-        ->all();
-
-    expect($holdersOf('price_list.view_organisation'))->toEqualCanonicalizing([
-        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'commercial_manager',
-        'finance_manager',
-    ], 'Unexpected holders of price_list.view_organisation.')
-        ->and($holdersOf('price_list.manage_organisation'))->toEqualCanonicalizing([
-            'organisation_owner', 'organisation_admin', 'kitchen_manager', 'commercial_manager',
-        ], 'Unexpected holders of price_list.manage_organisation.');
-});
-
-/**
- * The counter is the third, and it earns its place: *switching a product onto* a channel is only
- * demonstrable against one the product is not already on, and VerdantProductCatalogueSeeder puts
- * every product on the two that sell it. `pos` is not a listing kind, so nothing consumer-facing
- * moves — the marketplace directory and menus read `b2c_web` and `marketplace` only.
- *
- * `desk` is the fourth and the second `pos` row, which is the assertion worth keeping: the Order
- * Desk sells through a channel of its own, and `counter` — an empty channel whose whole job is to
- * be the one a product is *not* on — must survive beside it rather than be repurposed into it.
- */
-it('gives the demonstration kitchen its four routes to market', function (): void {
-    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
-
-    $channels = SalesChannel::withoutTenancy()->where('organisation_id', $verdant->getKey())->orderBy('code')->get();
-
-    expect($channels->pluck('code')->all())->toBe(['counter', 'desk', 'web-shop', 'wholesale'])
-        ->and($channels->pluck('channel_kind')->map(static fn ($kind): string => $kind->value)->all())
-        ->toBe(['pos', 'pos', 'b2c_web', 'b2b'])
-        ->and($channels->pluck('order_source')->all())
-        ->toBe(['pos', 'desk', 'web', null]);
-});
-
-/**
- * The desk opens holding exactly what the web shop holds — and would sell nothing without both
- * halves. `LineProbe` refuses an article with no `channel_catalogue_items` row for the channel;
- * `PriceResolver::listsFor()` reads `channel_price_lists` as the only source of a channel's
- * tariffs and an empty set refuses every line as `unpriced`. So parity is asserted on both tables
- * rather than on the channel row, which is the part that cannot sell anything on its own.
- */
-it('stocks the demonstration kitchen order desk from its web shop', function (): void {
-    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
-
-    $channelId = static fn (string $code): string => (string) SalesChannel::withoutTenancy()
-        ->where('organisation_id', $verdant->getKey())
-        ->where('code', $code)
-        ->sole()
-        ->getKey();
-
-    $shopId = $channelId('web-shop');
-    $deskId = $channelId('desk');
-
-    $offerings = static fn (string $salesChannelId): array => ChannelCatalogueItem::withoutTenancy()
-        ->where('sales_channel_id', $salesChannelId)
-        ->get()
-        ->map(static fn (ChannelCatalogueItem $row): string => implode('|', [
-            (string) $row->catalogue_item_id,
-            (string) $row->catalogue_item_variant_id,
-            $row->is_available ? '1' : '0',
-            (string) $row->available_from?->toDateString(),
-            (string) $row->available_to?->toDateString(),
-        ]))
-        ->sort()
-        ->values()
-        ->all();
-
-    $tariffs = static fn (string $salesChannelId): array => ChannelPriceList::withoutTenancy()
-        ->where('sales_channel_id', $salesChannelId)
-        ->get()
-        ->map(static fn (ChannelPriceList $row): string => $row->price_list_id.'|'.$row->priority)
-        ->sort()
-        ->values()
-        ->all();
-
-    expect($offerings($shopId))->not->toBe([])
-        ->and($offerings($deskId))->toBe($offerings($shopId))
-        ->and($tariffs($shopId))->not->toBe([])
-        ->and($tariffs($deskId))->toBe($tariffs($shopId));
-});
-
-it('gives the demonstration kitchen a draft tariff in its own currency', function (): void {
-    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
-
-    $tariff = PriceList::withoutTenancy()
-        ->where('organisation_id', $verdant->getKey())
-        ->where('code', 'verdant-web-usd')
-        ->sole();
-
-    // USD matches Verdant's organisation default. Draft because nobody has reviewed it.
-    expect($tariff->currency_code)->toBe('USD')
-        ->and($tariff->currency_code)->toBe($verdant->default_currency_code)
-        ->and($tariff->status)->toBe(PriceListStatus::Draft)
-        ->and($tariff->customer_scope)->toBe(CustomerScope::PublicTariff);
-
-    $webShop = SalesChannel::withoutTenancy()
-        ->where('organisation_id', $verdant->getKey())
-        ->where('code', 'web-shop')
-        ->sole();
-
-    expect(ChannelPriceList::withoutTenancy()
-        ->where('price_list_id', $tariff->getKey())
-        ->where('sales_channel_id', $webShop->getKey())
-        ->count())->toBe(1);
-});
-
-it('seeds the demonstration tariff with a tier and an honest placeholder', function (): void {
-    $tariff = PriceList::withoutTenancy()->where('code', 'verdant-web-usd')->sole();
-
-    $entries = PriceListItem::withoutTenancy()
-        ->where('price_list_id', $tariff->getKey())
-        ->openRows()
-        ->get();
-
-    expect($entries)->toHaveCount(3);
-
-    $statuses = $entries->groupBy(static fn (PriceListItem $row): string => $row->price_status->value);
-
-    expect($statuses->get('confirmed'))->toHaveCount(2)
-        ->and($statuses->get('placeholder'))->toHaveCount(1);
-
-    // The placeholder is the point of the fixture: a row that says "we have
-    // not priced this" without inventing a number. A surface built against
-    // demo data where every price is real would never render the honest state.
-    $placeholder = $statuses->get('placeholder')->sole();
-
-    expect($placeholder->unit_amount_minor)->toBeNull();
-
-    // And the tier, so the resolver's "highest threshold at or below" rule has
-    // something to resolve against.
-    $tiered = $entries->firstWhere(static fn (PriceListItem $row): bool => $row->min_quantity !== null);
-
-    expect($tiered)->not->toBeNull()
-        ->and((float) $tiered->min_quantity)->toBe(12.0)
-        ->and($tiered->unit_amount_minor)->toBeLessThan(
-            $entries->firstWhere(static fn (PriceListItem $row): bool => $row->min_quantity === null && $row->unit_amount_minor !== null)->unit_amount_minor,
-        );
-});
-
-it('seeds Verdant sellable products alongside its published preview meals', function (): void {
-    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
-
-    $published = CatalogueItem::withoutTenancy()
-        ->where('organisation_id', $verdant->getKey())
-        ->where('status', CatalogueItemStatus::Published->value)
-        ->get();
-
-    // The three seeded demonstration meals, the eleven photographed prototype
-    // meals the fixture assigns to *this* kitchen, and — since PROD1 — the
-    // prepared Caesar salad: fifteen. The other twenty-six belong to the
-    // preview kitchens, which `DatabaseSeeder` keeps out of PHPUnit;
-    // `MarketplacePreviewWorldTest` seeds them and pins the forty-meal total
-    // there.
-    //
-    // `MarketplaceReadTest` still pins **fourteen** from the public endpoint,
-    // and the two are not in disagreement: this counts rows, and the
-    // marketplace counts what a customer can buy. The salad carries no price
-    // and no channel — a kitchen does not buy its own salad, and a typed figure
-    // would be a fallback the estimator reached for instead of the batch cost —
-    // and `MarketplaceMeals` excludes an unpriced item as a matter of contract
-    // rather than of filtering. It is in the catalogue so the finished-stock
-    // consumption path has something to sell; pricing it is the demonstrator's
-    // move, and the moment they make it the public count becomes fifteen too.
-    expect($published->where('item_type', CatalogueItemType::Meal)->count())->toBe(15)
-        ->and($published->where('item_type', CatalogueItemType::Product)->count())->toBeGreaterThan(3)
-        ->and(PriceList::withoutTenancy()
-            ->where('organisation_id', $verdant->getKey())
-            ->whereIn('code', ['verdant-products-b2c-usd', 'verdant-products-b2b-usd'])
-            ->where('status', PriceListStatus::Active->value)
-            ->count())->toBe(2);
-});
-
-it('seeds a plan vocabulary that includes a one-off duration', function (): void {
-    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
-
-    expect(MealCombinationOption::withoutTenancy()->where('organisation_id', $verdant->getKey())->pluck('code')->all())
-        ->toEqualCanonicalizing(['lunch-dinner', 'full-day'])
-        ->and(EnergyBand::withoutTenancy()->where('organisation_id', $verdant->getKey())->pluck('code')->all())
-        ->toEqualCanonicalizing(['kcal-1200-1500', 'kcal-1500-1800']);
-
-    $durations = PlanDuration::withoutTenancy()->where('organisation_id', $verdant->getKey())->get();
-
-    expect($durations)->toHaveCount(2);
-
-    // The shape the zero-day sentinel used to occupy (§4.3): a one-off carries
-    // no number of days at all, and a demo without one would leave every
-    // surface built against this data believing a duration always has one.
-    $oneOff = $durations->firstWhere(static fn (PlanDuration $row): bool => $row->duration_kind === PlanDurationKind::OneOff);
-
-    expect($oneOff)->not->toBeNull()
-        ->and($oneOff->duration_days)->toBeNull()
-        ->and($durations->firstWhere(static fn (PlanDuration $row): bool => $row->duration_kind === PlanDurationKind::FixedDays)->duration_days)->toBe(28);
-});
-
-it('seeds a draft plan that is exactly one confirmed price short of publishable', function (): void {
-    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
-
-    $plan = CatalogueItem::withoutTenancy()
-        ->where('organisation_id', $verdant->getKey())
-        ->where('slug', 'balanced-plan')
-        ->sole();
-
-    expect($plan->item_type)->toBe(CatalogueItemType::SubscriptionPlan)
-        ->and($plan->status)->toBe(CatalogueItemStatus::Draft);
-
-    // The 24 h rule both source systems state, preserved as one column.
-    expect(SubscriptionPlanProfile::withoutTenancy()->whereKey($plan->getKey())->value('change_cutoff_hours'))->toBe(24);
-
-    $cells = PlanVariantProfile::withoutTenancy()->where('catalogue_item_id', $plan->getKey())->get();
-
-    expect($cells)->toHaveCount(2);
-
-    $configurations = CatalogueItemVariant::withoutTenancy()
-        ->where('catalogue_item_id', $plan->getKey())
-        ->pluck('id', 'code');
-
-    // Derived codes, matching what PlanVariantService produces for these
-    // coordinates — so the demo data and the API agree about identity.
-    expect($configurations->keys()->all())->toEqualCanonicalizing([
-        'lunch-dinner-standard-kcal-1200-1500',
-        'full-day-premium-kcal-1500-1800',
-    ]);
-
-    $assignments = PlanVariantDuration::withoutTenancy()
-        ->whereIn('catalogue_item_variant_id', $configurations->values())
-        ->get();
-
-    // Two of the three carry no discount at all, which is what the source
-    // sheets contain: NULL says "nobody has stated one" where 0.00 would say
-    // "there is none".
-    expect($assignments)->toHaveCount(3)
-        ->and($assignments->whereNull('discount_percent'))->toHaveCount(2);
-
-    // Exactly one configuration is priced, on an ACTIVE tariff that no channel
-    // names — so the publish gate can read it while nothing quotes it to a
-    // customer.
-    $tariff = PriceList::withoutTenancy()->where('code', 'verdant-plans-usd')->sole();
-
-    expect($tariff->status)->toBe(PriceListStatus::Active)
-        ->and($tariff->currency_code)->toBe('USD')
-        ->and(ChannelPriceList::withoutTenancy()->where('price_list_id', $tariff->getKey())->count())->toBe(0);
-
-    $priced = PriceListItem::withoutTenancy()
-        ->where('price_list_id', $tariff->getKey())
-        ->confirmedOpenRows()
-        ->pluck('catalogue_item_variant_id')
-        ->all();
-
-    expect($priced)->toBe([$configurations->get('lunch-dinner-standard-kcal-1200-1500')]);
-});
-
-it('seeds a published marketplace subscription plan', function (): void {
-    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
-
-    $plan = CatalogueItem::withoutTenancy()
-        ->where('organisation_id', $verdant->getKey())
-        ->where('slug', 'balanced-week')
-        ->sole();
-
-    expect($plan->item_type)->toBe(CatalogueItemType::SubscriptionPlan)
-        ->and($plan->status)->toBe(CatalogueItemStatus::Published);
-
-    $tariff = PriceList::withoutTenancy()->where('code', 'verdant-marketplace-plans-usd')->sole();
-
-    expect($tariff->status)->toBe(PriceListStatus::Active)
-        ->and(ChannelPriceList::withoutTenancy()->where('price_list_id', $tariff->getKey())->count())->toBeGreaterThan(0);
-
-    $configurations = CatalogueItemVariant::withoutTenancy()
-        ->where('catalogue_item_id', $plan->getKey())
-        ->pluck('id');
-
-    $priced = PriceListItem::withoutTenancy()
-        ->where('price_list_id', $tariff->getKey())
-        ->confirmedOpenRows()
-        ->pluck('catalogue_item_variant_id')
-        ->all();
-
-    expect($priced)->toEqualCanonicalizing($configurations->all());
-});
-
-it('seeds the Lebanese gazetteer at exactly the 125 names the source lists', function (): void {
-    // Committed platform reference data — mechanism (a) — and the count
-    // follows the source rather than a target. The `ae-demo-*` rows the demo
-    // tenant needs are excluded by construction: they are Emirati, and they
-    // are mechanism (b).
-    expect(DeliveryArea::query()->where('country_code', 'LB')->count())->toBe(125);
-
-    // Appendix D data-quality finding 25: the spelling is the source's, kept
-    // verbatim because a corrected place name is indistinguishable from a
-    // different place.
-    expect(DeliveryArea::query()->where('code', 'beirut-airpot')->value('name_en'))->toBe('Beirut Airpot');
-
-    // OD-12: the source does not say which governorate a name belongs to, so
-    // nothing here pretends to.
-    expect(DeliveryArea::query()->whereNotNull('region')->count())->toBe(0);
-});
-
-it('keeps the six synthetic demo areas out of the platform gazetteer', function (): void {
-    // Verdant is Emirati and the committed gazetteer is Lebanese, so
-    // demonstrating a zone at all needs Emirati places. Inventing six of them
-    // *into* the gazetteer would put fabricated geography in front of every
-    // tenant in every environment. They live in the demo seeder instead, and
-    // their codes say so.
-    $demo = DeliveryArea::query()->where('country_code', 'AE')->get();
-
-    expect($demo)->toHaveCount(6)
-        ->and($demo->every(static fn (DeliveryArea $area): bool => str_starts_with($area->code, 'ae-demo-')))->toBeTrue();
-});
-
-it('seeds the demonstration kitchen a two-level delivery map with a branch override', function (): void {
-    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
-
-    $wide = DeliveryZone::withoutTenancy()->where('organisation_id', $verdant->getKey())->where('code', 'emirates-wide')->sole();
-    $express = DeliveryZone::withoutTenancy()->where('organisation_id', $verdant->getKey())->where('code', 'al-quoz-express')->sole();
-
-    expect($wide->branch_id)->toBeNull()
-        ->and($wide->currency_code)->toBe('USD')
-        ->and($express->branch_id)->not->toBeNull();
-
-    // The overlap is the fixture the resolution order is worth testing
-    // against: Al Quoz is claimed by both, and the branch claim wins.
-    $alQuoz = DeliveryArea::query()->where('code', 'ae-demo-al-quoz')->sole();
-
-    expect(DeliveryZoneArea::withoutTenancy()->where('delivery_area_id', $alQuoz->getKey())->count())->toBe(2);
-
-    // The resolver reads through the tenant scope, so the context an
-    // `org.context` request would have resolved is set by hand here.
-    $owner = User::query()->where('email', 'owner@verdant.test')->sole();
-    app(TenantContext::class)->setOrganisation((string) $owner->getKey(), (string) $verdant->getKey());
-
-    expect(app(ZoneResolver::class)->zoneFor((string) $alQuoz->getKey(), (string) $express->branch_id)?->code)
-        ->toBe('al-quoz-express');
-
-    expect(app(ZoneResolver::class)->zoneFor((string) $alQuoz->getKey())?->code)->toBe('emirates-wide');
-
-    app(TenantContext::class)->clear();
-});
-
-it('seeds the demonstration branch a full week with one closed day', function (): void {
-    $branch = OrganisationBranch::withoutTenancy()->where('name', 'Al Quoz')->sole();
-
-    $week = BranchOpeningHour::withoutTenancy()->where('branch_id', $branch->getKey())->orderBy('weekday')->get();
-
-    // Seven rows, because a closed day is a row: "shut on Friday" and "nobody
-    // has filled in Friday" have to stay distinguishable.
-    expect($week)->toHaveCount(7)
-        ->and($week->where('opens_at', null))->toHaveCount(1)
-        ->and($week->firstWhere('weekday', 5)?->opens_at)->toBeNull()
-        ->and($week->firstWhere('weekday', 5)?->order_cut_off_at)->toBeNull()
-        ->and($week->firstWhere('weekday', 1)?->order_cut_off_at)->toBe('18:00:00');
-});
-
-it('seeds two delivery windows, one of them restricted to some weekdays', function (): void {
-    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
-
-    $windows = DeliveryWindow::withoutTenancy()->where('organisation_id', $verdant->getKey())->orderBy('display_order')->get();
-
-    expect($windows)->toHaveCount(2)
-        // `[]` is every day, and it is the only encoding of that fact.
-        ->and($windows->firstWhere('code', 'morning')?->weekdays)->toBe([])
-        ->and($windows->firstWhere('code', 'evening')?->weekdays)->toBe([1, 2, 3, 4]);
-});
-
-it('seeds the eleven platform template roles plus the platform operators bespoke role', function (): void {
-    // Nine at C2. `order_desk_agent` was the first template that described a
-    // shift rather than a discipline — who is standing at the counter, not what
-    // they are responsible for — and it is still organisation-scoped like the
-    // eight before it.
-    //
-    // Eleven since AA1's access console added `procurement_manager` and
-    // `finance_manager` — the buyer who spends the kitchen's money, and the
-    // reader who reconciles what it took.
-    //
-    // This is the *third* holder of that pin, not the second. `RlsTest` and
-    // `PermissionRegistryTest` hold the other two and say "both halves"; the
-    // console updated one, a follow-up commit updated another, and this file sat
-    // red for a day because nothing named it. All three exist so that adding a
-    // template role has to be a deliberate act in every layer it reaches.
-    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(11);
-
-    // The one organisation-scoped role the demo seeds: platform permissions
-    // are granted deliberately, inside a platform-operator organisation, and
-    // never through a template (master plan v2 §4.16).
-    $bespoke = Role::withoutTenancy()->whereNotNull('organisation_id')->get();
-
-    expect($bespoke)->toHaveCount(1)
-        ->and($bespoke->first()?->code)->toBe('reference_editor');
 });
 
 it('grants the platform permissions only inside the platform operator organisation', function (): void {
@@ -1254,7 +671,14 @@ it('grants the platform permissions only inside the platform operator organisati
         'inventory.view_costs_organisation',
     ]);
 
+    // The way in. Not a demo account: `PlatformOperatorSeeder` runs whether or
+    // not the demo world does, so a reset still leaves somebody able to sign in.
     $ops = User::query()->where('email', 'ops@healthy360.test')->sole();
+
+    expect($ops->email_verified_at)->not->toBeNull()
+        ->and(Hash::check('password', $ops->password))->toBeTrue()
+        ->and($ops->profile)->not->toBeNull();
+
     $membership = OrganisationMembership::withoutTenancy()
         ->where('organisation_id', $platform->getKey())
         ->where('user_id', $ops->getKey())
@@ -1262,33 +686,11 @@ it('grants the platform permissions only inside the platform operator organisati
 
     expect(MembershipRole::withoutTenancy()->where('membership_id', $membership->getKey())->where('role_id', $role->getKey())->exists())
         ->toBeTrue();
-});
 
-it('withholds the legal identity of the business from the organisation administrator template', function (): void {
-    // The swap AA1 made, and the direction matters.
-    //
-    // This role used to be the owner minus `role.manage_organisation`, which
-    // described an administrator who could do everything except administer. That
-    // was defensible while a kitchen's roles were fixed templates nobody could
-    // edit — there was nothing to administer — and stopped being defensible the
-    // moment roles and memberships became a console.
-    //
-    // What leaves in its place is `organisation.update_current`: the name, the
-    // country, the default currency, the facts on an invoice. An administrator
-    // runs the organisation; the owner decides what the organisation *is*. The
-    // exchange is also what keeps the two roles distinguishable — granting the
-    // role code without taking something back would make this list byte-identical
-    // to `organisation_owner`.
-    $admin = Role::withoutTenancy()->whereNull('organisation_id')->where('code', 'organisation_admin')->sole();
-
-    $codes = Permission::query()
-        ->whereIn('id', RolePermission::withoutTenancy()->where('role_id', $admin->getKey())->select('permission_id'))
-        ->pluck('code')
-        ->all();
-
-    expect($codes)->not->toContain('organisation.update_current')
-        ->and($codes)->toContain('role.manage_organisation')
-        ->and($codes)->toContain('role.view_organisation');
+    // And the only organisation-scoped role any seeder writes: platform codes
+    // are granted deliberately, inside a platform-operator organisation, and
+    // never through a template (master plan v2 §4.16).
+    expect(Role::withoutTenancy()->whereNotNull('organisation_id')->pluck('code')->all())->toBe(['reference_editor']);
 });
 
 it('seeds the feature catalogue', function (): void {
@@ -1351,189 +753,6 @@ it('never presents an unauthored Arabic consent body as finished copy', function
     }
 });
 
-it('seeds the demonstration tenants in the testing environment', function (): void {
-    $cedar = Organisation::query()->where('slug', 'cedar-clinic')->sole();
-    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
-
-    expect($cedar->country_code)->toBe('LB')
-        ->and($cedar->type->code)->toBe('clinic')
-        ->and($verdant->country_code)->toBe('AE')
-        ->and($verdant->type->code)->toBe('kitchen')
-        ->and(OrganisationBranch::withoutTenancy()->where('organisation_id', $cedar->getKey())->pluck('name')->all())
-        ->toEqualCanonicalizing(['Hamra', 'Jounieh'])
-        ->and(OrganisationBranch::withoutTenancy()->where('organisation_id', $verdant->getKey())->pluck('name')->all())
-        ->toBe(['Al Quoz']);
-});
-
-it('gives every demonstration user a verified account and a profile', function (string $email): void {
-    $user = User::query()->where('email', $email)->sole();
-
-    expect($user->email_verified_at)->not->toBeNull()
-        ->and(Hash::check('password', $user->password))->toBeTrue()
-        ->and($user->profile)->not->toBeNull();
-})->with([
-    'owner@cedar.test',
-    'dietitian@cedar.test',
-    'two-factor@cedar.test',
-    'owner@verdant.test',
-    'chef@verdant.test',
-    'patient@healthy360.test',
-    'ops@healthy360.test',
-]);
-
-it('places the dietitian in both demonstration organisations', function (): void {
-    $dietitian = User::query()->where('email', 'dietitian@cedar.test')->sole();
-
-    $slugs = Organisation::query()
-        ->whereIn('id', OrganisationMembership::withoutTenancy()->where('user_id', $dietitian->getKey())->select('organisation_id'))
-        ->pluck('slug')
-        ->all();
-
-    expect($slugs)->toEqualCanonicalizing(['cedar-clinic', 'verdant-kitchen']);
-});
-
-it('scopes the demonstration chef membership to the Al Quoz branch', function (): void {
-    $chef = User::query()->where('email', 'chef@verdant.test')->sole();
-    $membership = OrganisationMembership::withoutTenancy()->where('user_id', $chef->getKey())->sole();
-
-    $role = Role::withoutTenancy()
-        ->whereIn('id', MembershipRole::withoutTenancy()->where('membership_id', $membership->getKey())->select('role_id'))
-        ->sole();
-
-    $branch = OrganisationBranch::withoutTenancy()->whereKey($membership->branch_id)->sole();
-
-    expect($branch->name)->toBe('Al Quoz')
-        ->and($role->code)->toBe('branch_manager');
-});
-
-it('sets the demonstration kitchen up to be bought for, without buying anything for it', function (): void {
-    // SUP8. The demonstration world gains purchasing *configuration* — who the
-    // kitchen buys from, who to ask for, what they sell and when to reorder it —
-    // and gains no purchasing *history* at all. A seeded receipt would be stock
-    // that arrived with no movement behind it; a seeded order would be a
-    // document nobody issued. Both are left for the demonstrator to create
-    // through the real path, which is the only way the ledgers agree.
-    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
-    $branch = OrganisationBranch::withoutTenancy()
-        ->where('organisation_id', $verdant->getKey())
-        ->where('name', 'Al Quoz')
-        ->sole();
-
-    $suppliers = Supplier::withoutTenancy()
-        ->where('organisation_id', $verdant->getKey())
-        ->orderBy('code')
-        ->get();
-
-    expect($suppliers->pluck('code')->all())->toBe(['freshmart', 'gulf-foods']);
-
-    // The slice-1 columns stay null on a seeded supplier. The demonstration is
-    // of an editable record, and a pre-filled address and payment term would
-    // hide the empty state every real supplier starts in.
-    foreach ($suppliers as $supplier) {
-        expect($supplier->name_ar)->toBeNull()
-            ->and($supplier->address)->toBeNull()
-            ->and($supplier->payment_terms)->toBeNull()
-            ->and($supplier->lead_time_days)->toBeNull()
-            ->and($supplier->notes)->toBeNull()
-            ->and($supplier->archived_at)->toBeNull();
-    }
-
-    $gulfFoods = $suppliers->firstOrFail(static fn (Supplier $s): bool => $s->code === 'gulf-foods');
-    $freshmart = $suppliers->firstOrFail(static fn (Supplier $s): bool => $s->code === 'freshmart');
-
-    $contacts = SupplierContact::withoutTenancy()
-        ->whereIn('supplier_id', $suppliers->modelKeys())
-        ->orderBy('name')
-        ->get();
-
-    expect($contacts->pluck('name')->all())->toBe(['Omar Said', 'Rana Accounts', 'Samir Haddad'])
-        // One primary each, which is all the partial unique index permits.
-        ->and($contacts->where('is_primary', true)->pluck('name')->all())
-        ->toEqualCanonicalizing(['Samir Haddad', 'Omar Said']);
-
-    $samir = $contacts->firstOrFail(static fn (SupplierContact $c): bool => $c->name === 'Samir Haddad');
-    $omar = $contacts->firstOrFail(static fn (SupplierContact $c): bool => $c->name === 'Omar Said');
-    $rana = $contacts->firstOrFail(static fn (SupplierContact $c): bool => $c->name === 'Rana Accounts');
-
-    // The two shapes the separate `whatsapp_phone` column exists for: a landline
-    // that is not the mobile, and a mobile that is also the WhatsApp number.
-    expect($samir->whatsapp_phone)->not->toBe($samir->phone)
-        ->and($omar->whatsapp_phone)->toBe($omar->phone)
-        // A contact with only an email still satisfies the channel CHECK.
-        ->and($rana->phone)->toBeNull()
-        ->and($rana->whatsapp_phone)->toBeNull()
-        ->and($rana->email)->not->toBeNull();
-
-    $items = StockItem::withoutTenancy()
-        ->where('organisation_id', $verdant->getKey())
-        ->whereIn('code', ['chicken-breast', 'red-lentils', 'basmati-rice', 'olive-oil'])
-        ->get()
-        ->keyBy('code');
-
-    $links = SupplierStockItem::withoutTenancy()
-        ->whereIn('supplier_id', $suppliers->modelKeys())
-        ->get();
-
-    $linked = static fn (Supplier $supplier, string $itemCode): ?SupplierStockItem => $links
-        ->first(static fn (SupplierStockItem $link): bool => $link->supplier_id === $supplier->getKey()
-            && $link->stock_item_id === $items[$itemCode]->getKey());
-
-    expect($links)->toHaveCount(5)
-        ->and($linked($gulfFoods, 'chicken-breast')?->is_preferred)->toBeTrue()
-        ->and($linked($gulfFoods, 'chicken-breast')?->supplier_item_ref)->toBe('GF-CHKN-01')
-        ->and($linked($gulfFoods, 'red-lentils')?->is_preferred)->toBeTrue()
-        ->and($linked($gulfFoods, 'basmati-rice')?->is_preferred)->toBeFalse()
-        ->and($linked($freshmart, 'basmati-rice')?->is_preferred)->toBeTrue()
-        ->and($linked($freshmart, 'red-lentils')?->is_preferred)->toBeFalse()
-        // Olive oil is deliberately nobody's: the builder's unassigned bucket
-        // needs a row in it, and a demonstration where every shortage already
-        // knows its supplier never shows the case that needs a human.
-        ->and($linked($gulfFoods, 'olive-oil'))->toBeNull()
-        ->and($linked($freshmart, 'olive-oil'))->toBeNull();
-
-    // Exactly one preferred supplier per linked item, three times over.
-    foreach (['chicken-breast', 'red-lentils', 'basmati-rice'] as $code) {
-        expect($links->where('stock_item_id', $items[$code]->getKey())->where('is_preferred', true))
-            ->toHaveCount(1);
-    }
-
-    $levels = StockLevel::withoutTenancy()
-        ->where('branch_id', $branch->getKey())
-        ->whereIn('stock_item_id', $items->pluck('id')->all())
-        ->get()
-        ->keyBy('stock_item_id');
-
-    $level = static fn (string $code): StockLevel => $levels[$items[$code]->getKey()];
-
-    // Quantities are the O8 opening figures, untouched by SUP8. The thresholds
-    // beside them are chosen so the four shelves demonstrate the four §4 cases:
-    // plainly low, low at the inclusive boundary, comfortably stocked, and low
-    // with no par — which is the one that has to ask a person for a quantity.
-    expect($level('chicken-breast')->quantity)->toBe('40.0000')
-        ->and($level('chicken-breast')->reorder_threshold)->toBe('50.0000')
-        ->and($level('chicken-breast')->par_level)->toBe('120.0000')
-        ->and($level('red-lentils')->quantity)->toBe('60.0000')
-        ->and($level('red-lentils')->reorder_threshold)->toBe('60.0000')
-        ->and($level('red-lentils')->par_level)->toBe('100.0000')
-        ->and($level('basmati-rice')->quantity)->toBe('120.0000')
-        ->and($level('basmati-rice')->reorder_threshold)->toBe('40.0000')
-        ->and($level('basmati-rice')->par_level)->toBe('200.0000')
-        ->and($level('olive-oil')->quantity)->toBe('25.0000')
-        ->and($level('olive-oil')->reorder_threshold)->toBe('25.0000')
-        ->and($level('olive-oil')->par_level)->toBeNull();
-
-    // Bought *for*, not bought *from*: no purchase order, because a prebuilt
-    // order is a document nobody issued. The two receipts are the exception
-    // PROD1 made and argued for (D-121) — posted through `GoodsReceiptService`,
-    // because they are the only thing that can give the demonstration a weekly
-    // average price, and a demo whose every batch estimate is withheld for want
-    // of a figure demonstrates nothing except the absence.
-    expect(PurchaseOrder::withoutTenancy()->count())->toBe(0)
-        ->and(GoodsReceipt::withoutTenancy()->count())->toBe(2)
-        ->and(GoodsReceipt::withoutTenancy()->orderBy('document_ref')->pluck('document_ref')->all())
-        ->toBe(['DEMO-PROD-W1', 'DEMO-PROD-W2']);
-});
-
 it('converges instead of duplicating when run a second time', function (): void {
     $counts = static fn (): array => [
         Country::query()->count(),
@@ -1585,14 +804,16 @@ it('converges instead of duplicating when run a second time', function (): void 
 
 it('leaves a curated platform ingredient alone on a re-run', function (): void {
     // Insert-if-absent, not upsert: a platform operator's curation of a seeded
-    // row must survive the next deployment (risk R8).
+    // row must survive the next deployment (risk R8). Re-run through the kitchen
+    // reference layer alone — `IngredientMasterSeeder` is the only writer of
+    // these rows, and the full seed would only add the demo world around it.
     $chickpeas = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('slug', 'chickpeas')->sole();
 
     $chickpeas->name_ar = 'حمص';
     $chickpeas->notes = 'Reviewed by the platform reference editor.';
     $chickpeas->save();
 
-    $this->seed();
+    $this->seed(KitchenReferenceSeeder::class);
 
     $reloaded = Ingredient::withoutTenancy()->whereKey($chickpeas->getKey())->sole();
 

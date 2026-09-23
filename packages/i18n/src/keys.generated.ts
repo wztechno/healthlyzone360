@@ -2014,6 +2014,16 @@ export interface NamespaceKeys {
     | 'network.reconnectingBody'
     | 'network.reconnectingTitle'
     | 'notifications.count'
+    | 'photoCredit.byline'
+    | 'photoCredit.modified'
+    | 'photoCredit.provider.flickr'
+    | 'photoCredit.provider.nappy'
+    | 'photoCredit.provider.other'
+    | 'photoCredit.provider.rawpixel'
+    | 'photoCredit.provider.stocksnap'
+    | 'photoCredit.provider.unsplash'
+    | 'photoCredit.provider.wikimedia'
+    | 'photoCredit.via'
     | 'state.empty'
     | 'state.loading'
     | 'state.restoringSession'
@@ -4013,6 +4023,7 @@ export interface NamespaceKeys {
     | 'ops.production.planShort'
     | 'ops.production.plannedLabel'
     | 'ops.production.plannedYieldHint'
+    | 'ops.production.plannedYieldHintUnit'
     | 'ops.production.plannedYieldLabel'
     | 'ops.production.previousPage'
     | 'ops.production.producedHint'
@@ -4022,6 +4033,10 @@ export interface NamespaceKeys {
     | 'ops.production.recipeHint'
     | 'ops.production.recipeLabel'
     | 'ops.production.recipePlaceholder'
+    | 'ops.production.recipeRequired'
+    | 'ops.production.recipeResolving'
+    | 'ops.production.recipeUnpublished'
+    | 'ops.production.recipeVersionCaption'
     | 'ops.production.registerEmptyBody'
     | 'ops.production.registerEmptyTitle'
     | 'ops.production.registerTitle'
@@ -4073,9 +4088,6 @@ export interface NamespaceKeys {
     | 'ops.production.unitCostLabel'
     | 'ops.production.unpublishedTitle'
     | 'ops.production.unreferenced'
-    | 'ops.production.versionHint'
-    | 'ops.production.versionLabel'
-    | 'ops.production.versionRequired'
     | 'ops.production.viewKind'
     | 'ops.production.wasteHeading'
     | 'ops.production.wasteHint'
@@ -5908,6 +5920,10 @@ export interface NamespaceKeys {
     | 'howItWorks.step.tell.title'
     | 'howItWorks.subtitle'
     | 'howItWorks.title'
+    | 'imageCredits.intro'
+    | 'imageCredits.none'
+    | 'imageCredits.synthetic'
+    | 'imageCredits.title'
     | 'itemTypes.dressing'
     | 'itemTypes.meal'
     | 'itemTypes.product'
@@ -6024,6 +6040,7 @@ export interface NamespaceKeys {
     | 'nav.forBusiness'
     | 'nav.home'
     | 'nav.howItWorks'
+    | 'nav.imageCredits'
     | 'nav.kitchens'
     | 'nav.meals'
     | 'nav.myHome'
@@ -9492,6 +9509,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:network.reconnectingBody',
   'common:network.reconnectingTitle',
   'common:notifications.count',
+  'common:photoCredit.byline',
+  'common:photoCredit.modified',
+  'common:photoCredit.provider.flickr',
+  'common:photoCredit.provider.nappy',
+  'common:photoCredit.provider.other',
+  'common:photoCredit.provider.rawpixel',
+  'common:photoCredit.provider.stocksnap',
+  'common:photoCredit.provider.unsplash',
+  'common:photoCredit.provider.wikimedia',
+  'common:photoCredit.via',
   'common:state.empty',
   'common:state.loading',
   'common:state.restoringSession',
@@ -11486,6 +11513,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.planShort',
   'kitchen:ops.production.plannedLabel',
   'kitchen:ops.production.plannedYieldHint',
+  'kitchen:ops.production.plannedYieldHintUnit',
   'kitchen:ops.production.plannedYieldLabel',
   'kitchen:ops.production.previousPage',
   'kitchen:ops.production.producedHint',
@@ -11495,6 +11523,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.recipeHint',
   'kitchen:ops.production.recipeLabel',
   'kitchen:ops.production.recipePlaceholder',
+  'kitchen:ops.production.recipeRequired',
+  'kitchen:ops.production.recipeResolving',
+  'kitchen:ops.production.recipeUnpublished',
+  'kitchen:ops.production.recipeVersionCaption',
   'kitchen:ops.production.registerEmptyBody',
   'kitchen:ops.production.registerEmptyTitle',
   'kitchen:ops.production.registerTitle',
@@ -11546,9 +11578,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.unitCostLabel',
   'kitchen:ops.production.unpublishedTitle',
   'kitchen:ops.production.unreferenced',
-  'kitchen:ops.production.versionHint',
-  'kitchen:ops.production.versionLabel',
-  'kitchen:ops.production.versionRequired',
   'kitchen:ops.production.viewKind',
   'kitchen:ops.production.wasteHeading',
   'kitchen:ops.production.wasteHint',
@@ -13380,6 +13409,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:howItWorks.step.tell.title',
   'marketplace:howItWorks.subtitle',
   'marketplace:howItWorks.title',
+  'marketplace:imageCredits.intro',
+  'marketplace:imageCredits.none',
+  'marketplace:imageCredits.synthetic',
+  'marketplace:imageCredits.title',
   'marketplace:itemTypes.dressing',
   'marketplace:itemTypes.meal',
   'marketplace:itemTypes.product',
@@ -13496,6 +13529,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:nav.forBusiness',
   'marketplace:nav.home',
   'marketplace:nav.howItWorks',
+  'marketplace:nav.imageCredits',
   'marketplace:nav.kitchens',
   'marketplace:nav.meals',
   'marketplace:nav.myHome',
