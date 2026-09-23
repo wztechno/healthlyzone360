@@ -1027,11 +1027,8 @@ describe('creating and editing a product', () => {
          * And a pack, because the save gate counts one. A product with no pack is a record no price
          * list can point at and no order line can measure, so the editor refuses it rather than
          * writing a row that every downstream screen would then have to special-case. Packs are
-         * the form's second step.
+         * the form's second section, on the same page.
          */
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-packs'));
-        });
         await untilVisible('kitchen-product-packs-add');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-product-packs-add'));
@@ -1085,20 +1082,19 @@ describe('creating and editing a product', () => {
         const first = stored.packVariants[0]!;
         const second = stored.packVariants[1]!;
 
-        await renderStubScreen(<ProductEditScreen product={String(stored.id)} />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    getProduct: async () => stored,
-                    listProducts: productListing(() => [stored]),
-                    listRecipes: async () => page(NO_RECIPES),
+        const { repositories } = await renderStubScreen(
+            <ProductEditScreen product={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        getProduct: async () => stored,
+                        listProducts: productListing(() => [stored]),
+                        listRecipes: async () => page(NO_RECIPES),
+                    },
                 },
             },
-        });
-        await untilVisible('kitchen-product-editor-screen-steps-packs');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-packs'));
-        });
+        );
         await untilVisible('kitchen-product-packs-add');
 
         const firstRow = `kitchen-product-pack-editor-row-seed-0-${first.code}`;
@@ -1131,16 +1127,18 @@ describe('creating and editing a product', () => {
         expect(packCodes()).toEqual([first.code, second.code]);
 
         // A duplicate code is refused on the offending row and blocks the save, because a price
-        // list points at a pack by its code and two of them make the reference ambiguous.
+        // list points at a pack by its code and two of them make the reference ambiguous. It is
+        // named at once — it was typed, not left blank — and Save answers by naming it again
+        // rather than writing.
         await act(async () => {
             fireEvent.changeText(screen.getByTestId(`${secondRow}-code-input`), first.code);
         });
-        await waitFor(() => {
-            expect(
-                screen.getByTestId('kitchen-product-editor-screen-save').props.accessibilityState
-                    ?.disabled,
-            ).toBe(true);
+        await untilVisible('kitchen-product-issues-errors');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
         });
+        expect(screen.getByTestId('kitchen-product-issues-errors')).toBeTruthy();
+        expect(repositories.kitchenAdmin.updateProduct).not.toHaveBeenCalled();
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-product-packs-add'));
@@ -1177,10 +1175,6 @@ describe('creating and editing a product', () => {
                 },
             },
         );
-        await untilVisible('kitchen-product-editor-screen-steps-packs');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-packs'));
-        });
         await untilVisible('kitchen-product-packs-add');
 
         await act(async () => {
@@ -1251,10 +1245,6 @@ describe('creating and editing a product', () => {
                 },
             },
         );
-        await untilVisible('kitchen-product-editor-screen-steps-packs');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-packs'));
-        });
         await untilVisible('kitchen-product-packs-add');
 
         await act(async () => {
@@ -1309,10 +1299,6 @@ describe('creating and editing a product', () => {
                 },
             },
         );
-        await untilVisible('kitchen-product-editor-screen-steps-channels');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-channels'));
-        });
         await untilVisible('kitchen-product-channel-editor');
 
         // Every channel is a row, including the ones this product is not sold through.
@@ -1325,11 +1311,12 @@ describe('creating and editing a product', () => {
             );
         });
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-product-channels-save'));
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
         });
 
         // Its own contract method, its own audit entry: a route to market is a commercial act, not
-        // a rename, and the toggle lands through `setProductChannelAvailability` alone.
+        // a rename. The one Save writes only what changed, so the toggle lands through
+        // `setProductChannelAvailability` alone.
         await waitFor(() => {
             expect(repositories.kitchenAdmin.setProductChannelAvailability).toHaveBeenCalledWith(
                 stored.id,
@@ -1344,6 +1331,97 @@ describe('creating and editing a product', () => {
         expect(repositories.kitchenAdmin.updateProduct).not.toHaveBeenCalled();
         await untilVisible('kitchen-product-channels-saved-toast');
         expect(availableChannels(stored.channelAvailability)).toContain('pos');
+    });
+
+    it('writes a renamed record and a channel toggle in one save, rebasing the lock version', async () => {
+        let stored = product({ ordinal: 1, name: 'Pomegranate molasses' });
+
+        const { repositories } = await renderStubScreen(
+            <ProductEditScreen product={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        getProduct: async () => stored,
+                        listProducts: productListing(() => [stored]),
+                        listRecipes: async () => page(NO_RECIPES),
+                        updateProduct: async (_id, request) => {
+                            stored = {
+                                ...stored,
+                                ...(request.name === undefined ? {} : { name: request.name }),
+                                meta: meta({ lockVersion: request.lockVersion + 1 }),
+                            };
+                            return stored;
+                        },
+                        setProductChannelAvailability: async (_id, request) => {
+                            stored = {
+                                ...stored,
+                                channelAvailability: request.availability,
+                                meta: meta({ lockVersion: request.lockVersion + 1 }),
+                            };
+                            return stored;
+                        },
+                    },
+                },
+            },
+        );
+        await untilVisible('kitchen-product-channel-editor');
+
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-product-name-en-input'),
+                'Pomegranate molasses, thick',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-product-channel-editor-pos-toggle-control'),
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
+        });
+
+        // The record first, at the version the editor opened on; then the channels, at the version
+        // the record's answer carries — a second write at the first version would be refused.
+        await untilVisible('kitchen-product-saved-toast');
+        expect(repositories.kitchenAdmin.updateProduct).toHaveBeenCalledWith(
+            stored.id,
+            expect.objectContaining({ lockVersion: 1 }),
+        );
+        expect(repositories.kitchenAdmin.setProductChannelAvailability).toHaveBeenCalledWith(
+            stored.id,
+            expect.objectContaining({ lockVersion: 2 }),
+        );
+        expect(stored.meta.lockVersion).toBe(3);
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-product-editor-screen-dirty')).toBeNull();
+        });
+    });
+
+    it('names every required field once Save is pressed on an empty form', async () => {
+        const { repositories } = await renderStubScreen(<ProductEditScreen product="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listProducts: productListing(() => [product({ ordinal: 1 })]),
+                    listRecipes: async () => page(NO_RECIPES),
+                },
+            },
+        });
+        await untilVisible('kitchen-product-name-en-input');
+
+        // Nothing is flagged before anyone has typed — a page of red on arrival is not help.
+        expect(screen.queryByTestId('kitchen-product-issues-errors')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
+        });
+
+        await untilVisible('kitchen-product-issues-errors');
+        expect(screen.getByTestId('kitchen-product-issues-errors')).toHaveTextContent(/3 required/);
+        expect(screen.getByTestId('kitchen-product-packs-required')).toBeTruthy();
+        expect(repositories.kitchenAdmin.createProduct).not.toHaveBeenCalled();
     });
 
     it('publishes through the generic item endpoint, and the button waits for the gate', async () => {
@@ -1572,10 +1650,6 @@ describe('creating and editing a product', () => {
                     listRecipes: async () => page(NO_RECIPES),
                 },
             },
-        });
-        await untilVisible('kitchen-product-editor-screen-steps-packs');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-packs'));
         });
         await untilVisible('kitchen-product-packs-add');
 

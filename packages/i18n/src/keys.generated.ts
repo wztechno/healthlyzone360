@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7462 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7449 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2691,7 +2691,6 @@ export interface NamespaceKeys {
     | 'channels.createFirst'
     | 'channels.fromHint'
     | 'channels.fromLabel'
-    | 'channels.save'
     | 'channels.saveError'
     | 'channels.savedToast'
     | 'channels.sectionHint'
@@ -5007,11 +5006,6 @@ export interface NamespaceKeys {
     | 'products.assortedLabel'
     | 'products.assortedShort'
     | 'products.backToList'
-    | 'products.blockCategory'
-    | 'products.blockChannels'
-    | 'products.blockName'
-    | 'products.blockPacks'
-    | 'products.blockUnsaved'
     | 'products.caption'
     | 'products.categoryFilterAll'
     | 'products.categoryFilterLabel'
@@ -5032,7 +5026,6 @@ export interface NamespaceKeys {
     | 'products.dietsLabel'
     | 'products.dietsNone'
     | 'products.dietsRailEmpty'
-    | 'products.dietsRailTitle'
     | 'products.editTitle'
     | 'products.emptyBody'
     | 'products.emptyTitle'
@@ -5040,11 +5033,6 @@ export interface NamespaceKeys {
     | 'products.filteredEmptyTitle'
     | 'products.formulationStart'
     | 'products.formulationStartedToast'
-    | 'products.gateCheckCategory'
-    | 'products.gateCheckChannels'
-    | 'products.gateCheckName'
-    | 'products.gateCheckPacks'
-    | 'products.gateTitle'
     | 'products.loadErrorTitle'
     | 'products.marketPricedHint'
     | 'products.marketPricedLabel'
@@ -5100,7 +5088,6 @@ export interface NamespaceKeys {
     | 'products.resultCount'
     | 'products.searchPlaceholder'
     | 'products.sectionDetails'
-    | 'products.sectionIdentity'
     | 'products.sectionPacks'
     | 'products.sectionRecipe'
     | 'products.statNoPack'
@@ -10171,7 +10158,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:channels.createFirst',
   'kitchen:channels.fromHint',
   'kitchen:channels.fromLabel',
-  'kitchen:channels.save',
   'kitchen:channels.saveError',
   'kitchen:channels.savedToast',
   'kitchen:channels.sectionHint',
@@ -12487,11 +12473,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.assortedLabel',
   'kitchen:products.assortedShort',
   'kitchen:products.backToList',
-  'kitchen:products.blockCategory',
-  'kitchen:products.blockChannels',
-  'kitchen:products.blockName',
-  'kitchen:products.blockPacks',
-  'kitchen:products.blockUnsaved',
   'kitchen:products.caption',
   'kitchen:products.categoryFilterAll',
   'kitchen:products.categoryFilterLabel',
@@ -12512,7 +12493,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.dietsLabel',
   'kitchen:products.dietsNone',
   'kitchen:products.dietsRailEmpty',
-  'kitchen:products.dietsRailTitle',
   'kitchen:products.editTitle',
   'kitchen:products.emptyBody',
   'kitchen:products.emptyTitle',
@@ -12520,11 +12500,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.filteredEmptyTitle',
   'kitchen:products.formulationStart',
   'kitchen:products.formulationStartedToast',
-  'kitchen:products.gateCheckCategory',
-  'kitchen:products.gateCheckChannels',
-  'kitchen:products.gateCheckName',
-  'kitchen:products.gateCheckPacks',
-  'kitchen:products.gateTitle',
   'kitchen:products.loadErrorTitle',
   'kitchen:products.marketPricedHint',
   'kitchen:products.marketPricedLabel',
@@ -12580,7 +12555,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.resultCount',
   'kitchen:products.searchPlaceholder',
   'kitchen:products.sectionDetails',
-  'kitchen:products.sectionIdentity',
   'kitchen:products.sectionPacks',
   'kitchen:products.sectionRecipe',
   'kitchen:products.statNoPack',

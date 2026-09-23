@@ -173,9 +173,14 @@ export function inputFrameClassName(options: {
  * On web, `TextInput` becomes a real `<input>` and the UA stylesheet draws its own border and
  * focus outline. Leaving those on produces a black rectangle nested inside the green frame ring —
  * the frame already owns focus indication, so the inner control must be borderless and transparent.
+ *
+ * `min-w-0` because an `<input>` has an intrinsic width of about twenty characters and a flex item
+ * will not shrink below its content by default: in a 132px half-track cell the input stayed ~150px
+ * wide and pushed the searchable Select's chevron out past the frame. `QuantityInput` already
+ * carried it for the same reason.
  */
 export const inputControlClassName =
-    'flex-1 border-0 bg-transparent text-base text-content-primary outline-none';
+    'min-w-0 flex-1 border-0 bg-transparent text-base text-content-primary outline-none';
 
 /**
  * The same styles at a stated density. A separate function rather than a `cx` on the constant:
@@ -184,7 +189,7 @@ export const inputControlClassName =
  */
 export function inputControlClass(density: Density): string {
     if (density !== 'compact') return inputControlClassName;
-    return 'flex-1 border-0 bg-transparent text-role-body text-content-primary outline-none';
+    return 'min-w-0 flex-1 border-0 bg-transparent text-role-body text-content-primary outline-none';
 }
 
 export function TextInputField({

@@ -11,18 +11,20 @@ import {
     Checkbox,
     Dialog,
     ErrorState,
+    FormGrid,
+    FormIssueBanner,
     FormSection,
     Inline,
+    QuantityInput,
     Select,
     Skeleton,
     Stack,
+    Tag,
     Text,
-    TextInputField,
-    useFormSteps,
     useToast,
 } from '@healthy360/design-system';
-import type { SelectOption } from '@healthy360/design-system';
-import { ProductId } from '@healthy360/domain-types';
+import type { FormIssueItem, SelectOption } from '@healthy360/design-system';
+import { ProductId, SALES_CHANNELS } from '@healthy360/domain-types';
 import type { RecipeId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -45,6 +47,7 @@ import {
 } from '../../../data/kitchen-admin-hooks.ts';
 import { useProcurementReferenceQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { BilingualField } from '../bilingual-field.tsx';
+import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import {
     ChannelAvailabilityEditor,
     PackVariantEditor,
@@ -53,46 +56,99 @@ import {
     packErrors,
 } from '../catalogue-row-editors.tsx';
 import type { ChannelDraft, PackDraft } from '../catalogue-row-editors.tsx';
-import { EditorFrame } from '../editor-frame.tsx';
-import { GateRailCard } from '../gate-rail-card.tsx';
 import {
     CATALOGUE_MANAGE_PERMISSION,
     CATALOGUE_VIEW_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
+import { focusField } from '../field-focus.ts';
 import {
     dietClassificationKey,
     displayName,
     humaniseCode,
     parseQuantity,
     parseWholeNumber,
+    statusKey,
+    statusTone,
 } from '../format.ts';
+import { ImageSlot } from '../image-slot.tsx';
+import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
- * `/kitchen/products/{product}` — the product record, its packs and its routes to market.
+ * `/kitchen/products/{product}` — the resale item editor, drawn the way `Catalogue Forms.dc.html`
+ * draws its siblings. The design has no resale frame of its own, so this is the ingredient editor's
+ * page and the recipe editor's header, applied to what a resale record actually holds.
  *
- * ## Two sections, two writes, one lock version
+ * ```
+ * Burger patty (beef)  DRAFT  RSL-045       [ Archive ] [ Cancel ] [ Save draft ] [ Publish ]
+ * ✖ 2 required  [ Item (EN) ] [ Packs ]   ⚠ 1 warning  [ Sales channels ]   <- once Save is pressed
+ * ───────────────────────────────────────────────────────────────────────────────────────────
+ * Description ────────────────────────────────────────────────────────────────────────────────
+ *   ┌╌╌╌╌╌╌┐  Item (EN)             Item (AR)
+ *   ╎ (+)  ╎  Category              Produced from
+ *   └╌╌╌╌╌╌┘  Description (EN)      Description (AR)
+ * Packs ─────────────────────────────────────────────────────────────────── [ Add a pack ]
+ *   Code      Label              Net qty  Unit   Per pack
+ * Sale ───────────────────────────────────────────────────────────────────────────────────────
+ *   One sold unit is  Unit        ☐ Market priced  ☐ Assorted / mixed box
+ * Sales channels ─────────────────────────────────────────────────────────────────────────────
+ *   ☑ Kiosk   ☐ POS   ☑ B2C …
+ * Diet classifications   ⓘ From recipe ──────────────────────────────── [ Open the recipe ]
+ *   ( Vegetarian ) ( High protein )
+ * ```
  *
- * `updateProduct` carries the record's fields *and* the whole pack list; `setProductChannelAvailability`
- * carries the channels. That split is the contract's, and it is the right one: which routes to market
- * a product is sold through is a commercial act with its own permission and its own audit entry
- * server-side, and folding it into a rename would make that impossible to enforce. Each section has
- * its own save, both carry the same `lockVersion` read from the cache at the moment of saving, and
- * each rehydrates from the server's answer while skipping rehydration whenever *it* holds unsaved
- * edits — so saving the channels never discards a half-typed pack label.
+ * ## One page, not steps
  *
- * ## What this screen deliberately does not offer
+ * The ingredient and packaging editors are one page and the recipe editor is five numbered tabs.
+ * A resale item sits with the first two: it is bought in, so it has no formulation, no cost
+ * cascade and no technical sheet, and what is left fits on one page with every section open.
+ * The steps this screen used to draw put the pack table behind a press, and that is where the
+ * errors that stopped the save were.
  *
- * - **An ingredient list.** The schema has `catalogue_item_ingredients`; the contract publishes no
- *   reader and no writer for it. The linkage this screen *can* show honestly is the recipe the
- *   product is produced from, which `UpdateProductRequest.recipeId` really does set.
- * - **Diet classifications as an editable field.** `ProductAdmin.dietClassifications` is answered
- *   from the linked recipe's published version, so the section renders them with that provenance
- *   rather than as a form. `UpdateProductRequest` nominally accepts them, but nothing behind this
- *   contract stores a product-level override, and a control whose value silently vanished on reload
- *   would be worse than an honest read-only panel.
+ * ## Save always answers
+ *
+ * The ingredient editor's rule, unchanged. Save can be pressed over an incomplete form, and
+ * pressing it marks the form *attempted*: every required field still empty then says so under
+ * itself, and the banner under the header names each one and takes the reader to it. A value typed
+ * wrong — a duplicate pack code, a net content of `abc` — is flagged as it is typed, because the
+ * reader has already typed it.
+ *
+ * The publication gate is the banner too. A record routed to no channel saves, because the channel
+ * write is a separate call against a separate lock and refusing the record over it would trap a
+ * valid record behind a second endpoint. It is still named, as a warning, because publishing waits
+ * for it: an item on no channel is published where nobody can see it.
+ *
+ * ## One save, two writes, and the lock version rebases between them
+ *
+ * `updateProduct` carries the record's fields and the whole pack list; `setProductChannelAvailability`
+ * carries the channels. That split is the contract's, and it is the right one: which routes to
+ * market a product is sold through is a commercial act with its own audit entry server-side. But it
+ * is not the reader's split. There is one Save, as on the recipe editor, and it writes whichever of
+ * the two halves is dirty — the record first, then the channels at the lock version the record's
+ * answer carries, the same way the recipe editor carries its version from one write to the next.
+ * Only what changed is written: a save that re-sent untouched channels would put a false entry in
+ * the log.
+ *
+ * ## Two things this screen draws and does not keep
+ *
+ * **The photo.** No image column exists on the catalogue item and no endpoint takes one. It is
+ * drawn as it is on the ingredient and recipe editors — held in this screen's state, never sent,
+ * never marking the record dirty.
+ *
+ * **Diet classifications as a field.** `ProductAdmin.dietClassifications` is answered from the
+ * linked recipe's published version. `UpdateProductRequest` nominally accepts them, but nothing
+ * behind this contract stores a product-level override, so the section renders them with that
+ * provenance — the allergen section's treatment on the ingredient editor — rather than as a form
+ * whose value would silently vanish on reload.
+ *
+ * ## Embedded
+ *
+ * The same record is a cooked item's Selling tab (`CookedItemEditScreen`). There the recipe is the
+ * page, so the header, the trail, Cancel, the photo, the category and the recipe picker are the
+ * host's and are not drawn; what stays is this record's status, its own save and publish, its
+ * banners and its sections.
  */
 
 /* ------------------------------------------------------------------------------------------------
@@ -102,7 +158,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 /**
  * The "bought in rather than cooked" answer of the recipe picker. Never a real identifier.
  *
- * ## Why this picker survives a cleanup that set out to delete it
+ * ## Why this picker survives on a resale record
  *
  * A resale product is bought in and sold on, so on the face of it a formulation is a contradiction
  * and the control is dead weight. The data says otherwise, in two ways.
@@ -114,28 +170,12 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * And the link is load-bearing rather than decorative. `ProductAdmin.dietClassifications` is
  * answered from the linked recipe's published version, so clearing the picker silently empties a
- * panel two sections down.
+ * section further down.
  *
  * The cooked kinds are a different question and have a different screen: a sauce or a dressing owns
  * its recipe outright and is edited through `CookedItemEditScreen`, never here.
  */
 const NO_RECIPE = '__none__';
-
-type ProductStep = 'identity' | 'packs' | 'composition' | 'channels';
-
-/** One step per section, in the order the form has always drawn them. */
-const PRODUCT_STEPS: readonly ProductStep[] = ['identity', 'packs', 'composition', 'channels'];
-const PRODUCT_STEP_LABEL_KEYS: Readonly<Record<ProductStep, string>> = {
-    identity: 'kitchen:products.sectionIdentity',
-    packs: 'kitchen:products.sectionPacks',
-    composition: 'kitchen:fields.composition',
-    channels: 'kitchen:channels.sectionTitle',
-};
-
-/** A product with no source transcription — every new one — has no Composition step. */
-const PRODUCT_STEPS_WITHOUT_COMPOSITION: readonly ProductStep[] = PRODUCT_STEPS.filter(
-    (key) => key !== 'composition',
-);
 
 interface DetailsDraft {
     readonly name: LocalisedText;
@@ -222,6 +262,17 @@ function packRequest(rows: readonly PackDraft[]): readonly ProductPackVariant[] 
     }));
 }
 
+/** Something on the form that needs the reader, and the field that fixes it. */
+interface FormIssue {
+    readonly key: string;
+    readonly label: string;
+    readonly fieldId: string;
+    /** A blank that only counts once Save is pressed, against a value already typed wrong. */
+    readonly required: boolean;
+}
+
+const PACK_EDITOR_TEST_ID = 'kitchen-product-pack-editor';
+
 /* ------------------------------------------------------------------------------------------------
  * Screen
  * ---------------------------------------------------------------------------------------------- */
@@ -242,7 +293,7 @@ export interface ProductEditScreenProps {
      *
      * The recipe is the page the tab sits on, so the recipe picker is not drawn: which formulation a
      * sauce is made from is not a question its listing answers. Nor is the category, which the route
-     * has already decided. Both keep their stored values through a save. There is no Back, because
+     * has already decided. Both keep their stored values through a save. There is no Cancel, because
      * the page has its own; and no create, because a cooked item's listing is written by the recipe's
      * first save.
      */
@@ -315,6 +366,11 @@ function ProductEditor({
     const [channelsKey, setChannelsKey] = useState<string | null>(null);
     const [channelsDirty, setChannelsDirty] = useState(false);
 
+    /** Whether Save has been pressed — what lets an empty required field call itself out. */
+    const [attempted, setAttempted] = useState(false);
+    /** The photo, which nothing saves yet. See the module note. */
+    const [image, setImage] = useState<string | null>(null);
+
     const [nextPackOrdinal, setNextPackOrdinal] = useState(1);
     const [showPublish, setShowPublish] = useState(false);
     const [showArchive, setShowArchive] = useState(false);
@@ -322,18 +378,6 @@ function ProductEditor({
     const data = record.data;
     const serverKey =
         data === undefined ? null : `${String(data.id)}:${String(data.meta.lockVersion)}`;
-
-    const stepKeys =
-        data?.composition != null || data?.kitchenCategory != null
-            ? PRODUCT_STEPS
-            : PRODUCT_STEPS_WITHOUT_COMPOSITION;
-    const form = useFormSteps(stepKeys);
-
-    /*
-     * Embedded there is no step row to press: the cooked-item page's tabs are the steps, and the
-     * Selling tab is one of them. So the frame is given no steps and every section draws at once.
-     */
-    const showStep = (step: ProductStep): boolean => embedded || form.current === step;
 
     // Adjusting state during render is React's sanctioned answer to "derive from new props": an
     // effect would render one frame with the previous record's values still in the form.
@@ -345,6 +389,17 @@ function ProductEditor({
         setChannelsKey(serverKey);
         setChannelRows(channelsFrom(data));
     }
+
+    const title = isCreating
+        ? t('kitchen:products.createTitle')
+        : displayName(details.name, locale).value || t('kitchen:products.editTitle');
+
+    /*
+     * The trail's last crumb, which is what makes `Resale` above it a link back to the list. Not
+     * embedded: the host page names itself. Not while a record is still loading either, because
+     * there is nothing truthful to put in it for the frame or two before it arrives.
+     */
+    useKitchenTrailLeaf(!embedded && (isCreating || data !== undefined) ? title : null);
 
     const markDetailsDirty = () => {
         setDetailsDirty(true);
@@ -379,6 +434,12 @@ function ProductEditor({
         return key;
     };
 
+    /** One field of the draft, and the dirty flag with it — the shape every input below writes. */
+    const edit = (patch: Partial<DetailsDraft>) => {
+        setDetails({ ...details, ...patch });
+        markDetailsDirty();
+    };
+
     /* ── option lists ────────────────────────────────────────────────────────────────────────── */
 
     const categoryOptions: readonly SelectOption[] = useMemo(() => {
@@ -408,8 +469,6 @@ function ProductEditor({
         ],
         [recipeRows, locale, t],
     );
-
-    const linkedRecipe = recipeRows.find((row) => row.id === details.recipeId) ?? null;
 
     /*
      * Net content is stated against a measurement unit **identifier**, and the only read carrying
@@ -446,8 +505,18 @@ function ProductEditor({
     );
 
     const nameMissing = details.name.en.trim() === '';
-    const categoryMissing = details.categoryCode.trim() === '';
-    const packsBlocked = details.packs.length === 0 || packRowErrors.size > 0;
+    // Embedded, the route has decided the category and the field is not drawn.
+    const categoryMissing = !embedded && details.categoryCode.trim() === '';
+    const packsMissing = details.packs.length === 0;
+
+    /*
+     * A pack row still waiting on its code is a blank, and waits for Save like any other; a row
+     * whose code, quantity or count is typed wrong is flagged at once.
+     */
+    const blankPackKeys = new Set(
+        details.packs.filter((row) => row.code.trim() === '').map((row) => row.key),
+    );
+    const firstPackError = details.packs.find((row) => packRowErrors.has(row.key));
 
     /*
      * Net content is all-or-nothing, and that is all this screen can check.
@@ -464,55 +533,119 @@ function ProductEditor({
     const netContentInvalid = netContentText !== '' && (netContent === null || netContent <= 0);
     const netContentUnitMissing = netContentText !== '' && details.netContentUnitId === null;
 
-    const detailsBlocked =
-        nameMissing ||
-        categoryMissing ||
-        packsBlocked ||
-        netContentInvalid ||
-        netContentUnitMissing;
-
-    /**
-     * The rail's rows, the save button's `disabled`, and the publish gate, from one set of
-     * predicates.
-     *
-     * The rail used to say "before you can save" because this family had no publish action. It has
-     * one now — `POST /catalogue/items/{item}/publish` was always generic over `item_type` and only
-     * the client method was missing — so the same four checks serve both acts, and `publishBlockers`
-     * below reads them rather than restating them.
-     *
-     * Channels are on the list and are the one row the save does not block on. The channels write
-     * is a separate call against a separate lock, so refusing to save the record because a route is
-     * unticked would trap a valid record behind a second endpoint. Publication *does* wait for it:
-     * an item routed to no channel is published where nobody can see it.
+    /*
+     * Everything that stops the save, in the order the fields appear. The banner reads this list;
+     * the fields read the same flags, so the two cannot disagree about what is wrong.
      */
-    const gateChecks = [
-        {
-            key: 'name',
-            label: t('kitchen:products.gateCheckName'),
-            passed: !nameMissing,
-            note: t('kitchen:products.blockName'),
-        },
-        {
-            key: 'category',
-            label: t('kitchen:products.gateCheckCategory'),
-            passed: !categoryMissing,
-            note: t('kitchen:products.blockCategory'),
-        },
-        {
-            key: 'packs',
-            label: t('kitchen:products.gateCheckPacks'),
-            passed: !packsBlocked,
-            note: t('kitchen:products.blockPacks'),
-        },
-        {
-            key: 'channels',
-            label: t('kitchen:products.gateCheckChannels', {
-                count: channels.filter((row) => row.isAvailable).length,
-            }),
-            passed: channels.some((row) => row.isAvailable),
-            note: t('kitchen:products.blockChannels'),
-        },
+    const blockers: readonly FormIssue[] = [
+        ...(nameMissing
+            ? [
+                  {
+                      key: 'name',
+                      label: t('kitchen:bilingual.englishShort', {
+                          field: t('kitchen:list.columnItem'),
+                      }),
+                      fieldId: 'kitchen-product-name-en',
+                      required: true,
+                  },
+              ]
+            : []),
+        ...(categoryMissing
+            ? [
+                  {
+                      key: 'category',
+                      label: t('kitchen:fields.category'),
+                      fieldId: 'kitchen-product-category',
+                      required: true,
+                  },
+              ]
+            : []),
+        ...(packsMissing
+            ? [
+                  {
+                      key: 'packs',
+                      label: t('kitchen:products.sectionPacks'),
+                      fieldId: 'kitchen-product-packs-anchor',
+                      required: true,
+                  },
+              ]
+            : firstPackError === undefined
+              ? []
+              : [
+                    {
+                        key: 'packs',
+                        label: t('kitchen:products.sectionPacks'),
+                        fieldId: `${PACK_EDITOR_TEST_ID}-row-${firstPackError.key}-code`,
+                        // Only a row still waiting on its code is a blank; anything else was typed.
+                        required: [...packRowErrors.keys()].every((key) => blankPackKeys.has(key)),
+                    },
+                ]),
+        ...(netContentInvalid
+            ? [
+                  {
+                      key: 'net-content',
+                      label: t('kitchen:products.netContentLabel'),
+                      fieldId: 'kitchen-product-net-content',
+                      required: false,
+                  },
+              ]
+            : []),
+        ...(netContentUnitMissing
+            ? [
+                  {
+                      key: 'net-content-unit',
+                      label: t('kitchen:products.netContentUnitLabel'),
+                      fieldId: 'kitchen-product-net-content-unit',
+                      required: true,
+                  },
+              ]
+            : []),
     ];
+
+    /*
+     * The same list as the reader sees it: before the first Save, only what has already been typed
+     * wrong; after it, everything.
+     */
+    const shownBlockers = attempted ? blockers : blockers.filter((entry) => !entry.required);
+    const shows = (key: string): boolean => shownBlockers.some((entry) => entry.key === key);
+
+    /*
+     * The pack table's own messages, on the same schedule: a blank row's `code required` waits for
+     * Save, a duplicate does not.
+     */
+    const shownPackErrors: ReadonlyMap<string, string> = attempted
+        ? packRowErrors
+        : new Map([...packRowErrors].filter(([key]) => !blankPackKeys.has(key)));
+
+    /*
+     * The one warning: a record routed to no channel. It never blocks the save — see the module
+     * note — but it does block publication, so an existing record says so from the start. A new one
+     * waits for Save, like every other blank on a form nobody has filled in yet.
+     */
+    const noChannel = !channels.some((row) => row.isAvailable);
+    const warnings: readonly FormIssue[] =
+        noChannel && (attempted || !isCreating)
+            ? [
+                  {
+                      key: 'channels',
+                      label: t('kitchen:channels.sectionTitle'),
+                      // The first box the editor draws, in the enum's own order.
+                      fieldId: `kitchen-product-channel-editor-${SALES_CHANNELS[0]}-toggle`,
+                      required: false,
+                  },
+              ]
+            : [];
+
+    const issueItems = (entries: readonly FormIssue[]): readonly FormIssueItem[] =>
+        entries.map((entry) => ({
+            key: entry.key,
+            label: entry.label,
+            onPress: () => {
+                focusField(entry.fieldId);
+            },
+        }));
+    const blockerItems = issueItems(shownBlockers);
+    const warningItems = issueItems(warnings);
 
     /* ── saving ──────────────────────────────────────────────────────────────────────────────── */
 
@@ -529,8 +662,51 @@ function ProductEditor({
         netContentUnitId: netContent === null ? null : details.netContentUnitId,
     };
 
-    const saveDetails = () => {
-        if (detailsBlocked) return;
+    /**
+     * The channel write, at whatever lock version the previous write left the record on.
+     *
+     * `wroteRecord` says whether the record write went first in this same save: if it did and this
+     * one is refused, the record *is* saved, and only the channels are left to try again.
+     */
+    const writeChannels = (productId: ProductId, lockVersion: number, wroteRecord: boolean) => {
+        setChannels.mutate(
+            {
+                productId,
+                request: { lockVersion, availability: channelRequest(channels) },
+            },
+            {
+                onSuccess: () => {
+                    settle(false, false);
+                    toast.show(
+                        wroteRecord
+                            ? {
+                                  testID: 'kitchen-product-saved-toast',
+                                  tone: 'success',
+                                  message: t('kitchen:editor.savedToast'),
+                              }
+                            : {
+                                  testID: 'kitchen-product-channels-saved-toast',
+                                  tone: 'success',
+                                  message: t('kitchen:channels.savedToast'),
+                              },
+                    );
+                },
+                onError: (error) => {
+                    if (wroteRecord) settle(false, true);
+                    concurrency.capture(error);
+                },
+            },
+        );
+    };
+
+    const save = () => {
+        if (!canManage) return;
+        setAttempted(true);
+        if (blockers.length > 0) {
+            // The banner names every field; the first one is also where the reader is taken.
+            focusField(blockers[0]!.fieldId);
+            return;
+        }
 
         if (isCreating) {
             create.mutate(
@@ -567,9 +743,9 @@ function ProductEditor({
                          *
                          * `onSettled`, not `onSuccess`: the record itself is saved either way, and
                          * stranding somebody on a create form for a record that already exists is
-                         * worse than landing them on it with the gate saying the routes are unset.
+                         * worse than landing them on it with the banner saying the routes are unset.
                          */
-                        if (!channels.some((row) => row.isAvailable)) {
+                        if (noChannel) {
                             open();
                             return;
                         }
@@ -591,6 +767,13 @@ function ProductEditor({
         }
 
         if (data === undefined) return;
+
+        // Only the channels changed: the record write would be an audited act that changed nothing.
+        if (!detailsDirty && channelsDirty) {
+            writeChannels(data.id, data.meta.lockVersion, false);
+            return;
+        }
+
         update.mutate(
             {
                 productId: data.id,
@@ -607,8 +790,13 @@ function ProductEditor({
                 },
             },
             {
-                onSuccess: () => {
-                    settle(false, channelsDirty);
+                onSuccess: (updated) => {
+                    // The channels go second, at the version the record's answer carries.
+                    if (channelsDirty) {
+                        writeChannels(updated.id, updated.meta.lockVersion, true);
+                        return;
+                    }
+                    settle(false, false);
                     toast.show({
                         testID: 'kitchen-product-saved-toast',
                         tone: 'success',
@@ -622,37 +810,15 @@ function ProductEditor({
         );
     };
 
-    const saveChannels = () => {
-        if (data === undefined) return;
-        setChannels.mutate(
-            {
-                productId: data.id,
-                request: {
-                    lockVersion: data.meta.lockVersion,
-                    availability: channelRequest(channels),
-                },
-            },
-            {
-                onSuccess: () => {
-                    settle(detailsDirty, false);
-                    toast.show({
-                        testID: 'kitchen-product-channels-saved-toast',
-                        tone: 'success',
-                        message: t('kitchen:channels.savedToast'),
-                    });
-                },
-                onError: (error) => {
-                    concurrency.capture(error);
-                },
-            },
-        );
+    const goBack = () => {
+        router.push(routeBase as never);
     };
 
     /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
 
     if (!isCreating && parsed === null) {
         return (
-            <Stack space="lg" testID="kitchen-product-editor-screen">
+            <Stack space="md" testID="kitchen-product-editor-screen">
                 <Callout
                     testID="kitchen-product-not-found"
                     role="alert"
@@ -663,10 +829,9 @@ function ProductEditor({
                         <Button
                             testID="kitchen-product-not-found-back"
                             variant="quiet"
+                            size="sm"
                             label={t('kitchen:products.backToList')}
-                            onPress={() => {
-                                router.push(routeBase as never);
-                            }}
+                            onPress={goBack}
                         />
                     }
                 />
@@ -687,7 +852,7 @@ function ProductEditor({
     const loadFailure = toFailure(record.error);
     if (!isCreating && loadFailure !== null) {
         return (
-            <Stack space="lg" testID="kitchen-product-editor-screen">
+            <Stack space="md" testID="kitchen-product-editor-screen">
                 <ErrorState
                     testID="kitchen-product-load-error"
                     failure={loadFailure}
@@ -703,438 +868,348 @@ function ProductEditor({
 
     const saveFailure = toFailure(update.error ?? create.error);
     const channelFailure = toFailure(setChannels.error);
-    const quarantined = data?.meta.status === 'review_required';
-    const isPublished = data?.meta.status === 'published';
+    const status = data?.meta.status ?? 'draft';
+    const quarantined = status === 'review_required';
+    const busy = create.isPending || update.isPending || setChannels.isPending;
 
     /*
-     * The client-side half of the publish gate, read off the rail that is already on screen.
-     *
-     * Deliberately not a second list of predicates: the rail above already states the four things
-     * this record needs and already has translated copy for each, and two lists would drift the
-     * first time somebody added a fifth. What publication adds to saving is one further condition —
-     * an unsaved edit — because publish sends a lock version and publishes what the *server* holds,
-     * not what is on screen.
-     *
-     * `CatalogueItemReadiness` on the server is still the authority and refuses more than this: an
-     * item that cannot say what is in it, or whose linked recipe carries a quarantined version.
-     * These are only the ones a person can see and fix from this form.
+     * The client-side half of the publish gate: everything that stops the save, the one warning,
+     * and an unsaved edit — because publish sends a lock version and publishes what the *server*
+     * holds, not what is on screen. `CatalogueItemReadiness` on the server is still the authority
+     * and refuses more than this; these are only the ones a person can see and fix from this form.
      */
-    const publishBlockers: readonly string[] = [
-        ...gateChecks.filter((check) => !check.passed).map((check) => check.note),
-        ...(detailsDirty || channelsDirty ? [t('kitchen:products.blockUnsaved')] : []),
-    ];
+    const publishBlocked =
+        blockers.length > 0 || noChannel || detailsDirty || channelsDirty || quarantined;
+    const offersPublish =
+        !isCreating && canManage && status !== 'published' && status !== 'retired';
+    const offersArchive = !isCreating && canManage && status !== 'retired';
+
+    const openRecipe = () => {
+        const target = details.recipeId;
+        if (target === null) return;
+        guard.intercept(() => {
+            router.push(`/kitchen/recipes/${String(target)}` as never);
+        });
+    };
+
+    /* ── the opening ─────────────────────────────────────────────────────────────────────────── */
+
+    const statusBadge = (
+        <Badge
+            variant="caps"
+            testID="kitchen-product-editor-screen-status"
+            tone={statusTone(status)}
+            icon={null}
+            label={t(statusKey(status))}
+        />
+    );
+
+    const dirtyBadge = guard.isDirty ? (
+        <Badge
+            variant="label"
+            testID="kitchen-product-editor-screen-dirty"
+            tone="warning"
+            icon="warning"
+            label={t('kitchen:editor.unsaved')}
+        />
+    ) : null;
+
+    /*
+     * Archive · Cancel · Save draft · Publish. Archive leads and is quiet: it is the one act here
+     * that takes the record off sale, and it should not sit where a hand reaching for Save lands.
+     * Save draft carries the primary's weight until there is something to publish, as on the recipe
+     * editor.
+     */
+    const actions = (
+        <Inline space="xs" align="center" wrap justify="end">
+            {offersArchive ? (
+                <Button
+                    testID="kitchen-product-archive"
+                    variant="quiet"
+                    label={t('kitchen:list.archive')}
+                    onPress={() => {
+                        setShowArchive(true);
+                    }}
+                />
+            ) : null}
+            {embedded ? null : (
+                <Button
+                    testID="kitchen-product-editor-screen-back"
+                    variant="secondary"
+                    label={t('kitchen:editor.cancel')}
+                    onPress={() => {
+                        guard.intercept(goBack);
+                    }}
+                />
+            )}
+            <Button
+                testID="kitchen-product-editor-screen-save"
+                variant={offersPublish ? 'secondary' : 'primary'}
+                label={t('kitchen:common.saveDraft')}
+                loading={busy}
+                disabled={!canManage || busy}
+                onPress={save}
+            />
+            {offersPublish ? (
+                <Button
+                    testID="kitchen-product-publish"
+                    label={t('kitchen:publish.action')}
+                    // Visibly disabled while anything this screen can check fails; the dialog's
+                    // confirm keeps the same guard, and the server keeps the real one.
+                    disabled={publishBlocked}
+                    onPress={() => {
+                        setShowPublish(true);
+                    }}
+                />
+            ) : null}
+        </Inline>
+    );
+
+    const identityFields = (
+        <FormGrid track="half" maxColumns={4} testID="kitchen-product-identity-grid">
+            {/*
+             * One `BilingualField` rather than two inputs, because that component owns the
+             * per-language writing direction; `row` puts the halves side by side inside the four
+             * tracks `span={4}` claims.
+             */}
+            <BilingualField
+                span={4}
+                layout="row"
+                testID="kitchen-product-name"
+                fieldLabel={t('kitchen:list.columnItem')}
+                value={details.name}
+                requiredEnglish
+                disabled={!canManage}
+                {...(shows('name') ? { englishError: t('kitchen:forms.required') } : {})}
+                onChange={(next) => {
+                    edit({ name: next });
+                }}
+            />
+
+            {/*
+             * "What is it filed under" and "where does it come from" are asked of a new resale item
+             * in the same breath, so they share a row. Neither is drawn embedded: the route decides
+             * the category and the page the tab sits on is the recipe.
+             */}
+            {embedded ? null : (
+                <Select
+                    span={2}
+                    testID="kitchen-product-category"
+                    id="kitchen-product-category"
+                    label={t('kitchen:fields.category')}
+                    placeholder={t('kitchen:fields.categoryPlaceholder')}
+                    searchable
+                    required
+                    disabled={!canManage}
+                    options={categoryOptions}
+                    value={details.categoryCode === '' ? null : details.categoryCode}
+                    {...(shows('category') ? { error: t('kitchen:forms.required') } : {})}
+                    onChange={(next) => {
+                        edit({ categoryCode: next });
+                    }}
+                />
+            )}
+            {embedded ? null : (
+                <Select
+                    span={2}
+                    testID="kitchen-product-recipe-select"
+                    id="kitchen-product-recipe-select"
+                    label={t('kitchen:products.recipeLabel')}
+                    placeholder={t('kitchen:products.recipePlaceholder')}
+                    searchable
+                    disabled={!canManage}
+                    options={recipeOptions}
+                    value={details.recipeId === null ? NO_RECIPE : String(details.recipeId)}
+                    onChange={(next) => {
+                        edit({ recipeId: next === NO_RECIPE ? null : (next as RecipeId) });
+                    }}
+                />
+            )}
+
+            <BilingualField
+                span={4}
+                layout="row"
+                multiline
+                testID="kitchen-product-description"
+                fieldLabel={t('kitchen:products.descriptionLabel')}
+                value={details.description}
+                disabled={!canManage}
+                onChange={(next) => {
+                    edit({ description: next });
+                }}
+            />
+        </FormGrid>
+    );
 
     return (
-        <EditorFrame
-            testID="kitchen-product-editor-screen"
-            title={isCreating ? t('kitchen:products.createTitle') : t('kitchen:products.editTitle')}
-            meta={data?.meta ?? null}
-            guard={guard}
-            concurrency={concurrency}
-            onSaveDraft={saveDetails}
-            saveLabel={t('kitchen:common.saveDraft')}
-            saving={create.isPending || update.isPending}
-            saveDisabled={!canManage || detailsBlocked}
-            backLabel={t('kitchen:common.cancel')}
-            onBack={() => {
-                router.push(routeBase as never);
-            }}
-            actionsPlacement="header"
-            headerVariant="plain"
-            embedded={embedded}
-            {...(embedded
-                ? {}
-                : {
-                      steps: {
-                          form,
-                          steps: stepKeys.map((key) => ({
-                              key,
-                              label: t(PRODUCT_STEP_LABEL_KEYS[key]),
-                          })),
-                      },
-                  })}
-            rail={
-                <Stack space="md">
-                    <GateRailCard
-                        testID="kitchen-product-gate"
-                        title={t('kitchen:products.gateTitle')}
-                        checks={gateChecks}
-                    />
-
-                    {/*
-                     * Derived, and labelled as derived. `ProductAdmin.dietClassifications` is
-                     * answered from the linked recipe published version - see the module note - so
-                     * this is a fact about the recipe shown where somebody looking at the product
-                     * needs it, not a field they can disagree with here.
-                     */}
-                    <View
-                        testID="kitchen-product-diets"
-                        className="gap-2 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
-                    >
-                        <Inline space="xs" align="center" wrap>
-                            <Text variant="micro" tone="secondary">
-                                {t('kitchen:products.dietsRailTitle')}
-                            </Text>
-                            <Badge
-                                testID="kitchen-product-diets-source"
-                                tone="neutral"
-                                label={t('kitchen:products.dietsFromRecipe')}
-                            />
+        <Stack space="md" testID="kitchen-product-editor-screen">
+            {/*
+             * The opening: the title with its status and handle beside it, the actions at the
+             * inline end, the banners under it and one rule closing it. No trail here —
+             * `KitchenOpsShell` draws it, and this screen names its last crumb instead. Embedded, the
+             * host page has the title, so the row is this listing's status and its own actions.
+             */}
+            <Stack space="sm">
+                {embedded ? (
+                    <Inline space="sm" align="center" wrap justify="between">
+                        <Inline
+                            space="xs"
+                            align="center"
+                            wrap
+                            testID="kitchen-product-editor-screen-meta"
+                        >
+                            {statusBadge}
+                            {dirtyBadge}
                         </Inline>
-
-                        {data === undefined || data.dietClassifications.length === 0 ? (
-                            <Text
-                                testID="kitchen-product-diets-none"
-                                variant="caption"
-                                tone="secondary"
+                        {actions}
+                    </Inline>
+                ) : (
+                    <CataloguePageHeader
+                        testID="kitchen-product-editor-screen-header"
+                        titleTestID="kitchen-product-editor-screen-title"
+                        title={title}
+                        titleAside={
+                            <Inline
+                                space="xs"
+                                align="center"
+                                wrap
+                                testID="kitchen-product-editor-screen-meta"
                             >
-                                {t('kitchen:products.dietsRailEmpty')}
-                            </Text>
-                        ) : (
-                            <Inline space="xs" wrap>
-                                {data.dietClassifications.map((diet) => (
-                                    <Badge
-                                        key={diet}
-                                        testID={`kitchen-product-diet-${diet}`}
-                                        tone="neutral"
-                                        label={t(dietClassificationKey(diet))}
-                                    />
-                                ))}
+                                {statusBadge}
+                                {/*
+                                 * Nothing issues a resale reference — `ReferenceSeries` has no
+                                 * `RSL-` — so a new record has none to preview, and only a saved one
+                                 * that the import numbered carries a handle to show.
+                                 */}
+                                {data?.reference == null ? null : (
+                                    <Text
+                                        testID="kitchen-product-editor-screen-reference"
+                                        variant="mono"
+                                        tone="secondary"
+                                    >
+                                        {data.reference}
+                                    </Text>
+                                )}
+                                {dirtyBadge}
                             </Inline>
+                        }
+                        primaryAction={actions}
+                    />
+                )}
+
+                {blockerItems.length === 0 && warningItems.length === 0 ? null : (
+                    <Inline space="xs" wrap testID="kitchen-product-issues">
+                        {blockerItems.length === 0 ? null : (
+                            <FormIssueBanner
+                                testID="kitchen-product-issues-errors"
+                                tone="danger"
+                                summary={t(
+                                    shownBlockers.every((entry) => entry.required)
+                                        ? 'kitchen:forms.requiredCount'
+                                        : 'kitchen:forms.toFixCount',
+                                    { count: blockerItems.length },
+                                )}
+                                items={blockerItems}
+                            />
                         )}
-                    </View>
-                </Stack>
-            }
-            primaryAction={
-                isCreating || !canManage || data?.meta.status === 'retired' ? null : (
-                    <Inline space="sm" align="center">
-                        <Button
-                            testID="kitchen-product-archive"
-                            variant="secondary"
-                            label={t('kitchen:list.archive')}
-                            onPress={() => {
-                                setShowArchive(true);
-                            }}
-                        />
-                        {isPublished ? null : (
-                            <Button
-                                testID="kitchen-product-publish"
-                                label={t('kitchen:publish.action')}
-                                // Visibly disabled while anything this screen can check fails, and
-                                // while the row is quarantined — the dialog's confirm keeps the
-                                // same guard, and the server keeps the real one.
-                                disabled={publishBlockers.length > 0 || quarantined}
-                                onPress={() => {
-                                    setShowPublish(true);
-                                }}
+                        {warningItems.length === 0 ? null : (
+                            <FormIssueBanner
+                                testID="kitchen-product-issues-warnings"
+                                tone="warning"
+                                summary={t('kitchen:forms.warningCount', {
+                                    count: warningItems.length,
+                                })}
+                                items={warningItems}
                             />
                         )}
                     </Inline>
-                )
-            }
-            banner={
-                <Stack space="sm">
-                    {/*
-                     * A quarantine is rendered, never resolved from here: `review_required` blocks
-                     * publication structurally (plan §4.7) and is cleared by fixing the allergen
-                     * determination it came from, on the ingredient. This product family has no
-                     * publish action at all, so the notice offers no way out.
-                     */}
-                    {data === undefined || data.dataQualityFlags.length === 0 ? null : (
-                        <Callout
-                            testID="kitchen-product-data-quality"
-                            role="note"
-                            tone="warning"
-                            title={t('kitchen:products.dataQualityTitle')}
-                        >
-                            <Inline space="xs" wrap>
-                                {data.dataQualityFlags.map((flag) => (
-                                    <Badge
-                                        key={flag}
-                                        testID={`kitchen-product-flag-${flag}`}
-                                        tone="warning"
-                                        label={humaniseCode(flag)}
-                                    />
-                                ))}
-                            </Inline>
-                        </Callout>
-                    )}
+                )}
 
-                    {quarantined ? (
-                        <Callout
-                            testID="kitchen-product-quarantine"
-                            role="alert"
-                            tone="warning"
-                            title={t('kitchen:products.quarantineTitle')}
-                            body={t('kitchen:products.quarantineBody')}
-                        />
-                    ) : null}
-                    {saveFailure === null ? null : (
-                        <Callout
-                            testID="kitchen-product-save-error"
-                            role="alert"
-                            tone="danger"
-                            title={t('kitchen:editor.saveError')}
-                            body={saveFailure.message}
-                        />
-                    )}
-                </Stack>
-            }
-        >
-            {/* ── the record ───────────────────────────────────────────────────────────────── */}
-            {showStep('identity') ? (
-                <FormSection
-                    first
-                    testID="kitchen-product-details"
-                    title={t('kitchen:products.sectionIdentity')}
-                >
-                    {/*
-                     * Explicit two-up rows, not `FormGrid`.
-                     *
-                     * The grid places fields on 280px tracks in source order and wraps them, which is
-                     * right for a form of short independent answers and wrong for this one: a name and
-                     * its translation are one answer in two boxes, and auto-placement kept splitting
-                     * the pairs across rows and columns - Category ended up beside a description, and
-                     * the two halves of a bilingual field landed in different rows. Each row here is a
-                     * pair that belongs together, and each half fills its share of the panel.
-                     */}
-                    <Stack space="md">
-                        {/*
-                         * Drawn only once the record has one.
-                         *
-                         * Nothing issues a resale reference - `ReferenceSeries` is `ING-` | `RC-` |
-                         * `SAC-` | `DRS-`, with no resale series to count - so while creating this was a
-                         * permanently empty, permanently disabled box at the top of the form. A field
-                         * that can never hold anything on the screen it is drawn on is furniture; on a
-                         * saved record the handle is real and worth reading, so it stays there.
-                         */}
-                        {data?.reference == null ? null : (
-                            <TextInputField
-                                testID="kitchen-product-reference"
-                                id="kitchen-product-reference"
-                                label={t('kitchen:list.columnReference')}
-                                size="sm"
-                                value={data.reference}
-                                disabled
-                                onChangeText={() => undefined}
-                            />
-                        )}
+                {embedded ? null : <View className="border-b border-stroke" />}
+            </Stack>
 
-                        <BilingualField
-                            testID="kitchen-product-name"
-                            layout="fill"
-                            fieldLabel={t('kitchen:fields.name')}
-                            value={details.name}
-                            requiredEnglish
-                            {...(nameMissing
-                                ? { englishError: t('kitchen:products.nameRequired') }
-                                : {})}
-                            onChange={(next) => {
-                                setDetails({ ...details, name: next });
-                                markDetailsDirty();
-                            }}
-                        />
-
-                        <BilingualField
-                            testID="kitchen-product-description"
-                            layout="fill"
-                            fieldLabel={t('kitchen:products.descriptionLabel')}
-                            multiline
-                            value={details.description}
-                            onChange={(next) => {
-                                setDetails({ ...details, description: next });
-                                markDetailsDirty();
-                            }}
-                        />
-
-                        {/*
-                         * "What is it filed under" and "where does it come from" are asked of a new
-                         * resale item in the same breath, so they share a row.
-                         */}
-                        {embedded ? null : (
-                            <View className="z-auto flex-col gap-base md:flex-row">
-                                <View className="z-auto min-w-0 flex-1">
-                                    <Select
-                                        testID="kitchen-product-category"
-                                        id="kitchen-product-category"
-                                        label={t('kitchen:fields.category')}
-                                        placeholder={t('kitchen:fields.categoryPlaceholder')}
-                                        searchable
-                                        required
-                                        disabled={!canManage}
-                                        options={categoryOptions}
-                                        value={
-                                            details.categoryCode === ''
-                                                ? null
-                                                : details.categoryCode
-                                        }
-                                        {...(categoryMissing
-                                            ? { error: t('kitchen:editor.categoryRequired') }
-                                            : {})}
-                                        onChange={(next) => {
-                                            setDetails({ ...details, categoryCode: next });
-                                            markDetailsDirty();
-                                        }}
-                                    />
-                                </View>
-
-                                <View className="z-auto min-w-0 flex-1">
-                                    <Select
-                                        testID="kitchen-product-recipe-select"
-                                        id="kitchen-product-recipe-select"
-                                        label={t('kitchen:products.recipeLabel')}
-                                        placeholder={t('kitchen:products.recipePlaceholder')}
-                                        searchable
-                                        disabled={!canManage}
-                                        options={recipeOptions}
-                                        value={
-                                            details.recipeId === null
-                                                ? NO_RECIPE
-                                                : String(details.recipeId)
-                                        }
-                                        onChange={(next) => {
-                                            setDetails({
-                                                ...details,
-                                                recipeId:
-                                                    next === NO_RECIPE ? null : (next as RecipeId),
-                                            });
-                                            markDetailsDirty();
-                                        }}
-                                    />
-                                </View>
-                            </View>
-                        )}
-
-                        {/*
-                         * Two flags, two words each. `isMarketPriced` is not decoration: a product
-                         * priced at the day's rate carries no confirmed price, and the price list
-                         * records that absence as `market_priced` with a NULL amount rather than a
-                         * number nobody agreed. `isAssorted` says the row stands for a mixed selection,
-                         * which is how the source material's "assorted" lines survive without being
-                         * invented into articles that do not exist.
-                         */}
-                        <Inline space="md" wrap>
-                            <Checkbox
-                                testID="kitchen-product-market-priced"
-                                id="kitchen-product-market-priced"
-                                label={t('kitchen:products.marketPricedShort')}
-                                checked={details.isMarketPriced}
-                                disabled={!canManage}
-                                onChange={(checked) => {
-                                    setDetails({ ...details, isMarketPriced: checked });
-                                    markDetailsDirty();
-                                }}
-                            />
-
-                            <Checkbox
-                                testID="kitchen-product-assorted"
-                                id="kitchen-product-assorted"
-                                label={t('kitchen:products.assortedShort')}
-                                checked={details.isAssorted}
-                                disabled={!canManage}
-                                onChange={(checked) => {
-                                    setDetails({ ...details, isAssorted: checked });
-                                    markDetailsDirty();
-                                }}
-                            />
-                        </Inline>
-
-                        {/*
-                         * What one sold unit takes off the shelf (PROD1).
-                         *
-                         * Every family on this screen sells from **finished stock** — it was made or
-                         * bought earlier and the sale draws the made thing, never its recipe. Where
-                         * that shelf is counted in kilograms or litres, a sold unit has to say how
-                         * much of it it is, or the sale is refused rather than guessed at. A shelf
-                         * counted in pieces needs none, which is why this is offered rather than
-                         * demanded: this screen holds no ingredient link and so cannot tell which
-                         * kind of shelf it is. The server can, and its refusal names this field.
-                         */}
-                        {canReadUnits ? (
-                            <View className="z-auto flex-col gap-base md:flex-row">
-                                <View className="z-auto min-w-0 flex-1">
-                                    <TextInputField
-                                        testID="kitchen-product-net-content"
-                                        id="kitchen-product-net-content"
-                                        label={t('kitchen:products.netContentLabel')}
-                                        hint={t('kitchen:products.netContentHint')}
-                                        value={details.netContentQuantity}
-                                        inputMode="decimal"
-                                        disabled={!canManage}
-                                        {...(netContentInvalid
-                                            ? { error: t('kitchen:products.netContentInvalid') }
-                                            : {})}
-                                        onChangeText={(next) => {
-                                            setDetails({ ...details, netContentQuantity: next });
-                                            markDetailsDirty();
-                                        }}
-                                    />
-                                </View>
-
-                                <View className="z-auto min-w-0 flex-1">
-                                    <Select
-                                        testID="kitchen-product-net-content-unit"
-                                        id="kitchen-product-net-content-unit"
-                                        label={t('kitchen:products.netContentUnitLabel')}
-                                        searchable
-                                        disabled={!canManage}
-                                        options={unitOptions}
-                                        value={details.netContentUnitId ?? ''}
-                                        {...(netContentUnitMissing
-                                            ? {
-                                                  error: t(
-                                                      'kitchen:products.netContentUnitMissing',
-                                                  ),
-                                              }
-                                            : {})}
-                                        onChange={(next) => {
-                                            setDetails({ ...details, netContentUnitId: next });
-                                            markDetailsDirty();
-                                        }}
-                                    />
-                                </View>
-                            </View>
-                        ) : details.netContentQuantity === '' ? null : (
-                            <Callout
-                                testID="kitchen-product-net-content-unavailable"
-                                tone="info"
-                                title={t('kitchen:products.netContentLabel')}
-                                body={t('kitchen:products.netContentUnitsForbidden')}
-                            />
-                        )}
-
-                        {embedded || details.recipeId === null ? null : (
-                            <Inline space="sm" align="center" wrap>
-                                <Text testID="kitchen-product-recipe-linked">
-                                    {linkedRecipe === null
-                                        ? String(details.recipeId)
-                                        : displayName(linkedRecipe.name, locale).value}
-                                </Text>
-                                <Button
-                                    testID="kitchen-product-recipe-open"
-                                    size="sm"
-                                    variant="ghost"
-                                    label={t('kitchen:products.openRecipe')}
-                                    onPress={() => {
-                                        const target = details.recipeId;
-                                        if (target === null) return;
-                                        guard.intercept(() => {
-                                            router.push(
-                                                `/kitchen/recipes/${String(target)}` as never,
-                                            );
-                                        });
-                                    }}
-                                />
-                            </Inline>
-                        )}
-                    </Stack>
-                </FormSection>
+            {/*
+             * A quarantine is rendered, never resolved from here: `review_required` blocks
+             * publication structurally (plan §4.7) and is cleared by fixing the allergen
+             * determination it came from, on the ingredient.
+             */}
+            {quarantined ? (
+                <Callout
+                    testID="kitchen-product-quarantine"
+                    role="alert"
+                    tone="warning"
+                    title={t('kitchen:products.quarantineTitle')}
+                    body={t('kitchen:products.quarantineBody')}
+                />
             ) : null}
+            {data === undefined || data.dataQualityFlags.length === 0 ? null : (
+                <Callout
+                    testID="kitchen-product-data-quality"
+                    role="note"
+                    tone="warning"
+                    title={t('kitchen:products.dataQualityTitle')}
+                >
+                    <Inline space="xs" wrap>
+                        {data.dataQualityFlags.map((flag) => (
+                            <Badge
+                                key={flag}
+                                variant="label"
+                                testID={`kitchen-product-flag-${flag}`}
+                                tone="warning"
+                                label={humaniseCode(flag)}
+                            />
+                        ))}
+                    </Inline>
+                </Callout>
+            )}
+            {saveFailure === null ? null : (
+                <Callout
+                    testID="kitchen-product-save-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('kitchen:editor.saveError')}
+                    body={saveFailure.message}
+                />
+            )}
+            {channelFailure === null ? null : (
+                <Callout
+                    testID="kitchen-product-channels-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('kitchen:channels.saveError')}
+                    body={channelFailure.message}
+                />
+            )}
 
-            {/* ── packs ────────────────────────────────────────────────────────────────────── */}
-            {showStep('packs') ? (
+            {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
+            <View className="z-auto flex-col gap-loose">
+                {/* ── description ──────────────────────────────────────────────────────────── */}
                 <FormSection
                     first
+                    variant="underlined"
+                    testID="kitchen-product-details"
+                    title={t('kitchen:forms.description')}
+                >
+                    {embedded ? (
+                        identityFields
+                    ) : (
+                        <View className="z-auto flex-row flex-wrap items-start gap-base">
+                            {/* Not saved yet: see the module note. */}
+                            <ImageSlot
+                                testID="kitchen-product-image"
+                                uri={image}
+                                disabled={!canManage}
+                                onChange={setImage}
+                            />
+                            {identityFields}
+                        </View>
+                    )}
+                </FormSection>
+
+                {/* ── packs ────────────────────────────────────────────────────────────────── */}
+                <FormSection
+                    first
+                    variant="underlined"
                     testID="kitchen-product-packs"
                     title={t('kitchen:products.sectionPacks')}
                     actions={
@@ -1145,112 +1220,247 @@ function ProductEditor({
                                 variant="secondary"
                                 label={t('kitchen:products.addPack')}
                                 onPress={() => {
-                                    setDetails({
-                                        ...details,
-                                        packs: [...details.packs, emptyPack(takePackKey())],
-                                    });
-                                    markDetailsDirty();
+                                    edit({ packs: [...details.packs, emptyPack(takePackKey())] });
                                 }}
                             />
                         ) : undefined
                     }
                 >
-                    <PackVariantEditor
-                        testID="kitchen-product-pack-editor"
-                        rows={details.packs}
-                        errors={packRowErrors}
-                        canManage={canManage}
-                        onChange={(next) => {
-                            setDetails({ ...details, packs: next });
-                            markDetailsDirty();
-                        }}
-                    />
+                    {/*
+                     * The anchor the banner's `Packs` chip scrolls to while there is no row to
+                     * focus. A product with no pack is a record no price list can point at and no
+                     * order line can measure, so the save refuses it.
+                     */}
+                    <View nativeID="kitchen-product-packs-anchor" className="z-auto gap-tight">
+                        <PackVariantEditor
+                            testID={PACK_EDITOR_TEST_ID}
+                            rows={details.packs}
+                            errors={shownPackErrors}
+                            canManage={canManage}
+                            onChange={(next) => {
+                                edit({ packs: next });
+                            }}
+                        />
+                        {shows('packs') && packsMissing ? (
+                            <Text
+                                testID="kitchen-product-packs-required"
+                                variant="caption"
+                                tone="danger"
+                            >
+                                {t('kitchen:forms.required')}
+                            </Text>
+                        ) : null}
+                    </View>
                 </FormSection>
-            ) : null}
 
-            {/* ── source transcription ─────────────────────────────────────────────────────── */}
-            {showStep('composition') && data !== undefined ? (
+                {/* ── sale ─────────────────────────────────────────────────────────────────── */}
                 <FormSection
                     first
-                    testID="kitchen-product-composition"
-                    title={t('kitchen:fields.composition')}
+                    variant="underlined"
+                    testID="kitchen-product-sale"
+                    title={t('kitchen:sale.title')}
                 >
                     <Stack space="sm">
-                        {data.kitchenCategory === null ? null : (
-                            <Text
-                                testID="kitchen-product-composition-category"
-                                variant="caption"
-                                tone="secondary"
-                            >
-                                {data.kitchenSubcategory === null
-                                    ? data.kitchenCategory
-                                    : `${data.kitchenCategory} / ${data.kitchenSubcategory}`}
-                            </Text>
-                        )}
-                        {data.composition === null ? null : (
-                            <Text testID="kitchen-product-composition-text">
-                                {data.composition}
-                            </Text>
-                        )}
-                    </Stack>
-                </FormSection>
-            ) : null}
-
-            {/* ── channels ─────────────────────────────────────────────────────────────────── */}
-            {/*
-             * Ticked before the record exists, not after it. The rows are held in local state and
-             * written by the create branch the moment the product has an id - see `saveDetails`. It
-             * is a different endpoint against a different lock, which is the contract's split, not a
-             * UI choice.
-             */}
-            {showStep('channels') ? (
-                <FormSection
-                    first
-                    testID="kitchen-product-channels"
-                    title={t('kitchen:channels.sectionTitle')}
-                >
-                    <Stack space="md">
-                        {channelFailure === null ? null : (
+                        {/*
+                         * What one sold unit takes off the shelf (PROD1), on the half track — a
+                         * figure and its unit, each one cell.
+                         *
+                         * Every family on this screen sells from **finished stock**. Where that
+                         * shelf is counted in kilograms or litres, a sold unit has to say how much
+                         * of it it is, or the sale is refused rather than guessed at. A shelf
+                         * counted in pieces needs none, which is why this is offered rather than
+                         * demanded: this screen holds no ingredient link and so cannot tell which
+                         * kind of shelf it is. The server can, and its refusal names this field.
+                         */}
+                        {canReadUnits ? (
+                            <Stack space="xs">
+                                <FormGrid track="half" testID="kitchen-product-sale-grid">
+                                    <QuantityInput
+                                        testID="kitchen-product-net-content"
+                                        id="kitchen-product-net-content"
+                                        size="sm"
+                                        label={t('kitchen:products.netContentLabel')}
+                                        value={details.netContentQuantity}
+                                        disabled={!canManage}
+                                        {...(shows('net-content')
+                                            ? { error: t('kitchen:products.netContentInvalid') }
+                                            : {})}
+                                        onChangeText={(next) => {
+                                            edit({ netContentQuantity: next });
+                                        }}
+                                    />
+                                    <Select
+                                        testID="kitchen-product-net-content-unit"
+                                        id="kitchen-product-net-content-unit"
+                                        label={t('kitchen:products.netContentUnitLabel')}
+                                        searchable
+                                        disabled={!canManage}
+                                        options={unitOptions}
+                                        value={details.netContentUnitId ?? ''}
+                                        {...(shows('net-content-unit')
+                                            ? { error: t('kitchen:forms.required') }
+                                            : {})}
+                                        onChange={(next) => {
+                                            edit({ netContentUnitId: next });
+                                        }}
+                                    />
+                                </FormGrid>
+                                <Text
+                                    testID="kitchen-product-net-content-hint"
+                                    variant="caption"
+                                    tone="secondary"
+                                >
+                                    {t('kitchen:products.netContentHint')}
+                                </Text>
+                            </Stack>
+                        ) : details.netContentQuantity === '' ? null : (
                             <Callout
-                                testID="kitchen-product-channels-error"
-                                role="alert"
-                                tone="danger"
-                                title={t('kitchen:channels.saveError')}
-                                body={channelFailure.message}
+                                testID="kitchen-product-net-content-unavailable"
+                                tone="info"
+                                title={t('kitchen:products.netContentLabel')}
+                                body={t('kitchen:products.netContentUnitsForbidden')}
                             />
                         )}
 
-                        <ChannelAvailabilityEditor
-                            testID="kitchen-product-channel-editor"
-                            rows={channels}
-                            canManage={canManage}
-                            onChange={(next) => {
-                                setChannelRows(next);
-                                markChannelsDirty();
-                            }}
-                        />
-
                         {/*
-                         * The separate save appears once there is a record to save against, and
-                         * only when something has actually changed - on a new product the create
-                         * writes these rows itself, so a second button would be a second way to do
-                         * the same thing, disabled most of the time.
+                         * Two flags, two words each. `isMarketPriced` is not decoration: a product
+                         * priced at the day's rate carries no confirmed price, and the price list
+                         * records that absence as `market_priced` with a NULL amount rather than a
+                         * number nobody agreed. `isAssorted` says the row stands for a mixed
+                         * selection, which is how the source material's "assorted" lines survive
+                         * without being invented into articles that do not exist.
                          */}
-                        {isCreating || !canManage || !channelsDirty ? null : (
-                            <Inline space="sm" wrap justify="end">
-                                <Button
-                                    testID="kitchen-product-channels-save"
-                                    variant="secondary"
-                                    label={t('kitchen:channels.save')}
-                                    loading={setChannels.isPending}
-                                    disabled={setChannels.isPending}
-                                    onPress={saveChannels}
-                                />
-                            </Inline>
-                        )}
+                        <Inline space="md" wrap>
+                            <Checkbox
+                                testID="kitchen-product-market-priced"
+                                id="kitchen-product-market-priced"
+                                label={t('kitchen:products.marketPricedShort')}
+                                checked={details.isMarketPriced}
+                                disabled={!canManage}
+                                onChange={(checked) => {
+                                    edit({ isMarketPriced: checked });
+                                }}
+                            />
+                            <Checkbox
+                                testID="kitchen-product-assorted"
+                                id="kitchen-product-assorted"
+                                label={t('kitchen:products.assortedShort')}
+                                checked={details.isAssorted}
+                                disabled={!canManage}
+                                onChange={(checked) => {
+                                    edit({ isAssorted: checked });
+                                }}
+                            />
+                        </Inline>
                     </Stack>
                 </FormSection>
-            ) : null}
+
+                {/* ── sales channels ───────────────────────────────────────────────────────── */}
+                {/*
+                 * Ticked before the record exists, not after it. The rows are held in local state
+                 * and written by the create the moment the product has an id — see `save`.
+                 */}
+                <FormSection
+                    first
+                    variant="underlined"
+                    testID="kitchen-product-channels"
+                    title={t('kitchen:channels.sectionTitle')}
+                >
+                    <ChannelAvailabilityEditor
+                        testID="kitchen-product-channel-editor"
+                        rows={channels}
+                        canManage={canManage}
+                        onChange={(next) => {
+                            setChannelRows(next);
+                            markChannelsDirty();
+                        }}
+                    />
+                </FormSection>
+
+                {/* ── diet classifications, read-only ──────────────────────────────────────── */}
+                <FormSection
+                    first
+                    variant="underlined"
+                    testID="kitchen-product-diets"
+                    title={t('kitchen:products.dietsLabel')}
+                    aside={
+                        <Badge
+                            variant="label"
+                            testID="kitchen-product-diets-source"
+                            tone="info"
+                            label={t('kitchen:products.dietsFromRecipe')}
+                        />
+                    }
+                    actions={
+                        embedded || details.recipeId === null ? undefined : (
+                            <Button
+                                testID="kitchen-product-recipe-open"
+                                size="sm"
+                                variant="ghost"
+                                label={t('kitchen:products.openRecipe')}
+                                onPress={openRecipe}
+                            />
+                        )
+                    }
+                >
+                    {details.recipeId === null ? (
+                        <Text
+                            testID="kitchen-product-diets-none"
+                            variant="caption"
+                            tone="secondary"
+                        >
+                            {t('kitchen:products.dietsRailEmpty')}
+                        </Text>
+                    ) : data === undefined || data.dietClassifications.length === 0 ? (
+                        // An em dash, not a sentence: "none derived" and "suits no diet" are
+                        // different claims, and this section can state neither.
+                        <Text testID="kitchen-product-diets-empty" variant="mono" tone="secondary">
+                            {t('kitchen:list.noValue')}
+                        </Text>
+                    ) : (
+                        <Inline space="xs" wrap>
+                            {data.dietClassifications.map((diet) => (
+                                <Tag
+                                    key={diet}
+                                    testID={`kitchen-product-diet-${diet}`}
+                                    tone="neutral"
+                                    label={t(dietClassificationKey(diet))}
+                                />
+                            ))}
+                        </Inline>
+                    )}
+                </FormSection>
+
+                {/* ── source transcription, read-only ──────────────────────────────────────── */}
+                {data === undefined ||
+                (data.composition === null && data.kitchenCategory === null) ? null : (
+                    <FormSection
+                        first
+                        variant="underlined"
+                        testID="kitchen-product-composition"
+                        title={t('kitchen:fields.composition')}
+                    >
+                        <Stack space="xs">
+                            {data.kitchenCategory === null ? null : (
+                                <Text
+                                    testID="kitchen-product-composition-category"
+                                    variant="caption"
+                                    tone="secondary"
+                                >
+                                    {data.kitchenSubcategory === null
+                                        ? data.kitchenCategory
+                                        : `${data.kitchenCategory} / ${data.kitchenSubcategory}`}
+                                </Text>
+                            )}
+                            {data.composition === null ? null : (
+                                <Text testID="kitchen-product-composition-text">
+                                    {data.composition}
+                                </Text>
+                            )}
+                        </Stack>
+                    </FormSection>
+                )}
+            </View>
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog
@@ -1278,7 +1488,7 @@ function ProductEditor({
                             // The same guard the button carries. A dialog left open across a save
                             // that dirtied the form would otherwise publish what is on the server
                             // rather than what the person is looking at.
-                            disabled={publishBlockers.length > 0 || quarantined}
+                            disabled={publishBlocked}
                             onPress={() => {
                                 if (data === undefined) return;
                                 publish.mutate(
@@ -1366,6 +1576,66 @@ function ProductEditor({
                     {t('kitchen:products.archiveConsequence')}
                 </Text>
             </Dialog>
-        </EditorFrame>
+
+            {/* ── the two guards ───────────────────────────────────────────────────────────── */}
+            <Dialog
+                testID="kitchen-product-editor-screen-unsaved-dialog"
+                open={guard.isPrompting}
+                onClose={guard.cancelDiscard}
+                title={t('kitchen:unsaved.title')}
+                description={t('kitchen:unsaved.body')}
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-product-editor-screen-unsaved-keep"
+                            variant="quiet"
+                            label={t('kitchen:unsaved.keepEditing')}
+                            onPress={guard.cancelDiscard}
+                        />
+                        <Button
+                            testID="kitchen-product-editor-screen-unsaved-discard"
+                            variant="danger"
+                            label={t('kitchen:unsaved.discard')}
+                            onPress={guard.confirmDiscard}
+                        />
+                    </>
+                }
+            />
+
+            <Dialog
+                testID="kitchen-product-editor-screen-conflict-dialog"
+                open={concurrency.conflict !== null}
+                onClose={concurrency.keepEditing}
+                dismissOnBackdrop={false}
+                title={t('kitchen:conflict.title')}
+                description={t('kitchen:conflict.body')}
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-product-editor-screen-conflict-keep"
+                            variant="quiet"
+                            label={t('kitchen:conflict.keepEditing')}
+                            onPress={concurrency.keepEditing}
+                        />
+                        <Button
+                            testID="kitchen-product-editor-screen-conflict-reload"
+                            variant="danger"
+                            label={t('kitchen:conflict.reload')}
+                            onPress={concurrency.reload}
+                        />
+                    </>
+                }
+            >
+                {concurrency.conflict === null ? null : (
+                    <Text
+                        testID="kitchen-product-editor-screen-conflict-detail"
+                        tone="secondary"
+                        variant="caption"
+                    >
+                        {concurrency.conflict.failure.message}
+                    </Text>
+                )}
+            </Dialog>
+        </Stack>
     );
 }

@@ -77,10 +77,22 @@ export function Checkbox({
                     disabled ? 'opacity-50' : null,
                 )}
             >
+                {/*
+                 * Centred on the label's first line, not its top: `items-start` keeps a wrapped
+                 * label hanging from the box, so the offset is what does the centring. Compact is a
+                 * 16px box one pixel down beside the 18px `role-body` line — the 20px box used to
+                 * sit three pixels low of the words and stand taller than them. Touch density keeps
+                 * its 20px box beside the 21px `text-sm` line.
+                 *
+                 * `shrink-0`, because the label beside it is `flex-1`: in a narrow cell a long label
+                 * could otherwise squeeze the box to nothing, and the box is the one thing that says
+                 * the row can be ticked.
+                 */}
                 <View
                     testID={testID === undefined ? undefined : `${testID}-box`}
                     className={cx(
-                        'mt-0.5 size-5 items-center justify-center rounded-sm border',
+                        density === 'compact' ? 'mt-px h-4 w-4' : 'mt-0.5 size-5',
+                        'shrink-0 items-center justify-center rounded-sm border',
                         checked ? 'bg-surface-brand border-transparent' : 'bg-surface-base',
                         error === undefined ? 'border-stroke-strong' : 'border-danger-border',
                     )}
