@@ -25,8 +25,8 @@ import { IngredientEditScreen, PACKAGING_FAMILY } from './ingredient-edit-screen
  * ## What a reader sees
  *
  * `Catalogue Forms.dc.html`'s `isPackaging`: the page header with Cancel and Save, then three
- * sections on one page. Identity — **Reference first, then Item**, then Category (fixed to the
- * packaging branch) and Sub-category. Pack — the issue unit, the purchase unit, the items per pack
+ * sections on one page. Description — **Reference first, then Item**, then Category (fixed to the
+ * packaging branch) and Sub-category. Pack — the purchase unit, the issue unit, the items per pack
  * and what one item holds. Cost — the pack price, the waste rate (flagged above 10%) and the cost of
  * one item worked out from the two. No photo, no Sale, no Nutrition, no Allergens: none of them is
  * a packaging question.

@@ -42,8 +42,8 @@ export interface FormSectionProps {
      * Where the section's one rule goes.
      *
      * `divided` (the default) is described above: a hairline *between* sections, none over the
-     * first. `underlined` is the Catalogue Forms heading — the title in capitals with the hairline
-     * directly *under* it, on every section including the first — for a long one-page editor where
+     * first. `underlined` is the Catalogue Forms heading — the title with the hairline directly *under*
+     * it, on every section including the first — for a long one-page editor where
      * each section is a place the reader jumps to rather than the next paragraph of one form. The
      * rule then belongs to the heading it closes, so `first` has nothing to suppress and is ignored.
      */
@@ -91,12 +91,7 @@ export function FormSection({
                             testID={testID === undefined ? undefined : `${testID}-title`}
                             accessibilityRole="header"
                             aria-level={3}
-                            className={cx(
-                                'text-role-section text-content-primary text-start',
-                                // Capitals from the stylesheet, never from the catalogue: Arabic
-                                // has no case, and a translator should not be handed SHOUTING.
-                                underlined ? 'uppercase tracking-wide' : null,
-                            )}
+                            className="text-role-section text-content-primary text-start"
                         >
                             {title}
                         </RNText>

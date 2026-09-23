@@ -4304,6 +4304,7 @@
         "hintClose": "للإغلاق"
     },
     "forms": {
+        "description": "الوصف",
         "image": "صورة",
         "imagePick": "اختر صورة",
         "imageRemove": "إزالة الصورة",

@@ -91,19 +91,19 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * New ingredient  DRAFT  ING-307                            [ Cancel ]  [ Save ]
  * ✖ 3 required  [ Designation (EN) ] [ Category ] [ Unit price ]   <- once Save is pressed
  * ───────────────────────────────────────────────────────────────────────────────
- * IDENTITY ─────────────────────────────────────────────────────────────────────
- *   ┌╌╌╌╌╌╌┐  Designation (EN)      Designation (AR)
+ * Description ──────────────────────────────────────────────────────────────────
+ *   ┌╌╌╌╌╌╌┐  Item (EN)             Item (AR)
  *   ╎ (+)  ╎  Category              Sub-category
- *   └╌╌╌╌╌╌┘  Reference
- * MEASUREMENT & COST ───────────────────────────────────────────────────────────
- *   Stock unit  Purchase unit  Items per unit  Unit price
- * SALE ──────────────────────────────────────────────────────────────────────────
+ *   └╌╌╌╌╌╌┘
+ * Measurement & cost ────────────────────────────────────────────────────────────
+ *   Purchase unit  Stock unit  Items per unit  Unit price
+ * Sale ──────────────────────────────────────────────────────────────────────────
  *   ●━━  Available for sale
  *   B2B price  B2C price  Margin on cost
- * NUTRITION · 100 G   ⚠ Estimated ──────────────────────────────────────────────
+ * Nutrition · 100 g   ⚠ Estimated ──────────────────────────────────────────────
  *   Energy  Protein  Carbohydrate  Fat
  *   Fibre   Sugars   Sodium        Saturates
- * ALLERGENS   ⓘ From database ──────────────────────────────────────────────────
+ * Allergens   ⓘ From database ──────────────────────────────────────────────────
  *   ( Egg ) ( Mustard )
  * ```
  *
@@ -1041,11 +1041,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                   {
                       key: 'name',
                       label: t('kitchen:bilingual.englishShort', {
-                          field: t(
-                              family.food
-                                  ? 'kitchen:fields.designation'
-                                  : 'kitchen:list.columnItem',
-                          ),
+                          field: t('kitchen:list.columnItem'),
                       }),
                       fieldId: 'kitchen-ingredient-name-en',
                       required: true,
@@ -1418,10 +1414,31 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const onlyRequired = shownBlockers.every((entry) => entry.required);
 
     /*
-     * The unit and the purchase pack, drawn by both families. Packaging calls the stock unit what
-     * it is on a packing bench — the unit an item is issued in — and the design keeps the rest.
+     * The purchase pack and the unit, drawn by both families — the pack first, because it is what
+     * the delivery note states and what a reader copies from, and the stock unit is then how that
+     * pack is broken down. Packaging calls the stock unit what it is on a packing bench — the unit an
+     * item is issued in — and the design keeps the rest.
      */
     const unitFields = [
+        <Select
+            key="purchase-unit"
+            testID="kitchen-ingredient-purchase-unit"
+            id="kitchen-ingredient-purchase-unit"
+            label={t('kitchen:fields.purchaseUnit')}
+            placeholder={t('kitchen:fields.unitPlaceholder')}
+            searchable
+            disabled={!editable}
+            options={[
+                { value: 'none', label: t('kitchen:fields.purchaseUnitNone') },
+                ...unitOptions,
+            ]}
+            value={details.purchaseUnit === '' ? 'none' : details.purchaseUnit}
+            onChange={(next) => {
+                edit({
+                    purchaseUnit: next === 'none' ? '' : (next as DetailsDraft['purchaseUnit']),
+                });
+            }}
+        />,
         <Select
             key="unit"
             testID="kitchen-ingredient-unit"
@@ -1443,25 +1460,6 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                  * field looking like what will be saved.
                  */
                 edit({ measurementUnit: next as MeasureUnit, gramsPerUnit: '' });
-            }}
-        />,
-        <Select
-            key="purchase-unit"
-            testID="kitchen-ingredient-purchase-unit"
-            id="kitchen-ingredient-purchase-unit"
-            label={t('kitchen:fields.purchaseUnit')}
-            placeholder={t('kitchen:fields.unitPlaceholder')}
-            searchable
-            disabled={!editable}
-            options={[
-                { value: 'none', label: t('kitchen:fields.purchaseUnitNone') },
-                ...unitOptions,
-            ]}
-            value={details.purchaseUnit === '' ? 'none' : details.purchaseUnit}
-            onChange={(next) => {
-                edit({
-                    purchaseUnit: next === 'none' ? '' : (next as DetailsDraft['purchaseUnit']),
-                });
             }}
         />,
         <QuantityInput
@@ -1707,7 +1705,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     first
                     variant="underlined"
                     testID="kitchen-ingredient-identity"
-                    title={t('kitchen:editor.sectionIdentity')}
+                    title={t('kitchen:forms.description')}
                 >
                     <View className="z-auto flex-row flex-wrap items-start gap-base">
                         {/*
@@ -1728,9 +1726,11 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
 
                         {/*
                          * Beside the photo a food record has four half tracks, which is two 280px
-                         * fields — the designation pair on the first row, the filing on the second.
-                         * Packaging has no photo and opens on its handle, so the reference leads
-                         * and the row takes all six.
+                         * fields — the item pair on the first row, the filing on the second. It
+                         * draws no reference field: the handle is beside the title already, and a
+                         * read-only box repeating it was a field nobody could use. Packaging has no
+                         * photo and opens on its handle, so the reference leads and the row takes
+                         * all six.
                          */}
                         <FormGrid
                             track="half"
@@ -1748,11 +1748,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 span={4}
                                 layout="row"
                                 testID="kitchen-ingredient-name"
-                                fieldLabel={t(
-                                    family.food
-                                        ? 'kitchen:fields.designation'
-                                        : 'kitchen:list.columnItem',
-                                )}
+                                fieldLabel={t('kitchen:list.columnItem')}
                                 value={details.name}
                                 requiredEnglish
                                 disabled={!editable}
@@ -1801,8 +1797,6 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                     edit({ subcategoryCode: next === 'none' ? '' : next });
                                 }}
                             />
-
-                            {family.food ? referenceField : null}
                         </FormGrid>
                     </View>
                 </FormSection>

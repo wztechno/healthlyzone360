@@ -138,10 +138,16 @@ export function inputFrameClassName(options: {
         'flex-row border bg-surface-raised',
         multiline ? 'items-stretch' : 'items-center',
         (multiline ? MULTILINE_FRAME_SIZE : FRAME_SIZE)[density][size],
+        /*
+         * An invalid or cautioned field glows: its border takes the tone and a 2px ring of the
+         * tone's subtle fill sits outside it, as the Catalogue Forms fields draw it. The ring is a
+         * `box-shadow`, so it is `web:` — React Native has no spread shadow, and on a phone the
+         * border and the message under the field already carry the state.
+         */
         options.invalid
-            ? 'border-danger-border'
+            ? 'border-danger-border web:shadow-[0_0_0_2px_rgb(var(--h360-color-danger-subtle))]'
             : options.caution === true
-              ? 'border-warning-border'
+              ? 'border-warning-border web:shadow-[0_0_0_2px_rgb(var(--h360-color-warning-subtle))]'
               : 'border-stroke',
         // A visible focus ring is a WCAG 2.4.7 requirement, and on native there is no browser
         // default to fall back on, so it is drawn explicitly.

@@ -91,11 +91,11 @@ export interface BadgeProps {
      * `pill` (the default) is the badge described above. The other two are the Catalogue Forms
      * labels (`Labels` in the design), for the desk surfaces:
      *
-     * - `label` — a 20px tag at the control corner, the subtle fill with no border, the tone's mark
+     * - `label` — a 16px tag at the control corner, the subtle fill with no border, the tone's mark
      *   in its strong ink before the text. What sits beside a section title: `ⓘ From database`,
      *   `⚠ Estimated`.
      * - `caps` — the record's state beside a page title: `DRAFT`, `RESTRICTED`. Capitals from the
-     *   stylesheet (Arabic has no case), 10px on a 17px tag, and no mark unless one is passed,
+     *   stylesheet (Arabic has no case), 10px on a 16px tag, and no mark unless one is passed,
      *   because the word is the whole of it and a glyph at that size is noise.
      */
     readonly variant?: BadgeVariant | undefined;
@@ -156,11 +156,18 @@ export function Badge({
                 testID={testID}
                 accessibilityRole="text"
                 accessibilityLabel={label}
+                /*
+                 * No `self-start`, unlike the pill. These sit in a row beside a title — a page
+                 * title, a section title — and `self-start` overrode the row's own centring, so a
+                 * 16px tag hung from the top of a 22px heading while the reference beside it sat on
+                 * the baseline. The row decides; every caller of these two variants is a row.
+                 *
+                 * 16px tall, on the ramp's smallest step: the type cannot go below `micro` without
+                 * a half-step the scale refuses, so the tag is made smaller by its box instead.
+                 */
                 className={cx(
-                    'flex-row items-center self-start',
-                    caps
-                        ? 'h-[17px] gap-1 rounded-[3px] px-1.5'
-                        : 'h-5 gap-[5px] rounded-sm pe-[7px] ps-1.5',
+                    'h-4 flex-row items-center gap-1',
+                    caps ? 'rounded-xs px-1' : 'rounded-sm pe-1.5 ps-1',
                     TONE_FILL_CLASS[tone],
                     className,
                 )}
@@ -175,9 +182,7 @@ export function Badge({
                 )}
                 <RNText
                     className={cx(
-                        caps
-                            ? 'text-role-micro uppercase tracking-wide'
-                            : 'text-role-caption font-medium',
+                        caps ? 'text-role-micro uppercase tracking-wide' : 'text-role-micro',
                         TONE_TEXT_CLASS[tone],
                     )}
                 >

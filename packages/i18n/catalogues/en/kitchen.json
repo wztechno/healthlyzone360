@@ -3748,6 +3748,7 @@
         "hintClose": "to close"
     },
     "forms": {
+        "description": "Description",
         "image": "Image",
         "imagePick": "Choose an image",
         "imageRemove": "Remove image",
