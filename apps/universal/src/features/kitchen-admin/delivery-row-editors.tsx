@@ -123,11 +123,12 @@ export function DeliveryWindowRows({
 
     /*
      * Every header at the start of its column, over the start of the field under it. Capacity used
-     * to sit at the end, over the empty half of its box and away from the number it names.
+     * to sit at the end, over the empty half of its box and away from the number it names. Sentence
+     * case, as the catalogue writes it — an all-caps header row shouted over the fields it names.
      */
     const head = (label: string, width?: number) => (
         <View {...(width === undefined ? { className: 'min-w-0 flex-1' } : { style: { width } })}>
-            <Text variant="micro" tone="secondary" className="uppercase">
+            <Text variant="micro" tone="secondary">
                 {label}
             </Text>
         </View>

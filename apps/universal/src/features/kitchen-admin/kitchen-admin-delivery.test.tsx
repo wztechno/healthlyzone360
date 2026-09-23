@@ -1136,6 +1136,36 @@ describe('the delivery-zone editor', () => {
         ).toBeNull();
     });
 
+    it('opens a zone with no windows on one blank window, which is not saved until typed into', async () => {
+        const empty = { ...SEEDED_ZONE, deliveryWindows: [] };
+        const saved: unknown[] = [];
+
+        await renderStubScreen(<DeliveryZoneEditScreen zone={String(SEEDED_ZONE.id)} />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...zoneEditorReads(
+                        () => empty,
+                        () => [empty],
+                    ),
+                    setDeliveryWindows: async (_id, request) => {
+                        saved.push(request);
+                        return empty;
+                    },
+                },
+            },
+        });
+        await openZoneStep('windows');
+        await untilVisible('kitchen-zone-window-rows');
+
+        expect(screen.getByTestId('kitchen-zone-window-rows-row-window-blank')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-zone-window-rows-empty')).toBeNull();
+        // Drawn, not held: the blank row names no problem and does not dirty the zone.
+        expect(screen.queryByTestId('kitchen-zone-window-rows-row-window-blank-error')).toBeNull();
+        expect(screen.queryByTestId('kitchen-zone-editor-screen-dirty')).toBeNull();
+        expect(saved).toHaveLength(0);
+    });
+
     it('toggles a window weekday and saves the set, minting an identifier for a new row', async () => {
         let stored: DeliveryZoneAdmin = SEEDED_ZONE;
 

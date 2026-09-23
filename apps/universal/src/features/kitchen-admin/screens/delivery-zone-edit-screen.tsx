@@ -145,6 +145,23 @@ export interface DeliveryZoneEditScreenProps {
 const ZONE_STEPS = ['zone', 'areas', 'windows'] as const;
 type ZoneStep = (typeof ZONE_STEPS)[number];
 
+/** The key of the blank window a zone with none is drawn with. See `shownWindows`. */
+const BLANK_WINDOW_KEY = 'window-blank';
+
+function isUntouchedBlank(row: DeliveryWindowDraft): boolean {
+    const blank = emptyWindow(BLANK_WINDOW_KEY);
+    return (
+        row.key === BLANK_WINDOW_KEY &&
+        row.label.en === '' &&
+        row.label.ar === '' &&
+        row.startsAt === '' &&
+        row.endsAt === '' &&
+        row.capacity === '' &&
+        row.isActive &&
+        row.weekdays.join() === blank.weekdays.join()
+    );
+}
+
 export function DeliveryZoneEditScreen({ zone }: DeliveryZoneEditScreenProps) {
     return (
         <Gate
@@ -361,6 +378,18 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
         feeState === 'invalid' ||
         minimumState === 'invalid' ||
         (details.estimatedMinutes !== null && details.estimatedMinutes < 0);
+
+    /*
+     * At least one window is always on the page for somebody who can add one: a zone with none opens
+     * on a blank row rather than on "no windows" and an Add button. The blank is drawn, not held —
+     * it joins `windows` (and the save, and the checks) only once it is typed into, so opening the
+     * step never dirties the zone or blocks its save on a row nobody asked for. Removing the last
+     * window brings the blank back.
+     */
+    const shownWindows = useMemo(
+        () => (windows.length === 0 && canManage ? [emptyWindow(BLANK_WINDOW_KEY)] : windows),
+        [windows, canManage],
+    );
 
     const windowRowErrors = useMemo(
         () =>
@@ -986,18 +1015,19 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                     <Stack space="md">
                         <DeliveryWindowRows
                             testID="kitchen-zone-window-rows"
-                            rows={windows}
+                            rows={shownWindows}
                             errors={windowRowErrors}
                             canManage={canManage}
                             onChange={(next) => {
                                 markDirty(() => {
-                                    setWindows(next);
+                                    // The drawn blank, still blank, is not a window yet.
+                                    setWindows(next.filter((row) => !isUntouchedBlank(row)));
                                     setWindowsDirty(true);
                                 });
                             }}
                             onAdd={() => {
                                 markDirty(() => {
-                                    setWindows([...windows, emptyWindow(takeKey('window'))]);
+                                    setWindows([...shownWindows, emptyWindow(takeKey('window'))]);
                                     setWindowsDirty(true);
                                 });
                             }}
