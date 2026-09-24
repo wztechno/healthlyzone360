@@ -39,7 +39,7 @@ import { MEASURE_UNITS, coreNutrientDefinition, findAmount } from '@healthy360/n
 import type { MeasureUnit, NutritionFacts } from '@healthy360/nutrition';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -959,6 +959,51 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     // as a refusal.
     const platformNotice = data?.organisationId === null && !editable;
 
+    /**
+     * Take a library row into this kitchen, then land on the copy.
+     *
+     * `router.replace`, not `push`: the library row is not somewhere the reader
+     * wants to go back to — they came here to edit, and Back from the fork
+     * should return to the catalogue, not to the read-only row they just left.
+     *
+     * The guard is not consulted. A platform row has no editable field, so
+     * there is no draft to lose; `settle` is likewise unnecessary for the same
+     * reason.
+     */
+    const forkForKitchen = (): void => {
+        if (data === undefined) return;
+
+        fork.mutate(data.id, {
+            onSuccess: (created) => {
+                toast.show({
+                    testID: 'kitchen-ingredient-forked-toast',
+                    tone: 'success',
+                    message: t('kitchen:editor.forkedToast', {
+                        name: displayName(created.name, locale).value,
+                    }),
+                });
+                router.replace(`${family.listRoute}/${String(created.id)}` as never);
+            },
+        });
+    };
+
+    /*
+     * Opening a library row to edit it *is* asking for the kitchen's copy, so the fork fires on
+     * arrival instead of waiting behind the notice's button. The page holds its skeleton meanwhile —
+     * a read-only form flashed on the way to an editable one reads as a refusal. The notice is left
+     * for a fork that failed, where its button is the retry, and for a reader who cannot fork.
+     *
+     * Once per row, not per render: the ref keeps StrictMode's second effect and every re-render from
+     * posting again, and a failure is retried by the button rather than by a loop.
+     */
+    const autoFork = platformNotice && canManage && !fork.isError;
+    const forkedRow = useRef<IngredientId | null>(null);
+    useEffect(() => {
+        if (!autoFork || data === undefined || forkedRow.current === data.id) return;
+        forkedRow.current = data.id;
+        forkForKitchen();
+    });
+
     const nameMissing = details.name.en.trim() === '';
     const categoryMissing = details.categoryCode.trim() === '';
 
@@ -1316,7 +1361,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         );
     }
 
-    if (!isCreating && record.isPending) {
+    if (!isCreating && (record.isPending || autoFork)) {
         return (
             <Stack space="md" testID="kitchen-ingredient-editor-loading">
                 <Skeleton testID="kitchen-ingredient-skeleton-1" heightClassName="h-8" />
@@ -1342,34 +1387,6 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
             </Stack>
         );
     }
-
-    /**
-     * Take a library row into this kitchen, then land on the copy.
-     *
-     * `router.replace`, not `push`: the library row is not somewhere the reader
-     * wants to go back to — they came here to edit, and Back from the fork
-     * should return to the catalogue, not to the read-only row they just left.
-     *
-     * The guard is not consulted. A platform row has no editable field, so
-     * there is no draft to lose; `settle` is likewise unnecessary for the same
-     * reason.
-     */
-    const forkForKitchen = (): void => {
-        if (data === undefined) return;
-
-        fork.mutate(data.id, {
-            onSuccess: (created) => {
-                toast.show({
-                    testID: 'kitchen-ingredient-forked-toast',
-                    tone: 'success',
-                    message: t('kitchen:editor.forkedToast', {
-                        name: displayName(created.name, locale).value,
-                    }),
-                });
-                router.replace(`${family.listRoute}/${String(created.id)}` as never);
-            },
-        });
-    };
 
     const forkFailure = toFailure(fork.error);
 
