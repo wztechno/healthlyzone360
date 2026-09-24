@@ -31,26 +31,26 @@ export const WORKSPACE_NAVIGATION: readonly NavigationDescriptor[] = [
         key: 'workspace',
         labelKey: 'common:nav.workspace',
         href: '/workspace',
-        icon: 'organisation',
+        icon: 'layoutGrid',
     },
     {
         key: 'profile',
         labelKey: 'common:nav.profile',
         href: '/profile',
-        icon: 'user',
+        icon: 'userCircle',
     },
     {
         key: 'devices',
         labelKey: 'common:nav.devices',
         href: '/devices',
-        icon: 'device',
+        icon: 'monitorSmartphone',
         requiredPermission: 'device.manage_own',
     },
     {
         key: 'showcase',
         labelKey: 'common:nav.showcase',
         href: '/platform-admin/showcase',
-        icon: 'prototype',
+        icon: 'swatchBook',
         requiredPermission: 'organisation.manage_platform',
         area: 'platform-admin',
     },
@@ -80,7 +80,7 @@ export function areaHref(area: RouteArea): string {
  *
  * **Decoration, never the message.** Every tile renders the area's translated name beside this
  * glyph and the `Icon` is left unlabelled, so the name is what a screen reader announces and what a
- * reader who cannot tell `◇` from `◈` relies on. That is also why choosing a glyph needs no new
+ * reader who cannot tell one mark from another relies on. That is also why choosing a glyph needs no new
  * translation key: nothing here carries meaning the name does not already carry.
  *
  * Typed against the whole of `RouteArea` rather than only the eleven in `WORKSPACE_AREAS`, so a
@@ -95,17 +95,17 @@ export function areaHref(area: RouteArea): string {
 export const AREA_ICONS: Readonly<Record<RouteArea, IconName>> = {
     public: 'home',
     auth: 'user',
-    customer: 'home',
-    patient: 'user',
-    dietitian: 'leaf',
-    clinic: 'medicalCross',
-    kitchen: 'plate',
-    kds: 'device',
-    driver: 'basket',
-    partner: 'branch',
-    corporate: 'organisation',
-    insurance: 'lock',
-    'platform-admin': 'prototype',
+    customer: 'store',
+    patient: 'heartPulse',
+    dietitian: 'apple',
+    clinic: 'stethoscope',
+    kitchen: 'utensils',
+    kds: 'monitor',
+    driver: 'bike',
+    partner: 'handshake',
+    corporate: 'building',
+    insurance: 'shieldPlus',
+    'platform-admin': 'settings',
 };
 
 /** Filters the descriptors down to what this state may actually reach. */
