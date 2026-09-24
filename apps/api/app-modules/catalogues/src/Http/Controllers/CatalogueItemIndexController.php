@@ -118,7 +118,7 @@ final class CatalogueItemIndexController
         if (! is_string($type) || CatalogueItemType::tryFrom($type) === null) {
             throw new ApiException(
                 ErrorCode::RequestInvalid,
-                'The item_type filter must be one of: product, meal, subscription_plan, sauce, dressing.',
+                'The item_type filter must be one of: '.implode(', ', array_column(CatalogueItemType::cases(), 'value')).'.',
                 ['parameter' => 'item_type'],
             );
         }
