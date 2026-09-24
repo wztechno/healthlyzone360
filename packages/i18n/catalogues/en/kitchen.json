@@ -2330,7 +2330,20 @@
         "unitPlaceholder": "Choose a unit",
         "unitPricePlaceholder": "0.00",
         "itemsPerUnitPlaceholder": "0",
-        "gramsPerUnitPlaceholder": "0"
+        "gramsPerUnitPlaceholder": "0",
+        "ingredientNamePlaceholderEn": "For example Chicken breast",
+        "ingredientNamePlaceholderAr": "مثال: صدر دجاج",
+        "packagingNamePlaceholderEn": "For example Kraft bowl 750 ml",
+        "packagingNamePlaceholderAr": "مثال: وعاء كرافت 750 مل",
+        "recipeNamePlaceholderEn": "For example Grilled chicken bowl",
+        "recipeNamePlaceholderAr": "مثال: وعاء دجاج مشوي",
+        "productNamePlaceholderEn": "For example Sparkling water 330 ml",
+        "productNamePlaceholderAr": "مثال: مياه فوارة 330 مل",
+        "descriptionPlaceholderEn": "One or two sentences a customer reads on the menu",
+        "descriptionPlaceholderAr": "جملة أو جملتان يقرؤهما العميل في القائمة",
+        "quantityPlaceholder": "0",
+        "percentPlaceholder": "0",
+        "daysPlaceholder": "For example 3"
     },
     "units": {
         "dimensionMass": "Mass",
@@ -2973,7 +2986,8 @@
         "netContentUnitLabel": "Unit",
         "netContentInvalid": "The net content must be a number greater than zero.",
         "netContentUnitMissing": "Choose the unit the net content is in.",
-        "netContentUnitsForbidden": "This item states a net content, but showing the unit it is measured in needs the inventory permission. Ask someone with inventory access to change it."
+        "netContentUnitsForbidden": "This item states a net content, but showing the unit it is measured in needs the inventory permission. Ask someone with inventory access to change it.",
+        "packCodePlaceholder": "For example RSL-055"
     },
     "meals": {
         "title": "Meals",

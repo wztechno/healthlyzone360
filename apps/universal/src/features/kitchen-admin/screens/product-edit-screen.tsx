@@ -991,6 +991,10 @@ function ProductEditor({
                 layout="row"
                 testID="kitchen-product-name"
                 fieldLabel={t('kitchen:list.columnItem')}
+                placeholder={{
+                    en: t('kitchen:fields.productNamePlaceholderEn'),
+                    ar: t('kitchen:fields.productNamePlaceholderAr'),
+                }}
                 value={details.name}
                 requiredEnglish
                 disabled={!canManage}
@@ -1046,6 +1050,10 @@ function ProductEditor({
                 multiline
                 testID="kitchen-product-description"
                 fieldLabel={t('kitchen:products.descriptionLabel')}
+                placeholder={{
+                    en: t('kitchen:fields.descriptionPlaceholderEn'),
+                    ar: t('kitchen:fields.descriptionPlaceholderAr'),
+                }}
                 value={details.description}
                 disabled={!canManage}
                 onChange={(next) => {
@@ -1294,6 +1302,7 @@ function ProductEditor({
                                         id="kitchen-product-net-content"
                                         size="sm"
                                         label={t('kitchen:products.netContentLabel')}
+                                        placeholder={t('kitchen:fields.quantityPlaceholder')}
                                         value={details.netContentQuantity}
                                         disabled={!canManage}
                                         {...(shows('net-content')
@@ -1307,6 +1316,7 @@ function ProductEditor({
                                         testID="kitchen-product-net-content-unit"
                                         id="kitchen-product-net-content-unit"
                                         label={t('kitchen:products.netContentUnitLabel')}
+                                        placeholder={t('kitchen:fields.unitPlaceholder')}
                                         searchable
                                         disabled={!canManage}
                                         options={unitOptions}

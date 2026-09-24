@@ -184,7 +184,7 @@ export function PackVariantEditor({ rows, onChange, errors, canManage, testID }:
                                         id={`${rowTestId}-code`}
                                         label={t('kitchen:products.packCodeLabel')}
                                         labelHidden
-                                        placeholder="RSL-055"
+                                        placeholder={t('kitchen:products.packCodePlaceholder')}
                                         value={row.code}
                                         autoCapitalize="characters"
                                         autoCorrect={false}
@@ -225,7 +225,7 @@ export function PackVariantEditor({ rows, onChange, errors, canManage, testID }:
                                         id={`${rowTestId}-quantity`}
                                         label={t('kitchen:products.packQuantityLabel')}
                                         labelHidden
-                                        placeholder="0"
+                                        placeholder={t('kitchen:fields.quantityPlaceholder')}
                                         value={row.netQuantity}
                                         inputMode="decimal"
                                         disabled={!canManage}
@@ -240,6 +240,7 @@ export function PackVariantEditor({ rows, onChange, errors, canManage, testID }:
                                         testID={`${rowTestId}-unit`}
                                         id={`${rowTestId}-unit`}
                                         label={t('kitchen:products.packUnitLabel')}
+                                        placeholder={t('kitchen:fields.unitPlaceholder')}
                                         labelHidden
                                         searchable
                                         options={unitOptions}
@@ -256,6 +257,7 @@ export function PackVariantEditor({ rows, onChange, errors, canManage, testID }:
                                         testID={`${rowTestId}-units-per-pack`}
                                         id={`${rowTestId}-units-per-pack`}
                                         label={t('kitchen:products.unitsPerPackLabel')}
+                                        placeholder={t('kitchen:fields.quantityPlaceholder')}
                                         labelHidden
                                         value={row.unitsPerPack}
                                         inputMode="numeric"

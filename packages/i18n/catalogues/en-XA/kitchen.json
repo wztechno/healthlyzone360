@@ -2330,7 +2330,20 @@
     "unitPlaceholder": "[[Çĥóóšé á úñíţ āēīōūā]]",
     "unitPricePlaceholder": "[[0.00 āē]]",
     "itemsPerUnitPlaceholder": "[[0 ā]]",
-    "gramsPerUnitPlaceholder": "[[0 ā]]"
+    "gramsPerUnitPlaceholder": "[[0 ā]]",
+    "ingredientNamePlaceholderEn": "[[Ƒóŕ éẋáɱþłé Çĥíçķéñ ƀŕéášţ āēīōūāēīōūā]]",
+    "ingredientNamePlaceholderAr": "[[مثال: صدر دجاج āēīōūā]]",
+    "packagingNamePlaceholderEn": "[[Ƒóŕ éẋáɱþłé Ķŕáƒţ ƀóŵł 750 ɱł āēīōūāēīōūāē]]",
+    "packagingNamePlaceholderAr": "[[مثال: وعاء كرافت 750 مل āēīōūāēīōū]]",
+    "recipeNamePlaceholderEn": "[[Ƒóŕ éẋáɱþłé Ĝŕíłłéð çĥíçķéñ ƀóŵł āēīōūāēīōūāēī]]",
+    "recipeNamePlaceholderAr": "[[مثال: وعاء دجاج مشوي āēīōūāēī]]",
+    "productNamePlaceholderEn": "[[Ƒóŕ éẋáɱþłé Šþáŕķłíñĝ ŵáţéŕ 330 ɱł āēīōūāēīōūāēīō]]",
+    "productNamePlaceholderAr": "[[مثال: مياه فوارة 330 مل āēīōūāēīōū]]",
+    "descriptionPlaceholderEn": "[[Óñé óŕ ţŵó šéñţéñçéš á çúšţóɱéŕ ŕéáðš óñ ţĥé ɱéñú āēīōūāēīōūāēīōūāēīōū]]",
+    "descriptionPlaceholderAr": "[[جملة أو جملتان يقرؤهما العميل في القائمة āēīōūāēīōūāēīōūā]]",
+    "quantityPlaceholder": "[[0 ā]]",
+    "percentPlaceholder": "[[0 ā]]",
+    "daysPlaceholder": "[[Ƒóŕ éẋáɱþłé 3 āēīōūā]]"
   },
   "units": {
     "dimensionMass": "[[Ṁášš āē]]",
@@ -2973,7 +2986,8 @@
     "netContentUnitLabel": "[[Úñíţ āē]]",
     "netContentInvalid": "[[Ţĥé ñéţ çóñţéñţ ɱúšţ ƀé á ñúɱƀéŕ ĝŕéáţéŕ ţĥáñ žéŕó. āēīōūāēīōūāēīōūāēīōūā]]",
     "netContentUnitMissing": "[[Çĥóóšé ţĥé úñíţ ţĥé ñéţ çóñţéñţ íš íñ. āēīōūāēīōūāēīōūā]]",
-    "netContentUnitsForbidden": "[[Ţĥíš íţéɱ šţáţéš á ñéţ çóñţéñţ, ƀúţ šĥóŵíñĝ ţĥé úñíţ íţ íš ɱéášúŕéð íñ ñééðš ţĥé íñṽéñţóŕý þéŕɱíššíóñ. Ášķ šóɱéóñé ŵíţĥ íñṽéñţóŕý áççéšš ţó çĥáñĝé íţ. āēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōū]]"
+    "netContentUnitsForbidden": "[[Ţĥíš íţéɱ šţáţéš á ñéţ çóñţéñţ, ƀúţ šĥóŵíñĝ ţĥé úñíţ íţ íš ɱéášúŕéð íñ ñééðš ţĥé íñṽéñţóŕý þéŕɱíššíóñ. Ášķ šóɱéóñé ŵíţĥ íñṽéñţóŕý áççéšš ţó çĥáñĝé íţ. āēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōū]]",
+    "packCodePlaceholder": "[[Ƒóŕ éẋáɱþłé ŔŠŁ-055 āēīōūāēī]]"
   },
   "meals": {
     "title": "[[Ṁéáłš āē]]",

@@ -1737,7 +1737,12 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                             {...(family.food ? { maxColumns: 4 } : {})}
                             testID="kitchen-ingredient-identity-grid"
                         >
-                            {family.food ? null : referenceField}
+                            {/*
+                             * Not on a new record either: nothing has been issued yet, so the box
+                             * could only ever say "Assigned on save". The handle is beside the
+                             * title once it exists.
+                             */}
+                            {family.food || isCreating ? null : referenceField}
 
                             {/*
                              * One `BilingualField` rather than two inputs, because that component
@@ -1749,6 +1754,17 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 layout="row"
                                 testID="kitchen-ingredient-name"
                                 fieldLabel={t('kitchen:list.columnItem')}
+                                placeholder={
+                                    family.food
+                                        ? {
+                                              en: t('kitchen:fields.ingredientNamePlaceholderEn'),
+                                              ar: t('kitchen:fields.ingredientNamePlaceholderAr'),
+                                          }
+                                        : {
+                                              en: t('kitchen:fields.packagingNamePlaceholderEn'),
+                                              ar: t('kitchen:fields.packagingNamePlaceholderAr'),
+                                          }
+                                }
                                 value={details.name}
                                 requiredEnglish
                                 disabled={!editable}
@@ -1853,6 +1869,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 id="kitchen-ingredient-capacity"
                                 size="sm"
                                 label={t('kitchen:forms.holds')}
+                                placeholder={t('kitchen:fields.quantityPlaceholder')}
                                 value={unstored.capacity}
                                 disabled={!editable}
                                 onChangeText={(next) => {
@@ -1865,6 +1882,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 testID="kitchen-ingredient-capacity-unit"
                                 id="kitchen-ingredient-capacity-unit"
                                 label={t('kitchen:forms.holdsUnit')}
+                                placeholder={t('kitchen:fields.unitPlaceholder')}
                                 disabled={!editable}
                                 options={CAPACITY_UNITS.map((unit) => ({
                                     value: unit,
@@ -1911,6 +1929,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 id="kitchen-ingredient-waste"
                                 size="sm"
                                 label={t('kitchen:forms.waste')}
+                                placeholder={t('kitchen:fields.percentPlaceholder')}
                                 unit="%"
                                 value={unstored.wastePercent}
                                 disabled={!editable}
@@ -1984,6 +2003,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                         id="kitchen-ingredient-b2b-price"
                                         size="sm"
                                         label={t('kitchen:sale.b2bPrice')}
+                                        placeholder={t('kitchen:fields.unitPricePlaceholder')}
                                         value={details.b2bPrice}
                                         disabled={!editable}
                                         {...priceUnit}
@@ -1997,6 +2017,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                         id="kitchen-ingredient-b2c-price"
                                         size="sm"
                                         label={t('kitchen:sale.b2cPrice')}
+                                        placeholder={t('kitchen:fields.unitPricePlaceholder')}
                                         value={details.b2cPrice}
                                         disabled={!editable}
                                         {...priceUnit}

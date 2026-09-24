@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7498 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7512 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3191,9 +3191,14 @@ export interface NamespaceKeys {
     | 'fields.categoryPlaceholder'
     | 'fields.composition'
     | 'fields.compositionHint'
+    | 'fields.daysPlaceholder'
+    | 'fields.descriptionPlaceholderAr'
+    | 'fields.descriptionPlaceholderEn'
     | 'fields.designation'
     | 'fields.gramsPerUnit'
     | 'fields.gramsPerUnitPlaceholder'
+    | 'fields.ingredientNamePlaceholderAr'
+    | 'fields.ingredientNamePlaceholderEn'
     | 'fields.itemsPerPurchaseUnit'
     | 'fields.itemsPerUnit'
     | 'fields.itemsPerUnitHint'
@@ -3201,10 +3206,18 @@ export interface NamespaceKeys {
     | 'fields.name'
     | 'fields.notes'
     | 'fields.notesHint'
+    | 'fields.packagingNamePlaceholderAr'
+    | 'fields.packagingNamePlaceholderEn'
+    | 'fields.percentPlaceholder'
+    | 'fields.productNamePlaceholderAr'
+    | 'fields.productNamePlaceholderEn'
     | 'fields.purchaseUnit'
     | 'fields.purchaseUnitHint'
     | 'fields.purchaseUnitNone'
     | 'fields.purchaseUnitNoneHint'
+    | 'fields.quantityPlaceholder'
+    | 'fields.recipeNamePlaceholderAr'
+    | 'fields.recipeNamePlaceholderEn'
     | 'fields.reference'
     | 'fields.referenceHint'
     | 'fields.referencePlaceholder'
@@ -5095,6 +5108,7 @@ export interface NamespaceKeys {
     | 'products.packCodeHeader'
     | 'products.packCodeHint'
     | 'products.packCodeLabel'
+    | 'products.packCodePlaceholder'
     | 'products.packCodeRequired'
     | 'products.packCount'
     | 'products.packLabel'
@@ -10707,9 +10721,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.categoryPlaceholder',
   'kitchen:fields.composition',
   'kitchen:fields.compositionHint',
+  'kitchen:fields.daysPlaceholder',
+  'kitchen:fields.descriptionPlaceholderAr',
+  'kitchen:fields.descriptionPlaceholderEn',
   'kitchen:fields.designation',
   'kitchen:fields.gramsPerUnit',
   'kitchen:fields.gramsPerUnitPlaceholder',
+  'kitchen:fields.ingredientNamePlaceholderAr',
+  'kitchen:fields.ingredientNamePlaceholderEn',
   'kitchen:fields.itemsPerPurchaseUnit',
   'kitchen:fields.itemsPerUnit',
   'kitchen:fields.itemsPerUnitHint',
@@ -10717,10 +10736,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.name',
   'kitchen:fields.notes',
   'kitchen:fields.notesHint',
+  'kitchen:fields.packagingNamePlaceholderAr',
+  'kitchen:fields.packagingNamePlaceholderEn',
+  'kitchen:fields.percentPlaceholder',
+  'kitchen:fields.productNamePlaceholderAr',
+  'kitchen:fields.productNamePlaceholderEn',
   'kitchen:fields.purchaseUnit',
   'kitchen:fields.purchaseUnitHint',
   'kitchen:fields.purchaseUnitNone',
   'kitchen:fields.purchaseUnitNoneHint',
+  'kitchen:fields.quantityPlaceholder',
+  'kitchen:fields.recipeNamePlaceholderAr',
+  'kitchen:fields.recipeNamePlaceholderEn',
   'kitchen:fields.reference',
   'kitchen:fields.referenceHint',
   'kitchen:fields.referencePlaceholder',
@@ -12611,6 +12638,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.packCodeHeader',
   'kitchen:products.packCodeHint',
   'kitchen:products.packCodeLabel',
+  'kitchen:products.packCodePlaceholder',
   'kitchen:products.packCodeRequired',
   'kitchen:products.packCount',
   'kitchen:products.packLabel',

@@ -1,4 +1,5 @@
 import type {
+    LocalisedText,
     MealAdmin,
     ProductAdmin,
     RecipeAdmin,
@@ -254,7 +255,10 @@ function CookedItemEditor(props: CookedItemEditScreenProps) {
      * corrupt one — the recipe is in the library and a listing can be started from there — so the
      * reader is told, and sent to the recipe rather than left on a form whose record already exists.
      */
-    const linkToCatalogue = (created: RecipeAdmin) => {
+    const linkToCatalogue = (
+        created: RecipeAdmin,
+        listing: { readonly description: LocalisedText },
+    ) => {
         const open = (id: string) => {
             router.replace(`${routeBase}/${id}` as never);
         };
@@ -269,7 +273,7 @@ function CookedItemEditor(props: CookedItemEditScreenProps) {
 
         if (props.itemType === 'meal') {
             createMeal.mutate(
-                { name: created.name, description: created.description, recipeId: created.id },
+                { name: created.name, description: listing.description, recipeId: created.id },
                 {
                     onSuccess: (made) => {
                         open(String(made.id));
@@ -283,7 +287,9 @@ function CookedItemEditor(props: CookedItemEditScreenProps) {
         createItem.mutate(
             {
                 name: created.name,
-                description: created.description,
+                // The form's own draft, both languages: the recipe keeps one language of notes, so
+                // reading the description back off it would drop the Arabic.
+                description: listing.description,
                 categoryCode: ITEM_CATEGORY[props.itemType],
                 itemType: props.itemType,
                 recipeId: created.id,

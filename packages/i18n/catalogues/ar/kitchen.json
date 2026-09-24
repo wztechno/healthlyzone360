@@ -2602,7 +2602,20 @@
         "unitPlaceholder": "اختر وحدة",
         "unitPricePlaceholder": "0.00",
         "itemsPerUnitPlaceholder": "0",
-        "gramsPerUnitPlaceholder": "0"
+        "gramsPerUnitPlaceholder": "0",
+        "ingredientNamePlaceholderEn": "For example Chicken breast",
+        "ingredientNamePlaceholderAr": "مثال: صدر دجاج",
+        "packagingNamePlaceholderEn": "For example Kraft bowl 750 ml",
+        "packagingNamePlaceholderAr": "مثال: وعاء كرافت 750 مل",
+        "recipeNamePlaceholderEn": "For example Grilled chicken bowl",
+        "recipeNamePlaceholderAr": "مثال: وعاء دجاج مشوي",
+        "productNamePlaceholderEn": "For example Sparkling water 330 ml",
+        "productNamePlaceholderAr": "مثال: مياه فوارة 330 مل",
+        "descriptionPlaceholderEn": "One or two sentences a customer reads on the menu",
+        "descriptionPlaceholderAr": "جملة أو جملتان يقرؤهما العميل في القائمة",
+        "quantityPlaceholder": "0",
+        "percentPlaceholder": "0",
+        "daysPlaceholder": "مثال: 3"
     },
     "units": {
         "dimensionMass": "كتلة",
@@ -3325,7 +3338,8 @@
         "netContentUnitLabel": "الوحدة",
         "netContentInvalid": "يجب أن يكون المحتوى الصافي رقمًا أكبر من صفر.",
         "netContentUnitMissing": "اختر الوحدة التي يُقاس بها المحتوى الصافي.",
-        "netContentUnitsForbidden": "يحدّد هذا الصنف محتوًى صافيًا، لكن عرض وحدة قياسه يحتاج إلى صلاحية المخزون. اطلب من شخص لديه صلاحية المخزون تغييره."
+        "netContentUnitsForbidden": "يحدّد هذا الصنف محتوًى صافيًا، لكن عرض وحدة قياسه يحتاج إلى صلاحية المخزون. اطلب من شخص لديه صلاحية المخزون تغييره.",
+        "packCodePlaceholder": "مثال: RSL-055"
     },
     "meals": {
         "title": "الأطباق",
