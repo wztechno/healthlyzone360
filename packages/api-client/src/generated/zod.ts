@@ -587,10 +587,14 @@ export const zRecipeCompleteness = z.enum(['indicative', 'costed']);
 
 /**
  * Whether the frozen allergen label still matches the ingredient
- * mappings it was computed from. A new version is `stale` — nothing has
- * been derived for it, and claiming `current` for an empty label would be
- * the most dangerous default available. `failed` records that a recompute
- * was attempted and could not complete, which must never be
+ * mappings it was computed from. The empty version 1 created with a
+ * recipe is `current`: it has no lines, so there is nothing to derive and
+ * its empty label is the true one. The first content write marks it
+ * `stale`, and a version with no lines cannot be published (`no_lines`).
+ * Every other new version is `stale` — nothing has been derived for what
+ * it holds, and claiming `current` for a label nobody computed would be
+ * the most dangerous default available. `failed` records that a
+ * recompute was attempted and could not complete, which must never be
  * indistinguishable from "not tried yet".
  *
  */

@@ -53,12 +53,17 @@ final readonly class RecipeService
     ) {}
 
     /**
+     * `source_system` is for internal callers only — the catalogue backfill stamps its placeholders
+     * `catalogue_backfill` so they can be told apart from a recipe somebody wrote. The HTTP request
+     * has no rule for it, so `validated()` never carries one here: provenance is server-authored.
+     *
      * @param  array{
      *     name_en: string,
      *     name_ar?: string|null,
      *     slug?: string|null,
      *     branch_id?: string|null,
      *     recipe_category?: string|null,
+     *     source_system?: string|null,
      *     source_ref?: string|null,
      *     source_kind?: string|null,
      *     confidentiality?: string|null,
@@ -88,6 +93,7 @@ final readonly class RecipeService
                 ?? RecipeConfidentiality::Confidential;
             $recipe->status = RecipeStatus::Active;
             $recipe->notes = $this->trimmedOrNull($attributes['notes'] ?? null);
+            $recipe->source_system = $this->trimmedOrNull($attributes['source_system'] ?? null);
             $recipe->lock_version = 0;
             $recipe->created_by = $this->context->userId();
             $recipe->updated_by = $this->context->userId();
@@ -100,9 +106,12 @@ final readonly class RecipeService
             $version->status = RecipeVersionStatus::Draft;
             $version->completeness = RecipeCompleteness::Indicative;
 
-            // Nothing has been derived for a brand-new version, and `current`
-            // on an empty label is the most dangerous default available.
-            $version->derivation_state = DerivationState::Stale;
+            // `current`, because version 1 has no lines: there is nothing to derive, so the empty
+            // label it carries is the true one. The first content write marks it `stale` in the
+            // same transaction (`RecipeVersionService::replaceWithin`), and a version with no lines
+            // cannot publish (`no_lines`), so this never puts an underived label before a customer.
+            // `stale` here only filed every new recipe in the review queue with nothing to review.
+            $version->derivation_state = DerivationState::Current;
             $version->lock_version = 0;
             $version->created_by = $this->context->userId();
             $version->updated_by = $this->context->userId();

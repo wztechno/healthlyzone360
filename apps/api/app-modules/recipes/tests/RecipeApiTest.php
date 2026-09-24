@@ -57,9 +57,9 @@ it('creates a recipe together with its first draft version', function (): void {
         ->assertJsonPath('data.recipe.lock_version', 0)
         ->assertJsonPath('data.version.version_number', 1)
         ->assertJsonPath('data.version.status', 'draft')
-        // Nothing has been derived yet, and `current` on an empty label would
-        // be the most dangerous default available.
-        ->assertJsonPath('data.version.derivation_state', 'stale')
+        // Current: version 1 has no lines, so there is nothing to derive and its
+        // empty label is the true one. The first line written marks it stale.
+        ->assertJsonPath('data.version.derivation_state', 'current')
         ->assertHeader('ETag', '"0"');
 
     $recipeId = $response->json('data.recipe.id');
@@ -70,6 +70,45 @@ it('creates a recipe together with its first draft version', function (): void {
 
     expect(AuditLog::query()->where('action', 'catalogue.recipe_created')->count())->toBe(1)
         ->and(AuditLog::query()->where('action', 'catalogue.recipe_version_created')->count())->toBe(1);
+});
+
+it('marks the empty first version stale as soon as it has a line', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+
+    $recipeId = $this->postJson('/api/v1/catalogue/recipes', ['name_en' => 'Green Tahini'], $headers)
+        ->assertCreated()
+        ->assertJsonPath('data.version.derivation_state', 'current')
+        ->json('data.recipe.id');
+
+    $ingredient = RecipeWorld::mappedIngredient($this->a->organisation, 'Tahini', 'sesame');
+
+    // The first content write is what gives the label something to be derived from, so it is what
+    // makes the label stale — in the same transaction as the write, never a step later.
+    $this->putJson('/api/v1/catalogue/recipes/'.$recipeId.'/versions/1/lines', [
+        'lines' => [['ingredient_id' => (string) $ingredient->getKey(), 'quantity' => 250, 'unit_id' => RecipeWorld::unit()]],
+    ], $headers + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->assertJsonPath('data.version.derivation_state', 'stale');
+
+    expect(RecipeVersion::withoutTenancy()->where('recipe_id', $recipeId)->sole()->derivation_state)
+        ->toBe(DerivationState::Stale);
+});
+
+it('never takes a recipe’s provenance from the request', function (): void {
+    $this->actingAs($this->a->user);
+
+    // `source_system` is how the catalogue backfill marks its placeholders, and its `--undo` deletes
+    // by it. A client able to write it could dress a hand-made recipe up as a placeholder.
+    $recipeId = $this->postJson('/api/v1/catalogue/recipes', [
+        'name_en' => 'Hand-made Toum',
+        'source_system' => 'catalogue_backfill',
+    ], RecipeWorld::headers($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.recipe.source_system', null)
+        ->json('data.recipe.id');
+
+    expect(Recipe::withoutTenancy()->whereKey($recipeId)->value('source_system'))->toBeNull();
 });
 
 it('keeps one kitchens recipes invisible and unreachable to the other', function (): void {
