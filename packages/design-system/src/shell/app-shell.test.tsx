@@ -256,6 +256,61 @@ describe('AppShell — workspace', () => {
         expect(selected('nav-overview-rail')).toBe(false);
     });
 
+    it('says Overview has nothing under it, and opens the first module from there rather than shutting', async () => {
+        setViewport(1280);
+        const overviewPress = jest.fn();
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="workspace"
+                navigation={[
+                    {
+                        key: 'overview',
+                        label: 'Overview',
+                        icon: 'dashboard',
+                        active: true,
+                        onPress: overviewPress,
+                        testID: 'nav-overview',
+                    },
+                    {
+                        key: 'desk',
+                        label: 'Order desk',
+                        group: 'Order desk',
+                        onPress: jest.fn(),
+                        testID: 'nav-desk',
+                    },
+                    {
+                        key: 'meals',
+                        label: 'Meals',
+                        group: 'Catalogue',
+                        onPress: jest.fn(),
+                        testID: 'nav-meals',
+                    },
+                ]}
+            >
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        // No module's pages borrowed: the panel names the page and points at the rail.
+        expect(screen.getByTestId('shell-sidebar-empty')).toHaveTextContent(
+            /Overview has no pages under it/,
+        );
+        expect(screen.queryByTestId('nav-desk')).toBeNull();
+
+        // The first module — the one the panel used to borrow — opens instead of shutting.
+        await fireEvent.press(screen.getByTestId('shell-rail-group-Order desk'));
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+        expect(screen.getByTestId('nav-desk')).toBeTruthy();
+
+        // Back to Overview: the note again, and the panel reopens if it was shut.
+        await fireEvent.press(screen.getByTestId('shell-sidebar-toggle'));
+        await fireEvent.press(screen.getByTestId('nav-overview-rail'));
+        expect(overviewPress).toHaveBeenCalled();
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+        expect(screen.getByTestId('shell-sidebar-empty')).toBeTruthy();
+    });
+
     /**
      * Below `lg` the sidebar must be *absent*, not merely hidden: hidden navigation stays in the
      * accessibility tree and the tab order, which strands keyboard and screen reader users.
@@ -399,7 +454,12 @@ describe('AppShell — sidebar navigation', () => {
             </AppShell>,
         );
 
-        // Nothing grouped is active, so the panel opens on the first module in caller order.
+        // Home is ungrouped and active: the panel says there is nothing under it rather than
+        // borrowing the first module, and the first module's icon then lists that module.
+        expect(screen.getByTestId('shell-sidebar-empty')).toHaveTextContent(
+            /Home has no pages under it/,
+        );
+        await fireEvent.press(screen.getByTestId('shell-rail-group-Catalogue'));
         expect(screen.getByTestId('shell-navigation-group-Catalogue')).toHaveTextContent(
             'Catalogue',
         );
