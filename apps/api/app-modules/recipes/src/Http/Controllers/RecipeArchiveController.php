@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Healthy360\Recipes\Http\Controllers;
 
 use Healthy360\Recipes\Http\Concerns\ReadsPrecondition;
-use Healthy360\Recipes\Presenters\RecipeAdminPresenter;
 use Healthy360\Recipes\Services\RecipeLocator;
 use Healthy360\Recipes\Services\RecipeService;
+use Healthy360\Recipes\Services\RecipeSummaries;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -33,7 +33,7 @@ final class RecipeArchiveController
     public function __construct(
         private readonly RecipeLocator $locator,
         private readonly RecipeService $recipes,
-        private readonly RecipeAdminPresenter $presenter,
+        private readonly RecipeSummaries $summaries,
     ) {}
 
     /**
@@ -44,7 +44,7 @@ final class RecipeArchiveController
         $record = $this->locator->recipe($recipe);
         $archived = $this->recipes->archive($record, $this->requiredLockVersion($request));
 
-        return ApiResponse::data(['recipe' => $this->presenter->recipe($archived)])
+        return ApiResponse::data(['recipe' => $this->summaries->one($archived)])
             ->withHeaders(['ETag' => '"'.$archived->lock_version.'"']);
     }
 }

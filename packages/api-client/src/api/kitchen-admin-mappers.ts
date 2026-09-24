@@ -77,6 +77,7 @@ import type {
     AdminPriceList,
     AdminPriceListEntry,
     AdminRecipe,
+    AdminRecipeSoldAs,
     AdminRecipeVersion,
     AdminSalesChannel,
     ComputedCost as WireComputedCost,
@@ -796,52 +797,12 @@ export function mapPlanAdminFromItem(
     };
 }
 
-/**
- * One seller of a recipe, as `GET /catalogue/recipes` lists it beside the row.
- *
- * Typed here rather than read off the generated `AdminRecipe` because the wire type is regenerated
- * from the spec in the backend slice that declares these fields; until `pnpm gen:api` has run
- * against that spec, `AdminRecipe` does not know them. The backend slice replaces this local shape
- * with the generated `AdminRecipeSoldAs` and deletes the widening below.
- */
-type WireRecipeSeller = {
-    readonly id: string;
-    readonly item_type: string;
-    readonly status: CatalogueItemStatus;
-    readonly lock_version: number;
-    readonly reference: string | null;
-    readonly slug: string;
-    readonly name_en: string;
-    readonly name_ar: string | null;
-    readonly image_placeholder_id: string;
-    readonly kitchen_category: string | null;
-    readonly kitchen_subcategory: string | null;
-    readonly is_market_priced: boolean;
-    readonly is_assorted: boolean;
-    readonly data_quality_flags: readonly string[];
-    readonly portion_factor: string | number | null;
-    readonly composition: string | null;
-    readonly channel_codes: readonly string[];
-    readonly pack_count: number;
-    readonly default_pack: {
-        readonly label_en: string;
-        readonly label_ar: string | null;
-        readonly net_quantity: string | number;
-        readonly net_unit_code: string | null;
-    } | null;
-};
-
-type AdminRecipeWithSellers = AdminRecipe & {
-    readonly current_version_line_count?: number;
-    readonly kinds?: readonly string[];
-    readonly sold_as?: readonly WireRecipeSeller[];
-};
-
 function isSalesChannel(code: string): code is SalesChannel {
     return (SALES_CHANNELS as readonly string[]).includes(code);
 }
 
-function mapRecipeSeller(wire: WireRecipeSeller): RecipeSoldAs {
+/** One seller of a recipe, as `GET /catalogue/recipes` lists it beside the row. */
+function mapRecipeSeller(wire: AdminRecipeSoldAs): RecipeSoldAs {
     return {
         id: wire.id,
         // The server only lists the four cooked kinds; anything else is a contract break, and
@@ -895,7 +856,6 @@ export function mapRecipeAdminSummary(
 ): RecipeAdminSummary {
     const currentVersionNumber =
         options?.currentVersionNumber ?? wire.published_version_number ?? 1;
-    const book = wire as AdminRecipeWithSellers;
 
     return {
         id: RecipeId.unsafe(wire.id),
@@ -928,14 +888,14 @@ export function mapRecipeAdminSummary(
         allergenCodes:
             options?.allergenCodes ??
             wire.current_version_allergen_codes.map((code) => AllergenCode.unsafe(code)),
-        lineCount: book.current_version_line_count ?? 0,
+        lineCount: wire.current_version_line_count ?? 0,
         // Absent, not empty, when the server left the sellers out: a role without catalogue view
         // gets a row with no Kind, not a row that says the recipe sells nothing.
-        ...(book.sold_as === undefined
+        ...(wire.sold_as === undefined
             ? {}
             : {
-                  soldAs: book.sold_as.map(mapRecipeSeller),
-                  kinds: mapRecipeKinds(book.kinds),
+                  soldAs: wire.sold_as.map(mapRecipeSeller),
+                  kinds: mapRecipeKinds(wire.kinds),
               }),
     };
 }

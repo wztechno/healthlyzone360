@@ -401,6 +401,36 @@ it('carries the current version’s allergen codes, so a list needs no read per 
         ->assertJsonPath('data.0.current_version_allergen_codes', ['gluten', 'sesame']);
 });
 
+it('counts the current version’s lines on the page', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+
+    // Zero is what the book marks "Not formulated", so the empty first version has to say so.
+    $recipeId = $this->postJson('/api/v1/catalogue/recipes', ['name_en' => 'Counted Sauce'], $headers)
+        ->assertCreated()
+        ->assertJsonPath('data.recipe.current_version_line_count', 0)
+        ->json('data.recipe.id');
+
+    $tahini = RecipeWorld::mappedIngredient($this->a->organisation, 'Tahini', 'sesame');
+    $lemon = RecipeWorld::verifiedCleanIngredient($this->a->organisation, 'Lemon juice');
+
+    $this->putJson('/api/v1/catalogue/recipes/'.$recipeId.'/versions/1/lines', [
+        'lines' => [
+            ['ingredient_id' => (string) $tahini->getKey(), 'quantity' => 250, 'unit_id' => RecipeWorld::unit()],
+            ['ingredient_id' => (string) $lemon->getKey(), 'quantity' => 40, 'unit_id' => RecipeWorld::unit()],
+        ],
+    ], $headers + ['If-Match' => '"0"'])->assertOk();
+
+    // One grouped count for the page, on both pagination paths.
+    $this->getJson('/api/v1/catalogue/recipes?page=1&per_page=25', $headers)
+        ->assertOk()
+        ->assertJsonPath('data.0.current_version_line_count', 2);
+
+    $this->getJson('/api/v1/catalogue/recipes?limit=25', $headers)
+        ->assertOk()
+        ->assertJsonPath('data.0.current_version_line_count', 2);
+});
+
 it('narrows by a version state the recipe identity has no column for', function (): void {
     $quarantined = Recipe::factory()->create([
         'organisation_id' => $this->a->organisation->getKey(),
