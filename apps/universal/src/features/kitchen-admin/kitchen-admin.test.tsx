@@ -560,6 +560,30 @@ describe('the kitchen hub', () => {
         expect(screen.queryByTestId('kitchen-family-allergen-classes-drafts')).toBeNull();
     });
 
+    it('lists what a kitchen cooks as one recipe book, and still counts its meals on sale', async () => {
+        const { repositories } = await renderStubScreen(<KitchenHomeScreen />, {
+            session: kitchenManagerSession(),
+            repositories: hubRepositories([]),
+        });
+
+        await untilVisible('kitchen-family-recipes');
+        // One card for the book; the four pages that went into it are gone from the grid.
+        for (const departed of ['meals', 'sauces', 'dressings', 'frozenMeals']) {
+            expect(screen.queryByTestId(`kitchen-family-${departed}`)).toBeNull();
+        }
+
+        // The tile is keyed on the catalogue code now, not on a family that left, so it loads.
+        await untilVisible('kitchen-kpi-meals-value');
+        expect(screen.getByTestId('kitchen-kpi-meals-value')).toHaveTextContent('0');
+
+        // The book's "published" is what is on sale, counted through the sellers' own status.
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.listRecipes).toHaveBeenCalledWith(
+                expect.objectContaining({ sellingStatus: 'published' }),
+            );
+        });
+    });
+
     it('refuses a signed-in person whose role carries no catalogue permission', async () => {
         // No repository overrides at all: the gate refuses before the grid can ask for anything, so
         // a screen that fetched here would fail loudly with StubNotConfiguredError.

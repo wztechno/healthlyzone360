@@ -92,6 +92,24 @@ describe('KitchenPageSearch', () => {
         expect(screen.getByTestId('kitchen-page-search-item-stock')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-page-search-item-ingredients')).toBeNull();
     });
+
+    it('finds the recipe book by the names of the pages that went into it', async () => {
+        await renderStubScreen(<SearchProbe />, { session: kitchenManagerSession() });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-page-search-trigger'));
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-page-search-item-recipes')).toBeTruthy();
+        });
+
+        // No page is called "Sauces" any more; the book answers to the word instead.
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-page-search-input'), 'sauces');
+        });
+        expect(screen.getByTestId('kitchen-page-search-item-recipes')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-page-search-item-stock')).toBeNull();
+    });
 });
 
 /** The trail as pressable text, so a test can read each crumb and press the ones that link. */

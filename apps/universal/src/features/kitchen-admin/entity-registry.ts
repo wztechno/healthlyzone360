@@ -236,6 +236,12 @@ export interface EntityFamily {
     readonly descriptionKey: string;
     readonly icon: IconName;
     readonly href: string;
+    /**
+     * Other words the page search finds this family by, as one i18next key — matched, never shown.
+     * For a page whose name is not the word a reader types: the recipe book is where a kitchen's
+     * meals, sauces and dressings went, and "sauces" has to find it.
+     */
+    readonly keywordsKey?: string | undefined;
     /** Permission required to see the card *and* to open the screen behind it. */
     readonly permission: string;
     /** Permission required to write. `null` for a family nobody can write from this workspace. */
@@ -463,10 +469,14 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         group: 'catalogue',
         nameKey: 'kitchen:families.recipes.name',
         descriptionKey: 'kitchen:families.recipes.description',
-        // `▤`, the ruled sheet. The icon set has no recipe glyph and adding one is a design-system
-        // change, not a slice's; this is the closest honest reading — a technical sheet.
+        // The book: everything the kitchen cooks, whatever sells it — meals, sauces, dressings,
+        // frozen meals and the preparations nothing sells — so the names those pages had find it.
+        keywordsKey: 'kitchen:families.recipes.keywords',
+        // An open book, which is what this family is now rather than a library of technical sheets.
         icon: 'bookOpen',
         href: '/kitchen/recipes',
+        // The recipe code alone, although the book lists what sells each recipe: a role without
+        // the catalogue still opens it, and the server leaves the sellers out of what it sends.
         permission: RECIPE_VIEW_PERMISSION,
         managePermission: RECIPE_MANAGE_PERMISSION,
     },
@@ -484,59 +494,6 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         href: '/kitchen/products',
         // See the note on the permission constants: no `product.*` code exists that this world can
         // grant, so the product surfaces reuse the catalogue pair with the rest of K1.
-        permission: CATALOGUE_VIEW_PERMISSION,
-        managePermission: CATALOGUE_MANAGE_PERMISSION,
-    },
-    {
-        key: 'sauces',
-        kind: 'managed',
-        group: 'catalogue',
-        nameKey: 'kitchen:families.sauces.name',
-        descriptionKey: 'kitchen:families.sauces.description',
-        // Same face-on pack rectangle as products: a sauce sells as a packaged
-        // good, and the glyph table still has nothing closer.
-        icon: 'droplet',
-        href: '/kitchen/sauces',
-        permission: CATALOGUE_VIEW_PERMISSION,
-        managePermission: CATALOGUE_MANAGE_PERMISSION,
-    },
-    {
-        key: 'dressings',
-        kind: 'managed',
-        group: 'catalogue',
-        nameKey: 'kitchen:families.dressings.name',
-        descriptionKey: 'kitchen:families.dressings.description',
-        icon: 'salad',
-        href: '/kitchen/dressings',
-        permission: CATALOGUE_VIEW_PERMISSION,
-        managePermission: CATALOGUE_MANAGE_PERMISSION,
-    },
-    {
-        key: 'frozenMeals',
-        kind: 'managed',
-        group: 'catalogue',
-        nameKey: 'kitchen:families.frozenMeals.name',
-        descriptionKey: 'kitchen:families.frozenMeals.description',
-        // The same packaged-goods rectangle sauces and dressings carry: a frozen
-        // meal sells as a packaged good and leaves the freezer as one unit, which
-        // is precisely what separates it from the meal family below.
-        icon: 'snowflake',
-        href: '/kitchen/frozen-meals',
-        permission: CATALOGUE_VIEW_PERMISSION,
-        managePermission: CATALOGUE_MANAGE_PERMISSION,
-    },
-    {
-        key: 'meals',
-        kind: 'managed',
-        group: 'catalogue',
-        nameKey: 'kitchen:families.meals.name',
-        descriptionKey: 'kitchen:families.meals.description',
-        // `◉`, a filled disc inside a ring — a plate seen from above. Same compromise as the
-        // product glyph: the character is registered as `eye`, which is also the confidential
-        // badge's icon elsewhere in this workspace. The two never appear together, and the label
-        // beside the card is what carries the meaning; a food glyph is a design-system change.
-        icon: 'utensils',
-        href: '/kitchen/meals',
         permission: CATALOGUE_VIEW_PERMISSION,
         managePermission: CATALOGUE_MANAGE_PERMISSION,
     },

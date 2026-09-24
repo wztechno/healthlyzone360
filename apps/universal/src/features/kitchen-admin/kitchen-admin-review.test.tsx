@@ -89,7 +89,8 @@ afterAll(() => {
  *    recipe can arrive twice and must be rendered once.
  * 3. **The deep link points at the right editor and the right record.** A queue whose links were
  *    built by string concatenation somewhere would be one refactor away from sending a person to
- *    `/kitchen/meals/<a-recipe-id>`, and this is the only screen where every link crosses families.
+ *    `/kitchen/products/<a-recipe-id>`, and this is the only screen where every link crosses
+ *    families. A meal is the sharp case: it is a recipe in the book, so its link is its recipe's.
  * 4. **All-clear is honest.** It names what was checked, because a green state whose scope is
  *    unstated is indistinguishable from a query that quietly returned nothing.
  * 5. **The permission boundary holds**, and the hub card and the screen agree — they read one cache
@@ -202,6 +203,35 @@ function recipe(overrides: Partial<RecipeAdminSummary> = {}): RecipeAdminSummary
         // now the honest shape: the queue reads the identity's status and it is derived from this.
         currentVersionStatus: 'published',
         allergenCodes: [],
+        ...overrides,
+    };
+}
+
+function meal(overrides: Partial<MealAdmin> = {}): MealAdmin {
+    return {
+        id: MealId.unsafe('01935f6d-0000-7000-8000-00000000c001'),
+        meta: meta(),
+        name: { en: 'Herb garden bowl', ar: 'وعاء الأعشاب' },
+        description: { en: '', ar: '' },
+        kitchenCategory: null,
+        kitchenSubcategory: null,
+        composition: null,
+        kitchenId: '01935f6d-0000-7000-8000-00000000f000' as MealAdmin['kitchenId'],
+        recipeId: null,
+        recipeVersionId: null,
+        productionMode: null,
+        ingredientId: null,
+        sellsFromFinishedStock: false,
+        netContentQuantity: null,
+        netContentUnitId: null,
+        portionFactor: 1,
+        mealTypes: [],
+        dietClassifications: [],
+        allergens: [],
+        channelAvailability: [],
+        availability: [],
+        imagePlaceholderId: 'meal-1',
+        marginPercent: null,
         ...overrides,
     };
 }
@@ -405,36 +435,54 @@ describe('the review model', () => {
     it('drops a family with nothing to report rather than rendering an empty heading', () => {
         const queue = buildReviewQueue({
             ...emptySources(),
+            meals: [meal({ meta: meta({ status: 'review_required' }) })],
+        });
+
+        // A meal is filed under the recipe book, so Recipes is the one heading with a row in it.
+        expect(queue.sections.map((section) => section.familyKey)).toEqual(['recipes']);
+    });
+
+    /**
+     * A meal is a recipe in the book: its row is keyed and addressed by its recipe, so a meal and its
+     * own recipe arriving together are one row carrying both sets of reasons. A meal with no recipe
+     * keeps its own id, and its link is the item address that offers to start one.
+     */
+    it('files a meal under its recipe, one row with the recipe’s, or at its item address without one', () => {
+        const linked = recipe({ meta: meta({ status: 'draft' }), currentVersionStatus: 'draft' });
+        const unlinkedId = '01935f6d-0000-7000-8000-00000000c003';
+
+        const queue = buildReviewQueue({
+            ...emptySources(),
+            quarantinedRecipes: [linked],
             meals: [
-                {
-                    id: MealId.unsafe('01935f6d-0000-7000-8000-00000000c001'),
+                meal({
+                    id: MealId.unsafe('01935f6d-0000-7000-8000-00000000c002'),
+                    recipeId: linked.id,
                     meta: meta({ status: 'review_required' }),
-                    name: { en: 'Herb garden bowl', ar: 'وعاء الأعشاب' },
-                    description: { en: '', ar: '' },
-                    kitchenCategory: null,
-                    kitchenSubcategory: null,
-                    composition: null,
-                    kitchenId: '01935f6d-0000-7000-8000-00000000f000' as MealAdmin['kitchenId'],
-                    recipeId: null,
-                    recipeVersionId: null,
-                    productionMode: null,
-                    ingredientId: null,
-                    sellsFromFinishedStock: false,
-                    netContentQuantity: null,
-                    netContentUnitId: null,
-                    portionFactor: 1,
-                    mealTypes: [],
-                    dietClassifications: [],
-                    allergens: [],
-                    channelAvailability: [],
-                    availability: [],
-                    imagePlaceholderId: 'meal-1',
-                    marginPercent: null,
-                },
+                    name: { en: 'Lamb bowl', ar: '' },
+                }),
+                meal({ id: MealId.unsafe(unlinkedId) }),
             ],
         });
 
-        expect(queue.sections.map((section) => section.familyKey)).toEqual(['meals']);
+        expect(queue.sections.map((section) => section.familyKey)).toEqual(['recipes']);
+        const items = queue.sections[0]?.items ?? [];
+        expect(items).toHaveLength(2);
+
+        // The recipe's row, at the recipe's address, with the meal's reasons after its own — once each.
+        const merged = items.find((item) => item.id === String(linked.id));
+        expect(merged?.name).toEqual(linked.name);
+        expect(merged?.href).toBe(`/kitchen/recipes/${String(linked.id)}`);
+        expect(merged?.reasons.map((reason) => reason.code)).toEqual([
+            'draft',
+            'quarantined',
+            'missingTranslation',
+        ]);
+        expect(isBlocked(merged!)).toBe(true);
+
+        const unlinked = items.find((item) => item.id === unlinkedId);
+        expect(unlinked?.href).toBe(`/kitchen/recipes/item/${unlinkedId}?kind=meal`);
+        expect(unlinked?.reasons).toEqual([{ code: 'draft', count: null }]);
     });
 
     it('is empty, and reports zero, when nothing needs review', () => {
@@ -443,7 +491,7 @@ describe('the review model', () => {
 
     /**
      * Deep links come from the registry rather than from a second table of paths, which is what
-     * keeps `/kitchen/meals/<a-recipe-id>` from ever being constructible.
+     * keeps `/kitchen/products/<a-recipe-id>` from ever being constructible.
      */
     it('builds every deep link from the entity registry', () => {
         for (const familyKey of REVIEWABLE_FAMILY_KEYS) {

@@ -35,7 +35,7 @@ import { RecordViewPage } from '../catalogue/record-view-page.tsx';
  * ## The one screen in this workspace that is not about a family
  *
  * Every other kitchen screen answers "show me the ingredients". This one answers **what is stopping
- * anything from going out?** — a question across six families at once. They share one table, and
+ * anything from going out?** — a question across five families at once. They share one table, and
  * the ID column (`ING-`, `RC-`, `RSL-`, or the family's name where it has no series) says which
  * family a row is; its header filters by family.
  *
