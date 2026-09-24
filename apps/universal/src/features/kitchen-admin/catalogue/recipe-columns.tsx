@@ -5,7 +5,7 @@ import type {
     RecipeSoldAs,
     RecipeSoldAsPack,
 } from '@healthy360/api-client/contracts';
-import { Badge, Inline, Text } from '@healthy360/design-system';
+import { Badge, Icon, IconButton, Inline, Text } from '@healthy360/design-system';
 import { SALES_CHANNELS } from '@healthy360/domain-types';
 import type { KitchenId, SalesChannel } from '@healthy360/domain-types';
 import type { Formatter } from '@healthy360/i18n';
@@ -117,6 +117,12 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
  */
 
 export interface RecipeColumnDeps {
+    /**
+     * Opens a row's editor. The Not-formulated glyph on the name cell presses through to it: a
+     * placeholder's one next step is to write the formulation, so the mark that names the state
+     * is also the shortest way to fix it.
+     */
+    readonly onOpen?: ((row: RecipeAdminSummary) => void) | undefined;
     readonly t: TFunction;
     /** The resolved locale, as `useLocale()` reports it. */
     readonly locale: string;
@@ -267,6 +273,7 @@ export function recipeColumns({
     formatter,
     kitchenName,
     sells,
+    onOpen,
 }: RecipeColumnDeps): readonly CatalogueColumn<RecipeAdminSummary>[] {
     const dash = t('kitchen:list.noValue');
     const rowID = (row: RecipeAdminSummary): string => recipeRowTestId(String(row.id));
@@ -318,6 +325,8 @@ export function recipeColumns({
 
     const reference: CatalogueColumn<RecipeAdminSummary> = {
         key: 'reference',
+        // Fixed at its declared track: the title and the allergens spend the row's spare width.
+        grow: false,
         label: t('kitchen:list.columnReference'),
         width: 96,
         min: 84,
@@ -375,12 +384,24 @@ export function recipeColumns({
                      * A recipe with no raw-material lines — a placeholder written so a sold item
                      * has a place in the book, waiting for somebody to write its formulation.
                      * Allergens reads "None derived" on such a row, and this is the reason why.
+                     *
+                     * A glyph, not a badge: a 28px row has one line, and the words ran over the
+                     * Kind column beside them. The label is the button's own, drawn on hover the
+                     * way every icon button in the workspace draws it, and pressing the mark opens
+                     * the recipe — which is where the formulation gets written.
                      */}
                     {row.lineCount === 0 ? (
-                        <Badge
+                        <IconButton
                             testID={`${rowID(row)}-not-formulated`}
-                            tone="warning"
+                            // `ghost`: no box at rest. A boxed glyph read as a second button on
+                            // every placeholder row; the mark should read as a mark.
+                            variant="ghost"
+                            size="sm"
                             label={t('kitchen:recipes.notFormulated')}
+                            icon={<Icon name="warning" size="sm" className="text-warning-strong" />}
+                            onPress={() => {
+                                onOpen?.(row);
+                            }}
                         />
                     ) : null}
                 </Inline>
@@ -392,6 +413,8 @@ export function recipeColumns({
     // filter here would be reset by hiding the column — which must never move the reader's tab.
     const kind: CatalogueColumn<RecipeAdminSummary> = {
         key: 'kind',
+        // Fixed at its declared track: the title and the allergens spend the row's spare width.
+        grow: false,
         label: t('kitchen:recipes.columnKind'),
         width: 120,
         min: 96,
@@ -405,6 +428,8 @@ export function recipeColumns({
     // recipe filed under nothing borrows its seller's pair so the cell says where the menu files it.
     const category: CatalogueColumn<RecipeAdminSummary> = {
         key: 'category',
+        // Fixed at its declared track: the title and the allergens spend the row's spare width.
+        grow: false,
         label: t('kitchen:list.columnCategory'),
         width: 150,
         min: 112,
@@ -456,6 +481,8 @@ export function recipeColumns({
     // spec states one status role, and the recipe's own state holds it.
     const onSale: CatalogueColumn<RecipeAdminSummary> = {
         key: 'onSale',
+        // Fixed at its declared track: the title and the allergens spend the row's spare width.
+        grow: false,
         label: t('kitchen:recipes.columnOnSale'),
         width: 110,
         min: 78,
@@ -482,6 +509,8 @@ export function recipeColumns({
 
     const status: CatalogueColumn<RecipeAdminSummary> = {
         key: 'status',
+        // Fixed at its declared track: the title and the allergens spend the row's spare width.
+        grow: false,
         label: t('kitchen:list.columnStatus'),
         width: 110,
         min: 78,
@@ -504,6 +533,8 @@ export function recipeColumns({
 
     const channels: CatalogueColumn<RecipeAdminSummary> = {
         key: 'channels',
+        // Fixed at its declared track: the title and the allergens spend the row's spare width.
+        grow: false,
         label: t('kitchen:products.columnChannels'),
         width: 150,
         min: 110,
@@ -522,6 +553,8 @@ export function recipeColumns({
 
     const packs: CatalogueColumn<RecipeAdminSummary> = {
         key: 'packs',
+        // Fixed at its declared track: the title and the allergens spend the row's spare width.
+        grow: false,
         align: 'center',
         label: t('kitchen:products.columnPacks'),
         width: 160,
@@ -564,6 +597,8 @@ export function recipeColumns({
     // One column for three caveats, as the product list has it; ids unchanged from there.
     const flags: CatalogueColumn<RecipeAdminSummary> = {
         key: 'flags',
+        // Fixed at its declared track: the title and the allergens spend the row's spare width.
+        grow: false,
         label: t('kitchen:products.columnFlags'),
         width: 132,
         min: 96,
@@ -608,6 +643,8 @@ export function recipeColumns({
 
     const kitchen: CatalogueColumn<RecipeAdminSummary> = {
         key: 'kitchen',
+        // Fixed at its declared track: the title and the allergens spend the row's spare width.
+        grow: false,
         label: t('kitchen:recipes.columnKitchen'),
         width: 140,
         min: 120,

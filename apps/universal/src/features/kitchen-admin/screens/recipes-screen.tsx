@@ -246,7 +246,20 @@ function RecipesList() {
         viewedMealSeller === undefined ? null : MealId.unsafe(viewedMealSeller.id),
     );
     const columns = useMemo(
-        () => recipeColumns({ t, locale, formatter, kitchenName, sells: list.sells }),
+        () =>
+            recipeColumns({
+                t,
+                locale,
+                formatter,
+                kitchenName,
+                sells: list.sells,
+                onOpen: (row) => {
+                    list.openEditor(String(row.id));
+                },
+            }),
+        // `list.openEditor` is re-created with the hook each render, as the controls' own column
+        // objects already are; the memo saves the spec work, not the identity.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         [t, locale, formatter, kitchenName, list.sells],
     );
 

@@ -1908,7 +1908,9 @@ describe('the recipe list at desk width', () => {
         expect(screen.getByTestId(`${stub}-reference`)).toHaveTextContent('RC-0007');
         expect(screen.getByTestId(`${stub}-kind`)).toHaveTextContent('Preparation');
         expect(screen.getByTestId(`${stub}-on-sale-none`)).toBeTruthy();
-        expect(screen.getByTestId(`${stub}-not-formulated`)).toHaveTextContent(/Not formulated/);
+        // A glyph with the words as its name, drawn on hover — not a badge that would run over
+        // the Kind column beside it.
+        expect(screen.getByTestId(`${stub}-not-formulated`)).toHaveAccessibleName(/Not formulated/);
     });
 
     it('narrows the book by its own filing word, through the request', async () => {
