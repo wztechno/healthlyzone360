@@ -1,20 +1,19 @@
-import { useLocalSearchParams } from 'expo-router';
-
-import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 
 /**
- * `/kitchen/meals/{meal}` — a meal's page: the recipe it is made from, with its listing (portion,
- * service days, publication) on the Selling tab.
+ * `/kitchen/meals/{meal}` — where a meal's page used to be.
  *
- * `new` is a value of the same parameter, for the reason every other editor in this workspace gives.
+ * The id is the catalogue item's, not a recipe's, so it goes to the recipe book's item address,
+ * which hands over to the meal's recipe — or, for a meal with none yet, offers to start one. `new`
+ * goes to the book's create form for a meal. No record is read here: a redirect is not a
+ * destination, and `entity-registry.test.ts` skips it for the reason it skips `_layout`.
  */
-const MealEditScreen = lazyScreen(
-    'kitchen-meal-editor-loading',
-    async () =>
-        (await import('../../../src/features/kitchen-admin/screens/index.ts')).MealEditScreen,
-);
-
 export default function KitchenMealEditor() {
     const { meal } = useLocalSearchParams<{ meal?: string }>();
-    return <MealEditScreen meal={meal} />;
+    const href =
+        meal === undefined || meal === 'new'
+            ? '/kitchen/recipes/new?kind=meal'
+            : `/kitchen/recipes/item/${encodeURIComponent(meal)}?kind=meal`;
+
+    return <Redirect href={href as never} />;
 }

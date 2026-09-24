@@ -6,6 +6,7 @@ namespace Healthy360\Recipes\Services;
 
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Catalogues\Services\CatalogueItemService;
+use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
 use Healthy360\Recipes\Enums\DerivationState;
 use Healthy360\Recipes\Enums\RecipeCompleteness;
 use Healthy360\Recipes\Enums\RecipeConfidentiality;
@@ -50,15 +51,21 @@ final readonly class RecipeService
     public function __construct(
         private TenantContext $context,
         private AuditRecorder $audit,
+        private RecipeUsageRegistry $usage,
     ) {}
 
     /**
+     * `source_system` is for internal callers only — the catalogue backfill stamps its placeholders
+     * `catalogue_backfill` so they can be told apart from a recipe somebody wrote. The HTTP request
+     * has no rule for it, so `validated()` never carries one here: provenance is server-authored.
+     *
      * @param  array{
      *     name_en: string,
      *     name_ar?: string|null,
      *     slug?: string|null,
      *     branch_id?: string|null,
      *     recipe_category?: string|null,
+     *     source_system?: string|null,
      *     source_ref?: string|null,
      *     source_kind?: string|null,
      *     confidentiality?: string|null,
@@ -77,7 +84,7 @@ final readonly class RecipeService
             $recipe = new Recipe;
             $recipe->organisation_id = $organisationId;
             $recipe->branch_id = $attributes['branch_id'] ?? null;
-            $recipe->slug = $this->uniqueSlug($attributes['slug'] ?? $nameEn, $organisationId);
+            $recipe->slug = self::uniqueSlug($attributes['slug'] ?? $nameEn, $organisationId);
             $recipe->name_en = $nameEn;
             $recipe->name_ar = $this->trimmedOrNull($attributes['name_ar'] ?? null) ?? $nameEn;
             $recipe->source_ref = $this->trimmedOrNull($attributes['source_ref'] ?? null)
@@ -88,6 +95,7 @@ final readonly class RecipeService
                 ?? RecipeConfidentiality::Confidential;
             $recipe->status = RecipeStatus::Active;
             $recipe->notes = $this->trimmedOrNull($attributes['notes'] ?? null);
+            $recipe->source_system = $this->trimmedOrNull($attributes['source_system'] ?? null);
             $recipe->lock_version = 0;
             $recipe->created_by = $this->context->userId();
             $recipe->updated_by = $this->context->userId();
@@ -100,9 +108,12 @@ final readonly class RecipeService
             $version->status = RecipeVersionStatus::Draft;
             $version->completeness = RecipeCompleteness::Indicative;
 
-            // Nothing has been derived for a brand-new version, and `current`
-            // on an empty label is the most dangerous default available.
-            $version->derivation_state = DerivationState::Stale;
+            // `current`, because version 1 has no lines: there is nothing to derive, so the empty
+            // label it carries is the true one. The first content write marks it `stale` in the
+            // same transaction (`RecipeVersionService::replaceWithin`), and a version with no lines
+            // cannot publish (`no_lines`), so this never puts an underived label before a customer.
+            // `stale` here only filed every new recipe in the review queue with nothing to review.
+            $version->derivation_state = DerivationState::Current;
             $version->lock_version = 0;
             $version->created_by = $this->context->userId();
             $version->updated_by = $this->context->userId();
@@ -185,12 +196,22 @@ final readonly class RecipeService
      * Archive a recipe — a lifecycle action with its own route and its own
      * audit event (master plan v2 §4.15).
      *
-     * Refused while a published version exists. Archiving is not a way to
-     * withdraw something from sale: retiring the version is, and it has its
-     * own permission. Allowing archive to do it implicitly would let a
-     * manager pull a live recipe with a route that never mentions
-     * publication, and the audit trail would say "archived" where the
+     * Refused while a published version exists, **or while a published
+     * catalogue item sells the recipe**. Archiving is not a way to withdraw
+     * something from sale: retiring the version is, and so is retiring the
+     * listing, and each has its own permission. Allowing archive to do either
+     * implicitly would let a manager pull a live recipe with a route that never
+     * mentions publication, and the audit trail would say "archived" where the
      * meaningful event was "withdrawn".
+     *
+     * The listing half matters because a live item need not have a published
+     * version behind it: an item whose allergen basis is its own ingredient
+     * list, or the one ingredient it is, can be on sale while its recipe is
+     * still a draft, and archiving that recipe would take the dish out of the
+     * recipe book while a customer can still order it. It is asked through
+     * `RecipeUsageRegistry` — recipes never read catalogue tables — and a draft
+     * listing does not hold, for the reason the port gives: somebody drafting
+     * next month's menu must not stop this month's clean-up.
      *
      * @throws ApiException
      */
@@ -211,8 +232,10 @@ final readonly class RecipeService
             ->map(static fn (mixed $id): string => (string) $id)
             ->all());
 
-        if ($published !== []) {
-            throw new RecipeInUse($published);
+        $sellers = $this->usage->publishedItemIds($recipe);
+
+        if ($published !== [] || $sellers !== []) {
+            throw new RecipeInUse($published, $sellers);
         }
 
         $this->compareAndSwap($recipe, [
@@ -321,7 +344,15 @@ final readonly class RecipeService
         return $prefix.str_pad((string) ($highest + 1), 4, '0', STR_PAD_LEFT);
     }
 
-    private function uniqueSlug(string $source, string $organisationId): string
+    /**
+     * A slug no other recipe in this kitchen holds: the name's slug, then `-2`, `-3`, … on a clash.
+     *
+     * Public and static because the v6 importer writes recipes without this service and has to land
+     * on the same rule — `recipes(organisation_id, slug)` is unique, and a sheet whose designation
+     * slugs to a name a placeholder recipe already took would otherwise fail the whole import. The
+     * importer finds its sheets again by `source_ref`, never by slug, so a suffix costs it nothing.
+     */
+    public static function uniqueSlug(string $source, string $organisationId): string
     {
         $base = Str::limit(Str::slug($source), 110, '');
 

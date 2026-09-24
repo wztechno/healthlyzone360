@@ -8,8 +8,8 @@ import {
     ErrorState,
     Heading,
     Icon,
-    Skeleton,
     Stack,
+    TableSkeleton,
     Text,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
@@ -508,15 +508,7 @@ function TeamList() {
             </CatalogueToolbar>
 
             {team.isPending ? (
-                <Stack space="xs" testID="kitchen-team-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-team-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
+                <TableSkeleton testID="kitchen-team-loading" partTestID="kitchen-team" />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-team-error"

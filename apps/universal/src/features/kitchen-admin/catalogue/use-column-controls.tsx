@@ -109,6 +109,8 @@ export interface ColumnControlsOptions {
               readonly locked?: readonly string[] | undefined;
               /** A worksheet's own cap, in place of the catalogue's six. See the module docs. */
               readonly max?: number | undefined;
+              /** Where the choice is remembered when not under the table's id — see `ColumnVisibilityOptions`. */
+              readonly storageKey?: string | undefined;
           }
         | undefined;
 }
@@ -152,7 +154,12 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
         const ranked = [...allColumns].sort((left, right) => right.priority - left.priority);
         return [...new Set([...locked, ...ranked.map((column) => column.key)])].slice(0, max);
     }, [statedDefaults, allColumns, locked, max]);
-    const visibility = useColumnVisibility(testIDPrefix, allColumns, { defaults, locked, max });
+    const visibility = useColumnVisibility(testIDPrefix, allColumns, {
+        defaults,
+        locked,
+        max,
+        storageKey: options.picker?.storageKey,
+    });
     const columns = visibility.visible;
 
     const external = options.sort;

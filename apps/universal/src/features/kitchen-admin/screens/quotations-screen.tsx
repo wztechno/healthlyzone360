@@ -13,9 +13,10 @@ import {
     ErrorState,
     FormSection,
     Icon,
+    RecordSkeleton,
     RecordWindowFieldGrid,
-    Skeleton,
     Stack,
+    TableSkeleton,
     Text,
     useToast,
 } from '@healthy360/design-system';
@@ -363,11 +364,7 @@ function Quotations() {
             </CatalogueToolbar>
 
             {quotations.isPending ? (
-                <Stack space="xs" testID="kitchen-quotations-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton key={index} heightClassName="h-row-sm" />
-                    ))}
-                </Stack>
+                <TableSkeleton testID="kitchen-quotations-loading" />
             ) : listFailure !== null ? (
                 <ErrorState
                     testID="kitchen-quotations-error"
@@ -545,7 +542,7 @@ function QuotationPricing({
             </View>
 
             {detail.isPending ? (
-                <Skeleton testID="kitchen-quotations-detail-loading" heightClassName="h-40" />
+                <RecordSkeleton testID="kitchen-quotations-detail-loading" tiles={0} rows={4} />
             ) : detailFailure !== null ? (
                 <ErrorState
                     testID="kitchen-quotations-detail-error"

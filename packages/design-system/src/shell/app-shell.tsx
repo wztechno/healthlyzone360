@@ -217,10 +217,20 @@ function AppShellLayout({
     const activeGroup = navigation.find(
         (item) => item.active === true && item.group !== undefined,
     )?.group;
+    /** The page is an ungrouped destination (Overview) — a module with no pages of its own. */
+    const activeUngrouped = navigation.find(
+        (item) => item.active === true && item.group === undefined,
+    );
+    /**
+     * `undefined` on an ungrouped destination nobody has picked a module over: the panel says there
+     * is nothing under it rather than borrowing the first module's pages. The borrowed list was the
+     * bug — the rail lit Overview while the panel showed that module, so pressing its icon read as
+     * "the module already listed" and slid the panel shut instead of opening it.
+     */
     const shownGroup =
         chosenGroup !== null && groups.includes(chosenGroup)
             ? chosenGroup
-            : (activeGroup ?? groups[0]);
+            : (activeGroup ?? (activeUngrouped === undefined ? groups[0] : undefined));
 
     const toggleSidebar = () => {
         setCollapsed(!sidebarCollapsed);
@@ -233,6 +243,12 @@ function AppShellLayout({
         }
         setChosenGroup(group);
         if (sidebarCollapsed) setCollapsed(false);
+    };
+    /** An ungrouped destination: go there, and open the panel on its note if it is shut. */
+    const chooseUngrouped = (item: NavigationItem) => {
+        setChosenGroup(null);
+        if (sidebarCollapsed && groups.length > 0) setCollapsed(false);
+        item.onPress();
     };
 
     if (variant === 'kiosk') {
@@ -576,9 +592,6 @@ function AppShellLayout({
      * ungrouped destination clears the pick, so Overview never stays lit beside a module.
      */
     const moduleRail = () => {
-        const activeUngrouped = navigation.find(
-            (item) => item.active === true && item.group === undefined,
-        );
         const litKey: string | undefined =
             !sidebarCollapsed && chosenGroup !== null && groups.includes(chosenGroup)
                 ? `group-${chosenGroup}`
@@ -598,8 +611,7 @@ function AppShellLayout({
                     expanded: undefined as boolean | undefined,
                     testID: item.testID === undefined ? undefined : `${item.testID}-rail`,
                     onPress: () => {
-                        setChosenGroup(null);
-                        item.onPress();
+                        chooseUngrouped(item);
                     },
                 })),
             ...groups.map((group) => {
@@ -989,7 +1001,20 @@ function AppShellLayout({
                                 }
                                 className="flex-1"
                             >
-                                {navigationList(false, 'surface', shownGroup)}
+                                {shownGroup === undefined &&
+                                groups.length > 0 &&
+                                activeUngrouped !== undefined ? (
+                                    <PanelEmptyNote
+                                        item={activeUngrouped}
+                                        testID={
+                                            testID === undefined
+                                                ? undefined
+                                                : `${testID}-sidebar-empty`
+                                        }
+                                    />
+                                ) : (
+                                    navigationList(false, 'surface', shownGroup)
+                                )}
                             </ScrollView>
                             {/* A caller with no rail-sized end control keeps its full one here. */}
                             {sidebarEndCollapsed === undefined ? sidebarEnd : null}
@@ -1139,6 +1164,43 @@ function PanelNavLink({
                 {item.badge}
             </View>
         </Pressable>
+    );
+}
+
+/**
+ * What the page panel says on an ungrouped destination — Overview is one page with nothing under
+ * it, so the panel names that and points at the rail rather than standing blank or borrowing
+ * another module's pages. Laid out like a module's list: a heading-sized line where the module
+ * heading sits, the hint a step down, both at the list's inset.
+ */
+function PanelEmptyNote({
+    item,
+    testID,
+}: {
+    readonly item: NavigationItem;
+    readonly testID?: string | undefined;
+}) {
+    const { t } = useTranslation();
+    return (
+        // `p-5` is the list's `p-2` plus its heading's `px-3 pt-3`: the note starts where a module
+        // heading would.
+        <View testID={testID} className="flex-col items-start gap-2 p-5">
+            {item.icon === undefined ? null : (
+                <View className="h-10 w-10 items-center justify-center rounded-lg bg-surface-sunken">
+                    <Icon name={item.icon} size="lg" className="text-content-secondary" />
+                </View>
+            )}
+            <RNText
+                accessibilityRole="header"
+                aria-level={2}
+                className="text-sm font-bold text-content-primary text-start"
+            >
+                {t('designSystem:shell.emptyPanelTitle', { page: item.label })}
+            </RNText>
+            <RNText className="text-xs text-content-secondary text-start">
+                {t('designSystem:shell.emptyPanelBody')}
+            </RNText>
+        </View>
     );
 }
 

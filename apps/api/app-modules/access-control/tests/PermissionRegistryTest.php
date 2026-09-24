@@ -202,6 +202,11 @@ it('lets the buyer spend the kitchen\'s money without seeing what it charges', f
         'organisation.view_current',
         'branch.view_current',
         'catalogue.view_organisation',
+        // The recipe book: the meal, sauce, dressing and frozen-meal lists this
+        // role read under the catalogue code are one page behind this code now.
+        // Pinned so the merge cannot quietly take four pages away from a buyer —
+        // `2026_09_24_000105` grants it to databases a deploy never re-seeds.
+        'recipe.view_organisation',
         'inventory.view_organisation',
         'inventory.manage_organisation',
         'inventory.view_costs_organisation',
@@ -334,7 +339,9 @@ it('grants each template role the expected number of codes', function (string $r
     // absence was silent rather than red. `classifies every template role as
     // organisation-scoped` above pins the full role list, which is what notices
     // a new role that this dataset has not heard of.
-    'purchasing manager spends the kitchen money without seeing what it charges' => ['procurement_manager', 7],
+    // Eight since the recipe book: `recipe.view_organisation`, so the buyer keeps
+    // the meal, sauce, dressing and frozen-meal lists that merged into it.
+    'purchasing manager spends the kitchen money without seeing what it charges, and reads the recipe book' => ['procurement_manager', 8],
     'finance manager reads every number and can change exactly one, the unit cost of a recipe line' => ['finance_manager', 12],
 ]);
 

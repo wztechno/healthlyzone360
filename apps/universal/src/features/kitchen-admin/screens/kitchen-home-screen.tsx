@@ -23,7 +23,7 @@ import { View } from 'react-native';
 
 import type { UseQueryResult } from '@tanstack/react-query';
 
-import { Gate } from '../../../access/gate.tsx';
+import { Gate, useCan } from '../../../access/gate.tsx';
 import {
     useAllergenClassesQuery,
     useBranchOperatingQuery,
@@ -47,7 +47,12 @@ import { useOrderDeskShortfallCountQuery } from '../../../data/order-desk-hooks.
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { BrandGradient } from '../../../ui/brand-gradient.tsx';
 import { operatingDraftsFrom, summariseOperating } from '../delivery-model.ts';
-import { ENTITY_GROUPS, WORKSPACE_PERMISSIONS, permittedFamilies } from '../entity-registry.ts';
+import {
+    CATALOGUE_VIEW_PERMISSION,
+    ENTITY_GROUPS,
+    WORKSPACE_PERMISSIONS,
+    permittedFamilies,
+} from '../entity-registry.ts';
 import type { EntityFamily, EntityGroup } from '../entity-registry.ts';
 import { KpiTile as BaseKpiTile } from '../kpi-tile.tsx';
 import { buildReviewQueue } from '../review-queue.ts';
@@ -520,9 +525,6 @@ function renderFamilyCard(
     summaries: {
         readonly recipe: UseQueryResult<PublishedFamilySummary>;
         readonly product: UseQueryResult<PublishedFamilySummary>;
-        readonly sauce: UseQueryResult<PublishedFamilySummary>;
-        readonly dressing: UseQueryResult<PublishedFamilySummary>;
-        readonly meal: UseQueryResult<PublishedFamilySummary>;
         readonly priceList: UseQueryResult<PublishedFamilySummary>;
         readonly plan: UseQueryResult<PublishedFamilySummary>;
         readonly zone: UseQueryResult<PublishedFamilySummary>;
@@ -541,17 +543,6 @@ function renderFamilyCard(
     }
     if (family.key === 'products') {
         return <PublishedFamilyCard key={family.key} family={family} summary={summaries.product} />;
-    }
-    if (family.key === 'sauces') {
-        return <PublishedFamilyCard key={family.key} family={family} summary={summaries.sauce} />;
-    }
-    if (family.key === 'dressings') {
-        return (
-            <PublishedFamilyCard key={family.key} family={family} summary={summaries.dressing} />
-        );
-    }
-    if (family.key === 'meals') {
-        return <PublishedFamilyCard key={family.key} family={family} summary={summaries.meal} />;
     }
     if (family.key === 'price-lists') {
         return (
@@ -628,11 +619,18 @@ export function KitchenHomeScreen() {
     const families = permittedFamilies(state);
 
     const permitted = new Set(families.map((family) => family.key));
-    const recipeSummary = useRecipeSummaryQuery(permitted.has('recipes'));
+    const canViewCatalogue = useCan(CATALOGUE_VIEW_PERMISSION);
+    // The recipe card counts what is on sale as published — the menu's question, not the recipe's.
+    const recipeSummary = useRecipeSummaryQuery(permitted.has('recipes'), canViewCatalogue);
     const productSummary = useProductSummaryQuery(permitted.has('products'));
-    const sauceSummary = useProductSummaryQuery(permitted.has('sauces'), 'sauce');
-    const dressingSummary = useProductSummaryQuery(permitted.has('dressings'), 'dressing');
-    const mealSummary = useMealSummaryQuery(permitted.has('meals'));
+    /*
+     * The Drafts and Published-meals tiles still count sauces, dressings and meals as items. Their
+     * families went into the recipe book, so these reads are keyed on the code that lists the items
+     * rather than on a family that no longer exists — keyed on the family, they would never load.
+     */
+    const sauceSummary = useProductSummaryQuery(canViewCatalogue, 'sauce');
+    const dressingSummary = useProductSummaryQuery(canViewCatalogue, 'dressing');
+    const mealSummary = useMealSummaryQuery(canViewCatalogue);
     const priceListSummary = usePriceListSummaryQuery(permitted.has('price-lists'));
     const planSummary = usePlanSummaryQuery(permitted.has('plans'));
     const zoneSummary = useZoneSummaryQuery(permitted.has('delivery-zones'));
@@ -670,9 +668,6 @@ export function KitchenHomeScreen() {
     const summaries = {
         recipe: recipeSummary,
         product: productSummary,
-        sauce: sauceSummary,
-        dressing: dressingSummary,
-        meal: mealSummary,
         priceList: priceListSummary,
         plan: planSummary,
         zone: zoneSummary,
@@ -682,15 +677,19 @@ export function KitchenHomeScreen() {
     if (permitted.has('ingredients')) draftParts.push(ingredientSummary.data?.drafts);
     if (permitted.has('recipes')) draftParts.push(recipeSummary.data?.drafts);
     if (permitted.has('products')) draftParts.push(productSummary.data?.drafts);
-    if (permitted.has('sauces')) draftParts.push(sauceSummary.data?.drafts);
-    if (permitted.has('dressings')) draftParts.push(dressingSummary.data?.drafts);
-    if (permitted.has('meals')) draftParts.push(mealSummary.data?.drafts);
+    if (canViewCatalogue) {
+        draftParts.push(
+            sauceSummary.data?.drafts,
+            dressingSummary.data?.drafts,
+            mealSummary.data?.drafts,
+        );
+    }
     const knownDrafts = draftParts.filter((part): part is number => typeof part === 'number');
     const draftsPending =
         (permitted.has('ingredients') && ingredientSummary.isPending) ||
         (permitted.has('recipes') && recipeSummary.isPending) ||
         (permitted.has('products') && productSummary.isPending) ||
-        (permitted.has('meals') && mealSummary.isPending);
+        (canViewCatalogue && mealSummary.isPending);
     const draftTotal = draftsPending
         ? null
         : draftParts.length === 0
@@ -797,7 +796,9 @@ export function KitchenHomeScreen() {
                                         testID="kitchen-kpi-meals"
                                         label={t('kitchen:hub.kpi.publishedMeals')}
                                         value={publishedMeals}
-                                        pending={mealSummary.isPending}
+                                        // A disabled read stays pending for ever, so a reader who
+                                        // cannot list items gets the dash, not an endless skeleton.
+                                        pending={canViewCatalogue && mealSummary.isPending}
                                     />
                                     <KpiTile
                                         testID="kitchen-kpi-zones"

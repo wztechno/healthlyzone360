@@ -196,6 +196,22 @@ export const DRAWN_ICON_FALLBACKS = {
     layoutGrid: 'basket',
     funnel: 'filter',
     searchLens: 'search',
+    /*
+     * The workspace's marks — `/workspace`'s tiles and the workspace pages. Each falls back to the
+     * glyph its tile or page carried, so native reads as it did; `shieldPlus` alone takes `branch`,
+     * because `lock` went to `handshake` first and the tiles must stay distinct on native too.
+     */
+    store: 'home',
+    heartPulse: 'user',
+    apple: 'leaf',
+    stethoscope: 'medicalCross',
+    monitor: 'device',
+    bike: 'basket',
+    building: 'organisation',
+    shieldPlus: 'branch',
+    settings: 'prototype',
+    monitorSmartphone: 'device',
+    swatchBook: 'prototype',
 } as const satisfies Readonly<Record<string, IconGlyphName>>;
 export type DrawnIconName = keyof typeof DRAWN_ICON_FALLBACKS;
 

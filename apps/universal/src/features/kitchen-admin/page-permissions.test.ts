@@ -92,8 +92,8 @@ describe('reading a level off a code set', () => {
 
 describe('the grid', () => {
     it('names the siblings a shared code moves with it', () => {
-        // `catalogue.view_organisation` gates eleven families. The row has to say so, because
-        // setting one and watching ten others move is otherwise indistinguishable from a bug.
+        // `catalogue.view_organisation` gates nine families. The row has to say so, because
+        // setting one and watching eight others move is otherwise indistinguishable from a bug.
         const sections = pageSections(new Set());
         const rows = sections.flatMap((section) => section.rows);
         const ingredients = rows.find((row) => row.family.key === 'ingredients');
@@ -113,13 +113,13 @@ describe('the grid', () => {
     });
 
     it('moves the siblings when one of them is set', () => {
-        // The projection, stated. Setting Ingredients to View is setting eleven pages to View,
+        // The projection, stated. Setting Ingredients to View is setting nine pages to View,
         // because that is what the one code the backend checks actually does.
         const next = applyPageLevel(new Set(), family('ingredients'), 'view');
         const rows = pageSections(next).flatMap((row) => row.rows);
 
         expect(rows.find((row) => row.family.key === 'products')?.level).toBe('view');
-        expect(rows.find((row) => row.family.key === 'meals')?.level).toBe('view');
+        expect(rows.find((row) => row.family.key === 'packaging')?.level).toBe('view');
         // And nothing on a different code moved.
         expect(rows.find((row) => row.family.key === 'orders')?.level).toBe('none');
     });

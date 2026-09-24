@@ -22,11 +22,11 @@ import {
     FormGrid,
     FormIssueBanner,
     FormSection,
+    FormSkeleton,
     Icon,
     Inline,
     QuantityInput,
     Select,
-    Skeleton,
     Stack,
     Tabs,
     Tag,
@@ -72,6 +72,7 @@ import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
+import { TabStepNavigation } from '../editor-steps.tsx';
 import {
     RECIPE_MANAGE_PERMISSION,
     RECIPE_VIEW_COSTS_PERMISSION,
@@ -111,11 +112,11 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * `/kitchen/recipes/{recipe}` — the recipe editor, as `Catalogue.dc.html` draws it (`isRecipeEdit`,
  * around line 313).
  *
- * It is also what `/kitchen/sauces/{item}` and `/kitchen/dressings/{item}` draw. A sauce is cooked
- * and owns a recipe of its own — the import writes one per SC-/DR- row — so the questions asked of
- * one are these questions, and `CookedItemEditScreen` resolves the catalogue item to its recipe and
- * hands it here. The same tabs, because it is the same component rather than a copy of it — a
- * sauce's bottles are packaging lines exactly as a meal's box is.
+ * It is every kind in the recipe book — a meal, a sauce, a dressing, a frozen meal, a preparation.
+ * A sauce is cooked and owns a recipe of its own — the import writes one per SC-/DR- row — so the
+ * questions asked of one are these questions, and `RecipeBookEditScreen` hands the recipe here with
+ * whatever sells it on a tab. The same tabs, because it is the same component rather than a copy of
+ * it — a sauce's bottles are packaging lines exactly as a meal's box is.
  *
  * ```
  * Kitchen workspace › Recipes › Thousand Islands   <- the shell's trail
@@ -130,8 +131,8 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * a summary line under it, and the tabs as numbered steps on a sunken track, each carrying its count
  * and — when something on it needs attention — a solid pill with the number of problems. The
  * banner under the header names each of those problems and takes the reader to it, switching tab
- * on the way; the pills are what tells a reader *which* tab to open without opening all five. There
- * is no Previous/Next footer any more: the numbered row is both the map and the way through it.
+ * on the way; the pills are what tells a reader *which* tab to open without opening all five. The
+ * row is how a reader jumps; the Previous/Next footer (`TabStepNavigation`) is how they walk it.
  *
  * The yield moved from Description to Production, where it sits with the production waste as
  * "Yield & waste" above the lines it divides; the packaging waste sits above the packaging lines
@@ -255,10 +256,10 @@ interface DetailsDraft {
     /**
      * The kitchen's own filing word for this formulation — `cooking_sauce`, `marinade_prep`.
      *
-     * Edited only where a route supplies the vocabulary for it: `/kitchen/recipes` files nothing,
-     * because the recipe library has no one list of words to offer, while a sauce is always one of
-     * four. The column is free text with no CHECK, so whatever is already stored survives a save
-     * from a form that would not have offered it.
+     * Edited only where the host supplies the vocabulary for it: a meal, a preparation or a plain
+     * recipe files nothing, because the book has no one list of words to offer them, while a sauce
+     * is always one of four. The column is free text with no CHECK, so whatever is already stored
+     * survives a save from a form that would not have offered it.
      */
     readonly recipeCategory: string;
 }
@@ -433,17 +434,18 @@ export interface RecipeEditScreenProps {
     /** The route parameter. `'new'` or absent creates. */
     readonly recipe?: string | undefined;
     /**
-     * Where Discard and the not-found notice return to. `/kitchen/recipes` unless a host route says
-     * otherwise — a sauce opened from `/kitchen/sauces` must go back to the list it came from.
+     * Where Discard and the not-found notice return to. `/kitchen/recipes` unless the host says
+     * otherwise — a sauce goes back to the book's Sauces tab, `/kitchen/recipes?kind=sauce`, the
+     * list it came from.
      */
     readonly backTo?: string | undefined;
     /**
-     * The filing this route already knows, and the words it offers for the rest of it.
+     * The filing the host already knows, and the words it offers for the rest of it.
      *
-     * `/kitchen/sauces` knows its category is Sauces & marinades before the form is drawn — it is
-     * what makes it that page — so the category is stated rather than asked, and what is left to
-     * choose is the sub-category. Omitted on `/kitchen/recipes`, where the library spans every
-     * family and there is no one list to offer.
+     * A recipe filed as a sauce knows its category is Sauces & marinations before the form is drawn
+     * — its kind is what files it — so the category is stated rather than asked, and what is left to
+     * choose is the sub-category. Omitted for a meal, a preparation and a plain recipe, where there
+     * is no one list to offer.
      */
     readonly classification?:
         | {
@@ -457,26 +459,34 @@ export interface RecipeEditScreenProps {
     /**
      * What to do with a freshly created recipe, instead of routing to `/kitchen/recipes/{id}`.
      *
-     * The sauce route uses it to write the catalogue item that sells this formulation and route to
-     * *that*, so a sauce created here appears in the list it was created from.
+     * The recipe book uses it to write the catalogue item that sells a new meal, sauce, dressing or
+     * frozen meal before it lands on the recipe, so what was created here is sold as the kind it was
+     * created as.
+     *
+     * A host that passes it is creating something sold, so the create form also asks for the
+     * description a customer reads — drawn only then, and handed over here in both languages. It is
+     * the *item's* description (`description_en` / `description_ar`); the recipe itself stores one
+     * language of notes at most, which is why it is not read back off `recipe`.
      */
-    readonly onCreated?: ((recipe: RecipeAdmin) => void) | undefined;
+    readonly onCreated?:
+        | ((recipe: RecipeAdmin, listing: { readonly description: LocalisedText }) => void)
+        | undefined;
     /**
      * Which reference series this record numbers in. The recipe library's unless a route says
      * otherwise — a sauce is `SAC-`, a dressing `DRS-`.
      *
-     * It drives the Ref. box on the create form. On the sauce and dressing routes the handle it
-     * shows is the *item's* — `SAC-044` — because that is the sauce's own handle, the one the list
-     * prints and a cook quotes; the recipe behind it keeps a library `RC-` handle of its own, which
-     * nobody reads off this screen.
+     * It drives the Ref. box on the create form. For a new sauce or dressing the handle it shows is
+     * the *item's* — `SAC-044` — because that is the sauce's own handle, the one the list prints and
+     * a cook quotes; the recipe behind it keeps a library `RC-` handle of its own.
      */
     readonly referenceSeries?: ReferenceSeries | undefined;
     /**
      * The catalogue item this formulation is sold as, drawn as a tab of its own.
      *
      * A sauce, a dressing or a meal is one thing to a kitchen and two records to the API: the recipe
-     * it is made from and the item it is sold as. This editor owns the recipe; the host that resolved
-     * the item owns the item, and hands its listing over as `content` so the two read as one page.
+     * it is made from and the item it is sold as. This editor owns the recipe; the host that read
+     * what sells it owns the item, and hands its listing over as `content` so the two read as one
+     * page.
      * They still save separately — different records, different lock versions, different permissions
      * — so nothing on this screen's Save draft writes the item, and nothing in the tab writes the
      * recipe.
@@ -1269,7 +1279,7 @@ function RecipeEditor({
                         }),
                     });
                     if (onCreated !== undefined) {
-                        onCreated(created);
+                        onCreated(created, { description: details.description });
                         return;
                     }
                     router.replace(`/kitchen/recipes/${String(created.id)}` as never);
@@ -1399,11 +1409,11 @@ function RecipeEditor({
 
     if (!isCreating && record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-recipe-editor-loading">
-                <Skeleton testID="kitchen-recipe-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-recipe-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-recipe-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-recipe-editor-loading"
+                partTestID="kitchen-recipe"
+                sections={3}
+            />
         );
     }
 
@@ -1875,6 +1885,10 @@ function RecipeEditor({
                                     layout="row"
                                     testID="kitchen-recipe-name"
                                     fieldLabel={t('kitchen:recipes.columnName')}
+                                    placeholder={{
+                                        en: t('kitchen:fields.recipeNamePlaceholderEn'),
+                                        ar: t('kitchen:fields.recipeNamePlaceholderAr'),
+                                    }}
                                     value={details.name}
                                     requiredEnglish
                                     disabled={!editable}
@@ -1886,6 +1900,31 @@ function RecipeEditor({
                                         markDirty('details');
                                     }}
                                 />
+                                {/*
+                                 * Only when creating something sold — a sauce, a dressing, a
+                                 * frozen meal, a meal: the description is its catalogue item's, and
+                                 * once it exists it is edited on the Selling tab with the rest of
+                                 * the listing. A library recipe sells nothing and draws none.
+                                 */}
+                                {!isCreating || onCreated === undefined ? null : (
+                                    <BilingualField
+                                        span={4}
+                                        layout="row"
+                                        multiline
+                                        testID="kitchen-recipe-description"
+                                        fieldLabel={t('kitchen:products.descriptionLabel')}
+                                        placeholder={{
+                                            en: t('kitchen:fields.descriptionPlaceholderEn'),
+                                            ar: t('kitchen:fields.descriptionPlaceholderAr'),
+                                        }}
+                                        value={details.description}
+                                        disabled={!editable}
+                                        onChange={(next) => {
+                                            setDetails({ ...details, description: next });
+                                            markDirty('details');
+                                        }}
+                                    />
+                                )}
                                 {classification === undefined ? null : (
                                     <TextInputField
                                         span={2}
@@ -1924,23 +1963,24 @@ function RecipeEditor({
                                     />
                                 )}
                                 {/*
-                                 * Read, never written: the series is the server's to issue.
-                                 * Creating, it is the handle this record is *about* to take — a
-                                 * preview and not a reservation, so two forms open at once are both
-                                 * shown it and the second save lands one number later. The record's
-                                 * own `RC-0001`, not its slug: a slug follows the name.
+                                 * Read, never written: the series is the server's to issue — and
+                                 * not drawn on a new record, where it could only preview a number
+                                 * the save has not taken yet. The preview stays beside the title.
+                                 * The record's own `RC-0001`, not its slug: a slug follows the name.
                                  */}
-                                <TextInputField
-                                    span={2}
-                                    testID="kitchen-recipe-reference"
-                                    id="kitchen-recipe-reference"
-                                    label={t('kitchen:list.columnReference')}
-                                    size="sm"
-                                    placeholder={t('kitchen:fields.referencePlaceholder')}
-                                    value={headerReference}
-                                    disabled
-                                    onChangeText={() => undefined}
-                                />
+                                {isCreating ? null : (
+                                    <TextInputField
+                                        span={2}
+                                        testID="kitchen-recipe-reference"
+                                        id="kitchen-recipe-reference"
+                                        label={t('kitchen:list.columnReference')}
+                                        size="sm"
+                                        placeholder={t('kitchen:fields.referencePlaceholder')}
+                                        value={headerReference}
+                                        disabled
+                                        onChangeText={() => undefined}
+                                    />
+                                )}
                             </FormGrid>
                         </View>
                     </FormSection>
@@ -2129,6 +2169,7 @@ function RecipeEditor({
                                 testID="kitchen-recipe-yield-quantity"
                                 id="kitchen-recipe-yield-quantity"
                                 label={t('kitchen:recipes.yieldQuantity')}
+                                placeholder={t('kitchen:fields.quantityPlaceholder')}
                                 size="sm"
                                 required
                                 unit={t(unitShortKey('kg'))}
@@ -2151,6 +2192,7 @@ function RecipeEditor({
                                 testID="kitchen-recipe-yield-pieces"
                                 id="kitchen-recipe-yield-pieces"
                                 label={t('kitchen:recipes.yieldPieces')}
+                                placeholder={t('kitchen:fields.quantityPlaceholder')}
                                 size="sm"
                                 value={details.yieldPieces}
                                 disabled={!editable}
@@ -2163,6 +2205,7 @@ function RecipeEditor({
                                 testID="kitchen-recipe-waste"
                                 id="kitchen-recipe-waste"
                                 label={t('kitchen:recipes.productionWastePercent')}
+                                placeholder={t('kitchen:fields.percentPlaceholder')}
                                 size="sm"
                                 unit="%"
                                 value={details.wastePercent}
@@ -2218,6 +2261,7 @@ function RecipeEditor({
                                 id="kitchen-recipe-expiry"
                                 size="sm"
                                 label={t('kitchen:forms.expiryPeriod')}
+                                placeholder={t('kitchen:fields.daysPlaceholder')}
                                 unit={t('kitchen:forms.days')}
                                 value={expiryDays}
                                 disabled={!editable}
@@ -2227,6 +2271,7 @@ function RecipeEditor({
                                 testID="kitchen-recipe-packaging-waste"
                                 id="kitchen-recipe-packaging-waste"
                                 label={t('kitchen:recipes.packagingWastePercent')}
+                                placeholder={t('kitchen:fields.percentPlaceholder')}
                                 size="sm"
                                 unit="%"
                                 value={details.packagingWastePercent}
@@ -2395,6 +2440,7 @@ function RecipeEditor({
                                     label={t('kitchen:recipes.b2bPricePerUnit', {
                                         unit: t(unitShortKey(details.yieldUnit)),
                                     })}
+                                    placeholder={t('kitchen:fields.unitPricePlaceholder')}
                                     value={details.b2bPrice}
                                     disabled={!canManage}
                                     {...(currency === null
@@ -2424,6 +2470,7 @@ function RecipeEditor({
                                     label={t('kitchen:recipes.b2cPricePerUnit', {
                                         unit: t(unitShortKey(details.yieldUnit)),
                                     })}
+                                    placeholder={t('kitchen:fields.unitPricePlaceholder')}
                                     value={details.b2cPrice}
                                     disabled={!canManage}
                                     {...(currency === null
@@ -2729,6 +2776,14 @@ function RecipeEditor({
                     </View>
                 </View>
             )}
+
+            {/* ── Previous / Next — walks the tab row one step at a time ─────────────────────── */}
+            <TabStepNavigation<RecipeTab>
+                testID="kitchen-recipe-steps-nav"
+                items={tabItems}
+                value={tab}
+                onChange={setTab}
+            />
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog

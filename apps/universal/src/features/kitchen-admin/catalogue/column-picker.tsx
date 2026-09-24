@@ -87,6 +87,14 @@ export interface ColumnVisibilityOptions {
      * otherwise, which the ops worksheets do — see the opt-out note above.
      */
     readonly max?: number | undefined;
+    /**
+     * Where the choice is remembered, when that is not the table's own id.
+     *
+     * A stored choice replaces the defaults, so a table that gains columns every reader should see
+     * states a new key here — `kitchen-recipes.v2` — and every reader starts from the new defaults
+     * once. The table's id, and every test id derived from it, stays what it was.
+     */
+    readonly storageKey?: string | undefined;
 }
 
 export interface ColumnVisibility<Column extends PickableColumn> {
@@ -125,19 +133,20 @@ function normalise(
 export function useColumnVisibility<Column extends PickableColumn>(
     tableId: string,
     columns: readonly Column[],
-    { defaults, locked = [], max = MAX_VISIBLE_COLUMNS }: ColumnVisibilityOptions,
+    { defaults, locked = [], max = MAX_VISIBLE_COLUMNS, storageKey }: ColumnVisibilityOptions,
 ): ColumnVisibility<Column> {
+    const storedAs = storageKey ?? tableId;
     const known = useMemo(() => new Set(columns.map((column) => column.key)), [columns]);
     const [chosen, setChosen] = useState<readonly string[]>(() =>
-        normalise(readStored(tableId, known) ?? defaults, locked, known, max),
+        normalise(readStored(storedAs, known) ?? defaults, locked, known, max),
     );
 
     const commit = useCallback(
         (next: readonly string[]) => {
             setChosen(next);
-            store.set(`${STORAGE_PREFIX}${tableId}`, JSON.stringify(next));
+            store.set(`${STORAGE_PREFIX}${storedAs}`, JSON.stringify(next));
         },
-        [tableId],
+        [storedAs],
     );
 
     const shown = useMemo(

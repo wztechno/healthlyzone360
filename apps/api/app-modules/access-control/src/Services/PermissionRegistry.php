@@ -875,6 +875,14 @@ final class PermissionRegistry
              * builder's picker is a 403 on every line. A buyer does not rename
              * the food.
              *
+             * `recipe.view_organisation`, because of where the food now lives.
+             * The meal, sauce, dressing and frozen-meal lists this role read
+             * under the catalogue code became one recipe book behind this one,
+             * and a merge that quietly took four pages away from a role is a
+             * regression, not a tidy-up. It reads a formulation, never its cost
+             * — `recipe.view_costs_organisation` stays absent, below — and
+             * writes neither.
+             *
              * **`price_list.*` stops here, and it is the sharpest line the role
              * draws.** K1.5's whole argument is that price visibility is
              * commercial rather than operational. A buyer names what the
@@ -901,6 +909,10 @@ final class PermissionRegistry
                     'branch.view_current',
 
                     'catalogue.view_organisation',
+
+                    // The recipe book, where the meal, sauce, dressing and
+                    // frozen-meal lists went. A formulation, never its cost.
+                    'recipe.view_organisation',
 
                     'inventory.view_organisation',
                     'inventory.manage_organisation',

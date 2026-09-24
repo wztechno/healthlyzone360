@@ -587,10 +587,14 @@ export const zRecipeCompleteness = z.enum(['indicative', 'costed']);
 
 /**
  * Whether the frozen allergen label still matches the ingredient
- * mappings it was computed from. A new version is `stale` — nothing has
- * been derived for it, and claiming `current` for an empty label would be
- * the most dangerous default available. `failed` records that a recompute
- * was attempted and could not complete, which must never be
+ * mappings it was computed from. The empty version 1 created with a
+ * recipe is `current`: it has no lines, so there is nothing to derive and
+ * its empty label is the true one. The first content write marks it
+ * `stale`, and a version with no lines cannot be published (`no_lines`).
+ * Every other new version is `stale` — nothing has been derived for what
+ * it holds, and claiming `current` for a label nobody computed would be
+ * the most dangerous default available. `failed` records that a
+ * recompute was attempted and could not complete, which must never be
  * indistinguishable from "not tried yet".
  *
  */
@@ -610,39 +614,20 @@ export const zDerivationState = z.enum([
 export const zAllergenDerivation = z.enum(['declared', 'derived']);
 
 /**
- * The administrative shape of a recipe identity. Carries **both** names
- * and ignores `Accept-Language` for them: a bilingual editor has to see
- * what it is editing. There is no public recipe projection.
+ * What a recipe is sold as. The first four are the catalogue item types
+ * that sell a formulation; `preparation` is a recipe none of them sells —
+ * a marinade, a base, a component another recipe consumes. Derived from
+ * the items selling the recipe, never stored, so it cannot fall out of
+ * step with them.
  *
  */
-export const zAdminRecipe = z.object({
-    id: zUuid,
-    organisation_id: zUuid,
-    branch_id: zUuid.nullish(),
-    slug: z.string().max(120),
-    name_en: z.string(),
-    name_ar: z.string(),
-    recipe_category: z.string().max(40).nullish(),
-    source_kind: z.string().max(40).nullish(),
-    confidentiality: zRecipeConfidentiality,
-    status: zRecipeStatus,
-    notes: z.string().nullish(),
-    published_version_number: z.int().gte(1).nullable(),
-    current_version_status: zRecipeVersionStatus.nullable(),
-    current_version_allergen_codes: z.array(zAllergenCode),
-    source_system: z.string().nullish(),
-    source_ref: z.string().nullish(),
-    lock_version: z.int().gte(0),
-    created_at: z.iso.datetime({ offset: true }).nullish(),
-    updated_at: z.iso.datetime({ offset: true }).nullish()
-});
-
-export const zRecipeEnvelope = z.object({
-    data: z.object({
-        recipe: zAdminRecipe
-    }),
-    meta: zMeta
-});
+export const zRecipeKind = z.enum([
+    'meal',
+    'sauce',
+    'dressing',
+    'frozen_meal',
+    'preparation'
+]);
 
 /**
  * One formulation line.
@@ -1134,6 +1119,86 @@ export const zCatalogueItemStatus = z.enum([
     'published',
     'retired'
 ]);
+
+/**
+ * One catalogue item selling a recipe, as the recipe book draws it beside
+ * the row: the item's own columns, plus two facts read for the whole
+ * page at once — the channels it is available on and its packs.
+ *
+ */
+export const zAdminRecipeSoldAs = z.object({
+    id: zUuid,
+    item_type: z.enum([
+        'meal',
+        'sauce',
+        'dressing',
+        'frozen_meal'
+    ]),
+    status: zCatalogueItemStatus,
+    lock_version: z.int().gte(0),
+    reference: z.string().nullable(),
+    slug: z.string(),
+    name_en: z.string(),
+    name_ar: z.string().nullable(),
+    image_placeholder_id: z.string(),
+    kitchen_category: z.string().nullable(),
+    kitchen_subcategory: z.string().nullable(),
+    is_market_priced: z.boolean(),
+    is_assorted: z.boolean(),
+    data_quality_flags: z.array(z.string()),
+    portion_factor: z.string(),
+    composition: z.string().nullable(),
+    channel_codes: z.array(z.string()),
+    pack_count: z.int().gte(0),
+    default_pack: z.object({
+        label_en: z.string(),
+        label_ar: z.string().nullable(),
+        net_quantity: z.string(),
+        net_unit_code: z.string().nullable()
+    }).nullable()
+});
+
+/**
+ * The administrative shape of a recipe identity. Carries **both** names
+ * and ignores `Accept-Language` for them: a bilingual editor has to see
+ * what it is editing. There is no public recipe projection.
+ *
+ * One shape wherever it is served — the list, the single read and every
+ * write's response build it the same way, so a recipe never says one
+ * thing on its own page and another in the list it was opened from.
+ *
+ */
+export const zAdminRecipe = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    branch_id: zUuid.nullish(),
+    slug: z.string().max(120),
+    name_en: z.string(),
+    name_ar: z.string(),
+    recipe_category: z.string().max(40).nullish(),
+    source_kind: z.string().max(40).nullish(),
+    confidentiality: zRecipeConfidentiality,
+    status: zRecipeStatus,
+    notes: z.string().nullish(),
+    published_version_number: z.int().gte(1).nullable(),
+    current_version_status: zRecipeVersionStatus.nullable(),
+    current_version_allergen_codes: z.array(zAllergenCode),
+    current_version_line_count: z.int().gte(0),
+    kinds: z.array(zRecipeKind).min(1).optional(),
+    sold_as: z.array(zAdminRecipeSoldAs).optional(),
+    source_system: z.string().nullish(),
+    source_ref: z.string().nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zRecipeEnvelope = z.object({
+    data: z.object({
+        recipe: zAdminRecipe
+    }),
+    meta: zMeta
+});
 
 /**
  * Whether a variant is a pack of a product or one configuration of a
@@ -10299,7 +10364,17 @@ export const zListRecipesQuery = z.object({
     page: z.int().gte(1).optional(),
     per_page: z.int().gte(1).lte(100).optional().default(25),
     query: z.string().max(160).optional(),
-    status: zRecipeStatus.optional(),
+    status: z.enum([
+        'active',
+        'archived',
+        'draft',
+        'review_required',
+        'published',
+        'retired'
+    ]).optional(),
+    stale_only: z.boolean().optional().default(false),
+    kind: zRecipeKind.optional(),
+    selling_status: zCatalogueItemStatus.optional(),
     category: z.string().max(40).optional(),
     allergen: z.string().max(20).optional()
 });

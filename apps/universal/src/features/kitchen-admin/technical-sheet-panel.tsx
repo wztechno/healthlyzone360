@@ -11,9 +11,9 @@ import {
     Card,
     Heading,
     Inline,
-    Skeleton,
     Stack,
     Table,
+    TableSkeleton,
     Text,
 } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -279,7 +279,7 @@ export function TechnicalSheetPanel({
                 </Stack>
 
                 {isLoading ? (
-                    <Skeleton testID={`${testID}-loading`} heightClassName="h-32" />
+                    <TableSkeleton testID={`${testID}-loading`} rows={4} />
                 ) : (
                     <Stack space="sm">
                         <Table<Row>

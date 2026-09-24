@@ -8,6 +8,7 @@ import {
     ErrorState,
     Skeleton,
     Stack,
+    TableSkeleton,
     Text,
     TextInputField,
     useToast,
@@ -364,15 +365,7 @@ function UnpricedReceipts() {
             </CatalogueToolbar>
 
             {queue.isPending ? (
-                <Stack space="xs" testID="kitchen-unpriced-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-unpriced-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
+                <TableSkeleton testID="kitchen-unpriced-loading" partTestID="kitchen-unpriced" />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-unpriced-error"

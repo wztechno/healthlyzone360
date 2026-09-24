@@ -4,8 +4,8 @@ import {
     Button,
     EmptyState,
     ErrorState,
-    Skeleton,
     Stack,
+    TableSkeleton,
     Text,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
@@ -465,15 +465,7 @@ function PlansList() {
             </CatalogueToolbar>
 
             {plans.isPending ? (
-                <Stack space="xs" testID="kitchen-plans-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-plans-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
+                <TableSkeleton testID="kitchen-plans-loading" partTestID="kitchen-plans" />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-plans-error"

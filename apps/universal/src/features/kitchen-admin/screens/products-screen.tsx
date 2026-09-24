@@ -56,8 +56,9 @@ import {
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
- * `/kitchen/products` — what this kitchen sells as goods rather than as a dish on a menu — and the
- * same page again at `/kitchen/sauces` and `/kitchen/dressings`.
+ * `/kitchen/products` — what this kitchen buys in and sells on as goods, rather than cooks. The
+ * cooked kinds that were listed here too — sauces, dressings, frozen meals — are recipes in the
+ * recipe book now.
  *
  * ```
  * Kitchen workspace › Products                    <- drawn by the shell, not here
@@ -107,15 +108,16 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
 type SortKey = ProductSortKey;
 
 /**
- * The three packaged-goods families this one screen serves. Sauces and dressings are products in
- * apparatus — same packs, same channels, same lifecycle — listed on their own pages by `item_type`.
- * Copy that names the family is looked up here (literal keys, so extraction sees them); copy about
- * the apparatus stays under `kitchen:products.*`.
+ * The goods family this screen serves: its `item_type`, its address and the copy that names it.
+ *
+ * It served three once — sauces and dressings are products in apparatus, and were listed on their
+ * own pages by `item_type` — until the cooked kinds joined the recipe book. Copy that names the
+ * family is looked up here (literal keys, so extraction sees them); copy about the apparatus stays
+ * under `kitchen:products.*`.
  */
 export interface GoodsFamily {
     readonly itemType: ProductItemType;
-    readonly routeBase:
-        '/kitchen/products' | '/kitchen/sauces' | '/kitchen/dressings' | '/kitchen/frozen-meals';
+    readonly routeBase: '/kitchen/products';
     readonly gateTestID: string;
     readonly create: string;
     readonly caption: string;
@@ -136,42 +138,6 @@ export const PRODUCTS_FAMILY: GoodsFamily = {
     emptyBody: 'kitchen:products.emptyBody',
     viewKind: 'kitchen:products.viewKind',
     searchPlaceholder: 'kitchen:products.searchPlaceholder',
-};
-
-export const FROZEN_MEALS_FAMILY: GoodsFamily = {
-    itemType: 'frozen_meal',
-    routeBase: '/kitchen/frozen-meals',
-    gateTestID: 'kitchen-frozen-meals',
-    create: 'kitchen:frozenMeals.create',
-    caption: 'kitchen:frozenMeals.caption',
-    emptyTitle: 'kitchen:frozenMeals.emptyTitle',
-    emptyBody: 'kitchen:frozenMeals.emptyBody',
-    viewKind: 'kitchen:frozenMeals.viewKind',
-    searchPlaceholder: 'kitchen:frozenMeals.searchPlaceholder',
-};
-
-export const SAUCES_FAMILY: GoodsFamily = {
-    itemType: 'sauce',
-    routeBase: '/kitchen/sauces',
-    gateTestID: 'kitchen-sauces',
-    create: 'kitchen:sauces.create',
-    caption: 'kitchen:sauces.caption',
-    emptyTitle: 'kitchen:sauces.emptyTitle',
-    emptyBody: 'kitchen:sauces.emptyBody',
-    viewKind: 'kitchen:sauces.viewKind',
-    searchPlaceholder: 'kitchen:sauces.searchPlaceholder',
-};
-
-export const DRESSINGS_FAMILY: GoodsFamily = {
-    itemType: 'dressing',
-    routeBase: '/kitchen/dressings',
-    gateTestID: 'kitchen-dressings',
-    create: 'kitchen:dressings.create',
-    caption: 'kitchen:dressings.caption',
-    emptyTitle: 'kitchen:dressings.emptyTitle',
-    emptyBody: 'kitchen:dressings.emptyBody',
-    viewKind: 'kitchen:dressings.viewKind',
-    searchPlaceholder: 'kitchen:dressings.searchPlaceholder',
 };
 
 export function ProductsScreen({ family = PRODUCTS_FAMILY }: { readonly family?: GoodsFamily }) {

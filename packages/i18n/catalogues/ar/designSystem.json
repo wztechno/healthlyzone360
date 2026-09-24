@@ -132,7 +132,9 @@
         "skipToContent": "الانتقال إلى المحتوى الرئيسي",
         "hideNavigation": "إغلاق لوحة الصفحات",
         "showNavigation": "فتح لوحة الصفحات",
-        "modules": "الوحدات"
+        "modules": "الوحدات",
+        "emptyPanelTitle": "لا توجد صفحات ضمن {{page}}",
+        "emptyPanelBody": "اختر وحدة لعرض صفحاتها هنا."
     },
     "showcase": {
         "title": "نظام التصميم",

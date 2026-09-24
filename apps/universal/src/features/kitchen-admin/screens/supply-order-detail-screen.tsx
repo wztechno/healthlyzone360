@@ -3,14 +3,13 @@ import {
     Badge,
     Button,
     Callout,
-    Card,
     Dialog,
     EmptyState,
     ErrorState,
     Heading,
     Inline,
+    RecordSkeleton,
     Select,
-    Skeleton,
     Stack,
     Table,
     Text,
@@ -345,16 +344,12 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
 
     if (record.isPending) {
         return (
-            <Stack space="sm" testID="kitchen-supply-order-detail-loading">
-                {Array.from({ length: 3 }, (_, index) => (
-                    <Card key={index} padding="md">
-                        <Skeleton
-                            testID={`kitchen-supply-order-detail-skeleton-${String(index + 1)}`}
-                            heightClassName="h-5"
-                        />
-                    </Card>
-                ))}
-            </Stack>
+            <RecordSkeleton
+                testID="kitchen-supply-order-detail-loading"
+                partTestID="kitchen-supply-order-detail"
+                tiles={0}
+                rows={3}
+            />
         );
     }
 

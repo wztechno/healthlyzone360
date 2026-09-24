@@ -53,7 +53,6 @@
     },
     "member": {
         "title": "{{name}}",
-        "back": "Back to the team",
         "rolesHeading": "Roles",
         "rolesHint": "What this person may do. Somebody holding two roles may do what either one allows.",
         "scopeHeading": "Where they work",
@@ -62,6 +61,7 @@
         "scopeSingleBranch": "This kitchen has one branch, so there is nothing to choose.",
         "permissionsHeading": "What that adds up to",
         "permissionsHint": "Every action these roles allow, together.",
+        "permissionsNone": "Their roles grant nothing yet.",
         "assignmentFrom": "From {{date}}",
         "assignmentUntil": "Until {{date}}",
         "assignmentScheduled": "Not in effect yet",
@@ -131,13 +131,17 @@
         "back": "Back to roles",
         "newTitle": "New role",
         "copyTitle": "Copy of {{name}}",
-        "nameEn": "Name (English)",
-        "nameAr": "Name (Arabic)",
+        "name": "Name",
+        "namePlaceholderEn": "Evening counter",
+        "namePlaceholderAr": "كاونتر المساء",
         "code": "Reference",
-        "codeHint": "Lowercase words joined by underscores. This cannot be changed later.",
-        "descriptionEn": "What this role is for (English)",
-        "descriptionAr": "What this role is for (Arabic)",
+        "codePlaceholder": "evening_counter",
+        "codeInvalid": "Start with a letter, then only lowercase letters, numbers and underscores.",
+        "description": "What this role is for",
+        "descriptionPlaceholderEn": "Takes orders at the counter on the evening shift.",
+        "descriptionPlaceholderAr": "يستقبل الطلبات على الكاونتر في الوردية المسائية.",
         "tabs": {
+            "details": "Details",
             "pages": "Pages",
             "advanced": "Advanced"
         },
@@ -157,7 +161,6 @@
         "deleteBlocked_other": "{{count}} people still hold this role. Give them another one first."
     },
     "pages": {
-        "hint": "Set what this role can reach, page by page.",
         "levels": {
             "none": "No access",
             "view": "Can look",
@@ -167,13 +170,29 @@
         "unmappedHeading": "Held, but not shown on any page",
         "unmappedHint": "These stay exactly as they are when you save from this tab. Open Advanced to change them.",
         "unmappedCount_one": "One permission",
-        "unmappedCount_other": "{{count}} permissions"
+        "unmappedCount_other": "{{count}} permissions",
+        "tableLabel": "What this role can reach",
+        "columns": {
+            "page": "Page",
+            "extras": "Also allowed"
+        },
+        "cellLabel": "{{page}}: {{level}}"
     },
     "advanced": {
-        "hint": "Every permission this role can hold. Use Pages unless you need something it cannot express.",
         "notHeld": "You do not hold this yourself",
         "selected": "{{count}} of {{total}} selected",
-        "emptyDomain": "Nothing in this group."
+        "tableLabel": "Every permission this role can hold",
+        "columns": {
+            "area": "Area"
+        },
+        "actions": {
+            "view": "View",
+            "manage": "Manage",
+            "publish": "Publish",
+            "viewCosts": "See costs",
+            "other": "Other"
+        },
+        "cellLabel": "{{area}}: {{permission}}"
     },
     "extras": {
         "orderDeskSale": "Ring up a sale",
@@ -181,7 +200,7 @@
         "unpricedReceipts": "Unpriced receipts"
     },
     "add": {
-        "title": "Add somebody",
+        "title": "Add user",
         "back": "Back to the team",
         "modes": {
             "invite": "Send an invitation",
@@ -189,16 +208,31 @@
         },
         "inviteHint": "They choose their own password from a link in the email. Better whenever they have an address of their own.",
         "createHint": "You choose the first password and hand it over. For somebody who has no work email address.",
+        "sections": {
+            "invitation": "Invitation",
+            "signIn": "Sign-in",
+            "person": "Person"
+        },
+        "placeholders": {
+            "email": "name@example.com",
+            "signInName": "ahmad",
+            "password": "Type one or generate one",
+            "givenName": "Ahmad",
+            "familyName": "Haddad"
+        },
         "email": "Email address",
         "signInName": "Sign-in name",
         "signInNameHint": "Lowercase letters and numbers. They will sign in as {{example}}.",
+        "signInNameInvalid": "Lowercase letters and numbers, with a dot, dash or underscore only between them.",
         "domain": "at",
         "givenName": "First name",
         "familyName": "Family name",
         "password": "First password",
-        "passwordHint": "They will be asked to choose a new one the first time they sign in.",
         "generate": "Generate one",
         "role": "Role",
+        "roles": "Roles",
+        "roleInviteHint": "An invitation carries one role. Give them more once they have joined.",
+        "rolesCreateHint": "Choose as many as they need. They can do whatever any of their roles allows.",
         "branch": "Works at",
         "message": "A line for the email (optional)",
         "submitInvite": "Send the invitation",

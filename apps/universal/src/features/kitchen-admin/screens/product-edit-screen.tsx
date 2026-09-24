@@ -14,10 +14,10 @@ import {
     FormGrid,
     FormIssueBanner,
     FormSection,
+    FormSkeleton,
     Inline,
     QuantityInput,
     Select,
-    Skeleton,
     Stack,
     Tag,
     Text,
@@ -145,10 +145,11 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ## Embedded
  *
- * The same record is a cooked item's Selling tab (`CookedItemEditScreen`). There the recipe is the
- * page, so the header, the trail, Cancel, the photo, the category and the recipe picker are the
- * host's and are not drawn; what stays is this record's status, its own save and publish, its
- * banners and its sections.
+ * The same record is a cooked item's Selling tab in the recipe book (`RecipeBookEditScreen`), and
+ * the listing under the notice of an item with no recipe yet (`CookedItemEditScreen`). There the
+ * recipe is the page, so the header, the trail, Cancel, the photo, the category and the recipe
+ * picker are the host's and are not drawn; what stays is this record's status, its own save and
+ * publish, its banners and its sections.
  */
 
 /* ------------------------------------------------------------------------------------------------
@@ -173,7 +174,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * section further down.
  *
  * The cooked kinds are a different question and have a different screen: a sauce or a dressing owns
- * its recipe outright and is edited through `CookedItemEditScreen`, never here.
+ * its recipe outright and is edited in the recipe book (`RecipeBookEditScreen`), never here.
  */
 const NO_RECIPE = '__none__';
 
@@ -281,12 +282,12 @@ export interface ProductEditScreenProps {
     /** The route parameter. `'new'` opens the create form; anything else is an identifier. */
     readonly product: string | undefined;
     /**
-     * Which packaged kind a create makes and which list the screen returns to.
-     * The sauces and dressings routes pass theirs; the default is products.
+     * Which packaged kind a create makes, and where the screen returns to. The recipe book passes a
+     * cooked seller's kind and its own address when it embeds this as a Selling tab; the default is
+     * products.
      */
     readonly itemType?: 'product' | 'sauce' | 'dressing' | 'frozen_meal';
-    readonly routeBase?:
-        '/kitchen/products' | '/kitchen/sauces' | '/kitchen/dressings' | '/kitchen/frozen-meals';
+    readonly routeBase?: '/kitchen/products' | '/kitchen/recipes';
     /**
      * Drawn as a cooked item's Selling tab rather than as a page — a sauce's or a dressing's listing,
      * on the page its recipe is.
@@ -841,11 +842,11 @@ function ProductEditor({
 
     if (!isCreating && record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-product-editor-loading">
-                <Skeleton testID="kitchen-product-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-product-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-product-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-product-editor-loading"
+                partTestID="kitchen-product"
+                sections={3}
+            />
         );
     }
 
@@ -991,6 +992,10 @@ function ProductEditor({
                 layout="row"
                 testID="kitchen-product-name"
                 fieldLabel={t('kitchen:list.columnItem')}
+                placeholder={{
+                    en: t('kitchen:fields.productNamePlaceholderEn'),
+                    ar: t('kitchen:fields.productNamePlaceholderAr'),
+                }}
                 value={details.name}
                 requiredEnglish
                 disabled={!canManage}
@@ -1046,6 +1051,10 @@ function ProductEditor({
                 multiline
                 testID="kitchen-product-description"
                 fieldLabel={t('kitchen:products.descriptionLabel')}
+                placeholder={{
+                    en: t('kitchen:fields.descriptionPlaceholderEn'),
+                    ar: t('kitchen:fields.descriptionPlaceholderAr'),
+                }}
                 value={details.description}
                 disabled={!canManage}
                 onChange={(next) => {
@@ -1294,6 +1303,7 @@ function ProductEditor({
                                         id="kitchen-product-net-content"
                                         size="sm"
                                         label={t('kitchen:products.netContentLabel')}
+                                        placeholder={t('kitchen:fields.quantityPlaceholder')}
                                         value={details.netContentQuantity}
                                         disabled={!canManage}
                                         {...(shows('net-content')
@@ -1307,6 +1317,7 @@ function ProductEditor({
                                         testID="kitchen-product-net-content-unit"
                                         id="kitchen-product-net-content-unit"
                                         label={t('kitchen:products.netContentUnitLabel')}
+                                        placeholder={t('kitchen:fields.unitPlaceholder')}
                                         searchable
                                         disabled={!canManage}
                                         options={unitOptions}

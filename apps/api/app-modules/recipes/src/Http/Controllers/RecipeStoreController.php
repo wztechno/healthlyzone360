@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Healthy360\Recipes\Http\Controllers;
 
 use Healthy360\Recipes\Http\Requests\StoreRecipeRequest;
-use Healthy360\Recipes\Presenters\RecipeAdminPresenter;
 use Healthy360\Recipes\Presenters\RecipeVersionPresenter;
 use Healthy360\Recipes\Services\RecipeService;
+use Healthy360\Recipes\Services\RecipeSummaries;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +24,7 @@ final class RecipeStoreController
 {
     public function __construct(
         private readonly RecipeService $recipes,
-        private readonly RecipeAdminPresenter $presenter,
+        private readonly RecipeSummaries $summaries,
         private readonly RecipeVersionPresenter $versions,
     ) {}
 
@@ -39,7 +39,7 @@ final class RecipeStoreController
         $created = $this->recipes->create($attributes);
 
         return ApiResponse::data([
-            'recipe' => $this->presenter->recipe($created['recipe']),
+            'recipe' => $this->summaries->one($created['recipe']),
             'version' => $this->versions->version($created['version']),
         ], status: 201)->withHeaders(['ETag' => '"'.$created['recipe']->lock_version.'"']);
     }

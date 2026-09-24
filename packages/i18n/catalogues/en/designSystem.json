@@ -124,7 +124,9 @@
         "skipToContent": "Skip to the main content",
         "hideNavigation": "Close the pages panel",
         "showNavigation": "Open the pages panel",
-        "modules": "Modules"
+        "modules": "Modules",
+        "emptyPanelTitle": "{{page}} has no pages under it",
+        "emptyPanelBody": "Choose a module to see its pages here."
     },
     "showcase": {
         "title": "Design system",

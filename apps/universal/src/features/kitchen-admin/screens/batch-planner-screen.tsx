@@ -15,8 +15,8 @@ import {
     QuantityInput,
     SegmentedControl,
     Select,
-    Skeleton,
     Stack,
+    TableSkeleton,
     Text,
 } from '@healthy360/design-system';
 import type { SelectOption } from '@healthy360/design-system';
@@ -331,9 +331,7 @@ function BatchPlanner() {
                 />
             ) : record.data === undefined ? (
                 <Stack space="xs" testID="kitchen-batch-planner-loading">
-                    {Array.from({ length: 6 }, (_, index) => (
-                        <Skeleton key={index} heightClassName="h-row-sm" />
-                    ))}
+                    <TableSkeleton rows={6} />
                     <Text variant="caption" tone="secondary">
                         {t('kitchen:ops.batch.loadingCaption')}
                     </Text>

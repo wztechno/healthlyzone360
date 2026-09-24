@@ -333,7 +333,14 @@ export function Select<T extends string = string>({
                                             density === 'compact'
                                                 ? 'min-h-control-sm py-hair'
                                                 : 'min-h-touch py-2',
-                                            isSelected ? 'bg-surface-brand-subtle' : null,
+                                            // The row under the pointer or the keyboard is lit, so
+                                            // the reader sees which one a press or Enter will take
+                                            // — the chosen one keeps its brand tint over it.
+                                            isSelected
+                                                ? 'bg-surface-brand-subtle'
+                                                : option.disabled === true
+                                                  ? null
+                                                  : 'hover:bg-surface-sunken focus:bg-surface-sunken',
                                             option.disabled === true ? 'opacity-50' : null,
                                         )}
                                     >

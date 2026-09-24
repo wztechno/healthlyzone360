@@ -9,9 +9,9 @@ import {
     Heading,
     Inline,
     Select,
-    Skeleton,
     Stack,
     Table,
+    TableSkeleton,
     Text,
     TextInputField,
 } from '@healthy360/design-system';
@@ -211,19 +211,11 @@ function KitchensList() {
             </Card>
 
             {kitchens.isPending ? (
-                <Stack space="sm" testID="platform-admin-kitchens-loading">
-                    {Array.from({ length: 4 }, (_, index) => (
-                        <Card key={index} padding="md">
-                            <Stack space="xs">
-                                <Skeleton
-                                    testID={`platform-admin-kitchens-skeleton-${String(index + 1)}`}
-                                    heightClassName="h-5"
-                                />
-                                <Skeleton heightClassName="h-4" widthClassName="w-1/2" />
-                            </Stack>
-                        </Card>
-                    ))}
-                </Stack>
+                <TableSkeleton
+                    testID="platform-admin-kitchens-loading"
+                    partTestID="platform-admin-kitchens"
+                    rows={4}
+                />
             ) : failure !== null ? (
                 <ErrorState
                     testID="platform-admin-kitchens-error"

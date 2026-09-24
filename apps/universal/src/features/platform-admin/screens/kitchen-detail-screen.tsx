@@ -8,7 +8,7 @@ import {
     ErrorState,
     Heading,
     Inline,
-    Skeleton,
+    RecordSkeleton,
     Stack,
     Table,
     Text,
@@ -89,11 +89,12 @@ function KitchenDetail() {
 
     if (kitchen.isPending) {
         return (
-            <Stack space="sm" testID="platform-admin-kitchen-loading">
-                <Skeleton testID="platform-admin-kitchen-skeleton" heightClassName="h-8" />
-                <Skeleton heightClassName="h-24" />
-                <Skeleton heightClassName="h-24" />
-            </Stack>
+            <RecordSkeleton
+                testID="platform-admin-kitchen-loading"
+                partTestID="platform-admin-kitchen"
+                tiles={0}
+                rows={3}
+            />
         );
     }
 

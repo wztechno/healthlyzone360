@@ -11,6 +11,7 @@ import {
     FormGrid,
     FormIssueBanner,
     FormSection,
+    FormSkeleton,
     Inline,
     NumberStepper,
     Skeleton,
@@ -55,6 +56,7 @@ import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { DayToggle } from '../delivery-row-editors.tsx';
 import { PlanMatrixGrid } from '../commercial/plan-matrix-grid.tsx';
+import { TabStepNavigation } from '../editor-steps.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import {
@@ -951,11 +953,11 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
 
     if (!isCreating && record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-plan-editor-loading">
-                <Skeleton testID="kitchen-plan-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-plan-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-plan-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-plan-editor-loading"
+                partTestID="kitchen-plan"
+                sections={3}
+            />
         );
     }
 
@@ -1034,8 +1036,8 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
              * The opening, as the recipe editor draws it: the title with its status beside it, the
              * actions at the inline end, the banner naming what needs fixing, and the steps as
              * numbered tabs on a sunken track — each carrying its count and, when something on it
-             * needs attention, a solid pill. No Previous/Next footer: the numbered row is both the map
-             * and the way through it. No trail here — `KitchenOpsShell` draws it.
+             * needs attention, a solid pill. The row is how a reader jumps; the Previous/Next footer
+             * under the form is how they walk it. No trail here — `KitchenOpsShell` draws it.
              */}
             <Stack space="sm">
                 <CataloguePageHeader
@@ -1854,6 +1856,13 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     </FormSection>
                 )}
             </View>
+
+            <TabStepNavigation<PlanStep>
+                testID="kitchen-plan-steps-nav"
+                items={tabItems}
+                value={form.current}
+                onChange={form.goTo}
+            />
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog

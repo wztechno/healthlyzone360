@@ -7,8 +7,8 @@ import {
     EmptyState,
     ErrorState,
     SegmentedControl,
-    Skeleton,
     Stack,
+    TableSkeleton,
     Text,
     useToast,
 } from '@healthy360/design-system';
@@ -470,16 +470,7 @@ function ConsumptionExceptions() {
             </View>
 
             {exceptions.isPending ? (
-                <View testID="kitchen-consumption-exceptions-loading" className="flex-col">
-                    {Array.from({ length: 8 }, (_, index) => (
-                        <View
-                            key={index}
-                            className="h-row-md flex-row items-center border-b border-stroke-subtle"
-                        >
-                            <Skeleton heightClassName="h-2" />
-                        </View>
-                    ))}
-                </View>
+                <TableSkeleton testID="kitchen-consumption-exceptions-loading" rows={8} />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-consumption-exceptions-error"

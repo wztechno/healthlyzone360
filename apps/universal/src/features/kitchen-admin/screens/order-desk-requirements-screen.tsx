@@ -4,8 +4,8 @@ import {
     DatePickerButton,
     EmptyState,
     ErrorState,
-    Skeleton,
     Stack,
+    TableSkeleton,
     Text,
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
@@ -406,16 +406,7 @@ function OrderDeskRequirements() {
                     body={t('kitchen:ops.requirements.windowInvalidBody')}
                 />
             ) : requirements.isPending ? (
-                <View testID="kitchen-order-desk-requirements-loading" className="flex-col">
-                    {Array.from({ length: 6 }, (_, index) => (
-                        <View
-                            key={index}
-                            className="h-row-md flex-row items-center border-b border-stroke-subtle"
-                        >
-                            <Skeleton heightClassName="h-2" />
-                        </View>
-                    ))}
-                </View>
+                <TableSkeleton testID="kitchen-order-desk-requirements-loading" rows={6} />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-order-desk-requirements-error"

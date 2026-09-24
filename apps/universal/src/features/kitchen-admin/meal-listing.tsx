@@ -14,9 +14,9 @@ import {
     ErrorState,
     FilterChip,
     FormSection,
+    FormSkeleton,
     Inline,
     Select,
-    Skeleton,
     Stack,
     Switch,
     Text,
@@ -77,11 +77,12 @@ import { useUnsavedGuard } from './use-unsaved-guard.ts';
  *
  * ## The page is the recipe
  *
- * `/kitchen/meals/{meal}` is `CookedItemEditScreen`: the recipe the meal is made from, with this
- * listing on a tab of its own, exactly as a sauce's is. So nothing here chooses a recipe — the page
- * already is one — and nothing here creates a meal: the recipe's first save writes the listing that
- * sells it. What stays is everything about the dish *as sold*: its name on the menu, the portion, when
- * in the day it sits, the days it can be ordered, and whether it is public.
+ * A meal's page is its recipe's in the recipe book (`/kitchen/recipes/{recipe}`,
+ * `RecipeBookEditScreen`): the recipe the meal is made from, with this listing on a tab of its own,
+ * exactly as a sauce's is. So nothing here chooses a recipe — the page already is one — and nothing
+ * here creates a meal: the recipe's first save writes the listing that sells it. What stays is
+ * everything about the dish *as sold*: its name on the menu, the portion, when in the day it sits,
+ * the days it can be ordered, and whether it is public.
  *
  * ## Publication is the whole point of the screen
  *
@@ -602,11 +603,12 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
 
     if (record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-meal-editor-loading">
-                <Skeleton testID="kitchen-meal-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-meal-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-meal-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-meal-editor-loading"
+                partTestID="kitchen-meal"
+                sections={3}
+                heading={false}
+            />
         );
     }
 
@@ -649,7 +651,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
             saveDisabled={!canManage || detailsBlocked}
             backLabel={t('kitchen:common.cancel')}
             onBack={() => {
-                router.push('/kitchen/meals' as never);
+                router.push('/kitchen/recipes?kind=meal' as never);
             }}
             actionsPlacement="header"
             headerVariant="plain"

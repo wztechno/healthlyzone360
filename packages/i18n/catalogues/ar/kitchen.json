@@ -685,6 +685,15 @@
             "fieldLeadTime": "مهلة التوريد بالأيام",
             "leadTimeInvalid": "أدخل عددًا صحيحًا من الأيام بين 0 و365.",
             "fieldNotes": "ملاحظات",
+            "codePlaceholder": "مثال: SUP-014",
+            "namePlaceholderEn": "For example Gulf Fresh Produce",
+            "namePlaceholderAr": "مثال: الخليج للمنتجات الطازجة",
+            "emailPlaceholder": "orders@supplier.com",
+            "phonePlaceholder": "+971 4 123 4567",
+            "paymentTermsPlaceholder": "مثال: 30 يومًا من تاريخ الفاتورة",
+            "leadTimePlaceholder": "مثال: 2",
+            "addressPlaceholder": "المبنى والشارع والمنطقة والمدينة",
+            "notesPlaceholder": "أيام التوريد، الحد الأدنى للطلب، وأي شيء يجب أن يعرفه المشتري",
             "addContact": "إضافة جهة اتصال",
             "noContacts": "لا توجد جهات اتصال بعد.",
             "contactPosition": "جهة الاتصال {{position}}",
@@ -2042,15 +2051,12 @@
         },
         "recipes": {
             "name": "الوصفات",
-            "description": "الصيغ التي يطبخ منها هذا المطبخ، بنسخها، ومع البطاقة التي تحملها كل نسخة."
+            "description": "كل ما يطبخه هذا المطبخ — الأطباق والصلصات وصلصات السلطة والوجبات المجمّدة والتحضيرات — بتركيبته ونسخه وما يُباع به.",
+            "keywords": "أطباق وجبات صلصات تتبيلات صلصات السلطة وجبات مجمدة تحضيرات"
         },
         "products": {
             "name": "إعادة بيع",
             "description": "الأصناف التي يشتريها المطبخ جاهزة ويعيد بيعها بالعبوة، والقنوات التي يصل إليها كل صنف."
-        },
-        "meals": {
-            "name": "الأطباق",
-            "description": "الأطباق المعروضة. نشر الطبق هو ما يجعله مرئيًا للعميل."
         },
         "priceLists": {
             "name": "قوائم الأسعار",
@@ -2136,14 +2142,6 @@
             "name": "المبالغ المستلمة",
             "description": "ما استلمه كل موظف في يوم، وكيف وصل — السجل خلف الصندوق، إلى أن تصبح هناك وردية تُغلق."
         },
-        "sauces": {
-            "name": "الصلصات والتتبيلات",
-            "description": "الصلصات والتتبيلات المصنوعة في المطبخ، بعبواتها وأسعارها."
-        },
-        "dressings": {
-            "name": "صلصات السلطة",
-            "description": "صلصات السلطة المصنوعة في المطبخ، بعبواتها وأسعارها."
-        },
         "packaging": {
             "name": "التغليف",
             "description": "الأكياس والعلب والأغطية وأدوات الطعام والملصقات وتكلفة كل منها — الجزء الذي يُشحن فيه الطبق لا الجزء الذي يتكوّن منه."
@@ -2151,10 +2149,6 @@
         "batch": {
             "name": "مخطّط الدُفعة",
             "description": "وسّع الوصفة إلى كمية أو عدد قطع، واقرأ المكوّنات والتغليف اللازمة."
-        },
-        "frozenMeals": {
-            "description": "وجبات مطهوّة على دفعات تُباع بالوحدة من المخزون الجاهز.",
-            "name": "الوجبات المجمّدة"
         },
         "roles": {
             "name": "الأدوار",
@@ -2471,7 +2465,6 @@
         "import": "استيراد",
         "importUnavailable": "الاستيراد غير متاح بعد",
         "statTotal": "المكوّنات",
-        "statLive": "منشور",
         "statDraft": "مسودة",
         "statMissingArabic": "بدون اسم عربي",
         "statTotalCaption": "في هذا الكتالوج",
@@ -2593,7 +2586,20 @@
         "unitPlaceholder": "اختر وحدة",
         "unitPricePlaceholder": "0.00",
         "itemsPerUnitPlaceholder": "0",
-        "gramsPerUnitPlaceholder": "0"
+        "gramsPerUnitPlaceholder": "0",
+        "ingredientNamePlaceholderEn": "For example Chicken breast",
+        "ingredientNamePlaceholderAr": "مثال: صدر دجاج",
+        "packagingNamePlaceholderEn": "For example Kraft bowl 750 ml",
+        "packagingNamePlaceholderAr": "مثال: وعاء كرافت 750 مل",
+        "recipeNamePlaceholderEn": "For example Grilled chicken bowl",
+        "recipeNamePlaceholderAr": "مثال: وعاء دجاج مشوي",
+        "productNamePlaceholderEn": "For example Sparkling water 330 ml",
+        "productNamePlaceholderAr": "مثال: مياه فوارة 330 مل",
+        "descriptionPlaceholderEn": "One or two sentences a customer reads on the menu",
+        "descriptionPlaceholderAr": "جملة أو جملتان يقرؤهما العميل في القائمة",
+        "quantityPlaceholder": "0",
+        "percentPlaceholder": "0",
+        "daysPlaceholder": "مثال: 3"
     },
     "units": {
         "dimensionMass": "كتلة",
@@ -3068,7 +3074,23 @@
         "costPerUnit": "لكل {{unit}}",
         "costWithWaste": "+ {{percent}}% هدر",
         "sectionCoefficients": "المعاملات والأسعار",
-        "coefficientsHint": "ما تُضرب به صفوف الهدر أعلاه، وما تُباع به وحدة من الدفعة"
+        "coefficientsHint": "ما تُضرب به صفوف الهدر أعلاه، وما تُباع به وحدة من الدفعة",
+        "columnKind": "النوع",
+        "kindMeals": "الأطباق",
+        "kindPreparations": "التحضيرات",
+        "kindPreparation": "تحضير",
+        "createPreparation": "تحضير جديد",
+        "columnOnSale": "معروض للبيع",
+        "statOnSaleCaption": "معروضة للبيع الآن",
+        "statOnSaleAction": "عرض الوصفات المعروضة للبيع فقط",
+        "notFormulated": "بلا تركيبة",
+        "withdrawTitle": "إيقاف بيعه؟",
+        "withdrawBody": "يُسحب الصنف الذي تُباع به هذه الوصفة من القائمة ومن كل قنوات البيع فورًا. تبقى الوصفة في الدفتر ولا يُحذف شيء: الطلبات السابقة وقوائم الأسعار ما زالت تشير إلى الصنف.",
+        "withdrawnToast": "لم يعد {{name}} معروضًا للبيع.",
+        "withdrawFailed": "تعذّر إيقاف بيع هذا الصنف.",
+        "sellerLabel": "يُباع كـ",
+        "viewHandle": "المعرّف",
+        "viewAllergensFrozen": "ملصق مثبّت على الصنف عند النشر"
     },
     "publish": {
         "action": "نشر",
@@ -3316,17 +3338,13 @@
         "netContentUnitLabel": "الوحدة",
         "netContentInvalid": "يجب أن يكون المحتوى الصافي رقمًا أكبر من صفر.",
         "netContentUnitMissing": "اختر الوحدة التي يُقاس بها المحتوى الصافي.",
-        "netContentUnitsForbidden": "يحدّد هذا الصنف محتوًى صافيًا، لكن عرض وحدة قياسه يحتاج إلى صلاحية المخزون. اطلب من شخص لديه صلاحية المخزون تغييره."
+        "netContentUnitsForbidden": "يحدّد هذا الصنف محتوًى صافيًا، لكن عرض وحدة قياسه يحتاج إلى صلاحية المخزون. اطلب من شخص لديه صلاحية المخزون تغييره.",
+        "packCodePlaceholder": "مثال: RSL-055"
     },
     "meals": {
         "title": "الأطباق",
         "subtitle": "الأطباق المعروضة. نشر الطبق هو ما يجعله مرئيًا للعميل.",
-        "caption": "الأطباق",
-        "columnName": "صنف الإنتاج",
-        "columnAllergens": "مسبّبات الحساسية",
-        "columnChannels": "القنوات",
         "create": "طبق جديد",
-        "typeFilterLabel": "نوع الوجبة",
         "typeFilterAll": "كل أنواع الوجبات",
         "resultCount_zero": "لا توجد نتائج",
         "resultCount_one": "نتيجة واحدة",
@@ -3334,11 +3352,6 @@
         "resultCount_few": "{{count}} نتائج",
         "resultCount_many": "{{count}} نتيجةً",
         "resultCount_other": "{{count}} نتيجة",
-        "emptyTitle": "لا توجد أطباق في هذا المطبخ بعد",
-        "emptyBody": "أضِف أول طبق، أو ابنِه من وصفة منشورة بالفعل.",
-        "filteredEmptyTitle": "لا شيء يطابق عوامل التصفية هذه",
-        "filteredEmptyBody": "جرّب بحثًا أقصر، أو اسمح بحالات أكثر.",
-        "noChannels": "على أي قناة",
         "visibleToConsumers": "مرئي للعملاء",
         "retire": "سحب",
         "retireTitle": "سحب هذا الطبق؟",
@@ -3346,7 +3359,6 @@
         "retireConfirm": "سحبه",
         "retireConsequence": "السحب هو أرشفة هذا الكتالوج للطبق. وإعادة نشره فعل منفصل ومقصود.",
         "retiredToast": "سُحب {{name}} من قائمة الطعام.",
-        "retireFailed": "تعذّر سحب هذا الطبق.",
         "editTitle": "تعديل الطبق",
         "loadErrorTitle": "تعذّر تحميل هذا الطبق",
         "nameRequired": "الاسم الإنجليزي مطلوب قبل الحفظ.",
@@ -3359,9 +3371,7 @@
         "sectionDetails": "الطبق",
         "sectionRecipe": "الوصفة ومسبّبات الحساسية والقنوات",
         "sectionMargin": "هامش الربح",
-        "recipeLabel": "مطبوخ من وصفة",
         "recipeHint": "الوصفة التي تأتي منها أرقام الطبق وبطاقة مسبّبات الحساسية. الطبق بلا وصفة يُشترى جاهزًا ولا يعلن شيئًا مشتقًا.",
-        "recipeNone": "مشترى جاهزًا — لا يُطبخ هنا",
         "allergensLabel": "مسبّبات الحساسية المعلنة",
         "allergensNone": "لا شيء مشتقّ",
         "allergensProvenance": "مجمّدة من نسخة الوصفة {{version}} عند نشر هذا الطبق. غيّر الوصفة لتغيير البطاقة — لا يمكن تحريرها هنا.",
@@ -3386,13 +3396,8 @@
         "viewPublic": "شاهده على قائمة الطعام",
         "publishedToast": "نُشر {{name}}، وصار العملاء يرونه.",
         "viewKind": "وجبة",
-        "searchPlaceholder": "ابحث في الوجبات",
-        "statLiveCaption": "معروضة على القائمة الآن",
-        "statLiveAction": "اعرض الوجبات المنشورة فقط",
         "viewVisibility": "ظهورها للعملاء",
         "notVisibleToConsumers": "غير معروضة على القائمة",
-        "viewAllergensSource": "من الوصفة",
-        "viewAllergensCaption": "مُثبّتة من إصدار الوصفة عند نشر الوجبة. غيّر الوصفة لتغيير البيان — لا يمكن تعديله هنا.",
         "sectionIdentity": "الهوية",
         "sectionWhen": "أين تقع في اليوم",
         "gateTitle": "قبل أن تتمكن من النشر",
@@ -4081,13 +4086,6 @@
         "title": "أوقات العمل ومواعيد إغلاق الطلبات",
         "titleFor": "{{branch}} — أوقات العمل ومواعيد إغلاق الطلبات",
         "backToHub": "العودة إلى مساحة العمل",
-        "sectionContext": "الفرع الذي تسري عليه",
-        "sectionWeek": "أسبوع العمل",
-        "weekIntro": "الأيام السبعة كلها، دائمًا. اليوم المغلق يوم أجاب عنه أحدهم، لا يوم لم يملأه أحد.",
-        "contextNote": "هذه الأوقات تخصّ الفرع الحالي. لتعديل فرع آخر، بدّل الفرع من مبدّل مساحة العمل.",
-        "branchBadge": "{{branch}} ({{code}})",
-        "branchUnknown": "الفرع الحالي",
-        "timeZoneBadge": "تُقرأ الأوقات بتوقيت {{zone}}",
         "openDayCount_zero": "مغلق طوال الأسبوع",
         "openDayCount_one": "يفتح يومًا واحدًا في الأسبوع",
         "openDayCount_two": "يفتح يومين في الأسبوع",
@@ -4161,17 +4159,7 @@
     "sauces": {
         "title": "الصلصات والتتبيلات",
         "create": "صلصة جديدة",
-        "caption": "الصلصات والتتبيلات وعبواتها وقنواتها وحالتها",
-        "resultCount_zero": "{{count}} صلصة",
-        "resultCount_one": "صلصة واحدة",
-        "resultCount_two": "صلصتان",
-        "resultCount_few": "{{count}} صلصات",
-        "resultCount_many": "{{count}} صلصةً",
-        "resultCount_other": "{{count}} صلصة",
-        "emptyTitle": "لا صلصات بعد",
-        "emptyBody": "تظهر الصلصات التي يصنعها المطبخ هنا بعد استيرادها أو إنشائها.",
         "viewKind": "صلصة",
-        "searchPlaceholder": "ابحث في الصلصات",
         "kindColdSauce": "صلصة باردة / غموس",
         "kindCookingSauce": "صلصة طبخ",
         "kindDessertSauce": "صلصة حلويات",
@@ -4180,17 +4168,7 @@
     "dressings": {
         "title": "صلصات السلطة",
         "create": "صلصة سلطة جديدة",
-        "caption": "صلصات السلطة وعبواتها وقنواتها وحالتها",
-        "resultCount_zero": "{{count}} صلصة سلطة",
-        "resultCount_one": "صلصة سلطة واحدة",
-        "resultCount_two": "صلصتا سلطة",
-        "resultCount_few": "{{count}} صلصات سلطة",
-        "resultCount_many": "{{count}} صلصة سلطة",
-        "resultCount_other": "{{count}} صلصة سلطة",
-        "emptyTitle": "لا صلصات سلطة بعد",
-        "emptyBody": "تظهر صلصات السلطة التي يصنعها المطبخ هنا بعد استيرادها أو إنشائها.",
-        "viewKind": "تتبيلة",
-        "searchPlaceholder": "ابحث في التتبيلات"
+        "viewKind": "تتبيلة"
     },
     "sale": {
         "title": "البيع",
@@ -4270,11 +4248,7 @@
         "sourcingTitle": "العبوة والتوريد"
     },
     "frozenMeals": {
-        "caption": "وجبات تُطهى مسبقًا وتُباع من الفريزر.",
         "create": "وجبة مجمّدة جديدة",
-        "emptyBody": "تُطهى الوجبة المجمّدة على دفعات وتُباع بالوحدة، فبيع واحدة يخصمها من رف الفريزر لا من المكوّنات الخام.",
-        "emptyTitle": "لا توجد وجبات مجمّدة بعد",
-        "searchPlaceholder": "ابحث في الوجبات المجمّدة",
         "title": "الوجبات المجمّدة",
         "viewKind": "وجبة مجمّدة"
     },

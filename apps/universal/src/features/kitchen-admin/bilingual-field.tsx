@@ -156,6 +156,13 @@ export interface BilingualFieldProps extends GridSpanProps {
     readonly requiredEnglish?: boolean | undefined;
     readonly englishError?: string | undefined;
     /**
+     * Marks the Arabic half required too — for the records whose endpoint refuses a missing one
+     * outright (a role: `name_ar` is `required`), where a draft without it cannot be saved at all.
+     * Nothing publishes a role, so there is no later gate for the marker to defer to.
+     */
+    readonly requiredArabic?: boolean | undefined;
+    readonly arabicError?: string | undefined;
+    /**
      * Renders both halves as paragraph fields.
      *
      * A recipe step is a sentence or three, not a name, and typing one into a single-line box means
@@ -212,6 +219,8 @@ export function BilingualField({
     onChange,
     requiredEnglish = false,
     englishError,
+    requiredArabic = false,
+    arabicError,
     multiline = false,
     disabled = false,
     layout = 'stacked',
@@ -265,8 +274,10 @@ export function BilingualField({
                         }}
                         direction="rtl"
                         {...hintFor('ar')}
+                        required={requiredArabic}
                         multiline={multiline}
                         disabled={disabled}
+                        {...(arabicError === undefined ? {} : { error: arabicError })}
                     />
                 </View>
             </View>
@@ -311,8 +322,10 @@ export function BilingualField({
                         }}
                         direction="rtl"
                         {...hintFor('ar')}
+                        required={requiredArabic}
                         multiline={multiline}
                         disabled={disabled}
+                        {...(arabicError === undefined ? {} : { error: arabicError })}
                     />
                 </View>
             </View>
@@ -347,8 +360,10 @@ export function BilingualField({
                 }}
                 direction="rtl"
                 {...hintFor('ar')}
+                required={requiredArabic}
                 multiline={multiline}
                 disabled={disabled}
+                {...(arabicError === undefined ? {} : { error: arabicError })}
             />
         </>
     );

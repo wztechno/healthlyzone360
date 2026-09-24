@@ -19,9 +19,10 @@ import {
     FilterChip,
     FormSection,
     Inline,
-    Skeleton,
+    RecordSkeleton,
     Stack,
     Table,
+    TableSkeleton,
     Text,
     useToast,
 } from '@healthy360/design-system';
@@ -414,15 +415,7 @@ function Orders() {
             </CatalogueToolbar>
 
             {orders.isPending && rows.length === 0 ? (
-                <Stack space="xs" testID="kitchen-orders-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-orders-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
+                <TableSkeleton testID="kitchen-orders-loading" partTestID="kitchen-orders" />
             ) : listFailure !== null ? (
                 <ErrorState
                     testID="kitchen-orders-error"
@@ -895,7 +888,12 @@ function OrderRecord({
                 rail={rail}
             >
                 {detail.isPending ? (
-                    <Skeleton testID="kitchen-orders-detail-loading" heightClassName="h-40" />
+                    <RecordSkeleton
+                        testID="kitchen-orders-detail-loading"
+                        heading={false}
+                        tiles={0}
+                        rows={3}
+                    />
                 ) : detailFailure !== null ? (
                     <ErrorState
                         testID="kitchen-orders-detail-error"

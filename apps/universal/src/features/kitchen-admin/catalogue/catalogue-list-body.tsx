@@ -1,5 +1,12 @@
 import type { ApiFailure } from '@healthy360/api-client/contracts';
-import { Button, EmptyState, ErrorState, Inline, Skeleton, Stack } from '@healthy360/design-system';
+import {
+    Button,
+    EmptyState,
+    ErrorState,
+    Inline,
+    Stack,
+    TableSkeleton,
+} from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -62,17 +69,8 @@ export function CatalogueListBody({
     const { t } = useTranslation();
 
     if (list.isPending) {
-        return (
-            <Stack space="xs" testID={`${testID}-loading`}>
-                {Array.from({ length: 5 }, (_, index) => (
-                    <Skeleton
-                        key={index}
-                        testID={`${testID}-skeleton-${String(index + 1)}`}
-                        heightClassName="h-row-sm"
-                    />
-                ))}
-            </Stack>
-        );
+        // The table's own panel, header rule and rows, so the list lands without moving.
+        return <TableSkeleton testID={`${testID}-loading`} partTestID={testID} />;
     }
 
     if (list.failure !== null) {
