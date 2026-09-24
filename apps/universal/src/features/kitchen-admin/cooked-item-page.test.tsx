@@ -461,10 +461,10 @@ describe('a cooked item’s page', () => {
         expect(screen.getByTestId('kitchen-recipe-selling-seller')).toBeTruthy();
         expect(
             screen.getByTestId(`kitchen-recipe-selling-seller-${String(SAUCE_ID)}`),
-        ).toHaveTextContent('SAC-044');
+        ).toHaveTextContent(/SAC-044/);
         expect(
             screen.getByTestId(`kitchen-recipe-selling-seller-${String(MEAL_ID)}`),
-        ).toHaveTextContent('toum-bowl');
+        ).toHaveTextContent(/toum-bowl/);
 
         await press(`kitchen-recipe-selling-seller-${String(MEAL_ID)}`);
 
