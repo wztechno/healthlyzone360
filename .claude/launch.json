@@ -59,6 +59,12 @@
             "runtimeExecutable": "pnpm",
             "runtimeArgs": ["--filter", "universal", "run", "web", "--port", "8095"],
             "port": 8095
+        },
+        {
+            "name": "api-serve",
+            "runtimeExecutable": "php",
+            "runtimeArgs": ["apps/api/artisan", "serve", "--host", "127.0.0.1", "--port", "8080"],
+            "port": 8080
         }
     ]
 }

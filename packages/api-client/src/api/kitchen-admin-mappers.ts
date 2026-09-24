@@ -1054,11 +1054,11 @@ export function mapRecipeAdmin(
         versionCount: versionsWire.length,
         // Taken from the version this read already resolved rather than from the wire fields.
         //
-        // Only the *listing* fills `current_version_status` and `current_version_allergen_codes`:
-        // the single-resource reads return the versions themselves, so the controller has nothing to
-        // compute and sends null. Left alone, a record would report `published` on its own page
-        // while the list it was opened from said `review_required` — the same recipe disagreeing
-        // with itself one click apart.
+        // The single read now computes `current_version_status` and the allergen codes the same way
+        // the listing does (both go through the server's `RecipeSummaries`), so the wire fields are
+        // no longer null here. The override stays because this client has the versions in hand and
+        // picks the current one with the rule it opens the editor on: a record must not report
+        // `published` on its own page while the list it was opened from said `review_required`.
         currentVersionStatus: currentVersion.status,
         allergenCodes: currentVersion.allergens.map((declared) => declared.allergenCode),
     });
