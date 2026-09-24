@@ -18,8 +18,10 @@ use Illuminate\Http\Request;
  *
  * A lifecycle action as a POST sub-resource, never a `PATCH status` (master
  * plan v2 §4.15). Refused with `catalogue.in_use` while a published version
- * exists: withdrawing something from sale is retiring the version, and that
- * has its own route and its own permission.
+ * exists or a published catalogue item sells the recipe: withdrawing something
+ * from sale is retiring the version or the listing, and each has its own route
+ * and its own permission. The refusal always carries both
+ * `details.published_version_ids` and `details.catalogue_item_ids`.
  *
  * There is no delete. A recipe that has ever been published is part of a
  * food-safety record.

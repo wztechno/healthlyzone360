@@ -2867,12 +2867,15 @@ paths:
       description: |
         A lifecycle action as a POST sub-resource, never a `PATCH status`.
 
-        **Refused while a published version exists** —
-        `409 catalogue.in_use`, with `details.published_version_ids`.
-        Withdrawing something from sale is retiring the version, which has its
-        own route and its own permission; letting archive do it implicitly
-        would pull a live recipe through a route that never mentions
-        publication.
+        **Refused while a published version exists, or while a published
+        catalogue item sells the recipe** — `409 catalogue.in_use`, with both
+        `details.published_version_ids` and `details.catalogue_item_ids`, each
+        present and empty when that side holds nothing. Withdrawing something
+        from sale is retiring the version or the listing, each with its own
+        route and its own permission; letting archive do it implicitly would
+        pull a live recipe through a route that never mentions publication. A
+        live listing holds even when no version is published — its allergen
+        basis may be its own ingredients — and a draft listing never holds.
 
         There is no delete. A recipe that has ever been published is part of a
         food-safety record.
@@ -22259,10 +22262,12 @@ components:
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
     RecipeArchiveBlocked:
       description: |
-        The recipe still has a published version.
-        `details.published_version_ids` names them. Withdrawing something from
-        sale is retiring the version — its own action, its own permission —
-        not a side effect of archiving.
+        The recipe still has a published version, or a published catalogue
+        item still sells it. `details.published_version_ids` names the
+        versions and `details.catalogue_item_ids` the listings; both keys are
+        always present, empty when that side holds nothing. Withdrawing
+        something from sale is retiring the version or the listing — each its
+        own action, its own permission — not a side effect of archiving.
       headers:
         X-Correlation-Id:
           $ref: '#/components/headers/XCorrelationId'
@@ -22273,10 +22278,11 @@ components:
           example:
             error:
               code: catalogue.in_use
-              message: This recipe still has a published version. Retire it before archiving the recipe.
+              message: This recipe still has a published version or a published catalogue item selling it. Retire those before archiving the recipe.
               details:
                 published_version_ids:
                   - 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d40
+                catalogue_item_ids: []
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
     IngredientArchiveConflict:
       description: |

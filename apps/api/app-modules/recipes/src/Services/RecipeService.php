@@ -6,6 +6,7 @@ namespace Healthy360\Recipes\Services;
 
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Catalogues\Services\CatalogueItemService;
+use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
 use Healthy360\Recipes\Enums\DerivationState;
 use Healthy360\Recipes\Enums\RecipeCompleteness;
 use Healthy360\Recipes\Enums\RecipeConfidentiality;
@@ -50,6 +51,7 @@ final readonly class RecipeService
     public function __construct(
         private TenantContext $context,
         private AuditRecorder $audit,
+        private RecipeUsageRegistry $usage,
     ) {}
 
     /**
@@ -194,12 +196,22 @@ final readonly class RecipeService
      * Archive a recipe — a lifecycle action with its own route and its own
      * audit event (master plan v2 §4.15).
      *
-     * Refused while a published version exists. Archiving is not a way to
-     * withdraw something from sale: retiring the version is, and it has its
-     * own permission. Allowing archive to do it implicitly would let a
-     * manager pull a live recipe with a route that never mentions
-     * publication, and the audit trail would say "archived" where the
+     * Refused while a published version exists, **or while a published
+     * catalogue item sells the recipe**. Archiving is not a way to withdraw
+     * something from sale: retiring the version is, and so is retiring the
+     * listing, and each has its own permission. Allowing archive to do either
+     * implicitly would let a manager pull a live recipe with a route that never
+     * mentions publication, and the audit trail would say "archived" where the
      * meaningful event was "withdrawn".
+     *
+     * The listing half matters because a live item need not have a published
+     * version behind it: an item whose allergen basis is its own ingredient
+     * list, or the one ingredient it is, can be on sale while its recipe is
+     * still a draft, and archiving that recipe would take the dish out of the
+     * recipe book while a customer can still order it. It is asked through
+     * `RecipeUsageRegistry` — recipes never read catalogue tables — and a draft
+     * listing does not hold, for the reason the port gives: somebody drafting
+     * next month's menu must not stop this month's clean-up.
      *
      * @throws ApiException
      */
@@ -220,8 +232,10 @@ final readonly class RecipeService
             ->map(static fn (mixed $id): string => (string) $id)
             ->all());
 
-        if ($published !== []) {
-            throw new RecipeInUse($published);
+        $sellers = $this->usage->publishedItemIds($recipe);
+
+        if ($published !== [] || $sellers !== []) {
+            throw new RecipeInUse($published, $sellers);
         }
 
         $this->compareAndSwap($recipe, [

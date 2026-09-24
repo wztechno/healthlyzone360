@@ -20,14 +20,17 @@ use Healthy360\Recipes\Models\Recipe;
  * allergen label from its recipe's published version. Retiring that version
  * while the meal is live would leave a customer reading a label whose basis
  * no longer exists — so the retirement is refused until the item is retired
- * first, exactly as archiving a recipe is refused while it has a published
- * version. And when a recompute discovers that the label itself has moved
- * underneath a live listing, that listing has to come off sale with it.
+ * first; and archiving the recipe is refused while it has a published version
+ * or a live listing, for the same reason one level up. And when a recompute
+ * discovers that the label itself has moved underneath a live listing, that
+ * listing has to come off sale with it.
  */
 interface RecipeUsageRegistry
 {
     /**
-     * Identifiers of the **published** catalogue items that sell this recipe.
+     * Identifiers of the **published** catalogue items that sell this recipe,
+     * in slug order — what version retirement and recipe archival each refuse
+     * on, and name in `details.catalogue_item_ids`.
      *
      * Published only, deliberately. A draft item pointing at a recipe is
      * somebody working on next month's menu, and blocking a retirement on it

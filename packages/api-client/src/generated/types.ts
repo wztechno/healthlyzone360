@@ -16515,10 +16515,12 @@ export type ArchiveRecipeErrors = {
      */
     404: ErrorEnvelope;
     /**
-     * The recipe still has a published version.
-     * `details.published_version_ids` names them. Withdrawing something from
-     * sale is retiring the version — its own action, its own permission —
-     * not a side effect of archiving.
+     * The recipe still has a published version, or a published catalogue
+     * item still sells it. `details.published_version_ids` names the
+     * versions and `details.catalogue_item_ids` the listings; both keys are
+     * always present, empty when that side holds nothing. Withdrawing
+     * something from sale is retiring the version or the listing — each its
+     * own action, its own permission — not a side effect of archiving.
      *
      */
     409: ErrorEnvelope;
