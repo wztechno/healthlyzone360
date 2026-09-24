@@ -6,6 +6,7 @@ namespace Healthy360\Kitchens\Providers;
 
 use Healthy360\Kitchens\Console\ActivateImportedTariffsCommand;
 use Healthy360\Kitchens\Console\ApplyAllergenDeterminationsCommand;
+use Healthy360\Kitchens\Console\FormulateUnlinkedCommand;
 use Healthy360\Kitchens\Console\ImportKitchenWorkbookCommand;
 use Healthy360\Kitchens\Console\ImportV6CatalogueCommand;
 use Healthy360\Kitchens\Console\ImportV6RecipesCommand;
@@ -46,6 +47,7 @@ class KitchensServiceProvider extends ServiceProvider
                 PublishReadyCatalogueCommand::class,
                 RelinkRecipeLinesCommand::class,
                 UnitNormalisationReportCommand::class,
+                FormulateUnlinkedCommand::class,
             ]);
         }
     }
