@@ -1949,10 +1949,12 @@ describe('the recipe list at desk width', () => {
             fireEvent.press(screen.getByTestId('kitchen-recipes-column-category-cold_sauce_dip'));
         });
 
+        // The narrowed page is a new query, so the rows leave before the answer arrives: wait for
+        // the row that should come back, and only then assert the one that should not.
+        await untilVisible(`${recipeRow(dip)}-name`);
         await waitFor(() => {
             expect(screen.queryByTestId(`${recipeRow(pot)}-name`)).toBeNull();
         });
-        expect(screen.getByTestId(`${recipeRow(dip)}-name`)).toBeTruthy();
         expect(listing.filters.some((sent) => sent.category === 'cold_sauce_dip')).toBe(true);
     });
 

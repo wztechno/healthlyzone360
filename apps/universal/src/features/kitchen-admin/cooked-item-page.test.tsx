@@ -794,10 +794,11 @@ const REDIRECTS: readonly {
 ];
 
 describe('the addresses the recipe book replaced', () => {
-    it.each(REDIRECTS)('sends $from to $to', ({ route: Route, params, to }) => {
+    it.each(REDIRECTS)('sends $from to $to', async ({ route: Route, params, to }) => {
         routerMock.__setParams(params);
 
-        render(<Route />);
+        // `render` resolves once the tree has committed; the redirect is drawn on that commit.
+        await render(<Route />);
 
         expect(routerMock.__redirect.mock.calls.at(-1)?.[0]).toEqual({ href: to });
     });
