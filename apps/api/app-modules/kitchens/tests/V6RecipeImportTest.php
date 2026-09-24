@@ -12,6 +12,7 @@ use Healthy360\Kitchens\Import\Runtime\ImportReport;
 use Healthy360\Kitchens\Import\Runtime\UnitMap;
 use Healthy360\Kitchens\Import\V6\V6CatalogueWriter;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
+use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeCostSnapshot;
 use Healthy360\Recipes\Models\RecipeVersion;
@@ -157,6 +158,27 @@ it('links items to their sheets, refuses supplier-mode items, and strips the unl
         ->and($items['RSL-901']->recipe_id)->toBeNull()
         // The unlinked sauce keeps its honest flag.
         ->and($items['SAC-902']->data_quality_flags)->toContain('recipe_library_unlinked');
+});
+
+it('lands a sheet on a free slug when another recipe already holds its name', function (): void {
+    $organisationId = (string) Organisation::query()->where('slug', 'test-v6-kitchen')->value('id');
+
+    // A recipe the kitchen wrote before the sheets arrived already holds the slug the designation
+    // would take. `recipes(organisation_id, slug)` is unique, so a verbatim slug failed the whole
+    // import — every sheet, not just this one.
+    Recipe::factory()->create(['organisation_id' => $organisationId, 'slug' => 'fixture-garlic-sauce']);
+
+    expect(runV6RecipesImport())->toBe(0);
+
+    $sheet = Recipe::withoutTenancy()
+        ->where('source_system', 'healthy360_workbook_v6')
+        ->where('source_ref', 'v6-recipes.json#fixture-garlic-sauce')
+        ->sole();
+
+    expect($sheet->slug)->toBe('fixture-garlic-sauce-2')
+        // The importer finds its sheet by `source_ref`, so the suffix does not cost the item its link.
+        ->and(CatalogueItem::withoutTenancy()->where('source_ref', 'SAC-901')->sole()->recipe_id)
+        ->toBe((string) $sheet->getKey());
 });
 
 it('feeds the intermediate chain: the preparation consumes the sauce the other sheet produces', function (): void {

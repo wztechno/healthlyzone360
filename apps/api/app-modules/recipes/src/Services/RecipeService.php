@@ -77,7 +77,7 @@ final readonly class RecipeService
             $recipe = new Recipe;
             $recipe->organisation_id = $organisationId;
             $recipe->branch_id = $attributes['branch_id'] ?? null;
-            $recipe->slug = $this->uniqueSlug($attributes['slug'] ?? $nameEn, $organisationId);
+            $recipe->slug = self::uniqueSlug($attributes['slug'] ?? $nameEn, $organisationId);
             $recipe->name_en = $nameEn;
             $recipe->name_ar = $this->trimmedOrNull($attributes['name_ar'] ?? null) ?? $nameEn;
             $recipe->source_ref = $this->trimmedOrNull($attributes['source_ref'] ?? null)
@@ -321,7 +321,15 @@ final readonly class RecipeService
         return $prefix.str_pad((string) ($highest + 1), 4, '0', STR_PAD_LEFT);
     }
 
-    private function uniqueSlug(string $source, string $organisationId): string
+    /**
+     * A slug no other recipe in this kitchen holds: the name's slug, then `-2`, `-3`, … on a clash.
+     *
+     * Public and static because the v6 importer writes recipes without this service and has to land
+     * on the same rule — `recipes(organisation_id, slug)` is unique, and a sheet whose designation
+     * slugs to a name a placeholder recipe already took would otherwise fail the whole import. The
+     * importer finds its sheets again by `source_ref`, never by slug, so a suffix costs it nothing.
+     */
+    public static function uniqueSlug(string $source, string $organisationId): string
     {
         $base = Str::limit(Str::slug($source), 110, '');
 
