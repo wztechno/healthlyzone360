@@ -1,5 +1,5 @@
 import type { RecipeAdminSummary } from '@healthy360/api-client/contracts';
-import { Badge, Icon, IconButton, Text } from '@healthy360/design-system';
+import { Badge, Icon, IconButton, Inline, Text } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { KitchenId } from '@healthy360/domain-types';
 import type { TFunction } from 'i18next';
@@ -9,25 +9,31 @@ import { EntityImage, MediaChip } from '../../../media/entity-image.tsx';
 import { BrowseCard } from '../../../ui/browse-card.tsx';
 import { CardGrid, CardGridItem } from '../../marketplace/section-header.tsx';
 import { displayName, recipeRowTestId, statusShortKey, statusTone } from '../format.ts';
+import { kindsLabel, recipeCategoryLabel, recipeHandle, recipePhotoId } from './recipe-columns.tsx';
 
 /**
- * The recipe list as cards — the other half of the Table / Cards switch on the recipes screen.
+ * The recipe book as cards — the other half of the Table / Cards switch on the recipes screen.
  *
  * The same rows, the same page, the same sort and filters as the table: this is a second drawing of
  * `list.rows`, not a second query, so switching loses nothing and the pager under it still counts
- * the same set.
+ * the same set. The words come from the table's own helpers in `recipe-columns.tsx` — the handle,
+ * the kinds, the filing word — so a card and a row can never name one recipe two ways.
  *
  * Built from the marketplace's pieces rather than new ones. `BrowseCard` is the meal card's shape —
  * a 4:3 photograph, the title with a trailing mark on its baseline, a line of meta, a tag row, and a
- * footer pinned under a rule — and `CardGrid` is the grid the menu lays it in. A recipe has no
- * photograph field on its contract; `EntityImage` resolves `recipe-<slug>` against the bundled dish
- * set and falls back to the generated pattern, so every card has a picture of some kind and the
- * ones the photo set covers show the dish.
+ * footer pinned under a rule — and `CardGrid` is the grid the menu lays it in. The photograph is the
+ * seller's when something sells the recipe, else `recipe-<slug>` against the bundled dish set, and
+ * `EntityImage` falls back to the generated pattern, so every card has a picture of some kind.
+ *
+ * The photograph carries two chips: the handle at its leading top corner, and — for a reader who can
+ * see what sells the recipe — its kinds at the trailing bottom one, "Sauce" or "Meal · Sauce". The
+ * kind is a chip rather than a meta word because on the All tab it is what tells one card from the
+ * next, and the meta line is already the kitchen and the filing word.
  *
  * The card is not one pressable target. Its footer carries the row's own actions — View, Edit,
- * Archive, as the table draws them — and a card-wide press around three buttons is a nested
- * control. The title is the link that opens the editor, as a row press does, and the picture opens
- * it too without adding a tab stop (`BrowseCard`'s `mediaAction`).
+ * Withdraw, Archive, as the table draws them — and a card-wide press around several buttons is a
+ * nested control. The title is the link that opens the editor, as a row press does, and the
+ * picture opens it too without adding a tab stop (`BrowseCard`'s `mediaAction`).
  */
 
 export interface RecipeCardGridProps {
@@ -39,22 +45,6 @@ export interface RecipeCardGridProps {
     readonly rowActions: (row: RecipeAdminSummary) => readonly MenuItem[];
     readonly rowActionsLabel: string;
     readonly testID: string;
-}
-
-/** The identifier after the last `#` — same reading as the table's Id column. */
-function identifierFragment(identifier: string): string {
-    const hash = identifier.lastIndexOf('#');
-    return hash === -1 ? identifier : identifier.slice(hash + 1);
-}
-
-/**
- * `cooking_sauce` → `Cooking sauce`. The category is the kitchen's own free-text filing word, not
- * a vocabulary with translations, so this only undoes the underscore spelling it is stored in.
- */
-function humaniseCategory(category: string | null): string | null {
-    if (category === null) return null;
-    const words = category.replace(/_/g, ' ').trim();
-    return words === '' ? null : words.charAt(0).toLocaleUpperCase() + words.slice(1);
 }
 
 /** How many allergen tags a card draws before the rest collapse into `+N`. */
@@ -76,8 +66,11 @@ export function RecipeCardGrid({
                 const id = String(row.id);
                 const cardID = `${recipeRowTestId(id)}-card`;
                 const name = displayName(row.name, locale);
-                const category = humaniseCategory(row.recipeCategory ?? row.sourceKind);
-                const meta = [kitchenName(row.kitchenId), category]
+                const kinds = kindsLabel(row, t);
+                const meta = [
+                    kitchenName(row.kitchenId),
+                    recipeCategoryLabel(row.recipeCategory, t),
+                ]
                     .filter((part): part is string => part !== null && part !== '')
                     .join(' · ');
                 const open = () => {
@@ -98,16 +91,17 @@ export function RecipeCardGrid({
                             media={
                                 <EntityImage
                                     testID={`${cardID}-image`}
-                                    assetId={`recipe-${row.slug}`}
+                                    assetId={recipePhotoId(row)}
                                     variant="card"
                                     seed={row.slug}
                                     label={t('kitchen:recipes.imageLabel', { recipe: name.value })}
                                     aspect="card"
                                     flush
-                                    overlayStart={
-                                        <MediaChip
-                                            label={identifierFragment(row.reference ?? row.slug)}
-                                        />
+                                    overlayStart={<MediaChip label={recipeHandle(row)} />}
+                                    overlayEnd={
+                                        kinds === null ? undefined : (
+                                            <MediaChip testID={`${cardID}-kind`} label={kinds} />
+                                        )
                                     }
                                 />
                             }
@@ -176,15 +170,24 @@ export function RecipeCardGrid({
                                 </View>
                             }
                         >
-                            {name.isFallback ? (
-                                <View className="flex-row">
-                                    <Badge
-                                        testID={`${cardID}-missing-arabic`}
-                                        tone="warning"
-                                        icon="languages"
-                                        label={t('kitchen:list.missingArabic')}
-                                    />
-                                </View>
+                            {name.isFallback || row.lineCount === 0 ? (
+                                <Inline space="xs">
+                                    {name.isFallback ? (
+                                        <Badge
+                                            testID={`${cardID}-missing-arabic`}
+                                            tone="warning"
+                                            icon="languages"
+                                            label={t('kitchen:list.missingArabic')}
+                                        />
+                                    ) : null}
+                                    {row.lineCount === 0 ? (
+                                        <Badge
+                                            testID={`${cardID}-not-formulated`}
+                                            tone="warning"
+                                            label={t('kitchen:recipes.notFormulated')}
+                                        />
+                                    ) : null}
+                                </Inline>
                             ) : null}
                             {row.allergenCodes.length === 0 ? (
                                 <Text

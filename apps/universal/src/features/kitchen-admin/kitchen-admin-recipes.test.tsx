@@ -1,5 +1,6 @@
 import {
     PACKAGING_CATEGORY_CODE,
+    RECIPE_KINDS,
     apiFailure,
     conflictFailure,
     throwFailure,
@@ -10,20 +11,32 @@ import type {
     CursorPage,
     IngredientAdmin,
     IngredientAdminFilter,
+    MealAdmin,
+    ProductAdmin,
     RecipeAdmin,
     RecipeAdminFilter,
     RecipeAdminSummary,
     AllergenClass,
     RecipeAllergenDeclaration,
     RecipeComputedCost,
+    RecipeKind,
     RecipeLine,
     RecipeRollupDraft,
     RecipeRollupPreview,
+    RecipeSoldAs,
     RecipeVersionAdmin,
     RecipeVersionSummary,
     TechnicalSheetAdmin,
 } from '@healthy360/api-client/contracts';
-import { AllergenCode, IngredientId, KitchenId, RecipeId, RoleId } from '@healthy360/domain-types';
+import {
+    AllergenCode,
+    IngredientId,
+    KitchenId,
+    MealId,
+    ProductId,
+    RecipeId,
+    RoleId,
+} from '@healthy360/domain-types';
 import type { RecipeVersionId } from '@healthy360/domain-types';
 import type { NutritionFacts } from '@healthy360/nutrition';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
@@ -43,6 +56,7 @@ import {
 } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
 import {
     costPerServing,
     currencySymbol,
@@ -81,35 +95,52 @@ import { RecipesScreen } from './screens/recipes-screen.tsx';
  *    and leaving with unsaved lines asks first.
  */
 
+/**
+ * Route parameters are the one thing the list cannot reach through a repository, so the router is
+ * mocked rather than rendered — the seam `../catalogue/catalogue.test.tsx` uses. `params` is
+ * mutable so a test can put `?kind=` in front of the book exactly the way a shared link would, and
+ * `setParams` is captured because the kind strip writes the URL rather than a copy of it. The mock
+ * does not feed a write back into `params`, so a test asserts the write itself.
+ */
+const routerState: { params: Record<string, string> } = { params: {} };
+
 jest.mock('expo-router', () => {
     const push = jest.fn();
     const replace = jest.fn();
+    const setParams = jest.fn();
     return {
         __esModule: true,
         useRouter: () => ({
             push,
             replace,
-            setParams: jest.fn(),
+            setParams,
             back: jest.fn(),
             prefetch: jest.fn(),
         }),
         usePathname: () => '/kitchen/recipes',
-        useLocalSearchParams: () => ({}),
+        useLocalSearchParams: () => routerState.params,
         Redirect: () => null,
         Link: ({ children }: { children: ReactNode }) => children,
         Slot: () => null,
         Stack: () => null,
         __push: push,
         __replace: replace,
+        __setParams: setParams,
     };
 });
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __push: jest.Mock; __replace: jest.Mock };
+const routerMock = require('expo-router') as {
+    __push: jest.Mock;
+    __replace: jest.Mock;
+    __setParams: jest.Mock;
+};
 
 beforeEach(() => {
+    routerState.params = {};
     routerMock.__push.mockClear();
     routerMock.__replace.mockClear();
+    routerMock.__setParams.mockClear();
 });
 
 afterEach(() => {
@@ -379,6 +410,11 @@ function recipe({ ordinal, name, currentVersion, overrides = {} }: RecipeSeed): 
         currentVersionStatus: version.status,
         allergenCodes: version.allergens.map((declared) => declared.allergenCode),
         lineCount: version.lines.length,
+        // Nothing sells it, which is what the server says of such a recipe: a preparation. A test
+        // about a sold recipe states its sellers; one about a reader who cannot see the catalogue
+        // takes both keys away, as the server does.
+        kinds: ['preparation'],
+        soldAs: [],
         description: { en: 'A dish.', ar: 'طبق.' },
         currentVersion: version,
         versions: [versionSummary(version)],
@@ -406,22 +442,76 @@ function summaryOf(record: RecipeAdmin): RecipeAdminSummary {
     };
 }
 
+/** The catalogue items the book's tests sell recipes as, UUIDv7-shaped like the rest of this world. */
+const SAUCE_ID = ProductId.unsafe('01935f6d-0000-7000-8000-0000000d0001');
+const SECOND_SAUCE_ID = ProductId.unsafe('01935f6d-0000-7000-8000-0000000d0002');
+const MEAL_ID = MealId.unsafe('01935f6d-0000-7000-8000-0000000f0001');
+
 /**
- * The recipe listing, answering the filters the screens actually send.
+ * One catalogue item selling a recipe — by default a live sauce with its handle, one channel and a
+ * 500 g tub.
  *
- * `query` and `statuses` are real server parameters (`RecipeAdminFilter`), and two call sites depend
- * on them behaving: the list screen's search box narrows by name, and the kitchen picker derives its
- * vocabulary from one unfiltered page. Reading a getter rather than a captured array is what lets a
- * test move the world on mid-flight and assert the refetch.
+ * Its lock version is 7 and the meal's 5, while the recipe fixtures sit at 1 or 3: a withdrawal
+ * that quoted the recipe's lock instead of the item's is then caught by value rather than by luck.
  */
+function seller(overrides: Partial<RecipeSoldAs> = {}): RecipeSoldAs {
+    return {
+        id: String(SAUCE_ID),
+        itemType: 'sauce',
+        status: 'published',
+        lockVersion: 7,
+        reference: 'SAC-016',
+        slug: 'garlic-mayo',
+        name: { en: 'Garlic mayo', ar: 'مايونيز بالثوم' },
+        imagePlaceholderId: 'product-garlic-mayo',
+        kitchenCategory: 'Sauces',
+        kitchenSubcategory: 'Cold sauce / dip',
+        isMarketPriced: false,
+        isAssorted: false,
+        dataQualityFlags: [],
+        portionFactor: 1,
+        composition: null,
+        channels: ['b2c'],
+        packCount: 1,
+        defaultPack: { label: { en: 'Tub', ar: 'علبة' }, netQuantity: 500, netUnit: 'g' },
+        ...overrides,
+    };
+}
+
+/** A live meal selling its recipe: sold by the portion, so no pack, and no handle of its own. */
+function mealSeller(overrides: Partial<RecipeSoldAs> = {}): RecipeSoldAs {
+    return seller({
+        id: String(MEAL_ID),
+        itemType: 'meal',
+        lockVersion: 5,
+        reference: null,
+        slug: 'freekeh-bowl',
+        name: { en: 'Freekeh bowl', ar: 'وعاء فريكة' },
+        imagePlaceholderId: 'meal-freekeh-bowl',
+        kitchenCategory: null,
+        kitchenSubcategory: null,
+        packCount: 0,
+        defaultPack: null,
+        ...overrides,
+    });
+}
+
 /**
- * The listing, narrowed the way the server narrows it.
+ * The recipe listing, narrowed the way the server narrows it.
  *
- * `allergenCodes` is applied here against the record's current version rather than left to the
- * screen, because that is where it happens in production: `RecipeIndexController` matches
- * `recipe_version_allergens` and returns a page that is already filtered. A stub that ignored the
- * parameter would let a page-local implementation pass the suite, which is the one outcome these
- * tests exist to prevent.
+ * Every parameter the book sends is applied here rather than left to the screen, because that is
+ * where it happens in production — `RecipeIndexController` returns a page that is already filtered.
+ * A stub that ignored one would let a page-local implementation pass the suite, which is the one
+ * outcome these tests exist to prevent.
+ *
+ * - `query` and `statuses` narrow by name and by the recipe's own state.
+ * - `allergenCodes` matches the record's current version, as `recipe_version_allergens` does.
+ * - `kind` matches any seller of the kind — so a recipe sold as two is listed under both — and
+ *   `preparation` a recipe nothing sells, which is what `kinds` already says of it.
+ * - `sellingStatus` matches a seller in that state; `category` the recipe's own filing word.
+ *
+ * Reading a getter rather than a captured array is what lets a test move the world on mid-flight
+ * and assert the refetch.
  */
 function recipeListing(
     read: () => readonly RecipeAdmin[],
@@ -430,6 +520,9 @@ function recipeListing(
         const statuses = filter?.statuses;
         const needle = filter?.query?.trim().toLocaleLowerCase() ?? '';
         const codes = filter?.allergenCodes;
+        const kind = filter?.kind;
+        const sellingStatus = filter?.sellingStatus;
+        const category = filter?.category;
 
         return page(
             read()
@@ -441,6 +534,10 @@ function recipeListing(
                             row.currentVersion.allergens.some((declaration) =>
                                 codes.includes(declaration.allergenCode),
                             )) &&
+                        (kind === undefined || (row.kinds ?? []).includes(kind)) &&
+                        (sellingStatus === undefined ||
+                            (row.soldAs ?? []).some((sold) => sold.status === sellingStatus)) &&
+                        (category === undefined || row.recipeCategory === category) &&
                         (needle === '' ||
                             row.name.en.toLocaleLowerCase().includes(needle) ||
                             row.name.ar.includes(needle) ||
@@ -703,6 +800,51 @@ function organisationMemberSession() {
     });
 }
 
+/**
+ * A kitchen manager with every `catalogue.*` code taken away and the recipe ones kept.
+ *
+ * The server leaves `soldAs` and `kinds` off every row for this reader and refuses `kind` and
+ * `selling_status` with a 403, so the book has to leave its seller half out and never send either.
+ */
+function recipeOnlySession() {
+    return kitchenManagerSession({
+        activeContext: testActiveContext({
+            permissions: KITCHEN_MANAGER_PERMISSIONS.filter(
+                (code) => !code.startsWith('catalogue.'),
+            ),
+        }),
+    });
+}
+
+/** A kitchen manager who may not publish in the catalogue — the guard on withdrawing an item. */
+function noCataloguePublishSession() {
+    return kitchenManagerSession({
+        activeContext: testActiveContext({
+            permissions: KITCHEN_MANAGER_PERMISSIONS.filter(
+                (code) => code !== 'catalogue.publish_organisation',
+            ),
+        }),
+    });
+}
+
+/** The prefix every cell and action of one row hangs off. */
+function recipeRow(record: RecipeAdmin): string {
+    return `kitchen-recipe-${String(record.id)}`;
+}
+
+/** Every request the listing was sent, beside the listing itself. */
+function recordedListing(read: () => readonly RecipeAdmin[]) {
+    const filters: RecipeAdminFilter[] = [];
+    const listing = recipeListing(read);
+    return {
+        filters,
+        listRecipes: async (filter?: RecipeAdminFilter) => {
+            if (filter !== undefined) filters.push(filter);
+            return listing(filter);
+        },
+    };
+}
+
 /* ------------------------------------------------------------------------------------------------
  * Pure helpers
  * ---------------------------------------------------------------------------------------------- */
@@ -826,9 +968,19 @@ describe('recipe display helpers', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('the recipe list', () => {
+    beforeEach(() => {
+        // The column choice outlives a render in the module's store; each test starts from the
+        // book's defaults. The old table's key too, which one test below writes on purpose.
+        forgetColumnChoice('kitchen-recipes.v2');
+        forgetColumnChoice('kitchen-recipes');
+    });
+
     it('names the kitchen a recipe belongs to, off the session, instead of printing its id', async () => {
         // `kitchenId` is the owning organisation's id, and the signed-in person is a member of it —
         // so the column reads the membership's name. A kitchen outside the memberships keeps the id.
+        // Kitchen is a column the reader chooses — every recipe on the book is the kitchen in
+        // context — so this reader has chosen it.
+        rememberColumnChoice('kitchen-recipes.v2', ['reference', 'name', 'kitchen', 'status']);
         const own = recipe({
             ordinal: 1,
             name: 'Tabbouleh',
@@ -892,7 +1044,10 @@ describe('the recipe list', () => {
         expect(screen.getByTestId(`${row}-title`)).toHaveTextContent('Tabbouleh');
         // `-reference`, not `-slug`: the identifier cell carries the record's `RC-` handle now.
         expect(screen.getByTestId(`${base}-reference`)).toBeTruthy();
-        expect(screen.getByTestId(`${base}-kitchen`)).toBeTruthy();
+        // Kind is one of the six the book draws by default, and a recipe nothing sells is a
+        // preparation. Kitchen is not among them: it is a column the reader chooses.
+        expect(screen.getByTestId(`${base}-kind`)).toHaveTextContent('Preparation');
+        expect(screen.queryByTestId(`${base}-kitchen`)).toBeNull();
         // The version pair used to be the row's headline metric — which version is current, out of
         // how many. Both tracks were dropped by request; the version panel and the editor answer it
         // now, and the list has no metric column at all.
@@ -964,6 +1119,10 @@ describe('the recipe list', () => {
         expect(screen.getByTestId(`${card}-version`)).toHaveTextContent(
             `Version ${String(tabbouleh.currentVersionNumber)}`,
         );
+        // The kind rides on the photograph beside the handle, so it is hidden with it.
+        expect(
+            screen.getByTestId(`${card}-kind`, { includeHiddenElements: true }),
+        ).toHaveTextContent('Preparation');
         // One card per row of the same page — a second drawing, not a second query.
         expect(screen.getAllByTestId(/^kitchen-recipe-.+-card$/)).toHaveLength(2);
 
@@ -995,6 +1154,257 @@ describe('the recipe list', () => {
 
         await untilVisible('kitchen-recipes-forbidden');
         expect(screen.queryByTestId('kitchen-recipes-table')).toBeNull();
+    });
+
+    it('reads the tab from ?kind=, asks the server for it, and writes a press back to the URL', async () => {
+        // A shared link, or one of the old `/kitchen/sauces` redirects landing here.
+        routerState.params = { kind: 'sauce' };
+        const listing = recordedListing(() => [recipe({ ordinal: 1, name: 'Tabbouleh' })]);
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listRecipes: listing.listRecipes } },
+        });
+
+        await untilVisible('kitchen-recipes-kind');
+        expect(screen.getByTestId('kitchen-recipes-kind-sauce')).toBeSelected();
+        expect(screen.getByTestId('kitchen-recipes-kind-all')).not.toBeSelected();
+        // The page asked for sauces — not only the strip's counts, which ask for one row each.
+        await waitFor(() => {
+            expect(
+                listing.filters.some((sent) => sent.kind === 'sauce' && sent.perPage !== 1),
+            ).toBe(true);
+        });
+
+        // The URL is the tab's only copy, so a press writes the URL and nothing else.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-kind-meal'));
+        });
+        expect(routerMock.__setParams).toHaveBeenLastCalledWith({ kind: 'meal' });
+
+        // All is the absence of a kind, written as an empty parameter rather than a stale one.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-kind-all'));
+        });
+        expect(routerMock.__setParams).toHaveBeenLastCalledWith({ kind: '' });
+    });
+
+    it('counts each kind with the server’s own total for it, and All as their sum', async () => {
+        const library = [
+            recipe({
+                ordinal: 1,
+                name: 'Garlic mayo',
+                overrides: { kinds: ['sauce'], soldAs: [seller()] },
+            }),
+            recipe({
+                ordinal: 2,
+                name: 'Tahini sauce',
+                overrides: {
+                    kinds: ['sauce'],
+                    soldAs: [
+                        seller({
+                            id: String(SECOND_SAUCE_ID),
+                            reference: 'SAC-017',
+                            slug: 'tahini-sauce',
+                        }),
+                    ],
+                },
+            }),
+            recipe({
+                ordinal: 3,
+                name: 'Freekeh bowl',
+                overrides: { kinds: ['meal'], soldAs: [mealSeller()] },
+            }),
+            recipe({ ordinal: 4, name: 'Cordon bleu marination' }),
+        ];
+        const listing = recordedListing(() => library);
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listRecipes: listing.listRecipes } },
+        });
+
+        // The figure is an annotation, out of the tab's accessible name, so it is asked for as such.
+        const count = (tab: string) =>
+            screen.getByTestId(`kitchen-recipes-kind-${tab}-count`, {
+                includeHiddenElements: true,
+            });
+        await waitFor(() => {
+            expect(count('sauce')).toHaveTextContent('2');
+        });
+        expect(count('meal')).toHaveTextContent('1');
+        expect(count('dressing')).toHaveTextContent('0');
+        expect(count('frozen_meal')).toHaveTextContent('0');
+        expect(count('preparation')).toHaveTextContent('1');
+        expect(count('all')).toHaveTextContent('4');
+        // One row per kind: the count is the pager's own `totalCount`, so nothing walks pages.
+        expect(listing.filters).toContainEqual({ kind: 'dressing', page: 1, perPage: 1 });
+    });
+
+    it('counts what is on sale, and narrows the book to it through the request', async () => {
+        const listing = recordedListing(() => [
+            recipe({
+                ordinal: 1,
+                name: 'Garlic mayo',
+                overrides: { kinds: ['sauce'], soldAs: [seller()] },
+            }),
+            recipe({
+                ordinal: 2,
+                name: 'Freekeh bowl',
+                overrides: { kinds: ['meal'], soldAs: [mealSeller({ status: 'draft' })] },
+            }),
+            recipe({ ordinal: 3, name: 'Cordon bleu marination' }),
+        ]);
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listRecipes: listing.listRecipes } },
+        });
+
+        await untilVisible('kitchen-recipes-stats-onSale');
+        // The sauce's item is live; the meal's is a draft, and the marination sells nothing.
+        expect(screen.getByTestId('kitchen-recipes-stats-onSale-value')).toHaveTextContent('1');
+        expect(screen.getByTestId('kitchen-recipes-stats-review')).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-stats-onSale'));
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-recipes-stats-shown-value')).toHaveTextContent('1');
+        });
+        expect(listing.filters.some((sent) => sent.sellingStatus === 'published')).toBe(true);
+    });
+
+    it('trades Awaiting review for No pack on a packaged tab', async () => {
+        routerState.params = { kind: 'sauce' };
+        const listing = recordedListing(() => [
+            recipe({
+                ordinal: 1,
+                name: 'Garlic mayo',
+                overrides: { kinds: ['sauce'], soldAs: [seller()] },
+            }),
+            recipe({
+                ordinal: 2,
+                name: 'Tahini sauce',
+                overrides: {
+                    kinds: ['sauce'],
+                    soldAs: [
+                        seller({
+                            id: String(SECOND_SAUCE_ID),
+                            reference: 'SAC-017',
+                            slug: 'tahini-sauce',
+                            packCount: 0,
+                            defaultPack: null,
+                        }),
+                    ],
+                },
+            }),
+        ]);
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listRecipes: listing.listRecipes } },
+        });
+
+        // A sauce with no pack has nothing a price list can point at — the figure the sauces page
+        // showed in this slot. Read-only, because the contract has no parameter for it.
+        await untilVisible('kitchen-recipes-stats-noPack');
+        expect(screen.getByTestId('kitchen-recipes-stats-noPack-value')).toHaveTextContent('1');
+        expect(screen.queryByTestId('kitchen-recipes-stats-review')).toBeNull();
+    });
+
+    it.each(RECIPE_KINDS)(
+        'starts a new %s from the New menu on the All tab',
+        async (kind: RecipeKind) => {
+            await renderStubScreen(<RecipesScreen />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        listRecipes: recipeListing(() => [recipe({ ordinal: 1 })]),
+                    },
+                },
+            });
+
+            await untilVisible('kitchen-recipes-toolbar-create');
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-recipes-toolbar-create'));
+            });
+            await untilVisible(`kitchen-recipes-toolbar-create-${kind}`);
+            await act(async () => {
+                fireEvent.press(screen.getByTestId(`kitchen-recipes-toolbar-create-${kind}`));
+            });
+
+            // Every kind is created on the recipe's own address; the editor reads the kind.
+            expect(routerMock.__push).toHaveBeenCalledWith(`/kitchen/recipes/new?kind=${kind}`);
+        },
+    );
+
+    it('creates the tab’s own kind in one press on a kind tab, with no menu', async () => {
+        routerState.params = { kind: 'sauce' };
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [
+                        recipe({
+                            ordinal: 1,
+                            name: 'Garlic mayo',
+                            overrides: { kinds: ['sauce'], soldAs: [seller()] },
+                        }),
+                    ]),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipes-toolbar-create');
+        expect(screen.getByTestId('kitchen-recipes-toolbar-create')).toHaveTextContent(/New sauce/);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-toolbar-create'));
+        });
+
+        expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/recipes/new?kind=sauce');
+        expect(screen.queryByTestId('kitchen-recipes-toolbar-create-sauce')).toBeNull();
+    });
+
+    it('leaves the seller half out for a reader who cannot see the catalogue', async () => {
+        // A link still names a tab. For this reader it is ignored rather than turned into a 403.
+        routerState.params = { kind: 'sauce' };
+        // And the server leaves `soldAs` and `kinds` off every row this reader is sent.
+        const listing = recordedListing(() => [
+            recipe({
+                ordinal: 1,
+                name: 'Tabbouleh',
+                overrides: { kinds: undefined, soldAs: undefined },
+            }),
+        ]);
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: recipeOnlySession(),
+            repositories: { kitchenAdmin: { listRecipes: listing.listRecipes } },
+        });
+
+        await untilVisible('kitchen-recipes-table');
+        expect(screen.queryByTestId('kitchen-recipes-kind')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipes-stats-onSale')).toBeNull();
+        expect(screen.getByTestId('kitchen-recipes-stats-review')).toBeTruthy();
+
+        // Not hidden but absent: the picker does not offer the seller tracks at all.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-columns-trigger'));
+        });
+        await untilVisible('kitchen-recipes-columns-category');
+        for (const key of ['kind', 'onSale', 'channels', 'packs', 'flags']) {
+            expect(screen.queryByTestId(`kitchen-recipes-columns-${key}`)).toBeNull();
+        }
+
+        expect(listing.filters.length).toBeGreaterThan(0);
+        expect(
+            listing.filters.some(
+                (sent) => sent.kind !== undefined || sent.sellingStatus !== undefined,
+            ),
+        ).toBe(false);
     });
 });
 
@@ -1028,7 +1438,22 @@ describe('the recipe list at desk width', () => {
         Dimensions.set({ window: NARROW_WINDOW, screen: NARROW_SCREEN });
     });
 
+    beforeEach(() => {
+        forgetColumnChoice('kitchen-recipes.v2');
+        forgetColumnChoice('kitchen-recipes');
+    });
+
     it('draws the two tracks the narrow row has no room for', async () => {
+        // Category is a tick away rather than a default, so this reader has ticked it — in place
+        // of Allergens, whose header the two tests below press.
+        rememberColumnChoice('kitchen-recipes.v2', [
+            'reference',
+            'name',
+            'kind',
+            'category',
+            'onSale',
+            'status',
+        ]);
         const published = recipe({
             ordinal: 1,
             name: 'Tabbouleh',
@@ -1067,11 +1492,17 @@ describe('the recipe list at desk width', () => {
         // Sorting and filtering live on the column headers (§4.3), so every track that can do
         // either draws a trigger rather than a plain label.
         expect(screen.getByTestId('kitchen-recipes-column-name-trigger')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-recipes-column-kitchen-trigger')).toBeTruthy();
-        // Allergens does not sort — the label is derived per row and out of order — but it does
-        // filter, against the server. A column that filters is a trigger; see the tests below for
-        // what the trigger does.
-        expect(screen.getByTestId('kitchen-recipes-column-allergens-trigger')).toBeTruthy();
+        // Category and On sale do not sort, but each filters against the server — the recipe's
+        // own filing word, and the state of whatever sells it — so each is a trigger.
+        expect(screen.getByTestId('kitchen-recipes-column-category-trigger')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-recipes-column-onSale-trigger')).toBeTruthy();
+        // Kind does neither. The strip above the cards is the kind control, and a header filter
+        // here would be reset by hiding the column — which must never move the reader's tab. So
+        // the track is drawn under a plain label.
+        expect(screen.getByTestId(`${base}-kind`)).toHaveTextContent('Preparation');
+        expect(screen.queryByTestId('kitchen-recipes-column-kind-trigger')).toBeNull();
+        // Kitchen still sorts, but it is not among the book's defaults, nor this reader's choice.
+        expect(screen.queryByTestId('kitchen-recipes-column-kitchen-trigger')).toBeNull();
         // Gone from the row entirely, along with Updated.
         expect(screen.queryByTestId('kitchen-recipes-column-version-trigger')).toBeNull();
         expect(screen.queryByTestId(`${base}-version-status`)).toBeNull();
@@ -1338,8 +1769,9 @@ describe('the recipe list at desk width', () => {
         });
 
         await untilVisible('kitchen-recipes-view');
-        // The slug is a recipe's reference, and the panel states the three facts no track holds:
-        // the source sheet's Kind, the version count in words, and who last touched it.
+        // The handle the list reads it by — here the slug, for a row that predates the `RC-`
+        // series — and the facts no track holds: the version count in words, and who last
+        // touched it.
         expect(screen.getByTestId('kitchen-recipes-view-reference')).toHaveTextContent(
             published.slug,
         );
@@ -1347,6 +1779,342 @@ describe('the recipe list at desk width', () => {
         expect(screen.getByTestId('kitchen-recipes-view-field-updatedBy')).toHaveTextContent(
             /Rana Haddad/,
         );
+    });
+
+    it('starts every reader from the book’s six, whatever the old table remembered', async () => {
+        // The five the recipe table drew before the book, remembered under its old key. A stored
+        // choice replaces the defaults, so honouring it would hide Kind from every old reader.
+        rememberColumnChoice('kitchen-recipes', [
+            'reference',
+            'name',
+            'kitchen',
+            'allergens',
+            'status',
+        ]);
+        const row = recipe({ ordinal: 1, name: 'Tabbouleh' });
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listRecipes: recipeListing(() => [row]) } },
+        });
+
+        await untilVisible('kitchen-recipes-table');
+        expect(screen.getByTestId(`${recipeRow(row)}-kind`)).toBeTruthy();
+        expect(screen.getByTestId(`${recipeRow(row)}-on-sale-none`)).toBeTruthy();
+        expect(screen.queryByTestId(`${recipeRow(row)}-kitchen`)).toBeNull();
+    });
+
+    it('honours a choice made on the book itself', async () => {
+        rememberColumnChoice('kitchen-recipes.v2', [
+            'reference',
+            'name',
+            'kitchen',
+            'allergens',
+            'status',
+        ]);
+        const row = recipe({ ordinal: 1, name: 'Tabbouleh' });
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listRecipes: recipeListing(() => [row]) } },
+        });
+
+        await untilVisible('kitchen-recipes-table');
+        expect(screen.getByTestId(`${recipeRow(row)}-kitchen`)).toBeTruthy();
+        expect(screen.queryByTestId(`${recipeRow(row)}-kind`)).toBeNull();
+    });
+
+    it('reads a sold recipe by its seller, and marks a placeholder not formulated', async () => {
+        rememberColumnChoice('kitchen-recipes.v2', [
+            'reference',
+            'name',
+            'kind',
+            'category',
+            'onSale',
+            'status',
+        ]);
+        const sauce = recipe({
+            ordinal: 1,
+            name: 'Garlic mayo',
+            overrides: {
+                reference: 'RC-0031',
+                recipeCategory: 'cold_sauce_dip',
+                kinds: ['sauce'],
+                soldAs: [seller()],
+            },
+        });
+        // What the backfill writes for an item with no recipe: a draft with no lines at all.
+        const placeholder = recipe({
+            ordinal: 2,
+            name: 'Cordon bleu marination',
+            currentVersion: recipeVersion({
+                recipeOrdinal: 2,
+                overrides: { lines: [], allergens: [] },
+            }),
+            overrides: { reference: 'RC-0007' },
+        });
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { listRecipes: recipeListing(() => [sauce, placeholder]) },
+            },
+        });
+
+        const sold = recipeRow(sauce);
+        const stub = recipeRow(placeholder);
+        await untilVisible(`${sold}-reference`);
+
+        // The number a cook quotes off the sauces sheet, not the recipe's own `RC-0031`.
+        expect(screen.getByTestId(`${sold}-reference`)).toHaveTextContent('SAC-016');
+        expect(screen.getByTestId(`${sold}-kind`)).toHaveTextContent('Sauce');
+        // The recipe's filing word, in the words the sauces sheet uses for it.
+        expect(screen.getByTestId(`${sold}-category`)).toHaveTextContent('Cold sauce / dip');
+        expect(screen.getByTestId(`${sold}-on-sale`)).toHaveTextContent(/Published/);
+        expect(screen.queryByTestId(`${sold}-not-formulated`)).toBeNull();
+
+        expect(screen.getByTestId(`${stub}-reference`)).toHaveTextContent('RC-0007');
+        expect(screen.getByTestId(`${stub}-kind`)).toHaveTextContent('Preparation');
+        expect(screen.getByTestId(`${stub}-on-sale-none`)).toBeTruthy();
+        expect(screen.getByTestId(`${stub}-not-formulated`)).toHaveTextContent(/Not formulated/);
+    });
+
+    it('narrows the book by its own filing word, through the request', async () => {
+        rememberColumnChoice('kitchen-recipes.v2', [
+            'reference',
+            'name',
+            'category',
+            'allergens',
+            'onSale',
+            'status',
+        ]);
+        const dip = recipe({
+            ordinal: 1,
+            name: 'Garlic mayo',
+            overrides: { recipeCategory: 'cold_sauce_dip' },
+        });
+        const pot = recipe({
+            ordinal: 2,
+            name: 'Tomato sauce',
+            overrides: { recipeCategory: 'cooking_sauce' },
+        });
+        const listing = recordedListing(() => [dip, pot]);
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listRecipes: listing.listRecipes } },
+        });
+
+        await untilVisible('kitchen-recipes-column-category-trigger');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-column-category-trigger'));
+        });
+        await untilVisible('kitchen-recipes-column-category-cold_sauce_dip');
+        expect(
+            screen.getByTestId('kitchen-recipes-column-category-cold_sauce_dip'),
+        ).toHaveTextContent(/Cold sauce \/ dip/);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-column-category-cold_sauce_dip'));
+        });
+
+        await waitFor(() => {
+            expect(screen.queryByTestId(`${recipeRow(pot)}-name`)).toBeNull();
+        });
+        expect(screen.getByTestId(`${recipeRow(dip)}-name`)).toBeTruthy();
+        expect(listing.filters.some((sent) => sent.category === 'cold_sauce_dip')).toBe(true);
+    });
+
+    it('offers Withdraw only while exactly one live item sells the recipe', async () => {
+        const live = recipe({
+            ordinal: 1,
+            name: 'Garlic mayo',
+            overrides: { kinds: ['sauce'], soldAs: [seller()] },
+        });
+        // Quarantined is still on sale as far as a shopper is concerned, so it can be withdrawn.
+        const quarantined = recipe({
+            ordinal: 2,
+            name: 'Tahini sauce',
+            overrides: {
+                kinds: ['sauce'],
+                soldAs: [
+                    seller({
+                        id: String(SECOND_SAUCE_ID),
+                        reference: 'SAC-017',
+                        slug: 'tahini-sauce',
+                        status: 'review_required',
+                    }),
+                ],
+            },
+        });
+        const draft = recipe({
+            ordinal: 3,
+            name: 'Freekeh bowl',
+            overrides: { kinds: ['meal'], soldAs: [mealSeller({ status: 'draft' })] },
+        });
+        const unsold = recipe({ ordinal: 4, name: 'Cordon bleu marination' });
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [live, quarantined, draft, unsold]),
+                },
+            },
+        });
+
+        await untilVisible(`${recipeRow(live)}-withdraw`);
+        expect(screen.getByTestId(`${recipeRow(quarantined)}-withdraw`)).toBeTruthy();
+        // A draft has nothing to withdraw from, and a preparation sells nothing.
+        expect(screen.queryByTestId(`${recipeRow(draft)}-withdraw`)).toBeNull();
+        expect(screen.queryByTestId(`${recipeRow(unsold)}-withdraw`)).toBeNull();
+        // Archive is still the recipe's own, beside it.
+        expect(screen.getByTestId(`${recipeRow(live)}-archive`)).toBeTruthy();
+    });
+
+    it('offers no Withdraw to a reader who may not publish in the catalogue', async () => {
+        const live = recipe({
+            ordinal: 1,
+            name: 'Garlic mayo',
+            overrides: { kinds: ['sauce'], soldAs: [seller()] },
+        });
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: noCataloguePublishSession(),
+            repositories: { kitchenAdmin: { listRecipes: recipeListing(() => [live]) } },
+        });
+
+        await untilVisible(`${recipeRow(live)}-view`);
+        expect(screen.queryByTestId(`${recipeRow(live)}-withdraw`)).toBeNull();
+    });
+
+    it('reads a recipe sold as two kinds as both, and leaves which to withdraw to its editor', async () => {
+        // In slug order, as the server lists them: the bowl, then the sauce.
+        const mixed = recipe({
+            ordinal: 1,
+            name: 'Garlic mayo',
+            overrides: { kinds: ['meal', 'sauce'], soldAs: [mealSeller(), seller()] },
+        });
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listRecipes: recipeListing(() => [mixed]) } },
+        });
+
+        await untilVisible(`${recipeRow(mixed)}-kind`);
+        expect(screen.getByTestId(`${recipeRow(mixed)}-kind`)).toHaveTextContent('Meal · Sauce');
+        expect(screen.getByTestId(`${recipeRow(mixed)}-view`)).toBeTruthy();
+        expect(screen.queryByTestId(`${recipeRow(mixed)}-withdraw`)).toBeNull();
+    });
+
+    it('withdraws the item at its own lock version, never the recipe’s', async () => {
+        const bowl = recipe({
+            ordinal: 1,
+            name: 'Freekeh bowl',
+            overrides: {
+                meta: meta({ status: 'published', lockVersion: 3 }),
+                kinds: ['meal'],
+                soldAs: [mealSeller()],
+            },
+        });
+        const mayo = recipe({
+            ordinal: 2,
+            name: 'Garlic mayo',
+            overrides: {
+                meta: meta({ status: 'published', lockVersion: 3 }),
+                kinds: ['sauce'],
+                soldAs: [seller()],
+            },
+        });
+
+        const { repositories } = await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [bowl, mayo]),
+                    // What each write answers with is filed under its id and never read by the
+                    // book, which refetches its page — so the stubs answer with the id alone
+                    // rather than inventing an item.
+                    retireMeal: async (mealId) => ({ id: mealId }) as MealAdmin,
+                    archiveProduct: async (productId) => ({ id: productId }) as ProductAdmin,
+                },
+            },
+        });
+
+        // A meal is retired…
+        await untilVisible(`${recipeRow(bowl)}-withdraw`);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${recipeRow(bowl)}-withdraw`));
+        });
+        await untilVisible('kitchen-recipes-withdraw-dialog');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-withdraw-confirm'));
+        });
+        await untilVisible('kitchen-recipes-withdrawn-toast');
+        expect(repositories.kitchenAdmin.retireMeal).toHaveBeenCalledWith(MEAL_ID, {
+            lockVersion: 5,
+        });
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-recipes-withdraw-dialog')).toBeNull();
+        });
+
+        // …and a sauce archived, which for a catalogue item is the same state.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${recipeRow(mayo)}-withdraw`));
+        });
+        await untilVisible('kitchen-recipes-withdraw-dialog');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-withdraw-confirm'));
+        });
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.archiveProduct).toHaveBeenCalledWith(SAUCE_ID, {
+                lockVersion: 7,
+            });
+        });
+        // Each item once, at its own lock — the recipes' 3 was never quoted.
+        expect(repositories.kitchenAdmin.retireMeal).toHaveBeenCalledTimes(1);
+        expect(repositories.kitchenAdmin.archiveProduct).toHaveBeenCalledTimes(1);
+    });
+
+    it('opens a sold recipe’s View panel with what sells it', async () => {
+        const bowl = recipe({
+            ordinal: 1,
+            name: 'Freekeh bowl',
+            overrides: {
+                reference: 'RC-0012',
+                kinds: ['meal'],
+                soldAs: [mealSeller({ portionFactor: 1.5, channels: ['b2c', 'marketplace'] })],
+            },
+        });
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [bowl]),
+                    getRecipe: async () => bowl,
+                },
+            },
+        });
+
+        await untilVisible(`${recipeRow(bowl)}-view`);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${recipeRow(bowl)}-view`));
+        });
+        await untilVisible('kitchen-recipes-view');
+
+        const field = (key: string) =>
+            screen.getByTestId(`kitchen-recipes-view-field-${key}-value`);
+        expect(screen.getByTestId('kitchen-recipes-view-kind')).toHaveTextContent(/Meal/);
+        // A meal carries no handle of its own, so the book reads it by its recipe's — which the
+        // Handle field states whatever sells the recipe.
+        expect(screen.getByTestId('kitchen-recipes-view-reference')).toHaveTextContent('RC-0012');
+        expect(field('handle')).toHaveTextContent('RC-0012');
+        expect(field('onSale')).toHaveTextContent('Published');
+        expect(field('visible')).toHaveTextContent('Visible to customers');
+        expect(field('portion')).toHaveTextContent('1.5');
+        // The channels as badges in their own card, beside the recipe's allergen chips.
+        expect(screen.getByTestId('kitchen-recipes-view-section-channels')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-recipes-view-channel-marketplace')).toBeTruthy();
     });
 });
 
