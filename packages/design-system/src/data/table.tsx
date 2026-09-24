@@ -442,9 +442,7 @@ export function Table<Row>({
                                         </RNText>
                                         <Icon
                                             testID={`${base}-sort-indicator-${column.key}`}
-                                            name={
-                                                active && !ascending ? 'chevronDown' : 'chevronUp'
-                                            }
+                                            name={active && !ascending ? 'arrowDown' : 'arrowUp'}
                                             size="sm"
                                             className={
                                                 active

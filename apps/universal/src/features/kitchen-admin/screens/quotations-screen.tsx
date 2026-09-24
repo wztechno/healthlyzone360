@@ -308,7 +308,7 @@ function Quotations() {
                             value: String(loaded),
                             unit: t('kitchen:list.statRecords'),
                             caption: t('kitchen:ops.quotations.statLoadedCaption'),
-                            mark: 'calendar',
+                            mark: 'list',
                             tone: 'brand',
                             onPress: clearFilters,
                             accessibilityLabel: t('kitchen:ops.quotations.clearFilter'),
@@ -319,7 +319,7 @@ function Quotations() {
                             value: String(awaiting),
                             unit: t('kitchen:list.statRecords'),
                             caption: t('kitchen:ops.quotations.statAwaitingCaption'),
-                            mark: 'warning',
+                            mark: 'clock',
                             tone: awaiting === 0 ? 'default' : 'warning',
                             onPress: () => {
                                 setFilter('awaiting');
@@ -332,7 +332,7 @@ function Quotations() {
                             value: String(quoted),
                             unit: t('kitchen:list.statRecords'),
                             caption: t('kitchen:ops.quotations.statQuotedCaption'),
-                            mark: 'check',
+                            mark: 'circleCheck',
                         },
                     ]}
                 />

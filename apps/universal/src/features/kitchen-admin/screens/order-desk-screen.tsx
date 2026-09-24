@@ -1037,7 +1037,7 @@ function OrderDeskQueueList() {
             label: t('kitchen:desk.figures.open'),
             value: formatter.formatNumber(rows.length),
             caption: t('kitchen:desk.figures.openCaption'),
-            mark: 'calendar',
+            mark: 'clipboardList',
             tone: 'brand',
         },
         {
@@ -1045,7 +1045,7 @@ function OrderDeskQueueList() {
             label: t('kitchen:desk.figures.late'),
             value: formatter.formatNumber(lateCount),
             caption: t('kitchen:desk.figures.lateCaption'),
-            mark: 'warning',
+            mark: 'clock',
             tone: overdueCount > 0 ? 'danger' : 'default',
         },
         {
@@ -1053,7 +1053,7 @@ function OrderDeskQueueList() {
             label: t('kitchen:desk.delivery.unassigned'),
             value: formatter.formatNumber(needsDriverCount),
             caption: t('kitchen:desk.figures.needsDriverCaption'),
-            mark: 'user',
+            mark: 'truck',
             tone: needsDriverCount > 0 ? 'warning' : 'default',
         },
         {
@@ -1061,7 +1061,7 @@ function OrderDeskQueueList() {
             label: t('kitchen:desk.payment.notReceipted'),
             value: formatter.formatNumber(unsettledCount),
             caption: t('kitchen:desk.figures.unsettledCaption'),
-            mark: 'basket',
+            mark: 'wallet',
         },
     ];
 

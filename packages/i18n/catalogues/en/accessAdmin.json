@@ -5,11 +5,13 @@
         "subtitle": "Everybody who can sign in to this kitchen, and what each of them may reach.",
         "caption": "The people who work at this kitchen",
         "columns": {
-            "person": "Person",
+            "person": "User",
             "email": "Signs in as",
             "roles": "Roles",
             "scope": "Works at",
-            "status": "Status"
+            "status": "Status",
+            "joined": "Joined",
+            "userEmail": "Email"
         },
         "organisationWide": "The whole kitchen",
         "noRoles": "No roles yet",
@@ -19,7 +21,7 @@
         "filteredEmptyTitle": "Nobody matches that",
         "filteredEmptyBody": "Try a different status, or clear the filter.",
         "showEnded": "Include people who have left",
-        "add": "Add somebody",
+        "add": "Add user",
         "open": "Open",
         "invitations": {
             "title": "Waiting to be accepted",
@@ -29,8 +31,25 @@
             "revoked": "Withdrew the offer to {{email}}.",
             "sent": "Sent an invitation to {{email}}.",
             "expires": "Expires {{date}}",
-            "empty": "No outstanding invitations."
-        }
+            "empty": "No outstanding invitations.",
+            "columnExpires": "Expires"
+        },
+        "searchLabel": "Search the team",
+        "searchHint": "Name or email",
+        "searchPageHint": "Search this page",
+        "segmentLabel": "Who to show",
+        "segmentWorking": "Working",
+        "segmentEveryone": "Everyone",
+        "notJoined": "Not yet",
+        "statWorking": "Working",
+        "statWorkingCaption": "can sign in today",
+        "statInvitations": "Invitations",
+        "statInvitationsCaption": "waiting to be accepted",
+        "statNoRoles": "Without roles",
+        "statNoRolesCaption": "can sign in but reach nothing",
+        "statPeople": "people",
+        "statOffers": "offers",
+        "moreRoles": "+{{n}} more"
     },
     "member": {
         "title": "{{name}}",
@@ -74,7 +93,9 @@
         "columns": {
             "role": "Role",
             "holders": "Held by",
-            "pages": "Permissions"
+            "pages": "Permissions",
+            "kind": "Type",
+            "description": "Description"
         },
         "holdersNone": "Nobody yet",
         "copy": "Copy",
@@ -86,7 +107,25 @@
         "holders_one": "One person",
         "holders_other": "{{count}} people",
         "permissionCount_one": "One permission",
-        "permissionCount_other": "{{count}} permissions"
+        "permissionCount_other": "{{count}} permissions",
+        "searchLabel": "Search roles",
+        "searchHint": "Name or code",
+        "segmentLabel": "Which roles",
+        "segmentAll": "All",
+        "segmentOwn": "This kitchen's",
+        "segmentTemplates": "Standard",
+        "kindOwn": "Own",
+        "kindTemplate": "Standard",
+        "noDescription": "No description",
+        "statOwn": "This kitchen's",
+        "statOwnCaption": "editable here",
+        "statTemplates": "Standard",
+        "statTemplatesCaption": "copy one to change it",
+        "statUnheld": "Unassigned",
+        "statUnheldCaption": "held by nobody",
+        "statRoles": "roles",
+        "filteredEmptyTitle": "No role matches that",
+        "filteredEmptyBody": "Try a shorter search, or show every role."
     },
     "role": {
         "back": "Back to roles",

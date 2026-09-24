@@ -4,7 +4,8 @@ import { cardWidth } from '@healthy360/design-tokens';
 import { View } from 'react-native';
 
 /**
- * Part three of a Catalogue list page, as cards.
+ * Part three of a Catalogue list page, as cards. (The marks in the sketch are the native glyphs; the
+ * web draws Lucide's `list`, `file-pen-line`, `languages` and `coins` in their place.)
  *
  * ```
  * ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
@@ -83,9 +84,9 @@ const CAPTION_TONE: Readonly<Record<CatalogueStatTone, TextTone>> = {
 /**
  * Ink for the corner mark.
  *
- * `className`, not a `tone` prop: an icon here is a typographic glyph on React Native's own `Text`,
- * so it has no tone of its own and takes the ink token directly — the pattern every other call
- * site in the app uses. The classes are `Text`'s own `TONE_CLASS` entries, so a mark can never
+ * `className`, not a `tone` prop: an icon here is a Lucide drawing on the web and a typographic
+ * glyph on native, and neither has a tone of its own — both take the ink token directly (the SVG
+ * through `currentColor`), the pattern every other call site in the app uses. The classes are `Text`'s own `TONE_CLASS` entries, so a mark can never
  * disagree with the figure beneath it.
  */
 const MARK_CLASS: Readonly<Record<CatalogueStatTone, string>> = {
@@ -197,7 +198,7 @@ function StatCard({ card, testID }: { readonly card: CatalogueStatCard; readonly
                     <Text variant="title" tone="secondary" numberOfLines={1}>
                         {card.label}
                     </Text>
-                    <Icon name={card.mark} size="md" className={MARK_CLASS[tone]} />
+                    <Icon name={card.mark} size="lg" className={MARK_CLASS[tone]} />
                 </View>
 
                 <View className="flex-row flex-wrap items-baseline gap-tight">

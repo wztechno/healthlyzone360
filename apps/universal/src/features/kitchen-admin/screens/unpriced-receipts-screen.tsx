@@ -543,7 +543,7 @@ function queueStatCards(
             value: String(rows.length),
             unit: t('kitchen:ops.procurement.statReceiptsUnit'),
             caption: t('kitchen:ops.unpricedReceipts.statReceiptsCaption'),
-            mark: 'calendar',
+            mark: 'receipt',
             tone: 'brand',
         },
         {
@@ -552,7 +552,7 @@ function queueStatCards(
             value: String(linesToPrice),
             unit: t('kitchen:ops.ledger.statLinesUnit'),
             caption: t('kitchen:ops.unpricedReceipts.statToPriceCaption'),
-            mark: 'warning',
+            mark: 'coins',
             tone: linesToPrice === 0 ? 'default' : 'warning',
         },
         {

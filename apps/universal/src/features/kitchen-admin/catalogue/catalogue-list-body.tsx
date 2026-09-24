@@ -125,7 +125,7 @@ export function CatalogueListBody({
             <CataloguePager
                 testID={`${testID}-pagination`}
                 range={t('kitchen:toolbar.showing', {
-                    shown: list.shown,
+                    shown: shownThrough(list),
                     total: list.total ?? list.shown,
                 })}
                 page={list.page}
@@ -135,4 +135,29 @@ export function CatalogueListBody({
             />
         </Stack>
     );
+}
+
+/**
+ * How many records the reader has walked past, counting this page — 18 on page one, 36 on page
+ * two, and the collection's own total on the last page.
+ *
+ * The line used to read `Showing 18 of 306` on every page of the catalogue, which is true of the
+ * page and says nothing about the walk: page two said 18 as well, so the one control that could
+ * have answered "how far in am I" answered "eighteen" seventeen times in a row.
+ *
+ * Derived from the page numbers rather than from a page-size constant, because the body serves
+ * lists that page on the server and lists that page in memory, and they do not share one. Every
+ * page before the last is full by definition, so `page × shown` is exact up to the last one —
+ * where the arithmetic would over-count the short page and the collection's own total is the
+ * answer instead.
+ *
+ * Clamped, because "full by definition" has one exception: a list whose repository drops rows from
+ * the page after the server counted them — the ingredient read does this for a multi-status
+ * filter the endpoint cannot express — has a short page in the middle of the walk. The count is
+ * then a little low rather than past the end, which is the better of the two ways to be wrong.
+ */
+function shownThrough(list: CatalogueListBodyState): number {
+    if (list.total === null) return list.shown;
+    if (list.page >= list.totalPages) return list.total;
+    return Math.min(list.page * list.shown, list.total);
 }

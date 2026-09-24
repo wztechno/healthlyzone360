@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Ingredients\Http\Controllers;
 
+use Closure;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Presenters\IngredientPresenter;
@@ -33,6 +34,13 @@ use Illuminate\Support\Facades\DB;
  * instead — see {@see OffsetPage} for why this collection is allowed offset
  * when `docs/api/conventions.md` forbids it elsewhere, and why the count that
  * makes "page 3 of 12" possible is only paid for when somebody asks for it.
+ *
+ * `sort` and `direction` belong to the numbered walk and only to it. The list
+ * is seventeen pages deep, so a column header the client sorted for itself
+ * would reorder the eighteen rows in front of the reader and leave the other
+ * three hundred where they were — which is not a sort of the catalogue, and
+ * reads as one. The order therefore lives here, beside the `COUNT` and the
+ * filters, which are on the server for the same reason.
  */
 final class IngredientIndexController
 {
@@ -57,6 +65,9 @@ final class IngredientIndexController
         $this->applySearch($request, $query);
         $this->hideForkedPlatformRows($query);
 
+        // Resolved before the branch so an unknown `sort` is refused on both walks rather than
+        // only on the one that can honour it.
+        $order = $this->ordering($request);
         $requestedPage = OffsetPage::page($request);
 
         if ($requestedPage !== null) {
@@ -66,7 +77,7 @@ final class IngredientIndexController
             $total = $query->toBase()->getCountForPagination();
 
             OffsetPage::assertWithinRange($requestedPage, $perPage, $total);
-            OffsetPage::constrain($query, $requestedPage, $perPage);
+            OffsetPage::constrain($query, $requestedPage, $perPage, false, $order);
 
             $rows = $query->get();
 
@@ -76,12 +87,137 @@ final class IngredientIndexController
             );
         }
 
+        if ($order !== null) {
+            // Refused, not ignored. A keyset walk *is* its ordering — the cursor encodes a
+            // position in `(created_at, id)` and means nothing under another one — so a caller
+            // asking for both is asking for two incompatible things, and the honest answer is to
+            // say so rather than to serve the unsorted list and let them believe it worked.
+            throw new ApiException(
+                ErrorCode::RequestInvalid,
+                'Sorting is available on numbered pages only. Send `page` alongside `sort`.',
+                ['parameter' => 'sort'],
+            );
+        }
+
         $limit = CursorPage::limit($request);
         CursorPage::constrain($query, $limit, CursorPage::cursor($request));
 
         $page = CursorPage::page($query->get(), $limit);
 
         return ApiResponse::data($this->present($page['items']), $page['meta']);
+    }
+
+    /**
+     * What each sort name orders by, as the SQL it becomes.
+     *
+     * A whitelist, and every value is a literal in this file: `sort` reaches `ORDER BY`, and the
+     * one thing that must never be true of a string on that path is that the caller chose it.
+     * Static analysis holds the line here too — `orderByRaw` takes a `literal-string`, so a
+     * column name assembled from a request could not be passed to it even by mistake.
+     *
+     * `name` is absent deliberately. The list renders the reader's own language and sorts on what
+     * it renders, so the client names the column — `name_en` or `name_ar` — rather than the
+     * server guessing a locale from a header it ignores everywhere else in this presenter.
+     */
+    private const SORT_COLUMNS = [
+        'reference' => 'ingredients.source_ref',
+        'name_en' => 'ingredients.name_en',
+        'name_ar' => 'ingredients.name_ar',
+        'unit_price' => 'ingredients.unit_price_amount',
+        'status' => 'ingredients.status',
+        'updated_at' => 'ingredients.updated_at',
+    ];
+
+    /**
+     * The two sorts that are not columns on this table at all.
+     *
+     * `category` and `unit` are foreign keys, and ordering by a UUID is ordering by nothing a
+     * reader can see — the list draws the category's *code* and the unit's *code*, so those are
+     * what it has to order by.
+     *
+     * A correlated subquery rather than a join, for the reason {@see applyAllergen} gives: a join
+     * would have to be proved not to multiply the page, and a subquery is simply incapable of it.
+     */
+    private const SORT_SUBQUERIES = [
+        'category' => '(select ingredient_categories.code from ingredient_categories'
+            .' where ingredient_categories.id = ingredients.ingredient_category_id)',
+        'unit' => '(select measurement_units.code from measurement_units'
+            .' where measurement_units.id = ingredients.default_unit_id)',
+    ];
+
+    /**
+     * How the page is ordered, or `null` for the collection's own `(created_at, id)`.
+     *
+     * Handed to {@see OffsetPage::constrain()} rather than applied here — see its docblock for why
+     * neither before nor after that call would work.
+     *
+     * **Empties sort last in both directions.** A row with no reference or no price is not the
+     * smallest one; it is the one somebody has to go and fill in, and a descending sort that
+     * buried it under three hundred priced rows would hide exactly what the reader pressed the
+     * column to find. `NULLS LAST` on a descending sort is Postgres' default and is stated anyway,
+     * so the rule is one line rather than a fact about which direction was asked for.
+     *
+     * @throws ApiException
+     */
+    private function ordering(Request $request): ?Closure
+    {
+        $sort = $request->query('sort');
+
+        if ($sort === null || $sort === '') {
+            return null;
+        }
+
+        $direction = $this->direction($request);
+
+        if (! is_string($sort)) {
+            throw $this->unsortable();
+        }
+
+        $expression = self::SORT_COLUMNS[$sort] ?? self::SORT_SUBQUERIES[$sort] ?? null;
+
+        if ($expression === null) {
+            throw $this->unsortable();
+        }
+
+        return static function (Builder $query) use ($expression, $direction): void {
+            $query->orderByRaw($expression.' '.$direction.' nulls last');
+        };
+    }
+
+    /**
+     * @return 'asc'|'desc'
+     *
+     * @throws ApiException
+     */
+    private function direction(Request $request): string
+    {
+        $direction = $request->query('direction');
+
+        if ($direction === null || $direction === '') {
+            return 'asc';
+        }
+
+        if ($direction !== 'asc' && $direction !== 'desc') {
+            throw new ApiException(
+                ErrorCode::RequestInvalid,
+                'The sort direction must be one of: asc, desc.',
+                ['parameter' => 'direction'],
+            );
+        }
+
+        return $direction;
+    }
+
+    private function unsortable(): ApiException
+    {
+        return new ApiException(
+            ErrorCode::RequestInvalid,
+            'The sort must be one of: '.implode(', ', [
+                ...array_keys(self::SORT_COLUMNS),
+                ...array_keys(self::SORT_SUBQUERIES),
+            ]).'.',
+            ['parameter' => 'sort'],
+        );
     }
 
     /**

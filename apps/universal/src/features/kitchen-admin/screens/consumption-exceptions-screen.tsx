@@ -35,6 +35,7 @@ import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { WithColumnPicker } from '../catalogue/column-picker.tsx';
+import { todayIsoDate } from '../receive-delivery-model.ts';
 
 /**
  * `/kitchen/consumption-exceptions` — what a confirmed order could not deduct honestly (INV1.5), as
@@ -89,8 +90,10 @@ function ConsumptionExceptions() {
     const state = useAccessState();
     const canManage = can(state, INVENTORY_MANAGE_PERMISSION);
 
-    const [status, setStatus] = useState<StatusFilter>('unresolved');
-    const [from, setFrom] = useState('');
+    // Every status, from today: the page opens on what happened today, whatever its state, and
+    // the date is computed at mount so it follows the calendar rather than a build.
+    const [status, setStatus] = useState<StatusFilter>('all');
+    const [from, setFrom] = useState(() => todayIsoDate());
     const [cursor, setCursor] = useState<string | undefined>(undefined);
     const [viewing, setViewing] = useState<ConsumptionException | null>(null);
     const [resolving, setResolving] = useState<ConsumptionException | null>(null);
@@ -392,7 +395,7 @@ function ConsumptionExceptions() {
                             value: formatter.formatNumber(rows.length),
                             unit: t('kitchen:ops.exceptions.statUnit'),
                             caption: t('kitchen:ops.exceptions.statShownCaption'),
-                            mark: 'calendar',
+                            mark: 'list',
                             tone: 'brand',
                             onPress: () => {
                                 setStatus('all');
@@ -406,7 +409,7 @@ function ConsumptionExceptions() {
                             value: formatter.formatNumber(unresolved),
                             unit: t('kitchen:ops.exceptions.statUnit'),
                             caption: t('kitchen:ops.exceptions.statUnresolvedCaption'),
-                            mark: 'warning',
+                            mark: 'alert',
                             tone: unresolved === 0 ? 'default' : 'danger',
                             onPress: () => {
                                 setStatus('unresolved');
@@ -420,7 +423,7 @@ function ConsumptionExceptions() {
                             value: formatter.formatNumber(rows.length - unresolved),
                             unit: t('kitchen:ops.exceptions.statUnit'),
                             caption: t('kitchen:ops.exceptions.statResolvedCaption'),
-                            mark: 'check',
+                            mark: 'circleCheck',
                             tone: 'default',
                             onPress: () => {
                                 setStatus('resolved');

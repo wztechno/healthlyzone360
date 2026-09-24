@@ -34,6 +34,7 @@ import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { WithColumnPicker } from '../catalogue/column-picker.tsx';
+import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
 /**
  * `/kitchen/cost-report` — the monthly cost report (INV1.4), as `Workbench.dc.html` draws it (§3.4).
  *
@@ -388,38 +389,45 @@ function CostReport() {
         );
     }
 
+    /*
+     * The window sits under the figures it produced — the same order as the order desk's pages —
+     * and at the top only while there are no figures to sit under, so it is never out of reach.
+     */
+    const showsReport =
+        !report.isPending && failure === null && currencyRows.length > 0 && latest !== null;
+    const filterBar = (
+        <ToolbarPanel testID="kitchen-cost-report-filters">
+            {/* The order desk's date picker. The report is monthly, so a picked day stands for
+                        its month — the query sends `YYYY-MM`. */}
+            <DatePickerButton
+                testID="kitchen-cost-report-filter-from"
+                label={t('kitchen:ops.costReport.filterFrom')}
+                value={fromDate}
+                max={toDate === '' ? undefined : toDate}
+                onChange={(next) => {
+                    setFromDate(next);
+                    setViewing(null);
+                }}
+            />
+            <Text variant="caption" tone="secondary" aria-hidden>
+                {t('kitchen:ops.requirements.windowTo')}
+            </Text>
+            <DatePickerButton
+                testID="kitchen-cost-report-filter-to"
+                label={t('kitchen:ops.costReport.filterTo')}
+                value={toDate}
+                min={fromDate === '' ? undefined : fromDate}
+                onChange={(next) => {
+                    setToDate(next);
+                    setViewing(null);
+                }}
+            />
+        </ToolbarPanel>
+    );
+
     return (
         <Stack space="md" testID="kitchen-cost-report-screen">
-            <View
-                testID="kitchen-cost-report-filters"
-                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight"
-            >
-                {/* The order desk's date picker. The report is monthly, so a picked day stands for
-                    its month — the query sends `YYYY-MM`. */}
-                <DatePickerButton
-                    testID="kitchen-cost-report-filter-from"
-                    label={t('kitchen:ops.costReport.filterFrom')}
-                    value={fromDate}
-                    max={toDate === '' ? undefined : toDate}
-                    onChange={(next) => {
-                        setFromDate(next);
-                        setViewing(null);
-                    }}
-                />
-                <Text variant="caption" tone="secondary" aria-hidden>
-                    {t('kitchen:ops.requirements.windowTo')}
-                </Text>
-                <DatePickerButton
-                    testID="kitchen-cost-report-filter-to"
-                    label={t('kitchen:ops.costReport.filterTo')}
-                    value={toDate}
-                    min={fromDate === '' ? undefined : fromDate}
-                    onChange={(next) => {
-                        setToDate(next);
-                        setViewing(null);
-                    }}
-                />
-            </View>
+            {showsReport ? null : filterBar}
             {report.isPending ? (
                 <View testID="kitchen-cost-report-loading" className="flex-col">
                     {Array.from({ length: 6 }, (_, index) => (
@@ -488,21 +496,27 @@ function CostReport() {
                         testID="kitchen-cost-report-tile"
                         cards={(
                             [
-                                ['spend', 'tileSpend', latest.spendAmount, 'hintSpend', 'basket'],
-                                ['cogs', 'tileCogs', latest.cogsAmount, 'hintCogs', 'warning'],
+                                [
+                                    'spend',
+                                    'tileSpend',
+                                    latest.spendAmount,
+                                    'hintSpend',
+                                    'shoppingCart',
+                                ],
+                                ['cogs', 'tileCogs', latest.cogsAmount, 'hintCogs', 'cookingPot'],
                                 [
                                     'revenue',
                                     'tileRevenue',
                                     latest.revenueAmount,
                                     'hintRevenue',
-                                    'calendar',
+                                    'trendingUp',
                                 ],
                                 [
                                     'margin',
                                     'tileMargin',
                                     latest.grossMarginAmount,
                                     'hintMargin',
-                                    'check',
+                                    'percent',
                                 ],
                             ] as const
                         ).map(([key, labelKey, value, hintKey, mark]) => ({
@@ -515,6 +529,7 @@ function CostReport() {
                             tone: key === 'margin' ? ('brand' as const) : ('default' as const),
                         }))}
                     />
+                    {filterBar}
                     <View className="flex-row flex-wrap gap-4">
                         <View className="min-w-[300px] flex-1 flex-col gap-snug">
                             <WorkbenchSectionHeading

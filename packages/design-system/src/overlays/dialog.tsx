@@ -91,68 +91,76 @@ export function Dialog({
                     className="absolute inset-0 bg-overlay"
                 />
 
-                <FadeIn className="w-full max-w-[480px]">
-                    <View
-                        testID={base}
-                        role="dialog"
-                        aria-modal
-                        aria-labelledby={titleId}
-                        aria-describedby={descriptionId}
-                        // `max-h` in viewport units, not per cent: the animating wrapper's box is
-                        // whatever this panel asks for, so a percentage would resolve against the
-                        // panel itself and bound nothing at all.
-                        className={cx(
-                            'w-full max-h-[85vh] min-h-0 shrink flex-col gap-4 rounded-xl bg-surface-raised p-6 shadow-elevation-4',
-                            className,
-                        )}
-                    >
-                        <View className="flex-row items-start gap-3">
-                            <RNText
-                                nativeID={titleId}
-                                testID={`${base}-title`}
-                                accessibilityRole="header"
-                                aria-level={2}
-                                className="flex-1 text-xl font-semibold text-content-primary text-start"
-                            >
-                                {title}
-                            </RNText>
-                            <IconButton
-                                testID={`${base}-close`}
-                                size="sm"
-                                label={t('common:action.close')}
-                                icon={<Icon name="close" />}
-                                onPress={onClose}
-                            />
-                        </View>
-
-                        <ScrollView
-                            testID={`${base}-body`}
-                            className="min-h-0 shrink"
-                            contentContainerClassName="flex-col gap-4"
-                        >
-                            {description === undefined ? null : (
-                                <RNText
-                                    nativeID={descriptionId}
-                                    testID={`${base}-description`}
-                                    className="text-sm text-content-secondary text-start"
-                                >
-                                    {description}
-                                </RNText>
+                {/*
+                 * The width bound is on a plain `View`, not on `FadeIn`. `FadeIn` is an
+                 * `Animated.View`, which drops `className` on the web, so a bound written there
+                 * was never applied: the panel sized to its content, and a dialog with a wide
+                 * body — the column picker's eighteen checkboxes — spread across the screen.
+                 */}
+                <View className="w-full max-w-[480px]">
+                    <FadeIn>
+                        <View
+                            testID={base}
+                            role="dialog"
+                            aria-modal
+                            aria-labelledby={titleId}
+                            aria-describedby={descriptionId}
+                            // `max-h` in viewport units, not per cent: the animating wrapper's box is
+                            // whatever this panel asks for, so a percentage would resolve against the
+                            // panel itself and bound nothing at all.
+                            className={cx(
+                                'w-full max-h-[85vh] min-h-0 shrink flex-col gap-4 rounded-xl bg-surface-raised p-6 shadow-elevation-4',
+                                className,
                             )}
-
-                            {children}
-                        </ScrollView>
-
-                        {actions === undefined ? null : (
-                            <View
-                                testID={`${base}-actions`}
-                                className="flex-row flex-wrap items-center justify-end gap-2"
-                            >
-                                {actions}
+                        >
+                            <View className="flex-row items-start gap-3">
+                                <RNText
+                                    nativeID={titleId}
+                                    testID={`${base}-title`}
+                                    accessibilityRole="header"
+                                    aria-level={2}
+                                    className="flex-1 text-xl font-semibold text-content-primary text-start"
+                                >
+                                    {title}
+                                </RNText>
+                                <IconButton
+                                    testID={`${base}-close`}
+                                    size="sm"
+                                    label={t('common:action.close')}
+                                    icon={<Icon name="close" />}
+                                    onPress={onClose}
+                                />
                             </View>
-                        )}
-                    </View>
-                </FadeIn>
+
+                            <ScrollView
+                                testID={`${base}-body`}
+                                className="min-h-0 shrink"
+                                contentContainerClassName="flex-col gap-4"
+                            >
+                                {description === undefined ? null : (
+                                    <RNText
+                                        nativeID={descriptionId}
+                                        testID={`${base}-description`}
+                                        className="text-sm text-content-secondary text-start"
+                                    >
+                                        {description}
+                                    </RNText>
+                                )}
+
+                                {children}
+                            </ScrollView>
+
+                            {actions === undefined ? null : (
+                                <View
+                                    testID={`${base}-actions`}
+                                    className="flex-row flex-wrap items-center justify-end gap-2"
+                                >
+                                    {actions}
+                                </View>
+                            )}
+                        </View>
+                    </FadeIn>
+                </View>
             </View>
         </Modal>
     );

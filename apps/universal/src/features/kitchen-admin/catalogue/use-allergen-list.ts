@@ -84,7 +84,7 @@ export function useAllergenList(): AllergenListState {
     const [market, setMarket] = useState<string | null>(null);
     // Code ascending, the call every Catalogue list now makes about its identifier column: it is
     // the one order that does not change with the reader's language.
-    const [sortKey, setSortKey] = useState<AllergenSortKey>('code');
+    const [sortKey, setSortKey] = useState<AllergenSortKey>('regulation');
     const [sortDirection, setSortDirection] = useState<AllergenSortDirection>('asc');
     const [viewing, setViewing] = useState<AllergenClass | null>(null);
 

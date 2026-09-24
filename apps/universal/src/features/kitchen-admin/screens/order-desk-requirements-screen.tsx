@@ -28,7 +28,8 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
-import { WithColumnPicker } from '../catalogue/column-picker.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
 
 /**
  * `/kitchen/order-desk/requirements` — what this branch must buy to cook the days ahead.
@@ -313,10 +314,62 @@ function OrderDeskRequirements() {
 
     return (
         <Stack space="md" testID="kitchen-order-desk-requirements-screen">
-            {/* One 28px row: the window. The branch is the workspace's — see the file header. */}
-            <View
+            {/*
+             * The figures as cards. Absent until something has answered — a zero here would claim
+             * an answer the screen does not have yet.
+             */}
+            {branchId === null || filters === null || failure !== null ? null : (
+                <CatalogueStatCards
+                    testID="kitchen-order-desk-requirements-figures"
+                    cards={[
+                        {
+                            key: 'ingredients',
+                            label: t('kitchen:ops.requirements.kpiIngredients'),
+                            value: requirements.isPending
+                                ? EM_DASH
+                                : formatter.formatNumber(rows.length),
+                            caption: t('kitchen:ops.requirements.kpiIngredientsCaption'),
+                            mark: 'wheat',
+                            tone: 'brand',
+                        },
+                        {
+                            key: 'short',
+                            label: t('kitchen:ops.requirements.kpiShort'),
+                            value: requirements.isPending
+                                ? EM_DASH
+                                : formatter.formatNumber(shortCount),
+                            caption: t('kitchen:ops.requirements.kpiShortCaption'),
+                            mark: 'alert',
+                            tone: shortCount > 0 ? 'danger' : 'default',
+                        },
+                        {
+                            key: 'notComputable',
+                            label: t('kitchen:ops.requirements.kpiNotComputable'),
+                            value: requirements.isPending
+                                ? EM_DASH
+                                : formatter.formatNumber(notComputable?.days ?? 0),
+                            caption:
+                                notComputable !== null && notComputable.days > 0
+                                    ? reasonSummary(notComputable.reasons)
+                                    : t('kitchen:ops.requirements.kpiNotComputableNone'),
+                            mark: 'circleHelp',
+                            tone:
+                                notComputable !== null && notComputable.days > 0
+                                    ? 'warning'
+                                    : 'default',
+                        },
+                    ]}
+                />
+            )}
+
+            {/*
+             * The window, below the figures it produces, on the raised toolbar panel — with the
+             * column picker at its inline end rather than floating above the table. The branch is
+             * the workspace's — see the file header.
+             */}
+            <ToolbarPanel
                 testID="kitchen-order-desk-requirements-content"
-                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight"
+                end={<ColumnPicker {...controls.picker} />}
             >
                 <DatePickerButton
                     testID="kitchen-order-desk-requirements-from"
@@ -335,55 +388,7 @@ function OrderDeskRequirements() {
                     onChange={setTo}
                     min={from}
                 />
-            </View>
-
-            {/*
-             * The figures as cards. Absent until something has answered — a zero here would claim
-             * an answer the screen does not have yet.
-             */}
-            {branchId === null || filters === null || failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-order-desk-requirements-figures"
-                    cards={[
-                        {
-                            key: 'ingredients',
-                            label: t('kitchen:ops.requirements.kpiIngredients'),
-                            value: requirements.isPending
-                                ? EM_DASH
-                                : formatter.formatNumber(rows.length),
-                            caption: t('kitchen:ops.requirements.kpiIngredientsCaption'),
-                            mark: 'basket',
-                            tone: 'brand',
-                        },
-                        {
-                            key: 'short',
-                            label: t('kitchen:ops.requirements.kpiShort'),
-                            value: requirements.isPending
-                                ? EM_DASH
-                                : formatter.formatNumber(shortCount),
-                            caption: t('kitchen:ops.requirements.kpiShortCaption'),
-                            mark: 'warning',
-                            tone: shortCount > 0 ? 'danger' : 'default',
-                        },
-                        {
-                            key: 'notComputable',
-                            label: t('kitchen:ops.requirements.kpiNotComputable'),
-                            value: requirements.isPending
-                                ? EM_DASH
-                                : formatter.formatNumber(notComputable?.days ?? 0),
-                            caption:
-                                notComputable !== null && notComputable.days > 0
-                                    ? reasonSummary(notComputable.reasons)
-                                    : t('kitchen:ops.requirements.kpiNotComputableNone'),
-                            mark: 'calendar',
-                            tone:
-                                notComputable !== null && notComputable.days > 0
-                                    ? 'warning'
-                                    : 'default',
-                        },
-                    ]}
-                />
-            )}
+            </ToolbarPanel>
 
             {branchId === null ? (
                 // Friendly rather than an error: the reader did nothing wrong, the list simply
@@ -429,16 +434,14 @@ function OrderDeskRequirements() {
                             body={t('kitchen:ops.requirements.noRowsBody')}
                         />
                     ) : (
-                        <WithColumnPicker picker={controls.picker}>
-                            <CatalogueList<OrderDeskRequirement>
-                                testID="kitchen-order-desk-requirements-table"
-                                label={t('kitchen:ops.requirements.title')}
-                                columns={controls.columns}
-                                rows={controls.rows}
-                                rowKey={(row) => row.stockItemId}
-                                rowActionsLabel={t('kitchen:list.rowActions')}
-                            />
-                        </WithColumnPicker>
+                        <CatalogueList<OrderDeskRequirement>
+                            testID="kitchen-order-desk-requirements-table"
+                            label={t('kitchen:ops.requirements.title')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => row.stockItemId}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
                     )}
                 </View>
             )}

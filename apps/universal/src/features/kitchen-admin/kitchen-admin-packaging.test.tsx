@@ -564,7 +564,7 @@ describe('the packaging list', () => {
         });
     });
 
-    it('offers no archive on a row the server would refuse it for', async () => {
+    it('draws archive disabled on a row the server would refuse it for', async () => {
         // A platform-library row this kitchen may read and not write. Offering Archive here earned
         // a 403 on every press, which is the failure this check exists to prevent.
         const platform = item({
@@ -588,9 +588,12 @@ describe('the packaging list', () => {
         const base = `kitchen-packaging-row-${String(platform.id)}`;
         expect(screen.getByTestId(`${base}-view`)).toBeTruthy();
         // Edit stays: the ingredient editor is what decides what a reader may change on a platform
-        // row. Archive is the one the server would refuse, so it is the one that is not offered.
+        // row. Archive is the one the server would refuse, so it is drawn — the column holds the
+        // same three controls on every row — and disabled, so it never sends the request.
         expect(screen.getByTestId(`${base}-open`)).toBeTruthy();
-        expect(screen.queryByTestId(`${base}-archive`)).toBeNull();
+        expect(screen.getByTestId(`${base}-archive`).props.accessibilityState).toEqual(
+            expect.objectContaining({ disabled: true }),
+        );
     });
 
     it('reads the whole record on the View page, and edits it from the page header', async () => {
