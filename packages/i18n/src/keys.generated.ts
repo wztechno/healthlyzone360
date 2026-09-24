@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7448 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7490 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -71,18 +71,35 @@ export interface NamespaceKeys {
     | 'add.password'
     | 'add.passwordAcknowledge'
     | 'add.passwordBody'
-    | 'add.passwordHint'
     | 'add.passwordTitle'
+    | 'add.placeholders.email'
+    | 'add.placeholders.familyName'
+    | 'add.placeholders.givenName'
+    | 'add.placeholders.password'
+    | 'add.placeholders.signInName'
     | 'add.role'
+    | 'add.roleInviteHint'
+    | 'add.roles'
+    | 'add.rolesCreateHint'
+    | 'add.sections.invitation'
+    | 'add.sections.person'
+    | 'add.sections.signIn'
     | 'add.signInName'
     | 'add.signInNameHint'
+    | 'add.signInNameInvalid'
     | 'add.submitCreate'
     | 'add.submitInvite'
     | 'add.title'
-    | 'advanced.emptyDomain'
-    | 'advanced.hint'
+    | 'advanced.actions.manage'
+    | 'advanced.actions.other'
+    | 'advanced.actions.publish'
+    | 'advanced.actions.view'
+    | 'advanced.actions.viewCosts'
+    | 'advanced.cellLabel'
+    | 'advanced.columns.area'
     | 'advanced.notHeld'
     | 'advanced.selected'
+    | 'advanced.tableLabel'
     | 'changePassword.confirmation'
     | 'changePassword.current'
     | 'changePassword.done'
@@ -140,7 +157,6 @@ export interface NamespaceKeys {
     | 'member.assignmentFrom'
     | 'member.assignmentScheduled'
     | 'member.assignmentUntil'
-    | 'member.back'
     | 'member.cancel'
     | 'member.end'
     | 'member.endBody'
@@ -150,6 +166,7 @@ export interface NamespaceKeys {
     | 'member.lastAdministrator'
     | 'member.permissionsHeading'
     | 'member.permissionsHint'
+    | 'member.permissionsNone'
     | 'member.reactivate'
     | 'member.reactivated'
     | 'member.rolesHeading'
@@ -165,17 +182,21 @@ export interface NamespaceKeys {
     | 'member.suspended'
     | 'member.title'
     | 'pages.alsoOpens'
-    | 'pages.hint'
+    | 'pages.cellLabel'
+    | 'pages.columns.extras'
+    | 'pages.columns.page'
     | 'pages.levels.manage'
     | 'pages.levels.none'
     | 'pages.levels.view'
+    | 'pages.tableLabel'
     | 'pages.unmappedCount'
     | 'pages.unmappedHeading'
     | 'pages.unmappedHint'
     | 'role.back'
     | 'role.cancel'
     | 'role.code'
-    | 'role.codeHint'
+    | 'role.codeInvalid'
+    | 'role.codePlaceholder'
     | 'role.copyTitle'
     | 'role.created'
     | 'role.delete'
@@ -184,16 +205,19 @@ export interface NamespaceKeys {
     | 'role.deleteConfirm'
     | 'role.deleteTitle'
     | 'role.deleted'
-    | 'role.descriptionAr'
-    | 'role.descriptionEn'
-    | 'role.nameAr'
-    | 'role.nameEn'
+    | 'role.description'
+    | 'role.descriptionPlaceholderAr'
+    | 'role.descriptionPlaceholderEn'
+    | 'role.name'
+    | 'role.namePlaceholderAr'
+    | 'role.namePlaceholderEn'
     | 'role.newTitle'
     | 'role.save'
     | 'role.saved'
     | 'role.selfLockout'
     | 'role.shadowsTemplate'
     | 'role.tabs.advanced'
+    | 'role.tabs.details'
     | 'role.tabs.pages'
     | 'role.templateNotice'
     | 'roles.caption'
@@ -2072,6 +2096,8 @@ export interface NamespaceKeys {
     | 'select.searchLabel'
     | 'select.searchPlaceholder'
     | 'select.searchResults'
+    | 'shell.emptyPanelBody'
+    | 'shell.emptyPanelTitle'
     | 'shell.hideNavigation'
     | 'shell.modules'
     | 'shell.openNavigation'
@@ -2593,8 +2619,6 @@ export interface NamespaceKeys {
     | 'branchHours.allClosedBody'
     | 'branchHours.allClosedTitle'
     | 'branchHours.backToHub'
-    | 'branchHours.branchBadge'
-    | 'branchHours.branchUnknown'
     | 'branchHours.cardClosedCaption'
     | 'branchHours.cardCutOff'
     | 'branchHours.cardCutOffCaption'
@@ -2611,7 +2635,6 @@ export interface NamespaceKeys {
     | 'branchHours.columnDay'
     | 'branchHours.columnSays'
     | 'branchHours.columnTrading'
-    | 'branchHours.contextNote'
     | 'branchHours.copiedAnnouncement'
     | 'branchHours.copyShort'
     | 'branchHours.copyToOpenDays'
@@ -2631,14 +2654,10 @@ export interface NamespaceKeys {
     | 'branchHours.save'
     | 'branchHours.saveError'
     | 'branchHours.savedToast'
-    | 'branchHours.sectionContext'
-    | 'branchHours.sectionWeek'
-    | 'branchHours.timeZoneBadge'
     | 'branchHours.title'
     | 'branchHours.titleFor'
     | 'branchHours.tradingLabel'
     | 'branchHours.tradingOpen'
-    | 'branchHours.weekIntro'
     | 'calendar.a11y.nothing'
     | 'calendar.a11y.projected'
     | 'calendar.a11y.showing'
@@ -3162,9 +3181,14 @@ export interface NamespaceKeys {
     | 'fields.categoryPlaceholder'
     | 'fields.composition'
     | 'fields.compositionHint'
+    | 'fields.daysPlaceholder'
+    | 'fields.descriptionPlaceholderAr'
+    | 'fields.descriptionPlaceholderEn'
     | 'fields.designation'
     | 'fields.gramsPerUnit'
     | 'fields.gramsPerUnitPlaceholder'
+    | 'fields.ingredientNamePlaceholderAr'
+    | 'fields.ingredientNamePlaceholderEn'
     | 'fields.itemsPerPurchaseUnit'
     | 'fields.itemsPerUnit'
     | 'fields.itemsPerUnitHint'
@@ -3172,10 +3196,18 @@ export interface NamespaceKeys {
     | 'fields.name'
     | 'fields.notes'
     | 'fields.notesHint'
+    | 'fields.packagingNamePlaceholderAr'
+    | 'fields.packagingNamePlaceholderEn'
+    | 'fields.percentPlaceholder'
+    | 'fields.productNamePlaceholderAr'
+    | 'fields.productNamePlaceholderEn'
     | 'fields.purchaseUnit'
     | 'fields.purchaseUnitHint'
     | 'fields.purchaseUnitNone'
     | 'fields.purchaseUnitNoneHint'
+    | 'fields.quantityPlaceholder'
+    | 'fields.recipeNamePlaceholderAr'
+    | 'fields.recipeNamePlaceholderEn'
     | 'fields.reference'
     | 'fields.referenceHint'
     | 'fields.referencePlaceholder'
@@ -4356,6 +4388,7 @@ export interface NamespaceKeys {
     | 'ops.stock.waste'
     | 'ops.stock.wastedToast'
     | 'ops.suppliers.addContact'
+    | 'ops.suppliers.addressPlaceholder'
     | 'ops.suppliers.allItemsLinked'
     | 'ops.suppliers.archiveBody'
     | 'ops.suppliers.archiveConfirm'
@@ -4367,6 +4400,7 @@ export interface NamespaceKeys {
     | 'ops.suppliers.archivedToast'
     | 'ops.suppliers.backToList'
     | 'ops.suppliers.caption'
+    | 'ops.suppliers.codePlaceholder'
     | 'ops.suppliers.columnContact'
     | 'ops.suppliers.columnItem'
     | 'ops.suppliers.columnItems'
@@ -4384,6 +4418,7 @@ export interface NamespaceKeys {
     | 'ops.suppliers.editRefBody'
     | 'ops.suppliers.editRefTitle'
     | 'ops.suppliers.editTitle'
+    | 'ops.suppliers.emailPlaceholder'
     | 'ops.suppliers.emptyBody'
     | 'ops.suppliers.emptyTitle'
     | 'ops.suppliers.fieldAddress'
@@ -4409,12 +4444,15 @@ export interface NamespaceKeys {
     | 'ops.suppliers.itemsTitle'
     | 'ops.suppliers.leadTimeDays'
     | 'ops.suppliers.leadTimeInvalid'
+    | 'ops.suppliers.leadTimePlaceholder'
     | 'ops.suppliers.linkItem'
     | 'ops.suppliers.linkItemLabel'
     | 'ops.suppliers.linkedToast'
     | 'ops.suppliers.loadErrorTitle'
     | 'ops.suppliers.makePreferred'
     | 'ops.suppliers.makePrimary'
+    | 'ops.suppliers.namePlaceholderAr'
+    | 'ops.suppliers.namePlaceholderEn'
     | 'ops.suppliers.nameRequired'
     | 'ops.suppliers.neverBoughtHere'
     | 'ops.suppliers.noContact'
@@ -4428,6 +4466,9 @@ export interface NamespaceKeys {
     | 'ops.suppliers.noTerms'
     | 'ops.suppliers.notFoundBody'
     | 'ops.suppliers.notFoundTitle'
+    | 'ops.suppliers.notesPlaceholder'
+    | 'ops.suppliers.paymentTermsPlaceholder'
+    | 'ops.suppliers.phonePlaceholder'
     | 'ops.suppliers.pickItem'
     | 'ops.suppliers.preferredBadge'
     | 'ops.suppliers.preferredToast'
@@ -5034,6 +5075,7 @@ export interface NamespaceKeys {
     | 'products.packCodeHeader'
     | 'products.packCodeHint'
     | 'products.packCodeLabel'
+    | 'products.packCodePlaceholder'
     | 'products.packCodeRequired'
     | 'products.packCount'
     | 'products.packLabel'
@@ -7549,18 +7591,35 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:add.password',
   'accessAdmin:add.passwordAcknowledge',
   'accessAdmin:add.passwordBody',
-  'accessAdmin:add.passwordHint',
   'accessAdmin:add.passwordTitle',
+  'accessAdmin:add.placeholders.email',
+  'accessAdmin:add.placeholders.familyName',
+  'accessAdmin:add.placeholders.givenName',
+  'accessAdmin:add.placeholders.password',
+  'accessAdmin:add.placeholders.signInName',
   'accessAdmin:add.role',
+  'accessAdmin:add.roleInviteHint',
+  'accessAdmin:add.roles',
+  'accessAdmin:add.rolesCreateHint',
+  'accessAdmin:add.sections.invitation',
+  'accessAdmin:add.sections.person',
+  'accessAdmin:add.sections.signIn',
   'accessAdmin:add.signInName',
   'accessAdmin:add.signInNameHint',
+  'accessAdmin:add.signInNameInvalid',
   'accessAdmin:add.submitCreate',
   'accessAdmin:add.submitInvite',
   'accessAdmin:add.title',
-  'accessAdmin:advanced.emptyDomain',
-  'accessAdmin:advanced.hint',
+  'accessAdmin:advanced.actions.manage',
+  'accessAdmin:advanced.actions.other',
+  'accessAdmin:advanced.actions.publish',
+  'accessAdmin:advanced.actions.view',
+  'accessAdmin:advanced.actions.viewCosts',
+  'accessAdmin:advanced.cellLabel',
+  'accessAdmin:advanced.columns.area',
   'accessAdmin:advanced.notHeld',
   'accessAdmin:advanced.selected',
+  'accessAdmin:advanced.tableLabel',
   'accessAdmin:changePassword.confirmation',
   'accessAdmin:changePassword.current',
   'accessAdmin:changePassword.done',
@@ -7618,7 +7677,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:member.assignmentFrom',
   'accessAdmin:member.assignmentScheduled',
   'accessAdmin:member.assignmentUntil',
-  'accessAdmin:member.back',
   'accessAdmin:member.cancel',
   'accessAdmin:member.end',
   'accessAdmin:member.endBody',
@@ -7628,6 +7686,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:member.lastAdministrator',
   'accessAdmin:member.permissionsHeading',
   'accessAdmin:member.permissionsHint',
+  'accessAdmin:member.permissionsNone',
   'accessAdmin:member.reactivate',
   'accessAdmin:member.reactivated',
   'accessAdmin:member.rolesHeading',
@@ -7643,17 +7702,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:member.suspended',
   'accessAdmin:member.title',
   'accessAdmin:pages.alsoOpens',
-  'accessAdmin:pages.hint',
+  'accessAdmin:pages.cellLabel',
+  'accessAdmin:pages.columns.extras',
+  'accessAdmin:pages.columns.page',
   'accessAdmin:pages.levels.manage',
   'accessAdmin:pages.levels.none',
   'accessAdmin:pages.levels.view',
+  'accessAdmin:pages.tableLabel',
   'accessAdmin:pages.unmappedCount',
   'accessAdmin:pages.unmappedHeading',
   'accessAdmin:pages.unmappedHint',
   'accessAdmin:role.back',
   'accessAdmin:role.cancel',
   'accessAdmin:role.code',
-  'accessAdmin:role.codeHint',
+  'accessAdmin:role.codeInvalid',
+  'accessAdmin:role.codePlaceholder',
   'accessAdmin:role.copyTitle',
   'accessAdmin:role.created',
   'accessAdmin:role.delete',
@@ -7662,16 +7725,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:role.deleteConfirm',
   'accessAdmin:role.deleteTitle',
   'accessAdmin:role.deleted',
-  'accessAdmin:role.descriptionAr',
-  'accessAdmin:role.descriptionEn',
-  'accessAdmin:role.nameAr',
-  'accessAdmin:role.nameEn',
+  'accessAdmin:role.description',
+  'accessAdmin:role.descriptionPlaceholderAr',
+  'accessAdmin:role.descriptionPlaceholderEn',
+  'accessAdmin:role.name',
+  'accessAdmin:role.namePlaceholderAr',
+  'accessAdmin:role.namePlaceholderEn',
   'accessAdmin:role.newTitle',
   'accessAdmin:role.save',
   'accessAdmin:role.saved',
   'accessAdmin:role.selfLockout',
   'accessAdmin:role.shadowsTemplate',
   'accessAdmin:role.tabs.advanced',
+  'accessAdmin:role.tabs.details',
   'accessAdmin:role.tabs.pages',
   'accessAdmin:role.templateNotice',
   'accessAdmin:roles.caption',
@@ -9542,6 +9608,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:select.searchLabel',
   'designSystem:select.searchPlaceholder',
   'designSystem:select.searchResults',
+  'designSystem:shell.emptyPanelBody',
+  'designSystem:shell.emptyPanelTitle',
   'designSystem:shell.hideNavigation',
   'designSystem:shell.modules',
   'designSystem:shell.openNavigation',
@@ -10059,8 +10127,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:branchHours.allClosedBody',
   'kitchen:branchHours.allClosedTitle',
   'kitchen:branchHours.backToHub',
-  'kitchen:branchHours.branchBadge',
-  'kitchen:branchHours.branchUnknown',
   'kitchen:branchHours.cardClosedCaption',
   'kitchen:branchHours.cardCutOff',
   'kitchen:branchHours.cardCutOffCaption',
@@ -10077,7 +10143,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:branchHours.columnDay',
   'kitchen:branchHours.columnSays',
   'kitchen:branchHours.columnTrading',
-  'kitchen:branchHours.contextNote',
   'kitchen:branchHours.copiedAnnouncement',
   'kitchen:branchHours.copyShort',
   'kitchen:branchHours.copyToOpenDays',
@@ -10097,14 +10162,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:branchHours.save',
   'kitchen:branchHours.saveError',
   'kitchen:branchHours.savedToast',
-  'kitchen:branchHours.sectionContext',
-  'kitchen:branchHours.sectionWeek',
-  'kitchen:branchHours.timeZoneBadge',
   'kitchen:branchHours.title',
   'kitchen:branchHours.titleFor',
   'kitchen:branchHours.tradingLabel',
   'kitchen:branchHours.tradingOpen',
-  'kitchen:branchHours.weekIntro',
   'kitchen:calendar.a11y.nothing',
   'kitchen:calendar.a11y.projected',
   'kitchen:calendar.a11y.showing',
@@ -10628,9 +10689,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.categoryPlaceholder',
   'kitchen:fields.composition',
   'kitchen:fields.compositionHint',
+  'kitchen:fields.daysPlaceholder',
+  'kitchen:fields.descriptionPlaceholderAr',
+  'kitchen:fields.descriptionPlaceholderEn',
   'kitchen:fields.designation',
   'kitchen:fields.gramsPerUnit',
   'kitchen:fields.gramsPerUnitPlaceholder',
+  'kitchen:fields.ingredientNamePlaceholderAr',
+  'kitchen:fields.ingredientNamePlaceholderEn',
   'kitchen:fields.itemsPerPurchaseUnit',
   'kitchen:fields.itemsPerUnit',
   'kitchen:fields.itemsPerUnitHint',
@@ -10638,10 +10704,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.name',
   'kitchen:fields.notes',
   'kitchen:fields.notesHint',
+  'kitchen:fields.packagingNamePlaceholderAr',
+  'kitchen:fields.packagingNamePlaceholderEn',
+  'kitchen:fields.percentPlaceholder',
+  'kitchen:fields.productNamePlaceholderAr',
+  'kitchen:fields.productNamePlaceholderEn',
   'kitchen:fields.purchaseUnit',
   'kitchen:fields.purchaseUnitHint',
   'kitchen:fields.purchaseUnitNone',
   'kitchen:fields.purchaseUnitNoneHint',
+  'kitchen:fields.quantityPlaceholder',
+  'kitchen:fields.recipeNamePlaceholderAr',
+  'kitchen:fields.recipeNamePlaceholderEn',
   'kitchen:fields.reference',
   'kitchen:fields.referenceHint',
   'kitchen:fields.referencePlaceholder',
@@ -11822,6 +11896,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.waste',
   'kitchen:ops.stock.wastedToast',
   'kitchen:ops.suppliers.addContact',
+  'kitchen:ops.suppliers.addressPlaceholder',
   'kitchen:ops.suppliers.allItemsLinked',
   'kitchen:ops.suppliers.archiveBody',
   'kitchen:ops.suppliers.archiveConfirm',
@@ -11833,6 +11908,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.archivedToast',
   'kitchen:ops.suppliers.backToList',
   'kitchen:ops.suppliers.caption',
+  'kitchen:ops.suppliers.codePlaceholder',
   'kitchen:ops.suppliers.columnContact',
   'kitchen:ops.suppliers.columnItem',
   'kitchen:ops.suppliers.columnItems',
@@ -11850,6 +11926,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.editRefBody',
   'kitchen:ops.suppliers.editRefTitle',
   'kitchen:ops.suppliers.editTitle',
+  'kitchen:ops.suppliers.emailPlaceholder',
   'kitchen:ops.suppliers.emptyBody',
   'kitchen:ops.suppliers.emptyTitle',
   'kitchen:ops.suppliers.fieldAddress',
@@ -11875,12 +11952,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.itemsTitle',
   'kitchen:ops.suppliers.leadTimeDays',
   'kitchen:ops.suppliers.leadTimeInvalid',
+  'kitchen:ops.suppliers.leadTimePlaceholder',
   'kitchen:ops.suppliers.linkItem',
   'kitchen:ops.suppliers.linkItemLabel',
   'kitchen:ops.suppliers.linkedToast',
   'kitchen:ops.suppliers.loadErrorTitle',
   'kitchen:ops.suppliers.makePreferred',
   'kitchen:ops.suppliers.makePrimary',
+  'kitchen:ops.suppliers.namePlaceholderAr',
+  'kitchen:ops.suppliers.namePlaceholderEn',
   'kitchen:ops.suppliers.nameRequired',
   'kitchen:ops.suppliers.neverBoughtHere',
   'kitchen:ops.suppliers.noContact',
@@ -11894,6 +11974,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.noTerms',
   'kitchen:ops.suppliers.notFoundBody',
   'kitchen:ops.suppliers.notFoundTitle',
+  'kitchen:ops.suppliers.notesPlaceholder',
+  'kitchen:ops.suppliers.paymentTermsPlaceholder',
+  'kitchen:ops.suppliers.phonePlaceholder',
   'kitchen:ops.suppliers.pickItem',
   'kitchen:ops.suppliers.preferredBadge',
   'kitchen:ops.suppliers.preferredToast',
@@ -12500,6 +12583,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.packCodeHeader',
   'kitchen:products.packCodeHint',
   'kitchen:products.packCodeLabel',
+  'kitchen:products.packCodePlaceholder',
   'kitchen:products.packCodeRequired',
   'kitchen:products.packCount',
   'kitchen:products.packLabel',

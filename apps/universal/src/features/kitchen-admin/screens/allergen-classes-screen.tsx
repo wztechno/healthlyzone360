@@ -5,8 +5,8 @@ import {
     EmptyState,
     ErrorState,
     Inline,
-    Skeleton,
     Stack,
+    TableSkeleton,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -206,15 +206,10 @@ function AllergenClasses() {
             </CatalogueToolbar>
 
             {list.isPending ? (
-                <Stack space="xs" testID="kitchen-allergen-classes-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-allergen-classes-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
+                <TableSkeleton
+                    testID="kitchen-allergen-classes-loading"
+                    partTestID="kitchen-allergen-classes"
+                />
             ) : list.failure !== null ? (
                 <ErrorState
                     testID="kitchen-allergen-classes-error"

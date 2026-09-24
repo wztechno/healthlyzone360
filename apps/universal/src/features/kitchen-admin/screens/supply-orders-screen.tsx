@@ -10,8 +10,8 @@ import {
     EmptyState,
     ErrorState,
     FormSection,
-    Skeleton,
     Stack,
+    TableSkeleton,
     Text,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
@@ -606,15 +606,10 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
             </CatalogueToolbar>
 
             {orders.isPending ? (
-                <Stack space="xs" testID="kitchen-supply-orders-book-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-supply-orders-book-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
+                <TableSkeleton
+                    testID="kitchen-supply-orders-book-loading"
+                    partTestID="kitchen-supply-orders-book"
+                />
             ) : ordersFailure !== null ? (
                 // Its own failure: the book failing to load is not a reason to hide the queue.
                 <ErrorState
@@ -707,15 +702,11 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                       })}
             >
                 {shortagePending ? (
-                    <Stack space="xs" testID="kitchen-supply-orders-loading">
-                        {Array.from({ length: 3 }, (_, index) => (
-                            <Skeleton
-                                key={index}
-                                testID={`kitchen-supply-orders-skeleton-${String(index + 1)}`}
-                                heightClassName="h-row-sm"
-                            />
-                        ))}
-                    </Stack>
+                    <TableSkeleton
+                        testID="kitchen-supply-orders-loading"
+                        partTestID="kitchen-supply-orders"
+                        rows={3}
+                    />
                 ) : shortageFailure !== null ? (
                     <ErrorState
                         testID="kitchen-supply-orders-error"

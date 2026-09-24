@@ -4,7 +4,7 @@ import {
     EmptyState,
     ErrorState,
     Heading,
-    Skeleton,
+    RecordSkeleton,
     Stack,
     Text,
 } from '@healthy360/design-system';
@@ -81,7 +81,7 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
     }
 
     if (record.isPending) {
-        return <Skeleton testID="kitchen-production-batch-sheet-loading" heightClassName="h-64" />;
+        return <RecordSkeleton testID="kitchen-production-batch-sheet-loading" />;
     }
 
     if (failure !== null) {

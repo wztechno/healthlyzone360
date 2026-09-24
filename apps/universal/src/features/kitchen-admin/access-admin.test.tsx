@@ -84,6 +84,30 @@ function untilVisible(testID: string) {
     );
 }
 
+/** A team member opens on Roles; Where they work and What that adds up to are the next two steps. */
+async function openMemberStep(step: 'roles' | 'scope' | 'permissions') {
+    await untilVisible('kitchen-team-member-tabs');
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(`kitchen-team-member-tabs-tab-${step}`));
+    });
+}
+
+/** Advanced is the role editor's last step, where Next becomes Save role. */
+async function openRoleAdvancedStep() {
+    await untilVisible('kitchen-role-editor-tabs');
+    await act(async () => {
+        fireEvent.press(screen.getByTestId('kitchen-role-editor-tabs-tab-advanced'));
+    });
+}
+
+/** The role editor opens on its Details step; Pages is the second of its three. */
+async function openRolePagesStep() {
+    await untilVisible('kitchen-role-editor-tabs');
+    await act(async () => {
+        fireEvent.press(screen.getByTestId('kitchen-role-editor-tabs-tab-pages'));
+    });
+}
+
 /* ── fixtures ─────────────────────────────────────────────────────────────────────────────────── */
 
 const ROLE_ID = RoleId.unsafe('01935f6c-0000-7000-8000-0000000000a1');
@@ -412,6 +436,7 @@ describe('the role editor', () => {
             repositories: editorRepositories(),
         });
 
+        await openRolePagesStep();
         await untilVisible('kitchen-role-editor-pages');
 
         // The order book is Manage, because the role holds both codes.
@@ -469,6 +494,7 @@ describe('the role editor', () => {
             }),
         });
 
+        await openRolePagesStep();
         await untilVisible('kitchen-role-editor-pages-unmapped');
 
         expect(
@@ -493,6 +519,7 @@ describe('the role editor', () => {
             }),
         });
 
+        await openRolePagesStep();
         await untilVisible('kitchen-role-editor-pages');
 
         // Turn the order book off entirely, on the Pages tab.
@@ -502,6 +529,8 @@ describe('the role editor', () => {
             );
         });
 
+        // Saved from the last step, having changed nothing past Pages.
+        await openRoleAdvancedStep();
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-role-editor-save'));
         });
@@ -534,6 +563,32 @@ describe('the role editor', () => {
 
         expect(screen.queryByTestId('kitchen-role-editor-save')).toBeNull();
         expect(screen.getByTestId('kitchen-role-editor-copy')).toBeTruthy();
+    });
+
+    it('names a missing Arabic name on Save rather than sending a role the server refuses', async () => {
+        // `name_ar` is required by the endpoint. Save stays pressable, and the press is answered
+        // on the page — the banner and the field — not by a round trip that comes back refused.
+        setParams({ role: String(ROLE_ID) });
+        const updateRole = jest.fn().mockResolvedValue(role());
+
+        await renderStubScreen(<RoleEditorScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: editorRepositories({
+                getRole: jest.fn().mockResolvedValue(role({ nameAr: '' })),
+                updateRole,
+            }),
+        });
+
+        await openRoleAdvancedStep();
+        await untilVisible('kitchen-role-editor-save');
+        expect(screen.queryByTestId('kitchen-role-editor-issues-errors')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-role-editor-save'));
+        });
+
+        await untilVisible('kitchen-role-editor-issues-errors');
+        expect(updateRole).not.toHaveBeenCalled();
     });
 });
 
@@ -591,7 +646,7 @@ describe('adding a member of staff', () => {
         expect(screen.getByTestId('kitchen-staff-create-domain-fixed')).toHaveTextContent(
             '@verdant.healthy360.app',
         );
-        expect(screen.getByTestId('kitchen-staff-create-composed')).toHaveTextContent(
+        expect(screen.getByTestId('kitchen-staff-create-local-part-hint')).toHaveTextContent(
             /ahmad@verdant\.healthy360\.app/,
         );
     });
@@ -625,13 +680,24 @@ describe('adding a member of staff', () => {
             );
         });
         await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-staff-create-generate'));
+        });
+
+        // The names are the second of the login's three steps.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-staff-create-tabs-tab-person'));
+        });
+        await act(async () => {
             fireEvent.changeText(
                 screen.getByTestId('kitchen-staff-create-given-name-input'),
                 'Ahmad',
             );
         });
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-staff-create-generate'));
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-staff-create-family-name-input'),
+                'Haddad',
+            );
         });
 
         await act(async () => {
@@ -673,6 +739,94 @@ describe('adding a member of staff', () => {
 
         await untilVisible('kitchen-staff-create-email-input');
         expect(screen.queryByTestId('kitchen-staff-create-local-part-input')).toBeNull();
+    });
+
+    it('lets an invitation carry one role and a login made here several', async () => {
+        // The invitation endpoint takes a single `role_code`; a membership, and so a login created
+        // here, holds a set. The same list, one mark or many.
+        await renderStubScreen(<StaffCreateScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: staffRepositories({
+                listRoles: jest.fn().mockResolvedValue([roleSummary(), template()]),
+            }),
+        });
+
+        await untilVisible('kitchen-staff-create-screen');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-staff-create-tabs-tab-role'));
+        });
+        await untilVisible('kitchen-staff-create-role-evening_counter');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-staff-create-role-evening_counter'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-staff-create-role-kitchen_manager'));
+        });
+
+        // Invitation: the second choice moved the mark.
+        expect(
+            screen.getByTestId('kitchen-staff-create-role-evening_counter').props
+                .accessibilityState,
+        ).toMatchObject({ checked: false });
+        expect(
+            screen.getByTestId('kitchen-staff-create-role-kitchen_manager').props
+                .accessibilityState,
+        ).toMatchObject({ checked: true });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-staff-create-tabs-tab-signIn'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-staff-create-mode-option-create'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-staff-create-tabs-tab-role'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-staff-create-role-evening_counter'));
+        });
+
+        // Login: both stay marked.
+        expect(
+            screen.getByTestId('kitchen-staff-create-role-evening_counter').props
+                .accessibilityState,
+        ).toMatchObject({ checked: true });
+        expect(
+            screen.getByTestId('kitchen-staff-create-role-kitchen_manager').props
+                .accessibilityState,
+        ).toMatchObject({ checked: true });
+    });
+
+    it('names what a half-filled login is missing instead of sending it', async () => {
+        // The commit is always pressable; what it will not do is reach the server without the
+        // names and the password the endpoint requires.
+        const createStaffAccount = jest.fn();
+
+        await renderStubScreen(<StaffCreateScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: staffRepositories({ createStaffAccount }),
+        });
+
+        await untilVisible('kitchen-staff-create-screen');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-staff-create-mode-option-create'));
+        });
+        await untilVisible('kitchen-staff-create-local-part-input');
+
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-staff-create-local-part-input'),
+                'ahmad',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-staff-create-submit'));
+        });
+
+        await untilVisible('kitchen-staff-create-issues-errors');
+        expect(createStaffAccount).not.toHaveBeenCalled();
     });
 });
 
@@ -720,8 +874,10 @@ describe('one member of staff', () => {
         await untilVisible('kitchen-team-member-roles');
 
         expect(screen.getByTestId('kitchen-team-member-role-evening_counter')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-team-member-scope-select')).toBeTruthy();
         expect(screen.getByTestId('kitchen-team-member-status')).toBeTruthy();
+
+        await openMemberStep('scope');
+        expect(screen.getByTestId('kitchen-team-member-scope-select')).toBeTruthy();
     });
 
     it('says there is nothing to choose when the kitchen has one branch', async () => {
@@ -738,6 +894,7 @@ describe('one member of staff', () => {
             }),
         });
 
+        await openMemberStep('scope');
         await untilVisible('kitchen-team-member-scope-single');
         expect(screen.queryByTestId('kitchen-team-member-scope-select')).toBeNull();
     });
@@ -757,11 +914,7 @@ describe('one member of staff', () => {
         await untilVisible('kitchen-team-member-roles');
 
         await act(async () => {
-            fireEvent(
-                screen.getByTestId('kitchen-team-member-role-evening_counter'),
-                'change',
-                false,
-            );
+            fireEvent.press(screen.getByTestId('kitchen-team-member-role-evening_counter'));
         });
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
@@ -798,6 +951,7 @@ describe('one member of staff', () => {
             repositories: memberRepositories({ setMemberScope, setMemberRoles }),
         });
 
+        await openMemberStep('scope');
         await untilVisible('kitchen-team-member-scope-select');
 
         await act(async () => {
@@ -841,6 +995,7 @@ describe('one member of staff', () => {
             }),
         });
 
+        await openMemberStep('scope');
         await untilVisible('kitchen-team-member-scope-select');
 
         // The fixture member is scoped to Hamra, so "the whole kitchen" is a real change.
@@ -1002,6 +1157,7 @@ describe('refusals that must not vanish', () => {
             }),
         });
 
+        await openRoleAdvancedStep();
         await untilVisible('kitchen-role-editor-save');
 
         await act(async () => {

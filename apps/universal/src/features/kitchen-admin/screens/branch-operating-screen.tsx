@@ -2,12 +2,9 @@ import {
     Button,
     Callout,
     EmptyState,
-    FormSection,
     ErrorState,
-    Inline,
-    Skeleton,
+    FormSkeleton,
     Stack,
-    Tag,
     Text,
     useToast,
 } from '@healthy360/design-system';
@@ -55,7 +52,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * area is `requiresBranch: true` in the route registry (`@healthy360/permissions`), so a person who
  * reaches this screen has already chosen a branch and the gate has already redirected anybody who
  * has not. Editing another branch's hours is a *context switch*, which the shell owns, and this
- * screen says so rather than duplicating the picker.
+ * screen does not duplicate the picker.
  *
  * ## One identifier, two brands, and the crossing is made here on purpose
  *
@@ -67,13 +64,12 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * reconciliation pass can find it: when the wire says which of the two a kitchen branch really is,
  * this function changes and nothing else does.
  *
- * ## The time zone is stated and not edited
+ * ## The time zone is not edited here
  *
  * `SetBranchOperatingRequest.timeZone` exists, and nothing in this contract publishes the list of
  * IANA zones a picker would need. A free-text field for `Asia/Dubai` is a field that accepts
  * `Asia/Duabi`, and a mistyped zone shifts every cut-off on this page by hours without saying so.
- * The zone is therefore shown as the fact the times are read in; changing it belongs with whoever
- * owns the branch record.
+ * Changing it belongs with whoever owns the branch record.
  */
 
 /**
@@ -219,10 +215,12 @@ function BranchOperatingEditor() {
 
     if (record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-branch-hours-loading">
-                <Skeleton testID="kitchen-branch-hours-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-branch-hours-skeleton-2" heightClassName="h-64" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-branch-hours-loading"
+                partTestID="kitchen-branch-hours"
+                sections={2}
+                tabs={0}
+            />
         );
     }
 
@@ -262,10 +260,7 @@ function BranchOperatingEditor() {
                             unit: t('kitchen:branchHours.cardTradingUnit', {
                                 count: summary.openDays,
                             }),
-                            caption:
-                                branch === null
-                                    ? t('kitchen:branchHours.branchUnknown')
-                                    : branch.name,
+                            caption: branch?.name ?? '',
                             mark: 'calendar',
                             tone: summary.openDays === 0 ? 'warning' : 'default',
                         },
@@ -334,58 +329,11 @@ function BranchOperatingEditor() {
                 </Stack>
             }
         >
-            <FormSection
-                first
-                testID="kitchen-branch-hours-context"
-                title={t('kitchen:branchHours.sectionContext')}
-            >
-                <Inline space="xs" wrap align="center">
-                    <Tag
-                        testID="kitchen-branch-hours-branch"
-                        tone="brand"
-                        label={
-                            branch === null
-                                ? t('kitchen:branchHours.branchUnknown')
-                                : t('kitchen:branchHours.branchBadge', {
-                                      branch: branch.name,
-                                      code: branch.code,
-                                  })
-                        }
-                    />
-                    <Tag
-                        testID="kitchen-branch-hours-timezone"
-                        tone="neutral"
-                        label={t('kitchen:branchHours.timeZoneBadge', {
-                            zone: data?.timeZone ?? t('kitchen:common.notRecorded'),
-                        })}
-                    />
-                    <Text
-                        variant="caption"
-                        tone="secondary"
-                        testID="kitchen-branch-hours-context-note"
-                    >
-                        {t('kitchen:branchHours.contextNote')}
-                    </Text>
-                </Inline>
-            </FormSection>
-
-            <FormSection
-                testID="kitchen-branch-hours-week"
-                title={t('kitchen:branchHours.sectionWeek')}
-                description={t('kitchen:branchHours.weekIntro')}
-                aside={
-                    <Text
-                        variant="caption"
-                        tone="secondary"
-                        testID="kitchen-branch-hours-week-summary"
-                    >
-                        {`${t('kitchen:branchHours.openDayCount', { count: summary.openDays })} · ${t(
-                            'kitchen:branchHours.cutOffDayCount',
-                            { count: summary.withCutOff },
-                        )}`}
-                    </Text>
-                }
-            >
+            {/*
+             * The week, with no heading over it: the page title already says what it is, and the
+             * rows say the rest.
+             */}
+            <View testID="kitchen-branch-hours-week" className="z-auto flex-col">
                 <OperatingWeekRows
                     testID="kitchen-branch-hours-rows"
                     rows={days}
@@ -426,7 +374,7 @@ function BranchOperatingEditor() {
                         </Text>
                     </View>
                 ) : null}
-            </FormSection>
+            </View>
         </EditorFrame>
     );
 }

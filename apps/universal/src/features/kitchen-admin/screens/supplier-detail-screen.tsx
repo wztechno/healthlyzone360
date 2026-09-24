@@ -7,9 +7,9 @@ import {
     ErrorState,
     FormGrid,
     FormSection,
+    FormSkeleton,
     Inline,
     Select,
-    Skeleton,
     Stack,
     Table,
     Text,
@@ -17,7 +17,7 @@ import {
     useFormSteps,
     useToast,
 } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
+import type { TabItem, TableColumn } from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -39,6 +39,7 @@ import {
     useUpsertSupplierLinkMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { BilingualField } from '../bilingual-field.tsx';
+import { TabStepNavigation } from '../editor-steps.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
@@ -650,11 +651,11 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
 
     if (!isCreating && record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-supplier-loading">
-                <Skeleton testID="kitchen-supplier-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-supplier-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-supplier-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-supplier-loading"
+                partTestID="kitchen-supplier"
+                sections={3}
+            />
         );
     }
 
@@ -738,6 +739,30 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
         items: t('kitchen:ops.suppliers.itemsTitle'),
     };
     const detailsIssueCount = shownIssues.length;
+
+    const stepItems: readonly TabItem<SupplierStep>[] = (
+        isCreating ? SUPPLIER_CREATE_STEPS : SUPPLIER_STEPS
+    ).map((key) => ({
+        value: key,
+        label: stepLabels[key],
+        ...(key === 'contacts'
+            ? { count: contacts.length }
+            : key === 'items'
+              ? { count: suppliedItems.length }
+              : {}),
+        ...(key === 'details' && detailsIssueCount > 0
+            ? {
+                  issues: {
+                      count: detailsIssueCount,
+                      tone: 'danger' as const,
+                      label: t('kitchen:forms.toFixCount', {
+                          count: detailsIssueCount,
+                      }),
+                  },
+              }
+            : {}),
+        testID: `kitchen-supplier-screen-steps-${key}`,
+    }));
 
     return (
         <Stack space="md" testID="kitchen-supplier-screen">
@@ -839,27 +864,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                     value: form.current,
                     onChange: form.goTo,
                     // One step until the first save: contacts and supplied items hang off a record.
-                    items: (isCreating ? SUPPLIER_CREATE_STEPS : SUPPLIER_STEPS).map((key) => ({
-                        value: key,
-                        label: stepLabels[key],
-                        ...(key === 'contacts'
-                            ? { count: contacts.length }
-                            : key === 'items'
-                              ? { count: suppliedItems.length }
-                              : {}),
-                        ...(key === 'details' && detailsIssueCount > 0
-                            ? {
-                                  issues: {
-                                      count: detailsIssueCount,
-                                      tone: 'danger' as const,
-                                      label: t('kitchen:forms.toFixCount', {
-                                          count: detailsIssueCount,
-                                      }),
-                                  },
-                              }
-                            : {}),
-                        testID: `kitchen-supplier-screen-steps-${key}`,
-                    })),
+                    items: stepItems,
                 }}
             />
 
@@ -903,6 +908,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 testID="kitchen-supplier-code"
                                 id="kitchen-supplier-code"
                                 label={t('kitchen:ops.suppliers.fieldCode')}
+                                placeholder={t('kitchen:ops.suppliers.codePlaceholder')}
                                 size="sm"
                                 value={details.code}
                                 autoCapitalize="characters"
@@ -917,6 +923,10 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 layout="row"
                                 testID="kitchen-supplier-name"
                                 fieldLabel={t('kitchen:ops.suppliers.fieldName')}
+                                placeholder={{
+                                    en: t('kitchen:ops.suppliers.namePlaceholderEn'),
+                                    ar: t('kitchen:ops.suppliers.namePlaceholderAr'),
+                                }}
                                 value={details.name}
                                 requiredEnglish
                                 disabled={!editable}
@@ -932,6 +942,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 testID="kitchen-supplier-email"
                                 id="kitchen-supplier-email"
                                 label={t('kitchen:ops.suppliers.fieldEmail')}
+                                placeholder={t('kitchen:ops.suppliers.emailPlaceholder')}
                                 size="sm"
                                 value={details.contactEmail}
                                 keyboardType="email-address"
@@ -946,6 +957,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 testID="kitchen-supplier-phone"
                                 id="kitchen-supplier-phone"
                                 label={t('kitchen:ops.suppliers.fieldPhone')}
+                                placeholder={t('kitchen:ops.suppliers.phonePlaceholder')}
                                 size="sm"
                                 value={details.contactPhone}
                                 keyboardType="phone-pad"
@@ -976,6 +988,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 testID="kitchen-supplier-payment-terms"
                                 id="kitchen-supplier-payment-terms"
                                 label={t('kitchen:ops.suppliers.fieldPaymentTerms')}
+                                placeholder={t('kitchen:ops.suppliers.paymentTermsPlaceholder')}
                                 size="sm"
                                 value={details.paymentTerms}
                                 disabled={!editable}
@@ -988,6 +1001,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 testID="kitchen-supplier-lead-time"
                                 id="kitchen-supplier-lead-time"
                                 label={t('kitchen:ops.suppliers.fieldLeadTime')}
+                                placeholder={t('kitchen:ops.suppliers.leadTimePlaceholder')}
                                 size="sm"
                                 value={details.leadTimeDays}
                                 keyboardType="number-pad"
@@ -1004,6 +1018,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 testID="kitchen-supplier-address"
                                 id="kitchen-supplier-address"
                                 label={t('kitchen:ops.suppliers.fieldAddress')}
+                                placeholder={t('kitchen:ops.suppliers.addressPlaceholder')}
                                 size="sm"
                                 fullWidth
                                 value={details.address}
@@ -1019,6 +1034,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 testID="kitchen-supplier-notes"
                                 id="kitchen-supplier-notes"
                                 label={t('kitchen:ops.suppliers.fieldNotes')}
+                                placeholder={t('kitchen:ops.suppliers.notesPlaceholder')}
                                 size="sm"
                                 fullWidth
                                 value={details.notes}
@@ -1244,6 +1260,13 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                     </FormSection>
                 )}
             </View>
+
+            <TabStepNavigation<SupplierStep>
+                testID="kitchen-supplier-screen-steps-nav"
+                items={stepItems}
+                value={form.current}
+                onChange={form.goTo}
+            />
 
             {/* ── supplier item reference ──────────────────────────────────────────────────── */}
             <Dialog

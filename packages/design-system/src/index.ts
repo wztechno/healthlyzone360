@@ -277,6 +277,20 @@ export { SPINNER_SIZES, Spinner } from './status/spinner.tsx';
 export type { SpinnerProps, SpinnerSize } from './status/spinner.tsx';
 export { SKELETON_VARIANTS, Skeleton } from './status/skeleton.tsx';
 export type { SkeletonProps, SkeletonVariant } from './status/skeleton.tsx';
+export {
+    CardGridSkeleton,
+    FormSkeleton,
+    RecordSkeleton,
+    StatTilesSkeleton,
+    TableSkeleton,
+} from './status/skeleton-layouts.tsx';
+export type {
+    CardGridSkeletonProps,
+    FormSkeletonProps,
+    RecordSkeletonProps,
+    StatTilesSkeletonProps,
+    TableSkeletonProps,
+} from './status/skeleton-layouts.tsx';
 export { EMPTY_STATE_VARIANTS, EmptyState } from './status/empty-state.tsx';
 export type { EmptyStateProps, EmptyStateVariant } from './status/empty-state.tsx';
 export { ErrorState, FAILURE_MESSAGE_KEYS } from './status/error-state.tsx';

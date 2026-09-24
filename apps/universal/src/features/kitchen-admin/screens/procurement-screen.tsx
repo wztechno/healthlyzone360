@@ -13,8 +13,8 @@ import {
     Icon,
     Inline,
     Select,
-    Skeleton,
     Stack,
+    TableSkeleton,
     Text,
     TextInputField,
     useToast,
@@ -691,15 +691,10 @@ function Procurement() {
             </CatalogueToolbar>
 
             {receipts.isPending ? (
-                <Stack space="xs" testID="kitchen-procurement-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-procurement-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
+                <TableSkeleton
+                    testID="kitchen-procurement-loading"
+                    partTestID="kitchen-procurement"
+                />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-procurement-error"

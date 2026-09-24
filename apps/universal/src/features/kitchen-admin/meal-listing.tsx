@@ -14,9 +14,9 @@ import {
     ErrorState,
     FilterChip,
     FormSection,
+    FormSkeleton,
     Inline,
     Select,
-    Skeleton,
     Stack,
     Switch,
     Text,
@@ -603,11 +603,12 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
 
     if (record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-meal-editor-loading">
-                <Skeleton testID="kitchen-meal-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-meal-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-meal-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-meal-editor-loading"
+                partTestID="kitchen-meal"
+                sections={3}
+                heading={false}
+            />
         );
     }
 

@@ -14,8 +14,8 @@ import {
     FilterChip,
     Inline,
     Select,
-    Skeleton,
     Stack,
+    TableSkeleton,
     Text,
     TextInputField,
 } from '@healthy360/design-system';
@@ -583,15 +583,10 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
             ) : null}
 
             {pending ? (
-                <Stack space="xs" testID="kitchen-purchases-ledger-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-purchases-ledger-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
+                <TableSkeleton
+                    testID="kitchen-purchases-ledger-loading"
+                    partTestID="kitchen-purchases-ledger"
+                />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-purchases-ledger-error"

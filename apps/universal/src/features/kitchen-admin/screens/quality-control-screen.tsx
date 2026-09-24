@@ -16,8 +16,8 @@ import {
     FormSection,
     Icon,
     Select,
-    Skeleton,
     Stack,
+    TableSkeleton,
     Text,
     TextInputField,
     useToast,
@@ -366,11 +366,7 @@ function QualityCheckList({ onCreate }: { readonly onCreate: () => void }) {
             </CatalogueToolbar>
 
             {checks.isPending ? (
-                <Stack space="xs" testID="kitchen-qc-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton key={index} heightClassName="h-row-sm" />
-                    ))}
-                </Stack>
+                <TableSkeleton testID="kitchen-qc-loading" />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-qc-error"

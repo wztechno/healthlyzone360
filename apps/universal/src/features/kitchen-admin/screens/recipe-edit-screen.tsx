@@ -22,11 +22,11 @@ import {
     FormGrid,
     FormIssueBanner,
     FormSection,
+    FormSkeleton,
     Icon,
     Inline,
     QuantityInput,
     Select,
-    Skeleton,
     Stack,
     Tabs,
     Tag,
@@ -72,6 +72,7 @@ import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
+import { TabStepNavigation } from '../editor-steps.tsx';
 import {
     RECIPE_MANAGE_PERMISSION,
     RECIPE_VIEW_COSTS_PERMISSION,
@@ -130,8 +131,8 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * a summary line under it, and the tabs as numbered steps on a sunken track, each carrying its count
  * and — when something on it needs attention — a solid pill with the number of problems. The
  * banner under the header names each of those problems and takes the reader to it, switching tab
- * on the way; the pills are what tells a reader *which* tab to open without opening all five. There
- * is no Previous/Next footer any more: the numbered row is both the map and the way through it.
+ * on the way; the pills are what tells a reader *which* tab to open without opening all five. The
+ * row is how a reader jumps; the Previous/Next footer (`TabStepNavigation`) is how they walk it.
  *
  * The yield moved from Description to Production, where it sits with the production waste as
  * "Yield & waste" above the lines it divides; the packaging waste sits above the packaging lines
@@ -461,8 +462,15 @@ export interface RecipeEditScreenProps {
      * The recipe book uses it to write the catalogue item that sells a new meal, sauce, dressing or
      * frozen meal before it lands on the recipe, so what was created here is sold as the kind it was
      * created as.
+     *
+     * A host that passes it is creating something sold, so the create form also asks for the
+     * description a customer reads — drawn only then, and handed over here in both languages. It is
+     * the *item's* description (`description_en` / `description_ar`); the recipe itself stores one
+     * language of notes at most, which is why it is not read back off `recipe`.
      */
-    readonly onCreated?: ((recipe: RecipeAdmin) => void) | undefined;
+    readonly onCreated?:
+        | ((recipe: RecipeAdmin, listing: { readonly description: LocalisedText }) => void)
+        | undefined;
     /**
      * Which reference series this record numbers in. The recipe library's unless a route says
      * otherwise — a sauce is `SAC-`, a dressing `DRS-`.
@@ -1271,7 +1279,7 @@ function RecipeEditor({
                         }),
                     });
                     if (onCreated !== undefined) {
-                        onCreated(created);
+                        onCreated(created, { description: details.description });
                         return;
                     }
                     router.replace(`/kitchen/recipes/${String(created.id)}` as never);
@@ -1401,11 +1409,11 @@ function RecipeEditor({
 
     if (!isCreating && record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-recipe-editor-loading">
-                <Skeleton testID="kitchen-recipe-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-recipe-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-recipe-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-recipe-editor-loading"
+                partTestID="kitchen-recipe"
+                sections={3}
+            />
         );
     }
 
@@ -1877,6 +1885,10 @@ function RecipeEditor({
                                     layout="row"
                                     testID="kitchen-recipe-name"
                                     fieldLabel={t('kitchen:recipes.columnName')}
+                                    placeholder={{
+                                        en: t('kitchen:fields.recipeNamePlaceholderEn'),
+                                        ar: t('kitchen:fields.recipeNamePlaceholderAr'),
+                                    }}
                                     value={details.name}
                                     requiredEnglish
                                     disabled={!editable}
@@ -1888,6 +1900,31 @@ function RecipeEditor({
                                         markDirty('details');
                                     }}
                                 />
+                                {/*
+                                 * Only when creating something sold — a sauce, a dressing, a
+                                 * frozen meal, a meal: the description is its catalogue item's, and
+                                 * once it exists it is edited on the Selling tab with the rest of
+                                 * the listing. A library recipe sells nothing and draws none.
+                                 */}
+                                {!isCreating || onCreated === undefined ? null : (
+                                    <BilingualField
+                                        span={4}
+                                        layout="row"
+                                        multiline
+                                        testID="kitchen-recipe-description"
+                                        fieldLabel={t('kitchen:products.descriptionLabel')}
+                                        placeholder={{
+                                            en: t('kitchen:fields.descriptionPlaceholderEn'),
+                                            ar: t('kitchen:fields.descriptionPlaceholderAr'),
+                                        }}
+                                        value={details.description}
+                                        disabled={!editable}
+                                        onChange={(next) => {
+                                            setDetails({ ...details, description: next });
+                                            markDirty('details');
+                                        }}
+                                    />
+                                )}
                                 {classification === undefined ? null : (
                                     <TextInputField
                                         span={2}
@@ -1926,23 +1963,24 @@ function RecipeEditor({
                                     />
                                 )}
                                 {/*
-                                 * Read, never written: the series is the server's to issue.
-                                 * Creating, it is the handle this record is *about* to take — a
-                                 * preview and not a reservation, so two forms open at once are both
-                                 * shown it and the second save lands one number later. The record's
-                                 * own `RC-0001`, not its slug: a slug follows the name.
+                                 * Read, never written: the series is the server's to issue — and
+                                 * not drawn on a new record, where it could only preview a number
+                                 * the save has not taken yet. The preview stays beside the title.
+                                 * The record's own `RC-0001`, not its slug: a slug follows the name.
                                  */}
-                                <TextInputField
-                                    span={2}
-                                    testID="kitchen-recipe-reference"
-                                    id="kitchen-recipe-reference"
-                                    label={t('kitchen:list.columnReference')}
-                                    size="sm"
-                                    placeholder={t('kitchen:fields.referencePlaceholder')}
-                                    value={headerReference}
-                                    disabled
-                                    onChangeText={() => undefined}
-                                />
+                                {isCreating ? null : (
+                                    <TextInputField
+                                        span={2}
+                                        testID="kitchen-recipe-reference"
+                                        id="kitchen-recipe-reference"
+                                        label={t('kitchen:list.columnReference')}
+                                        size="sm"
+                                        placeholder={t('kitchen:fields.referencePlaceholder')}
+                                        value={headerReference}
+                                        disabled
+                                        onChangeText={() => undefined}
+                                    />
+                                )}
                             </FormGrid>
                         </View>
                     </FormSection>
@@ -2131,6 +2169,7 @@ function RecipeEditor({
                                 testID="kitchen-recipe-yield-quantity"
                                 id="kitchen-recipe-yield-quantity"
                                 label={t('kitchen:recipes.yieldQuantity')}
+                                placeholder={t('kitchen:fields.quantityPlaceholder')}
                                 size="sm"
                                 required
                                 unit={t(unitShortKey('kg'))}
@@ -2153,6 +2192,7 @@ function RecipeEditor({
                                 testID="kitchen-recipe-yield-pieces"
                                 id="kitchen-recipe-yield-pieces"
                                 label={t('kitchen:recipes.yieldPieces')}
+                                placeholder={t('kitchen:fields.quantityPlaceholder')}
                                 size="sm"
                                 value={details.yieldPieces}
                                 disabled={!editable}
@@ -2165,6 +2205,7 @@ function RecipeEditor({
                                 testID="kitchen-recipe-waste"
                                 id="kitchen-recipe-waste"
                                 label={t('kitchen:recipes.productionWastePercent')}
+                                placeholder={t('kitchen:fields.percentPlaceholder')}
                                 size="sm"
                                 unit="%"
                                 value={details.wastePercent}
@@ -2220,6 +2261,7 @@ function RecipeEditor({
                                 id="kitchen-recipe-expiry"
                                 size="sm"
                                 label={t('kitchen:forms.expiryPeriod')}
+                                placeholder={t('kitchen:fields.daysPlaceholder')}
                                 unit={t('kitchen:forms.days')}
                                 value={expiryDays}
                                 disabled={!editable}
@@ -2229,6 +2271,7 @@ function RecipeEditor({
                                 testID="kitchen-recipe-packaging-waste"
                                 id="kitchen-recipe-packaging-waste"
                                 label={t('kitchen:recipes.packagingWastePercent')}
+                                placeholder={t('kitchen:fields.percentPlaceholder')}
                                 size="sm"
                                 unit="%"
                                 value={details.packagingWastePercent}
@@ -2397,6 +2440,7 @@ function RecipeEditor({
                                     label={t('kitchen:recipes.b2bPricePerUnit', {
                                         unit: t(unitShortKey(details.yieldUnit)),
                                     })}
+                                    placeholder={t('kitchen:fields.unitPricePlaceholder')}
                                     value={details.b2bPrice}
                                     disabled={!canManage}
                                     {...(currency === null
@@ -2426,6 +2470,7 @@ function RecipeEditor({
                                     label={t('kitchen:recipes.b2cPricePerUnit', {
                                         unit: t(unitShortKey(details.yieldUnit)),
                                     })}
+                                    placeholder={t('kitchen:fields.unitPricePlaceholder')}
                                     value={details.b2cPrice}
                                     disabled={!canManage}
                                     {...(currency === null
@@ -2731,6 +2776,14 @@ function RecipeEditor({
                     </View>
                 </View>
             )}
+
+            {/* ── Previous / Next — walks the tab row one step at a time ─────────────────────── */}
+            <TabStepNavigation<RecipeTab>
+                testID="kitchen-recipe-steps-nav"
+                items={tabItems}
+                value={tab}
+                onChange={setTab}
+            />
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog

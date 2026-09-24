@@ -6,7 +6,7 @@ import {
     DatePickerButton,
     EmptyState,
     ErrorState,
-    Skeleton,
+    RecordSkeleton,
     Stack,
     Text,
 } from '@healthy360/design-system';
@@ -429,16 +429,12 @@ function CostReport() {
         <Stack space="md" testID="kitchen-cost-report-screen">
             {showsReport ? null : filterBar}
             {report.isPending ? (
-                <View testID="kitchen-cost-report-loading" className="flex-col">
-                    {Array.from({ length: 6 }, (_, index) => (
-                        <View
-                            key={index}
-                            className="h-row-md flex-row items-center border-b border-stroke-subtle"
-                        >
-                            <Skeleton heightClassName="h-2" />
-                        </View>
-                    ))}
-                </View>
+                <RecordSkeleton
+                    testID="kitchen-cost-report-loading"
+                    heading={false}
+                    tiles={4}
+                    rows={6}
+                />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-cost-report-error"

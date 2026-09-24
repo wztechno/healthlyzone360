@@ -53,7 +53,6 @@
     },
     "member": {
         "title": "{{name}}",
-        "back": "العودة إلى الفريق",
         "rolesHeading": "الأدوار",
         "rolesHint": "ما يمكن لهذا الشخص فعله. من يحمل دورين يستطيع ما يسمح به أيٌّ منهما.",
         "scopeHeading": "مكان العمل",
@@ -62,6 +61,7 @@
         "scopeSingleBranch": "لهذا المطبخ فرع واحد، فلا شيء للاختيار بينه.",
         "permissionsHeading": "مجموع ما يسمح به ذلك",
         "permissionsHint": "كل الإجراءات التي تسمح بها هذه الأدوار مجتمعةً.",
+        "permissionsNone": "لا تمنح أدواره أي صلاحية بعد.",
         "assignmentFrom": "اعتبارًا من {{date}}",
         "assignmentUntil": "حتى {{date}}",
         "assignmentScheduled": "لم يبدأ سريانه بعد",
@@ -143,13 +143,17 @@
         "back": "العودة إلى الأدوار",
         "newTitle": "دور جديد",
         "copyTitle": "نسخة من {{name}}",
-        "nameEn": "الاسم (بالإنجليزية)",
-        "nameAr": "الاسم (بالعربية)",
+        "name": "الاسم",
+        "namePlaceholderEn": "Evening counter",
+        "namePlaceholderAr": "كاونتر المساء",
         "code": "المرجع",
-        "codeHint": "كلمات بأحرف صغيرة تفصلها شرطات سفلية. لا يمكن تغييره لاحقًا.",
-        "descriptionEn": "الغرض من هذا الدور (بالإنجليزية)",
-        "descriptionAr": "الغرض من هذا الدور (بالعربية)",
+        "codePlaceholder": "evening_counter",
+        "codeInvalid": "ابدأ بحرف، ثم أحرف صغيرة وأرقام وشرطات سفلية فقط.",
+        "description": "الغرض من هذا الدور",
+        "descriptionPlaceholderEn": "Takes orders at the counter on the evening shift.",
+        "descriptionPlaceholderAr": "يستقبل الطلبات على الكاونتر في الوردية المسائية.",
         "tabs": {
+            "details": "التفاصيل",
             "pages": "الصفحات",
             "advanced": "متقدّم"
         },
@@ -173,7 +177,6 @@
         "deleteBlocked_other": "ما زال {{count}} شخص يحملون هذا الدور. امنحهم دورًا آخر أولًا."
     },
     "pages": {
-        "hint": "حدّد ما يمكن لهذا الدور الوصول إليه، صفحةً صفحة.",
         "levels": {
             "none": "لا وصول",
             "view": "يستطيع الاطلاع",
@@ -187,13 +190,29 @@
         "unmappedCount_two": "صلاحيتان",
         "unmappedCount_few": "{{count}} صلاحيات",
         "unmappedCount_many": "{{count}} صلاحية",
-        "unmappedCount_other": "{{count}} صلاحية"
+        "unmappedCount_other": "{{count}} صلاحية",
+        "tableLabel": "ما يمكن لهذا الدور الوصول إليه",
+        "columns": {
+            "page": "الصفحة",
+            "extras": "مسموح أيضًا"
+        },
+        "cellLabel": "{{page}}: {{level}}"
     },
     "advanced": {
-        "hint": "كل صلاحية يمكن لهذا الدور حملها. استخدم «الصفحات» إلا إذا احتجت شيئًا لا تستطيع التعبير عنه.",
         "notHeld": "أنت لا تحمل هذه الصلاحية",
         "selected": "{{count}} من {{total}} محدّدة",
-        "emptyDomain": "لا شيء في هذه المجموعة."
+        "tableLabel": "كل صلاحية يمكن أن يحملها هذا الدور",
+        "columns": {
+            "area": "المجال"
+        },
+        "actions": {
+            "view": "العرض",
+            "manage": "الإدارة",
+            "publish": "النشر",
+            "viewCosts": "رؤية التكاليف",
+            "other": "أخرى"
+        },
+        "cellLabel": "{{area}}: {{permission}}"
     },
     "extras": {
         "orderDeskSale": "تسجيل عملية بيع",
@@ -201,7 +220,7 @@
         "unpricedReceipts": "إيصالات بلا أسعار"
     },
     "add": {
-        "title": "إضافة شخص",
+        "title": "إضافة مستخدم",
         "back": "العودة إلى الفريق",
         "modes": {
             "invite": "إرسال دعوة",
@@ -209,16 +228,31 @@
         },
         "inviteHint": "يختار كلمة المرور بنفسه من رابط في البريد. الأفضل متى كان لديه عنوان خاص به.",
         "createHint": "تختار أنت كلمة المرور الأولى وتسلّمها له. لمن ليس لديه بريد إلكتروني للعمل.",
+        "sections": {
+            "invitation": "الدعوة",
+            "signIn": "تسجيل الدخول",
+            "person": "الشخص"
+        },
+        "placeholders": {
+            "email": "name@example.com",
+            "signInName": "ahmad",
+            "password": "اكتب واحدة أو ولّدها",
+            "givenName": "أحمد",
+            "familyName": "حداد"
+        },
         "email": "البريد الإلكتروني",
         "signInName": "اسم الدخول",
         "signInNameHint": "أحرف صغيرة وأرقام. سيسجّل الدخول باسم {{example}}.",
+        "signInNameInvalid": "أحرف صغيرة وأرقام، مع نقطة أو شرطة أو شرطة سفلية بينها فقط.",
         "domain": "لدى",
         "givenName": "الاسم الأول",
         "familyName": "اسم العائلة",
         "password": "كلمة المرور الأولى",
-        "passwordHint": "سيُطلب منه اختيار كلمة مرور جديدة عند أول تسجيل دخول.",
         "generate": "توليد واحدة",
         "role": "الدور",
+        "roles": "الأدوار",
+        "roleInviteHint": "تحمل الدعوة دورًا واحدًا. امنحه أدوارًا أخرى بعد انضمامه.",
+        "rolesCreateHint": "اختر ما يحتاجه من أدوار. يمكنه فعل كل ما يسمح به أي من أدواره.",
         "branch": "يعمل في",
         "message": "سطر يُضاف إلى البريد (اختياري)",
         "submitInvite": "إرسال الدعوة",

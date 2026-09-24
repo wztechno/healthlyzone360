@@ -11,6 +11,7 @@ import {
     BUTTON_SIZES,
     BUTTON_VARIANTS,
     CalendarGrid,
+    CardGridSkeleton,
     Callout,
     CALLOUT_TONES,
     Card,
@@ -26,6 +27,7 @@ import {
     DerivedChipPanel,
     ListSummaryCards,
     PickerField,
+    RecordSkeleton,
     RecordWindow,
     RecordWindowFieldGrid,
     DensityProvider,
@@ -42,6 +44,7 @@ import {
     FormIssueBanner,
     FormNavigation,
     FormSection,
+    FormSkeleton,
     Heading,
     Icon,
     DRAWN_ICON_FALLBACKS,
@@ -71,6 +74,8 @@ import {
     SearchInput,
     Separator,
     Skeleton,
+    StatTilesSkeleton,
+    TableSkeleton,
     SlideIn,
     SliderField,
     Spinner,
@@ -3980,6 +3985,16 @@ export function ShowcaseScreen() {
                         heightClassName="h-16"
                         rounded="md"
                     />
+                    {/*
+                     * The loading states shaped like their screens. What to check: each matches the
+                     * loaded layout it stands in for — the list panel's header rule and 32px rows,
+                     * the editor's tab strip and 280px fields — so nothing moves when data lands.
+                     */}
+                    <StatTilesSkeleton testID="showcase-skeleton-tiles" count={4} />
+                    <TableSkeleton testID="showcase-skeleton-table" rows={4} columns={5} />
+                    <FormSkeleton testID="showcase-skeleton-form" sections={1} />
+                    <RecordSkeleton testID="showcase-skeleton-record" rows={3} />
+                    <CardGridSkeleton testID="showcase-skeleton-cards" count={3} />
                     <EmptyState
                         testID="showcase-empty"
                         title={t('auth:devices.empty')}

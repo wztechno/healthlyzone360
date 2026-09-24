@@ -39,8 +39,9 @@ import type { UnsavedGuard } from './use-unsaved-guard.ts';
  *   each chip takes the reader to it; the warning one names what does not stop it but should be
  *   seen. Neither is drawn empty.
  * - **The steps**, when the form has more than one: numbered tabs on a sunken track, each with its
- *   count and — when something on it needs attention — a pill. The row is both the map and the way
- *   through, so there is no step footer. Without steps a hairline closes the opening instead.
+ *   count and — when something on it needs attention — a pill. The row is the map; the page draws
+ *   `TabStepNavigation` under its form as the way through. Without steps a hairline closes the
+ *   opening instead.
  *
  * It owns no form state. The trail's last crumb is the caller's to name (`useKitchenTrailLeaf`),
  * because only the caller knows when its record has loaded.

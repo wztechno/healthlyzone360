@@ -524,6 +524,7 @@ export function RecipeLineTable({
                                     mono
                                     caution={zero}
                                     label={t('kitchen:recipes.lineQuantity')}
+                                    placeholder={t('kitchen:fields.quantityPlaceholder')}
                                     onChangeText={(next) => {
                                         patch(row.key, { quantity: next });
                                     }}

@@ -3,12 +3,12 @@ import {
     Badge,
     Button,
     Callout,
-    FormSection,
     Dialog,
     ErrorState,
+    FormSection,
+    FormSkeleton,
     Inline,
     RecordWindowFieldGrid,
-    Skeleton,
     Stack,
     Text,
     useFormSteps,
@@ -390,11 +390,11 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
 
     if (record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-price-list-editor-loading">
-                <Skeleton testID="kitchen-price-list-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-price-list-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-price-list-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-price-list-editor-loading"
+                partTestID="kitchen-price-list"
+                sections={3}
+            />
         );
     }
 

@@ -14,10 +14,10 @@ import {
     FormGrid,
     FormIssueBanner,
     FormSection,
+    FormSkeleton,
     Inline,
     QuantityInput,
     Select,
-    Skeleton,
     Stack,
     Tag,
     Text,
@@ -842,11 +842,11 @@ function ProductEditor({
 
     if (!isCreating && record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-product-editor-loading">
-                <Skeleton testID="kitchen-product-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-product-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-product-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-product-editor-loading"
+                partTestID="kitchen-product"
+                sections={3}
+            />
         );
     }
 
@@ -992,6 +992,10 @@ function ProductEditor({
                 layout="row"
                 testID="kitchen-product-name"
                 fieldLabel={t('kitchen:list.columnItem')}
+                placeholder={{
+                    en: t('kitchen:fields.productNamePlaceholderEn'),
+                    ar: t('kitchen:fields.productNamePlaceholderAr'),
+                }}
                 value={details.name}
                 requiredEnglish
                 disabled={!canManage}
@@ -1047,6 +1051,10 @@ function ProductEditor({
                 multiline
                 testID="kitchen-product-description"
                 fieldLabel={t('kitchen:products.descriptionLabel')}
+                placeholder={{
+                    en: t('kitchen:fields.descriptionPlaceholderEn'),
+                    ar: t('kitchen:fields.descriptionPlaceholderAr'),
+                }}
                 value={details.description}
                 disabled={!canManage}
                 onChange={(next) => {
@@ -1295,6 +1303,7 @@ function ProductEditor({
                                         id="kitchen-product-net-content"
                                         size="sm"
                                         label={t('kitchen:products.netContentLabel')}
+                                        placeholder={t('kitchen:fields.quantityPlaceholder')}
                                         value={details.netContentQuantity}
                                         disabled={!canManage}
                                         {...(shows('net-content')
@@ -1308,6 +1317,7 @@ function ProductEditor({
                                         testID="kitchen-product-net-content-unit"
                                         id="kitchen-product-net-content-unit"
                                         label={t('kitchen:products.netContentUnitLabel')}
+                                        placeholder={t('kitchen:fields.unitPlaceholder')}
                                         searchable
                                         disabled={!canManage}
                                         options={unitOptions}

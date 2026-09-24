@@ -1,5 +1,6 @@
 import { isRecipeKind } from '@healthy360/api-client/contracts';
 import type {
+    LocalisedText,
     MealAdmin,
     ProductAdmin,
     RecipeAdmin,
@@ -11,8 +12,8 @@ import {
     Button,
     Callout,
     ErrorState,
+    FormSkeleton,
     SegmentedControl,
-    Skeleton,
     Stack,
     Text,
     useToast,
@@ -242,7 +243,16 @@ function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps
      * reader is told, and lands on the recipe all the same rather than on a form whose record
      * already exists.
      */
-    const linkToCatalogue = (created: RecipeAdmin, itemType: RecipeSellerKind) => {
+    /*
+     * `listing` is what the create form asked for beyond the recipe: the description a customer
+     * reads, typed in both languages. It is the item's, not the recipe's — a recipe stores notes in
+     * one language at most — so it travels here rather than being read back off `created`.
+     */
+    const linkToCatalogue = (
+        created: RecipeAdmin,
+        itemType: RecipeSellerKind,
+        listing: { readonly description: LocalisedText },
+    ) => {
         const open = () => {
             router.replace(`/kitchen/recipes/${String(created.id)}` as never);
         };
@@ -257,7 +267,7 @@ function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps
 
         if (itemType === 'meal') {
             createMeal.mutate(
-                { name: created.name, description: created.description, recipeId: created.id },
+                { name: created.name, description: listing.description, recipeId: created.id },
                 { onSuccess: open, onError: keepRecipe },
             );
             return;
@@ -266,7 +276,7 @@ function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps
         createItem.mutate(
             {
                 name: created.name,
-                description: created.description,
+                description: listing.description,
                 categoryCode: ITEM_CATEGORY[itemType],
                 itemType,
                 recipeId: created.id,
@@ -305,8 +315,8 @@ function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps
             onCreated={
                 cooked === null
                     ? undefined
-                    : (created) => {
-                          linkToCatalogue(created, cooked);
+                    : (created, listing) => {
+                          linkToCatalogue(created, cooked, listing);
                       }
             }
             sellsAs={
@@ -451,11 +461,11 @@ function CookedItemEditor({ item: routeItem, kind }: CookedItemEditScreenProps) 
     // Still reading, or already on the way to the recipe: the skeleton is the honest frame for both.
     if (record.isPending || recipeId !== null) {
         return (
-            <Stack space="md" testID="kitchen-cooked-item-loading">
-                <Skeleton testID="kitchen-cooked-item-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-cooked-item-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-cooked-item-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-cooked-item-loading"
+                partTestID="kitchen-cooked-item"
+                sections={3}
+            />
         );
     }
 
