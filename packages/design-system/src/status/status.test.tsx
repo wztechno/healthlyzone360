@@ -8,6 +8,12 @@ import { EmptyState } from './empty-state.tsx';
 import { ErrorState } from './error-state.tsx';
 import { CONNECTIVITY_STATES, OfflineIndicator } from './offline-indicator.tsx';
 import { SKELETON_VARIANTS, Skeleton } from './skeleton.tsx';
+import {
+    CardGridSkeleton,
+    FormSkeleton,
+    StatTilesSkeleton,
+    TableSkeleton,
+} from './skeleton-layouts.tsx';
 import { Spinner } from './spinner.tsx';
 
 describe('Spinner', () => {
@@ -74,6 +80,38 @@ describe('Skeleton', () => {
         const className = screen.getByTestId('skeleton').props.className;
         expect(className).toContain('h-8');
         expect(className).toContain('w-24');
+    });
+});
+
+describe('Skeleton layouts', () => {
+    it('numbers a table’s rows from 1 under the region’s id, and marks the region busy', async () => {
+        await renderWithI18n(<TableSkeleton testID="list-loading" rows={3} columns={4} />);
+
+        expect(screen.getByTestId('list-loading').props['aria-busy']).toBe(true);
+        expect(screen.getByTestId('list-loading-skeleton-1')).toBeTruthy();
+        expect(screen.getByTestId('list-loading-skeleton-3')).toBeTruthy();
+        expect(screen.queryByTestId('list-loading-skeleton-4')).toBeNull();
+    });
+
+    it('draws a form as sections of fields at the fixed field width', async () => {
+        await renderWithI18n(<FormSkeleton testID="editor-loading" sections={2} fields={3} />);
+
+        expect(screen.getByTestId('editor-loading-skeleton-2')).toBeTruthy();
+        expect(screen.queryByTestId('editor-loading-skeleton-3')).toBeNull();
+        expect(JSON.stringify(screen.toJSON())).toContain('w-field');
+    });
+
+    it('draws one tile or card per count', async () => {
+        await renderWithI18n(
+            <>
+                <StatTilesSkeleton testID="tiles" count={2} />
+                <CardGridSkeleton testID="cards" count={3} media={false} />
+            </>,
+        );
+
+        expect(screen.getByTestId('tiles-skeleton-2')).toBeTruthy();
+        expect(screen.queryByTestId('tiles-skeleton-3')).toBeNull();
+        expect(screen.getByTestId('cards-skeleton-3')).toBeTruthy();
     });
 });
 

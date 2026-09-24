@@ -7,8 +7,8 @@ import {
     Dialog,
     ErrorState,
     FormGrid,
+    FormSkeleton,
     Select,
-    Skeleton,
     Stack,
     Text,
     useToast,
@@ -223,11 +223,11 @@ function TeamMemberEditor() {
 
     if (member.isPending) {
         return (
-            <Stack space="md" testID="kitchen-team-member-loading">
-                <Skeleton testID="kitchen-team-member-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-team-member-skeleton-2" heightClassName="h-10" />
-                <Skeleton testID="kitchen-team-member-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-team-member-loading"
+                partTestID="kitchen-team-member"
+                sections={3}
+            />
         );
     }
 

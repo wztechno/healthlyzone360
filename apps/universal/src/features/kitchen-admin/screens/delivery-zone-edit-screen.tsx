@@ -3,10 +3,11 @@ import {
     Badge,
     Button,
     Callout,
-    FormGrid,
-    FormSection,
     Dialog,
     ErrorState,
+    FormGrid,
+    FormSection,
+    FormSkeleton,
     Select,
     Skeleton,
     Stack,
@@ -630,11 +631,11 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
 
     if (!isCreating && record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-zone-editor-loading">
-                <Skeleton testID="kitchen-zone-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-zone-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-zone-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-zone-editor-loading"
+                partTestID="kitchen-zone"
+                sections={3}
+            />
         );
     }
 

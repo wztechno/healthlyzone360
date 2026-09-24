@@ -17,9 +17,9 @@ import {
     FormSection,
     Inline,
     Select,
-    Skeleton,
     Stack,
     Table,
+    TableSkeleton,
     Text,
     TextInputField,
     useFormSteps,
@@ -775,15 +775,11 @@ function SupplyOrderBuilder() {
                     body={t('kitchen:ops.supplyOrders.branchRequiredBody')}
                 />
             ) : proposal.isPending ? (
-                <Stack space="sm" testID="kitchen-supply-order-builder-loading">
-                    {Array.from({ length: 4 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-supply-order-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
+                <TableSkeleton
+                    testID="kitchen-supply-order-builder-loading"
+                    partTestID="kitchen-supply-order"
+                    rows={4}
+                />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-supply-order-builder-error"

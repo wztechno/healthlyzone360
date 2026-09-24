@@ -5,8 +5,8 @@ import {
     EmptyState,
     ErrorState,
     SegmentedControl,
-    Skeleton,
     Stack,
+    TableSkeleton,
     Text,
     useToast,
 } from '@healthy360/design-system';
@@ -379,16 +379,7 @@ function ProductionDesk() {
             </View>
 
             {batches.isPending ? (
-                <View testID="kitchen-production-desk-loading" className="flex-col">
-                    {Array.from({ length: 8 }, (_, index) => (
-                        <View
-                            key={index}
-                            className="h-row-md flex-row items-center border-b border-stroke-subtle"
-                        >
-                            <Skeleton heightClassName="h-2" />
-                        </View>
-                    ))}
-                </View>
+                <TableSkeleton testID="kitchen-production-desk-loading" rows={8} />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-production-desk-error"

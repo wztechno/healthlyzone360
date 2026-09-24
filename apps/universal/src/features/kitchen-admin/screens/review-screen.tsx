@@ -1,5 +1,12 @@
 import { apiFailure } from '@healthy360/api-client/contracts';
-import { Button, EmptyState, ErrorState, Skeleton, Stack, Text } from '@healthy360/design-system';
+import {
+    Button,
+    EmptyState,
+    ErrorState,
+    Stack,
+    TableSkeleton,
+    Text,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -173,17 +180,7 @@ function ReviewQueueBody() {
 
             {sources.isPending ? (
                 <View testID="kitchen-review-loading" className="flex-col">
-                    {Array.from({ length: 6 }, (_, index) => (
-                        <View
-                            key={index}
-                            className="h-row-md flex-row items-center border-b border-stroke-subtle"
-                        >
-                            <Skeleton
-                                testID={`kitchen-review-skeleton-${String(index + 1)}`}
-                                heightClassName="h-2"
-                            />
-                        </View>
-                    ))}
+                    <TableSkeleton partTestID="kitchen-review" rows={6} />
                     <Text variant="caption" tone="secondary" className="pt-2.5">
                         {t('kitchen:review.loadingCaption')}
                     </Text>

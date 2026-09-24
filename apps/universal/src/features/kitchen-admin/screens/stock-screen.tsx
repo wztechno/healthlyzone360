@@ -8,8 +8,8 @@ import {
     FormSection,
     SegmentedControl,
     Select,
-    Skeleton,
     Stack,
+    TableSkeleton,
     Text,
     TextInputField,
     useToast,
@@ -708,15 +708,7 @@ function Stock() {
             </CatalogueToolbar>
 
             {pending ? (
-                <Stack space="xs" testID="kitchen-stock-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-stock-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
+                <TableSkeleton testID="kitchen-stock-loading" partTestID="kitchen-stock" />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-stock-error"

@@ -3,7 +3,7 @@ import {
     Callout,
     EmptyState,
     ErrorState,
-    Skeleton,
+    FormSkeleton,
     Stack,
     Text,
     useToast,
@@ -215,10 +215,12 @@ function BranchOperatingEditor() {
 
     if (record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-branch-hours-loading">
-                <Skeleton testID="kitchen-branch-hours-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-branch-hours-skeleton-2" heightClassName="h-64" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-branch-hours-loading"
+                partTestID="kitchen-branch-hours"
+                sections={2}
+                tabs={0}
+            />
         );
     }
 

@@ -30,6 +30,7 @@ import {
     Select,
     Skeleton,
     Stack,
+    TableSkeleton,
     Text,
     TextInputField,
     useToast,
@@ -1390,9 +1391,10 @@ function OrderDeskQueueList() {
                                       key: 'loading',
                                       title: t('kitchen:ops.orders.linesHeading'),
                                       content: (
-                                          <Skeleton
+                                          <TableSkeleton
                                               testID="kitchen-order-desk-detail-loading"
-                                              heightClassName="h-40"
+                                              rows={3}
+                                              header={false}
                                           />
                                       ),
                                   },
@@ -1965,19 +1967,11 @@ function OrderDeskQueueList() {
             )}
 
             {queue.isPending ? (
-                <View testID="kitchen-order-desk-loading" className="flex-col">
-                    {Array.from({ length: 8 }, (_, index) => (
-                        <View
-                            key={index}
-                            className="h-row-md flex-row items-center border-b border-stroke-subtle"
-                        >
-                            <Skeleton
-                                testID={`kitchen-order-desk-skeleton-${String(index + 1)}`}
-                                heightClassName="h-2"
-                            />
-                        </View>
-                    ))}
-                </View>
+                <TableSkeleton
+                    testID="kitchen-order-desk-loading"
+                    partTestID="kitchen-order-desk"
+                    rows={8}
+                />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-order-desk-error"

@@ -19,15 +19,15 @@ import {
     FormGrid,
     FormIssueBanner,
     FormSection,
+    FormSkeleton,
     Inline,
     QuantityInput,
     Select,
-    TextInputField,
-    Skeleton,
     Stack,
     Switch,
     Tag,
     Text,
+    TextInputField,
     useToast,
 } from '@healthy360/design-system';
 import type { FormIssueItem, SelectOption, TagTone } from '@healthy360/design-system';
@@ -1318,11 +1318,11 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
 
     if (!isCreating && record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-ingredient-editor-loading">
-                <Skeleton testID="kitchen-ingredient-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-ingredient-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-ingredient-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-ingredient-editor-loading"
+                partTestID="kitchen-ingredient"
+                sections={3}
+            />
         );
     }
 

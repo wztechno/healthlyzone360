@@ -7,7 +7,7 @@ import {
     EmptyState,
     ErrorState,
     Heading,
-    Skeleton,
+    RecordSkeleton,
     Stack,
     Text,
     useToast,
@@ -125,7 +125,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
     }
 
     if (record.isPending) {
-        return <Skeleton testID="kitchen-production-batch-loading" heightClassName="h-64" />;
+        return <RecordSkeleton testID="kitchen-production-batch-loading" />;
     }
 
     if (failure !== null) {

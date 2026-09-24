@@ -7,7 +7,7 @@ import {
     ErrorState,
     FormGrid,
     FormSection,
-    Skeleton,
+    FormSkeleton,
     Stack,
     Text,
     TextInputField,
@@ -222,11 +222,11 @@ function RoleEditor() {
 
     if (loading) {
         return (
-            <Stack space="md" testID="kitchen-role-editor-loading">
-                <Skeleton testID="kitchen-role-editor-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-role-editor-skeleton-2" heightClassName="h-10" />
-                <Skeleton testID="kitchen-role-editor-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-role-editor-loading"
+                partTestID="kitchen-role-editor"
+                sections={3}
+            />
         );
     }
 

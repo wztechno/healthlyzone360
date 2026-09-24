@@ -14,10 +14,10 @@ import {
     FormGrid,
     FormIssueBanner,
     FormSection,
+    FormSkeleton,
     Inline,
     QuantityInput,
     Select,
-    Skeleton,
     Stack,
     Tag,
     Text,
@@ -841,11 +841,11 @@ function ProductEditor({
 
     if (!isCreating && record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-product-editor-loading">
-                <Skeleton testID="kitchen-product-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-product-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-product-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-product-editor-loading"
+                partTestID="kitchen-product"
+                sections={3}
+            />
         );
     }
 

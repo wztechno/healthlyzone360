@@ -5,8 +5,8 @@ import {
     EmptyState,
     ErrorState,
     SegmentedControl,
-    Skeleton,
     Stack,
+    TableSkeleton,
     Text,
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
@@ -276,7 +276,7 @@ function ProductionBatches() {
             </View>
 
             {batches.isPending ? (
-                <Skeleton testID="kitchen-production-batches-loading" heightClassName="h-40" />
+                <TableSkeleton testID="kitchen-production-batches-loading" />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-production-batches-error"

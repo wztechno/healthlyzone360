@@ -6,8 +6,8 @@ import {
     EmptyState,
     ErrorState,
     Icon,
-    Skeleton,
     Stack,
+    TableSkeleton,
     Text,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
@@ -298,15 +298,7 @@ function RolesList() {
             </CatalogueToolbar>
 
             {roles.isPending ? (
-                <Stack space="xs" testID="kitchen-roles-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-roles-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
+                <TableSkeleton testID="kitchen-roles-loading" partTestID="kitchen-roles" />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-roles-error"

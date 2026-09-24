@@ -11,6 +11,7 @@ import {
     FormGrid,
     FormIssueBanner,
     FormSection,
+    FormSkeleton,
     Inline,
     NumberStepper,
     Skeleton,
@@ -952,11 +953,11 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
 
     if (!isCreating && record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-plan-editor-loading">
-                <Skeleton testID="kitchen-plan-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-plan-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-plan-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-plan-editor-loading"
+                partTestID="kitchen-plan"
+                sections={3}
+            />
         );
     }
 

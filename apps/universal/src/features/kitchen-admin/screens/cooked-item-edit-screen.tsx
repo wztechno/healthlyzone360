@@ -9,7 +9,7 @@ import {
     Button,
     Callout,
     ErrorState,
-    Skeleton,
+    FormSkeleton,
     Stack,
     Text,
     useToast,
@@ -341,11 +341,11 @@ function CookedItemEditor(props: CookedItemEditScreenProps) {
 
     if (record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-cooked-item-loading">
-                <Skeleton testID="kitchen-cooked-item-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-cooked-item-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-cooked-item-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-cooked-item-loading"
+                partTestID="kitchen-cooked-item"
+                sections={3}
+            />
         );
     }
 

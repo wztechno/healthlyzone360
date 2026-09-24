@@ -22,11 +22,11 @@ import {
     FormGrid,
     FormIssueBanner,
     FormSection,
+    FormSkeleton,
     Icon,
     Inline,
     QuantityInput,
     Select,
-    Skeleton,
     Stack,
     Tabs,
     Tag,
@@ -1407,11 +1407,11 @@ function RecipeEditor({
 
     if (!isCreating && record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-recipe-editor-loading">
-                <Skeleton testID="kitchen-recipe-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-recipe-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-recipe-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-recipe-editor-loading"
+                partTestID="kitchen-recipe"
+                sections={3}
+            />
         );
     }
 

@@ -7,9 +7,9 @@ import {
     ErrorState,
     FormGrid,
     FormSection,
+    FormSkeleton,
     Inline,
     Select,
-    Skeleton,
     Stack,
     Table,
     Text,
@@ -651,11 +651,11 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
 
     if (!isCreating && record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-supplier-loading">
-                <Skeleton testID="kitchen-supplier-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-supplier-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-supplier-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-supplier-loading"
+                partTestID="kitchen-supplier"
+                sections={3}
+            />
         );
     }
 
