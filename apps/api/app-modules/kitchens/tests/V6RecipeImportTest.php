@@ -13,6 +13,7 @@ use Healthy360\Kitchens\Import\Runtime\UnitMap;
 use Healthy360\Kitchens\Import\V6\V6CatalogueWriter;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\Organisation;
+use Healthy360\Recipes\Enums\RecipeStatus;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeCostSnapshot;
 use Healthy360\Recipes\Models\RecipeVersion;
@@ -179,6 +180,68 @@ it('lands a sheet on a free slug when another recipe already holds its name', fu
         // The importer finds its sheet by `source_ref`, so the suffix does not cost the item its link.
         ->and(CatalogueItem::withoutTenancy()->where('source_ref', 'SAC-901')->sole()->recipe_id)
         ->toBe((string) $sheet->getKey());
+});
+
+it('swaps an untouched placeholder for the sheet, and archives the placeholder', function (): void {
+    // The backfill first, so every recipe-less cooked item carries a placeholder when the sheets
+    // arrive — the order the two commands could not run in before, because the placeholder took
+    // the sheet's slug.
+    expect(test()->artisan('kitchen:formulate-unlinked', ['--org' => 'test-v6-kitchen'])->run())->toBe(0);
+
+    $placeholderId = (string) CatalogueItem::withoutTenancy()->where('source_ref', 'SAC-901')->value('recipe_id');
+    $placeholder = Recipe::withoutTenancy()->whereKey($placeholderId)->sole();
+
+    expect($placeholder->source_system)->toBe('catalogue_backfill')
+        ->and($placeholder->slug)->toBe('fixture-garlic-sauce');
+
+    expect(runV6RecipesImport())->toBe(0);
+
+    $sheet = Recipe::withoutTenancy()
+        ->where('source_system', 'healthy360_workbook_v6')
+        ->where('source_ref', 'v6-recipes.json#fixture-garlic-sauce')
+        ->sole();
+    $item = CatalogueItem::withoutTenancy()->where('source_ref', 'SAC-901')->sole();
+
+    expect($item->recipe_id)->toBe((string) $sheet->getKey())
+        ->and($item->data_quality_flags ?? [])->not->toContain('recipe_library_unlinked')
+        ->and($sheet->slug)->toBe('fixture-garlic-sauce-2')
+        // After the relink, and archived rather than deleted: an import is not where a recipe goes.
+        ->and(Recipe::withoutTenancy()->whereKey($placeholderId)->sole()->status)->toBe(RecipeStatus::Archived);
+
+    // An item no sheet describes keeps its placeholder and its honest flag.
+    $plain = CatalogueItem::withoutTenancy()->where('source_ref', 'SAC-902')->sole();
+
+    expect(Recipe::withoutTenancy()->whereKey($plain->recipe_id)->sole()->source_system)->toBe('catalogue_backfill')
+        ->and($plain->data_quality_flags)->toContain('recipe_library_unlinked');
+});
+
+it('keeps a placeholder somebody has edited, and reports the sheet as deferred', function (): void {
+    expect(test()->artisan('kitchen:formulate-unlinked', ['--org' => 'test-v6-kitchen'])->run())->toBe(0);
+
+    $placeholderId = (string) CatalogueItem::withoutTenancy()->where('source_ref', 'SAC-901')->value('recipe_id');
+
+    // A person renamed it: the recipe's own validator moved, which is what the rename's
+    // compare-and-swap leaves behind.
+    Recipe::withoutTenancy()->whereKey($placeholderId)->update(['name_en' => 'Our garlic sauce', 'lock_version' => 1]);
+
+    test()->artisan('kitchen:import-v6-recipes', [
+        '--source' => V6_RECIPES_FIXTURE,
+        '--dictionary' => V6_RECIPES_DICTIONARY,
+        '--org' => 'test-v6-kitchen',
+    ])->expectsOutputToContain('deferred_edited_stub')->assertSuccessful();
+
+    $sheet = Recipe::withoutTenancy()
+        ->where('source_system', 'healthy360_workbook_v6')
+        ->where('source_ref', 'v6-recipes.json#fixture-garlic-sauce')
+        ->sole();
+    $item = CatalogueItem::withoutTenancy()->where('source_ref', 'SAC-901')->sole();
+
+    // Nothing a person wrote is archived or relinked by a batch job; the sheet still arrived, as a
+    // recipe of its own, for somebody to reconcile.
+    expect($item->recipe_id)->toBe($placeholderId)
+        ->and($item->data_quality_flags)->toContain('recipe_library_unlinked')
+        ->and(Recipe::withoutTenancy()->whereKey($placeholderId)->sole()->status)->toBe(RecipeStatus::Active)
+        ->and((string) $sheet->getKey())->not->toBe($placeholderId);
 });
 
 it('feeds the intermediate chain: the preparation consumes the sauce the other sheet produces', function (): void {
