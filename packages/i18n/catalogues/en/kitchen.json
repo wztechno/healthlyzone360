@@ -2734,11 +2734,8 @@
         "withdrawBody": "The item this recipe is sold as leaves the menu and every sales channel at once. The recipe stays in the book, and nothing is deleted: past orders and price lists still point at the item.",
         "withdrawnToast": "{{name}} is no longer on sale.",
         "withdrawFailed": "That item could not be taken off sale.",
-        "kindCountLabel": "{{count}} recipes",
-        "soldAsSeveral": "Sold as {{count}} items",
         "sellerLabel": "Sold as",
         "viewHandle": "Handle",
-        "viewKinds": "Kind",
         "viewAllergensFrozen": "Label frozen on the item at publication"
     },
     "publish": {

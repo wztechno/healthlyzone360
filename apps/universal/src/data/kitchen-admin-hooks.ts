@@ -59,7 +59,6 @@ import type {
     DeliveryZoneId,
     IngredientId,
     KitchenBranchId,
-    KitchenId,
     MealId,
     PriceListId,
     ProductId,
@@ -145,11 +144,11 @@ import { useRepositories, useRepositoryContext } from './repository-provider.tsx
  *    nothing but the lock version: the smallest legal write, whose only effect is that the draft
  *    exists. "Copy from" is not a parameter because there is nothing to point it at — the copy is
  *    always taken from the current version.
- * 5. **A recipe has no category and no confidentiality flag.** `RecipeAdminSummary` carries a
- *    kitchen, a name, a slug, version counters and the publication meta, and nothing else. The list
- *    filters on {@link useRecipeKitchensQuery} — derived from the rows in use, exactly as the
- *    ingredient categories are, and backed by a real `RecipeAdminFilter.kitchenId` — rather than on
- *    a taxonomy the contract has never published.
+ * 5. **A recipe's kind is what sells it.** `RecipeAdminSummary` carries a kitchen, a name, a slug,
+ *    version counters, the publication meta and — for a reader who may see the catalogue — the
+ *    items that sell it. The recipe book filters on that kind, on the item's publication and on
+ *    the kitchen's own filing word (`RecipeAdminFilter.kind`, `.sellingStatus`, `.category`), all
+ *    server-side; it never filters by kitchen, because the server has no such parameter.
  *
  * ## Four more, on the product and meal half (K1.4)
  *
@@ -728,43 +727,6 @@ export function useRecipeTechnicalSheetQuery(
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (recipeId === null || versionId === null) throw new Error('No recipe version.');
             return repositories.kitchenAdmin.getRecipeTechnicalSheet(recipeId, versionId);
-        },
-    });
-}
-
-/** One kitchen recipes are actually filed under, with how many carry it. */
-export interface RecipeKitchen {
-    readonly kitchenId: KitchenId;
-    readonly count: number;
-}
-
-/**
- * The kitchen vocabulary the recipe list filters on, derived from the rows in use.
- *
- * Same shape and the same honest limitation as {@link useIngredientCategoriesQuery}: one unfiltered
- * page rather than every page, because a filter that made the reader wait for the whole library
- * before offering a choice is worse than one that offers what the first page proves exists. Unlike
- * the ingredient categories, the value it produces *is* a real filter parameter —
- * `RecipeAdminFilter.kitchenId` — so narrowing by it is a server concern already.
- */
-export function useRecipeKitchensQuery(): UseQueryResult<readonly RecipeKitchen[]> {
-    const { repositories } = useRepositoryContext();
-
-    return useQuery({
-        queryKey: queryKeys.kitchenAdmin.recipes({ derive: 'kitchens' }),
-        enabled: repositories !== null,
-        queryFn: async (): Promise<readonly RecipeKitchen[]> => {
-            if (repositories === null) throw new Error('Repositories are not ready.');
-            const page = await repositories.kitchenAdmin.listRecipes({ limit: 100 });
-            const counts = new Map<string, number>();
-            for (const row of page.items) {
-                counts.set(String(row.kitchenId), (counts.get(String(row.kitchenId)) ?? 0) + 1);
-            }
-            return [...counts.entries()]
-                .map(([kitchenId, count]) => ({ kitchenId: kitchenId as KitchenId, count }))
-                .sort((left, right) =>
-                    String(left.kitchenId).localeCompare(String(right.kitchenId)),
-                );
         },
     });
 }

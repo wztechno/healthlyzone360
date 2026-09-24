@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7451 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7448 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -5187,7 +5187,6 @@ export interface NamespaceKeys {
     | 'recipes.imageLabel'
     | 'recipes.immutableBody'
     | 'recipes.immutableTitle'
-    | 'recipes.kindCountLabel'
     | 'recipes.kindMeals'
     | 'recipes.kindPreparation'
     | 'recipes.kindPreparations'
@@ -5324,7 +5323,6 @@ export interface NamespaceKeys {
     | 'recipes.sheetWeeklyEffective'
     | 'recipes.sheetWeeklyNeedsPrice'
     | 'recipes.sheetYieldWithPortions'
-    | 'recipes.soldAsSeveral'
     | 'recipes.sourceKindLabel'
     | 'recipes.statOnSaleAction'
     | 'recipes.statOnSaleCaption'
@@ -5370,7 +5368,6 @@ export interface NamespaceKeys {
     | 'recipes.viewAllergensSource'
     | 'recipes.viewHandle'
     | 'recipes.viewKind'
-    | 'recipes.viewKinds'
     | 'recipes.wasteHint'
     | 'recipes.wastePercent'
     | 'recipes.wastePercentHint'
@@ -12656,7 +12653,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.imageLabel',
   'kitchen:recipes.immutableBody',
   'kitchen:recipes.immutableTitle',
-  'kitchen:recipes.kindCountLabel',
   'kitchen:recipes.kindMeals',
   'kitchen:recipes.kindPreparation',
   'kitchen:recipes.kindPreparations',
@@ -12793,7 +12789,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sheetWeeklyEffective',
   'kitchen:recipes.sheetWeeklyNeedsPrice',
   'kitchen:recipes.sheetYieldWithPortions',
-  'kitchen:recipes.soldAsSeveral',
   'kitchen:recipes.sourceKindLabel',
   'kitchen:recipes.statOnSaleAction',
   'kitchen:recipes.statOnSaleCaption',
@@ -12839,7 +12834,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.viewAllergensSource',
   'kitchen:recipes.viewHandle',
   'kitchen:recipes.viewKind',
-  'kitchen:recipes.viewKinds',
   'kitchen:recipes.wasteHint',
   'kitchen:recipes.wastePercent',
   'kitchen:recipes.wastePercentHint',

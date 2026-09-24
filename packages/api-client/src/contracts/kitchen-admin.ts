@@ -960,7 +960,6 @@ export interface RecipeAdmin extends RecipeAdminSummary {
 export interface RecipeAdminFilter extends CursorPageRequest, OffsetPageRequest {
     readonly query?: string | undefined;
     readonly statuses?: readonly PublishableStatus[] | undefined;
-    readonly kitchenId?: KitchenId | undefined;
     /**
      * Narrows to the rows whose allergen label carries one of these classes.
      *

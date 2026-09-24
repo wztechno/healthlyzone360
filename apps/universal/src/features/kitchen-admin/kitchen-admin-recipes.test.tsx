@@ -1781,6 +1781,38 @@ describe('the recipe list at desk width', () => {
         );
     });
 
+    it('shows the label a meal seller carries in the shop, read off the meal itself', async () => {
+        const sold = recipe({
+            ordinal: 1,
+            name: 'Freekeh bowl',
+            overrides: { kinds: ['meal'], soldAs: [mealSeller()] },
+        });
+        const getMeal = jest.fn(
+            async () =>
+                ({ id: MEAL_ID, allergens: [AllergenCode.unsafe('milk')] }) as unknown as MealAdmin,
+        );
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [sold]),
+                    getRecipe: async () => sold,
+                    getMeal,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipes-table');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`kitchen-recipe-${String(sold.id)}-view`));
+        });
+
+        // The frozen label is the item's, so it is read from the item — once, when the panel opens.
+        await untilVisible('kitchen-recipes-view-frozen-allergen-milk');
+        expect(getMeal).toHaveBeenCalledWith(MEAL_ID);
+    });
+
     it('starts every reader from the book’s six, whatever the old table remembered', async () => {
         // The five the recipe table drew before the book, remembered under its old key. A stored
         // choice replaces the defaults, so honouring it would hide Kind from every old reader.

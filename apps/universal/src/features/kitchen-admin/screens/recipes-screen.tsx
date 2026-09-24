@@ -18,6 +18,7 @@ import type {
     RecipeKind,
     RecipeSoldAs,
 } from '@healthy360/api-client/contracts';
+import { MealId } from '@healthy360/domain-types';
 import type { KitchenId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -26,7 +27,11 @@ import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
-import { useRecipeKindCountsQuery, useRecipeQuery } from '../../../data/kitchen-admin-hooks.ts';
+import {
+    useAdminMealQuery,
+    useRecipeKindCountsQuery,
+    useRecipeQuery,
+} from '../../../data/kitchen-admin-hooks.ts';
 import type { RecipeKindCounts } from '../../../data/kitchen-admin-hooks.ts';
 import { useSession } from '../../../session/session-provider.tsx';
 import {
@@ -230,6 +235,16 @@ function RecipesList() {
      * might.
      */
     const viewedDetail = useRecipeQuery(list.viewing?.id ?? null);
+    /*
+     * A meal's label is frozen on the item when it is published, and can differ from the recipe's
+     * live derivation until the next publish. The meals page's panel showed that frozen label; this
+     * one reads it the way the meal editor's rail does — one item read, only while the panel is
+     * open on a recipe a meal sells. The packaged kinds carry no label of their own.
+     */
+    const viewedMealSeller = list.viewing?.soldAs?.find((sold) => sold.itemType === 'meal');
+    const viewedMeal = useAdminMealQuery(
+        viewedMealSeller === undefined ? null : MealId.unsafe(viewedMealSeller.id),
+    );
     const columns = useMemo(
         () => recipeColumns({ t, locale, formatter, kitchenName, sells: list.sells }),
         [t, locale, formatter, kitchenName, list.sells],
@@ -301,7 +316,16 @@ function RecipesList() {
                         list.openEditor(String(viewed.id));
                     },
                 }}
-                rail={(viewed.soldAs ?? []).length === 0 ? undefined : [channelSection(viewed, t)]}
+                rail={
+                    (viewed.soldAs ?? []).length === 0
+                        ? undefined
+                        : [
+                              channelSection(viewed, t),
+                              ...(viewedMealSeller === undefined
+                                  ? []
+                                  : [frozenLabelSection(viewedMeal.data?.allergens, t)]),
+                          ]
+                }
                 {...(viewedAllergens.length === 0
                     ? {}
                     : {
@@ -847,6 +871,38 @@ function statCards(list: RecipeListState, t: TFunction): readonly CatalogueStatC
 }
 
 /** The sellers' channels as badges, in their own rail card. An empty set says so in words. */
+/**
+ * The label the meal carries in the shop — frozen from the recipe version at publication.
+ *
+ * Drawn even when empty, for the reason the meals page's panel gave: on the one field a kitchen
+ * reads for safety, "this meal declares none" and "nobody has looked" are the two answers that most
+ * need telling apart. `undefined` is the read still in flight, and draws nothing yet.
+ */
+function frozenLabelSection(
+    codes: readonly AllergenCode[] | undefined,
+    t: TFunction,
+): RecordViewSection {
+    return {
+        key: 'frozen-allergens',
+        title: t('kitchen:recipes.viewAllergensFrozen'),
+        content:
+            codes === undefined ? null : codes.length === 0 ? (
+                <Text tone="secondary">{t('kitchen:list.noAllergens')}</Text>
+            ) : (
+                <Inline space="xs">
+                    {codes.map((code) => (
+                        <Badge
+                            key={String(code)}
+                            testID={`kitchen-recipes-view-frozen-allergen-${String(code)}`}
+                            tone="danger"
+                            label={String(code)}
+                        />
+                    ))}
+                </Inline>
+            ),
+    };
+}
+
 function channelSection(row: RecipeAdminSummary, t: TFunction): RecordViewSection {
     const channels = sellerChannels(row.soldAs ?? []);
 
