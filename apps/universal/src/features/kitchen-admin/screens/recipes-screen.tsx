@@ -19,7 +19,7 @@ import type {
     RecipeSoldAs,
 } from '@healthy360/api-client/contracts';
 import { MealId } from '@healthy360/domain-types';
-import type { KitchenId } from '@healthy360/domain-types';
+import type { AllergenCode, KitchenId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import { useCallback, useMemo, useState } from 'react';
