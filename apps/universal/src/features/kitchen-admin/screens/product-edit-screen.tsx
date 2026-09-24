@@ -640,6 +640,12 @@ function ProductEditor({
         entries.map((entry) => ({
             key: entry.key,
             label: entry.label,
+            /*
+             * Every chip stands in for its field's line except `Packs`: that one chip covers the
+             * whole table, and each row's own message is the only place that says which column —
+             * and which row — is wrong.
+             */
+            fieldId: entry.key === 'packs' ? undefined : entry.fieldId,
             onPress: () => {
                 focusField(entry.fieldId);
             },

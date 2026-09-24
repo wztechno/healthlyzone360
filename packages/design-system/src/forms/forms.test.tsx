@@ -2,7 +2,7 @@ import { fireEvent, screen } from '@testing-library/react-native';
 import { Platform } from 'react-native';
 
 import { Text } from '../primitives/text.tsx';
-import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
+import { assertSubtreeIsLogical, renderWithI18n, withI18n } from '../testing/render.tsx';
 import { Checkbox } from './checkbox.tsx';
 import {
     daysInMonth,
@@ -18,6 +18,7 @@ import { SliderField } from './slider-field.native.tsx';
 import { SliderField as WebSliderField } from './slider-field.web.tsx';
 import { FormField } from './form-field.tsx';
 import { FormIssueBanner } from './form-issue-banner.tsx';
+import { FormIssueScope } from './form-issue-scope.tsx';
 import { NumberStepper, clampToStep } from './number-stepper.tsx';
 import { PasswordInput } from './password-input.tsx';
 import { RangeFilter, isInvertedRange } from './range-filter.tsx';
@@ -192,6 +193,86 @@ describe('FormIssueBanner', () => {
         );
 
         expect(screen.getByTestId('issues').props.role).toBe('status');
+    });
+
+    it('is a soft strip — the tone’s fill, no border', async () => {
+        await renderWithI18n(
+            <FormIssueBanner testID="issues" tone="danger" summary="1 required" items={[]} />,
+        );
+
+        const classes: string = screen.getByTestId('issues').props.className;
+        expect(classes).toContain('bg-danger-subtle');
+        expect(classes).not.toMatch(/(^|\s)border(\s|$)/);
+    });
+});
+
+describe('FormIssueScope', () => {
+    const priceField = (
+        <TextInputField testID="price" id="price" label="Unit price" error="Required" />
+    );
+    const banner = (fieldId: string | undefined) => (
+        <FormIssueBanner
+            testID="issues"
+            tone="danger"
+            summary="1 required"
+            items={[{ key: 'price', label: 'Unit price', fieldId, onPress: jest.fn() }]}
+        />
+    );
+
+    it('quiets the field a chip names, and keeps its message for assistive technology', async () => {
+        await renderWithI18n(
+            <FormIssueScope>
+                {banner('price')}
+                {priceField}
+            </FormIssueScope>,
+        );
+
+        const message = screen.getByTestId('price-error');
+        // Still the control's description, still the same words…
+        expect(message).toHaveTextContent('Required');
+        expect(message.props.nativeID).toBe('price-error');
+        expect(screen.getByTestId('price-input').props['aria-describedby']).toBe('price-error');
+        expect(screen.getByTestId('price-input').props['aria-invalid']).toBe(true);
+        // …but drawn nowhere, and no second alert beside the banner's.
+        expect(message.props.className).toContain('opacity-0');
+        expect(message.props.role).toBeUndefined();
+        expect(message.props.accessibilityRole).toBeUndefined();
+    });
+
+    it('leaves a field no chip names saying what is wrong with it', async () => {
+        await renderWithI18n(
+            <FormIssueScope>
+                {banner(undefined)}
+                {priceField}
+            </FormIssueScope>,
+        );
+
+        const message = screen.getByTestId('price-error');
+        expect(message.props.accessibilityRole).toBe('alert');
+        expect(message.props.className).not.toContain('opacity-0');
+    });
+
+    it('changes nothing outside a scope', async () => {
+        await renderWithI18n(
+            <>
+                {banner('price')}
+                {priceField}
+            </>,
+        );
+
+        expect(screen.getByTestId('price-error').props.accessibilityRole).toBe('alert');
+    });
+
+    it('gives the message back when the banner goes', async () => {
+        const view = await renderWithI18n(
+            <FormIssueScope>
+                {banner('price')}
+                {priceField}
+            </FormIssueScope>,
+        );
+        await view.rerender(withI18n(<FormIssueScope>{priceField}</FormIssueScope>));
+
+        expect(screen.getByTestId('price-error').props.accessibilityRole).toBe('alert');
     });
 });
 

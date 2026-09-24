@@ -632,6 +632,8 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     const issueItems: readonly FormIssueItem[] = shownIssues.map((entry) => ({
         key: entry.key,
         label: entry.label,
+        // The row sections carry no field id, so their rows keep saying what is wrong with them.
+        fieldId: entry.fieldId ?? undefined,
         onPress: () => {
             goTo(entry.step, entry.fieldId);
         },

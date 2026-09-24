@@ -1081,6 +1081,8 @@ function RecipeEditor({
     const blockerItems: readonly FormIssueItem[] = shownBlockers.map((entry) => ({
         key: entry.key,
         label: entry.label,
+        // A blank is all a blocker's own line says, so the chip stands in for it.
+        fieldId: entry.fieldId ?? undefined,
         onPress: () => {
             goTo(entry.tab, entry.fieldId);
         },

@@ -1566,6 +1566,36 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         />
                     </FormGrid>
                 </FormSection>
+                {/*
+                 * Badges & Callouts, 2a: a chip with a `fieldId` stands in for that field's own
+                 * line, so the field keeps its red edge and says nothing under it. `Pack price`
+                 * above is named by no chip and keeps its line.
+                 */}
+                <FormIssueBanner
+                    testID={id('issues-named')}
+                    tone="danger"
+                    summary="1 required"
+                    items={[
+                        {
+                            key: 'unit-price',
+                            label: 'Unit price',
+                            fieldId: id('named-price'),
+                            onPress: () => undefined,
+                        },
+                    ]}
+                />
+                <FormGrid track="half" testID={id('named-grid')}>
+                    <QuantityInput
+                        testID={id('named-price')}
+                        id={id('named-price')}
+                        label="Unit price"
+                        unit="SAR"
+                        value=""
+                        required
+                        error="Required"
+                        onChangeText={() => undefined}
+                    />
+                </FormGrid>
             </Stack>
 
             {/* The multi-step form: step progress in four states, and the footer that walks it. */}

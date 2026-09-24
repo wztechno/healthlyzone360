@@ -764,6 +764,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                     items: shownIssues.map((entry) => ({
                         key: entry.key,
                         label: entry.label,
+                        fieldId: entry.fieldId ?? undefined,
                         onPress: () => {
                             goTo(entry.step, entry.fieldId);
                         },

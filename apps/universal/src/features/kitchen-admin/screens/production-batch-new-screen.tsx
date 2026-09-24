@@ -330,6 +330,11 @@ function ProductionBatchNew() {
                     items: shownIssues.map((entry) => ({
                         key: entry.key,
                         label: entry.label,
+                        /*
+                         * Not the recipe: "has no published version — publish one first" is the
+                         * only place that explanation lives, and a `Recipe` chip does not say it.
+                         */
+                        fieldId: entry.key === 'recipe' ? undefined : entry.fieldId,
                         onPress: () => {
                             focusField(entry.fieldId);
                         },
