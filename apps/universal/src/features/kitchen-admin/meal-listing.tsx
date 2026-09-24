@@ -77,11 +77,12 @@ import { useUnsavedGuard } from './use-unsaved-guard.ts';
  *
  * ## The page is the recipe
  *
- * `/kitchen/meals/{meal}` is `CookedItemEditScreen`: the recipe the meal is made from, with this
- * listing on a tab of its own, exactly as a sauce's is. So nothing here chooses a recipe — the page
- * already is one — and nothing here creates a meal: the recipe's first save writes the listing that
- * sells it. What stays is everything about the dish *as sold*: its name on the menu, the portion, when
- * in the day it sits, the days it can be ordered, and whether it is public.
+ * A meal's page is its recipe's in the recipe book (`/kitchen/recipes/{recipe}`,
+ * `RecipeBookEditScreen`): the recipe the meal is made from, with this listing on a tab of its own,
+ * exactly as a sauce's is. So nothing here chooses a recipe — the page already is one — and nothing
+ * here creates a meal: the recipe's first save writes the listing that sells it. What stays is
+ * everything about the dish *as sold*: its name on the menu, the portion, when in the day it sits,
+ * the days it can be ordered, and whether it is public.
  *
  * ## Publication is the whole point of the screen
  *
@@ -649,7 +650,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
             saveDisabled={!canManage || detailsBlocked}
             backLabel={t('kitchen:common.cancel')}
             onBack={() => {
-                router.push('/kitchen/meals' as never);
+                router.push('/kitchen/recipes?kind=meal' as never);
             }}
             actionsPlacement="header"
             headerVariant="plain"
