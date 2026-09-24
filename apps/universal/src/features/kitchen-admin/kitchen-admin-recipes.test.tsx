@@ -378,6 +378,7 @@ function recipe({ ordinal, name, currentVersion, overrides = {} }: RecipeSeed): 
         // version contradicts — which is the whole point of the two fields.
         currentVersionStatus: version.status,
         allergenCodes: version.allergens.map((declared) => declared.allergenCode),
+        lineCount: version.lines.length,
         description: { en: 'A dish.', ar: 'طبق.' },
         currentVersion: version,
         versions: [versionSummary(version)],
@@ -399,6 +400,9 @@ function summaryOf(record: RecipeAdmin): RecipeAdminSummary {
         versionCount: record.versionCount,
         currentVersionStatus: record.currentVersionStatus,
         allergenCodes: record.allergenCodes,
+        lineCount: record.lineCount,
+        ...(record.soldAs === undefined ? {} : { soldAs: record.soldAs }),
+        ...(record.kinds === undefined ? {} : { kinds: record.kinds }),
     };
 }
 

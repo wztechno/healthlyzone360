@@ -26,6 +26,7 @@ import type {
     RecipeAdmin,
     RecipeAdminFilter,
     RecipeAdminSummary,
+    RecipeKind,
     RecipeRollupDraft,
     RecipeRollupPreview,
     ReferenceSeries,
@@ -53,7 +54,7 @@ import type {
     UpdateRecipeRequest,
     TechnicalSheetAdmin,
 } from '@healthy360/api-client/contracts';
-import { PACKAGING_CATEGORY_CODE, pageCount } from '@healthy360/api-client/contracts';
+import { PACKAGING_CATEGORY_CODE, RECIPE_KINDS, pageCount } from '@healthy360/api-client/contracts';
 import type {
     DeliveryZoneId,
     IngredientId,
@@ -788,11 +789,19 @@ export type RecipeFamilySummary = PublishedFamilySummary;
  *
  * Four filtered listings folded into one `queryFn`. Counts walk pages via {@link countAcrossPages}.
  */
-export function useRecipeSummaryQuery(enabled = true): UseQueryResult<RecipeFamilySummary> {
+export function useRecipeSummaryQuery(
+    enabled = true,
+    /**
+     * Count "published" as recipes with a seller on sale rather than recipes with a published
+     * version. The recipe book's card asks the first question: what is live is what the menu shows,
+     * and a recipe's own publication is a step most kitchens never take for a sauce they sell.
+     */
+    onSale = false,
+): UseQueryResult<RecipeFamilySummary> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
-        queryKey: queryKeys.kitchenAdmin.recipes({ derive: 'summary' }),
+        queryKey: queryKeys.kitchenAdmin.recipes({ derive: 'summary', onSale }),
         enabled: enabled && repositories !== null,
         queryFn: async (): Promise<RecipeFamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
@@ -806,7 +815,7 @@ export function useRecipeSummaryQuery(enabled = true): UseQueryResult<RecipeFami
                 countAcrossPages((cursor) =>
                     repositories.kitchenAdmin.listRecipes({
                         limit: SUMMARY_PAGE_LIMIT,
-                        statuses: ['published'],
+                        ...(onSale ? { sellingStatus: 'published' } : { statuses: ['published'] }),
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
@@ -826,6 +835,40 @@ export function useRecipeSummaryQuery(enabled = true): UseQueryResult<RecipeFami
                 ),
             ]);
             return { total, published, drafts, quarantined };
+        },
+    });
+}
+
+/** What the recipe book's kind strip counts: recipes per kind, `null` where the server could not say. */
+export type RecipeKindCounts = Readonly<Record<RecipeKind, number | null>>;
+
+/**
+ * One count per kind for the strip, in one query.
+ *
+ * Five numbered-page requests asking for one row each and reading `totalCount` — the figure the
+ * server already computes for the pager, so nothing walks pages. A recipe sold as two kinds is
+ * counted under both, which is what the strip's tabs then show. Cached under the recipes prefix,
+ * so any recipe or item write refreshes it with the list.
+ */
+export function useRecipeKindCountsQuery(enabled = true): UseQueryResult<RecipeKindCounts> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.recipes({ derive: 'kind-counts' }),
+        enabled: enabled && repositories !== null,
+        queryFn: async (): Promise<RecipeKindCounts> => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            const counted = await Promise.all(
+                RECIPE_KINDS.map(async (kind) => {
+                    const page = await repositories.kitchenAdmin.listRecipes({
+                        kind,
+                        page: 1,
+                        perPage: 1,
+                    });
+                    return [kind, page.totalCount] as const;
+                }),
+            );
+            return Object.fromEntries(counted) as RecipeKindCounts;
         },
     });
 }

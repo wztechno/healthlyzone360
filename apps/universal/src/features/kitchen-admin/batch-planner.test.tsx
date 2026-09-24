@@ -223,6 +223,7 @@ function recipe(overrides: Partial<RecipeAdmin> = {}): RecipeAdmin {
         versionCount: 1,
         currentVersionStatus: current.status,
         allergenCodes: current.allergens.map((declared) => declared.allergenCode),
+        lineCount: current.lines.length,
         description: { en: 'A base.', ar: 'أساس.' },
         currentVersion: current,
         versions: [

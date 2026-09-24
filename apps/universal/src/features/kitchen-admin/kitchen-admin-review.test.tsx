@@ -197,6 +197,7 @@ function recipe(overrides: Partial<RecipeAdminSummary> = {}): RecipeAdminSummary
         kitchenId: '01935f6d-0000-7000-8000-00000000f000' as RecipeAdminSummary['kitchenId'],
         currentVersionNumber: 1,
         versionCount: 1,
+        lineCount: 1,
         // The default mirrors `meta.status` above. A quarantined fixture overrides both, which is
         // now the honest shape: the queue reads the identity's status and it is derived from this.
         currentVersionStatus: 'published',

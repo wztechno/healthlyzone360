@@ -1806,7 +1806,8 @@
         },
         "recipes": {
             "name": "Recipes",
-            "description": "The formulations this kitchen cooks from, versioned, with the label each version would carry."
+            "description": "Everything this kitchen cooks — meals, sauces, dressings, frozen meals and preparations — with its formulation, its versions and what it is sold as.",
+            "keywords": "meals sauces marinations dressings frozen meals preparations"
         },
         "products": {
             "name": "Resale",
@@ -2736,7 +2737,26 @@
         "costPerUnit": "Per {{unit}}",
         "costWithWaste": "+ {{percent}}% waste",
         "sectionCoefficients": "Coefficients & prices",
-        "coefficientsHint": "What the waste rows above are multiplied by, and what a unit of the batch is sold for"
+        "coefficientsHint": "What the waste rows above are multiplied by, and what a unit of the batch is sold for",
+        "columnKind": "Kind",
+        "kindMeals": "Meals",
+        "kindPreparations": "Preparations",
+        "kindPreparation": "Preparation",
+        "createPreparation": "New preparation",
+        "columnOnSale": "On sale",
+        "statOnSaleCaption": "on sale right now",
+        "statOnSaleAction": "Show only recipes on sale",
+        "notFormulated": "Not formulated",
+        "withdrawTitle": "Take it off sale?",
+        "withdrawBody": "The item this recipe is sold as leaves the menu and every sales channel at once. The recipe stays in the book, and nothing is deleted: past orders and price lists still point at the item.",
+        "withdrawnToast": "{{name}} is no longer on sale.",
+        "withdrawFailed": "That item could not be taken off sale.",
+        "kindCountLabel": "{{count}} recipes",
+        "soldAsSeveral": "Sold as {{count}} items",
+        "sellerLabel": "Sold as",
+        "viewHandle": "Handle",
+        "viewKinds": "Kind",
+        "viewAllergensFrozen": "Label frozen on the item at publication"
     },
     "publish": {
         "action": "Publish",

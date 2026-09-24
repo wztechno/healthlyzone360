@@ -15,6 +15,7 @@ import {
     RecipeVersionId,
     ServiceAreaId,
     SubscriptionPlanId,
+    SALES_CHANNELS,
     type DietClassification,
     type SalesChannel,
 } from '@healthy360/domain-types';
@@ -48,6 +49,8 @@ import type {
     CostAmount,
     RecipeAdmin,
     RecipeAdminSummary,
+    RecipeKind,
+    RecipeSoldAs,
     RecipeCostFigures,
     RecipeComputedCost,
     RecipeAllergenDeclaration,
@@ -62,7 +65,7 @@ import type {
     RecipeWeeklyCost,
     TechnicalSheetAdmin,
 } from '../contracts/kitchen-admin.ts';
-import { ALLERGEN_CONTAINMENTS } from '../contracts/kitchen-admin.ts';
+import { ALLERGEN_CONTAINMENTS, isRecipeKind } from '../contracts/kitchen-admin.ts';
 import { UNKNOWN_ISO_DATE_TIME } from './mappers.ts';
 import { mapNutritionFacts } from './marketplace-mappers.ts';
 import type {
@@ -793,6 +796,94 @@ export function mapPlanAdminFromItem(
     };
 }
 
+/**
+ * One seller of a recipe, as `GET /catalogue/recipes` lists it beside the row.
+ *
+ * Typed here rather than read off the generated `AdminRecipe` because the wire type is regenerated
+ * from the spec in the backend slice that declares these fields; until `pnpm gen:api` has run
+ * against that spec, `AdminRecipe` does not know them. The backend slice replaces this local shape
+ * with the generated `AdminRecipeSoldAs` and deletes the widening below.
+ */
+type WireRecipeSeller = {
+    readonly id: string;
+    readonly item_type: string;
+    readonly status: CatalogueItemStatus;
+    readonly lock_version: number;
+    readonly reference: string | null;
+    readonly slug: string;
+    readonly name_en: string;
+    readonly name_ar: string | null;
+    readonly image_placeholder_id: string;
+    readonly kitchen_category: string | null;
+    readonly kitchen_subcategory: string | null;
+    readonly is_market_priced: boolean;
+    readonly is_assorted: boolean;
+    readonly data_quality_flags: readonly string[];
+    readonly portion_factor: string | number | null;
+    readonly composition: string | null;
+    readonly channel_codes: readonly string[];
+    readonly pack_count: number;
+    readonly default_pack: {
+        readonly label_en: string;
+        readonly label_ar: string | null;
+        readonly net_quantity: string | number;
+        readonly net_unit_code: string | null;
+    } | null;
+};
+
+type AdminRecipeWithSellers = AdminRecipe & {
+    readonly current_version_line_count?: number;
+    readonly kinds?: readonly string[];
+    readonly sold_as?: readonly WireRecipeSeller[];
+};
+
+function isSalesChannel(code: string): code is SalesChannel {
+    return (SALES_CHANNELS as readonly string[]).includes(code);
+}
+
+function mapRecipeSeller(wire: WireRecipeSeller): RecipeSoldAs {
+    return {
+        id: wire.id,
+        // The server only lists the four cooked kinds; anything else is a contract break, and
+        // reading it as a meal is the least wrong row rather than a crash on the whole page.
+        itemType:
+            wire.item_type === 'sauce' ||
+            wire.item_type === 'dressing' ||
+            wire.item_type === 'frozen_meal'
+                ? wire.item_type
+                : 'meal',
+        status: mapCataloguePublishableStatus(wire.status),
+        lockVersion: wire.lock_version,
+        reference: wire.reference,
+        slug: wire.slug,
+        name: localised(wire.name_en, wire.name_ar),
+        imagePlaceholderId: wire.image_placeholder_id,
+        kitchenCategory: wire.kitchen_category,
+        kitchenSubcategory: wire.kitchen_subcategory,
+        isMarketPriced: wire.is_market_priced,
+        isAssorted: wire.is_assorted,
+        dataQualityFlags: wire.data_quality_flags,
+        portionFactor: parseDecimal(wire.portion_factor, 1),
+        composition: wire.composition,
+        channels: wire.channel_codes.filter(isSalesChannel),
+        packCount: wire.pack_count,
+        defaultPack:
+            wire.default_pack === null
+                ? null
+                : {
+                      label: localised(wire.default_pack.label_en, wire.default_pack.label_ar),
+                      netQuantity: parseDecimal(wire.default_pack.net_quantity, 0),
+                      netUnit: mapMeasureUnit(wire.default_pack.net_unit_code),
+                  },
+    };
+}
+
+/** The kinds a row claims, dropping anything the client does not know how to draw. */
+function mapRecipeKinds(kinds: readonly string[] | undefined): readonly RecipeKind[] {
+    const known = (kinds ?? []).filter(isRecipeKind);
+    return known.length === 0 ? ['preparation'] : known;
+}
+
 export function mapRecipeAdminSummary(
     wire: AdminRecipe,
     options?: {
@@ -804,6 +895,7 @@ export function mapRecipeAdminSummary(
 ): RecipeAdminSummary {
     const currentVersionNumber =
         options?.currentVersionNumber ?? wire.published_version_number ?? 1;
+    const book = wire as AdminRecipeWithSellers;
 
     return {
         id: RecipeId.unsafe(wire.id),
@@ -836,6 +928,15 @@ export function mapRecipeAdminSummary(
         allergenCodes:
             options?.allergenCodes ??
             wire.current_version_allergen_codes.map((code) => AllergenCode.unsafe(code)),
+        lineCount: book.current_version_line_count ?? 0,
+        // Absent, not empty, when the server left the sellers out: a role without catalogue view
+        // gets a row with no Kind, not a row that says the recipe sells nothing.
+        ...(book.sold_as === undefined
+            ? {}
+            : {
+                  soldAs: book.sold_as.map(mapRecipeSeller),
+                  kinds: mapRecipeKinds(book.kinds),
+              }),
     };
 }
 

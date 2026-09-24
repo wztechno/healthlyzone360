@@ -572,6 +572,7 @@ const SHOWCASE_RECIPES: readonly RecipeAdminSummary[] = [
     versionCount: seed.version,
     currentVersionStatus: seed.status as PublishableStatus,
     allergenCodes: seed.allergens.map((code) => AllergenCode.unsafe(code)),
+    lineCount: seed.allergens.length,
 }));
 
 /** The ingredient table's eighteen columns, for the column picker story. */

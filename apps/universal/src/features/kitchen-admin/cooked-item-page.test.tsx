@@ -175,6 +175,7 @@ const RECIPE: RecipeAdmin = {
     versionCount: 1,
     currentVersionStatus: 'draft',
     allergenCodes: [],
+    lineCount: 0,
     description: { en: 'Toum.', ar: 'ثومية.' },
     currentVersion: VERSION,
     versions: [

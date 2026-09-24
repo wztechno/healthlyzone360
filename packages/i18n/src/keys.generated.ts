@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7455 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7492 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3154,6 +3154,7 @@ export interface NamespaceKeys {
     | 'families.quotations.description'
     | 'families.quotations.name'
     | 'families.recipes.description'
+    | 'families.recipes.keywords'
     | 'families.recipes.name'
     | 'families.review.description'
     | 'families.review.name'
@@ -5183,8 +5184,10 @@ export interface NamespaceKeys {
     | 'recipes.checkYieldOk'
     | 'recipes.coefficientsHint'
     | 'recipes.columnAllergens'
+    | 'recipes.columnKind'
     | 'recipes.columnKitchen'
     | 'recipes.columnName'
+    | 'recipes.columnOnSale'
     | 'recipes.columnVersion'
     | 'recipes.columnVersionShort'
     | 'recipes.columnVersionState'
@@ -5203,6 +5206,7 @@ export interface NamespaceKeys {
     | 'recipes.costWithWaste'
     | 'recipes.create'
     | 'recipes.createAction'
+    | 'recipes.createPreparation'
     | 'recipes.createTitle'
     | 'recipes.createdToast'
     | 'recipes.currentVersion'
@@ -5219,6 +5223,10 @@ export interface NamespaceKeys {
     | 'recipes.imageLabel'
     | 'recipes.immutableBody'
     | 'recipes.immutableTitle'
+    | 'recipes.kindCountLabel'
+    | 'recipes.kindMeals'
+    | 'recipes.kindPreparation'
+    | 'recipes.kindPreparations'
     | 'recipes.kitchenFilterAll'
     | 'recipes.kitchenFilterLabel'
     | 'recipes.lineCount'
@@ -5246,6 +5254,7 @@ export interface NamespaceKeys {
     | 'recipes.newDraft'
     | 'recipes.newDraftFromVersion'
     | 'recipes.noAllergens'
+    | 'recipes.notFormulated'
     | 'recipes.notFoundBody'
     | 'recipes.notFoundTitle'
     | 'recipes.optional'
@@ -5307,6 +5316,7 @@ export interface NamespaceKeys {
     | 'recipes.sectionWaste'
     | 'recipes.sectionYield'
     | 'recipes.sectionYieldOnly'
+    | 'recipes.sellerLabel'
     | 'recipes.sellingPriceHint'
     | 'recipes.sellingPriceHintNoPackaging'
     | 'recipes.sheetAfterSave'
@@ -5350,7 +5360,10 @@ export interface NamespaceKeys {
     | 'recipes.sheetWeeklyEffective'
     | 'recipes.sheetWeeklyNeedsPrice'
     | 'recipes.sheetYieldWithPortions'
+    | 'recipes.soldAsSeveral'
     | 'recipes.sourceKindLabel'
+    | 'recipes.statOnSaleAction'
+    | 'recipes.statOnSaleCaption'
     | 'recipes.statReview'
     | 'recipes.statReviewAction'
     | 'recipes.statReviewCaption'
@@ -5389,11 +5402,18 @@ export interface NamespaceKeys {
     | 'recipes.versionUnavailableTitle'
     | 'recipes.versionsDescription'
     | 'recipes.viewAllergensCaption'
+    | 'recipes.viewAllergensFrozen'
     | 'recipes.viewAllergensSource'
+    | 'recipes.viewHandle'
     | 'recipes.viewKind'
+    | 'recipes.viewKinds'
     | 'recipes.wasteHint'
     | 'recipes.wastePercent'
     | 'recipes.wastePercentHint'
+    | 'recipes.withdrawBody'
+    | 'recipes.withdrawFailed'
+    | 'recipes.withdrawTitle'
+    | 'recipes.withdrawnToast'
     | 'recipes.yieldDescription'
     | 'recipes.yieldFirstHint'
     | 'recipes.yieldPieces'
@@ -10644,6 +10664,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.quotations.description',
   'kitchen:families.quotations.name',
   'kitchen:families.recipes.description',
+  'kitchen:families.recipes.keywords',
   'kitchen:families.recipes.name',
   'kitchen:families.review.description',
   'kitchen:families.review.name',
@@ -12673,8 +12694,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.checkYieldOk',
   'kitchen:recipes.coefficientsHint',
   'kitchen:recipes.columnAllergens',
+  'kitchen:recipes.columnKind',
   'kitchen:recipes.columnKitchen',
   'kitchen:recipes.columnName',
+  'kitchen:recipes.columnOnSale',
   'kitchen:recipes.columnVersion',
   'kitchen:recipes.columnVersionShort',
   'kitchen:recipes.columnVersionState',
@@ -12693,6 +12716,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.costWithWaste',
   'kitchen:recipes.create',
   'kitchen:recipes.createAction',
+  'kitchen:recipes.createPreparation',
   'kitchen:recipes.createTitle',
   'kitchen:recipes.createdToast',
   'kitchen:recipes.currentVersion',
@@ -12709,6 +12733,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.imageLabel',
   'kitchen:recipes.immutableBody',
   'kitchen:recipes.immutableTitle',
+  'kitchen:recipes.kindCountLabel',
+  'kitchen:recipes.kindMeals',
+  'kitchen:recipes.kindPreparation',
+  'kitchen:recipes.kindPreparations',
   'kitchen:recipes.kitchenFilterAll',
   'kitchen:recipes.kitchenFilterLabel',
   'kitchen:recipes.lineCount',
@@ -12736,6 +12764,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.newDraft',
   'kitchen:recipes.newDraftFromVersion',
   'kitchen:recipes.noAllergens',
+  'kitchen:recipes.notFormulated',
   'kitchen:recipes.notFoundBody',
   'kitchen:recipes.notFoundTitle',
   'kitchen:recipes.optional',
@@ -12797,6 +12826,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sectionWaste',
   'kitchen:recipes.sectionYield',
   'kitchen:recipes.sectionYieldOnly',
+  'kitchen:recipes.sellerLabel',
   'kitchen:recipes.sellingPriceHint',
   'kitchen:recipes.sellingPriceHintNoPackaging',
   'kitchen:recipes.sheetAfterSave',
@@ -12840,7 +12870,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sheetWeeklyEffective',
   'kitchen:recipes.sheetWeeklyNeedsPrice',
   'kitchen:recipes.sheetYieldWithPortions',
+  'kitchen:recipes.soldAsSeveral',
   'kitchen:recipes.sourceKindLabel',
+  'kitchen:recipes.statOnSaleAction',
+  'kitchen:recipes.statOnSaleCaption',
   'kitchen:recipes.statReview',
   'kitchen:recipes.statReviewAction',
   'kitchen:recipes.statReviewCaption',
@@ -12879,11 +12912,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.versionUnavailableTitle',
   'kitchen:recipes.versionsDescription',
   'kitchen:recipes.viewAllergensCaption',
+  'kitchen:recipes.viewAllergensFrozen',
   'kitchen:recipes.viewAllergensSource',
+  'kitchen:recipes.viewHandle',
   'kitchen:recipes.viewKind',
+  'kitchen:recipes.viewKinds',
   'kitchen:recipes.wasteHint',
   'kitchen:recipes.wastePercent',
   'kitchen:recipes.wastePercentHint',
+  'kitchen:recipes.withdrawBody',
+  'kitchen:recipes.withdrawFailed',
+  'kitchen:recipes.withdrawTitle',
+  'kitchen:recipes.withdrawnToast',
   'kitchen:recipes.yieldDescription',
   'kitchen:recipes.yieldFirstHint',
   'kitchen:recipes.yieldPieces',

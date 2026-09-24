@@ -609,6 +609,12 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     status,
                     stale_only: filter?.staleOnly === true ? '1' : undefined,
                     allergen: soleAllergen(filter?.allergenCodes),
+                    // The recipe book's own axes. `kind` and `selling_status` are refused for a
+                    // caller who cannot see the catalogue, so the list hook only sets them when
+                    // the reader holds that permission.
+                    kind: filter?.kind,
+                    selling_status: filter?.sellingStatus,
+                    category: filter?.category,
                 })}`,
             });
 

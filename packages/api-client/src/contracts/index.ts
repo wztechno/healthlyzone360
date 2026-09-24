@@ -274,9 +274,11 @@ export {
     PRODUCTION_MODES,
     PRODUCT_FAMILY_CATEGORY_CODES,
     PUBLISHABLE_STATUSES,
+    RECIPE_KINDS,
     isConsumerVisible,
     isPlanDurationConsistent,
     isPriceEntryConsistent,
+    isRecipeKind,
 } from './kitchen-admin.ts';
 export type {
     AdminEntityMeta,
@@ -337,6 +339,10 @@ export type {
     RecipeAdminFilter,
     RecipeAdminSummary,
     RecipeAllergenDeclaration,
+    RecipeKind,
+    RecipeSellerKind,
+    RecipeSoldAs,
+    RecipeSoldAsPack,
     RecipeLine,
     RecipePackagingLine,
     RecipePackagingLineInput,

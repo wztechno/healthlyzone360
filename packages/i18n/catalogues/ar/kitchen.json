@@ -2042,7 +2042,8 @@
         },
         "recipes": {
             "name": "الوصفات",
-            "description": "الصيغ التي يطبخ منها هذا المطبخ، بنسخها، ومع البطاقة التي تحملها كل نسخة."
+            "description": "كل ما يطبخه هذا المطبخ — الأطباق والصلصات وصلصات السلطة والوجبات المجمّدة والتحضيرات — بتركيبته ونسخه وما يُباع به.",
+            "keywords": "أطباق وجبات صلصات تتبيلات صلصات السلطة وجبات مجمدة تحضيرات"
         },
         "products": {
             "name": "إعادة بيع",
@@ -3068,7 +3069,26 @@
         "costPerUnit": "لكل {{unit}}",
         "costWithWaste": "+ {{percent}}% هدر",
         "sectionCoefficients": "المعاملات والأسعار",
-        "coefficientsHint": "ما تُضرب به صفوف الهدر أعلاه، وما تُباع به وحدة من الدفعة"
+        "coefficientsHint": "ما تُضرب به صفوف الهدر أعلاه، وما تُباع به وحدة من الدفعة",
+        "columnKind": "النوع",
+        "kindMeals": "الأطباق",
+        "kindPreparations": "التحضيرات",
+        "kindPreparation": "تحضير",
+        "createPreparation": "تحضير جديد",
+        "columnOnSale": "معروض للبيع",
+        "statOnSaleCaption": "معروضة للبيع الآن",
+        "statOnSaleAction": "عرض الوصفات المعروضة للبيع فقط",
+        "notFormulated": "بلا تركيبة",
+        "withdrawTitle": "إيقاف بيعه؟",
+        "withdrawBody": "يُسحب الصنف الذي تُباع به هذه الوصفة من القائمة ومن كل قنوات البيع فورًا. تبقى الوصفة في الدفتر ولا يُحذف شيء: الطلبات السابقة وقوائم الأسعار ما زالت تشير إلى الصنف.",
+        "withdrawnToast": "لم يعد {{name}} معروضًا للبيع.",
+        "withdrawFailed": "تعذّر إيقاف بيع هذا الصنف.",
+        "kindCountLabel": "{{count}} وصفة",
+        "soldAsSeveral": "يُباع كـ {{count}} أصناف",
+        "sellerLabel": "يُباع كـ",
+        "viewHandle": "المعرّف",
+        "viewKinds": "النوع",
+        "viewAllergensFrozen": "ملصق مثبّت على الصنف عند النشر"
     },
     "publish": {
         "action": "نشر",

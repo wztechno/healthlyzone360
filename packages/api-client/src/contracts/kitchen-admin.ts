@@ -823,6 +823,65 @@ export interface RecipeVersionAdmin {
     readonly publishedAt: IsoDateTime | null;
 }
 
+/**
+ * What a recipe is, to the person reading the recipe book: the kind of thing it is sold as.
+ *
+ * Derived on the server from the catalogue items whose `recipe_id` names the recipe — never
+ * stored, so it cannot drift from the items. `preparation` is the kind of a recipe nothing sells:
+ * a marination, a patty, a component another recipe uses.
+ */
+export const RECIPE_KINDS = ['meal', 'sauce', 'dressing', 'frozen_meal', 'preparation'] as const;
+export type RecipeKind = (typeof RECIPE_KINDS)[number];
+
+/** The cooked catalogue kinds — every {@link RecipeKind} but `preparation`, which sells nothing. */
+export type RecipeSellerKind = Exclude<RecipeKind, 'preparation'>;
+
+export function isRecipeKind(value: unknown): value is RecipeKind {
+    return typeof value === 'string' && (RECIPE_KINDS as readonly string[]).includes(value);
+}
+
+/** The pack a packaged seller is sold in by default — enough to say "500 g tub" on a row. */
+export interface RecipeSoldAsPack {
+    readonly label: LocalisedText;
+    readonly netQuantity: number;
+    readonly netUnit: MeasureUnit;
+}
+
+/**
+ * One catalogue item that sells a recipe, as the recipe book lists it.
+ *
+ * Everything the departing meal, sauce, dressing and frozen-meal lists drew from the item is
+ * here, so the merged row and its View panel lose nothing: the handle and photo, the publication
+ * state with the lock version a withdrawal must quote, the kitchen's filing pair, the flags, the
+ * portion and composition, the channels it is available on, and its default pack. The item's
+ * *listing* — packs, service days, publication — is still edited on the recipe's Selling tab.
+ */
+export interface RecipeSoldAs {
+    /** The catalogue item's id — a `MealId` for a meal, a `ProductId` for the packaged kinds. */
+    readonly id: string;
+    readonly itemType: RecipeSellerKind;
+    readonly status: PublishableStatus;
+    /** The item's own lock version — what `retireMeal` / `archiveProduct` must send. */
+    readonly lockVersion: number;
+    /** The kitchen's handle — `SAC-016`, `DRS-003` — or `null` before one was assigned. */
+    readonly reference: string | null;
+    readonly slug: string;
+    readonly name: LocalisedText;
+    readonly imagePlaceholderId: string;
+    readonly kitchenCategory: string | null;
+    readonly kitchenSubcategory: string | null;
+    readonly isMarketPriced: boolean;
+    readonly isAssorted: boolean;
+    readonly dataQualityFlags: readonly string[];
+    /** The portion sold, relative to one recipe serving. */
+    readonly portionFactor: number;
+    readonly composition: string | null;
+    /** The channels the item is available on right now. */
+    readonly channels: readonly SalesChannel[];
+    readonly packCount: number;
+    readonly defaultPack: RecipeSoldAsPack | null;
+}
+
 export interface RecipeAdminSummary {
     readonly id: RecipeId;
     readonly meta: AdminEntityMeta;
@@ -870,6 +929,25 @@ export interface RecipeAdminSummary {
      * label is unknown.
      */
     readonly allergenCodes: readonly AllergenCode[];
+    /**
+     * How many raw-material lines the current version has. `0` is a real state: a placeholder
+     * the book lists as "Not formulated" until somebody writes the formulation.
+     */
+    readonly lineCount: number;
+    /**
+     * The catalogue items this recipe is sold as, in slug order — empty for a preparation.
+     *
+     * Absent, not empty, when the caller cannot see the catalogue: the server leaves the key out
+     * for a role without `catalogue.view_organisation`, and a client draws the row without its
+     * Kind and On-sale columns rather than claiming the recipe sells nothing.
+     */
+    readonly soldAs?: readonly RecipeSoldAs[] | undefined;
+    /**
+     * The distinct kinds of those items, in the same order; `['preparation']` when nothing sells
+     * the recipe. A recipe sold as a meal and as a sauce lists both, and the `kind` filter matches
+     * it under either — what the row prints is what the filter matches. Absent with `soldAs`.
+     */
+    readonly kinds?: readonly RecipeKind[] | undefined;
 }
 
 export interface RecipeAdmin extends RecipeAdminSummary {
@@ -895,6 +973,16 @@ export interface RecipeAdminFilter extends CursorPageRequest, OffsetPageRequest 
     readonly allergenCodes?: readonly AllergenCode[] | undefined;
     /** Only recipes whose current version needs re-derivation. */
     readonly staleOnly?: boolean | undefined;
+    /**
+     * Recipes sold as this kind — any seller of the kind matches, so a recipe sold as a meal and
+     * as a sauce is listed under both. `preparation` narrows to recipes nothing sells. Refused
+     * (403) for a caller without `catalogue.view_organisation`; a client never sends it for one.
+     */
+    readonly kind?: RecipeKind | undefined;
+    /** Recipes with a seller in this publication state. Same permission rule as `kind`. */
+    readonly sellingStatus?: PublishableStatus | undefined;
+    /** The kitchen's own filing word on the recipe — `cooking_sauce`, `marination`. */
+    readonly category?: string | undefined;
 }
 
 /**
