@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7474 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7498 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -71,18 +71,35 @@ export interface NamespaceKeys {
     | 'add.password'
     | 'add.passwordAcknowledge'
     | 'add.passwordBody'
-    | 'add.passwordHint'
     | 'add.passwordTitle'
+    | 'add.placeholders.email'
+    | 'add.placeholders.familyName'
+    | 'add.placeholders.givenName'
+    | 'add.placeholders.password'
+    | 'add.placeholders.signInName'
     | 'add.role'
+    | 'add.roleInviteHint'
+    | 'add.roles'
+    | 'add.rolesCreateHint'
+    | 'add.sections.invitation'
+    | 'add.sections.person'
+    | 'add.sections.signIn'
     | 'add.signInName'
     | 'add.signInNameHint'
+    | 'add.signInNameInvalid'
     | 'add.submitCreate'
     | 'add.submitInvite'
     | 'add.title'
-    | 'advanced.emptyDomain'
-    | 'advanced.hint'
+    | 'advanced.actions.manage'
+    | 'advanced.actions.other'
+    | 'advanced.actions.publish'
+    | 'advanced.actions.view'
+    | 'advanced.actions.viewCosts'
+    | 'advanced.cellLabel'
+    | 'advanced.columns.area'
     | 'advanced.notHeld'
     | 'advanced.selected'
+    | 'advanced.tableLabel'
     | 'changePassword.confirmation'
     | 'changePassword.current'
     | 'changePassword.done'
@@ -140,7 +157,6 @@ export interface NamespaceKeys {
     | 'member.assignmentFrom'
     | 'member.assignmentScheduled'
     | 'member.assignmentUntil'
-    | 'member.back'
     | 'member.cancel'
     | 'member.end'
     | 'member.endBody'
@@ -150,6 +166,7 @@ export interface NamespaceKeys {
     | 'member.lastAdministrator'
     | 'member.permissionsHeading'
     | 'member.permissionsHint'
+    | 'member.permissionsNone'
     | 'member.reactivate'
     | 'member.reactivated'
     | 'member.rolesHeading'
@@ -165,17 +182,21 @@ export interface NamespaceKeys {
     | 'member.suspended'
     | 'member.title'
     | 'pages.alsoOpens'
-    | 'pages.hint'
+    | 'pages.cellLabel'
+    | 'pages.columns.extras'
+    | 'pages.columns.page'
     | 'pages.levels.manage'
     | 'pages.levels.none'
     | 'pages.levels.view'
+    | 'pages.tableLabel'
     | 'pages.unmappedCount'
     | 'pages.unmappedHeading'
     | 'pages.unmappedHint'
     | 'role.back'
     | 'role.cancel'
     | 'role.code'
-    | 'role.codeHint'
+    | 'role.codeInvalid'
+    | 'role.codePlaceholder'
     | 'role.copyTitle'
     | 'role.created'
     | 'role.delete'
@@ -184,16 +205,19 @@ export interface NamespaceKeys {
     | 'role.deleteConfirm'
     | 'role.deleteTitle'
     | 'role.deleted'
-    | 'role.descriptionAr'
-    | 'role.descriptionEn'
-    | 'role.nameAr'
-    | 'role.nameEn'
+    | 'role.description'
+    | 'role.descriptionPlaceholderAr'
+    | 'role.descriptionPlaceholderEn'
+    | 'role.name'
+    | 'role.namePlaceholderAr'
+    | 'role.namePlaceholderEn'
     | 'role.newTitle'
     | 'role.save'
     | 'role.saved'
     | 'role.selfLockout'
     | 'role.shadowsTemplate'
     | 'role.tabs.advanced'
+    | 'role.tabs.details'
     | 'role.tabs.pages'
     | 'role.templateNotice'
     | 'roles.caption'
@@ -7575,18 +7599,35 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:add.password',
   'accessAdmin:add.passwordAcknowledge',
   'accessAdmin:add.passwordBody',
-  'accessAdmin:add.passwordHint',
   'accessAdmin:add.passwordTitle',
+  'accessAdmin:add.placeholders.email',
+  'accessAdmin:add.placeholders.familyName',
+  'accessAdmin:add.placeholders.givenName',
+  'accessAdmin:add.placeholders.password',
+  'accessAdmin:add.placeholders.signInName',
   'accessAdmin:add.role',
+  'accessAdmin:add.roleInviteHint',
+  'accessAdmin:add.roles',
+  'accessAdmin:add.rolesCreateHint',
+  'accessAdmin:add.sections.invitation',
+  'accessAdmin:add.sections.person',
+  'accessAdmin:add.sections.signIn',
   'accessAdmin:add.signInName',
   'accessAdmin:add.signInNameHint',
+  'accessAdmin:add.signInNameInvalid',
   'accessAdmin:add.submitCreate',
   'accessAdmin:add.submitInvite',
   'accessAdmin:add.title',
-  'accessAdmin:advanced.emptyDomain',
-  'accessAdmin:advanced.hint',
+  'accessAdmin:advanced.actions.manage',
+  'accessAdmin:advanced.actions.other',
+  'accessAdmin:advanced.actions.publish',
+  'accessAdmin:advanced.actions.view',
+  'accessAdmin:advanced.actions.viewCosts',
+  'accessAdmin:advanced.cellLabel',
+  'accessAdmin:advanced.columns.area',
   'accessAdmin:advanced.notHeld',
   'accessAdmin:advanced.selected',
+  'accessAdmin:advanced.tableLabel',
   'accessAdmin:changePassword.confirmation',
   'accessAdmin:changePassword.current',
   'accessAdmin:changePassword.done',
@@ -7644,7 +7685,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:member.assignmentFrom',
   'accessAdmin:member.assignmentScheduled',
   'accessAdmin:member.assignmentUntil',
-  'accessAdmin:member.back',
   'accessAdmin:member.cancel',
   'accessAdmin:member.end',
   'accessAdmin:member.endBody',
@@ -7654,6 +7694,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:member.lastAdministrator',
   'accessAdmin:member.permissionsHeading',
   'accessAdmin:member.permissionsHint',
+  'accessAdmin:member.permissionsNone',
   'accessAdmin:member.reactivate',
   'accessAdmin:member.reactivated',
   'accessAdmin:member.rolesHeading',
@@ -7669,17 +7710,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:member.suspended',
   'accessAdmin:member.title',
   'accessAdmin:pages.alsoOpens',
-  'accessAdmin:pages.hint',
+  'accessAdmin:pages.cellLabel',
+  'accessAdmin:pages.columns.extras',
+  'accessAdmin:pages.columns.page',
   'accessAdmin:pages.levels.manage',
   'accessAdmin:pages.levels.none',
   'accessAdmin:pages.levels.view',
+  'accessAdmin:pages.tableLabel',
   'accessAdmin:pages.unmappedCount',
   'accessAdmin:pages.unmappedHeading',
   'accessAdmin:pages.unmappedHint',
   'accessAdmin:role.back',
   'accessAdmin:role.cancel',
   'accessAdmin:role.code',
-  'accessAdmin:role.codeHint',
+  'accessAdmin:role.codeInvalid',
+  'accessAdmin:role.codePlaceholder',
   'accessAdmin:role.copyTitle',
   'accessAdmin:role.created',
   'accessAdmin:role.delete',
@@ -7688,16 +7733,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:role.deleteConfirm',
   'accessAdmin:role.deleteTitle',
   'accessAdmin:role.deleted',
-  'accessAdmin:role.descriptionAr',
-  'accessAdmin:role.descriptionEn',
-  'accessAdmin:role.nameAr',
-  'accessAdmin:role.nameEn',
+  'accessAdmin:role.description',
+  'accessAdmin:role.descriptionPlaceholderAr',
+  'accessAdmin:role.descriptionPlaceholderEn',
+  'accessAdmin:role.name',
+  'accessAdmin:role.namePlaceholderAr',
+  'accessAdmin:role.namePlaceholderEn',
   'accessAdmin:role.newTitle',
   'accessAdmin:role.save',
   'accessAdmin:role.saved',
   'accessAdmin:role.selfLockout',
   'accessAdmin:role.shadowsTemplate',
   'accessAdmin:role.tabs.advanced',
+  'accessAdmin:role.tabs.details',
   'accessAdmin:role.tabs.pages',
   'accessAdmin:role.templateNotice',
   'accessAdmin:roles.caption',

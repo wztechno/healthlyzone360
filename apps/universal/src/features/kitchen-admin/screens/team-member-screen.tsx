@@ -1,25 +1,23 @@
-import type { MembershipRoleAssignment } from '@healthy360/api-client/contracts';
+import type { MembershipRoleAssignment, PermissionDomain } from '@healthy360/api-client/contracts';
 import { isReactivatableMember, isWorkingMember } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
     Callout,
-    Card,
-    Checkbox,
     Dialog,
     ErrorState,
-    Heading,
-    Inline,
+    FormGrid,
     Select,
     Skeleton,
     Stack,
     Text,
     useToast,
 } from '@healthy360/design-system';
-import { useLocale } from '@healthy360/i18n';
+import type { TabItem } from '@healthy360/design-system';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { apiFailure } from '@healthy360/api-client/contracts';
 
@@ -34,13 +32,17 @@ import {
     useTeamMemberQuery,
 } from '../../../data/access-admin-hooks.ts';
 import { toFailure } from '../../../data/hooks.ts';
+import { TabStepNavigation } from '../editor-steps.tsx';
 import {
     MEMBERSHIP_END_PERMISSION,
     MEMBERSHIP_UPDATE_PERMISSION,
     MEMBERSHIP_VIEW_PERMISSION,
     ROLE_MANAGE_PERMISSION,
 } from '../entity-registry.ts';
-import { OpsRecordFrame } from '../ops-record-frame.tsx';
+import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
+import { RoleChoiceList } from '../role-choice-list.tsx';
+import { RolePermissionsTab } from '../role-permissions-tab.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { memberDisplayName } from './team-screen.tsx';
@@ -48,27 +50,36 @@ import { memberDisplayName } from './team-screen.tsx';
 /**
  * `/kitchen/team/{membership}` — one person, what they may do, and whether they may still do it.
  *
- * ## `OpsRecordFrame`, not `EditorFrame`
+ * ## It opens the way every other kitchen record form does
  *
- * A membership carries a `lock_version` but no `updated_by`, so `EditorFrame` would have to render
- * "last changed by" with nothing to put in it — the same complaint that frame's own docblock makes
- * about a false Draft badge. The concurrency handshake still happens: the version travels on every
- * mutation, and a lost race comes back as a `resource.conflict` this screen surfaces in its banner
- * rather than in a reload dialog, because what the person did is re-appliable from what they can see.
+ * `RecordFormOpening` — their name, their status and address beside it, then Cancel, Suspend or
+ * Let back in, Remove and Save at the inline end — over three numbered steps walked with the
+ * Previous / Next footer: the roles they hold, where they work, and what that adds up to. The last
+ * is the role editor's Advanced matrix in its read-only mode, drawn from the permissions the
+ * membership read already carries, so "what can this person actually do" reads in the same grid a
+ * role is built in.
  *
- * ## The roles editor is a set of checkboxes and saves as a whole
+ * ## The roles are a set, and save as a whole
  *
- * Because that is what the endpoint takes. Add-and-remove would be three requests with two
- * intermediate states, one of which is "holds nothing"; the whole set in one `PUT` has neither.
+ * A person may hold several roles and may do what any of them allows, so the list is the shared
+ * `RoleChoiceList` in its `multiple` mode. It saves as a whole because that is what the endpoint
+ * takes: add-and-remove would be three requests with two intermediate states, one of which is
+ * "holds nothing"; the whole set in one `PUT` has neither.
  *
  * Existing assignments carry their time bounds through the save untouched. This screen cannot *set*
  * a window — that is a later slice — but it must not silently discard one, because a `PUT` writes
  * back exactly what it was shown.
  *
+ * ## The concurrency handshake
+ *
+ * A membership carries a `lock_version`, and every one of the five endpoints this screen writes is
+ * versioned, so a `resource.conflict` from any of them means one thing — somebody else changed this
+ * person while the screen was open — and `EditorGuardDialogs` offers the reload.
+ *
  * ## The last-administrator warning is on the read, not the write
  *
  * `remainingRoleAdministrators` arrives with the member, so the banner is up **before** anybody
- * presses End rather than after. Zero on your own row means nobody else can administer access —
+ * presses Remove rather than after. Zero on your own row means nobody else can administer access —
  * which is the one thing worth knowing before you go on holiday.
  */
 
@@ -80,6 +91,10 @@ import { memberDisplayName } from './team-screen.tsx';
  * the `null` the API is documented to take.
  */
 const WHOLE_KITCHEN = '__organisation__';
+
+type MemberStep = 'roles' | 'scope' | 'permissions';
+
+const MEMBER_STEPS: readonly MemberStep[] = ['roles', 'scope', 'permissions'];
 
 export function TeamMemberScreen() {
     return (
@@ -106,9 +121,25 @@ function assignmentNote(
     return null;
 }
 
+/**
+ * The person's own codes, shaped as the Advanced matrix's domains: grouped by the resource before
+ * the dot. The membership read carries codes and nothing else, and this is a report of what they
+ * hold — so every one is held, and each is described by its code until a string names it.
+ */
+function heldDomains(codes: readonly string[]): readonly PermissionDomain[] {
+    const byResource = new Map<string, string[]>();
+    for (const code of codes) {
+        const resource = code.split('.')[0] ?? code;
+        byResource.set(resource, [...(byResource.get(resource) ?? []), code]);
+    }
+    return [...byResource].map(([domain, held]) => ({
+        domain,
+        permissions: held.map((code) => ({ code, description: code, heldByCaller: true })),
+    }));
+}
+
 function TeamMemberEditor() {
     const { t } = useTranslation();
-    const { locale } = useLocale();
     const router = useRouter();
     const toast = useToast();
 
@@ -128,6 +159,7 @@ function TeamMemberEditor() {
     const reactivate = useReactivateMemberMutation();
     const end = useEndMemberMutation();
 
+    const [step, setStep] = useState<MemberStep>('roles');
     const [selected, setSelected] = useState<ReadonlySet<string> | null>(null);
     // `undefined` is untouched, `null` is the whole kitchen, a string is one branch. Three states
     // because null is a real answer here, not the absence of one.
@@ -136,14 +168,6 @@ function TeamMemberEditor() {
 
     const guard = useUnsavedGuard({ message: t('kitchen:editor.unsavedMessage') });
 
-    /**
-     * The conflict dialog, wired to every write on this screen.
-     *
-     * Unlike the role editor — where a delete refused over its holders is a `resource.conflict` that
-     * is not a lost race — all five membership endpoints are versioned and a conflict from any of
-     * them means exactly one thing: somebody else changed this person while this screen was open.
-     * Reloading drops the local edits, which is the point of the button.
-     */
     const concurrency = useOptimisticConcurrency({
         onReload: () => {
             setSelected(null);
@@ -155,6 +179,12 @@ function TeamMemberEditor() {
 
     const record = member.data?.membership;
     const remaining = member.data?.remainingRoleAdministrators ?? null;
+
+    const name =
+        record === undefined ? null : memberDisplayName(record, t('accessAdmin:team.unnamed'));
+
+    // The page draws its own heading, and the top bar's trail names the person too.
+    useKitchenTrailLeaf(name);
 
     // Null until the person touches something: the saved set is the source of truth while the form
     // is clean, so a refetch that changes it is reflected rather than overwritten by stale state.
@@ -170,6 +200,8 @@ function TeamMemberEditor() {
         }
         return byRole;
     }, [record]);
+
+    const permissionDomains = useMemo(() => heldDomains(record?.permissions ?? []), [record]);
 
     const branches = member.data?.organisationBranches ?? [];
     const savedScope =
@@ -191,17 +223,15 @@ function TeamMemberEditor() {
 
     if (member.isPending) {
         return (
-            <Stack space="sm" testID="kitchen-team-member-loading">
-                {Array.from({ length: 3 }, (_, index) => (
-                    <Card key={index} padding="md">
-                        <Skeleton heightClassName="h-5" />
-                    </Card>
-                ))}
+            <Stack space="md" testID="kitchen-team-member-loading">
+                <Skeleton testID="kitchen-team-member-skeleton-1" heightClassName="h-8" />
+                <Skeleton testID="kitchen-team-member-skeleton-2" heightClassName="h-10" />
+                <Skeleton testID="kitchen-team-member-skeleton-3" heightClassName="h-32" />
             </Stack>
         );
     }
 
-    if (failure !== null || record === undefined) {
+    if (failure !== null || record === undefined || name === null) {
         return (
             <ErrorState
                 testID="kitchen-team-member-error"
@@ -215,16 +245,6 @@ function TeamMemberEditor() {
                 retrying={member.isFetching}
             />
         );
-    }
-
-    const name = memberDisplayName(record, t('accessAdmin:team.unnamed'));
-
-    function toggleRole(roleId: string, on: boolean) {
-        const next = new Set(held);
-        if (on) next.add(roleId);
-        else next.delete(roleId);
-        setSelected(next);
-        guard.markDirty();
     }
 
     /**
@@ -317,200 +337,256 @@ function TeamMemberEditor() {
         });
     }
 
+    const stepLabels: Readonly<Record<MemberStep, string>> = {
+        roles: t('accessAdmin:member.rolesHeading'),
+        scope: t('accessAdmin:member.scopeHeading'),
+        permissions: t('accessAdmin:member.permissionsHeading'),
+    };
+
+    const stepItems: readonly TabItem<MemberStep>[] = MEMBER_STEPS.map((key) => ({
+        value: key,
+        label: stepLabels[key],
+        ...(key === 'roles'
+            ? { count: held.size }
+            : key === 'permissions'
+              ? { count: record.permissions.length }
+              : {}),
+        testID: `kitchen-team-member-tabs-tab-${key}`,
+    }));
+
     return (
         <>
-            <OpsRecordFrame
-                testID="kitchen-team-member"
-                title={name}
-                guard={guard}
-                onBack={() => {
-                    guard.intercept(() => {
-                        router.back();
-                    });
-                }}
-                backLabel={t('accessAdmin:member.back')}
-                concurrency={concurrency}
-                onSave={save}
-                saveLabel={t('accessAdmin:member.save')}
-                // Both halves of the chain: a scope write still running is a save still running, and
-                // a button that came back to life between the two would take a second press.
-                saving={scopeWrite.isPending || setRoles.isPending}
-                hideSave={!canAssignRoles}
-                primaryAction={
-                    <Inline space="xs" wrap justify="end">
-                        {canUpdate && isWorkingMember(record.status) ? (
-                            <Button
-                                testID="kitchen-team-member-suspend"
-                                size="sm"
-                                variant="secondary"
-                                label={t('accessAdmin:member.suspend')}
-                                loading={suspend.isPending}
-                                onPress={() => {
-                                    lifecycle('suspend');
-                                }}
-                            />
-                        ) : null}
-                        {canUpdate && isReactivatableMember(record.status) ? (
-                            <Button
-                                testID="kitchen-team-member-reactivate"
-                                size="sm"
-                                variant="secondary"
-                                label={t('accessAdmin:member.reactivate')}
-                                loading={reactivate.isPending}
-                                onPress={() => {
-                                    lifecycle('reactivate');
-                                }}
-                            />
-                        ) : null}
-                        {canEnd && record.status !== 'ended' ? (
-                            <Button
-                                testID="kitchen-team-member-end"
-                                size="sm"
-                                variant="secondary"
-                                label={t('accessAdmin:member.end')}
-                                onPress={() => {
-                                    setConfirmingEnd(true);
-                                }}
-                            />
-                        ) : null}
-                    </Inline>
-                }
-                banner={
-                    <Stack space="sm">
-                        {writeFailure === null ? null : (
-                            <Callout
-                                testID="kitchen-team-member-write-error"
-                                tone="danger"
-                                role="alert"
-                                title={
-                                    writeFailure.code === 'access.self_lockout'
-                                        ? t('accessAdmin:member.selfLockout')
-                                        : writeFailure.message
-                                }
-                            />
-                        )}
-                        {remaining === 0 ? (
-                            <Callout
-                                testID="kitchen-team-member-last-administrator"
-                                tone="warning"
-                                title={t('accessAdmin:member.lastAdministrator')}
-                            />
-                        ) : null}
-                    </Stack>
-                }
-            >
-                <Stack space="lg">
-                    <Card padding="md">
-                        <Stack space="sm">
-                            <Inline space="sm" align="center" justify="between" wrap>
-                                <Heading level={2}>{t('accessAdmin:member.rolesHeading')}</Heading>
-                                <Badge
-                                    testID="kitchen-team-member-status"
-                                    tone={isWorkingMember(record.status) ? 'success' : 'warning'}
-                                    label={t(`accessAdmin:status.${record.status}` as never, {
-                                        defaultValue: record.status,
-                                    })}
-                                />
-                            </Inline>
-                            <Text tone="secondary">{t('accessAdmin:member.rolesHint')}</Text>
-
-                            <Stack space="xs" testID="kitchen-team-member-roles">
-                                {(roles.data ?? []).map((role) => {
-                                    const id = String(role.id);
-                                    const note = assignmentNote(assignments.get(id));
-
-                                    return (
-                                        <Checkbox
-                                            key={id}
-                                            testID={`kitchen-team-member-role-${role.code}`}
-                                            label={
-                                                locale.startsWith('ar') ? role.nameAr : role.nameEn
-                                            }
-                                            {...(note === null
-                                                ? {}
-                                                : {
-                                                      description: t(
-                                                          note === 'scheduled'
-                                                              ? 'accessAdmin:member.assignmentScheduled'
-                                                              : 'accessAdmin:member.assignmentExpired',
-                                                      ),
-                                                  })}
-                                            checked={held.has(id)}
-                                            disabled={!canAssignRoles}
-                                            onChange={(on) => {
-                                                toggleRole(id, on);
-                                            }}
-                                        />
-                                    );
+            <Stack space="md" testID="kitchen-team-member-screen">
+                <RecordFormOpening<MemberStep>
+                    testID="kitchen-team-member"
+                    title={name}
+                    dirty={guard.isDirty}
+                    badges={
+                        <>
+                            <Badge
+                                variant="label"
+                                testID="kitchen-team-member-status"
+                                tone={isWorkingMember(record.status) ? 'success' : 'warning'}
+                                icon={null}
+                                label={t(`accessAdmin:status.${record.status}` as never, {
+                                    defaultValue: record.status,
                                 })}
-                            </Stack>
+                            />
+                            <Text
+                                testID="kitchen-team-member-email"
+                                variant="mono"
+                                tone="secondary"
+                            >
+                                {record.email}
+                            </Text>
+                        </>
+                    }
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-team-member-back"
+                                variant="secondary"
+                                label={t('kitchen:editor.cancel')}
+                                onPress={() => {
+                                    guard.intercept(() => {
+                                        router.back();
+                                    });
+                                }}
+                            />
+                            {canUpdate && isWorkingMember(record.status) ? (
+                                <Button
+                                    testID="kitchen-team-member-suspend"
+                                    variant="secondary"
+                                    label={t('accessAdmin:member.suspend')}
+                                    loading={suspend.isPending}
+                                    onPress={() => {
+                                        lifecycle('suspend');
+                                    }}
+                                />
+                            ) : null}
+                            {canUpdate && isReactivatableMember(record.status) ? (
+                                <Button
+                                    testID="kitchen-team-member-reactivate"
+                                    variant="secondary"
+                                    label={t('accessAdmin:member.reactivate')}
+                                    loading={reactivate.isPending}
+                                    onPress={() => {
+                                        lifecycle('reactivate');
+                                    }}
+                                />
+                            ) : null}
+                            {canEnd && record.status !== 'ended' ? (
+                                <Button
+                                    testID="kitchen-team-member-end"
+                                    variant="quiet"
+                                    label={t('accessAdmin:member.end')}
+                                    onPress={() => {
+                                        setConfirmingEnd(true);
+                                    }}
+                                />
+                            ) : null}
+                            {/*
+                             * Hidden rather than disabled for somebody who may not assign roles:
+                             * the whole record is theirs to read, and a Save that could never
+                             * work is noise.
+                             */}
+                            {canAssignRoles ? (
+                                <Button
+                                    testID="kitchen-team-member-save"
+                                    label={t('accessAdmin:member.save')}
+                                    // Both halves of the chain: a scope write still running is a
+                                    // save still running, and a button that came back to life
+                                    // between the two would take a second press.
+                                    loading={scopeWrite.isPending || setRoles.isPending}
+                                    disabled={scopeWrite.isPending || setRoles.isPending}
+                                    onPress={save}
+                                />
+                            ) : null}
+                        </>
+                    }
+                    steps={{
+                        label: t('kitchen:editor.stepsLabel'),
+                        items: stepItems,
+                        value: step,
+                        onChange: setStep,
+                    }}
+                />
+
+                {writeFailure === null ? null : (
+                    <Callout
+                        testID="kitchen-team-member-write-error"
+                        tone="danger"
+                        role="alert"
+                        title={
+                            writeFailure.code === 'access.self_lockout'
+                                ? t('accessAdmin:member.selfLockout')
+                                : writeFailure.message
+                        }
+                    />
+                )}
+
+                {remaining === 0 ? (
+                    <Callout
+                        testID="kitchen-team-member-last-administrator"
+                        tone="warning"
+                        title={t('accessAdmin:member.lastAdministrator')}
+                    />
+                ) : null}
+
+                {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
+                <View className="z-auto flex-col">
+                    {step !== 'roles' ? null : (
+                        <Stack space="sm">
+                            <Text variant="caption" tone="secondary">
+                                {t('accessAdmin:member.rolesHint')}
+                            </Text>
+                            <RoleChoiceList
+                                testID="kitchen-team-member-roles"
+                                itemTestID="kitchen-team-member-role"
+                                label={stepLabels.roles}
+                                roles={roles.data ?? []}
+                                mode="multiple"
+                                selected={held}
+                                disabled={!canAssignRoles}
+                                noteFor={(roleId) => {
+                                    const note = assignmentNote(assignments.get(roleId));
+                                    return note === null
+                                        ? null
+                                        : t(
+                                              note === 'scheduled'
+                                                  ? 'accessAdmin:member.assignmentScheduled'
+                                                  : 'accessAdmin:member.assignmentExpired',
+                                          );
+                                }}
+                                onChange={(next) => {
+                                    setSelected(next);
+                                    guard.markDirty();
+                                }}
+                            />
                         </Stack>
-                    </Card>
+                    )}
 
-                    <Card padding="md">
+                    {step !== 'scope' ? null : (
                         <Stack space="sm" testID="kitchen-team-member-scope">
-                            <Heading level={2}>{t('accessAdmin:member.scopeHeading')}</Heading>
-                            <Text tone="secondary">{t('accessAdmin:member.scopeHint')}</Text>
-
+                            <Text variant="caption" tone="secondary">
+                                {t('accessAdmin:member.scopeHint')}
+                            </Text>
                             {/*
                              * The vocabulary comes from `meta.branches` on the membership read and
                              * from nowhere else: the kitchen workspace cannot list its own branches,
                              * and the session is no help because an organisation-wide membership has
                              * no branches of its own. With no options there is no decision, so the
-                             * control says so rather than drawing an empty picker.
+                             * step says so rather than drawing an empty picker.
                              */}
                             {branches.length === 0 ? (
                                 <Text tone="secondary" testID="kitchen-team-member-scope-single">
                                     {t('accessAdmin:member.scopeSingleBranch')}
                                 </Text>
                             ) : (
-                                <Select
-                                    testID="kitchen-team-member-scope-select"
-                                    label={t('accessAdmin:member.scopeHeading')}
-                                    labelHidden
-                                    disabled={!canUpdate}
-                                    options={[
-                                        {
-                                            value: WHOLE_KITCHEN,
-                                            label: t('accessAdmin:member.scopeWholeKitchen'),
-                                        },
-                                        ...branches.map((branch) => ({
-                                            value: String(branch.id),
-                                            label: branch.name,
-                                        })),
-                                    ]}
-                                    value={chosenScope ?? WHOLE_KITCHEN}
-                                    onChange={(next) => {
-                                        setScope(next === WHOLE_KITCHEN ? null : next);
-                                        guard.markDirty();
-                                    }}
+                                <FormGrid testID="kitchen-team-member-scope-grid">
+                                    <Select
+                                        testID="kitchen-team-member-scope-select"
+                                        label={stepLabels.scope}
+                                        disabled={!canUpdate}
+                                        options={[
+                                            {
+                                                value: WHOLE_KITCHEN,
+                                                label: t('accessAdmin:member.scopeWholeKitchen'),
+                                            },
+                                            ...branches.map((branch) => ({
+                                                value: String(branch.id),
+                                                label: branch.name,
+                                            })),
+                                        ]}
+                                        value={chosenScope ?? WHOLE_KITCHEN}
+                                        onChange={(next) => {
+                                            setScope(next === WHOLE_KITCHEN ? null : next);
+                                            guard.markDirty();
+                                        }}
+                                    />
+                                </FormGrid>
+                            )}
+                        </Stack>
+                    )}
+
+                    {step !== 'permissions' ? null : (
+                        <Stack space="sm">
+                            <Text variant="caption" tone="secondary">
+                                {t('accessAdmin:member.permissionsHint')}
+                            </Text>
+                            {record.permissions.length === 0 ? (
+                                <Text
+                                    tone="secondary"
+                                    testID="kitchen-team-member-permissions-none"
+                                >
+                                    {t('accessAdmin:member.permissionsNone')}
+                                </Text>
+                            ) : (
+                                <RolePermissionsTab
+                                    testID="kitchen-team-member-permissions"
+                                    domains={permissionDomains}
+                                    codes={new Set(record.permissions)}
+                                    readOnly
+                                    onChange={() => undefined}
                                 />
                             )}
                         </Stack>
-                    </Card>
+                    )}
+                </View>
 
-                    <Card padding="md">
-                        <Stack space="sm">
-                            <Heading level={2}>
-                                {t('accessAdmin:member.permissionsHeading')}
-                            </Heading>
-                            <Text tone="secondary">{t('accessAdmin:member.permissionsHint')}</Text>
-                            <Inline space="xs" wrap testID="kitchen-team-member-permissions">
-                                {record.permissions.map((code) => (
-                                    <Badge
-                                        key={code}
-                                        tone="neutral"
-                                        testID={`kitchen-team-member-permission-${code}`}
-                                        label={t(`accessAdmin:codes.${code}.name` as never, {
-                                            defaultValue: code,
-                                        })}
-                                    />
-                                ))}
-                            </Inline>
-                        </Stack>
-                    </Card>
-                </Stack>
-            </OpsRecordFrame>
+                <TabStepNavigation<MemberStep>
+                    testID="kitchen-team-member-steps-nav"
+                    items={stepItems}
+                    value={step}
+                    onChange={setStep}
+                />
+            </Stack>
+
+            <EditorGuardDialogs
+                testID="kitchen-team-member"
+                guard={guard}
+                concurrency={concurrency}
+            />
 
             <Dialog
                 testID="kitchen-team-member-end-dialog"
@@ -532,6 +608,7 @@ function TeamMemberEditor() {
                         />
                         <Button
                             testID="kitchen-team-member-end-confirm"
+                            variant="danger"
                             label={t('accessAdmin:member.endConfirm')}
                             loading={end.isPending}
                             onPress={() => {
