@@ -20,7 +20,8 @@ import { IngredientEditScreen, PACKAGING_FAMILY } from './ingredient-edit-screen
  * The alternative was a second 1,100-line form. It would have been identical on the day it was
  * written and wrong within a month, because every fix to validation, to the unsaved guard, to the
  * concurrency capture, to the reference preview, would have had to be made twice and would not
- * have been. `SaucesScreen` and `DressingsScreen` wrap `ProductsScreen` for exactly this reason.
+ * have been. Every kind in the recipe book renders the one `RecipeEditScreen` for exactly this
+ * reason.
  *
  * ## What a reader sees
  *

@@ -18,8 +18,7 @@ import { useCatalogueFilters } from './use-catalogue-filters.ts';
 import { useDestructiveRow } from './use-destructive-row.ts';
 
 /**
- * Everything `/kitchen/products` — and `/kitchen/sauces`, and `/kitchen/dressings` — knows that is
- * not a pixel.
+ * Everything `/kitchen/products` knows that is not a pixel.
  *
  * The same split `use-ingredient-list.ts` makes and for the same reason: the list's *behaviour*
  * survives the move to the Catalogue shell untouched while its presentation is rewritten from §4.1.
@@ -28,12 +27,12 @@ import { useDestructiveRow } from './use-destructive-row.ts';
  * Nothing was improved on the way across. A redesign that also quietly changed which version a
  * write is based on is a redesign nobody can review.
  *
- * ## One hook, three pages, and `itemType` is what makes them different
+ * ## `itemType` is a parameter, not a second hook
  *
- * Sauces and dressings are products in apparatus — same packs, same channels, same lifecycle — so
- * they are the same rows filtered by kind rather than three hooks. The kind is a *parameter* and
- * not a second hook because it is part of the filter the query key is built from: change it and the
- * page, the categories and the archive target all follow, which is exactly what a parameter is for.
+ * Sauces and dressings are products in apparatus — same packs, same channels, same lifecycle — and
+ * were listed through this hook by kind until they joined the recipe book. The kind stays a
+ * *parameter* because it is part of the filter the query key is built from: change it and the page,
+ * the categories and the archive target all follow, which is exactly what a parameter is for.
  *
  * ## Sorting is client-side, and that is a stated limitation rather than a hidden one
  *

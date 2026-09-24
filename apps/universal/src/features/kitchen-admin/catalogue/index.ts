@@ -76,7 +76,7 @@ export type {
 
 /*
  * A Catalogue list page is one of these pairs plus the shell above. That is the claim §4.1 makes
- * and the reason five entities share one component set: the array says which tracks, the hook says
+ * and the reason four entities share one component set: the array says which tracks, the hook says
  * what the page knows, and neither knows anything about the other's entity.
  */
 
@@ -88,9 +88,6 @@ export type { RecipeColumnDeps } from './recipe-columns.tsx';
 
 export { productColumns } from './product-columns.tsx';
 export type { ProductColumnDeps } from './product-columns.tsx';
-
-export { mealColumns } from './meal-columns.tsx';
-export type { MealColumnDeps } from './meal-columns.tsx';
 
 export {
     packagingColumns,
@@ -117,9 +114,6 @@ export type {
     ProductSortDirection,
     ProductSortKey,
 } from './use-product-list.ts';
-
-export { useMealList } from './use-meal-list.ts';
-export type { MealListState, MealSortDirection, MealSortKey } from './use-meal-list.ts';
 
 export { PACKAGING_STATUS_FILTERS, usePackagingList } from './use-packaging-list.ts';
 export type {

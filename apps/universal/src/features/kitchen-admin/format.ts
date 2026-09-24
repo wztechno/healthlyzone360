@@ -492,14 +492,6 @@ export const PRODUCT_STATUS_FILTERS: readonly PublishableStatus[] = [
     'retired',
 ];
 
-/** Statuses the meal list filter offers, in lifecycle order. */
-export const MEAL_STATUS_FILTERS: readonly PublishableStatus[] = [
-    'draft',
-    'review_required',
-    'published',
-    'retired',
-];
-
 /**
  * The three shared vocabularies, translated where they were first translated.
  *
@@ -999,11 +991,6 @@ export function recipeRowTestId(recipeId: string): string {
 /** The test id prefix of one product row. */
 export function productRowTestId(productId: string): string {
     return `kitchen-product-${productId}`;
-}
-
-/** The test id prefix of one meal row. */
-export function mealRowTestId(mealId: string): string {
-    return `kitchen-meal-${mealId}`;
 }
 
 /** The test id prefix of one price-list row. */

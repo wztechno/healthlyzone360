@@ -111,11 +111,11 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * `/kitchen/recipes/{recipe}` — the recipe editor, as `Catalogue.dc.html` draws it (`isRecipeEdit`,
  * around line 313).
  *
- * It is also what `/kitchen/sauces/{item}` and `/kitchen/dressings/{item}` draw. A sauce is cooked
- * and owns a recipe of its own — the import writes one per SC-/DR- row — so the questions asked of
- * one are these questions, and `CookedItemEditScreen` resolves the catalogue item to its recipe and
- * hands it here. The same tabs, because it is the same component rather than a copy of it — a
- * sauce's bottles are packaging lines exactly as a meal's box is.
+ * It is every kind in the recipe book — a meal, a sauce, a dressing, a frozen meal, a preparation.
+ * A sauce is cooked and owns a recipe of its own — the import writes one per SC-/DR- row — so the
+ * questions asked of one are these questions, and `RecipeBookEditScreen` hands the recipe here with
+ * whatever sells it on a tab. The same tabs, because it is the same component rather than a copy of
+ * it — a sauce's bottles are packaging lines exactly as a meal's box is.
  *
  * ```
  * Kitchen workspace › Recipes › Thousand Islands   <- the shell's trail
@@ -255,10 +255,10 @@ interface DetailsDraft {
     /**
      * The kitchen's own filing word for this formulation — `cooking_sauce`, `marinade_prep`.
      *
-     * Edited only where a route supplies the vocabulary for it: `/kitchen/recipes` files nothing,
-     * because the recipe library has no one list of words to offer, while a sauce is always one of
-     * four. The column is free text with no CHECK, so whatever is already stored survives a save
-     * from a form that would not have offered it.
+     * Edited only where the host supplies the vocabulary for it: a meal, a preparation or a plain
+     * recipe files nothing, because the book has no one list of words to offer them, while a sauce
+     * is always one of four. The column is free text with no CHECK, so whatever is already stored
+     * survives a save from a form that would not have offered it.
      */
     readonly recipeCategory: string;
 }
@@ -433,17 +433,18 @@ export interface RecipeEditScreenProps {
     /** The route parameter. `'new'` or absent creates. */
     readonly recipe?: string | undefined;
     /**
-     * Where Discard and the not-found notice return to. `/kitchen/recipes` unless a host route says
-     * otherwise — a sauce opened from `/kitchen/sauces` must go back to the list it came from.
+     * Where Discard and the not-found notice return to. `/kitchen/recipes` unless the host says
+     * otherwise — a sauce goes back to the book's Sauces tab, `/kitchen/recipes?kind=sauce`, the
+     * list it came from.
      */
     readonly backTo?: string | undefined;
     /**
-     * The filing this route already knows, and the words it offers for the rest of it.
+     * The filing the host already knows, and the words it offers for the rest of it.
      *
-     * `/kitchen/sauces` knows its category is Sauces & marinades before the form is drawn — it is
-     * what makes it that page — so the category is stated rather than asked, and what is left to
-     * choose is the sub-category. Omitted on `/kitchen/recipes`, where the library spans every
-     * family and there is no one list to offer.
+     * A recipe filed as a sauce knows its category is Sauces & marinations before the form is drawn
+     * — its kind is what files it — so the category is stated rather than asked, and what is left to
+     * choose is the sub-category. Omitted for a meal, a preparation and a plain recipe, where there
+     * is no one list to offer.
      */
     readonly classification?:
         | {
@@ -457,26 +458,27 @@ export interface RecipeEditScreenProps {
     /**
      * What to do with a freshly created recipe, instead of routing to `/kitchen/recipes/{id}`.
      *
-     * The sauce route uses it to write the catalogue item that sells this formulation and route to
-     * *that*, so a sauce created here appears in the list it was created from.
+     * The recipe book uses it to write the catalogue item that sells a new meal, sauce, dressing or
+     * frozen meal before it lands on the recipe, so what was created here is sold as the kind it was
+     * created as.
      */
     readonly onCreated?: ((recipe: RecipeAdmin) => void) | undefined;
     /**
      * Which reference series this record numbers in. The recipe library's unless a route says
      * otherwise — a sauce is `SAC-`, a dressing `DRS-`.
      *
-     * It drives the Ref. box on the create form. On the sauce and dressing routes the handle it
-     * shows is the *item's* — `SAC-044` — because that is the sauce's own handle, the one the list
-     * prints and a cook quotes; the recipe behind it keeps a library `RC-` handle of its own, which
-     * nobody reads off this screen.
+     * It drives the Ref. box on the create form. For a new sauce or dressing the handle it shows is
+     * the *item's* — `SAC-044` — because that is the sauce's own handle, the one the list prints and
+     * a cook quotes; the recipe behind it keeps a library `RC-` handle of its own.
      */
     readonly referenceSeries?: ReferenceSeries | undefined;
     /**
      * The catalogue item this formulation is sold as, drawn as a tab of its own.
      *
      * A sauce, a dressing or a meal is one thing to a kitchen and two records to the API: the recipe
-     * it is made from and the item it is sold as. This editor owns the recipe; the host that resolved
-     * the item owns the item, and hands its listing over as `content` so the two read as one page.
+     * it is made from and the item it is sold as. This editor owns the recipe; the host that read
+     * what sells it owns the item, and hands its listing over as `content` so the two read as one
+     * page.
      * They still save separately — different records, different lock versions, different permissions
      * — so nothing on this screen's Save draft writes the item, and nothing in the tab writes the
      * recipe.
