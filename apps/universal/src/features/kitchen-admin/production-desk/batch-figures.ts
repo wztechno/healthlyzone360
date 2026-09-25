@@ -1,4 +1,7 @@
 import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-client/contracts';
+import { isMeasureUnit } from '@healthy360/nutrition';
+
+import { unitDimension } from '../format.ts';
 
 /**
  * The pure arithmetic behind the production desk (PROD1), out of the screens so the interesting
@@ -75,4 +78,48 @@ export function yieldSummary(order: ProductionOrder): string | null {
     }
 
     return `${usable} / ${produced} ${unit}`.trim();
+}
+
+/**
+ * A lot as people read it: `2609250077` → `260925-007-7` — date, daily sequence, check digit.
+ *
+ * Anything that is not the ten digits the server mints comes back as it was, rather than cut into
+ * the wrong shape. `null` stays `null`, so a caller can fall back to the legacy label.
+ */
+export function formatLot(lot: string | null): string | null {
+    if (lot === null) return null;
+    if (!/^\d{10}$/.test(lot)) return lot;
+
+    return `${lot.slice(0, 6)}-${lot.slice(6, 9)}-${lot.slice(9)}`;
+}
+
+// ponytail: 200 is the print-preview ceiling — past that the browser's preview crawls. A paged
+// print (or ZPL straight to the printer) is the way past it.
+export const MAX_LABEL_COPIES = 200;
+
+/**
+ * How many labels to print: what was typed, when it is a positive whole number, else the default.
+ *
+ * The default is one label per usable unit for **counted** units — pieces, packs, bottles — the same
+ * `count`/`package` rule `scalePackaging` rounds by, because each of those is a thing somebody
+ * sticks a label on. Anything measured (twenty litres of dressing) is one container and one label.
+ * Clamped to 1…{@link MAX_LABEL_COPIES} either way.
+ */
+export function labelCopies(order: ProductionOrder, typed: string | null): number {
+    const asked = typed === null ? Number.NaN : Number(typed.trim());
+    const copies = Number.isInteger(asked) && asked > 0 ? asked : defaultLabelCopies(order);
+
+    return Math.min(Math.max(copies, 1), MAX_LABEL_COPIES);
+}
+
+function defaultLabelCopies(order: ProductionOrder): number {
+    const unit = order.plannedYieldUnitCode;
+    if (unit === null || !isMeasureUnit(unit)) return 1;
+
+    const dimension = unitDimension(unit);
+    if (dimension !== 'count' && dimension !== 'package') return 1;
+
+    const usable = Number(order.usableYieldQuantity ?? '');
+
+    return Number.isFinite(usable) ? Math.floor(usable) : 1;
 }

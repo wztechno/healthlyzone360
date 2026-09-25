@@ -84,6 +84,8 @@ final class ProductionOrderStoreController
             $validated['notes'] ?? null,
         );
 
+        $order->loadMissing(ProductionOrderPresenter::RELATIONS);
+
         return ApiResponse::data(
             ['production_order' => $this->presenter->summary($order, $this->withCosts())],
             status: 201,

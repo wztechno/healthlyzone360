@@ -341,7 +341,7 @@ modules:
   - name: Production
     status: foundation
     phase: 2
-    description: Internal production orders — a batch planned from a recipe version and a batch factor, with required/available/missing against reserved stock and an estimated cost at published weekly prices; confirm opens reservations, completion consumes inputs, records input waste separately, posts the yield and blends it into the produced ingredient's moving average; planned-versus-actual yield, batch reference, storage and expiry; and the technical sheet read back off the confirm-time snapshot.
+    description: Internal production orders — a batch planned from a recipe version and a batch factor, with required/available/missing against reserved stock and an estimated cost at published weekly prices; confirm opens reservations, completion consumes inputs, records input waste separately, posts the yield and blends it into the produced ingredient's moving average; planned-versus-actual yield, storage, and an expiry computed at completion from the recipe's shelf life on the branch-local production date; a lot number (YYMMDD + daily sequence + GS1 check digit) minted when usable units reach a shelf, the GS1-128 label string derived from it, and a scan lookup that resolves a label, a typed lot or a PB- reference back to its batch; and the technical sheet read back off the confirm-time snapshot.
     depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Kitchens, Inventory, Recipes, Ingredients, ReferenceData, Procurement]
 
   - name: QualityControl

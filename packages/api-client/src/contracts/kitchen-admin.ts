@@ -952,6 +952,16 @@ export interface RecipeAdminSummary {
 
 export interface RecipeAdmin extends RecipeAdminSummary {
     readonly description: LocalisedText;
+    /**
+     * How many days a batch of this recipe keeps; a batch's use-by date is its production date plus
+     * this, computed when the batch is completed. `0` is "use the day it is made"; `null` is nobody
+     * has said, and the cook enters the date by hand.
+     *
+     * The recipe's and not the version's — it is how the kitchen keeps the food, not what the food
+     * is — so it is writable while the current version is published, and a correction never puts
+     * the formulation back through review.
+     */
+    readonly shelfLifeDays: number | null;
     readonly currentVersion: RecipeVersionAdmin;
     /** Newest first. Summaries only — a version's lines are fetched by opening it. */
     readonly versions: readonly RecipeVersionSummary[];
@@ -1197,6 +1207,8 @@ export interface CreateRecipeRequest {
     /** Trade list price per yield unit. Omitted leaves it unpriced. */
     readonly b2bPrice?: CostAmount | undefined;
     readonly b2cPrice?: CostAmount | undefined;
+    /** See {@link RecipeAdmin.shelfLifeDays}. Omitted leaves it unset. */
+    readonly shelfLifeDays?: number | undefined;
 }
 
 export interface UpdateRecipeRequest extends LockedRequest {
@@ -1216,6 +1228,12 @@ export interface UpdateRecipeRequest extends LockedRequest {
      */
     readonly b2bPrice?: CostAmount | null | undefined;
     readonly b2cPrice?: CostAmount | null | undefined;
+    /**
+     * See {@link RecipeAdmin.shelfLifeDays}. `null` clears it, `undefined` leaves it alone. Written on
+     * the recipe, never the version, so a request carrying only this and the lock version is legal
+     * against a published recipe.
+     */
+    readonly shelfLifeDays?: number | null | undefined;
 }
 
 /** A line as a caller writes it. Costs and names are derived server-side, never client-supplied. */

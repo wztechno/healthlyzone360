@@ -8,6 +8,7 @@ import {
     Stack,
     TableSkeleton,
     Text,
+    TextInputField,
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -17,7 +18,10 @@ import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import { useProductionOrdersQuery } from '../../../data/kitchen-ops-hooks.ts';
+import {
+    useProductionOrderLookupMutation,
+    useProductionOrdersQuery,
+} from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
@@ -26,7 +30,12 @@ import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import { productionBatchTestId, productionStatusKey, productionStatusTone } from '../ops-format.ts';
-import { countByStatus, countExpired, yieldSummary } from '../production-desk/batch-figures.ts';
+import {
+    countByStatus,
+    countExpired,
+    formatLot,
+    yieldSummary,
+} from '../production-desk/batch-figures.ts';
 
 /**
  * `/kitchen/production-desk/batches` — the batches nobody has to move any more (PROD1).
@@ -53,6 +62,13 @@ import { countByStatus, countExpired, yieldSummary } from '../production-desk/ba
  *
  * Read-only: the family carries no manage permission and nothing here writes. Every edge a batch
  * has lives on the batch itself, which holds the lock version.
+ *
+ * ## The scan field opens a batch, whatever its status
+ *
+ * A keyboard-wedge scanner types the label's GS1 string and presses Enter; a person can type the lot
+ * (dashes fine) or the `PB-` reference. Only `code` is sent — no status, no branch — because the
+ * server resolves it to at most one batch in any state. One match opens it; none says so under the
+ * field. Focus stays put (`blurOnSubmit={false}`) so the next scan needs no click.
  */
 
 export function ProductionBatchesScreen() {
@@ -85,6 +101,30 @@ function ProductionBatches() {
 
     const [status, setStatus] = useState<SettledStatus>('completed');
     const [page, setPage] = useState(1);
+    const [scan, setScan] = useState('');
+    const [scanMessage, setScanMessage] = useState<string | null>(null);
+    const lookup = useProductionOrderLookupMutation();
+
+    const submitScan = () => {
+        const code = scan.trim();
+        if (code === '') return;
+
+        lookup.mutate(code, {
+            onSuccess: ({ orders }) => {
+                const [only] = orders;
+                if (orders.length !== 1 || only === undefined) {
+                    setScanMessage(t('kitchen:ops.production.scanNoMatch'));
+                    return;
+                }
+                setScan('');
+                setScanMessage(null);
+                router.push(`/kitchen/production-desk/${String(only.id)}`);
+            },
+            onError: (error) => {
+                setScanMessage(toFailure(error)?.message ?? null);
+            },
+        });
+    };
 
     const batches = useProductionOrdersQuery({
         status,
@@ -121,9 +161,14 @@ function ProductionBatches() {
                         <Text variant="mono" className="font-medium">
                             {referenceLabel(row)}
                         </Text>
-                        {row.batchReference === null ? null : (
-                            <Text variant="caption" tone="secondary" numberOfLines={1}>
-                                {row.batchReference}
+                        {lotCaption(row) === null ? null : (
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                numberOfLines={1}
+                                testID={`${productionBatchTestId(String(row.id))}-lot`}
+                            >
+                                {lotCaption(row)}
                             </Text>
                         )}
                     </View>
@@ -273,6 +318,27 @@ function ProductionBatches() {
                         testID: `kitchen-production-batches-filter-${value}`,
                     }))}
                 />
+                <View className="min-w-48 flex-1 md:max-w-80">
+                    <TextInputField
+                        testID="kitchen-production-batches-scan"
+                        id="kitchen-production-batches-scan"
+                        size="sm"
+                        labelHidden
+                        label={t('kitchen:ops.production.scanLabel')}
+                        placeholder={t('kitchen:ops.production.scanLabel')}
+                        value={scan}
+                        autoCorrect={false}
+                        autoCapitalize="none"
+                        blurOnSubmit={false}
+                        returnKeyType="go"
+                        {...(scanMessage === null ? {} : { error: scanMessage })}
+                        onChangeText={(value) => {
+                            setScan(value);
+                            setScanMessage(null);
+                        }}
+                        onSubmitEditing={submitScan}
+                    />
+                </View>
             </View>
 
             {batches.isPending ? (
@@ -338,4 +404,9 @@ function ProductionBatches() {
             )}
         </Stack>
     );
+}
+
+/** The lot under the batch number, or what a cook typed on the tray before lots were minted. */
+function lotCaption(row: ProductionOrder): string | null {
+    return formatLot(row.lotNumber) ?? row.batchReference;
 }

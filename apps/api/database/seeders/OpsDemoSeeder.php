@@ -227,6 +227,7 @@ class OpsDemoSeeder extends Seeder
             '20',
             'l',
             [[$mayonnaise, '15', 'l'], [$lemonJuice, '3', 'l'], [$parmesan, '2', 'kg']],
+            shelfLifeDays: 5,
         );
 
         $this->productionRecipe(
@@ -238,6 +239,7 @@ class OpsDemoSeeder extends Seeder
             'piece',
             [[$pastaSheets, '6', 'kg'], [$parmesan, '2', 'kg']],
             [[$freezerTray, '40', 'piece']],
+            shelfLifeDays: 90,
         );
 
         /*
@@ -359,6 +361,9 @@ class OpsDemoSeeder extends Seeder
      * Keyed on the recipe slug, so a reseed converges rather than publishing a
      * second version of the same dish every time it runs.
      *
+     * `$shelfLifeDays` dates the batches the desk completes. The salad is left
+     * without one on purpose, so the demo still shows a use-by typed by hand.
+     *
      * @param  list<array{0: Ingredient, 1: string, 2: string}>  $lines
      * @param  list<array{0: Ingredient, 1: string, 2: string}>  $packaging
      */
@@ -371,6 +376,7 @@ class OpsDemoSeeder extends Seeder
         string $outputUnitCode,
         array $lines,
         array $packaging = [],
+        ?int $shelfLifeDays = null,
     ): void {
         $existing = Recipe::withoutTenancy()
             ->where('organisation_id', $organisation->getKey())
@@ -393,6 +399,7 @@ class OpsDemoSeeder extends Seeder
             'slug' => $slug,
             'name_en' => $nameEn,
             'name_ar' => $nameEn,
+            'shelf_life_days' => $shelfLifeDays,
         ]);
 
         /** @var RecipeVersion $version */

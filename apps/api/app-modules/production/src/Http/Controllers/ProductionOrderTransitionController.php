@@ -147,7 +147,6 @@ final class ProductionOrderTransitionController
             'waste' => ['nullable', 'array'],
             'waste.*' => ['numeric', 'min:0'],
             'production_date' => ['nullable', 'date_format:Y-m-d'],
-            'batch_reference' => ['nullable', 'string', 'max:64'],
             'storage_location' => ['nullable', 'string', 'max:120'],
             'expiry_date' => ['nullable', 'date_format:Y-m-d'],
             'notes' => ['nullable', 'string', 'max:2000'],
@@ -160,7 +159,6 @@ final class ProductionOrderTransitionController
                 consumed: $this->quantityMap($validated['consumed'] ?? []),
                 waste: $this->quantityMap($validated['waste'] ?? []),
                 productionDate: $validated['production_date'] ?? null,
-                batchReference: $validated['batch_reference'] ?? null,
                 storageLocation: $validated['storage_location'] ?? null,
                 expiryDate: $validated['expiry_date'] ?? null,
                 notes: $validated['notes'] ?? null,
@@ -194,6 +192,7 @@ final class ProductionOrderTransitionController
     private function render(ProductionOrder $order): JsonResponse
     {
         $withCosts = $this->withCosts();
+        $order->loadMissing(ProductionOrderPresenter::RELATIONS);
 
         /** @var list<ProductionOrderLine> $lines */
         $lines = $order->lines()->orderBy('display_order')->get()->all();

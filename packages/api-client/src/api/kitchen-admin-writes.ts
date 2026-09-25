@@ -841,6 +841,9 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     ...(request.recipeCategory === undefined
                         ? {}
                         : { recipe_category: request.recipeCategory }),
+                    ...(request.shelfLifeDays === undefined
+                        ? {}
+                        : { shelf_life_days: request.shelfLifeDays }),
                 },
             });
 
@@ -896,6 +899,8 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             // `null` clears it, `undefined` leaves it alone — `RecipeService::update` reads its
             // payload key by key and treats the empty string as a clear for this column.
             if (request.recipeCategory !== undefined) body.recipe_category = request.recipeCategory;
+            // The recipe's, never the version's: this body is the one a published recipe accepts.
+            if (request.shelfLifeDays !== undefined) body.shelf_life_days = request.shelfLifeDays;
 
             if (Object.keys(body).length > 0) {
                 await transport.request({

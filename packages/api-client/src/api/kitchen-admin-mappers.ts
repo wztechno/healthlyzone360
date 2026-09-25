@@ -1079,6 +1079,7 @@ export function mapRecipeAdmin(
     return {
         ...summary,
         description: localised(recipeWire.notes ?? '', undefined),
+        shelfLifeDays: recipeWire.shelf_life_days ?? null,
         currentVersion,
         versions,
     };

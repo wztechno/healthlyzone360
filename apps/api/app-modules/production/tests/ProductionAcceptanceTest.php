@@ -357,7 +357,6 @@ it('makes forty trays, loses two to the process and one to the bin, and sells fi
         // Flour and trays as claimed; half a kilo of flour went on the floor.
         waste: [(string) $flour->getKey() => '0.5'],
         productionDate: '2026-09-16',
-        batchReference: 'FL-0916',
         storageLocation: 'Freezer 2',
         expiryDate: '2027-03-16',
     ));
@@ -376,7 +375,9 @@ it('makes forty trays, loses two to the process and one to the bin, and sells fi
         ->and((string) $completed->actual_unit_cost_amount)->toBe('0.947368')
         ->and($completed->actual_cost_status)->toBe('complete')
         ->and((string) $completed->usableYieldQuantity())->toBe('37.0000')
-        ->and((string) $completed->yieldVariance())->toBe('-2.0000');
+        ->and((string) $completed->yieldVariance())->toBe('-2.0000')
+        // The first lot of the 16th: 260916, sequence 001, check digit 7.
+        ->and($completed->lot_number)->toBe('2609160017');
 
     // ── sell five ─────────────────────────────────────────────────────────
     $frozenMeal = acceptanceSellable($this, [

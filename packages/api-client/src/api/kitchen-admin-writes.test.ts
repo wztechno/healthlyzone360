@@ -128,3 +128,40 @@ describe('createRecipeVersion', () => {
         expect(recipe.currentVersion.status).toBe('draft');
     });
 });
+
+describe('updateRecipe', () => {
+    it('writes a shelf life on the recipe alone, which a published recipe accepts', async () => {
+        const stored = { ...WIRE_RECIPE, shelf_life_days: 7 };
+        const { writes, calls } = harness([
+            { status: 200, body: { data: { recipe: stored } } },
+            {
+                status: 200,
+                body: { data: { recipe: stored, versions: [wireVersion(1, 'published')] } },
+            },
+            {
+                status: 200,
+                body: {
+                    data: {
+                        version: wireVersion(1, 'published'),
+                        lines: [],
+                        packaging: [],
+                        outputs: [],
+                        steps: [],
+                        allergens: [],
+                    },
+                },
+            },
+        ]);
+
+        const recipe = await writes.updateRecipe(RECIPE_ID, { lockVersion: 4, shelfLifeDays: 7 });
+
+        expect(calls[0]?.method).toBe('PATCH');
+        expect(calls[0]?.path).toBe(`/catalogue/recipes/${RECIPE_UUID}`);
+        expect(calls[0]?.body).toEqual({ shelf_life_days: 7 });
+        expect(calls[0]?.headers['if-match']).toBe('"4"');
+        // One write, on the record: the version half would be refused as immutable.
+        expect(calls.filter((call) => call.method === 'PATCH')).toHaveLength(1);
+
+        expect(recipe.shelfLifeDays).toBe(7);
+    });
+});

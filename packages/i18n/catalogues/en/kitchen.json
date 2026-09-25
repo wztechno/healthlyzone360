@@ -1052,7 +1052,14 @@
             "recipeResolving": "Finding the published version…",
             "recipeVersionCaption": "Opens against published version {{number}}.",
             "recipeRequired": "Choose a recipe.",
-            "recipeUnpublished": "{{name}} has no published version, so there is nothing to produce against. Publish a version in the recipe editor first."
+            "recipeUnpublished": "{{name}} has no published version, so there is nothing to produce against. Publish a version in the recipe editor first.",
+            "lotLabel": "Lot",
+            "printLabel": "Print label",
+            "labelCopies": "Copies",
+            "labelBatchOf": "Batch of {{quantity}} {{unit}}",
+            "expiryFromRecipe": "Made on plus {{days}}, from the recipe's shelf life.",
+            "scanLabel": "Scan or type a lot",
+            "scanNoMatch": "No batch carries that code"
         },
         "qc": {
             "title": "Quality control",
@@ -3755,6 +3762,7 @@
         "allergensTitle": "Allergens",
         "expiryAndWaste": "Expiry & waste",
         "expiryPeriod": "Expiry period",
+        "shelfLifeInvalid": "Enter a whole number of days between 0 and 3650.",
         "days": "days",
         "yieldAndWaste": "Yield & waste",
         "price": "Price",

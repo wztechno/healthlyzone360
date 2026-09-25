@@ -11021,6 +11021,10 @@ paths:
         something about. Narrowing it to one state is also how the batch register
         reads completed runs, out of this endpoint rather than a second one.
 
+        `code` is the scan lookup: whatever a barcode scanner typed, or a person
+        read off a label. It resolves to at most one batch, in any state — a label
+        only exists on a finished batch, so the open-state default does not apply.
+
         Ordered by creation rather than by status: a queue sorted by a status
         vocabulary teaches people the vocabulary's order instead of showing them
         their work.
@@ -11032,9 +11036,21 @@ paths:
         - name: status
           in: query
           required: false
-          description: One of the six states. Omitted, the four open ones.
+          description: One of the six states. Omitted, the four open ones — unless `code` is given, which searches every state.
           schema:
             $ref: '#/components/schemas/ProductionOrderStatus'
+        - name: code
+          in: query
+          required: false
+          description: |
+            A scanned or typed code: the GS1-128 string a scanner sends (with or
+            without the `]C1` prefix, the printed parentheses or a GS separator), a
+            ten-digit lot (dashes and spaces allowed; the check digit must hold), or
+            a `PB-` reference. Anything else matches nothing — an empty list, not an
+            error.
+          schema:
+            type: string
+            maxLength: 128
         - name: branch_id
           in: query
           required: false
@@ -24737,6 +24753,22 @@ components:
           type:
             - string
             - 'null'
+        shelf_life_days:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          maximum: 3650
+          description: |
+            How many days a batch of this recipe keeps. A batch's use-by date is its
+            production date plus this, computed when the batch is completed. Zero
+            means "use the day it is made". Null means nobody has said, and the
+            cook enters the date by hand.
+
+            On the recipe rather than its version, deliberately: it is how the
+            kitchen keeps the food, not what the food is, and correcting it must not
+            put the formulation back through review. A batch keeps the date it was
+            given whatever this says later.
         published_version_number:
           type:
             - integer
@@ -26015,6 +26047,13 @@ components:
             - string
             - 'null'
           maxLength: 2000
+        shelf_life_days:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          maximum: 3650
+          description: Days a batch keeps; see `AdminRecipe.shelf_life_days`.
       additionalProperties: false
     UpdateRecipeRequest:
       type: object
@@ -26023,6 +26062,9 @@ components:
         A partial update. `slug` and `status` are absent by design — the slug
         is the handle a re-import converges on, and status changes are
         lifecycle actions with their own routes.
+
+        Every field here belongs to the recipe, not a version, so it is writable
+        whatever state the current version is in — `shelf_life_days` included.
       properties:
         name_en:
           type: string
@@ -26051,6 +26093,13 @@ components:
             - string
             - 'null'
           maxLength: 2000
+        shelf_life_days:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          maximum: 3650
+          description: Days a batch keeps; null clears it. See `AdminRecipe.shelf_life_days`.
       additionalProperties: false
     CreateRecipeVersionRequest:
       type: object
@@ -35323,10 +35372,14 @@ components:
       required:
         - id
         - reference
+        - lot_number
+        - barcode
         - branch_id
+        - branch_name
         - recipe_version_id
         - production_item_ingredient_id
         - production_item_name_en
+        - production_item_name_ar
         - planned_yield_unit_code
         - status
         - batch_factor
@@ -35340,6 +35393,7 @@ components:
         - batch_reference
         - storage_location
         - expiry_date
+        - recipe_shelf_life_days
         - is_expired
         - confirmed_at
         - started_at
@@ -35357,9 +35411,35 @@ components:
           type:
             - string
             - 'null'
-          description: The kitchen-facing batch number, `PB-` plus eight Crockford base-32 characters. Null until confirm mints it. Not the label — that is `batch_reference`, which the cook writes.
+          description: The work order's number, `PB-` plus eight Crockford base-32 characters. Null until confirm mints it. Not the number on the label — that is `lot_number`, which names what the batch made.
+        lot_number:
+          type:
+            - string
+            - 'null'
+          pattern: ^[0-9]{10}$
+          description: |
+            The lot — the number on the label and inside the barcode. `YYMMDD` (the
+            production date), a three-digit sequence for that organisation and day,
+            and a GS1 mod-10 check digit: `2609250077` is shown `260925-007-7`.
+            Minted once, when the settlement puts usable units on a shelf, and never
+            changed. Null on a batch that has not finished or made nothing usable.
+        barcode:
+          type:
+            - string
+            - 'null'
+          description: |
+            The GS1-128 element string in its human-readable form,
+            `(11)YYMMDD(17)YYMMDD(10)<lot>` — production date, expiry date, lot.
+            `(17)` is left out when the batch has no expiry date. Derived from
+            `production_date`, `expiry_date` and `lot_number`, none of which change
+            after completion, so it is never stored. Null without a lot.
         branch_id:
           $ref: '#/components/schemas/Uuid'
+        branch_name:
+          type:
+            - string
+            - 'null'
+          description: The production site's name, for the label. Null means the branch is gone.
         recipe_version_id:
           $ref: '#/components/schemas/Uuid'
         production_item_ingredient_id:
@@ -35375,6 +35455,11 @@ components:
             That ingredient's name. Carried beside the id because a desk showing a
             uuid where a name belongs is a desk nobody can work from. Null means
             the ingredient is gone — an em dash, not a blank.
+        production_item_name_ar:
+          type:
+            - string
+            - 'null'
+          description: The same ingredient's Arabic name, printed beside the English one on the label.
         planned_yield_unit_code:
           type:
             - string
@@ -35430,7 +35515,7 @@ components:
           type:
             - string
             - 'null'
-          description: What the cook writes on the tray, in whatever scheme the kitchen already uses. Free text, deliberately not the system reference.
+          description: What a cook wrote on the tray before the system minted lots. Legacy wording, kept so old batches still show it; completion no longer accepts it — the lot is the number on the label now.
         storage_location:
           type:
             - string
@@ -35440,6 +35525,20 @@ components:
             - string
             - 'null'
           format: date
+          description: |
+            The use-by date. When the recipe carries a shelf life it is computed at
+            completion — `production_date` plus `shelf_life_days` — for a batch that
+            put usable units on a shelf; otherwise it is the date the cook entered.
+            Kept as the date it was, whatever the recipe says later.
+        recipe_shelf_life_days:
+          type:
+            - integer
+            - 'null'
+          description: |
+            The recipe's shelf life **now**, in days — what completion will add to the
+            production date, so the completion form can show the use-by date it is
+            about to get. Null when the recipe has none. A finished batch's own date is
+            `expiry_date`, never this.
         is_expired:
           type: boolean
           description: Past its date. A batch with **no** expiry date is not expired — that is "nobody recorded one", which is never the same as "it is fine".
@@ -36103,10 +36202,7 @@ components:
             - string
             - 'null'
           format: date
-        batch_reference:
-          type:
-            - string
-            - 'null'
+          description: The day the batch was made, as the branch counts days. Omitted, today at the branch. A day that has not arrived at the branch yet is `422`.
         storage_location:
           type:
             - string
@@ -36116,6 +36212,11 @@ components:
             - string
             - 'null'
           format: date
+          description: |
+            Only for a recipe **without** a shelf life. When the recipe has one the
+            server computes the use-by date itself (production date plus
+            `shelf_life_days`), and a supplied one is `422` rather than silently
+            overruled. Never before `production_date`.
         notes:
           type:
             - string

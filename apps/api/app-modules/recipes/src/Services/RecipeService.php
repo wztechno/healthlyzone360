@@ -69,7 +69,8 @@ final readonly class RecipeService
      *     source_ref?: string|null,
      *     source_kind?: string|null,
      *     confidentiality?: string|null,
-     *     notes?: string|null
+     *     notes?: string|null,
+     *     shelf_life_days?: int|null
      * }  $attributes
      * @return array{recipe: Recipe, version: RecipeVersion}
      *
@@ -95,6 +96,7 @@ final readonly class RecipeService
                 ?? RecipeConfidentiality::Confidential;
             $recipe->status = RecipeStatus::Active;
             $recipe->notes = $this->trimmedOrNull($attributes['notes'] ?? null);
+            $recipe->shelf_life_days = $attributes['shelf_life_days'] ?? null;
             $recipe->source_system = $this->trimmedOrNull($attributes['source_system'] ?? null);
             $recipe->lock_version = 0;
             $recipe->created_by = $this->context->userId();
@@ -152,7 +154,7 @@ final readonly class RecipeService
     {
         $changes = [];
 
-        foreach (['name_en', 'name_ar', 'branch_id', 'recipe_category', 'source_kind', 'confidentiality', 'notes'] as $field) {
+        foreach (['name_en', 'name_ar', 'branch_id', 'recipe_category', 'source_kind', 'confidentiality', 'notes', 'shelf_life_days'] as $field) {
             if (! array_key_exists($field, $attributes)) {
                 continue;
             }

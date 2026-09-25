@@ -16,6 +16,7 @@ use Healthy360\Inventory\Models\StockReservation;
 use Healthy360\Inventory\Services\InventoryService;
 use Healthy360\Inventory\Services\MealExplosion;
 use Healthy360\Inventory\Services\ReservationService;
+use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Procurement\Models\WeeklyPricePublication;
 use Healthy360\Procurement\Services\IngredientCostService;
 use Healthy360\Production\Enums\ProductionOrderStatus;
@@ -24,11 +25,14 @@ use Healthy360\Production\Exceptions\ProductionPlanRefused;
 use Healthy360\Production\Exceptions\ProductionStateInvalid;
 use Healthy360\Production\Models\ProductionOrder;
 use Healthy360\Production\Models\ProductionOrderLine;
+use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionOutput;
 use Healthy360\ReferenceData\Exceptions\UnitConversionUnsupported;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\ReferenceData\Services\UnitConversionService;
+use Healthy360\Support\Api\ErrorCode;
+use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Throwable;
@@ -326,8 +330,10 @@ final readonly class ProductionOrderService
     /* ── complete and abandon ────────────────────────────────────────────── */
 
     /**
-     * Finish the batch: consume, waste, yield, value, release.
+     * Finish the batch: consume, waste, yield, value, release — and, once usable
+     * units reach a shelf, date it and give it a lot ({@see batchDates()}).
      *
+     * @throws ApiException when the production or expiry date is refused
      * @throws ProductionStateInvalid
      */
     public function complete(ProductionOrder $order, BatchReport $report, ?string $actorId = null): ProductionOrder
@@ -344,6 +350,7 @@ final readonly class ProductionOrderService
      * is the status and the reason — which is the entire distinction between
      * abandoning and cancelling.
      *
+     * @throws ApiException when the production or expiry date is refused
      * @throws ProductionStateInvalid
      */
     public function abandon(ProductionOrder $order, BatchReport $report, string $reason, ?string $actorId = null): ProductionOrder
@@ -400,6 +407,7 @@ final readonly class ProductionOrderService
     /* ── the settlement transaction ──────────────────────────────────────── */
 
     /**
+     * @throws ApiException when the production or expiry date is refused
      * @throws ProductionStateInvalid
      */
     private function settle(
@@ -417,7 +425,11 @@ final readonly class ProductionOrderService
 
         $this->assertCanMoveTo($order, $ending, $ending === ProductionOrderStatus::Completed ? 'completed' : 'abandoned');
 
-        return DB::transaction(function () use ($order, $report, $ending, $abandonReason, $actorId): ProductionOrder {
+        // Outside the transaction: a refused date is the caller's mistake, and
+        // finding it out should not cost a row lock and a rollback.
+        [$productionDate, $expiryDate] = $this->batchDates($order, $report);
+
+        return DB::transaction(function () use ($order, $report, $ending, $abandonReason, $actorId, $productionDate, $expiryDate): ProductionOrder {
             $locked = $this->lockOrder($order);
 
             if ($locked->status === $ending) {
@@ -441,7 +453,7 @@ final readonly class ProductionOrderService
                 ReservationStatus::Consumed,
             );
 
-            $this->writeOutcome($locked, $report, $settlement, $unitCost, $ending, $abandonReason);
+            $this->writeOutcome($locked, $report, $settlement, $unitCost, $ending, $abandonReason, $productionDate, $expiryDate);
 
             $this->audit->record(
                 $ending === ProductionOrderStatus::Completed ? 'production.order.completed' : 'production.order.abandoned',
@@ -453,6 +465,8 @@ final readonly class ProductionOrderService
                     'rejected_quantity' => $report->rejectedQuantity,
                     'cost_status' => $locked->actual_cost_status,
                     'reason' => $abandonReason,
+                    // Never a key containing "code": AuditRecorder blanks those.
+                    'lot_number' => $locked->lot_number,
                 ],
             );
 
@@ -776,7 +790,92 @@ final readonly class ProductionOrderService
     }
 
     /**
+     * The day the batch was made and the day it must be used by (D-144).
+     *
+     * **The production date is the branch's day**, not the server's: a kitchen
+     * in Dubai finishing a batch at 01:00 made it today, which UTC still calls
+     * yesterday. Omitted, it is today at the branch; a day that has not arrived
+     * there yet is refused, the rule `GoodsReceiptService::dates()` applies to a
+     * delivery — a batch that has not been made cannot have been made.
+     *
+     * **The expiry comes from the recipe when the recipe says.** A recipe with a
+     * shelf life dates every batch as production date plus that many days, and a
+     * date typed by hand as well is a 422 rather than silently overruled — the
+     * cook would otherwise print a label the system disagrees with. Only a batch
+     * that put usable units on a shelf is dated: one that made nothing has no
+     * food to expire. A recipe with no shelf life keeps the old behaviour, the
+     * cook's date or none, and a use-by before the day it was made is refused
+     * as the typing slip it always is.
+     *
+     * Read from the unlocked order before the settlement transaction. The branch
+     * and the version never change under a batch, and a shelf life edited in the
+     * same instant is a race nobody could observe.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable|null}
+     *
+     * @throws ApiException
+     */
+    private function batchDates(ProductionOrder $order, BatchReport $report): array
+    {
+        $timezone = OrganisationBranch::withoutTenancy()->whereKey($order->branch_id)->value('timezone');
+        $today = CarbonImmutable::now(is_string($timezone) ? $timezone : 'UTC')->toDateString();
+
+        $madeOn = $report->productionDate === null
+            ? $today
+            : CarbonImmutable::parse($report->productionDate)->toDateString();
+
+        if ($madeOn > $today) {
+            throw new ApiException(
+                ErrorCode::ValidationFailed,
+                'A batch cannot be made on a date that has not arrived at this branch yet.',
+                ['parameter' => 'production_date'],
+            );
+        }
+
+        // Parsed without a zone so the stored date is the branch's day itself,
+        // not that day's midnight shifted into UTC.
+        $productionDate = CarbonImmutable::parse($madeOn)->startOfDay();
+
+        $shelfLifeDays = Recipe::withoutTenancy()
+            ->whereIn('id', RecipeVersion::withoutTenancy()->select('recipe_id')->whereKey($order->recipe_version_id))
+            ->value('shelf_life_days');
+
+        if (is_numeric($shelfLifeDays)) {
+            if ($report->expiryDate !== null) {
+                throw new ApiException(
+                    ErrorCode::ValidationFailed,
+                    'This recipe sets the use-by date from its shelf life, so it cannot also be entered by hand.',
+                    ['parameter' => 'expiry_date'],
+                );
+            }
+
+            return [$productionDate, $report->hasUsableOutput() ? $productionDate->addDays((int) $shelfLifeDays) : null];
+        }
+
+        if ($report->expiryDate === null) {
+            return [$productionDate, $order->expiry_date];
+        }
+
+        $expiryDate = CarbonImmutable::parse($report->expiryDate)->startOfDay();
+
+        if ($expiryDate->lessThan($productionDate)) {
+            throw new ApiException(
+                ErrorCode::ValidationFailed,
+                'A batch cannot be used by a date before the day it was made.',
+                ['parameter' => 'expiry_date'],
+            );
+        }
+
+        return [$productionDate, $expiryDate];
+    }
+
+    /**
      * Write what happened onto the order.
+     *
+     * The lot is minted here, last, and only once: a batch that already carries
+     * one keeps it, and a batch with nothing usable never gets one (D-145).
+     * {@see ProductionOrderNumbers::lot()} takes its advisory lock at this point,
+     * after every stock lock the settlement took, so the two cannot form a cycle.
      */
     private function writeOutcome(
         ProductionOrder $order,
@@ -785,20 +884,17 @@ final readonly class ProductionOrderService
         ?string $unitCost,
         ProductionOrderStatus $ending,
         ?string $abandonReason,
+        CarbonImmutable $productionDate,
+        ?CarbonImmutable $expiryDate,
     ): void {
         $status = $settlement->status();
         $unitCost = $unitCost === null ? null : $this->numeric($unitCost);
 
         $order->produced_quantity = $this->roundQuantity($report->producedQuantity);
         $order->rejected_quantity = $this->roundQuantity($report->rejectedQuantity);
-        $order->production_date = $report->productionDate === null
-            ? CarbonImmutable::now()->startOfDay()
-            : CarbonImmutable::parse($report->productionDate)->startOfDay();
-        $order->batch_reference = $report->batchReference ?? $order->batch_reference;
+        $order->production_date = $productionDate;
         $order->storage_location = $report->storageLocation ?? $order->storage_location;
-        $order->expiry_date = $report->expiryDate === null
-            ? $order->expiry_date
-            : CarbonImmutable::parse($report->expiryDate)->startOfDay();
+        $order->expiry_date = $expiryDate;
         $order->notes = $report->notes ?? $order->notes;
 
         $order->actual_cost_amount = $settlement->currencyCode === null ? null : $this->roundMoney($settlement->consumedCost);
@@ -815,6 +911,10 @@ final readonly class ProductionOrderService
         } else {
             $order->abandoned_at = CarbonImmutable::now();
             $order->abandon_reason = $abandonReason;
+        }
+
+        if ($order->lot_number === null && $report->hasUsableOutput()) {
+            $order->lot_number = $this->numbers->lot((string) $order->organisation_id, $productionDate);
         }
 
         $order->save();

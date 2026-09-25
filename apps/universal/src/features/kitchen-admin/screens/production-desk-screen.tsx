@@ -38,7 +38,12 @@ import {
     productionStatusKey,
     productionStatusTone,
 } from '../ops-format.ts';
-import { countByStatus, countUnvalued, yieldSummary } from '../production-desk/batch-figures.ts';
+import {
+    countByStatus,
+    countUnvalued,
+    formatLot,
+    yieldSummary,
+} from '../production-desk/batch-figures.ts';
 
 /**
  * `/kitchen/production-desk` — the batches this kitchen still has to do something about (PROD1).
@@ -161,6 +166,8 @@ function ProductionDesk() {
         row.productionItemNameEn ?? t('kitchen:list.noValue');
     const referenceLabel = (row: ProductionOrder) =>
         row.reference ?? t('kitchen:ops.production.unreferenced');
+    // The lot, or what a cook typed on the tray before lots were minted.
+    const lotCaption = (row: ProductionOrder) => formatLot(row.lotNumber) ?? row.batchReference;
 
     const columns: readonly ControlledColumn<ProductionOrder, CatalogueColumn<ProductionOrder>>[] =
         [
@@ -182,9 +189,9 @@ function ProductionDesk() {
                         >
                             {referenceLabel(row)}
                         </Text>
-                        {row.batchReference === null ? null : (
+                        {lotCaption(row) === null ? null : (
                             <Text variant="caption" tone="secondary" numberOfLines={1}>
-                                {row.batchReference}
+                                {lotCaption(row)}
                             </Text>
                         )}
                     </View>

@@ -23,6 +23,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * The stable identity of a recipe. Everything that changes lives on a version.
  *
+ * One exception, on purpose: `shelf_life_days` is an operating parameter rather
+ * than part of the formulation, so correcting it must not put a version back
+ * through review (D-143, the `000612` migration).
+ *
  * Classified `Confidential`, not `Internal` like an ingredient: even the name
  * of a formulation is commercial information, and there is no platform library
  * of recipes for the classification to have to straddle — a recipe belongs to
@@ -39,6 +43,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property RecipeConfidentiality $confidentiality
  * @property RecipeStatus $status
  * @property string|null $notes
+ * @property int|null $shelf_life_days days a batch keeps; a completed batch's expiry is its production date plus this
  * @property string|null $source_system
  * @property string|null $source_ref
  * @property CarbonImmutable|null $seeded_at
@@ -64,6 +69,7 @@ class Recipe extends BaseModel implements OrganisationScoped
         return [
             'confidentiality' => RecipeConfidentiality::class,
             'status' => RecipeStatus::class,
+            'shelf_life_days' => 'integer',
             'seeded_at' => 'immutable_datetime',
             'lock_version' => 'integer',
         ];

@@ -417,6 +417,7 @@ function recipe({ ordinal, name, currentVersion, overrides = {} }: RecipeSeed): 
         kinds: ['preparation'],
         soldAs: [],
         description: { en: 'A dish.', ar: 'طبق.' },
+        shelfLifeDays: null,
         currentVersion: version,
         versions: [versionSummary(version)],
         ...overrides,
@@ -3050,6 +3051,175 @@ describe('costing', () => {
                 stored.id,
                 expect.objectContaining({ packagingWastePercent: 5 }),
             );
+        });
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Shelf life
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * How many days a batch keeps, which a completed batch adds to its production date.
+ *
+ * The recipe's rather than the version's, so it saves with everything else on a draft — and on a
+ * published recipe it is the one field that can be written, and a save there must send it alone:
+ * the version half of `updateRecipe` is refused as immutable.
+ */
+describe('the shelf life', () => {
+    it('reads it off the recipe and saves it with the details, a blank clearing it', async () => {
+        const stored = recipe({
+            ordinal: 2,
+            name: 'Bottled tahini',
+            overrides: { shelfLifeDays: 5 },
+        });
+
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => stored),
+                        updateRecipe: async () => stored,
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('packaging');
+        await untilVisible('kitchen-recipe-expiry-input');
+        expect(screen.getByTestId('kitchen-recipe-expiry-input').props.value).toBe('5');
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), '7');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
+        });
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateRecipe).toHaveBeenCalledWith(
+                stored.id,
+                expect.objectContaining({ shelfLifeDays: 7 }),
+            );
+        });
+        // The first save settles before the next edit: until it does, Save is busy, and settling
+        // afterwards would mark the second edit clean.
+        await untilVisible('kitchen-recipe-saved-toast');
+
+        // An emptied box is "nobody has said", sent as a clear rather than left out.
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), '');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
+        });
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateRecipe).toHaveBeenLastCalledWith(
+                stored.id,
+                expect.objectContaining({ shelfLifeDays: null }),
+            );
+        });
+    });
+
+    it('writes it alone on a published recipe, and keeps the version’s prices closed', async () => {
+        const publishedVersion = recipeVersion({
+            recipeOrdinal: 3,
+            overrides: { status: 'published', publishedAt: '2026-08-02T09:00:00.000Z' },
+        });
+        const stored = recipe({
+            ordinal: 3,
+            name: 'Freekeh bowl',
+            currentVersion: publishedVersion,
+            overrides: { meta: meta({ status: 'published', lockVersion: 4 }) },
+        });
+
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => stored),
+                        updateRecipe: async () => stored,
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        const save = () => screen.getByTestId('kitchen-recipe-editor-screen-save');
+        // Nothing to write yet, and every version field is closed.
+        expect(save().props.accessibilityState.disabled).toBe(true);
+
+        await openTab('costing');
+        await untilVisible('kitchen-recipe-b2b-price-input');
+        expect(screen.getByTestId('kitchen-recipe-b2b-price-input').props.editable).toBe(false);
+        expect(screen.getByTestId('kitchen-recipe-b2c-price-input').props.editable).toBe(false);
+
+        await openTab('packaging');
+        await untilVisible('kitchen-recipe-expiry-input');
+        expect(screen.getByTestId('kitchen-recipe-expiry-input').props.editable).toBe(true);
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), '7');
+        });
+        expect(save().props.accessibilityState.disabled).toBe(false);
+
+        await act(async () => {
+            fireEvent.press(save());
+        });
+
+        // The recipe's field and its lock version, and nothing that would reach the version.
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateRecipe).toHaveBeenCalledWith(stored.id, {
+                lockVersion: 4,
+                shelfLifeDays: 7,
+            });
+        });
+    });
+
+    it('flags a value that is not a whole number of days the recipe can hold', async () => {
+        const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
+
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => stored),
+                        updateRecipe: async () => stored,
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('packaging');
+        await untilVisible('kitchen-recipe-expiry-input');
+
+        for (const typed of ['3.5', '4000']) {
+            await act(async () => {
+                fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), typed);
+            });
+            await untilVisible('kitchen-recipe-expiry-error');
+            expect(screen.getByTestId('kitchen-recipe-expiry-error')).toHaveTextContent(
+                'Enter a whole number of days between 0 and 3650.',
+            );
+        }
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
+        });
+        expect(repositories.kitchenAdmin.updateRecipe).not.toHaveBeenCalled();
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), '30');
+        });
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-recipe-expiry-error')).toBeNull();
         });
     });
 });

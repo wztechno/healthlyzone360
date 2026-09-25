@@ -1208,7 +1208,14 @@
             "recipeResolving": "جارٍ العثور على الإصدار المنشور…",
             "recipeVersionCaption": "تُفتح على الإصدار المنشور {{number}}.",
             "recipeRequired": "اختر وصفة.",
-            "recipeUnpublished": "لا يوجد إصدار منشور لـ {{name}}، فلا شيء يمكن إنتاجه. انشر إصدارًا من محرر الوصفة أولًا."
+            "recipeUnpublished": "لا يوجد إصدار منشور لـ {{name}}، فلا شيء يمكن إنتاجه. انشر إصدارًا من محرر الوصفة أولًا.",
+            "lotLabel": "رقم التشغيلة",
+            "printLabel": "طباعة الملصق",
+            "labelCopies": "عدد النسخ",
+            "labelBatchOf": "دفعة من {{quantity}} {{unit}}",
+            "expiryFromRecipe": "تاريخ الإنتاج مضافًا إليه {{days}}، حسب مدة صلاحية الوصفة.",
+            "scanLabel": "امسح رقم التشغيلة أو اكتبه",
+            "scanNoMatch": "لا توجد دفعة تحمل هذا الرمز"
         },
         "qc": {
             "title": "مراقبة الجودة",
@@ -4319,6 +4326,7 @@
         "allergensTitle": "مسببات الحساسية",
         "expiryAndWaste": "الصلاحية والهدر",
         "expiryPeriod": "مدة الصلاحية",
+        "shelfLifeInvalid": "أدخل عددًا صحيحًا من الأيام بين 0 و3650.",
         "days": "أيام",
         "yieldAndWaste": "المردود والهدر",
         "price": "السعر",

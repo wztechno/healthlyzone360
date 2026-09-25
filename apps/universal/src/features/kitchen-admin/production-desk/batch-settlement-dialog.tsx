@@ -12,11 +12,13 @@ import {
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { addDays } from '../../commerce/dates.ts';
 import type { CompletionDraft, LineField } from './completion-model.ts';
 import {
     completionErrors,
     hasCompletionErrors,
     orderedLines,
+    readNumber,
     withLineQuantity,
 } from './completion-model.ts';
 
@@ -30,7 +32,8 @@ import {
  * Flour, plain      [ as claimed ]  [        ]
  * Tray, 1 kg        [ as claimed ]  [        ]
  *
- * MADE ON [ 2026-09-16 ]  LABEL [ CD-0916 ]  STORED IN [ Chill 2 ]  USE BY [ 2026-09-23 ]
+ * MADE ON [ 2026-09-16 ]  USE BY [ 2026-09-21 ]  STORED IN [ Chill 2 ]
+ *                         └ read-only: Made on + the recipe's shelf life
  * ```
  *
  * ## One form for completing and for abandoning, and that is deliberate
@@ -45,6 +48,14 @@ import {
  * and a blank under **what went in the bin** is zero. {@link completionErrors} and
  * {@link withLineQuantity} hold that asymmetry so no call site has to re-derive it from a `?? 0`;
  * the placeholder says it in words, because a field whose emptiness carries meaning has to say so.
+ *
+ * ## Use by is computed when the recipe says how long it keeps
+ *
+ * With a shelf life the date is Made on plus that many days, shown read-only and never sent — the
+ * server computes the same date and refuses a typed one. It shows only while the drafted usable
+ * quantity is above zero, because a batch that put nothing on a shelf gets no date (and no lot).
+ * Without a shelf life the cook types it, as before. There is no "Label" field any more: the system
+ * mints the lot on the label.
  */
 
 export interface BatchSettlementDialogProps {
@@ -53,6 +64,8 @@ export interface BatchSettlementDialogProps {
     readonly mode: 'complete' | 'abandon';
     readonly lines: readonly ProductionOrderLine[];
     readonly yieldUnitCode: string | null;
+    /** The recipe's shelf life in days. Set, Use by is computed and read-only; null, it is typed. */
+    readonly shelfLifeDays: number | null;
     readonly draft: CompletionDraft;
     readonly onChange: (draft: CompletionDraft) => void;
     readonly onSubmit: () => void;
@@ -68,6 +81,7 @@ export function BatchSettlementDialog({
     mode,
     lines,
     yieldUnitCode,
+    shelfLifeDays,
     draft,
     onChange,
     onSubmit,
@@ -80,6 +94,12 @@ export function BatchSettlementDialog({
     const errors = completionErrors(draft, mode);
     const blocked = hasCompletionErrors(errors);
     const rows = orderedLines(lines);
+
+    const usable = (readNumber(draft.produced) ?? 0) - (readNumber(draft.rejected) ?? 0);
+    const computedExpiry =
+        shelfLifeDays === null || usable <= 0 || draft.productionDate === null
+            ? null
+            : addDays(draft.productionDate, shelfLifeDays);
 
     const setLine = (field: LineField, stockItemId: string, value: string) => {
         onChange(withLineQuantity(draft, field, stockItemId, value));
@@ -230,31 +250,30 @@ export function BatchSettlementDialog({
                         />
                     </View>
                     <View className="flex-1">
-                        <DateField
-                            testID={`${testID}-expiry-date`}
-                            id={`${testID}-expiry-date`}
-                            label={t('kitchen:ops.production.expiryDateLabel')}
-                            value={draft.expiryDate}
-                            onChange={(value) => {
-                                onChange({ ...draft, expiryDate: value });
-                            }}
-                        />
-                    </View>
-                </View>
-
-                <View className="flex-col gap-3 md:flex-row">
-                    <View className="flex-1">
-                        <TextInputField
-                            testID={`${testID}-batch-reference`}
-                            id={`${testID}-batch-reference`}
-                            label={t('kitchen:ops.production.batchReferenceLabel')}
-                            value={draft.batchReference}
-                            autoCapitalize="characters"
-                            autoCorrect={false}
-                            onChangeText={(value) => {
-                                onChange({ ...draft, batchReference: value });
-                            }}
-                        />
+                        {shelfLifeDays === null ? (
+                            <DateField
+                                testID={`${testID}-expiry-date`}
+                                id={`${testID}-expiry-date`}
+                                label={t('kitchen:ops.production.expiryDateLabel')}
+                                value={draft.expiryDate}
+                                onChange={(value) => {
+                                    onChange({ ...draft, expiryDate: value });
+                                }}
+                            />
+                        ) : (
+                            <QuantityInput
+                                testID={`${testID}-expiry-date`}
+                                id={`${testID}-expiry-date`}
+                                readOnly
+                                label={t('kitchen:ops.production.expiryDateLabel')}
+                                hint={t('kitchen:ops.production.expiryFromRecipe', {
+                                    days: t('kitchen:calendar.dayCount', { count: shelfLifeDays }),
+                                })}
+                                placeholder={t('kitchen:list.noValue')}
+                                value={computedExpiry ?? ''}
+                                onChangeText={() => undefined}
+                            />
+                        )}
                     </View>
                     <View className="flex-1">
                         <TextInputField

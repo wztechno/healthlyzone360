@@ -58,7 +58,6 @@ final readonly class BatchReport
         array $consumed = [],
         array $waste = [],
         public ?string $productionDate = null,
-        public ?string $batchReference = null,
         public ?string $storageLocation = null,
         public ?string $expiryDate = null,
         public ?string $notes = null,
@@ -107,5 +106,19 @@ final readonly class BatchReport
     public function producedNothing(): bool
     {
         return bccomp($this->producedQuantity, '0', 4) <= 0;
+    }
+
+    /**
+     * Whether anything usable reaches a shelf: produced minus rejected, above zero.
+     *
+     * The lot and the recipe's use-by date both hang off this rather than off the
+     * ending (D-144, D-145). A batch abandoned after yielding twelve good portions
+     * put twelve portions on a shelf, and they need a label as much as a completed
+     * batch's do; a batch that made nothing, or rejected everything it made, has
+     * nothing to label or to date.
+     */
+    public function hasUsableOutput(): bool
+    {
+        return bccomp(bcsub($this->producedQuantity, $this->rejectedQuantity, 4), '0', 4) > 0;
     }
 }

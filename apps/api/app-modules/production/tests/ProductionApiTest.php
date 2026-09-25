@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Carbon\CarbonImmutable;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\IngredientStockCost;
@@ -11,6 +12,7 @@ use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\Production\Models\ProductionOrder;
+use Healthy360\Production\Services\ProductionOrderNumbers;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
@@ -146,6 +148,39 @@ function apiIngredientShelf(object $test, object $tenant, OrganisationBranch $br
     }
 
     return $item;
+}
+
+/**
+ * A batch taken from draft to completed over the wire; its `production_order`.
+ *
+ * @param  array<string, mixed>  $report
+ * @return array<string, mixed>
+ */
+function apiFinishedBatch(object $test, object $world, array $report = ['produced_quantity' => 38]): array
+{
+    $orderId = $test->postJson('/api/v1/catalogue/production/orders', [
+        'branch_id' => (string) $world->branch->getKey(),
+        'recipe_version_id' => (string) $world->version->getKey(),
+        'planned_yield' => 40,
+    ], $world->headers)->assertCreated()->json('data.production_order.id');
+
+    $confirmed = $test->postJson(
+        '/api/v1/catalogue/production/orders/'.$orderId.'/confirm',
+        [],
+        $world->headers + ['If-Match' => '"0"'],
+    )->assertOk();
+
+    $started = $test->postJson(
+        '/api/v1/catalogue/production/orders/'.$orderId.'/start',
+        [],
+        $world->headers + ['If-Match' => '"'.$confirmed->json('data.production_order.lock_version').'"'],
+    )->assertOk();
+
+    return $test->postJson(
+        '/api/v1/catalogue/production/orders/'.$orderId.'/complete',
+        $report,
+        $world->headers + ['If-Match' => '"'.$started->json('data.production_order.lock_version').'"'],
+    )->assertOk()->json('data.production_order');
 }
 
 it('serves the desk queue to a holder of the view code, with costs when they hold that too', function (): void {
@@ -295,9 +330,13 @@ it('walks a batch from draft to completed over the wire', function (): void {
         $world->headers + ['If-Match' => '"'.$confirmed->json('data.production_order.lock_version').'"'],
     )->assertOk();
 
+    // Relative to today: a fixed date would start failing the day it passed,
+    // because a use-by before the production date is now refused.
+    $expiry = CarbonImmutable::now()->addDays(25);
+
     $completed = $this->postJson(
         '/api/v1/catalogue/production/orders/'.$orderId.'/complete',
-        ['produced_quantity' => 38, 'rejected_quantity' => 1, 'expiry_date' => '2026-10-20'],
+        ['produced_quantity' => 38, 'rejected_quantity' => 1, 'expiry_date' => $expiry->toDateString()],
         $world->headers + ['If-Match' => '"'.$started->json('data.production_order.lock_version').'"'],
     )->assertOk();
 
@@ -307,7 +346,115 @@ it('walks a batch from draft to completed over the wire', function (): void {
         ->and($completed->json('data.production_order.usable_yield_quantity'))->toBe('37.0000')
         ->and($completed->json('data.production_order.yield_variance_quantity'))->toBe('-2.0000')
         ->and($completed->json('data.production_order.actual_cost_status'))->toBe('complete')
-        ->and($completed->json('data.production_order.expiry_date'))->toBe('2026-10-20');
+        ->and($completed->json('data.production_order.expiry_date'))->toBe($expiry->toDateString());
+
+    // The label's facts. The branch is on UTC, so its day is the server's.
+    $lot = $completed->json('data.production_order.lot_number');
+
+    expect($lot)->toStartWith(CarbonImmutable::now()->format('ymd'))
+        ->and(ProductionOrderNumbers::lookupKey($lot))->toBe($lot)
+        ->and($completed->json('data.production_order.barcode'))
+        ->toBe('(11)'.CarbonImmutable::now()->format('ymd').'(17)'.$expiry->format('ymd').'(10)'.$lot)
+        ->and($completed->json('data.production_order.branch_name'))->toBe($world->branch->name)
+        ->and($completed->json('data.production_order.production_item_name_ar'))
+        ->toBe(Ingredient::withoutTenancy()->whereKey($world->dressing->ingredient_id)->value('name_ar'))
+        // The world's recipe has no shelf life, which is why the date above was
+        // the cook's to type.
+        ->and($completed->json('data.production_order.recipe_shelf_life_days'))->toBeNull();
+
+    // Before completion there is no lot, so there is nothing to encode.
+    expect($started->json('data.production_order.lot_number'))->toBeNull()
+        ->and($started->json('data.production_order.barcode'))->toBeNull();
+});
+
+it('finds a finished batch by its scanned label, its typed lot or its work-order reference', function (): void {
+    $world = ($this->world)('scan@kitchen.test', [PRODUCTION_VIEW, PRODUCTION_MANAGE]);
+    $this->actingAs($world->tenant->user);
+
+    $batch = apiFinishedBatch($this, $world);
+    $lot = (string) $batch['lot_number'];
+
+    foreach ([
+        // What a keyboard-wedge scanner types: the symbology prefix, no brackets.
+        ']C1'.str_replace(['(', ')'], '', (string) $batch['barcode']),
+        // The line printed under the bars.
+        (string) $batch['barcode'],
+        // The lot as a person reads it off the label.
+        substr($lot, 0, 6).'-'.substr($lot, 6, 3).'-'.substr($lot, 9),
+        strtolower((string) $batch['reference']),
+    ] as $code) {
+        // Found although it is completed: a scan skips the open-state default,
+        // because a label only exists on a batch that finished.
+        $this->getJson('/api/v1/catalogue/production/orders?code='.rawurlencode($code), $world->headers)
+            ->assertOk()
+            ->assertJsonCount(1, 'data.production_orders')
+            ->assertJsonPath('data.production_orders.0.id', $batch['id']);
+    }
+});
+
+it('answers a code that names no batch here with an empty list, not an error', function (): void {
+    $mine = ($this->world)('here@kitchen.test', [PRODUCTION_VIEW, PRODUCTION_MANAGE]);
+    $theirs = ($this->world)('there@kitchen.test', [PRODUCTION_VIEW, PRODUCTION_MANAGE]);
+
+    $this->actingAs($theirs->tenant->user);
+    $theirBatch = apiFinishedBatch($this, $theirs);
+
+    $this->actingAs($mine->tenant->user);
+
+    // A batch of my own, so an empty answer is the filter and not an empty
+    // table. A draft, because a finished one today would mint the same first
+    // lot of the day as theirs — lots are per organisation.
+    $this->postJson('/api/v1/catalogue/production/orders', [
+        'branch_id' => (string) $mine->branch->getKey(),
+        'recipe_version_id' => (string) $mine->version->getKey(),
+        'planned_yield' => 40,
+    ], $mine->headers)->assertCreated();
+
+    foreach (['a smudged label', '2609250074', (string) $theirBatch['lot_number']] as $code) {
+        $this->getJson('/api/v1/catalogue/production/orders?code='.rawurlencode($code), $mine->headers)
+            ->assertOk()
+            ->assertJsonCount(0, 'data.production_orders');
+    }
+});
+
+it('refuses a hand-typed use-by date on a recipe that sets its own', function (): void {
+    $world = ($this->world)('shelf@kitchen.test', [PRODUCTION_VIEW, PRODUCTION_MANAGE]);
+    $this->actingAs($world->tenant->user);
+
+    Recipe::withoutTenancy()->whereKey($world->version->recipe_id)->update(['shelf_life_days' => 5]);
+
+    $orderId = $this->postJson('/api/v1/catalogue/production/orders', [
+        'branch_id' => (string) $world->branch->getKey(),
+        'recipe_version_id' => (string) $world->version->getKey(),
+        'planned_yield' => 40,
+    ], $world->headers)->assertCreated()->json('data.production_order.id');
+
+    // Carried on the draft already, so the completion form can show the date it
+    // is about to compute.
+    $this->getJson('/api/v1/catalogue/production/orders/'.$orderId, $world->headers)
+        ->assertOk()
+        ->assertJsonPath('data.production_order.recipe_shelf_life_days', 5);
+
+    $confirmed = $this->postJson(
+        '/api/v1/catalogue/production/orders/'.$orderId.'/confirm',
+        [],
+        $world->headers + ['If-Match' => '"0"'],
+    )->assertOk();
+
+    $started = $this->postJson(
+        '/api/v1/catalogue/production/orders/'.$orderId.'/start',
+        [],
+        $world->headers + ['If-Match' => '"'.$confirmed->json('data.production_order.lock_version').'"'],
+    )->assertOk();
+
+    $this->postJson(
+        '/api/v1/catalogue/production/orders/'.$orderId.'/complete',
+        ['produced_quantity' => 38, 'expiry_date' => CarbonImmutable::now()->addDays(3)->toDateString()],
+        $world->headers + ['If-Match' => '"'.$started->json('data.production_order.lock_version').'"'],
+    )
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed')
+        ->assertJsonPath('error.details.parameter', 'expiry_date');
 });
 
 it('serves the batch technical sheet off the confirm-time snapshot', function (): void {
