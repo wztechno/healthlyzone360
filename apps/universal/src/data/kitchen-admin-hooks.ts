@@ -137,13 +137,14 @@ import { useRepositories, useRepositoryContext } from './repository-provider.tsx
  *    version. There is no `getRecipeVersion(id)`, so the lines of a version that is not current
  *    cannot be read at all. {@link useRecipeQuery} is therefore the only version reader there is,
  *    and the editor says so where a reader would otherwise expect to open an older version.
- * 4. **There is no `createVersion`.** A published version is immutable, and the server opens the
- *    next draft *as a consequence of the first write to it* — which is why every line/step/output
- *    setter answers with the whole `RecipeAdmin` rather than with the version the caller thought it
- *    was editing. {@link useOpenRecipeDraftMutation} therefore sends an `updateRecipe` carrying
- *    nothing but the lock version: the smallest legal write, whose only effect is that the draft
- *    exists. "Copy from" is not a parameter because there is nothing to point it at — the copy is
- *    always taken from the current version.
+ * 4. ~~There is no `createVersion`.~~ **Closed.** It never was a contract gap —
+ *    `POST /catalogue/recipes/{recipe}/versions` has always opened the successor draft, and a
+ *    published version refuses every other write with `catalogue.version_immutable`. The draft
+ *    button used to stand in for it with an `updateRecipe` carrying nothing but the lock version,
+ *    on the belief that the first write to a published version opens the draft. It does not, and a
+ *    request with no fields is never sent at all: "New draft" re-read the published version and
+ *    announced it as the draft. {@link useOpenRecipeDraftMutation} now calls
+ *    `createRecipeVersion`, copying the version on screen.
  * 5. **A recipe's kind is what sells it.** `RecipeAdminSummary` carries a kitchen, a name, a slug,
  *    version counters, the publication meta and — for a reader who may see the catalogue — the
  *    items that sell it. The recipe book filters on that kind, on the item's publication and on
@@ -840,10 +841,11 @@ export function useRecipeKindCountsQuery(enabled = true): UseQueryResult<RecipeK
 /**
  * Writes the record into its detail entry and invalidates the workspace root.
  *
- * The recipe half needs this more than the ingredient half did, not less: one line write can move
- * the recipe's row in the list, open a *new* version, change the derived allergen label the list
- * column renders, and — on publish — add or remove a row from the consumer marketplace projection
- * the same store answers. Anything narrower would leave one of those showing something untrue.
+ * The recipe half needs this more than the ingredient half did, not less: one write can move the
+ * recipe's row in the list, put a new draft in front of the published version, change the derived
+ * allergen label the list column renders, and — on publish — add or remove a row from the consumer
+ * marketplace projection the same store answers. Anything narrower would leave one of those showing
+ * something untrue.
  */
 function useRecipeWriteEffects(): (recipe: RecipeAdmin) => void {
     const queryClient = useQueryClient();
@@ -879,8 +881,9 @@ export interface UpdateRecipeVariables {
  *
  * One request covers both because the contract puts them in one request: `UpdateRecipeRequest`
  * carries `name`/`description` (the recipe) beside `yieldQuantity`/`yieldUnit`/`yieldPieces`/
- * `wastePercent` (the current version). Writing it against a *published* version opens the next
- * draft and lands the change there — see {@link useOpenRecipeDraftMutation}.
+ * `wastePercent` (the current version). A *published* version refuses the version half
+ * (`catalogue.version_immutable`); the change goes onto a draft opened first — see
+ * {@link useOpenRecipeDraftMutation}.
  */
 export function useUpdateRecipeMutation(): UseMutationResult<
     RecipeAdmin,
@@ -899,16 +902,21 @@ export function useUpdateRecipeMutation(): UseMutationResult<
 
 export interface OpenRecipeDraftVariables {
     readonly recipeId: RecipeId;
-    readonly request: LockedRequest;
+    /** The version *number* the draft copies — the one on screen. */
+    readonly copyFromVersion: number;
 }
 
 /**
- * Opens the next draft from the current version.
+ * Opens the next draft as a copy of the version on screen.
  *
- * The contract has no `createVersion` (see the module note): a published version is immutable, and
- * the server opens the successor as a consequence of the first write to it. So this sends the
- * smallest legal `updateRecipe` — a lock version and no fields — whose only effect is that the
- * draft now exists, carrying a copy of the published version's lines, outputs and steps.
+ * A published version is immutable, so the successor is asked for rather than written into being:
+ * `createRecipeVersion` posts to `…/versions` and the server copies the version's lines, packaging,
+ * outputs, steps and declared allergens onto a new draft. The answer is the re-read recipe, whose
+ * current version is that draft. No lock version travels — nothing existing is written.
+ *
+ * The caller names the version to copy rather than this asking the server for "current" at press
+ * time: the editor's line drafts were hydrated from the version on screen, and copying exactly that
+ * one is what keeps them identical to the draft they now stand for.
  *
  * Kept as its own hook rather than as a call site of {@link useUpdateRecipeMutation} because the two
  * report differently: this one's pending state belongs to a "create a new draft" button and its
@@ -923,8 +931,8 @@ export function useOpenRecipeDraftMutation(): UseMutationResult<
     const onWritten = useRecipeWriteEffects();
 
     return useMutation({
-        mutationFn: ({ recipeId, request }: OpenRecipeDraftVariables) =>
-            repositories.kitchenAdmin.updateRecipe(recipeId, request),
+        mutationFn: ({ recipeId, copyFromVersion }: OpenRecipeDraftVariables) =>
+            repositories.kitchenAdmin.createRecipeVersion(recipeId, copyFromVersion),
         onSuccess: onWritten,
     });
 }

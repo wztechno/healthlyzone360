@@ -211,9 +211,10 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ## A published version is immutable, and the editor says so rather than pretending
  *
- * Editing a published version does not change it — the server opens the next draft and the edit
- * lands there (plan §4.7). So this screen never presents one as editable. The version list on
- * Description renders it read-only with the one control that can actually happen next.
+ * A published version cannot be edited — the server refuses the write with
+ * `catalogue.version_immutable` (plan §4.7), and the change is a new draft copied from it. So this
+ * screen never presents one as editable. The version list on Description renders it read-only with
+ * the one control that can actually happen next.
  *
  * ## Costs are confidential, and every one of them is the server's
  *
@@ -589,10 +590,13 @@ function RecipeEditor({
     const anyDirty = detailsDirty || linesDirty || packagingDirty;
 
     /*
-     * One rehydration key for the whole record rather than one per section: `setRecipeLines` against
-     * a published version *opens a new version*, so the steps a person is looking at may now belong
-     * to a different row entirely. Rebasing the untouched sections together is the only reading that
+     * One rehydration key for the whole record rather than one per section: every write answers with
+     * the whole `RecipeAdmin`, and rebasing the untouched sections together is the only reading that
      * stays true.
+     *
+     * The key is the *recipe's* lock version, which opening a draft does not move — a new version
+     * row is not a write to this one. The drafts keep what they were hydrated from, which is right
+     * only because New draft copies exactly the version on screen.
      */
     if (data !== undefined && serverKey !== hydratedKey && !anyDirty) {
         setHydratedKey(serverKey);
@@ -2085,8 +2089,8 @@ function RecipeEditor({
                                 {/*
                                  * A published or retired version is immutable (plan §4.7). The one
                                  * thing that can happen next is the successor draft, and this is the
-                                 * control that makes it — an `updateRecipe` carrying nothing but the
-                                 * lock version.
+                                 * control that makes it — `createRecipeVersion`, copying the version
+                                 * on screen.
                                  */}
                                 {isViewingCurrent && !isEditable && canManage ? (
                                     <Callout
@@ -2106,9 +2110,8 @@ function RecipeEditor({
                                                     openDraft.mutate(
                                                         {
                                                             recipeId: data.id,
-                                                            request: {
-                                                                lockVersion: data.meta.lockVersion,
-                                                            },
+                                                            copyFromVersion:
+                                                                data.currentVersion.versionNumber,
                                                         },
                                                         {
                                                             onSuccess: (updated) => {

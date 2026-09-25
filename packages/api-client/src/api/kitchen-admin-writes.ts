@@ -93,6 +93,7 @@ export type ApiKitchenAdminWrites = Pick<
     | 'forkIngredient'
     | 'setIngredientAllergens'
     | 'createRecipe'
+    | 'createRecipeVersion'
     | 'updateRecipe'
     | 'setRecipeLines'
     | 'setRecipePackaging'
@@ -867,6 +868,20 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             });
 
             return reads.getRecipe(RecipeId.unsafe(recipeId));
+        },
+
+        async createRecipeVersion(
+            recipeId: RecipeId,
+            copyFromVersion: number,
+        ): Promise<RecipeAdmin> {
+            // No `If-Match`: this adds a version row and writes nothing that already exists.
+            await transport.request({
+                method: 'POST',
+                path: `/catalogue/recipes/${encodeURIComponent(String(recipeId))}/versions`,
+                body: { copy_from_version: copyFromVersion },
+            });
+
+            return reads.getRecipe(recipeId);
         },
 
         async updateRecipe(recipeId: RecipeId, request: UpdateRecipeRequest): Promise<RecipeAdmin> {

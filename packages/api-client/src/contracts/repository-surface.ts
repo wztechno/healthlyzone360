@@ -197,6 +197,7 @@ export const REPOSITORY_SURFACE = {
         'createPlan',
         'createProduct',
         'createRecipe',
+        'createRecipeVersion',
         'createZone',
         'forkIngredient',
         'getBranchOperating',

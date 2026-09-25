@@ -2086,7 +2086,19 @@ export interface KitchenAdminRepository {
         versionId: RecipeVersionId,
     ): Promise<TechnicalSheetAdmin | null>;
     createRecipe(request: CreateRecipeRequest): Promise<RecipeAdmin>;
-    /** Editing a published recipe opens a new draft version; the result says which one is current. */
+    /**
+     * Opens the next draft version as a copy of version `copyFromVersion` (a version *number*) and
+     * answers with the recipe, whose current version is now that draft. This is the only way a
+     * published version changes.
+     *
+     * Takes no lock version — nothing existing is written, so there is nothing to be stale against.
+     */
+    createRecipeVersion(recipeId: RecipeId, copyFromVersion: number): Promise<RecipeAdmin>;
+    /**
+     * The record's fields and the current version's yield, waste and prices. A published version
+     * refuses the version half (`catalogue.version_immutable`): open a draft with
+     * {@link createRecipeVersion} first.
+     */
     updateRecipe(recipeId: RecipeId, request: UpdateRecipeRequest): Promise<RecipeAdmin>;
     setRecipeLines(recipeId: RecipeId, request: SetRecipeLinesRequest): Promise<RecipeAdmin>;
     setRecipeSteps(recipeId: RecipeId, request: SetRecipeStepsRequest): Promise<RecipeAdmin>;
