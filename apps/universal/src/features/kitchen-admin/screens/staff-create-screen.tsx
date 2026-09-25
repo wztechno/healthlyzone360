@@ -65,10 +65,10 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ## It opens the way every other kitchen record form does
  *
- * `RecordFormOpening` — title, unsaved marker, Cancel and the commit at the inline end — over
- * numbered step tabs, each an underlined section of `sm` fields in a `FormGrid`, walked with the
- * Previous / Next footer the supplier and role editors use. An invitation is two steps (sign-in,
- * role); a login made here is three (sign-in, person, role). The commit is always pressable: a
+ * `RecordFormOpening` — title, unsaved marker, Cancel at the inline end — over numbered step tabs,
+ * each an underlined section of `sm` fields in a `FormGrid`, walked with the Previous / Next footer
+ * the supplier and role editors use, whose last Next is the commit. An invitation is two steps
+ * (sign-in, role); a login made here is three (sign-in, person, role). The commit is always pressable: a
  * press over an incomplete form names what is missing in the issues banner and opens the step that
  * holds the first of it, rather than a disabled button that says nothing.
  */
@@ -399,17 +399,6 @@ function StaffCreateForm() {
                                     });
                                 }}
                             />
-                            <Button
-                                testID="kitchen-staff-create-submit"
-                                label={t(
-                                    mode === 'invite'
-                                        ? 'accessAdmin:add.submitInvite'
-                                        : 'accessAdmin:add.submitCreate',
-                                )}
-                                loading={invite.isPending || create.isPending}
-                                disabled={invite.isPending || create.isPending}
-                                onPress={attemptSubmit}
-                            />
                         </>
                     }
                     errors={{
@@ -647,11 +636,25 @@ function StaffCreateForm() {
                     )}
                 </View>
 
+                {/* The commit is the last step's Next, not a header button, as on the role editor. */}
                 <TabStepNavigation<StaffStep>
                     testID="kitchen-staff-create-steps-nav"
                     items={stepItems}
                     value={step}
                     onChange={setStep}
+                    finalAction={
+                        <Button
+                            testID="kitchen-staff-create-submit"
+                            label={t(
+                                mode === 'invite'
+                                    ? 'accessAdmin:add.submitInvite'
+                                    : 'accessAdmin:add.submitCreate',
+                            )}
+                            loading={invite.isPending || create.isPending}
+                            disabled={invite.isPending || create.isPending}
+                            onPress={attemptSubmit}
+                        />
+                    }
                 />
             </Stack>
 

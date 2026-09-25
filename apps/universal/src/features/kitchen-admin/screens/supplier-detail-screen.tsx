@@ -764,6 +764,21 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
         testID: `kitchen-supplier-screen-steps-${key}`,
     }));
 
+    /*
+     * Hidden rather than disabled on an archived supplier: every field is locked and the callout
+     * says why, so a Save that could never work is noise.
+     */
+    const saveButton =
+        !canManage || isArchived ? null : (
+            <Button
+                testID="kitchen-supplier-screen-save"
+                label={t('kitchen:ops.suppliers.saveDetails')}
+                loading={create.isPending || update.isPending}
+                disabled={create.isPending || update.isPending}
+                onPress={attemptSave}
+            />
+        );
+
     return (
         <Stack space="md" testID="kitchen-supplier-screen">
             <RecordFormOpening<SupplierStep>
@@ -829,18 +844,10 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                             />
                         )}
                         {/*
-                         * Hidden rather than disabled on an archived supplier: every field is locked
-                         * and the callout below says why, so a Save that could never work is noise.
+                         * Only while the form is one step: with more, Save is the last step's Next
+                         * and the header carries none.
                          */}
-                        {!canManage || isArchived ? null : (
-                            <Button
-                                testID="kitchen-supplier-screen-save"
-                                label={t('kitchen:ops.suppliers.saveDetails')}
-                                loading={create.isPending || update.isPending}
-                                disabled={create.isPending || update.isPending}
-                                onPress={attemptSave}
-                            />
-                        )}
+                        {stepItems.length > 1 ? null : saveButton}
                     </>
                 }
                 errors={{
@@ -1267,6 +1274,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                 items={stepItems}
                 value={form.current}
                 onChange={form.goTo}
+                finalAction={saveButton ?? undefined}
             />
 
             {/* ── supplier item reference ──────────────────────────────────────────────────── */}

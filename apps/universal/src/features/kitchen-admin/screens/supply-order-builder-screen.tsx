@@ -671,11 +671,10 @@ function SupplyOrderBuilder() {
     return (
         <Stack space="md" testID="kitchen-supply-order-builder-screen">
             {/*
-             * The opening the record forms share: the title, Cancel and the one create at the inline
-             * end, and the steps as numbered tabs — each with its count, and the unlinked step with a
-             * warning pill for the shelves that will not be ordered. The create sits in the header on
-             * every step, because the counts on the tabs already say what it will make; it waits
-             * only for there to be something to order.
+             * The opening the record forms share: the title and Cancel at the inline end, and the
+             * steps as numbered tabs — each with its count, and the unlinked step with a warning pill
+             * for the shelves that will not be ordered. The one create is the last step's Next, on
+             * the review; it waits only for there to be something to order.
              */}
             <RecordFormOpening<BuilderStep>
                 testID="kitchen-supply-order-builder-screen"
@@ -691,20 +690,6 @@ function SupplyOrderBuilder() {
                                 router.push('/kitchen/supply-orders' as never);
                             }}
                         />
-                        {loaded ? (
-                            <Button
-                                testID="kitchen-supply-order-create"
-                                label={t('kitchen:ops.supplyOrders.createDrafts', {
-                                    count: plan.groups.length,
-                                })}
-                                loading={createOrders.isPending}
-                                disabled={plan.groups.length === 0}
-                                onPress={() => {
-                                    setCreateFailed(false);
-                                    setConfirmingCreate(true);
-                                }}
-                            />
-                        ) : null}
                     </>
                 }
                 warnings={{
@@ -973,6 +958,20 @@ function SupplyOrderBuilder() {
                     items={stepItems}
                     value={form.current}
                     onChange={form.goTo}
+                    finalAction={
+                        <Button
+                            testID="kitchen-supply-order-create"
+                            label={t('kitchen:ops.supplyOrders.createDrafts', {
+                                count: plan.groups.length,
+                            })}
+                            loading={createOrders.isPending}
+                            disabled={plan.groups.length === 0}
+                            onPress={() => {
+                                setCreateFailed(false);
+                                setConfirmingCreate(true);
+                            }}
+                        />
+                    }
                 />
             ) : null}
 

@@ -53,8 +53,8 @@ import { memberDisplayName } from './team-screen.tsx';
  * ## It opens the way every other kitchen record form does
  *
  * `RecordFormOpening` — their name, their status and address beside it, then Cancel, Suspend or
- * Let back in, Remove and Save at the inline end — over three numbered steps walked with the
- * Previous / Next footer: the roles they hold, where they work, and what that adds up to. The last
+ * Let back in and Remove at the inline end — over three numbered steps walked with the Previous /
+ * Next footer, whose last Next is Save: the roles they hold, where they work, and what that adds up to. The last
  * is the role editor's Advanced matrix in its read-only mode, drawn from the permissions the
  * membership read already carries, so "what can this person actually do" reads in the same grid a
  * role is built in.
@@ -425,23 +425,6 @@ function TeamMemberEditor() {
                                     }}
                                 />
                             ) : null}
-                            {/*
-                             * Hidden rather than disabled for somebody who may not assign roles:
-                             * the whole record is theirs to read, and a Save that could never
-                             * work is noise.
-                             */}
-                            {canAssignRoles ? (
-                                <Button
-                                    testID="kitchen-team-member-save"
-                                    label={t('accessAdmin:member.save')}
-                                    // Both halves of the chain: a scope write still running is a
-                                    // save still running, and a button that came back to life
-                                    // between the two would take a second press.
-                                    loading={scopeWrite.isPending || setRoles.isPending}
-                                    disabled={scopeWrite.isPending || setRoles.isPending}
-                                    onPress={save}
-                                />
-                            ) : null}
                         </>
                     }
                     steps={{
@@ -574,11 +557,30 @@ function TeamMemberEditor() {
                     )}
                 </View>
 
+                {/*
+                 * Save is the last step's Next, not a header button, as on the role editor. Hidden
+                 * rather than disabled for somebody who may not assign roles: the whole record is
+                 * theirs to read, and a Save that could never work is noise.
+                 */}
                 <TabStepNavigation<MemberStep>
                     testID="kitchen-team-member-steps-nav"
                     items={stepItems}
                     value={step}
                     onChange={setStep}
+                    finalAction={
+                        canAssignRoles ? (
+                            <Button
+                                testID="kitchen-team-member-save"
+                                label={t('accessAdmin:member.save')}
+                                // Both halves of the chain: a scope write still running is a save
+                                // still running, and a button that came back to life between the
+                                // two would take a second press.
+                                loading={scopeWrite.isPending || setRoles.isPending}
+                                disabled={scopeWrite.isPending || setRoles.isPending}
+                                onPress={save}
+                            />
+                        ) : undefined
+                    }
                 />
             </Stack>
 

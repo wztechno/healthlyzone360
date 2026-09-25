@@ -120,7 +120,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ```
  * Kitchen workspace › Recipes › Thousand Islands   <- the shell's trail
- * Thousand Islands  DRAFT  RC-0104  RESTRICTED    [ Cancel ] [ Save draft ] [ Publish ]
+ * Thousand Islands  DRAFT  RC-0104  RESTRICTED                 [ Cancel ] [ Publish ]
  * ⚠ 1 at zero  [ Sleeve label ]                   <- once there is something to say
  * ┌─────────────────────────────────────────────────────────────────────────────┐
  * │(1) Description │(2) Production 9 │(3) Packaging 3 ① │(4) Costing │(5) Sheet │
@@ -132,7 +132,8 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * and — when something on it needs attention — a solid pill with the number of problems. The
  * banner under the header names each of those problems and takes the reader to it, switching tab
  * on the way; the pills are what tells a reader *which* tab to open without opening all five. The
- * row is how a reader jumps; the Previous/Next footer (`TabStepNavigation`) is how they walk it.
+ * row is how a reader jumps; the Previous/Next footer (`TabStepNavigation`) is how they walk it,
+ * and its last Next is Save draft.
  *
  * The yield moved from Description to Production, where it sits with the production waste as
  * "Yield & waste" above the lines it divides; the packaging waste sits above the packaging lines
@@ -1727,11 +1728,8 @@ function RecipeEditor({
                     primaryAction={
                         <Inline space="xs" align="center">
                             {/*
-                             * The design's Cancel · Save draft · Publish, at the header's one `md`.
-                             * While creating there is nothing to publish yet, so Save draft — which
-                             * creates the record — takes the primary's weight: it is the commit that
-                             * used to wait at the end of the step footer, now where every tab can
-                             * reach it.
+                             * Cancel and Publish, at the header's one `md`. Save draft is not here:
+                             * it is the last step's Next, under the form.
                              */}
                             <Button
                                 testID="kitchen-recipe-editor-screen-discard"
@@ -1740,14 +1738,6 @@ function RecipeEditor({
                                 onPress={() => {
                                     guard.intercept(goBack);
                                 }}
-                            />
-                            <Button
-                                testID="kitchen-recipe-editor-screen-save"
-                                variant={isCreating ? 'primary' : 'secondary'}
-                                label={t('kitchen:common.saveDraft')}
-                                loading={create.isPending || update.isPending || setLines.isPending}
-                                disabled={!canManage || !isEditable}
-                                onPress={attemptSave}
                             />
                             {isCreating || !canManage ? null : (
                                 <Button
@@ -2785,6 +2775,15 @@ function RecipeEditor({
                 items={tabItems}
                 value={tab}
                 onChange={setTab}
+                finalAction={
+                    <Button
+                        testID="kitchen-recipe-editor-screen-save"
+                        label={t('kitchen:common.saveDraft')}
+                        loading={create.isPending || update.isPending || setLines.isPending}
+                        disabled={!canManage || !isEditable}
+                        onPress={attemptSave}
+                    />
+                }
             />
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}

@@ -2060,11 +2060,14 @@ describe('publishing a plan', () => {
         expect(screen.queryByTestId(`${configuration}-remove`)).toBeNull();
         expect(screen.queryByTestId('kitchen-plan-issues')).toBeNull();
 
+        // Save is the last step's Next — Durations, on a new plan.
+        await openPlanStep('durations');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
         });
         await untilVisible('kitchen-plan-issues');
         expect(repositories.kitchenAdmin.createPlan).not.toHaveBeenCalled();
+        await openPlanStep('variants');
 
         const fields: readonly (readonly [string, string])[] = [
             ['name', 'Standard 1500'],

@@ -120,8 +120,9 @@ export function EditorStepNavigation<Key extends string>({
  * row is how a reader jumps; this is how they walk it, one step at a time, without scrolling back
  * up to the row. A disabled step is skipped, the way the row itself will not open it.
  *
- * On the last step Next stays drawn and disabled unless the caller hands a `finalAction`, so the
- * row keeps its width; the page's own commit is in its header.
+ * On the last step Next becomes the caller's `finalAction` — the page's commit, which is then not
+ * drawn in its header too. Without one (a reader who may not save) Next stays drawn and disabled,
+ * so the row keeps its width.
  */
 export interface TabStepNavigationProps<Key extends string> {
     readonly items: readonly TabItem<Key>[];

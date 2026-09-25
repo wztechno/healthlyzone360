@@ -620,6 +620,8 @@ describe('a meal page', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'Toum bowl');
         });
+        // Save draft is the last step's Next.
+        await press('kitchen-recipe-tab-sheet');
         await press('kitchen-recipe-editor-screen-save');
 
         await waitFor(() => {
@@ -654,6 +656,8 @@ describe('a meal page', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'Toum bowl');
         });
+        // Save draft is the last step's Next.
+        await press('kitchen-recipe-tab-sheet');
         await press('kitchen-recipe-editor-screen-save');
 
         // Not a silent redirect: the recipe exists, the listing does not, and the reader is told.
@@ -683,6 +687,8 @@ describe('a meal page', () => {
                 'Cordon bleu marination',
             );
         });
+        // Save draft is the last step's Next.
+        await press('kitchen-recipe-tab-sheet');
         await press('kitchen-recipe-editor-screen-save');
 
         await waitFor(() => {
