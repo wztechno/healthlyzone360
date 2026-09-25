@@ -1,4 +1,4 @@
-import { ToastProvider } from '@healthy360/design-system';
+import { FormIssueScope, ToastProvider } from '@healthy360/design-system';
 import type { Repositories, SessionTokenStore } from '@healthy360/api-client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
@@ -42,7 +42,11 @@ export interface AppProvidersProps {
  * 5. `AppRepositoryProvider` — builds the data layer (async; may fail on the missing-base-URL
  *    gate in production).
  * 6. `SessionProvider` — reads `me()` through the repositories and projects the access state.
- * 7. `ToastProvider` — last, so its live regions overlay the application rather than the reverse.
+ * 7. `ToastProvider` — so its live regions overlay the application rather than the reverse.
+ * 8. `FormIssueScope` — innermost, and app-wide rather than per form: a record page's banner sits
+ *    in its header and the fields it names sit in its body, so the scope has to hold both, and one
+ *    here means no editor has to remember to draw its own. It registers nothing until a banner chip
+ *    carries a `fieldId`, so every other screen renders as if it were not there.
  */
 export function AppProviders({
     children,
@@ -90,7 +94,9 @@ export function AppProviders({
                     <OnlineStatusProvider initialOnline={initialOnline}>
                         <AppRepositoryProvider repositories={repositories} tokenStore={tokenStore}>
                             <SessionProvider>
-                                <ToastProvider>{children}</ToastProvider>
+                                <ToastProvider>
+                                    <FormIssueScope>{children}</FormIssueScope>
+                                </ToastProvider>
                             </SessionProvider>
                         </AppRepositoryProvider>
                     </OnlineStatusProvider>

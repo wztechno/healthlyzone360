@@ -204,9 +204,9 @@ describe('compact density', () => {
         expect(classes).not.toContain('font-mono');
     });
 
-    it('keeps a badge a pill — the one exception the radius rule grants', async () => {
+    it('sets a badge 18px tall, so a status sits in a 32px row without setting its height', async () => {
         await renderCompact(<Badge testID="status" label="Draft" tone="warning" />);
-        expect(screen.getByTestId('status').props.className).toContain('rounded-full');
+        expect(screen.getByTestId('status').props.className).toContain('h-[18px]');
     });
 });
 

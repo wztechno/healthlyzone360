@@ -421,18 +421,18 @@ describe('order desk queue — ageing against the due instant', () => {
             { timeout: 5000 },
         );
 
-        // `Badge` pairs every non-neutral tone with its own glyph, so the band survives greyscale
-        // and colour blindness — which is what these assertions are actually checking. The glyph is
-        // `aria-hidden` on purpose (the badge's own label is the interval, spelled out), so it is
-        // only reachable with `includeHiddenElements` — and that must be passed on the *negative*
-        // assertion too, or it would pass whatever the tone was.
+        // `Badge` marks every non-neutral tone with a dot and leaves neutral bare, so "has come
+        // due" and "not yet" still differ in greyscale; the interval itself is spelled out in the
+        // label. The dot is `aria-hidden` on purpose, so it is only reachable with
+        // `includeHiddenElements` — and that must be passed on the *negative* assertion too, or it
+        // would pass whatever the tone was.
         const hidden = { includeHiddenElements: true } as const;
         expect(screen.getByTestId(rowTestId(1, 'due-age'))).toHaveTextContent(/ago$/);
-        expect(screen.getByTestId(`${rowTestId(1, 'due-age')}-icon`, hidden)).toBeTruthy();
-        expect(screen.getByTestId(`${rowTestId(2, 'due-age')}-icon`, hidden)).toBeTruthy();
-        // Neutral carries no glyph, because there is nothing yet to warn about.
+        expect(screen.getByTestId(`${rowTestId(1, 'due-age')}-mark`, hidden)).toBeTruthy();
+        expect(screen.getByTestId(`${rowTestId(2, 'due-age')}-mark`, hidden)).toBeTruthy();
+        // Neutral carries no mark, because there is nothing yet to warn about.
         expect(screen.getByTestId(rowTestId(3, 'due-age'))).toHaveTextContent(/^in /);
-        expect(screen.queryByTestId(`${rowTestId(3, 'due-age')}-icon`, hidden)).toBeNull();
+        expect(screen.queryByTestId(`${rowTestId(3, 'due-age')}-mark`, hidden)).toBeNull();
     });
 });
 

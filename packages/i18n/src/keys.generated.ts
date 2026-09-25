@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7490 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7536 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -581,6 +581,7 @@ export interface NamespaceKeys {
     | 'devices.emptyBody'
     | 'devices.lastUsed'
     | 'devices.neverUsed'
+    | 'devices.otherSessions'
     | 'devices.platform.android'
     | 'devices.platform.ios'
     | 'devices.platform.web'
@@ -591,7 +592,10 @@ export interface NamespaceKeys {
     | 'devices.revokeTitle'
     | 'devices.revoked'
     | 'devices.subtitle'
+    | 'devices.thisSession'
     | 'devices.title'
+    | 'devices.unrecognisedBody'
+    | 'devices.unrecognisedTitle'
     | 'forgotPassword.backToSignIn'
     | 'forgotPassword.emailLabel'
     | 'forgotPassword.sentBody'
@@ -667,27 +671,45 @@ export interface NamespaceKeys {
     | 'otp.title'
     | 'profile.account'
     | 'profile.branch'
+    | 'profile.changePassword'
     | 'profile.consents'
+    | 'profile.consentsBody'
     | 'profile.consentsNone'
     | 'profile.context'
+    | 'profile.currentMembership'
+    | 'profile.devicesHint'
     | 'profile.displayName'
     | 'profile.email'
+    | 'profile.emailUnverified'
+    | 'profile.emailVerified'
     | 'profile.entitlements'
+    | 'profile.entitlementsTitle'
     | 'profile.locale'
     | 'profile.memberSince'
+    | 'profile.membershipStatus.active'
+    | 'profile.membershipStatus.expired'
+    | 'profile.membershipStatus.pending'
+    | 'profile.membershipStatus.revoked'
+    | 'profile.membershipStatus.suspended'
     | 'profile.memberships'
+    | 'profile.name'
     | 'profile.noBranch'
     | 'profile.noContext'
     | 'profile.none'
     | 'profile.organisation'
+    | 'profile.password'
+    | 'profile.passwordHint'
     | 'profile.permissions'
+    | 'profile.permissionsTitle'
     | 'profile.roles'
+    | 'profile.security'
     | 'profile.subtitle'
     | 'profile.timeZone'
     | 'profile.title'
     | 'profile.twoFactor'
     | 'profile.twoFactorDisabled'
     | 'profile.twoFactorEnabled'
+    | 'profile.twoFactorHint'
     | 'register.acceptPrivacy'
     | 'register.acceptTerms'
     | 'register.emailLabel'
@@ -8099,6 +8121,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:devices.emptyBody',
   'auth:devices.lastUsed',
   'auth:devices.neverUsed',
+  'auth:devices.otherSessions',
   'auth:devices.platform.android',
   'auth:devices.platform.ios',
   'auth:devices.platform.web',
@@ -8109,7 +8132,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:devices.revokeTitle',
   'auth:devices.revoked',
   'auth:devices.subtitle',
+  'auth:devices.thisSession',
   'auth:devices.title',
+  'auth:devices.unrecognisedBody',
+  'auth:devices.unrecognisedTitle',
   'auth:forgotPassword.backToSignIn',
   'auth:forgotPassword.emailLabel',
   'auth:forgotPassword.sentBody',
@@ -8185,27 +8211,45 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:otp.title',
   'auth:profile.account',
   'auth:profile.branch',
+  'auth:profile.changePassword',
   'auth:profile.consents',
+  'auth:profile.consentsBody',
   'auth:profile.consentsNone',
   'auth:profile.context',
+  'auth:profile.currentMembership',
+  'auth:profile.devicesHint',
   'auth:profile.displayName',
   'auth:profile.email',
+  'auth:profile.emailUnverified',
+  'auth:profile.emailVerified',
   'auth:profile.entitlements',
+  'auth:profile.entitlementsTitle',
   'auth:profile.locale',
   'auth:profile.memberSince',
+  'auth:profile.membershipStatus.active',
+  'auth:profile.membershipStatus.expired',
+  'auth:profile.membershipStatus.pending',
+  'auth:profile.membershipStatus.revoked',
+  'auth:profile.membershipStatus.suspended',
   'auth:profile.memberships',
+  'auth:profile.name',
   'auth:profile.noBranch',
   'auth:profile.noContext',
   'auth:profile.none',
   'auth:profile.organisation',
+  'auth:profile.password',
+  'auth:profile.passwordHint',
   'auth:profile.permissions',
+  'auth:profile.permissionsTitle',
   'auth:profile.roles',
+  'auth:profile.security',
   'auth:profile.subtitle',
   'auth:profile.timeZone',
   'auth:profile.title',
   'auth:profile.twoFactor',
   'auth:profile.twoFactorDisabled',
   'auth:profile.twoFactorEnabled',
+  'auth:profile.twoFactorHint',
   'auth:register.acceptPrivacy',
   'auth:register.acceptTerms',
   'auth:register.emailLabel',

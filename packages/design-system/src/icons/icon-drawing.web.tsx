@@ -646,6 +646,13 @@ const GRID_24_DRAWINGS: Partial<Record<IconName, ReactElement>> = {
             <circle cx="12" cy="12" r="3" />
         </>
     ),
+    // The devices page's mark for an app session, beside a browser's `monitor`.
+    smartphone: (
+        <>
+            <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+            <path d="M12 18h.01" />
+        </>
+    ),
     monitorSmartphone: (
         <>
             <path d="M18 8V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h8" />

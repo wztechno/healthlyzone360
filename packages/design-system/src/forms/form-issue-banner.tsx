@@ -1,26 +1,31 @@
+import { useState } from 'react';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 import { useDensity } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
+import { useSummariseFields } from './form-issue-scope.tsx';
 
 /**
  * FormIssueBanner — what stands between a form and its save, in one line under the header.
  *
  * ```
- * ┌──────────────────────────────────────────────────────────────────┐
- * │ ✖ 3 required  [ Designation (EN) ] [ Category ] [ Unit price ]   │
- * └──────────────────────────────────────────────────────────────────┘
- * ┌───────────────────────────────┐
- * │ ⚠ 1 warning  [ Waste ]        │
- * └───────────────────────────────┘
+ *  ⊗ 3 required  [ Designation (EN) ] [ Category ] [ Unit price ]     <- on the danger fill
+ *  △ 1 warning  [ Waste ]                                            <- on the warning fill
  * ```
  *
  * The count says how much is wrong; each chip names one field and takes the reader to it. A long
  * form's error is otherwise a red line somewhere below the fold, and a Save that "does nothing" is
  * the bug report that follows. The chips are the point — a banner that only counted would send the
  * reader hunting for the fields it had just declined to name.
+ *
+ * ## The field does not say it twice
+ *
+ * A chip that carries `fieldId` stands in for that field's own message: inside a `FormIssueScope`
+ * the field keeps its red edge and drops the line of copy under it (Badges & Callouts, 2a). Leave
+ * `fieldId` off when the chip says less than the field would — one `Packs` chip over a table whose
+ * rows each say what is wrong with them — and the field goes on saying it.
  *
  * ## One banner per tone, never one per field
  *
@@ -48,6 +53,11 @@ export interface FormIssueItem {
     readonly label: string;
     /** Takes the reader to the field: switches to its tab, scrolls it into view, focuses it. */
     readonly onPress: () => void;
+    /**
+     * The id of the `FormField` this chip stands for, when the chip says all its message would. The
+     * field then drops that message while the banner shows. See `FormIssueScope`.
+     */
+    readonly fieldId?: string | undefined;
 }
 
 export interface FormIssueBannerProps {
@@ -60,16 +70,17 @@ export interface FormIssueBannerProps {
     readonly testID?: string | undefined;
 }
 
+/** Lucide's marks on the web; each falls back to its glyph (✖ ⚠ ⓘ) on native. */
 const TONE_ICON: Readonly<Record<FormIssueTone, IconName>> = {
-    danger: 'error',
-    warning: 'warning',
-    info: 'info',
+    danger: 'circleX',
+    warning: 'alert',
+    info: 'infoCircle',
 };
 
-const TONE_FRAME: Readonly<Record<FormIssueTone, string>> = {
-    danger: 'bg-danger-subtle border-danger-border',
-    warning: 'bg-warning-subtle border-warning-border',
-    info: 'bg-info-subtle border-info-border',
+const TONE_FILL: Readonly<Record<FormIssueTone, string>> = {
+    danger: 'bg-danger-subtle',
+    warning: 'bg-warning-subtle',
+    info: 'bg-info-subtle',
 };
 
 const TONE_TEXT: Readonly<Record<FormIssueTone, string>> = {
@@ -78,22 +89,32 @@ const TONE_TEXT: Readonly<Record<FormIssueTone, string>> = {
     info: 'text-info-on-subtle',
 };
 
+/** The mark's ink: the tone's `DEFAULT`, fuller than the count so the shape leads the line. */
 const TONE_MARK: Readonly<Record<FormIssueTone, string>> = {
-    danger: 'text-danger-strong',
-    warning: 'text-warning-strong',
-    info: 'text-info-strong',
+    danger: 'text-danger',
+    warning: 'text-warning',
+    info: 'text-info',
 };
 
-const TONE_CHIP_BORDER: Readonly<Record<FormIssueTone, string>> = {
-    danger: 'border-danger-border',
-    warning: 'border-warning-border',
-    info: 'border-info-border',
+/*
+ * A chip's edge is the tone's ink at a fraction — enough to say "this belongs to the strip" on the
+ * white, not so much that three chips read as three alerts. It firms up under the pointer, which is
+ * the only hint that a chip goes somewhere. Amber needs the heavier fraction to show at all.
+ */
+const TONE_CHIP_EDGE: Readonly<
+    Record<FormIssueTone, { readonly rest: string; readonly hover: string }>
+> = {
+    danger: { rest: 'border-danger/20', hover: 'border-danger/50' },
+    warning: { rest: 'border-warning/30', hover: 'border-warning/70' },
+    info: { rest: 'border-info/20', hover: 'border-info/50' },
 };
 
 export function FormIssueBanner({ tone, summary, items, className, testID }: FormIssueBannerProps) {
     const density = useDensity();
-    const textClass = density === 'compact' ? 'text-role-label' : 'text-sm font-medium';
-    const chipTextClass = density === 'compact' ? 'text-role-caption' : 'text-xs font-medium';
+    const summaryClass =
+        density === 'compact' ? 'text-role-label font-semibold' : 'text-sm font-semibold';
+    const chipTextClass = density === 'compact' ? 'text-role-label' : 'text-xs font-medium';
+    useSummariseFields(items.flatMap((item) => (item.fieldId === undefined ? [] : [item.fieldId])));
 
     return (
         <View
@@ -103,40 +124,79 @@ export function FormIssueBanner({ tone, summary, items, className, testID }: For
             role={tone === 'danger' ? 'alert' : 'status'}
             accessibilityRole={tone === 'danger' ? 'alert' : 'summary'}
             aria-live="polite"
-            // The design's geometry: 30px tall at least, a 6px corner, 10px in from the start and 6px
-            // from the end — the chips sit closer to the edge than the mark does.
+            /*
+             * The soft strip (Badges & Callouts, 2a): the tone's fill and no border, 32px tall at
+             * least, 10px in from the start and 4px from the end — the chips sit closer to the edge
+             * than the mark does, so the last one looks tucked in rather than floating.
+             */
             className={cx(
-                'min-h-[30px] flex-row flex-wrap items-center self-start gap-tight rounded-md border py-1 pe-1.5 ps-2.5',
-                TONE_FRAME[tone],
+                'min-h-8 flex-row flex-wrap items-center self-start gap-2 rounded-md py-1 pe-1 ps-2.5',
+                TONE_FILL[tone],
                 className,
             )}
         >
-            <Icon name={TONE_ICON[tone]} size="sm" className={TONE_MARK[tone]} />
+            <Icon
+                testID={testID === undefined ? undefined : `${testID}-icon`}
+                name={TONE_ICON[tone]}
+                size="sm"
+                className={TONE_MARK[tone]}
+            />
             <RNText
                 testID={testID === undefined ? undefined : `${testID}-summary`}
-                className={cx(textClass, TONE_TEXT[tone])}
+                className={cx(summaryClass, TONE_TEXT[tone])}
             >
                 {summary}
             </RNText>
             {/* The chips are one group, 4px apart — closer to each other than to the count. */}
             <View className="flex-row flex-wrap items-center gap-1">
                 {items.map((item) => (
-                    <Pressable
+                    <IssueChip
                         key={item.key}
+                        item={item}
+                        tone={tone}
+                        textClass={chipTextClass}
                         testID={testID === undefined ? undefined : `${testID}-${item.key}`}
-                        role="button"
-                        accessibilityRole="button"
-                        accessibilityLabel={item.label}
-                        onPress={item.onPress}
-                        className={cx(
-                            'h-5 flex-row items-center rounded-sm border bg-surface-raised px-[7px]',
-                            TONE_CHIP_BORDER[tone],
-                        )}
-                    >
-                        <RNText className={cx(chipTextClass, TONE_TEXT[tone])}>{item.label}</RNText>
-                    </Pressable>
+                    />
                 ))}
             </View>
         </View>
+    );
+}
+
+/** One field, named as the form names it: white on the strip, so it reads as a thing to press. */
+function IssueChip({
+    item,
+    tone,
+    textClass,
+    testID,
+}: {
+    readonly item: FormIssueItem;
+    readonly tone: FormIssueTone;
+    readonly textClass: string;
+    readonly testID: string | undefined;
+}) {
+    const [hovered, setHovered] = useState(false);
+    const edge = TONE_CHIP_EDGE[tone];
+
+    return (
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            accessibilityLabel={item.label}
+            onPress={item.onPress}
+            onHoverIn={() => {
+                setHovered(true);
+            }}
+            onHoverOut={() => {
+                setHovered(false);
+            }}
+            className={cx(
+                'h-6 flex-row items-center rounded-sm border bg-surface-raised px-2',
+                hovered ? edge.hover : edge.rest,
+            )}
+        >
+            <RNText className={cx(textClass, TONE_TEXT[tone])}>{item.label}</RNText>
+        </Pressable>
     );
 }
