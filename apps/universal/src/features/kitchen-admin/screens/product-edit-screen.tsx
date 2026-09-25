@@ -1215,7 +1215,7 @@ function ProductEditor({
                 {/* ── description ──────────────────────────────────────────────────────────── */}
                 <FormSection
                     first
-                    variant="underlined"
+                    variant="card"
                     testID="kitchen-product-details"
                     title={t('kitchen:forms.description')}
                 >
@@ -1238,7 +1238,7 @@ function ProductEditor({
                 {/* ── packs ────────────────────────────────────────────────────────────────── */}
                 <FormSection
                     first
-                    variant="underlined"
+                    variant="card"
                     testID="kitchen-product-packs"
                     title={t('kitchen:products.sectionPacks')}
                     actions={
@@ -1285,7 +1285,7 @@ function ProductEditor({
                 {/* ── sale ─────────────────────────────────────────────────────────────────── */}
                 <FormSection
                     first
-                    variant="underlined"
+                    variant="card"
                     testID="kitchen-product-sale"
                     title={t('kitchen:sale.title')}
                 >
@@ -1393,7 +1393,7 @@ function ProductEditor({
                  */}
                 <FormSection
                     first
-                    variant="underlined"
+                    variant="card"
                     testID="kitchen-product-channels"
                     title={t('kitchen:channels.sectionTitle')}
                 >
@@ -1411,7 +1411,7 @@ function ProductEditor({
                 {/* ── diet classifications, read-only ──────────────────────────────────────── */}
                 <FormSection
                     first
-                    variant="underlined"
+                    variant="card"
                     testID="kitchen-product-diets"
                     title={t('kitchen:products.dietsLabel')}
                     aside={
@@ -1467,7 +1467,7 @@ function ProductEditor({
                 (data.composition === null && data.kitchenCategory === null) ? null : (
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-product-composition"
                         title={t('kitchen:fields.composition')}
                     >

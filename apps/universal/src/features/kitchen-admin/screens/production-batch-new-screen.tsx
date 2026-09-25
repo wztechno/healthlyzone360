@@ -374,7 +374,7 @@ function ProductionBatchNew() {
                 <View className="relative z-raised">
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-production-batch-new-recipe-section"
                         title={t('kitchen:ops.production.recipeLabel')}
                     >
@@ -413,7 +413,7 @@ function ProductionBatchNew() {
                  */}
                 <FormSection
                     first
-                    variant="underlined"
+                    variant="card"
                     testID="kitchen-production-batch-new-scale-section"
                     title={t('kitchen:ops.production.scaleLabel')}
                 >
@@ -480,7 +480,7 @@ function ProductionBatchNew() {
 
                 <FormSection
                     first
-                    variant="underlined"
+                    variant="card"
                     testID="kitchen-production-batch-new-notes-section"
                     title={t('kitchen:ops.production.notesLabel')}
                 >

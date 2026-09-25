@@ -1532,6 +1532,16 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         Section title, hairline, no card.
                     </Text>
                 </FormSection>
+                <FormSection
+                    testID={id('form-section-card')}
+                    variant="card"
+                    title="Purchase"
+                    description="The `card` variant: the underlined heading inside a raised panel."
+                >
+                    <Text variant="caption" tone="secondary">
+                        How every kitchen record editor draws its sections.
+                    </Text>
+                </FormSection>
             </Stack>
 
             {/*

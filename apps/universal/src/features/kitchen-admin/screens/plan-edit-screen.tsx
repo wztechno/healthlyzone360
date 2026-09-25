@@ -1191,7 +1191,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 <View testID="kitchen-plan-details" className="z-auto flex-col gap-loose">
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-plan-identity"
                         title={t('kitchen:forms.description')}
                     >
@@ -1282,7 +1282,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
 
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-plan-categories-section"
                         title={t('kitchen:plans.categoriesLabel')}
                     >
@@ -1356,7 +1356,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
 
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-plan-diets-section"
                         title={t('kitchen:plans.dietsLabel')}
                     >
@@ -1394,7 +1394,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 {form.current !== 'matrix' ? null : (
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-plan-matrix"
                         title={t('kitchen:plans.tabMatrix')}
                     >
@@ -1423,7 +1423,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 {form.current !== 'variants' ? null : (
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-plan-variants-section"
                         title={t('kitchen:plans.variantsTitle')}
                         actions={
@@ -1491,7 +1491,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 {form.current !== 'durations' ? null : (
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-plan-durations"
                         title={t('kitchen:plans.sectionDurations')}
                         actions={
@@ -1617,7 +1617,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 {form.current !== 'menu' || isCreating ? null : (
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-plan-menu"
                         title={t('kitchen:plans.sectionMenu')}
                     >
@@ -1795,7 +1795,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 {form.current !== 'plan' || isCreating ? null : (
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-plan-prices"
                         title={t('kitchen:plans.sectionPrices')}
                     >

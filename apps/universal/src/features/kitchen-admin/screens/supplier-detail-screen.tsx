@@ -901,7 +901,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                 {form.current !== 'details' ? null : (
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-supplier-details"
                         title={t('kitchen:ops.suppliers.sectionDetails')}
                     >
@@ -1061,7 +1061,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                 {isCreating || form.current !== 'contacts' ? null : (
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-supplier-contacts"
                         title={t('kitchen:ops.suppliers.sectionContacts')}
                         actions={
@@ -1161,7 +1161,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                 {isCreating || form.current !== 'items' ? null : (
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-supplier-supplied-items"
                         title={t('kitchen:ops.suppliers.itemsTitle')}
                         actions={

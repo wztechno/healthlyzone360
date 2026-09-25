@@ -495,6 +495,7 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
             {/* ── the facts the contract makes read-only, on the sunken fill ─────────────────── */}
             {form.current !== 'facts' ? null : (
                 <FormSection
+                    variant="card"
                     first
                     testID="kitchen-price-list-facts"
                     title={t('kitchen:priceLists.factsTitle')}
@@ -534,6 +535,7 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
             {form.current !== 'entries' ? null : (
                 <>
                     <FormSection
+                        variant="card"
                         first
                         testID="kitchen-price-list-entries-card"
                         title={t('kitchen:priceLists.entriesTitle')}

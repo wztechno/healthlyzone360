@@ -778,7 +778,7 @@ function SupplyOrderBuilder() {
                         <>
                             <FormSection
                                 first
-                                variant="underlined"
+                                variant="card"
                                 testID="kitchen-supply-order-needs"
                                 title={t('kitchen:ops.supplyOrders.previewTitle')}
                             >
@@ -803,7 +803,7 @@ function SupplyOrderBuilder() {
 
                             <FormSection
                                 first
-                                variant="underlined"
+                                variant="card"
                                 testID="kitchen-supply-order-add"
                                 title={t('kitchen:ops.supplyOrders.addTitle')}
                             >
@@ -832,7 +832,7 @@ function SupplyOrderBuilder() {
                     {form.current !== 'unlinked' ? null : (
                         <FormSection
                             first
-                            variant="underlined"
+                            variant="card"
                             testID="kitchen-supply-order-unlinked"
                             title={t('kitchen:ops.supplyOrders.unlinkedTitle')}
                             actions={
@@ -862,7 +862,7 @@ function SupplyOrderBuilder() {
                         <>
                             <FormSection
                                 first
-                                variant="underlined"
+                                variant="card"
                                 testID="kitchen-supply-order-preview"
                                 title={t('kitchen:ops.supplyOrders.readyTitle')}
                             >

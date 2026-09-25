@@ -1723,7 +1723,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 {/* ── identity ─────────────────────────────────────────────────────────────── */}
                 <FormSection
                     first
-                    variant="underlined"
+                    variant="card"
                     testID="kitchen-ingredient-identity"
                     title={t('kitchen:forms.description')}
                 >
@@ -1840,7 +1840,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 {/* ── measurement & cost / pack ────────────────────────────────────────────── */}
                 <FormSection
                     first
-                    variant="underlined"
+                    variant="card"
                     testID="kitchen-ingredient-measurement"
                     title={t(
                         family.food ? 'kitchen:editor.sectionMeasurement' : 'kitchen:forms.pack',
@@ -1923,7 +1923,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 {family.food ? null : (
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-ingredient-cost"
                         title={t('kitchen:forms.cost')}
                     >
@@ -1995,7 +1995,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 {!family.food ? null : (
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-ingredient-sale"
                         title={t('kitchen:sale.title')}
                     >
@@ -2080,7 +2080,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 {!family.food ? null : (
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-ingredient-nutrition"
                         title={t('kitchen:forms.nutritionTitle')}
                         aside={
@@ -2233,7 +2233,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 {!family.food ? null : (
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-ingredient-allergens"
                         title={t('kitchen:forms.allergensTitle')}
                         aside={

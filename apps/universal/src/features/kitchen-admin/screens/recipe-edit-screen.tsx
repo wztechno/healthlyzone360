@@ -1846,7 +1846,7 @@ function RecipeEditor({
                      */}
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-recipe-identity"
                         title={t('kitchen:recipes.sectionIdentity')}
                     >
@@ -1979,7 +1979,7 @@ function RecipeEditor({
 
                     {isCreating ? null : (
                         <FormSection
-                            variant="underlined"
+                            variant="card"
                             testID="kitchen-recipe-versions"
                             title={t('kitchen:recipes.sectionVersions')}
                             actions={
@@ -2145,7 +2145,7 @@ function RecipeEditor({
                      */}
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-recipe-yield"
                         title={t('kitchen:forms.yieldAndWaste')}
                     >
@@ -2211,7 +2211,7 @@ function RecipeEditor({
                     </FormSection>
 
                     <FormSection
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-recipe-lines"
                         title={t('kitchen:recipes.sectionRawMaterials')}
                     >
@@ -2238,7 +2238,7 @@ function RecipeEditor({
                 <View className="relative z-raised flex-col gap-loose">
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-recipe-packaging-coefficients"
                         title={t('kitchen:forms.expiryAndWaste')}
                     >
@@ -2285,7 +2285,7 @@ function RecipeEditor({
                     <View className="relative z-sticky">
                         <FormSection
                             first
-                            variant="underlined"
+                            variant="card"
                             testID="kitchen-recipe-packaging"
                             title={t('kitchen:recipes.sectionPackaging')}
                         >
@@ -2314,7 +2314,7 @@ function RecipeEditor({
                 <View className="relative z-raised flex-col gap-loose">
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-recipe-cost-cascade"
                         title={t('kitchen:recipes.sectionCostCascade')}
                         // Kept where the design drops its subtitles: it says which price the
@@ -2381,7 +2381,7 @@ function RecipeEditor({
                      */}
                     {!canViewCosts ? null : (
                         <FormSection
-                            variant="underlined"
+                            variant="card"
                             testID="kitchen-recipe-package-costs"
                             title={t('kitchen:recipes.sectionPackageCosts')}
                         >
@@ -2410,7 +2410,7 @@ function RecipeEditor({
                      * material and a recipe in one sitting meets one control twice, not two.
                      */}
                     <FormSection
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-recipe-coefficients"
                         title={t('kitchen:forms.price')}
                     >
@@ -2550,7 +2550,7 @@ function RecipeEditor({
                          */}
                         <FormSection
                             first
-                            variant="underlined"
+                            variant="card"
                             testID="kitchen-recipe-sheet-summary"
                             title={t('kitchen:recipes.sheetTitle')}
                         >
@@ -2579,7 +2579,7 @@ function RecipeEditor({
 
                         <FormSection
                             first
-                            variant="underlined"
+                            variant="card"
                             testID="kitchen-recipe-composition"
                             title={t('kitchen:forms.nutritionTitle')}
                             aside={
@@ -2629,7 +2629,7 @@ function RecipeEditor({
                          * derivation by definition — so nothing here claims a hand-declared entry.
                          */}
                         <FormSection
-                            variant="underlined"
+                            variant="card"
                             testID="kitchen-recipe-allergens"
                             title={t('kitchen:forms.allergensTitle')}
                             aside={
@@ -2696,7 +2696,7 @@ function RecipeEditor({
                          * is no version to snapshot until the recipe exists.
                          */}
                         <FormSection
-                            variant="underlined"
+                            variant="card"
                             testID="kitchen-recipe-sheet"
                             title={t('kitchen:recipes.sheetPrintTitle')}
                         >
@@ -2731,7 +2731,7 @@ function RecipeEditor({
                     >
                         <FormSection
                             first
-                            variant="underlined"
+                            variant="card"
                             title={t('kitchen:recipes.publishChecksTitle')}
                         >
                             <View className="flex-col">
