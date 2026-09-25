@@ -115,7 +115,11 @@ import { useColorScheme } from 'nativewind';
 import { Text as RNText, View } from 'react-native';
 
 import { EntityImage, MediaChip } from '../media/entity-image.tsx';
-import type { PublishableStatus, RecipeAdminSummary } from '@healthy360/api-client/contracts';
+import type {
+    PublishableStatus,
+    RecipeAdminSummary,
+    RecipeSoldAs,
+} from '@healthy360/api-client/contracts';
 import { AllergenCode, KitchenId, RecipeId } from '@healthy360/domain-types';
 import { BilingualField } from '../features/kitchen-admin/bilingual-field.tsx';
 import { DerivedPanel } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
@@ -527,9 +531,32 @@ function StepsStory({ prefix }: { readonly prefix: string }) {
     );
 }
 
+/** What sells the sauce below — the item the book reads its Kind, handle and photo from. */
+const SHOWCASE_SAUCE_SELLER: RecipeSoldAs = {
+    id: '00000000-0000-4000-8000-0000000000b1',
+    itemType: 'sauce',
+    status: 'published',
+    lockVersion: 4,
+    reference: 'SAC-031',
+    slug: 'bbq-sauce-dip',
+    name: { en: 'BBQ sauce dip', ar: 'صلصة باربكيو' },
+    imagePlaceholderId: 'sauce-bbq-sauce-dip',
+    kitchenCategory: null,
+    kitchenSubcategory: null,
+    isMarketPriced: false,
+    isAssorted: false,
+    dataQualityFlags: [],
+    portionFactor: 1,
+    composition: null,
+    channels: ['b2c', 'b2b'],
+    packCount: 2,
+    defaultPack: { label: { en: 'Tub 500 g', ar: 'علبة 500 غ' }, netQuantity: 500, netUnit: 'g' },
+};
+
 /**
  * The recipe list's Cards layout: one recipe the bundled photo set covers, one it does not (the
- * generated pattern), one draft with no Arabic name and no allergens.
+ * generated pattern), one draft with no Arabic name and no allergens. The second is sold as a sauce,
+ * so its card carries the Kind; the other two are preparations nothing sells.
  */
 const SHOWCASE_RECIPES: readonly RecipeAdminSummary[] = [
     {
@@ -540,6 +567,8 @@ const SHOWCASE_RECIPES: readonly RecipeAdminSummary[] = [
         category: 'main_course',
         allergens: ['fish', 'sesame'],
         version: 3,
+        kinds: ['preparation'] as const,
+        soldAs: [],
     },
     {
         slug: 'bbq-sauce-dip',
@@ -549,6 +578,8 @@ const SHOWCASE_RECIPES: readonly RecipeAdminSummary[] = [
         category: 'cooking_sauce',
         allergens: ['mustard', 'celery', 'soy', 'gluten', 'sulphites'],
         version: 2,
+        kinds: ['sauce'] as const,
+        soldAs: [SHOWCASE_SAUCE_SELLER],
     },
     {
         slug: 'green-herb-dressing',
@@ -558,6 +589,8 @@ const SHOWCASE_RECIPES: readonly RecipeAdminSummary[] = [
         category: null,
         allergens: [],
         version: 1,
+        kinds: ['preparation'] as const,
+        soldAs: [],
     },
 ].map((seed, index) => ({
     id: RecipeId.unsafe('00000000-0000-4000-8000-00000000000' + String(index + 1)),
@@ -577,6 +610,9 @@ const SHOWCASE_RECIPES: readonly RecipeAdminSummary[] = [
     versionCount: seed.version,
     currentVersionStatus: seed.status as PublishableStatus,
     allergenCodes: seed.allergens.map((code) => AllergenCode.unsafe(code)),
+    lineCount: seed.allergens.length,
+    kinds: seed.kinds,
+    soldAs: seed.soldAs,
 }));
 
 /** The ingredient table's eighteen columns, for the column picker story. */
@@ -616,8 +652,12 @@ function ColumnPickerStory({ prefix }: { readonly prefix: string }) {
     );
 }
 
-/** The kitchen's page search, on a handful of its own pages. */
+/**
+ * The kitchen's page search, on a handful of its own pages. Recipes carries the registry's own
+ * keywords, so typing "sauces" finds the book the sauce pages went into.
+ */
 function CommandPaletteStory({ prefix }: { readonly prefix: string }) {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const close = () => {
         setOpen(false);
@@ -631,8 +671,14 @@ function CommandPaletteStory({ prefix }: { readonly prefix: string }) {
             group: 'Catalogue',
             onSelect: close,
         },
-        { key: 'recipes', label: 'Recipes', icon: 'bookOpen', group: 'Catalogue', onSelect: close },
-        { key: 'meals', label: 'Meals', icon: 'utensils', group: 'Catalogue', onSelect: close },
+        {
+            key: 'recipes',
+            label: 'Recipes',
+            icon: 'bookOpen',
+            group: 'Catalogue',
+            keywords: [t('kitchen:families.recipes.keywords')],
+            onSelect: close,
+        },
         { key: 'orders', label: 'Orders', icon: 'receipt', group: 'Operations', onSelect: close },
         { key: 'stock', label: 'Stock', icon: 'boxes', group: 'Operations', onSelect: close },
         {

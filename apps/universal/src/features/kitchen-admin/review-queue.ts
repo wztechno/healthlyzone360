@@ -17,7 +17,7 @@ import { isTranslationIncomplete } from './format.ts';
  * The readiness evaluator, as a pure function over what the contract actually publishes (K1.8).
  *
  * `/kitchen/review` is the one screen in this workspace that is not about a family — it is about the
- * *question* "what is stopping anything from going out?". That question is answered from six
+ * *question* "what is stopping anything from going out?". That question is answered from five
  * families at once, so the answer is built here, in a module with no React in it, for the reason
  * every `format.ts` in this codebase exists: the interesting decisions are the ones a test should be
  * able to make assertions about without rendering a tree.
@@ -39,12 +39,21 @@ import { isTranslationIncomplete } from './format.ts';
  * | `missingTranslation` | `LocalisedText` with one side blank — the rule the publish gate states and `BilingualField` marks |
  * | `dataQuality` | `ProductAdmin.dataQualityFlags` — import findings the operator has not resolved |
  *
+ * `RecipeAdminFilter` carries three more parameters for the recipe book's own list — `kind`,
+ * `selling_status` and `category` — and the queue sends none of them: they say where a recipe is
+ * filed, not what is stopping it.
+ *
  * **Delivery zones and branch hours are absent, and that is the contract's shape rather than an
  * omission.** `archiveZone` is the only lifecycle method a zone has — there is no `publishZone` — so
  * nothing can put a zone into `review_required`, and a section that could never have a row in it
  * would be permanent furniture. A branch's operating week carries `AdminRecordMeta` and has no
  * publication state at all. The allergen classes are platform reference data nobody in a kitchen can
  * change. The screen says all three out loud rather than leaving their absence to be inferred.
+ *
+ * **Meals are reported under Recipes.** A meal is a recipe in the recipe book, edited on the
+ * recipe's page, so its row is filed, keyed and addressed by its recipe — and a meal arriving beside
+ * its own recipe is one row carrying both sets of reasons. A meal with no recipe yet keeps its own
+ * id and links to the item address that offers to start one.
  *
  * ## Why the reasons are codes rather than sentences
  *
@@ -104,12 +113,14 @@ export function isBlocked(item: ReviewItem): boolean {
  * Items and sections
  * ---------------------------------------------------------------------------------------------- */
 
-/** The families this queue can report on, in the order the screen renders them. */
+/**
+ * The families this queue can report on, in the order the screen renders them. Meals are not one:
+ * they are filed under the recipe book — see the module note.
+ */
 export const REVIEWABLE_FAMILY_KEYS = [
     'ingredients',
     'recipes',
     'products',
-    'meals',
     'plans',
     'price-lists',
 ] as const;
@@ -125,7 +136,10 @@ export interface ReviewItem {
      */
     readonly reference: string | null;
     readonly name: LocalisedText;
-    /** Deep link into the family's own editor. Built from the registry, never hand-written. */
+    /**
+     * Deep link into the family's own editor. Built from the registry, never hand-written — with
+     * one exception, a meal with no recipe, whose address is the recipe book's item screen.
+     */
     readonly href: string;
     readonly status: AdminEntityMeta['status'];
     readonly updatedAt: string;
@@ -166,9 +180,9 @@ function itemFrom(
     name: LocalisedText,
     meta: AdminEntityMeta,
     reasons: readonly ReviewReason[],
+    href: string | null = editorHref(familyKey, id),
 ): ReviewItem | null {
     if (reasons.length === 0) return null;
-    const href = editorHref(familyKey, id);
     if (href === null) return null;
 
     return {
@@ -221,9 +235,10 @@ export function ingredientReviewItems(rows: readonly IngredientAdmin[]): readonl
 /**
  * Recipes, from two listings merged on identity.
  *
- * `RecipeAdminFilter` publishes `statuses` and `staleOnly` as separate parameters and no way to ask
- * for their union, so a recipe can legitimately arrive from both — quarantined *and* stale — and
- * must appear once carrying both reasons rather than twice carrying one each.
+ * `RecipeAdminFilter` publishes `statuses`, `staleOnly`, `kind`, `selling_status` and `category` as
+ * separate parameters and no way to ask for a union of any of them, so a recipe can legitimately
+ * arrive from both listings — quarantined *and* stale — and must appear once carrying both reasons
+ * rather than twice carrying one each.
  */
 export function recipeReviewItems(
     quarantinedRows: readonly RecipeAdminSummary[],
@@ -258,14 +273,58 @@ export function productReviewItems(rows: readonly ProductAdmin[]): readonly Revi
     });
 }
 
+/**
+ * Meals, filed under the recipe book.
+ *
+ * A meal with a recipe is keyed and addressed by the recipe, so it lands on the recipe's page and
+ * merges with the recipe's own row when both are listed ({@link mergeById}). One with no recipe
+ * keeps its own id and links to the item address, which offers to start one.
+ */
 export function mealReviewItems(rows: readonly MealAdmin[]): readonly ReviewItem[] {
     return rows.flatMap((row) => {
-        const item = itemFrom('meals', String(row.id), null, row.name, row.meta, [
-            ...quarantineReason(row.meta),
-            ...translationReason(row.name),
-        ]);
+        const reasons = [...quarantineReason(row.meta), ...translationReason(row.name)];
+        const item =
+            row.recipeId === null
+                ? itemFrom(
+                      'recipes',
+                      String(row.id),
+                      null,
+                      row.name,
+                      row.meta,
+                      reasons,
+                      `/kitchen/recipes/item/${String(row.id)}?kind=meal`,
+                  )
+                : itemFrom('recipes', String(row.recipeId), null, row.name, row.meta, reasons);
         return item === null ? [] : [item];
     });
+}
+
+/**
+ * One row per id, carrying every reason any of its rows gave, each code once.
+ *
+ * The first row keeps its name, handle and address — for a meal filed under its recipe that is the
+ * recipe's own row whenever both are listed, because recipes are built first.
+ */
+function mergeById(items: readonly ReviewItem[]): readonly ReviewItem[] {
+    const merged = new Map<string, ReviewItem>();
+    for (const item of items) {
+        const held = merged.get(item.id);
+        merged.set(
+            item.id,
+            held === undefined
+                ? item
+                : {
+                      ...held,
+                      reasons: [
+                          ...held.reasons,
+                          ...item.reasons.filter(
+                              (reason) => !held.reasons.some((kept) => kept.code === reason.code),
+                          ),
+                      ],
+                  },
+        );
+    }
+    return [...merged.values()];
 }
 
 export function planReviewItems(rows: readonly PlanAdmin[]): readonly ReviewItem[] {
@@ -330,9 +389,11 @@ export interface ReviewSources {
 export function buildReviewQueue(sources: ReviewSources): ReviewQueue {
     const byFamily: Record<ReviewableFamilyKey, readonly ReviewItem[]> = {
         ingredients: ingredientReviewItems(sources.ingredients),
-        recipes: recipeReviewItems(sources.quarantinedRecipes, sources.staleRecipes),
+        recipes: mergeById([
+            ...recipeReviewItems(sources.quarantinedRecipes, sources.staleRecipes),
+            ...mealReviewItems(sources.meals),
+        ]),
         products: productReviewItems(sources.products),
-        meals: mealReviewItems(sources.meals),
         plans: planReviewItems(sources.plans),
         'price-lists': priceListReviewItems(sources.priceLists),
     };
@@ -381,7 +442,6 @@ const FAMILY_KEYS: Readonly<Record<ReviewableFamilyKey, string>> = {
     ingredients: 'kitchen:families.ingredients.name',
     recipes: 'kitchen:families.recipes.name',
     products: 'kitchen:families.products.name',
-    meals: 'kitchen:families.meals.name',
     plans: 'kitchen:families.plans.name',
     'price-lists': 'kitchen:families.priceLists.name',
 };
@@ -390,7 +450,7 @@ const FAMILY_KEYS: Readonly<Record<ReviewableFamilyKey, string>> = {
  * The heading of one section.
  *
  * Borrowed from the family registry's own name key rather than restated under `review.`: the queue
- * and the hub are naming the same six things, and two translations of "Price lists" would drift the
+ * and the hub are naming the same five things, and two translations of "Price lists" would drift the
  * first time somebody edited one of them.
  */
 export function reviewFamilyKey(familyKey: ReviewableFamilyKey): string {

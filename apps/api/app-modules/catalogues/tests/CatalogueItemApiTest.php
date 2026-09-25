@@ -345,9 +345,15 @@ it('filters by type, status and category and walks the cursor', function (): voi
         ->assertOk()->json('data');
     expect($byCategory)->toHaveCount(1);
 
-    $this->getJson('/api/v1/catalogue/items?item_type=nonsense', $headers)
+    // The refusal names every type the filter accepts — built from the enum, so a
+    // new family (frozen meals were missing from the hand-written list) cannot be
+    // accepted by the filter while the message says it is not.
+    $refused = $this->getJson('/api/v1/catalogue/items?item_type=nonsense', $headers)
         ->assertStatus(400)
-        ->assertJsonPath('error.code', 'request.invalid');
+        ->assertJsonPath('error.code', 'request.invalid')
+        ->assertJsonPath('error.details.parameter', 'item_type');
+
+    expect($refused->json('error.message'))->toContain('frozen_meal');
 
     // A keyset walk visits every row exactly once.
     $first = $this->getJson('/api/v1/catalogue/items?limit=2', $headers)->assertOk();

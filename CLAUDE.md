@@ -67,9 +67,9 @@ unambiguous way to point at one.
 | `kitchen`    | Kitchen board            | `kitchen-admin/screens/production-screen.tsx`                                           |
 | `kds`        | Kitchen display          | `kds/kds-tickets-screen.tsx`                                                            |
 | `desk`       | Order desk               | `kitchen-admin/screens/order-desk-screen.tsx` (+ `-sale`, `-cash-report`, `-calendar`)  |
-| `catmgr`     | Catalogue manager        | `kitchen-admin/screens/meals-screen.tsx`, `products-screen.tsx`, `plans-screen.tsx`     |
+| `catmgr`     | Catalogue manager        | `kitchen-admin/screens/recipes-screen.tsx`, `products-screen.tsx`, `plans-screen.tsx`   |
 | `inventory`  | Inventory & stock        | `kitchen-admin/screens/stock-screen.tsx`, `ingredients-screen.tsx`                      |
-| `adminmeals` | Meals & recipes          | `kitchen-admin/screens/meals-screen.tsx`, `recipes-screen.tsx`                          |
+| `adminmeals` | Meals & recipes          | `kitchen-admin/screens/recipes-screen.tsx`                                              |
 | `production` | Production plan          | `kitchen-admin/screens/production-screen.tsx`                                           |
 | `quotes`     | Quotations               | `kitchen-admin/screens/quotations-screen.tsx`, `business/screens/quotations-screen.tsx` |
 | `corp`       | Corporate programmes     | `business/screens/corporate-dashboard-screen.tsx`, `corporate-catalogue-screen.tsx`     |

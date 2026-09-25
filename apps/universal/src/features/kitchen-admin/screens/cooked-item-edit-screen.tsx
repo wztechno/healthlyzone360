@@ -1,8 +1,11 @@
+import { isRecipeKind } from '@healthy360/api-client/contracts';
 import type {
     LocalisedText,
     MealAdmin,
     ProductAdmin,
     RecipeAdmin,
+    RecipeKind,
+    RecipeSellerKind,
     ReferenceSeries,
 } from '@healthy360/api-client/contracts';
 import {
@@ -10,17 +13,19 @@ import {
     Callout,
     ErrorState,
     FormSkeleton,
+    SegmentedControl,
     Stack,
     Text,
     useToast,
 } from '@healthy360/design-system';
 import type { SelectOption } from '@healthy360/design-system';
-import { MealId, ProductId } from '@healthy360/domain-types';
+import { MealId, ProductId, RecipeId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -30,6 +35,7 @@ import {
     useCreateProductMutation,
     useCreateRecipeMutation,
     useProductQuery,
+    useRecipeQuery,
     useUpdateMealMutation,
     useUpdateProductMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
@@ -45,59 +51,70 @@ import { ProductEditScreen } from './product-edit-screen.tsx';
 import { RecipeEditScreen } from './recipe-edit-screen.tsx';
 
 /**
- * `/kitchen/meals/{item}`, `/kitchen/sauces/{item}` and `/kitchen/dressings/{item}` — one page for
- * everything a kitchen cooks and sells.
+ * `/kitchen/recipes/{recipe}` and `/kitchen/recipes/new?kind=…` — one page for everything a kitchen
+ * cooks, whatever sells it — and `/kitchen/recipes/item/{item}?kind=…`, the address an item is
+ * known by before it is known by its recipe.
  *
  * ```
- * Kitchen workspace › Sauces & marinations › Garlic sauce
+ * Kitchen workspace › Recipes › Garlic sauce
  * Garlic sauce  Draft  Restricted          [ Discard ] [ Save draft ] [ Publish ]
- * RC-0104 · yields 2 kg · 4 raw materials · 6.66 / kg
  * ── Description │ Production 4 │ Packaging 1 │ Costing │ Selling │ Technical sheet ──
  * ```
  *
- * ## The page is the recipe; the listing is a tab on it
+ * ## The page is the recipe; what sells it is a tab on it
  *
- * A meal, a sauce and a dressing are each cooked from a recipe and sold as a catalogue item. They
- * used to be three editor shapes — a meal editor with a recipe picker, a sauce page that was only the
- * recipe, and a product form sauces could not reach. Now each is this page: the recipe editor, and on
- * its Selling tab the item's own listing. A meal's listing is its portion, its place in the day, its
- * service days and its publication (`MealListing`); a sauce's is its packs, its channels and its
- * publication (`ProductEditScreen` with `embedded`). The recipe library at `/kitchen/recipes` stays
- * what it was, the formulations that are not sold on their own.
+ * A meal, a sauce, a dressing and a frozen meal are each cooked from a recipe and sold as a
+ * catalogue item, and a preparation is a recipe nothing sells. So every one of them is this page:
+ * the recipe editor, and — when something sells the recipe — a Selling tab holding that item's own
+ * listing. A meal's listing is its portion, its service days and its publication (`MealListing`); a
+ * packaged kind's is its packs, its channels and its publication (`ProductEditScreen` with
+ * `embedded`). The recipe is read first and names its sellers (`soldAs`); each listing then reads
+ * its own record, so this host reads no item at all.
+ *
+ * One recipe can back several articles, so a recipe sold twice draws a switch above the listing,
+ * one seller at a time. Switching unmounts the listing on screen, which is why the others are
+ * disabled while it holds an unsaved edit.
  *
  * Two records still save separately, each against its own lock version: nothing on Save draft writes
  * the item, and nothing in the tab writes the recipe.
  *
+ * ## The kind files the page
+ *
+ * A saved recipe is filed by the first kind the server lists for it — a recipe sold as a meal and as
+ * a sauce is filed as a meal and returns to the Meals tab — and `?kind=` is not consulted, because
+ * the recipe already answers the question. While creating, `?kind=` is the only answer there is, so
+ * it is validated: a cooked kind needs `catalogue.manage` as well, because saving one writes an item
+ * too, and anything else creates a plain recipe.
+ *
  * ## The whole form works before the first save
  *
- * That is the recipe editor's own property and the reason these routes render it rather than a form
- * of their own: yield, raw materials, the cost cascade and the technical sheet are all live on a
- * record that does not exist yet, and one Save draft writes the recipe, its lines and its prices
- * together. The listing has nothing to hang from until then, so the Selling tab appears with the
- * first save — which also writes the item, and lands on its address.
+ * That is the recipe editor's own property and the reason this page renders it rather than a form of
+ * its own: yield, raw materials, the cost cascade and the technical sheet are all live on a record
+ * that does not exist yet. The listing has nothing to hang from until then, so creating a cooked
+ * kind writes the recipe, then the item that sells it, and lands on the recipe's own address; the
+ * Selling tab appears there once the book has read the new seller back.
  *
  * ## Category is stated; sub-category is asked
  *
- * A form reached through Sauces & marinations cannot be filed anywhere else, so the category is
- * drawn read-only rather than as a picker whose every other option would be a mistake. What is left
- * to choose is the sub-category — the four words the v6 sheets file these rows under — and it is
- * stored on the recipe's own `recipe_category`, the free-text column the import already writes
- * `cooking_sauce` into. Dressings state their category and offer no sub-category, and a meal's recipe
- * files nothing: the library has no one list of words for dishes.
+ * A recipe filed as a sauce cannot be filed anywhere else, so the category is drawn read-only rather
+ * than as a picker whose every other option would be a mistake. What is left to choose is the
+ * sub-category — the four words the v6 sheets file these rows under — stored on the recipe's own
+ * `recipe_category`, the free-text column the import already writes `cooking_sauce` into. Dressings
+ * and frozen meals state their category and offer no sub-category, and a meal's recipe files
+ * nothing: the library has no one list of words for dishes.
  *
- * ## Two records, and which one the route parameter is
+ * ## An item with no recipe
  *
- * The list is the item, so `{item}` is the item's id, and this page resolves it to the recipe before
- * handing over. Creating goes the other way: the recipe is what the form fills in, so it is written
- * first, and `onCreated` writes the item that sells it — same name, linked — then routes to it, so
- * something created here is in the list it was created from.
+ * The old item addresses redirect to `/kitchen/recipes/item/{item}`, and the review queue sends a
+ * meal there when it has no recipe to be addressed by. An item with a recipe is replaced by the
+ * recipe's page at once. One without is where the kitchen starts its formulation: the notice offers
+ * it, and the listing stays editable underneath, because an imported item already has its name, its
+ * packs or its service days, and pricing it is not a question its recipe has to answer first.
  *
  * For a sauce or a dressing the server writes a third record with the item: its ingredient twin,
  * carrying the same `SAC-` handle, which is what a meal's lines name when they use the sauce and the
  * shelf a batch of it lands on. Nothing here asks for it, because there is nothing to decide.
  */
-
-type CookedKind = 'meal' | 'sauce' | 'dressing' | 'frozen_meal';
 
 /** The catalogue-item category each packaged kind files into. `ProductCategorySeeder`'s own codes. */
 const ITEM_CATEGORY = {
@@ -126,18 +143,18 @@ const REFERENCE_SERIES = {
     sauce: 'SAC-',
     dressing: 'DRS-',
     frozen_meal: 'FRZ-',
-} as const satisfies Record<CookedKind, ReferenceSeries>;
+} as const satisfies Record<RecipeSellerKind, ReferenceSeries>;
 
 /**
  * The sub-category words, as the sauces sheet's own filter lists them.
  *
  * Values are the `recipe_category` column's — snake case, matching `cooking_sauce`, which the
  * import already writes for every SC- row. Dressings have no list of their own: the sheets file all
- * fourteen alike, so the route states the category and asks nothing further, and a frozen meal is
+ * fourteen alike, so the page states the category and asks nothing further, and a frozen meal is
  * filed the same way — offering an empty select would be a control with nothing behind it.
  */
 function subcategoryOptions(
-    itemType: Exclude<CookedKind, 'meal'>,
+    itemType: Exclude<RecipeSellerKind, 'meal'>,
     t: TFunction,
 ): readonly SelectOption[] {
     if (itemType !== 'sauce') return [];
@@ -150,28 +167,200 @@ function subcategoryOptions(
     ];
 }
 
-export type CookedItemEditScreenProps =
-    | {
-          /** The route parameter — a catalogue item id, or `new` for the create form. */
-          readonly item: string | undefined;
-          readonly itemType: 'meal';
-          readonly routeBase: '/kitchen/meals';
-      }
-    | {
-          readonly item: string | undefined;
-          readonly itemType: 'sauce';
-          readonly routeBase: '/kitchen/sauces';
-      }
-    | {
-          readonly item: string | undefined;
-          readonly itemType: 'dressing';
-          readonly routeBase: '/kitchen/dressings';
-      }
-    | {
-          readonly item: string | undefined;
-          readonly itemType: 'frozen_meal';
-          readonly routeBase: '/kitchen/frozen-meals';
-      };
+/** The cooked kind a value names, or `null` — for a preparation, and for anything unrecognised. */
+function sellerKind(value: unknown): RecipeSellerKind | null {
+    return isRecipeKind(value) && value !== 'preparation' ? value : null;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * The recipe book's editor
+ * ---------------------------------------------------------------------------------------------- */
+
+export interface RecipeBookEditScreenProps {
+    /** The route parameter — a recipe id, or `new` for the create form. */
+    readonly recipe?: string | undefined;
+    /** `?kind=` — what a new recipe is created as. Ignored once the recipe exists. */
+    readonly kind?: string | undefined;
+}
+
+export function RecipeBookEditScreen(props: RecipeBookEditScreenProps) {
+    return (
+        /*
+         * The recipe code alone. A preparation is a recipe and nothing else, so a role that may read
+         * recipes and not the catalogue still opens it; what such a reader cannot see is what sells
+         * a recipe, and the server leaves that out of the answer rather than this page hiding it.
+         */
+        <Gate
+            area="kitchen"
+            requirement={{ allOf: [RECIPE_VIEW_PERMISSION] }}
+            testID="kitchen-recipe-book-editor"
+        >
+            <RecipeBookEditor {...props} />
+        </Gate>
+    );
+}
+
+function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps) {
+    const { t } = useTranslation();
+    const router = useRouter();
+    const toast = useToast();
+    const canManageItems = useCan(CATALOGUE_MANAGE_PERMISSION);
+
+    const isCreating = recipe === undefined || recipe === 'new';
+    // The cache entry the editor below reads, so naming the sellers costs no request of its own.
+    const record = useRecipeQuery(isCreating ? null : RecipeId.safeParse(recipe));
+    const soldAs = record.data?.soldAs ?? [];
+
+    const kind: RecipeKind | null = isCreating
+        ? isRecipeKind(requested) && (requested === 'preparation' || canManageItems)
+            ? requested
+            : null
+        : (record.data?.kinds?.[0] ?? null);
+    const cooked = sellerKind(kind);
+
+    // The listing's unsaved state, so the page's own exits ask before dropping it.
+    const [listingDirty, setListingDirty] = useState(false);
+    const [chosenSeller, setChosenSeller] = useState<string | null>(null);
+
+    const createMeal = useCreateMealMutation();
+    const createItem = useCreateProductMutation();
+
+    const classification =
+        cooked === null || cooked === 'meal'
+            ? undefined
+            : {
+                  categoryLabel: t(CATEGORY_LABEL_KEY[cooked]),
+                  subcategoryLabel: t('kitchen:fields.subcategory'),
+                  subcategoryPlaceholder: t('kitchen:fields.subcategoryPlaceholder'),
+                  options: subcategoryOptions(cooked, t),
+              };
+
+    /*
+     * The recipe is written; this writes the thing that sells it, then lands on the recipe.
+     *
+     * Failure here leaves a recipe with no item pointing at it, which is a real state rather than a
+     * corrupt one — the recipe is in the book, and a listing can be started from there — so the
+     * reader is told, and lands on the recipe all the same rather than on a form whose record
+     * already exists.
+     */
+    /*
+     * `listing` is what the create form asked for beyond the recipe: the description a customer
+     * reads, typed in both languages. It is the item's, not the recipe's — a recipe stores notes in
+     * one language at most — so it travels here rather than being read back off `created`.
+     */
+    const linkToCatalogue = (
+        created: RecipeAdmin,
+        itemType: RecipeSellerKind,
+        listing: { readonly description: LocalisedText },
+    ) => {
+        const open = () => {
+            router.replace(`/kitchen/recipes/${String(created.id)}` as never);
+        };
+        const keepRecipe = () => {
+            toast.show({
+                testID: 'kitchen-cooked-item-listing-failed-toast',
+                tone: 'warning',
+                message: t('kitchen:recipes.listingFailedToast'),
+            });
+            open();
+        };
+
+        if (itemType === 'meal') {
+            createMeal.mutate(
+                { name: created.name, description: listing.description, recipeId: created.id },
+                { onSuccess: open, onError: keepRecipe },
+            );
+            return;
+        }
+
+        createItem.mutate(
+            {
+                name: created.name,
+                description: listing.description,
+                categoryCode: ITEM_CATEGORY[itemType],
+                itemType,
+                recipeId: created.id,
+            },
+            { onSuccess: open, onError: keepRecipe },
+        );
+    };
+
+    const seller = soldAs.find((entry) => entry.id === chosenSeller) ?? soldAs[0];
+
+    /** The seller's own listing, inside this page — a meal's, or a packaged kind's. */
+    const listing =
+        seller === undefined ? null : seller.itemType === 'meal' ? (
+            <MealListing
+                key={seller.id}
+                meal={MealId.unsafe(seller.id)}
+                onDirtyChange={setListingDirty}
+            />
+        ) : (
+            <ProductEditScreen
+                key={seller.id}
+                product={seller.id}
+                itemType={seller.itemType}
+                routeBase="/kitchen/recipes"
+                embedded
+                onDirtyChange={setListingDirty}
+            />
+        );
+
+    return (
+        <RecipeEditScreen
+            recipe={recipe}
+            backTo={kind === null ? '/kitchen/recipes' : `/kitchen/recipes?kind=${kind}`}
+            classification={classification}
+            referenceSeries={cooked === null ? undefined : REFERENCE_SERIES[cooked]}
+            onCreated={
+                cooked === null
+                    ? undefined
+                    : (created, listing) => {
+                          linkToCatalogue(created, cooked, listing);
+                      }
+            }
+            sellsAs={
+                seller === undefined
+                    ? undefined
+                    : {
+                          label: t('kitchen:recipes.tabSelling'),
+                          content:
+                              soldAs.length < 2 ? (
+                                  listing
+                              ) : (
+                                  <View className="z-auto flex-col gap-base">
+                                      <SegmentedControl
+                                          testID="kitchen-recipe-selling-seller"
+                                          label={t('kitchen:recipes.sellerLabel')}
+                                          items={soldAs.map((entry) => ({
+                                              value: entry.id,
+                                              label: entry.reference ?? entry.slug,
+                                              testID: `kitchen-recipe-selling-seller-${entry.id}`,
+                                              disabled: listingDirty && entry.id !== seller.id,
+                                          }))}
+                                          value={seller.id}
+                                          onChange={setChosenSeller}
+                                      />
+                                      {listing}
+                                  </View>
+                              ),
+                          isDirty: listingDirty,
+                      }
+            }
+        />
+    );
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * An item, before it is known by its recipe
+ * ---------------------------------------------------------------------------------------------- */
+
+export interface CookedItemEditScreenProps {
+    /** The route parameter — a catalogue item id. */
+    readonly item?: string | undefined;
+    /** `?kind=` — which cooked kind the id names; a meal and a packaged kind are read apart. */
+    readonly kind?: string | undefined;
+}
 
 export function CookedItemEditScreen(props: CookedItemEditScreenProps) {
     return (
@@ -194,19 +383,13 @@ export function CookedItemEditScreen(props: CookedItemEditScreenProps) {
     );
 }
 
-/** `/kitchen/meals/{meal}` — a meal is a cooked item like any other. */
-export function MealEditScreen({ meal }: { readonly meal: string | undefined }) {
-    return <CookedItemEditScreen item={meal} itemType="meal" routeBase="/kitchen/meals" />;
-}
-
-function CookedItemEditor(props: CookedItemEditScreenProps) {
-    const { item: routeItem, itemType, routeBase } = props;
+function CookedItemEditor({ item: routeItem, kind }: CookedItemEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const { locale } = useLocale();
     const toast = useToast();
     // Both halves again — see the gate above. The recipe is written first, so a member holding
-    // only `catalogue.manage` must not be offered a save at all.
+    // only `catalogue.manage` must not be offered the start at all.
     //
     // Two statements rather than one `&&`: the short-circuit would skip the second hook on a render
     // where the first came back false, and a hook that is sometimes called is a hook order that
@@ -215,107 +398,39 @@ function CookedItemEditor(props: CookedItemEditScreenProps) {
     const canManageRecipe = useCan(RECIPE_MANAGE_PERMISSION);
     const canManage = canManageItem && canManageRecipe;
 
-    const isCreating = routeItem === undefined || routeItem === 'new';
+    const itemType = sellerKind(kind);
     const isMeal = itemType === 'meal';
 
     /*
      * Both reads, always, with the one this kind does not use given no id — hooks are called in the
      * same order on every render, and a query with no id never runs.
      */
-    const mealId = isCreating || !isMeal ? null : MealId.safeParse(routeItem);
-    const productId = isCreating || isMeal ? null : ProductId.safeParse(routeItem);
+    const mealId = isMeal ? MealId.safeParse(routeItem) : null;
+    const productId = itemType === null || isMeal ? null : ProductId.safeParse(routeItem);
     const mealRecord = useAdminMealQuery(mealId);
     const productRecord = useProductQuery(productId);
     const record = isMeal ? mealRecord : productRecord;
     const parsed = isMeal ? mealId : productId;
 
-    // The listing's unsaved state, so the page's own exits ask before dropping it.
-    const [listingDirty, setListingDirty] = useState(false);
-
-    const createMeal = useCreateMealMutation();
-    const createItem = useCreateProductMutation();
     const createRecipe = useCreateRecipeMutation();
     const linkMeal = useUpdateMealMutation();
     const linkProduct = useUpdateProductMutation();
 
-    const classification =
-        props.itemType === 'meal'
-            ? undefined
-            : {
-                  categoryLabel: t(CATEGORY_LABEL_KEY[props.itemType]),
-                  subcategoryLabel: t('kitchen:fields.subcategory'),
-                  subcategoryPlaceholder: t('kitchen:fields.subcategoryPlaceholder'),
-                  options: subcategoryOptions(props.itemType, t),
-              };
-
     /*
-     * The recipe is written; this writes the thing that sells it.
-     *
-     * Failure here leaves a recipe with no item pointing at it, which is a real state rather than a
-     * corrupt one — the recipe is in the library and a listing can be started from there — so the
-     * reader is told, and sent to the recipe rather than left on a form whose record already exists.
+     * An item with a recipe is edited on the recipe's page, so this one hands over at once — and
+     * again the moment a formulation started below links one, because the link's write effect puts
+     * the item back in the cache carrying its `recipeId`. Once: the ref keeps StrictMode's second
+     * effect and every later render from replacing again.
      */
-    const linkToCatalogue = (
-        created: RecipeAdmin,
-        listing: { readonly description: LocalisedText },
-    ) => {
-        const open = (id: string) => {
-            router.replace(`${routeBase}/${id}` as never);
-        };
-        const keepRecipe = () => {
-            toast.show({
-                testID: 'kitchen-cooked-item-listing-failed-toast',
-                tone: 'warning',
-                message: t('kitchen:recipes.listingFailedToast'),
-            });
-            router.replace(`/kitchen/recipes/${String(created.id)}` as never);
-        };
+    const recipeId = record.data?.recipeId ?? null;
+    const replaced = useRef(false);
+    useEffect(() => {
+        if (recipeId === null || replaced.current) return;
+        replaced.current = true;
+        router.replace(`/kitchen/recipes/${String(recipeId)}` as never);
+    }, [recipeId, router]);
 
-        if (props.itemType === 'meal') {
-            createMeal.mutate(
-                { name: created.name, description: listing.description, recipeId: created.id },
-                {
-                    onSuccess: (made) => {
-                        open(String(made.id));
-                    },
-                    onError: keepRecipe,
-                },
-            );
-            return;
-        }
-
-        createItem.mutate(
-            {
-                name: created.name,
-                // The form's own draft, both languages: the recipe keeps one language of notes, so
-                // reading the description back off it would drop the Arabic.
-                description: listing.description,
-                categoryCode: ITEM_CATEGORY[props.itemType],
-                itemType: props.itemType,
-                recipeId: created.id,
-            },
-            {
-                onSuccess: (made) => {
-                    open(String(made.id));
-                },
-                onError: keepRecipe,
-            },
-        );
-    };
-
-    if (isCreating) {
-        return (
-            <RecipeEditScreen
-                recipe="new"
-                backTo={routeBase}
-                classification={classification}
-                referenceSeries={REFERENCE_SERIES[itemType]}
-                onCreated={linkToCatalogue}
-            />
-        );
-    }
-
-    if (parsed === null) {
+    if (itemType === null || parsed === null) {
         return (
             <Stack space="lg" testID="kitchen-cooked-item-screen">
                 <Callout
@@ -328,9 +443,13 @@ function CookedItemEditor(props: CookedItemEditScreenProps) {
                         <Button
                             testID="kitchen-cooked-item-not-found-back"
                             variant="quiet"
-                            label={t('kitchen:products.backToList')}
+                            label={t('kitchen:recipes.backToList')}
                             onPress={() => {
-                                router.push(routeBase as never);
+                                router.push(
+                                    (itemType === null
+                                        ? '/kitchen/recipes'
+                                        : `/kitchen/recipes?kind=${itemType}`) as never,
+                                );
                             }}
                         />
                     }
@@ -339,7 +458,8 @@ function CookedItemEditor(props: CookedItemEditScreenProps) {
         );
     }
 
-    if (record.isPending) {
+    // Still reading, or already on the way to the recipe: the skeleton is the honest frame for both.
+    if (record.isPending || recipeId !== null) {
         return (
             <FormSkeleton
                 testID="kitchen-cooked-item-loading"
@@ -370,41 +490,23 @@ function CookedItemEditor(props: CookedItemEditScreenProps) {
 
     /** The item's own listing, inside this page — a meal's, or a packaged kind's. */
     const listing =
-        item === undefined ? null : props.itemType === 'meal' ? (
-            <MealListing meal={MealId.unsafe(String(item.id))} onDirtyChange={setListingDirty} />
+        item === undefined ? null : itemType === 'meal' ? (
+            <MealListing meal={MealId.unsafe(String(item.id))} />
         ) : (
             <ProductEditScreen
                 product={String(item.id)}
-                itemType={props.itemType}
-                routeBase={props.routeBase}
+                itemType={itemType}
+                routeBase="/kitchen/recipes"
                 embedded
-                onDirtyChange={setListingDirty}
             />
         );
-
-    if (item !== undefined && item.recipeId !== null) {
-        return (
-            <RecipeEditScreen
-                recipe={String(item.recipeId)}
-                backTo={routeBase}
-                classification={classification}
-                referenceSeries={REFERENCE_SERIES[itemType]}
-                sellsAs={{
-                    label: t('kitchen:recipes.tabSelling'),
-                    content: listing,
-                    isDirty: listingDirty,
-                }}
-            />
-        );
-    }
 
     /*
      * Saved as an item, with nothing made yet.
      *
-     * Every row the v6 import wrote is in this state: the sheets said "Source: Recipe Library",
-     * there was no library, and each row carries `recipe_library_unlinked` instead of a link. The
-     * create form is the same editor, so it is where the notice sends a reader — what it writes is a
-     * formulation, and the item it makes alongside is the one this record should have been.
+     * Every row the v6 import wrote was in this state: the sheets said "Source: Recipe Library",
+     * there was no library, and each row carries `recipe_library_unlinked` instead of a link. What
+     * the notice starts is a formulation for *this* item, and the page it lands on is the recipe's.
      */
     const startFailure = toFailure(createRecipe.error ?? linkMeal.error ?? linkProduct.error);
     const starting = createRecipe.isPending || linkMeal.isPending || linkProduct.isPending;
@@ -414,7 +516,8 @@ function CookedItemEditor(props: CookedItemEditScreenProps) {
      * rather than reporting success: a recipe nothing points at is invisible from here, and a second
      * press would write another. The link carries `recipeId` and the lock version alone;
      * `CatalogueItemService::update` reads its payload key by key, so the packs, the channels, the
-     * portion and the filing are not in the request and cannot be cleared by it.
+     * portion and the filing are not in the request and cannot be cleared by it. Nothing routes from
+     * here: the effect above carries the reader to the recipe once the link has answered.
      */
     const startFormulation = () => {
         if (item === undefined) return;

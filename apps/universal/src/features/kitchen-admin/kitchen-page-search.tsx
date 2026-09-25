@@ -10,6 +10,8 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText } from 'react-native';
 
+import { ENTITY_FAMILIES } from './entity-registry.ts';
+
 /**
  * The kitchen area's page search — the box in the top bar, Ctrl K anywhere, and the palette both
  * open.
@@ -17,7 +19,8 @@ import { Pressable, Text as RNText } from 'react-native';
  * It searches exactly what the sidebar lists: the items are `useKitchenNavigation()`'s own, so a
  * page is offered here precisely when the reader's permissions put it in the rail, under the same
  * module heading and with the same Lucide mark. Nothing is maintained twice, and a module added to
- * the entity registry is searchable the day it appears in the sidebar.
+ * the entity registry is searchable the day it appears in the sidebar. A family's `keywordsKey`
+ * adds the words it answers to beyond its name, so "sauces" still finds the recipe book.
  *
  * The box is a button that looks like a field, not a field: typing happens in the palette, which
  * has the room to show the results. Below `md` it narrows to its glyph, because the top bar there
@@ -38,15 +41,21 @@ export function KitchenPageSearch({
 
     const items = useMemo<readonly CommandPaletteItem[]>(
         () =>
-            navigation.map((item) => ({
-                key: item.key,
-                label: item.label,
-                icon: item.icon ?? 'dot',
-                group: item.group,
-                onSelect: item.onPress,
-                testID: `kitchen-page-search-item-${item.key}`,
-            })),
-        [navigation],
+            navigation.map((item) => {
+                const keywordsKey = ENTITY_FAMILIES.find(
+                    (family) => family.key === item.key,
+                )?.keywordsKey;
+                return {
+                    key: item.key,
+                    label: item.label,
+                    icon: item.icon ?? 'dot',
+                    group: item.group,
+                    ...(keywordsKey === undefined ? {} : { keywords: [t(keywordsKey)] }),
+                    onSelect: item.onPress,
+                    testID: `kitchen-page-search-item-${item.key}`,
+                };
+            }),
+        [navigation, t],
     );
 
     const label = t('kitchen:search.label');

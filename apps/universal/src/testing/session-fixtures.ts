@@ -225,6 +225,9 @@ export const PROCUREMENT_MANAGER_PERMISSIONS: readonly string[] = [
     'organisation.view_current',
     'branch.view_current',
     'catalogue.view_organisation',
+    // The recipe book is where the sauces, dressings and meals a buyer used to open now live, so
+    // the template gained recipe view when the four lists became one (D15 of the merge plan).
+    'recipe.view_organisation',
     'inventory.view_organisation',
     'inventory.manage_organisation',
     'inventory.view_costs_organisation',

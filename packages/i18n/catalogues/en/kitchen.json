@@ -1815,15 +1815,12 @@
         },
         "recipes": {
             "name": "Recipes",
-            "description": "The formulations this kitchen cooks from, versioned, with the label each version would carry."
+            "description": "Everything this kitchen cooks — meals, sauces, dressings, frozen meals and preparations — with its formulation, its versions and what it is sold as.",
+            "keywords": "meals sauces marinations dressings frozen meals preparations"
         },
         "products": {
             "name": "Resale",
             "description": "Goods this kitchen buys in and resells by the pack, and the channels each one reaches."
-        },
-        "meals": {
-            "name": "Meals",
-            "description": "Dishes on the menu. Publishing one is what a customer can see."
         },
         "priceLists": {
             "name": "Price lists",
@@ -1909,14 +1906,6 @@
             "name": "Cash taken",
             "description": "What each agent took in a day, and how it arrived — the record behind the till, until there is a shift to close."
         },
-        "sauces": {
-            "name": "Sauces & marinations",
-            "description": "The kitchen-made sauces and marinations, with their packs and prices."
-        },
-        "dressings": {
-            "name": "Dressings",
-            "description": "The kitchen-made salad dressings, with their packs and prices."
-        },
         "packaging": {
             "name": "Packaging",
             "description": "Bags, boxes, lids, cutlery and labels, with what each costs — the half of the catalogue a dish ships in rather than the half it is made of."
@@ -1924,10 +1913,6 @@
         "batch": {
             "name": "Batch planner",
             "description": "Scale a recipe to a quantity or a number of pieces, and read off the ingredients and packaging it needs."
-        },
-        "frozenMeals": {
-            "description": "Batch-cooked meals sold by the unit from finished stock.",
-            "name": "Frozen meals"
         },
         "roles": {
             "name": "Roles",
@@ -2208,7 +2193,6 @@
         "import": "Import",
         "importUnavailable": "Import is not available yet",
         "statTotal": "Ingredients",
-        "statLive": "Live",
         "statDraft": "Draft",
         "statMissingArabic": "Missing Arabic",
         "statTotalCaption": "in this catalogue",
@@ -2758,7 +2742,23 @@
         "costPerUnit": "Per {{unit}}",
         "costWithWaste": "+ {{percent}}% waste",
         "sectionCoefficients": "Coefficients & prices",
-        "coefficientsHint": "What the waste rows above are multiplied by, and what a unit of the batch is sold for"
+        "coefficientsHint": "What the waste rows above are multiplied by, and what a unit of the batch is sold for",
+        "columnKind": "Kind",
+        "kindMeals": "Meals",
+        "kindPreparations": "Preparations",
+        "kindPreparation": "Preparation",
+        "createPreparation": "New preparation",
+        "columnOnSale": "On sale",
+        "statOnSaleCaption": "on sale right now",
+        "statOnSaleAction": "Show only recipes on sale",
+        "notFormulated": "Not formulated",
+        "withdrawTitle": "Take it off sale?",
+        "withdrawBody": "The item this recipe is sold as leaves the menu and every sales channel at once. The recipe stays in the book, and nothing is deleted: past orders and price lists still point at the item.",
+        "withdrawnToast": "{{name}} is no longer on sale.",
+        "withdrawFailed": "That item could not be taken off sale.",
+        "sellerLabel": "Sold as",
+        "viewHandle": "Handle",
+        "viewAllergensFrozen": "Label frozen on the item at publication"
     },
     "publish": {
         "action": "Publish",
@@ -2992,20 +2992,10 @@
     "meals": {
         "title": "Meals",
         "subtitle": "The dishes on the menu. Publishing one is what a customer can see.",
-        "caption": "Meals",
-        "columnName": "Production item",
-        "columnAllergens": "Allergens",
-        "columnChannels": "Channels",
         "create": "New meal",
-        "typeFilterLabel": "Meal type",
         "typeFilterAll": "Every meal type",
         "resultCount_one": "{{count}} match",
         "resultCount_other": "{{count}} matches",
-        "emptyTitle": "This kitchen has no meals yet",
-        "emptyBody": "Add the first one, or build it from a recipe that is already published.",
-        "filteredEmptyTitle": "Nothing matches those filters",
-        "filteredEmptyBody": "Try a shorter search, or allow more statuses.",
-        "noChannels": "On no channel",
         "visibleToConsumers": "Visible to customers",
         "retire": "Withdraw",
         "retireTitle": "Withdraw this meal?",
@@ -3013,7 +3003,6 @@
         "retireConfirm": "Withdraw it",
         "retireConsequence": "Withdrawing is this catalogue’s archive for a meal. Publishing it again is a separate, deliberate act.",
         "retiredToast": "{{name}} was withdrawn from the menu.",
-        "retireFailed": "That meal could not be withdrawn.",
         "editTitle": "Edit meal",
         "loadErrorTitle": "That meal could not be loaded",
         "nameRequired": "An English name is required before this can be saved.",
@@ -3026,9 +3015,7 @@
         "sectionDetails": "The meal",
         "sectionRecipe": "Recipe, allergens and channels",
         "sectionMargin": "Margin",
-        "recipeLabel": "Cooked from recipe",
         "recipeHint": "The recipe the meal’s figures and its allergen label come from. A meal with no recipe is bought in, and declares nothing derived.",
-        "recipeNone": "Bought in — not cooked here",
         "allergensLabel": "Declared allergens",
         "allergensNone": "None derived",
         "allergensProvenance": "Frozen from recipe version {{version}} when this meal was published. Change the recipe to change the label — it cannot be edited here.",
@@ -3053,13 +3040,8 @@
         "viewPublic": "See it on the menu",
         "publishedToast": "{{name}} is published, and customers can see it.",
         "viewKind": "Meal",
-        "searchPlaceholder": "Search meals",
-        "statLiveCaption": "on the menu right now",
-        "statLiveAction": "Show only published meals",
         "viewVisibility": "Customer visibility",
         "notVisibleToConsumers": "Not on the menu",
-        "viewAllergensSource": "From the recipe",
-        "viewAllergensCaption": "Frozen from the recipe version when this meal was published. Change the recipe to change the label — it cannot be edited here.",
         "sectionIdentity": "Identity",
         "sectionWhen": "Where it sits in the day",
         "gateTitle": "Before you can publish",
@@ -3633,13 +3615,7 @@
     "sauces": {
         "title": "Sauces & marinations",
         "create": "New sauce",
-        "caption": "Sauces and marinations, their packs, channels and status",
-        "resultCount_one": "{{count}} sauce",
-        "resultCount_other": "{{count}} sauces",
-        "emptyTitle": "No sauces yet",
-        "emptyBody": "Sauces the kitchen makes appear here once they are imported or created.",
         "viewKind": "Sauce",
-        "searchPlaceholder": "Search sauces",
         "kindColdSauce": "Cold sauce / dip",
         "kindCookingSauce": "Cooking sauce",
         "kindDessertSauce": "Dessert sauce",
@@ -3648,13 +3624,7 @@
     "dressings": {
         "title": "Dressings",
         "create": "New dressing",
-        "caption": "Dressings, their packs, channels and status",
-        "resultCount_one": "{{count}} dressing",
-        "resultCount_other": "{{count}} dressings",
-        "emptyTitle": "No dressings yet",
-        "emptyBody": "Dressings the kitchen makes appear here once they are imported or created.",
-        "viewKind": "Dressing",
-        "searchPlaceholder": "Search dressings"
+        "viewKind": "Dressing"
     },
     "sale": {
         "title": "Sale",
@@ -3734,11 +3704,7 @@
         "sourcingTitle": "Pack & sourcing"
     },
     "frozenMeals": {
-        "caption": "Meals cooked in advance and sold from the freezer.",
         "create": "New frozen meal",
-        "emptyBody": "A frozen meal is cooked in a batch and sold by the unit, so selling one takes it off the freezer shelf rather than off the raw ingredients.",
-        "emptyTitle": "No frozen meals yet",
-        "searchPlaceholder": "Search frozen meals",
         "title": "Frozen meals",
         "viewKind": "Frozen meal"
     },

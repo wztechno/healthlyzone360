@@ -2505,6 +2505,17 @@ paths:
         Archived recipes are excluded unless `status=archived` is asked for by
         name.
 
+        **What sells a recipe.** Every row carries `kinds` and `sold_as` — the
+        catalogue items selling it — and the list filters by `kind` and
+        `selling_status`, for a caller who also holds
+        `catalogue.view_organisation`. Without it the two keys are absent from
+        every row, a search matches recipe fields only, and sending either
+        filter is `403 authz.permission_denied` naming the permission rather
+        than a filter silently ignored.
+
+        Every lookup behind a row is one query for the whole page, never one
+        per row.
+
         Requires `recipe.view_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -2515,16 +2526,71 @@ paths:
         - name: query
           in: query
           required: false
-          description: Case-insensitive substring match over both names and the slug.
+          description: |
+            Case-insensitive substring match over both names, the slug and the
+            recipe's own handle (`RC-0007`) — and, for a caller holding
+            `catalogue.view_organisation`, the handle (`SAC-016`) and English
+            name of any item selling it, in any status. The book prints a
+            seller's handle in its ID column, so it has to be findable by it.
           schema:
             type: string
             maxLength: 160
         - name: status
           in: query
           required: false
-          description: Restrict to one lifecycle state. Omitted, only `active` recipes are listed.
+          description: |
+            Restrict to one state. `active` and `archived` are the recipe's own
+            lifecycle; omitted, only `active` recipes are listed. `draft`,
+            `review_required` and `published` narrow active recipes by their
+            **current** version — the one `current_version_status` names — and
+            `retired` lists the archived ones.
           schema:
-            $ref: '#/components/schemas/RecipeStatus'
+            type: string
+            enum:
+              - active
+              - archived
+              - draft
+              - review_required
+              - published
+              - retired
+        - name: stale_only
+          in: query
+          required: false
+          description: |
+            Keep only recipes whose highest draft, review-required or published
+            version carries a `stale` allergen derivation — the review queue's
+            question. Omitted or false lists everything.
+          schema:
+            type: boolean
+            default: false
+        - name: kind
+          in: query
+          required: false
+          description: |
+            Keep the recipes some item of this kind sells, in any status —
+            `preparation` keeps the recipes no meal, sauce, dressing or frozen
+            meal sells. The filter matches **any** seller, so a recipe sold as a
+            meal and as a sauce is listed, and counted, under both: the same set
+            its `kinds` prints. With `selling_status`, both must hold of one
+            item.
+
+            Requires `catalogue.view_organisation` as well — `403` without it.
+          schema:
+            $ref: '#/components/schemas/RecipeKind'
+        - name: selling_status
+          in: query
+          required: false
+          description: |
+            Keep the recipes some item selling them is in this status —
+            `published` is "on sale". With `kind`, both must hold of the same
+            item: `kind=sauce&selling_status=published` is a recipe with a
+            published sauce, not one with a sauce and some other published
+            item. Beside `kind=preparation` it matches nothing, since nothing
+            sells a preparation.
+
+            Requires `catalogue.view_organisation` as well — `403` without it.
+          schema:
+            $ref: '#/components/schemas/CatalogueItemStatus'
         - name: category
           in: query
           required: false
@@ -2867,12 +2933,15 @@ paths:
       description: |
         A lifecycle action as a POST sub-resource, never a `PATCH status`.
 
-        **Refused while a published version exists** —
-        `409 catalogue.in_use`, with `details.published_version_ids`.
-        Withdrawing something from sale is retiring the version, which has its
-        own route and its own permission; letting archive do it implicitly
-        would pull a live recipe through a route that never mentions
-        publication.
+        **Refused while a published version exists, or while a published
+        catalogue item sells the recipe** — `409 catalogue.in_use`, with both
+        `details.published_version_ids` and `details.catalogue_item_ids`, each
+        present and empty when that side holds nothing. Withdrawing something
+        from sale is retiring the version or the listing, each with its own
+        route and its own permission; letting archive do it implicitly would
+        pull a live recipe through a route that never mentions publication. A
+        live listing holds even when no version is published — its allergen
+        basis may be its own ingredients — and a draft listing never holds.
 
         There is no delete. A recipe that has ever been published is part of a
         food-safety record.
@@ -22259,10 +22328,12 @@ components:
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
     RecipeArchiveBlocked:
       description: |
-        The recipe still has a published version.
-        `details.published_version_ids` names them. Withdrawing something from
-        sale is retiring the version — its own action, its own permission —
-        not a side effect of archiving.
+        The recipe still has a published version, or a published catalogue
+        item still sells it. `details.published_version_ids` names the
+        versions and `details.catalogue_item_ids` the listings; both keys are
+        always present, empty when that side holds nothing. Withdrawing
+        something from sale is retiring the version or the listing — each its
+        own action, its own permission — not a side effect of archiving.
       headers:
         X-Correlation-Id:
           $ref: '#/components/headers/XCorrelationId'
@@ -22273,10 +22344,11 @@ components:
           example:
             error:
               code: catalogue.in_use
-              message: This recipe still has a published version. Retire it before archiving the recipe.
+              message: This recipe still has a published version or a published catalogue item selling it. Retire those before archiving the recipe.
               details:
                 published_version_ids:
                   - 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d40
+                catalogue_item_ids: []
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
     IngredientArchiveConflict:
       description: |
@@ -24582,10 +24654,14 @@ components:
         - failed
       description: |
         Whether the frozen allergen label still matches the ingredient
-        mappings it was computed from. A new version is `stale` — nothing has
-        been derived for it, and claiming `current` for an empty label would be
-        the most dangerous default available. `failed` records that a recompute
-        was attempted and could not complete, which must never be
+        mappings it was computed from. The empty version 1 created with a
+        recipe is `current`: it has no lines, so there is nothing to derive and
+        its empty label is the true one. The first content write marks it
+        `stale`, and a version with no lines cannot be published (`no_lines`).
+        Every other new version is `stale` — nothing has been derived for what
+        it holds, and claiming `current` for a label nobody computed would be
+        the most dangerous default available. `failed` records that a
+        recompute was attempted and could not complete, which must never be
         indistinguishable from "not tried yet".
     AllergenDerivation:
       type: string
@@ -24610,11 +24686,16 @@ components:
         - published_version_number
         - current_version_status
         - current_version_allergen_codes
+        - current_version_line_count
         - lock_version
       description: |
         The administrative shape of a recipe identity. Carries **both** names
         and ignores `Accept-Language` for them: a bilingual editor has to see
         what it is editing. There is no public recipe projection.
+
+        One shape wherever it is served — the list, the single read and every
+        write's response build it the same way, so a recipe never says one
+        thing on its own page and another in the list it was opened from.
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -24692,6 +24773,42 @@ components:
             The allergen classes that version declares, so a list can draw its
             Allergens column from the page it already fetched rather than one
             `GET /recipes/{recipe}` per visible row.
+        current_version_line_count:
+          type: integer
+          minimum: 0
+          description: |
+            How many ingredient lines that same version holds. Zero is a recipe
+            nobody has formulated yet — a name, or a placeholder written for a
+            catalogue item that had no recipe — and a lineless version cannot
+            be published, so its empty allergen list means "not derived", not
+            "contains nothing".
+        kinds:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/RecipeKind'
+          description: |
+            What the recipe is sold as: the `item_type` of every item in
+            `sold_as`, once each, in the same slug order — or `[preparation]`
+            when nothing sells it. A recipe sold as a meal and as a sauce reads
+            `[meal, sauce]`, and the `kind` filter lists it under both.
+
+            **Absent**, beside `sold_as`, when the caller does not hold
+            `catalogue.view_organisation`.
+        sold_as:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminRecipeSoldAs'
+          description: |
+            The catalogue items selling this recipe — meals, sauces, dressings
+            and frozen meals, in every status including retired, in slug order.
+            Usually one; the schema allows several (a half and a whole portion
+            of one formulation are two items). Empty when nothing sells it.
+
+            **Absent**, not empty, when the caller does not hold
+            `catalogue.view_organisation`: an empty list is a fact about the
+            recipe ("nothing sells it"), a missing one is a fact about the
+            reader, and a client can only tell them apart if the shapes differ.
         source_system:
           type:
             - string
@@ -24714,6 +24831,161 @@ components:
             - string
             - 'null'
           format: date-time
+      additionalProperties: false
+    RecipeKind:
+      type: string
+      enum:
+        - meal
+        - sauce
+        - dressing
+        - frozen_meal
+        - preparation
+      description: |
+        What a recipe is sold as. The first four are the catalogue item types
+        that sell a formulation; `preparation` is a recipe none of them sells —
+        a marinade, a base, a component another recipe consumes. Derived from
+        the items selling the recipe, never stored, so it cannot fall out of
+        step with them.
+    AdminRecipeSoldAs:
+      type: object
+      required:
+        - id
+        - item_type
+        - status
+        - lock_version
+        - reference
+        - slug
+        - name_en
+        - name_ar
+        - image_placeholder_id
+        - kitchen_category
+        - kitchen_subcategory
+        - is_market_priced
+        - is_assorted
+        - data_quality_flags
+        - portion_factor
+        - composition
+        - channel_codes
+        - pack_count
+        - default_pack
+      description: |
+        One catalogue item selling a recipe, as the recipe book draws it beside
+        the row: the item's own columns, plus two facts read for the whole
+        page at once — the channels it is available on and its packs.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        item_type:
+          type: string
+          enum:
+            - meal
+            - sauce
+            - dressing
+            - frozen_meal
+        status:
+          $ref: '#/components/schemas/CatalogueItemStatus'
+        lock_version:
+          type: integer
+          minimum: 0
+          description: |
+            The item's own validator — what withdrawing it from sale sends as
+            `If-Match`, without reading the item first.
+        reference:
+          type:
+            - string
+            - 'null'
+          description: The item's `source_ref` — its `SAC-016` handle, when it has one.
+        slug:
+          type: string
+        name_en:
+          type: string
+        name_ar:
+          type:
+            - string
+            - 'null'
+        image_placeholder_id:
+          type: string
+          description: |
+            The item's stored placeholder, else `<item_type>-<slug>` — the id
+            the storefront derives, so the book, the item screens and the menu
+            draw the same photograph.
+        kitchen_category:
+          type:
+            - string
+            - 'null'
+        kitchen_subcategory:
+          type:
+            - string
+            - 'null'
+        is_market_priced:
+          type: boolean
+        is_assorted:
+          type: boolean
+        data_quality_flags:
+          type: array
+          description: Unresolved import findings, e.g. `recipe_library_unlinked`.
+          items:
+            type: string
+        portion_factor:
+          type: string
+          examples:
+            - '1.000'
+          description: The portion sold, as a multiple of one recipe yield piece, as a three-place decimal string.
+        composition:
+          type:
+            - string
+            - 'null'
+        channel_codes:
+          type: array
+          items:
+            type: string
+          description: |
+            The channels the item is available on today — switched on, and
+            inside its `available_from` / `available_to` window where it has one
+            — one entry per channel kind however many channel rows or packs
+            carry it, sorted: `b2c` (a web shop), `b2b`, `pos`, `marketplace`,
+            `corporate`. That is the vocabulary the admin's channel chips use,
+            not the kitchen's own channel codes; an insurer's channel has no
+            word in it and is not listed.
+        pack_count:
+          type: integer
+          minimum: 0
+          description: |
+            How many packs the item is sold in, archived ones excluded. Zero on
+            a meal, which is sold as itself, and on a packaged item nobody has
+            given a pack yet.
+        default_pack:
+          type:
+            - object
+            - 'null'
+          description: |
+            The pack flagged default, else the first by code; null when the
+            item has none.
+          required:
+            - label_en
+            - label_ar
+            - net_quantity
+            - net_unit_code
+          properties:
+            label_en:
+              type: string
+              description: The pack's English name, else its code.
+            label_ar:
+              type:
+                - string
+                - 'null'
+            net_quantity:
+              type: string
+              examples:
+                - '0.2500'
+              description: How much is in the pack, in `net_unit_code`, as a four-place decimal string.
+            net_unit_code:
+              type:
+                - string
+                - 'null'
+              examples:
+                - kg
+          additionalProperties: false
       additionalProperties: false
     RecipeEnvelope:
       type: object

@@ -15,6 +15,7 @@ import {
     RecipeVersionId,
     ServiceAreaId,
     SubscriptionPlanId,
+    SALES_CHANNELS,
     type DietClassification,
     type SalesChannel,
 } from '@healthy360/domain-types';
@@ -48,6 +49,8 @@ import type {
     CostAmount,
     RecipeAdmin,
     RecipeAdminSummary,
+    RecipeKind,
+    RecipeSoldAs,
     RecipeCostFigures,
     RecipeComputedCost,
     RecipeAllergenDeclaration,
@@ -62,7 +65,7 @@ import type {
     RecipeWeeklyCost,
     TechnicalSheetAdmin,
 } from '../contracts/kitchen-admin.ts';
-import { ALLERGEN_CONTAINMENTS } from '../contracts/kitchen-admin.ts';
+import { ALLERGEN_CONTAINMENTS, isRecipeKind } from '../contracts/kitchen-admin.ts';
 import { UNKNOWN_ISO_DATE_TIME } from './mappers.ts';
 import { mapNutritionFacts } from './marketplace-mappers.ts';
 import type {
@@ -74,6 +77,7 @@ import type {
     AdminPriceList,
     AdminPriceListEntry,
     AdminRecipe,
+    AdminRecipeSoldAs,
     AdminRecipeVersion,
     AdminSalesChannel,
     ComputedCost as WireComputedCost,
@@ -793,6 +797,54 @@ export function mapPlanAdminFromItem(
     };
 }
 
+function isSalesChannel(code: string): code is SalesChannel {
+    return (SALES_CHANNELS as readonly string[]).includes(code);
+}
+
+/** One seller of a recipe, as `GET /catalogue/recipes` lists it beside the row. */
+function mapRecipeSeller(wire: AdminRecipeSoldAs): RecipeSoldAs {
+    return {
+        id: wire.id,
+        // The server only lists the four cooked kinds; anything else is a contract break, and
+        // reading it as a meal is the least wrong row rather than a crash on the whole page.
+        itemType:
+            wire.item_type === 'sauce' ||
+            wire.item_type === 'dressing' ||
+            wire.item_type === 'frozen_meal'
+                ? wire.item_type
+                : 'meal',
+        status: mapCataloguePublishableStatus(wire.status),
+        lockVersion: wire.lock_version,
+        reference: wire.reference,
+        slug: wire.slug,
+        name: localised(wire.name_en, wire.name_ar),
+        imagePlaceholderId: wire.image_placeholder_id,
+        kitchenCategory: wire.kitchen_category,
+        kitchenSubcategory: wire.kitchen_subcategory,
+        isMarketPriced: wire.is_market_priced,
+        isAssorted: wire.is_assorted,
+        dataQualityFlags: wire.data_quality_flags,
+        portionFactor: parseDecimal(wire.portion_factor, 1),
+        composition: wire.composition,
+        channels: wire.channel_codes.filter(isSalesChannel),
+        packCount: wire.pack_count,
+        defaultPack:
+            wire.default_pack === null
+                ? null
+                : {
+                      label: localised(wire.default_pack.label_en, wire.default_pack.label_ar),
+                      netQuantity: parseDecimal(wire.default_pack.net_quantity, 0),
+                      netUnit: mapMeasureUnit(wire.default_pack.net_unit_code),
+                  },
+    };
+}
+
+/** The kinds a row claims, dropping anything the client does not know how to draw. */
+function mapRecipeKinds(kinds: readonly string[] | undefined): readonly RecipeKind[] {
+    const known = (kinds ?? []).filter(isRecipeKind);
+    return known.length === 0 ? ['preparation'] : known;
+}
+
 export function mapRecipeAdminSummary(
     wire: AdminRecipe,
     options?: {
@@ -836,6 +888,15 @@ export function mapRecipeAdminSummary(
         allergenCodes:
             options?.allergenCodes ??
             wire.current_version_allergen_codes.map((code) => AllergenCode.unsafe(code)),
+        lineCount: wire.current_version_line_count ?? 0,
+        // Absent, not empty, when the server left the sellers out: a role without catalogue view
+        // gets a row with no Kind, not a row that says the recipe sells nothing.
+        ...(wire.sold_as === undefined
+            ? {}
+            : {
+                  soldAs: wire.sold_as.map(mapRecipeSeller),
+                  kinds: mapRecipeKinds(wire.kinds),
+              }),
     };
 }
 
@@ -993,11 +1054,11 @@ export function mapRecipeAdmin(
         versionCount: versionsWire.length,
         // Taken from the version this read already resolved rather than from the wire fields.
         //
-        // Only the *listing* fills `current_version_status` and `current_version_allergen_codes`:
-        // the single-resource reads return the versions themselves, so the controller has nothing to
-        // compute and sends null. Left alone, a record would report `published` on its own page
-        // while the list it was opened from said `review_required` — the same recipe disagreeing
-        // with itself one click apart.
+        // The single read now computes `current_version_status` and the allergen codes the same way
+        // the listing does (both go through the server's `RecipeSummaries`), so the wire fields are
+        // no longer null here. The override stays because this client has the versions in hand and
+        // picks the current one with the rule it opens the editor on: a record must not report
+        // `published` on its own page while the list it was opened from said `review_required`.
         currentVersionStatus: currentVersion.status,
         allergenCodes: currentVersion.allergens.map((declared) => declared.allergenCode),
     });

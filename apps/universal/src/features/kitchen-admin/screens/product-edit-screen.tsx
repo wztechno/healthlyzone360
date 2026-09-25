@@ -145,10 +145,11 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ## Embedded
  *
- * The same record is a cooked item's Selling tab (`CookedItemEditScreen`). There the recipe is the
- * page, so the header, the trail, Cancel, the photo, the category and the recipe picker are the
- * host's and are not drawn; what stays is this record's status, its own save and publish, its
- * banners and its sections.
+ * The same record is a cooked item's Selling tab in the recipe book (`RecipeBookEditScreen`), and
+ * the listing under the notice of an item with no recipe yet (`CookedItemEditScreen`). There the
+ * recipe is the page, so the header, the trail, Cancel, the photo, the category and the recipe
+ * picker are the host's and are not drawn; what stays is this record's status, its own save and
+ * publish, its banners and its sections.
  */
 
 /* ------------------------------------------------------------------------------------------------
@@ -173,7 +174,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * section further down.
  *
  * The cooked kinds are a different question and have a different screen: a sauce or a dressing owns
- * its recipe outright and is edited through `CookedItemEditScreen`, never here.
+ * its recipe outright and is edited in the recipe book (`RecipeBookEditScreen`), never here.
  */
 const NO_RECIPE = '__none__';
 
@@ -281,12 +282,12 @@ export interface ProductEditScreenProps {
     /** The route parameter. `'new'` opens the create form; anything else is an identifier. */
     readonly product: string | undefined;
     /**
-     * Which packaged kind a create makes and which list the screen returns to.
-     * The sauces and dressings routes pass theirs; the default is products.
+     * Which packaged kind a create makes, and where the screen returns to. The recipe book passes a
+     * cooked seller's kind and its own address when it embeds this as a Selling tab; the default is
+     * products.
      */
     readonly itemType?: 'product' | 'sauce' | 'dressing' | 'frozen_meal';
-    readonly routeBase?:
-        '/kitchen/products' | '/kitchen/sauces' | '/kitchen/dressings' | '/kitchen/frozen-meals';
+    readonly routeBase?: '/kitchen/products' | '/kitchen/recipes';
     /**
      * Drawn as a cooked item's Selling tab rather than as a page — a sauce's or a dressing's listing,
      * on the page its recipe is.

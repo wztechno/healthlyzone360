@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace Healthy360\Recipes\Http\Controllers;
 
-use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\RecipeVersion;
-use Healthy360\Recipes\Presenters\RecipeAdminPresenter;
 use Healthy360\Recipes\Presenters\RecipeVersionPresenter;
 use Healthy360\Recipes\Services\RecipeLocator;
+use Healthy360\Recipes\Services\RecipeSummaries;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -23,12 +22,17 @@ use Illuminate\Http\JsonResponse;
  * The version summaries come with it. Opening a recipe and immediately asking
  * "and which versions does it have" is one interaction, not two, and the list
  * is bounded by how many times a kitchen has revised one formulation.
+ *
+ * The `recipe` is the book's own row ({@see RecipeSummaries::one()}), so a
+ * recipe says the same thing on its own page as in the list it was opened
+ * from — current version, allergen codes, line count and, for a reader who may
+ * see the catalogue, what sells it.
  */
 final class RecipeShowController
 {
     public function __construct(
         private readonly RecipeLocator $locator,
-        private readonly RecipeAdminPresenter $presenter,
+        private readonly RecipeSummaries $summaries,
         private readonly RecipeVersionPresenter $versions,
     ) {}
 
@@ -44,10 +48,8 @@ final class RecipeShowController
             ->orderBy('version_number')
             ->get();
 
-        $published = $versions->firstWhere('status', RecipeVersionStatus::Published);
-
         return ApiResponse::data([
-            'recipe' => $this->presenter->recipe($record, $published?->version_number),
+            'recipe' => $this->summaries->one($record),
             'versions' => $versions->map(fn (RecipeVersion $version): array => $this->versions->version($version))->all(),
         ])->withHeaders(['ETag' => '"'.$record->lock_version.'"']);
     }
