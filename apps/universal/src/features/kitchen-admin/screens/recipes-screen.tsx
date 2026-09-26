@@ -25,6 +25,7 @@ import type { Formatter } from '@healthy360/i18n';
 import { useCallback, useMemo, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import {
@@ -363,14 +364,63 @@ function RecipesList() {
 
     return (
         <Stack space="md" testID="kitchen-recipes-screen">
+            {list.isPending ? null : (
+                <CatalogueStatCards testID="kitchen-recipes-stats" cards={statCards(list, t)} />
+            )}
+
             {/*
-             * The opening — the kind strip and the four figures — is one block at 4px, nested
-             * inside the page's 16px rhythm. Same reasoning as the ingredient list: at the page's
-             * own 16px the opening read as separate bands stacked above the first thing worth
-             * looking at. The strip stands outside the pending guard, so the tabs do not blink while
-             * a new tab's page loads.
+             * The search and filter bar, then the kind strip under it, both directly over the list
+             * they narrow — two matching cards at 8px, so they read as one set of controls. The
+             * strip stands outside the pending guard, so the tabs do not blink while a new tab's
+             * page loads.
              */}
-            <Stack space="xs">
+            <Stack space="sm">
+                <CatalogueToolbar<StatusSegmentValue>
+                    testID="kitchen-recipes-toolbar"
+                    search={list.query}
+                    onSearchChange={list.setQuery}
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:toolbar.searchRecipes')}
+                    statusLabel={t('kitchen:toolbar.statusLabel')}
+                    statusSegments={segments.segments}
+                    status={segments.value}
+                    onStatusChange={segments.onChange}
+                >
+                    <Inline space="xs" align="center">
+                        <SegmentedControl<RecipeLayout>
+                            testID="kitchen-recipes-layout"
+                            label={t('kitchen:list.layoutLabel')}
+                            value={layout}
+                            onChange={setLayout}
+                            items={[
+                                {
+                                    value: 'table',
+                                    label: t('kitchen:list.layoutTable'),
+                                    icon: 'list',
+                                    testID: 'kitchen-recipes-layout-table',
+                                },
+                                {
+                                    value: 'cards',
+                                    label: t('kitchen:list.layoutCards'),
+                                    icon: 'layoutGrid',
+                                    testID: 'kitchen-recipes-layout-cards',
+                                },
+                            ]}
+                        />
+                        {/* Columns are a table's question; a card draws every field it has. */}
+                        {layout === 'table' ? <ColumnPicker {...controls.picker} /> : null}
+                    </Inline>
+                    {canManage ? (
+                        <Inline space="xs" align="center">
+                            <CatalogueTransferActions testID="kitchen-recipes-toolbar" />
+                            <RecipeCreateControl
+                                kind={list.kind}
+                                mayCreate={mayCreate}
+                                onCreate={list.createNew}
+                            />
+                        </Inline>
+                    ) : undefined}
+                </CatalogueToolbar>
                 {list.sells ? (
                     <RecipeKindStrip
                         value={list.kind}
@@ -378,57 +428,7 @@ function RecipesList() {
                         counts={kindCounts.data}
                     />
                 ) : null}
-                {list.isPending ? null : (
-                    <CatalogueStatCards testID="kitchen-recipes-stats" cards={statCards(list, t)} />
-                )}
             </Stack>
-
-            <CatalogueToolbar<StatusSegmentValue>
-                testID="kitchen-recipes-toolbar"
-                search={list.query}
-                onSearchChange={list.setQuery}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:toolbar.searchRecipes')}
-                statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={segments.segments}
-                status={segments.value}
-                onStatusChange={segments.onChange}
-            >
-                <Inline space="xs" align="center">
-                    <SegmentedControl<RecipeLayout>
-                        testID="kitchen-recipes-layout"
-                        label={t('kitchen:list.layoutLabel')}
-                        value={layout}
-                        onChange={setLayout}
-                        items={[
-                            {
-                                value: 'table',
-                                label: t('kitchen:list.layoutTable'),
-                                icon: 'list',
-                                testID: 'kitchen-recipes-layout-table',
-                            },
-                            {
-                                value: 'cards',
-                                label: t('kitchen:list.layoutCards'),
-                                icon: 'layoutGrid',
-                                testID: 'kitchen-recipes-layout-cards',
-                            },
-                        ]}
-                    />
-                    {/* Columns are a table's question; a card draws every field it has. */}
-                    {layout === 'table' ? <ColumnPicker {...controls.picker} /> : null}
-                </Inline>
-                {canManage ? (
-                    <Inline space="xs" align="center">
-                        <CatalogueTransferActions testID="kitchen-recipes-toolbar" />
-                        <RecipeCreateControl
-                            kind={list.kind}
-                            mayCreate={mayCreate}
-                            onCreate={list.createNew}
-                        />
-                    </Inline>
-                ) : undefined}
-            </CatalogueToolbar>
 
             <CatalogueListBody
                 testID="kitchen-recipes"
@@ -607,31 +607,41 @@ function RecipeKindStrip({
               }, 0);
 
     return (
-        <SegmentedControl<RecipeKind | 'all'>
-            testID="kitchen-recipes-kind"
-            label={t('kitchen:recipes.columnKind')}
-            className="self-start"
-            value={value ?? 'all'}
-            onChange={(next) => {
-                onChange(next === 'all' ? null : next);
-            }}
-            items={[
-                {
-                    value: 'all',
-                    label: t('kitchen:toolbar.statusAll'),
-                    icon: 'bookOpen',
-                    count: all,
-                    testID: 'kitchen-recipes-kind-all',
-                },
-                ...RECIPE_KINDS.map((kind) => ({
-                    value: kind,
-                    label: t(KIND_TAB_LABEL_KEYS[kind]),
-                    icon: KIND_ICONS[kind],
-                    count: counts?.[kind] ?? undefined,
-                    testID: `kitchen-recipes-kind-${kind}`,
-                })),
-            ]}
-        />
+        /*
+         * The toolbar's own card — panel radius, border, raised fill and cast, 8px inset — so the
+         * strip reads as the second row of the same controls rather than a loose band of tabs.
+         * `block`: the six tabs share the card's width equally instead of packing at its start.
+         */
+        <View
+            testID="kitchen-recipes-kind-card"
+            className="rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
+        >
+            <SegmentedControl<RecipeKind | 'all'>
+                testID="kitchen-recipes-kind"
+                label={t('kitchen:recipes.columnKind')}
+                block
+                value={value ?? 'all'}
+                onChange={(next) => {
+                    onChange(next === 'all' ? null : next);
+                }}
+                items={[
+                    {
+                        value: 'all',
+                        label: t('kitchen:toolbar.statusAll'),
+                        icon: 'bookOpen',
+                        count: all,
+                        testID: 'kitchen-recipes-kind-all',
+                    },
+                    ...RECIPE_KINDS.map((kind) => ({
+                        value: kind,
+                        label: t(KIND_TAB_LABEL_KEYS[kind]),
+                        icon: KIND_ICONS[kind],
+                        count: counts?.[kind] ?? undefined,
+                        testID: `kitchen-recipes-kind-${kind}`,
+                    })),
+                ]}
+            />
+        </View>
     );
 }
 
