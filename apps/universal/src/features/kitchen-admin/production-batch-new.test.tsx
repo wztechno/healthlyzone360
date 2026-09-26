@@ -31,11 +31,14 @@ import { ProductionBatchNewScreen } from './screens/production-batch-new-screen.
  *    former, and a box labelled with the wrong one is worse than an unlabelled box.
  */
 
+/** The query the screen is opened with — the batch planner's hand-off, when a test sets one. */
+const mockParams: { current: Record<string, string> } = { current: {} };
+
 jest.mock('expo-router', () => ({
     __esModule: true,
     useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
     usePathname: () => '/kitchen/production-desk/new',
-    useLocalSearchParams: () => ({}),
+    useLocalSearchParams: () => mockParams.current,
     Redirect: () => null,
     Link: ({ children }: { children: ReactNode }) => children,
 }));
@@ -239,6 +242,95 @@ async function pickTheRecipe() {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('planning a batch', () => {
+    afterEach(() => {
+        mockParams.current = {};
+    });
+
+    it('opens filled in from the batch planner, as a batch factor', async () => {
+        mockParams.current = { recipe: String(RECIPE_ID), runs: '2.5' };
+        const { repositories } = await renderStubScreen(<ProductionBatchNewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: repositoriesFor(recipe()),
+        });
+
+        // The recipe resolves without the picker being touched.
+        await waitFor(
+            () => {
+                expect(
+                    screen.getByTestId('kitchen-production-batch-new-summary-version'),
+                ).toHaveTextContent('v1');
+            },
+            { timeout: 10_000 },
+        );
+        expect(screen.getByTestId('kitchen-production-batch-new-summary-runs')).toHaveTextContent(
+            '×2.5',
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-production-batch-new-submit'));
+        });
+
+        // Runs arrive as the factor, never converted into a yield on the way.
+        await waitFor(() => {
+            expect(repositories.kitchenOps.createProductionOrder).toHaveBeenCalledWith(
+                expect.objectContaining({ recipeVersionId: PUBLISHED_VERSION, batchFactor: 2.5 }),
+            );
+        });
+    });
+
+    it('previews the batch and sums it up before anything is created', async () => {
+        const { repositories } = await renderStubScreen(<ProductionBatchNewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: repositoriesFor(recipe()),
+        });
+
+        // Before a recipe, the section is there and says what it is waiting for.
+        await untilVisible('kitchen-production-batch-new-preview-pending');
+
+        await pickTheRecipe();
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-production-batch-new-amount-input'),
+                '40',
+            );
+        });
+
+        await untilVisible('kitchen-production-batch-new-preview');
+        // 40 L of a recipe whose output is 20 L is two runs — divided by the output, not the 4 kg
+        // yield, because that is the division the server does.
+        expect(screen.getByTestId('kitchen-production-batch-new-summary-runs')).toHaveTextContent(
+            '×2',
+        );
+        expect(screen.getByTestId('kitchen-production-batch-new-summary-makes')).toHaveTextContent(
+            '40 L',
+        );
+        expect(repositories.kitchenOps.createProductionOrder).not.toHaveBeenCalled();
+    });
+
+    it('does not preview a draft under the published version name', async () => {
+        await renderStubScreen(<ProductionBatchNewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: repositoriesFor(editedSincePublishing()),
+        });
+
+        await pickTheRecipe();
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-production-batch-new-amount-input'),
+                '40',
+            );
+        });
+
+        // Only the current version arrives with lines, and here it is the draft. The batch follows
+        // version 1, so the section says so rather than scaling version 2.
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('kitchen-production-batch-new-preview-pending'),
+            ).toHaveTextContent(/Version 2 is a draft on top of published version 1/);
+        });
+        expect(screen.queryByTestId('kitchen-production-batch-new-preview')).toBeNull();
+    });
+
     it('offers recipes by name rather than asking for an identifier', async () => {
         await renderStubScreen(<ProductionBatchNewScreen />, {
             session: kitchenManagerSession(),

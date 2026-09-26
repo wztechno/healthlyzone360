@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7536 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7532 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3541,6 +3541,7 @@ export interface NamespaceKeys {
     | 'ops.batch.batchesUnit'
     | 'ops.batch.book'
     | 'ops.batch.bookHint'
+    | 'ops.batch.columnAsWritten'
     | 'ops.batch.columnAvailable'
     | 'ops.batch.columnBasis'
     | 'ops.batch.columnDesignation'
@@ -3558,12 +3559,15 @@ export interface NamespaceKeys {
     | 'ops.batch.factBaseYield'
     | 'ops.batch.factBatchesNeeded'
     | 'ops.batch.factPiecesNone'
-    | 'ops.batch.factPortionsPerBatch'
+    | 'ops.batch.factPortionsOut'
+    | 'ops.batch.factPortionsPerBatchLabel'
     | 'ops.batch.factPortionsProduced'
     | 'ops.batch.factVersion'
+    | 'ops.batch.factWaste'
+    | 'ops.batch.factWasteCaption'
     | 'ops.batch.factYieldCaption'
-    | 'ops.batch.factorLine'
-    | 'ops.batch.factorNone'
+    | 'ops.batch.footNothingWritten'
+    | 'ops.batch.footUnits'
     | 'ops.batch.fromDatabase'
     | 'ops.batch.ingredientsHeading'
     | 'ops.batch.lineCount'
@@ -3583,19 +3587,23 @@ export interface NamespaceKeys {
     | 'ops.batch.positionShort'
     | 'ops.batch.printSheet'
     | 'ops.batch.rawMaterialsHeading'
+    | 'ops.batch.readOnlyCaption'
     | 'ops.batch.readOnlyChip'
     | 'ops.batch.recipeLabel'
     | 'ops.batch.recipePlaceholder'
     | 'ops.batch.recipesErrorTitle'
+    | 'ops.batch.resultPortionsCaption'
+    | 'ops.batch.resultQuantity'
+    | 'ops.batch.resultQuantityCaption'
     | 'ops.batch.roundedFrom'
     | 'ops.batch.roundedUpFrom'
     | 'ops.batch.roundingFoot'
+    | 'ops.batch.startBatch'
     | 'ops.batch.targetNeededBody'
     | 'ops.batch.targetNeededTitle'
     | 'ops.batch.targetPortionsLabel'
     | 'ops.batch.targetQuantityLabel'
     | 'ops.batch.versionCell'
-    | 'ops.batch.wasteAppliesToCost'
     | 'ops.cashReport.a11y.unnamedAgent'
     | 'ops.cashReport.caption'
     | 'ops.cashReport.columnAgent'
@@ -3943,10 +3951,10 @@ export interface NamespaceKeys {
     | 'ops.production.asPlanned'
     | 'ops.production.backToDesk'
     | 'ops.production.backToList'
-    | 'ops.production.batchFactorHint'
     | 'ops.production.batchFactorLabel'
     | 'ops.production.batchFallbackTitle'
     | 'ops.production.batchReferenceLabel'
+    | 'ops.production.batchSection'
     | 'ops.production.batchTitle'
     | 'ops.production.branchScoped'
     | 'ops.production.cancelBatch'
@@ -3999,6 +4007,7 @@ export interface NamespaceKeys {
     | 'ops.production.emptyTitle'
     | 'ops.production.estimatedCost'
     | 'ops.production.estimatedCostCaption'
+    | 'ops.production.estimatedLiveCaption'
     | 'ops.production.expiredBadge'
     | 'ops.production.expiredNotice'
     | 'ops.production.expiryDateLabel'
@@ -4033,6 +4042,7 @@ export interface NamespaceKeys {
     | 'ops.production.planHolesBody'
     | 'ops.production.planHolesTitle'
     | 'ops.production.planIngredientsHeading'
+    | 'ops.production.planLiveCaption'
     | 'ops.production.planMissing'
     | 'ops.production.planOnHand'
     | 'ops.production.planPackagingHeading'
@@ -4040,30 +4050,29 @@ export interface NamespaceKeys {
     | 'ops.production.planRequired'
     | 'ops.production.planReserved'
     | 'ops.production.planShort'
+    | 'ops.production.plannedCaption'
     | 'ops.production.plannedLabel'
-    | 'ops.production.plannedYieldHint'
-    | 'ops.production.plannedYieldHintUnit'
     | 'ops.production.plannedYieldLabel'
+    | 'ops.production.previewDraftOnTop'
+    | 'ops.production.previewNeedsAmount'
+    | 'ops.production.previewNeedsRecipe'
     | 'ops.production.previousPage'
     | 'ops.production.producedHint'
     | 'ops.production.producedLabel'
     | 'ops.production.producedRequired'
     | 'ops.production.productionDateLabel'
-    | 'ops.production.recipeHint'
     | 'ops.production.recipeLabel'
     | 'ops.production.recipePlaceholder'
     | 'ops.production.recipeRequired'
-    | 'ops.production.recipeResolving'
     | 'ops.production.recipeUnpublished'
-    | 'ops.production.recipeVersionCaption'
     | 'ops.production.registerEmptyBody'
     | 'ops.production.registerEmptyTitle'
     | 'ops.production.registerTitle'
     | 'ops.production.rejectedHint'
     | 'ops.production.rejectedLabel'
     | 'ops.production.rejectedTooHigh'
+    | 'ops.production.runsCaption'
     | 'ops.production.scaleFactor'
-    | 'ops.production.scaleHint'
     | 'ops.production.scaleLabel'
     | 'ops.production.scaleYield'
     | 'ops.production.searchPlaceholder'
@@ -4090,7 +4099,10 @@ export interface NamespaceKeys {
     | 'ops.production.statExpiredCaption'
     | 'ops.production.statInProductionCaption'
     | 'ops.production.statInProgressCaption'
+    | 'ops.production.statLines'
+    | 'ops.production.statLinesCaption'
     | 'ops.production.statPlannedCaption'
+    | 'ops.production.statShort'
     | 'ops.production.statUnit'
     | 'ops.production.statUnvalued'
     | 'ops.production.statUnvaluedCaption'
@@ -4100,13 +4112,21 @@ export interface NamespaceKeys {
     | 'ops.production.status.confirmed'
     | 'ops.production.status.draft'
     | 'ops.production.status.inProduction'
+    | 'ops.production.statusTitle'
     | 'ops.production.storageLocationLabel'
+    | 'ops.production.summaryFoot'
+    | 'ops.production.summaryMakes'
+    | 'ops.production.summaryRuns'
+    | 'ops.production.summaryRunsValue'
+    | 'ops.production.summaryTitle'
+    | 'ops.production.summaryVersion'
     | 'ops.production.thisBranch'
     | 'ops.production.title'
     | 'ops.production.uncostedLines'
     | 'ops.production.unitCostLabel'
     | 'ops.production.unpublishedTitle'
     | 'ops.production.unreferenced'
+    | 'ops.production.usableCaption'
     | 'ops.production.viewKind'
     | 'ops.production.wasteHeading'
     | 'ops.production.wasteHint'
@@ -11071,6 +11091,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.batchesUnit',
   'kitchen:ops.batch.book',
   'kitchen:ops.batch.bookHint',
+  'kitchen:ops.batch.columnAsWritten',
   'kitchen:ops.batch.columnAvailable',
   'kitchen:ops.batch.columnBasis',
   'kitchen:ops.batch.columnDesignation',
@@ -11088,12 +11109,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.factBaseYield',
   'kitchen:ops.batch.factBatchesNeeded',
   'kitchen:ops.batch.factPiecesNone',
-  'kitchen:ops.batch.factPortionsPerBatch',
+  'kitchen:ops.batch.factPortionsOut',
+  'kitchen:ops.batch.factPortionsPerBatchLabel',
   'kitchen:ops.batch.factPortionsProduced',
   'kitchen:ops.batch.factVersion',
+  'kitchen:ops.batch.factWaste',
+  'kitchen:ops.batch.factWasteCaption',
   'kitchen:ops.batch.factYieldCaption',
-  'kitchen:ops.batch.factorLine',
-  'kitchen:ops.batch.factorNone',
+  'kitchen:ops.batch.footNothingWritten',
+  'kitchen:ops.batch.footUnits',
   'kitchen:ops.batch.fromDatabase',
   'kitchen:ops.batch.ingredientsHeading',
   'kitchen:ops.batch.lineCount',
@@ -11113,19 +11137,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.positionShort',
   'kitchen:ops.batch.printSheet',
   'kitchen:ops.batch.rawMaterialsHeading',
+  'kitchen:ops.batch.readOnlyCaption',
   'kitchen:ops.batch.readOnlyChip',
   'kitchen:ops.batch.recipeLabel',
   'kitchen:ops.batch.recipePlaceholder',
   'kitchen:ops.batch.recipesErrorTitle',
+  'kitchen:ops.batch.resultPortionsCaption',
+  'kitchen:ops.batch.resultQuantity',
+  'kitchen:ops.batch.resultQuantityCaption',
   'kitchen:ops.batch.roundedFrom',
   'kitchen:ops.batch.roundedUpFrom',
   'kitchen:ops.batch.roundingFoot',
+  'kitchen:ops.batch.startBatch',
   'kitchen:ops.batch.targetNeededBody',
   'kitchen:ops.batch.targetNeededTitle',
   'kitchen:ops.batch.targetPortionsLabel',
   'kitchen:ops.batch.targetQuantityLabel',
   'kitchen:ops.batch.versionCell',
-  'kitchen:ops.batch.wasteAppliesToCost',
   'kitchen:ops.cashReport.a11y.unnamedAgent',
   'kitchen:ops.cashReport.caption',
   'kitchen:ops.cashReport.columnAgent',
@@ -11473,10 +11501,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.asPlanned',
   'kitchen:ops.production.backToDesk',
   'kitchen:ops.production.backToList',
-  'kitchen:ops.production.batchFactorHint',
   'kitchen:ops.production.batchFactorLabel',
   'kitchen:ops.production.batchFallbackTitle',
   'kitchen:ops.production.batchReferenceLabel',
+  'kitchen:ops.production.batchSection',
   'kitchen:ops.production.batchTitle',
   'kitchen:ops.production.branchScoped',
   'kitchen:ops.production.cancelBatch',
@@ -11529,6 +11557,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.emptyTitle',
   'kitchen:ops.production.estimatedCost',
   'kitchen:ops.production.estimatedCostCaption',
+  'kitchen:ops.production.estimatedLiveCaption',
   'kitchen:ops.production.expiredBadge',
   'kitchen:ops.production.expiredNotice',
   'kitchen:ops.production.expiryDateLabel',
@@ -11563,6 +11592,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.planHolesBody',
   'kitchen:ops.production.planHolesTitle',
   'kitchen:ops.production.planIngredientsHeading',
+  'kitchen:ops.production.planLiveCaption',
   'kitchen:ops.production.planMissing',
   'kitchen:ops.production.planOnHand',
   'kitchen:ops.production.planPackagingHeading',
@@ -11570,30 +11600,29 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.planRequired',
   'kitchen:ops.production.planReserved',
   'kitchen:ops.production.planShort',
+  'kitchen:ops.production.plannedCaption',
   'kitchen:ops.production.plannedLabel',
-  'kitchen:ops.production.plannedYieldHint',
-  'kitchen:ops.production.plannedYieldHintUnit',
   'kitchen:ops.production.plannedYieldLabel',
+  'kitchen:ops.production.previewDraftOnTop',
+  'kitchen:ops.production.previewNeedsAmount',
+  'kitchen:ops.production.previewNeedsRecipe',
   'kitchen:ops.production.previousPage',
   'kitchen:ops.production.producedHint',
   'kitchen:ops.production.producedLabel',
   'kitchen:ops.production.producedRequired',
   'kitchen:ops.production.productionDateLabel',
-  'kitchen:ops.production.recipeHint',
   'kitchen:ops.production.recipeLabel',
   'kitchen:ops.production.recipePlaceholder',
   'kitchen:ops.production.recipeRequired',
-  'kitchen:ops.production.recipeResolving',
   'kitchen:ops.production.recipeUnpublished',
-  'kitchen:ops.production.recipeVersionCaption',
   'kitchen:ops.production.registerEmptyBody',
   'kitchen:ops.production.registerEmptyTitle',
   'kitchen:ops.production.registerTitle',
   'kitchen:ops.production.rejectedHint',
   'kitchen:ops.production.rejectedLabel',
   'kitchen:ops.production.rejectedTooHigh',
+  'kitchen:ops.production.runsCaption',
   'kitchen:ops.production.scaleFactor',
-  'kitchen:ops.production.scaleHint',
   'kitchen:ops.production.scaleLabel',
   'kitchen:ops.production.scaleYield',
   'kitchen:ops.production.searchPlaceholder',
@@ -11620,7 +11649,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.statExpiredCaption',
   'kitchen:ops.production.statInProductionCaption',
   'kitchen:ops.production.statInProgressCaption',
+  'kitchen:ops.production.statLines',
+  'kitchen:ops.production.statLinesCaption',
   'kitchen:ops.production.statPlannedCaption',
+  'kitchen:ops.production.statShort',
   'kitchen:ops.production.statUnit',
   'kitchen:ops.production.statUnvalued',
   'kitchen:ops.production.statUnvaluedCaption',
@@ -11630,13 +11662,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.status.confirmed',
   'kitchen:ops.production.status.draft',
   'kitchen:ops.production.status.inProduction',
+  'kitchen:ops.production.statusTitle',
   'kitchen:ops.production.storageLocationLabel',
+  'kitchen:ops.production.summaryFoot',
+  'kitchen:ops.production.summaryMakes',
+  'kitchen:ops.production.summaryRuns',
+  'kitchen:ops.production.summaryRunsValue',
+  'kitchen:ops.production.summaryTitle',
+  'kitchen:ops.production.summaryVersion',
   'kitchen:ops.production.thisBranch',
   'kitchen:ops.production.title',
   'kitchen:ops.production.uncostedLines',
   'kitchen:ops.production.unitCostLabel',
   'kitchen:ops.production.unpublishedTitle',
   'kitchen:ops.production.unreferenced',
+  'kitchen:ops.production.usableCaption',
   'kitchen:ops.production.viewKind',
   'kitchen:ops.production.wasteHeading',
   'kitchen:ops.production.wasteHint',

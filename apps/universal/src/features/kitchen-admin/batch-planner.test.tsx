@@ -40,9 +40,11 @@ import { BatchPlannerScreen } from './screens/batch-planner-screen.tsx';
  *    it, so the cook can see the rounding rather than trust it.
  */
 
+const mockPush = jest.fn();
+
 jest.mock('expo-router', () => ({
     __esModule: true,
-    useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
+    useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
     usePathname: () => '/kitchen/batch',
     useLocalSearchParams: () => ({}),
     Redirect: () => null,
@@ -346,7 +348,7 @@ describe('the batch planner', () => {
         await untilVisible('kitchen-batch-ingredients');
 
         // 10 kg of a 4 kg recipe is two and a half batches, which a kitchen runs as three.
-        expect(screen.getByTestId('kitchen-batch-facts-batches-value')).toHaveTextContent('3');
+        expect(screen.getByTestId('kitchen-batch-results-batches-value')).toHaveTextContent('3');
         expect(screen.getByTestId('kitchen-batch-factor')).toHaveTextContent(/×2\.5/);
 
         // The name can only have come from the ingredient record: the line carries none.
@@ -375,6 +377,46 @@ describe('the batch planner', () => {
         );
         expect(screen.getByTestId(`kitchen-batch-row-${String(TRAY_ID)}-name`)).toHaveTextContent(
             'Gastronorm tray',
+        );
+    });
+
+    it('hands the plan to the new-batch form as a number of runs', async () => {
+        mockPush.mockClear();
+        await renderStubScreen(<BatchPlannerScreen />, {
+            session: kitchenManagerSession(),
+            repositories: batchRepositories(),
+        });
+
+        // Nothing to hand over before there is a plan.
+        await untilVisible('kitchen-batch-start');
+        expect(screen.getByTestId('kitchen-batch-start')).toBeDisabled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-recipe-trigger'));
+        });
+        await untilVisible(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`));
+        });
+        await untilVisible('kitchen-batch-target-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-batch-target-input'), '10');
+        });
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-batch-start')).not.toBeDisabled();
+            },
+            { timeout: 10_000 },
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-start'));
+        });
+
+        // Runs, not kilograms: the form counts a planned yield in the output's unit, which need not
+        // be the one this page scales by. 10 kg of a 4 kg recipe is 2.5 runs on either page.
+        expect(mockPush).toHaveBeenCalledWith(
+            `/kitchen/production-desk/new?recipe=${String(RECIPE_ID)}&runs=2.5`,
         );
     });
 

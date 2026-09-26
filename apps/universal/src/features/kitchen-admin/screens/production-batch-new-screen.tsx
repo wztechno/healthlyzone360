@@ -2,6 +2,7 @@ import {
     Badge,
     Button,
     Callout,
+    Card,
     EmptyState,
     FormGrid,
     FormSection,
@@ -13,11 +14,13 @@ import {
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
-import type { SelectOption } from '@healthy360/design-system';
+import type { IngredientAdmin, RecipeVersionAdmin } from '@healthy360/api-client/contracts';
+import type { GridSpanProps, SelectOption } from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
-import { useLocale } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
+import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -34,6 +37,13 @@ import { PRODUCTION_MANAGE_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-
 import { focusField } from '../field-focus.ts';
 import { displayName, statusKey, statusTone, unitShortKey } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import {
+    BATCH_QUANTITY_FORMAT,
+    BatchSheet,
+    useBatchIngredients,
+    useShelfAvailability,
+} from '../operations/batch-sheet.tsx';
+import type { ShelfAvailability } from '../operations/batch-sheet.tsx';
 import { RecordFormOpening } from '../record-form-opening.tsx';
 import { readNumber } from '../production-desk/completion-model.ts';
 
@@ -67,6 +77,35 @@ import { readNumber } from '../production-desk/completion-model.ts';
  * *current* version's status, so it would hide precisely the edited recipes above rather than
  * showing them with their published version intact.
  *
+ * ## One card, a preview under it, and a summary beside it
+ *
+ * ```
+ * Plan a batch  [DRAFT]                                      [ Cancel ] [ Create batch ]
+ * ⓘ Opens a draft against a published recipe version. A draft claims nothing — confirming it does.
+ * ┌ BATCH ─────────────────────────────┐   ┌ SUMMARY ───────────┐
+ * │ Recipe ▾                  (both)   │   │ Recipe · Version   │
+ * │ Scale by [ Planned yield | Factor ]│   │ Runs · Makes       │
+ * │ Planned yield ___ L                │   └────────────────────┘   beside from xl, under below
+ * │ Notes                     (both)   │
+ * └────────────────────────────────────┘
+ * ┌ WHAT IT WILL CONSUME ─ Required · Available · Short · Position ┐
+ * ```
+ *
+ * The form is the Operations design's `edProduction`: its fields on two 280px columns in one card,
+ * and what the batch will consume under it, set against this branch's shelves by `BatchSheet`. Runs
+ * and makes in the summary and the preview are for reading only — the request still sends the one
+ * figure that was typed.
+ *
+ * The preview needs the published version's lines, and only the current version arrives with them.
+ * Where a draft sits on top the preview says so rather than scaling the draft under the published
+ * version's name.
+ *
+ * ## Arriving from the batch planner
+ *
+ * `?recipe=<id>&runs=<factor>` fills the recipe and the batch factor, so a plan never has to be
+ * retyped to become a batch. Runs rather than a quantity: the planner scales by the version's yield
+ * unit, this form counts in the output's, and a factor means the same on both pages.
+ *
  * ## A draft claims nothing, and the page says so before anything is pressed
  *
  * Nothing is reserved until confirm. That matters enough to state on the way in: a person who
@@ -98,6 +137,7 @@ type Scale = 'yield' | 'factor';
 function ProductionBatchNew() {
     const { t } = useTranslation();
     const { locale } = useLocale();
+    const formatter = useFormatter();
     const router = useRouter();
     const toast = useToast();
     const access = useAccessState();
@@ -105,9 +145,22 @@ function ProductionBatchNew() {
 
     const create = useCreateProductionOrderMutation();
 
-    const [recipeId, setRecipeId] = useState<RecipeId | null>(null);
-    const [scale, setScale] = useState<Scale>('yield');
-    const [amount, setAmount] = useState('');
+    /*
+     * Arriving from the batch planner: the recipe and the number of runs it was planned at. Read
+     * once, as the initial state — the form is the person's from then on. Anything unreadable is
+     * dropped rather than half-applied, so a mangled link opens an empty form, not a wrong one.
+     */
+    const params = useLocalSearchParams<{ readonly recipe?: string; readonly runs?: string }>();
+    const handedRuns = (() => {
+        const runs = typeof params.runs === 'string' ? readNumber(params.runs) : null;
+        return runs !== null && runs > 0 ? params.runs : undefined;
+    })();
+
+    const [recipeId, setRecipeId] = useState<RecipeId | null>(() =>
+        typeof params.recipe === 'string' ? RecipeId.safeParse(params.recipe) : null,
+    );
+    const [scale, setScale] = useState<Scale>(handedRuns === undefined ? 'yield' : 'factor');
+    const [amount, setAmount] = useState(handedRuns ?? '');
     const [notes, setNotes] = useState('');
     const [submitted, setSubmitted] = useState(false);
 
@@ -162,6 +215,47 @@ function ProductionBatchNew() {
     const parsedAmount = readNumber(amount);
     const amountValid = parsedAmount !== null && parsedAmount > 0;
     const failure = toFailure(create.error);
+
+    /*
+     * The preview needs the published version's lines, and only the current version arrives with
+     * lines. So it is drawn exactly when the two are one — the ordinary case — and where a draft
+     * sits on top the page says so instead of scaling the draft's lines under the published name.
+     */
+    const previewVersion =
+        recipe !== null &&
+        publishedVersion !== null &&
+        recipe.currentVersion.id === publishedVersion.id
+            ? recipe.currentVersion
+            : null;
+    const primaryOutput =
+        previewVersion === null
+            ? null
+            : (previewVersion.outputs.find((output) => output.isPrimary) ??
+              previewVersion.outputs[0] ??
+              null);
+
+    /*
+     * Runs and makes, for the summary and the preview only. The request still sends exactly the one
+     * figure that was typed and lets the server derive the other; these are the same division the
+     * server does (by the output's own quantity), shown so nobody has to create a draft to read them.
+     */
+    const runs: number | null = !amountValid
+        ? null
+        : scale === 'factor'
+          ? parsedAmount
+          : primaryOutput !== null && primaryOutput.quantity > 0
+            ? parsedAmount / primaryOutput.quantity
+            : null;
+    const makes: number | null = !amountValid
+        ? null
+        : scale === 'yield'
+          ? parsedAmount
+          : primaryOutput === null
+            ? null
+            : parsedAmount * primaryOutput.quantity;
+
+    const ingredients = useBatchIngredients(previewVersion);
+    const availability = useShelfAvailability();
 
     /*
      * Why the recipe error is three states rather than one: "pick a recipe" and "this recipe has
@@ -265,14 +359,8 @@ function ProductionBatchNew() {
         );
     };
 
-    const amountHint =
-        scale === 'factor'
-            ? t('kitchen:ops.production.batchFactorHint')
-            : outputUnit === null
-              ? t('kitchen:ops.production.plannedYieldHint')
-              : t('kitchen:ops.production.plannedYieldHintUnit', {
-                    unit: t(unitShortKey(outputUnit)),
-                });
+    const dash = t('kitchen:list.noValue');
+    const number = (value: number): string => formatter.formatNumber(value, BATCH_QUANTITY_FORMAT);
 
     return (
         <Stack space="md" testID="kitchen-production-batch-new-screen">
@@ -363,143 +451,297 @@ function ProductionBatchNew() {
                 />
             )}
 
-            {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
-            <View className="z-auto flex-col gap-loose">
-                {/*
-                 * `relative z-raised`, or the picker's panel opens underneath the sections below
-                 * it: react-native-web gives every View `position: relative; z-index: 0`, so a
-                 * later sibling paints over an earlier one's overflow. Same fix, same reason, as
-                 * the batch planner's own picker.
-                 */}
-                <View className="relative z-raised">
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-production-batch-new-recipe-section"
-                        title={t('kitchen:ops.production.recipeLabel')}
-                    >
-                        <FormGrid track="half" maxColumns={4}>
-                            <Select
-                                span={4}
-                                testID="kitchen-production-batch-new-recipe"
-                                id="kitchen-production-batch-new-recipe"
-                                label={t('kitchen:ops.production.recipeLabel')}
-                                placeholder={t('kitchen:ops.production.recipePlaceholder')}
-                                hint={
-                                    recipeResolving
-                                        ? t('kitchen:ops.production.recipeResolving')
-                                        : publishedVersion === null
-                                          ? t('kitchen:ops.production.recipeHint')
-                                          : t('kitchen:ops.production.recipeVersionCaption', {
-                                                number: publishedVersion.versionNumber,
-                                            })
-                                }
-                                searchable
-                                required
-                                options={recipeOptions}
-                                value={recipeId === null ? null : String(recipeId)}
-                                {...(recipeError === undefined ? {} : { error: recipeError })}
-                                onChange={(value) => {
-                                    setRecipeId(RecipeId.safeParse(value));
-                                }}
-                            />
-                        </FormGrid>
-                    </FormSection>
+            {/*
+             * The form beside what it will make. Below `xl` the summary drops under the form: with
+             * the admin rail open, `lg` leaves the summary narrower than a field. `z-auto` down the
+             * column — see `FormSection` on why a View would trap the recipe dropdown.
+             */}
+            <View
+                testID="kitchen-production-batch-new-body"
+                className="z-auto flex-col gap-base xl:flex-row xl:items-start"
+            >
+                <View className="z-auto min-w-0 flex-col gap-loose xl:flex-[21]">
+                    {/*
+                     * One card: recipe, scale and amount on one row, the notes under it.
+                     * `relative z-raised`, or the picker's panel opens underneath the preview
+                     * below it — react-native-web gives every View `z-index: 0`.
+                     */}
+                    <View className="relative z-raised">
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-production-batch-new-batch-section"
+                            title={t('kitchen:ops.production.batchSection')}
+                        >
+                            <Stack space="md">
+                                {/*
+                                 * Recipe, scale and amount on one row of the half grid: the recipe
+                                 * and the scale at a field each, the amount at half of one — a
+                                 * figure and its unit, which a whole field would only stretch. No
+                                 * hints: the summary beside the form names the version and what
+                                 * the figure makes.
+                                 */}
+                                <FormGrid track="half">
+                                    <Select
+                                        span={2}
+                                        testID="kitchen-production-batch-new-recipe"
+                                        id="kitchen-production-batch-new-recipe"
+                                        label={t('kitchen:ops.production.recipeLabel')}
+                                        placeholder={t('kitchen:ops.production.recipePlaceholder')}
+                                        searchable
+                                        required
+                                        options={recipeOptions}
+                                        value={recipeId === null ? null : String(recipeId)}
+                                        {...(recipeError === undefined
+                                            ? {}
+                                            : { error: recipeError })}
+                                        onChange={(value) => {
+                                            setRecipeId(RecipeId.safeParse(value));
+                                        }}
+                                    />
+
+                                    {/*
+                                     * One of the two scales, never both: the segmented control
+                                     * is the question and the figure beside it the answer.
+                                     */}
+                                    <GridCell span={2}>
+                                        <View className="flex-col gap-hair">
+                                            <Text variant="caption" className="font-medium">
+                                                {t('kitchen:ops.production.scaleLabel')}
+                                            </Text>
+                                            <SegmentedControl<Scale>
+                                                testID="kitchen-production-batch-new-scale"
+                                                label={t('kitchen:ops.production.scaleLabel')}
+                                                value={scale}
+                                                block
+                                                onChange={(next) => {
+                                                    setScale(next);
+                                                    // The number means something different
+                                                    // under each option — litres against
+                                                    // multiples — so carrying it across would
+                                                    // silently plan a batch four hundred times
+                                                    // the size of the one somebody typed.
+                                                    setAmount('');
+                                                }}
+                                                items={[
+                                                    {
+                                                        value: 'yield',
+                                                        label: t(
+                                                            'kitchen:ops.production.scaleYield',
+                                                        ),
+                                                        testID: 'kitchen-production-batch-new-scale-yield',
+                                                    },
+                                                    {
+                                                        value: 'factor',
+                                                        label: t(
+                                                            'kitchen:ops.production.scaleFactor',
+                                                        ),
+                                                        testID: 'kitchen-production-batch-new-scale-factor',
+                                                    },
+                                                ]}
+                                            />
+                                        </View>
+                                    </GridCell>
+
+                                    <QuantityInput
+                                        testID="kitchen-production-batch-new-amount"
+                                        id="kitchen-production-batch-new-amount"
+                                        size="sm"
+                                        label={t(
+                                            scale === 'yield'
+                                                ? 'kitchen:ops.production.plannedYieldLabel'
+                                                : 'kitchen:ops.production.batchFactorLabel',
+                                        )}
+                                        required
+                                        // The suffix only appears once the unit is actually
+                                        // known. A box labelled with a unit the screen guessed
+                                        // is worse than one with none: the figure is typed
+                                        // against it.
+                                        {...(scale === 'yield' && outputUnit !== null
+                                            ? { unit: t(unitShortKey(outputUnit)) }
+                                            : {})}
+                                        value={amount}
+                                        {...(submitted && !amountValid
+                                            ? {
+                                                  error: t('kitchen:ops.production.amountRequired'),
+                                              }
+                                            : {})}
+                                        onChangeText={setAmount}
+                                    />
+                                </FormGrid>
+
+                                <FormGrid track="half">
+                                    <TextInputField
+                                        span={4}
+                                        testID="kitchen-production-batch-new-notes"
+                                        id="kitchen-production-batch-new-notes"
+                                        size="sm"
+                                        label={t('kitchen:ops.production.notesLabel')}
+                                        hint={t('kitchen:ops.production.notesHint')}
+                                        value={notes}
+                                        multiline
+                                        onChangeText={setNotes}
+                                    />
+                                </FormGrid>
+                            </Stack>
+                        </FormSection>
+                    </View>
+
+                    <ConsumePreview
+                        recipeChosen={recipe !== null}
+                        draftOnTop={
+                            recipe !== null && publishedVersion !== null && previewVersion === null
+                                ? {
+                                      draft: recipe.currentVersion.versionNumber,
+                                      published: publishedVersion.versionNumber,
+                                  }
+                                : null
+                        }
+                        version={previewVersion}
+                        factor={runs}
+                        ingredients={ingredients}
+                        availability={availability}
+                    />
                 </View>
 
-                {/*
-                 * One of the two scales, never both: the segmented control is the question and the
-                 * one figure under it is the answer, on the half track like every figure here.
-                 */}
-                <FormSection
-                    first
-                    variant="card"
-                    testID="kitchen-production-batch-new-scale-section"
-                    title={t('kitchen:ops.production.scaleLabel')}
+                <View
+                    testID="kitchen-production-batch-new-rail"
+                    className="min-w-0 flex-col gap-base xl:flex-[10]"
                 >
-                    <Stack space="sm">
-                        <View className="self-start">
-                            <SegmentedControl<Scale>
-                                testID="kitchen-production-batch-new-scale"
-                                label={t('kitchen:ops.production.scaleLabel')}
-                                value={scale}
-                                onChange={(next) => {
-                                    setScale(next);
-                                    // The number means something different under each option —
-                                    // litres against multiples — so carrying it across would
-                                    // silently plan a batch four hundred times the size of the one
-                                    // somebody typed.
-                                    setAmount('');
-                                }}
-                                items={[
-                                    {
-                                        value: 'yield',
-                                        label: t('kitchen:ops.production.scaleYield'),
-                                        testID: 'kitchen-production-batch-new-scale-yield',
-                                    },
-                                    {
-                                        value: 'factor',
-                                        label: t('kitchen:ops.production.scaleFactor'),
-                                        testID: 'kitchen-production-batch-new-scale-factor',
-                                    },
-                                ]}
-                            />
-                        </View>
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:ops.production.scaleHint')}
-                        </Text>
-                        <FormGrid track="half">
-                            <QuantityInput
-                                testID="kitchen-production-batch-new-amount"
-                                id="kitchen-production-batch-new-amount"
-                                size="sm"
-                                label={t(
-                                    scale === 'yield'
-                                        ? 'kitchen:ops.production.plannedYieldLabel'
-                                        : 'kitchen:ops.production.batchFactorLabel',
-                                )}
-                                required
-                                // The suffix only appears once the unit is actually known. A box
-                                // labelled with a unit the screen guessed is worse than one with
-                                // none: the figure is typed against it.
-                                {...(scale === 'yield' && outputUnit !== null
-                                    ? { unit: t(unitShortKey(outputUnit)) }
-                                    : {})}
-                                value={amount}
-                                {...(submitted && !amountValid
-                                    ? { error: t('kitchen:ops.production.amountRequired') }
-                                    : {})}
-                                onChangeText={setAmount}
-                            />
-                        </FormGrid>
-                        <Text variant="caption" tone="secondary">
-                            {amountHint}
-                        </Text>
-                    </Stack>
-                </FormSection>
-
-                <FormSection
-                    first
-                    variant="card"
-                    testID="kitchen-production-batch-new-notes-section"
-                    title={t('kitchen:ops.production.notesLabel')}
-                >
-                    <FormGrid track="half" maxColumns={4}>
-                        <TextInputField
-                            span={4}
-                            testID="kitchen-production-batch-new-notes"
-                            id="kitchen-production-batch-new-notes"
-                            size="sm"
-                            label={t('kitchen:ops.production.notesLabel')}
-                            labelHidden
-                            hint={t('kitchen:ops.production.notesHint')}
-                            value={notes}
-                            multiline
-                            onChangeText={setNotes}
+                    <Card
+                        testID="kitchen-production-batch-new-summary"
+                        tone="brand"
+                        padding="md"
+                        title={t('kitchen:ops.production.summaryTitle')}
+                    >
+                        <SummaryRow
+                            testID="kitchen-production-batch-new-summary-recipe"
+                            label={t('kitchen:ops.production.recipeLabel')}
+                            value={recipe === null ? dash : displayName(recipe.name, locale).value}
                         />
-                    </FormGrid>
-                </FormSection>
+                        <SummaryRow
+                            testID="kitchen-production-batch-new-summary-version"
+                            label={t('kitchen:ops.production.summaryVersion')}
+                            value={
+                                publishedVersion === null
+                                    ? dash
+                                    : t('kitchen:ops.batch.versionCell', {
+                                          number: publishedVersion.versionNumber,
+                                      })
+                            }
+                        />
+                        <SummaryRow
+                            testID="kitchen-production-batch-new-summary-runs"
+                            label={t('kitchen:ops.production.summaryRuns')}
+                            value={
+                                runs === null
+                                    ? dash
+                                    : t('kitchen:ops.production.summaryRunsValue', {
+                                          factor: number(runs),
+                                      })
+                            }
+                        />
+                        <SummaryRow
+                            testID="kitchen-production-batch-new-summary-makes"
+                            label={t('kitchen:ops.production.summaryMakes')}
+                            value={
+                                makes === null
+                                    ? dash
+                                    : outputUnit === null
+                                      ? number(makes)
+                                      : `${number(makes)} ${t(unitShortKey(outputUnit))}`
+                            }
+                        />
+                        <Text variant="caption" tone="secondary">
+                            {t('kitchen:ops.production.summaryFoot')}
+                        </Text>
+                    </Card>
+                </View>
             </View>
         </Stack>
+    );
+}
+
+/**
+ * A grid cell for a control that is not a field. `FormGrid` reads `span` off its child's props,
+ * and a segmented control has none to read.
+ */
+function GridCell({ children }: GridSpanProps & { readonly children: ReactNode }) {
+    return <>{children}</>;
+}
+
+function SummaryRow({
+    label,
+    value,
+    testID,
+}: {
+    readonly label: string;
+    readonly value: string;
+    readonly testID: string;
+}) {
+    return (
+        <View className="flex-row items-baseline justify-between gap-tight">
+            <Text variant="caption" tone="secondary">
+                {label}
+            </Text>
+            <Text variant="bodyStrong" testID={testID} numberOfLines={1} className="text-end">
+                {value}
+            </Text>
+        </View>
+    );
+}
+
+interface ConsumePreviewProps {
+    readonly recipeChosen: boolean;
+    /** Version numbers when the current version is a draft sitting on the published one. */
+    readonly draftOnTop: { readonly draft: number; readonly published: number } | null;
+    readonly version: RecipeVersionAdmin | null;
+    readonly factor: number | null;
+    readonly ingredients: Readonly<Record<string, IngredientAdmin>>;
+    readonly availability: ShelfAvailability;
+}
+
+/**
+ * What the batch will consume, against this branch's shelves — the Operations design's second
+ * section, drawn by the sheet the production editor was built with. It says why when it cannot be
+ * drawn, because an empty space under a form reads as "needs nothing".
+ */
+function ConsumePreview({
+    recipeChosen,
+    draftOnTop,
+    version,
+    factor,
+    ingredients,
+    availability,
+}: ConsumePreviewProps) {
+    const { t } = useTranslation();
+
+    if (version !== null && factor !== null) {
+        return (
+            <Card testID="kitchen-production-batch-new-preview" tone="raised" padding="md">
+                <BatchSheet
+                    first
+                    version={version}
+                    factor={factor}
+                    ingredients={ingredients}
+                    availability={availability}
+                />
+            </Card>
+        );
+    }
+
+    // The section's own card, heading and all, so the page keeps its shape as the form fills in.
+    return (
+        <Card testID="kitchen-production-batch-new-preview-pending" tone="raised" padding="md">
+            <FormSection first title={t('kitchen:ops.batch.consumeHeading')}>
+                <Text variant="caption" tone="secondary">
+                    {draftOnTop !== null
+                        ? t('kitchen:ops.production.previewDraftOnTop', draftOnTop)
+                        : recipeChosen && version !== null
+                          ? t('kitchen:ops.production.previewNeedsAmount')
+                          : t('kitchen:ops.production.previewNeedsRecipe')}
+                </Text>
+            </FormSection>
+        </Card>
     );
 }
