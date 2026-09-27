@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7532 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7508 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2933,28 +2933,21 @@ export interface NamespaceKeys {
     | 'desk.refusal.variant_not_active'
     | 'desk.refusal.variant_unknown'
     | 'desk.refusal.zone_suspended'
-    | 'desk.sale.addressDescription'
-    | 'desk.sale.addressLabelLabel'
+    | 'desk.sale.addItem'
+    | 'desk.sale.addItemPriced'
+    | 'desk.sale.addressNeedsCustomer'
     | 'desk.sale.addressNoteBody'
-    | 'desk.sale.addressNoteTitle'
     | 'desk.sale.addressSave'
-    | 'desk.sale.addressSavedTitle'
+    | 'desk.sale.addressTitle'
     | 'desk.sale.addressUndeliverableBody'
     | 'desk.sale.addressUndeliverableTitle'
-    | 'desk.sale.areaHint'
     | 'desk.sale.areaLabel'
     | 'desk.sale.areaPlaceholder'
-    | 'desk.sale.back'
-    | 'desk.sale.backToQueue'
-    | 'desk.sale.basketEmptyBody'
-    | 'desk.sale.basketEmptyTitle'
-    | 'desk.sale.basketTitle'
     | 'desk.sale.buildingLabel'
-    | 'desk.sale.complete'
-    | 'desk.sale.completedBody'
+    | 'desk.sale.change'
+    | 'desk.sale.charge'
+    | 'desk.sale.chargeEmpty'
     | 'desk.sale.completedNumber'
-    | 'desk.sale.completedStatusLabel'
-    | 'desk.sale.completedTitle'
     | 'desk.sale.customerCancelCreate'
     | 'desk.sale.customerCapped'
     | 'desk.sale.customerChoose'
@@ -2971,77 +2964,60 @@ export interface NamespaceKeys {
     | 'desk.sale.customerPhoneLabel'
     | 'desk.sale.customerRegular'
     | 'desk.sale.customerSearchErrorTitle'
-    | 'desk.sale.customerSearchHint'
     | 'desk.sale.customerSearchLabel'
     | 'desk.sale.customerSearchPlaceholder'
     | 'desk.sale.customerSearchTooShort'
+    | 'desk.sale.customerTitle'
     | 'desk.sale.customerUnnamed'
     | 'desk.sale.customerUseInstead'
     | 'desk.sale.deliveryFee'
     | 'desk.sale.directionsHint'
     | 'desk.sale.directionsLabel'
+    | 'desk.sale.each'
     | 'desk.sale.itemCount'
-    | 'desk.sale.itemKind.meal'
-    | 'desk.sale.itemKind.product'
-    | 'desk.sale.leave'
     | 'desk.sale.lineOneLabel'
     | 'desk.sale.lineTwoLabel'
     | 'desk.sale.method.cashAtCounter'
     | 'desk.sale.method.cashOnDelivery'
     | 'desk.sale.method.wish'
     | 'desk.sale.methodLabel'
-    | 'desk.sale.newSale'
-    | 'desk.sale.next'
-    | 'desk.sale.noQuoteYet'
-    | 'desk.sale.notesHint'
+    | 'desk.sale.more'
+    | 'desk.sale.notSold'
     | 'desk.sale.notesLabel'
-    | 'desk.sale.orderRefusalsTitle'
-    | 'desk.sale.paymentDescription'
-    | 'desk.sale.pickerAddItem'
-    | 'desk.sale.pickerAdded'
-    | 'desk.sale.pickerColumnAllergens'
-    | 'desk.sale.pickerColumnItem'
-    | 'desk.sale.pickerColumnKind'
+    | 'desk.sale.onTicket'
     | 'desk.sale.pickerEmptyBody'
     | 'desk.sale.pickerEmptyTitle'
     | 'desk.sale.pickerErrorTitle'
-    | 'desk.sale.pickerNote'
     | 'desk.sale.pickerSearchLabel'
     | 'desk.sale.pickerSearchPlaceholder'
-    | 'desk.sale.pickerTitle'
-    | 'desk.sale.place'
+    | 'desk.sale.placeFor'
     | 'desk.sale.placedToast'
-    | 'desk.sale.position'
-    | 'desk.sale.progressLabel'
-    | 'desk.sale.quantityLabel'
     | 'desk.sale.quoteErrorBody'
     | 'desk.sale.quoteErrorTitle'
     | 'desk.sale.quoteUpdating'
-    | 'desk.sale.quotedByKitchen'
     | 'desk.sale.referenceHint'
     | 'desk.sale.referenceLabel'
     | 'desk.sale.refusedBody'
     | 'desk.sale.refusedTitle'
-    | 'desk.sale.removeLine'
-    | 'desk.sale.reviewDescription'
-    | 'desk.sale.reviewItems'
-    | 'desk.sale.reviewLine'
-    | 'desk.sale.reviewMethod'
-    | 'desk.sale.reviewType'
-    | 'desk.sale.step.address'
-    | 'desk.sale.step.basket'
-    | 'desk.sale.step.customer'
-    | 'desk.sale.step.payment'
-    | 'desk.sale.step.review'
-    | 'desk.sale.step.type'
-    | 'desk.sale.subtitle'
+    | 'desk.sale.section.dressings'
+    | 'desk.sale.section.frozenMeals'
+    | 'desk.sale.section.meals'
+    | 'desk.sale.section.products'
+    | 'desk.sale.section.sauces'
+    | 'desk.sale.sectionsLabel'
+    | 'desk.sale.shortfall.address'
+    | 'desk.sale.shortfall.customer'
+    | 'desk.sale.shortfall.reference'
+    | 'desk.sale.soldBody'
+    | 'desk.sale.soldToast'
     | 'desk.sale.subtotal'
+    | 'desk.sale.ticketEmpty'
+    | 'desk.sale.ticketTitle'
     | 'desk.sale.title'
     | 'desk.sale.total'
     | 'desk.sale.type.counter'
     | 'desk.sale.type.delivery'
     | 'desk.sale.type.pickup'
-    | 'desk.sale.typeDescription'
     | 'desk.sale.typeHint.counter'
     | 'desk.sale.typeHint.delivery'
     | 'desk.sale.typeHint.pickup'
@@ -10483,28 +10459,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.refusal.variant_not_active',
   'kitchen:desk.refusal.variant_unknown',
   'kitchen:desk.refusal.zone_suspended',
-  'kitchen:desk.sale.addressDescription',
-  'kitchen:desk.sale.addressLabelLabel',
+  'kitchen:desk.sale.addItem',
+  'kitchen:desk.sale.addItemPriced',
+  'kitchen:desk.sale.addressNeedsCustomer',
   'kitchen:desk.sale.addressNoteBody',
-  'kitchen:desk.sale.addressNoteTitle',
   'kitchen:desk.sale.addressSave',
-  'kitchen:desk.sale.addressSavedTitle',
+  'kitchen:desk.sale.addressTitle',
   'kitchen:desk.sale.addressUndeliverableBody',
   'kitchen:desk.sale.addressUndeliverableTitle',
-  'kitchen:desk.sale.areaHint',
   'kitchen:desk.sale.areaLabel',
   'kitchen:desk.sale.areaPlaceholder',
-  'kitchen:desk.sale.back',
-  'kitchen:desk.sale.backToQueue',
-  'kitchen:desk.sale.basketEmptyBody',
-  'kitchen:desk.sale.basketEmptyTitle',
-  'kitchen:desk.sale.basketTitle',
   'kitchen:desk.sale.buildingLabel',
-  'kitchen:desk.sale.complete',
-  'kitchen:desk.sale.completedBody',
+  'kitchen:desk.sale.change',
+  'kitchen:desk.sale.charge',
+  'kitchen:desk.sale.chargeEmpty',
   'kitchen:desk.sale.completedNumber',
-  'kitchen:desk.sale.completedStatusLabel',
-  'kitchen:desk.sale.completedTitle',
   'kitchen:desk.sale.customerCancelCreate',
   'kitchen:desk.sale.customerCapped',
   'kitchen:desk.sale.customerChoose',
@@ -10521,77 +10490,60 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.customerPhoneLabel',
   'kitchen:desk.sale.customerRegular',
   'kitchen:desk.sale.customerSearchErrorTitle',
-  'kitchen:desk.sale.customerSearchHint',
   'kitchen:desk.sale.customerSearchLabel',
   'kitchen:desk.sale.customerSearchPlaceholder',
   'kitchen:desk.sale.customerSearchTooShort',
+  'kitchen:desk.sale.customerTitle',
   'kitchen:desk.sale.customerUnnamed',
   'kitchen:desk.sale.customerUseInstead',
   'kitchen:desk.sale.deliveryFee',
   'kitchen:desk.sale.directionsHint',
   'kitchen:desk.sale.directionsLabel',
+  'kitchen:desk.sale.each',
   'kitchen:desk.sale.itemCount',
-  'kitchen:desk.sale.itemKind.meal',
-  'kitchen:desk.sale.itemKind.product',
-  'kitchen:desk.sale.leave',
   'kitchen:desk.sale.lineOneLabel',
   'kitchen:desk.sale.lineTwoLabel',
   'kitchen:desk.sale.method.cashAtCounter',
   'kitchen:desk.sale.method.cashOnDelivery',
   'kitchen:desk.sale.method.wish',
   'kitchen:desk.sale.methodLabel',
-  'kitchen:desk.sale.newSale',
-  'kitchen:desk.sale.next',
-  'kitchen:desk.sale.noQuoteYet',
-  'kitchen:desk.sale.notesHint',
+  'kitchen:desk.sale.more',
+  'kitchen:desk.sale.notSold',
   'kitchen:desk.sale.notesLabel',
-  'kitchen:desk.sale.orderRefusalsTitle',
-  'kitchen:desk.sale.paymentDescription',
-  'kitchen:desk.sale.pickerAddItem',
-  'kitchen:desk.sale.pickerAdded',
-  'kitchen:desk.sale.pickerColumnAllergens',
-  'kitchen:desk.sale.pickerColumnItem',
-  'kitchen:desk.sale.pickerColumnKind',
+  'kitchen:desk.sale.onTicket',
   'kitchen:desk.sale.pickerEmptyBody',
   'kitchen:desk.sale.pickerEmptyTitle',
   'kitchen:desk.sale.pickerErrorTitle',
-  'kitchen:desk.sale.pickerNote',
   'kitchen:desk.sale.pickerSearchLabel',
   'kitchen:desk.sale.pickerSearchPlaceholder',
-  'kitchen:desk.sale.pickerTitle',
-  'kitchen:desk.sale.place',
+  'kitchen:desk.sale.placeFor',
   'kitchen:desk.sale.placedToast',
-  'kitchen:desk.sale.position',
-  'kitchen:desk.sale.progressLabel',
-  'kitchen:desk.sale.quantityLabel',
   'kitchen:desk.sale.quoteErrorBody',
   'kitchen:desk.sale.quoteErrorTitle',
   'kitchen:desk.sale.quoteUpdating',
-  'kitchen:desk.sale.quotedByKitchen',
   'kitchen:desk.sale.referenceHint',
   'kitchen:desk.sale.referenceLabel',
   'kitchen:desk.sale.refusedBody',
   'kitchen:desk.sale.refusedTitle',
-  'kitchen:desk.sale.removeLine',
-  'kitchen:desk.sale.reviewDescription',
-  'kitchen:desk.sale.reviewItems',
-  'kitchen:desk.sale.reviewLine',
-  'kitchen:desk.sale.reviewMethod',
-  'kitchen:desk.sale.reviewType',
-  'kitchen:desk.sale.step.address',
-  'kitchen:desk.sale.step.basket',
-  'kitchen:desk.sale.step.customer',
-  'kitchen:desk.sale.step.payment',
-  'kitchen:desk.sale.step.review',
-  'kitchen:desk.sale.step.type',
-  'kitchen:desk.sale.subtitle',
+  'kitchen:desk.sale.section.dressings',
+  'kitchen:desk.sale.section.frozenMeals',
+  'kitchen:desk.sale.section.meals',
+  'kitchen:desk.sale.section.products',
+  'kitchen:desk.sale.section.sauces',
+  'kitchen:desk.sale.sectionsLabel',
+  'kitchen:desk.sale.shortfall.address',
+  'kitchen:desk.sale.shortfall.customer',
+  'kitchen:desk.sale.shortfall.reference',
+  'kitchen:desk.sale.soldBody',
+  'kitchen:desk.sale.soldToast',
   'kitchen:desk.sale.subtotal',
+  'kitchen:desk.sale.ticketEmpty',
+  'kitchen:desk.sale.ticketTitle',
   'kitchen:desk.sale.title',
   'kitchen:desk.sale.total',
   'kitchen:desk.sale.type.counter',
   'kitchen:desk.sale.type.delivery',
   'kitchen:desk.sale.type.pickup',
-  'kitchen:desk.sale.typeDescription',
   'kitchen:desk.sale.typeHint.counter',
   'kitchen:desk.sale.typeHint.delivery',
   'kitchen:desk.sale.typeHint.pickup',
