@@ -93,6 +93,27 @@ it('serves a list with its channel assignments and entry counts', function (): v
         ->assertJsonPath('meta.entry_counts.confirmed', 1);
 });
 
+it('says what each entry prices, so the editor needs no read per article', function (): void {
+    $list = PricingWorld::priceList($this->a->organisation);
+    $product = PricingWorld::product($this->a);
+    $meal = PricingWorld::meal($this->a);
+
+    PricingWorld::price($list, $product->item, $product->variant, 2200);
+    PricingWorld::price($list, $meal, null, 1800);
+
+    $rows = collect($this->getJson('/api/v1/catalogue/price-lists/'.$list->getKey().'/entries', $this->headers)
+        ->assertOk()
+        ->json('data'))
+        ->keyBy('catalogue_item_id');
+
+    expect($rows[(string) $product->item->getKey()])
+        ->catalogue_item_type->toBe('product')
+        ->catalogue_item_variant_code->toBe('jar-250g')
+        ->and($rows[(string) $meal->getKey()])
+        ->catalogue_item_type->toBe('meal')
+        ->catalogue_item_variant_code->toBeNull();
+});
+
 it('addresses a list by its code as well as its identifier', function (): void {
     PricingWorld::priceList($this->a->organisation, 'web-usd');
 

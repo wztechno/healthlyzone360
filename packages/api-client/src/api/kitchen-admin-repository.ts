@@ -218,6 +218,9 @@ export type ApiKitchenAdminReads = Pick<
     | 'getBranchOperating'
 >;
 
+/** A price list's entries per page — the endpoint's `CursorPage::MAX_LIMIT`, so a list is few reads. */
+const PRICE_LIST_ENTRY_PAGE = 100;
+
 function cursorQuery(
     filter?: CursorQueryFilter,
     extra?: Record<string, string | undefined>,
@@ -902,49 +905,64 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         },
 
         async getPriceList(priceListId: PriceListId): Promise<PriceListAdmin> {
-            const lookup = await loadSalesChannelLookup();
             const id = String(priceListId);
 
-            const showEnvelope = await transport.requestEnvelope<{
-                price_list: AdminPriceList;
-                channels: PriceListChannelAssignment[];
-            }>({
-                method: 'GET',
-                path: `/catalogue/price-lists/${encodeURIComponent(id)}`,
-            });
+            /*
+             * **Every** page of entries. The endpoint is cursor-paged at 25 by default, and the
+             * editor saves with `PUT …/entries`, which replaces the whole set — so a list read one
+             * page short was a list whose save deleted every price past the 25th.
+             */
+            const readEntries = (cursor: string | undefined) =>
+                transport.requestEnvelope<AdminPriceListEntry[]>({
+                    method: 'GET',
+                    path: `/catalogue/price-lists/${encodeURIComponent(id)}/entries${cursorQuery({
+                        limit: PRICE_LIST_ENTRY_PAGE,
+                        cursor,
+                    })}`,
+                });
+            const nextCursor = (meta: unknown): string | undefined => {
+                const paging = meta as { has_more?: boolean; next_cursor?: string | null };
+                return paging.has_more === true && typeof paging.next_cursor === 'string'
+                    ? paging.next_cursor
+                    : undefined;
+            };
 
-            const entriesWire = await transport.request<AdminPriceListEntry[]>({
-                method: 'GET',
-                path: `/catalogue/price-lists/${encodeURIComponent(id)}/entries`,
-            });
+            // The channel vocabulary, the list and its first page of entries depend on nothing
+            // of each other, so they are one round rather than three in a row.
+            const [lookup, showEnvelope, firstPage] = await Promise.all([
+                loadSalesChannelLookup(),
+                transport.requestEnvelope<{
+                    price_list: AdminPriceList;
+                    channels: PriceListChannelAssignment[];
+                }>({
+                    method: 'GET',
+                    path: `/catalogue/price-lists/${encodeURIComponent(id)}`,
+                }),
+                readEntries(undefined),
+            ]);
 
-            const itemTypes = new Map<string, AdminCatalogueItem['item_type']>();
-            const variantCodes = new Map<string, string>();
-
-            for (const entry of entriesWire) {
-                if (!itemTypes.has(entry.catalogue_item_id)) {
-                    try {
-                        const show = await fetchCatalogueItemShow(entry.catalogue_item_id);
-                        itemTypes.set(entry.catalogue_item_id, show.item.item_type);
-                        for (const variant of show.variants) {
-                            variantCodes.set(variant.id, variant.code);
-                        }
-                    } catch {
-                        itemTypes.set(entry.catalogue_item_id, 'product');
-                    }
-                }
+            const entriesWire: AdminPriceListEntry[] = [...firstPage.data];
+            let cursor = nextCursor(firstPage.meta);
+            while (cursor !== undefined) {
+                const page = await readEntries(cursor);
+                entriesWire.push(...page.data);
+                cursor = nextCursor(page.meta);
             }
 
-            const entries = entriesWire.map((entry) => {
-                const itemType = itemTypes.get(entry.catalogue_item_id) ?? 'product';
-                const variantCode =
-                    entry.catalogue_item_variant_id === null ||
-                    entry.catalogue_item_variant_id === undefined
-                        ? null
-                        : (variantCodes.get(entry.catalogue_item_variant_id) ?? null);
-
-                return mapPriceListEntry(entry, itemType, entry.catalogue_item_id, variantCode);
-            });
+            /*
+             * Each row says what it prices — the article's type and the variant's code — so the
+             * mapping needs nothing else. It used to read every article behind the list one
+             * request at a time, and the editor showed a skeleton until the last one answered: a
+             * minute and more on a list of thirty.
+             */
+            const entries = entriesWire.map((entry) =>
+                mapPriceListEntry(
+                    entry,
+                    entry.catalogue_item_type ?? 'product',
+                    entry.catalogue_item_id,
+                    entry.catalogue_item_variant_code ?? null,
+                ),
+            );
 
             const channels = priceListChannelsFromAssignments(showEnvelope.data.channels, lookup);
 
