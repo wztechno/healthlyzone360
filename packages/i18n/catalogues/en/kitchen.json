@@ -1662,7 +1662,10 @@
             "pickerColumnAllergens": "Allergens",
             "itemKind": {
                 "meal": "Meal",
-                "product": "Product"
+                "product": "Product",
+                "sauce": "Sauce",
+                "dressing": "Dressing",
+                "frozen_meal": "Frozen meal"
             },
             "basketTitle": "The basket",
             "basketEmptyTitle": "Nothing in the basket yet",

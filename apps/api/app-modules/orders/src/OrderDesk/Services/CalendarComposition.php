@@ -52,12 +52,10 @@ use Healthy360\Orders\Models\Order;
  * Cancelled orders count nowhere. Nothing leaves the kitchen for them, and they
  * are the one status about which that is unambiguous.
  *
- * Orders with **no requested delivery date** are excluded, and that is not the
- * queue's rule. The queue treats a dateless order as *now* and shows it today,
- * because a queue is a list of work in hand. A calendar is a grid of days, and
- * an order nobody has named a day for has no square to sit in; putting it on
- * today's would be inventing a commitment the customer never made and would move
- * it every midnight.
+ * Orders with **no requested delivery date** sit on the (UTC) day they were
+ * placed. Every desk sale is dateless — the wizard has no slot picker — so
+ * excluding them left the calendar empty of the desk's own orders. `placed_at`
+ * never changes, so unlike the queue's "now" the order does not move at midnight.
  *
  * ## The window breakdown, and the bucket for orders with no slot
  *
@@ -155,32 +153,29 @@ final readonly class CalendarComposition
         CarbonImmutable $end,
         ?string $branchId,
     ): array {
+        // A dateless order (every desk sale today: the wizard has no slot
+        // picker) sits on the day it was placed. `placed_at` is stored in UTC
+        // and never changes, so the order does not move at midnight.
+        $day = 'COALESCE(requested_delivery_date, placed_at::date)';
+
         $rows = Order::query()
             ->where('organisation_id', $organisationId)
             // Every status except cancelled — see the class docblock. A
             // fulfilled order still left the kitchen that day.
             ->where('status', '!=', OrderStatus::Cancelled->value)
-            ->whereNotNull('requested_delivery_date')
-            ->whereBetween('requested_delivery_date', [$start->toDateString(), $end->toDateString()])
+            ->whereRaw($day.' BETWEEN ? AND ?', [$start->toDateString(), $end->toDateString()])
             ->when($branchId !== null, fn ($query) => $query->where('branch_id', $branchId))
-            ->orderBy('requested_delivery_date')
+            ->orderByRaw($day)
             ->orderBy('id')
-            ->get(['requested_delivery_date', 'delivery_window_code']);
+            ->selectRaw($day.' as calendar_day, delivery_window_code')
+            ->toBase()
+            ->get();
 
         $days = [];
 
         foreach ($rows as $row) {
-            $date = $row->requested_delivery_date;
-
-            // Unreachable behind the `whereNotNull`, and present so that a
-            // predicate relaxed later cannot put a dateless order on a day it
-            // never named.
-            if ($date === null) {
-                continue;
-            }
-
             $days[] = [
-                'delivery_date' => $date->toDateString(),
+                'delivery_date' => (string) $row->calendar_day,
                 'delivery_window_code' => $row->delivery_window_code,
             ];
         }

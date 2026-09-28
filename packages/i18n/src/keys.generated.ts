@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7536 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7523 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2981,8 +2981,11 @@ export interface NamespaceKeys {
     | 'desk.sale.directionsHint'
     | 'desk.sale.directionsLabel'
     | 'desk.sale.itemCount'
+    | 'desk.sale.itemKind.dressing'
+    | 'desk.sale.itemKind.frozen_meal'
     | 'desk.sale.itemKind.meal'
     | 'desk.sale.itemKind.product'
+    | 'desk.sale.itemKind.sauce'
     | 'desk.sale.leave'
     | 'desk.sale.lineOneLabel'
     | 'desk.sale.lineTwoLabel'
@@ -10519,8 +10522,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.directionsHint',
   'kitchen:desk.sale.directionsLabel',
   'kitchen:desk.sale.itemCount',
+  'kitchen:desk.sale.itemKind.dressing',
+  'kitchen:desk.sale.itemKind.frozen_meal',
   'kitchen:desk.sale.itemKind.meal',
   'kitchen:desk.sale.itemKind.product',
+  'kitchen:desk.sale.itemKind.sauce',
   'kitchen:desk.sale.leave',
   'kitchen:desk.sale.lineOneLabel',
   'kitchen:desk.sale.lineTwoLabel',

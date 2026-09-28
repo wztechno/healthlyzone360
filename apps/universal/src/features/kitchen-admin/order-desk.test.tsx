@@ -831,6 +831,48 @@ describe('order desk queue — the order record page', () => {
         });
     });
 
+    it('reads a fulfilled cash order as settled, and stops offering to record the same money', async () => {
+        const row = deskRow({
+            id: orderIdAt(1),
+            status: 'confirmed',
+            lockVersion: 2,
+            totalMinor: 16_000,
+            payment: { method: 'cash_on_delivery', receivedMinor: 0, receipted: false },
+        });
+        const fresh = detailOrder(row, { lockVersion: 2 });
+        let fulfilled = false;
+
+        await renderDeskWithDetail({
+            // Fulfilled orders leave the queue, which is why the screen falls back to its own copy.
+            listQueue: async () => queue(fulfilled ? [] : [row]),
+            getOrder: async () => fresh,
+            fulfilOrder: async () => {
+                fulfilled = true;
+                return { ...fresh, status: 'fulfilled', lockVersion: 3 };
+            },
+        });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-table')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-order-desk-detail-record-payment')).toBeTruthy();
+        });
+
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-fulfil'));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-order-desk-detail-payment-state')).toHaveTextContent(
+                'Settled',
+            );
+        });
+        expect(screen.queryByTestId('kitchen-order-desk-detail-record-payment')).toBeNull();
+    });
+
     it('keeps the payment position and the run in the record page, from the row the detail cannot serve', async () => {
         const row = deskRow({
             id: orderIdAt(1),

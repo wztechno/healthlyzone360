@@ -1236,11 +1236,18 @@ function AddressStep({
  * Step 4 — the menu
  * ---------------------------------------------------------------------------------------------- */
 
+/**
+ * The kinds read through the products endpoint. Sauces, dressings and frozen meals are sold on the
+ * desk channel too, so a picker that listed only meals and products could not ring them up.
+ */
+const PACKAGED_KINDS = ['product', 'sauce', 'dressing', 'frozen_meal'] as const;
+type PackagedKind = (typeof PACKAGED_KINDS)[number];
+
 /** One thing the picker can add: an article, with the name to show while the quote is in flight. */
 interface PickerRow {
     readonly id: string;
     readonly name: LocalisedText;
-    readonly kind: 'meal' | 'product';
+    readonly kind: 'meal' | PackagedKind;
     /**
      * A meal's allergen codes, frozen at publication — an empty set is a real "none declared".
      * `null` for a product, which carries no allergen field at all: unknown, never "none".
@@ -1299,17 +1306,39 @@ function BasketStep({
         [filter, allergen],
     );
 
-    const showMeals = kind !== 'product';
-    const showProducts = kind !== 'meal' && allergen === null;
+    const showMeals = kind === null || kind === 'meal';
+    // The packaged kinds carry no allergen field, so an allergen filter leaves them all out.
+    const shows = (candidate: PackagedKind) =>
+        (kind === null || kind === candidate) && allergen === null;
 
     const meals = useAdminMealPageQuery(mealFilter, 1);
     const products = useProductPageQuery(filter, 1);
+    const sauces = useProductPageQuery({ ...filter, itemType: 'sauce' }, 1, shows('sauce'));
+    const dressings = useProductPageQuery(
+        { ...filter, itemType: 'dressing' },
+        1,
+        shows('dressing'),
+    );
+    const frozenMeals = useProductPageQuery(
+        { ...filter, itemType: 'frozen_meal' },
+        1,
+        shows('frozen_meal'),
+    );
     const allergenClasses = useAllergenClassesQuery();
+
+    const packaged = [
+        { kind: 'product', read: products },
+        { kind: 'sauce', read: sauces },
+        { kind: 'dressing', read: dressings },
+        { kind: 'frozen_meal', read: frozenMeals },
+    ] as const;
+    const shown = packaged.filter((entry) => shows(entry.kind));
 
     const pickerFailure =
         (showMeals ? toFailure(meals.error) : null) ??
-        (showProducts ? toFailure(products.error) : null);
-    const loading = (showMeals && meals.isPending) || (showProducts && products.isPending);
+        shown.map((entry) => toFailure(entry.read.error)).find((failure) => failure !== null) ??
+        null;
+    const loading = (showMeals && meals.isPending) || shown.some((entry) => entry.read.isPending);
 
     const rows = useMemo<readonly PickerRow[]>(
         () => [
@@ -1319,14 +1348,18 @@ function BasketStep({
                 kind: 'meal' as const,
                 allergens: row.allergens.map((code) => String(code)),
             })),
-            ...(showProducts ? (products.data?.items ?? []) : []).map((row) => ({
-                id: String(row.id),
-                name: row.name,
-                kind: 'product' as const,
-                allergens: null,
-            })),
+            ...shown.flatMap((entry) =>
+                (entry.read.data?.items ?? []).map((row) => ({
+                    id: String(row.id),
+                    name: row.name,
+                    kind: entry.kind,
+                    allergens: null,
+                })),
+            ),
         ],
-        [meals.data, products.data, showMeals, showProducts],
+        // `shown` is rebuilt every render; what it depends on is the data and the two filters.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [meals.data, products.data, sauces.data, dressings.data, frozenMeals.data, kind, allergen],
     );
 
     const columns = useMemo<
@@ -1365,7 +1398,7 @@ function BasketStep({
                 // Screen-owned: the kind decides which of the two reads is shown at all.
                 filter: {
                     values: () =>
-                        (['meal', 'product'] as const).map((candidate) => ({
+                        (['meal', ...PACKAGED_KINDS] as const).map((candidate) => ({
                             key: candidate,
                             label: t(`kitchen:desk.sale.itemKind.${candidate}`),
                         })),
@@ -1505,9 +1538,9 @@ function BasketStep({
                         failure={pickerFailure}
                         onRetry={() => {
                             void meals.refetch();
-                            void products.refetch();
+                            for (const entry of shown) void entry.read.refetch();
                         }}
-                        retrying={meals.isFetching || products.isFetching}
+                        retrying={meals.isFetching || shown.some((entry) => entry.read.isFetching)}
                     />
                 ) : rows.length === 0 ? (
                     <EmptyState

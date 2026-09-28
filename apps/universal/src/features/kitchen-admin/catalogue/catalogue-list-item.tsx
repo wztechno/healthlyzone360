@@ -1,4 +1,4 @@
-import { Icon, IconButton, ListItem, Menu, Text } from '@healthy360/design-system';
+import { cx, Icon, IconButton, ListItem, Menu, Text } from '@healthy360/design-system';
 import type { IconName, MenuItem } from '@healthy360/design-system';
 import { Fragment } from 'react';
 import type { ReactNode } from 'react';
@@ -104,18 +104,14 @@ export function CatalogueListItem({
             />
         );
 
-    return (
+    const item = (
         <ListItem
             title={title}
             onPress={onPress}
-            divider={divider}
+            // With an overflow the hairline moves to the wrapper, so it runs under the menu too.
+            divider={overflow === null ? divider : false}
             testID={testID}
-            trailing={
-                <View className="flex-row items-center gap-tight">
-                    {metric === undefined ? null : metric}
-                    {overflow}
-                </View>
-            }
+            trailing={metric}
             // `ListItem` has one leading slot. The photograph and the badge share it, picture first,
             // so the badge still sits beside the title; with no photograph this is the badge alone,
             // exactly as it was.
@@ -151,5 +147,25 @@ export function CatalogueListItem({
                 )
             }
         />
+    );
+
+    if (overflow === null) return item;
+
+    /*
+     * The overflow sits beside the row, never inside it. A pressable `ListItem` is a `<button>` on
+     * the web, and the menu trigger is another: nested, that is invalid HTML (React warns on every
+     * render) and a control inside a control that assistive technology cannot reach on its own.
+     */
+    return (
+        <View
+            className={cx(
+                'flex-row items-center pe-control-sm',
+                divider === false ? null : 'border-b border-stroke-subtle',
+            )}
+        >
+            {/* eslint-disable-next-line no-restricted-syntax -- this is the list row itself, filling its line beside the menu */}
+            <View className="min-w-0 flex-1">{item}</View>
+            {overflow}
+        </View>
     );
 }

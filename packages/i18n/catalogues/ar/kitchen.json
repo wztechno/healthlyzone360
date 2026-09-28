@@ -1866,7 +1866,10 @@
             "pickerColumnAllergens": "مسببات الحساسية",
             "itemKind": {
                 "meal": "وجبة",
-                "product": "منتج"
+                "product": "منتج",
+                "sauce": "صلصة",
+                "dressing": "تتبيلة",
+                "frozen_meal": "وجبة مجمدة"
             },
             "basketTitle": "السلة",
             "basketEmptyTitle": "لا شيء في السلة بعد",
