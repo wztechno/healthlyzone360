@@ -1,7 +1,14 @@
 import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-client/contracts';
 
 import { isProductionOrderOpen, nextProductionEdge } from '../ops-format.ts';
-import { countByStatus, countExpired, countUnvalued, yieldSummary } from './batch-figures.ts';
+import {
+    countByStatus,
+    countExpired,
+    countUnvalued,
+    formatLot,
+    labelCopies,
+    yieldSummary,
+} from './batch-figures.ts';
 
 /**
  * The desk's arithmetic (PROD1).
@@ -14,10 +21,14 @@ function batch(overrides: Partial<ProductionOrder> = {}): ProductionOrder {
     return {
         id: 'order-1' as ProductionOrder['id'],
         reference: 'PB-7K3MQ9ZV',
+        lotNumber: null,
+        barcode: null,
         branchId: 'branch-1' as ProductionOrder['branchId'],
+        branchName: 'Main Kitchen',
         recipeVersionId: 'version-1' as ProductionOrder['recipeVersionId'],
         productionItemIngredientId: 'ingredient-1',
         productionItemNameEn: 'Caesar dressing',
+        productionItemNameAr: null,
         plannedYieldUnitCode: 'l',
         status: 'confirmed',
         batchFactor: '2.000000',
@@ -31,6 +42,7 @@ function batch(overrides: Partial<ProductionOrder> = {}): ProductionOrder {
         batchReference: null,
         storageLocation: null,
         expiryDate: null,
+        recipeShelfLifeDays: null,
         isExpired: false,
         confirmedAt: '2026-09-18T08:00:00+00:00',
         startedAt: null,
@@ -166,5 +178,40 @@ describe('the status vocabulary is complete', () => {
         for (const status of all) {
             expect(typeof isProductionOrderOpen(status)).toBe('boolean');
         }
+    });
+});
+
+describe('the lot as people read it', () => {
+    it('cuts ten digits into date, sequence and check digit', () => {
+        expect(formatLot('2609250077')).toBe('260925-007-7');
+    });
+
+    it('leaves a missing lot missing, so the caller can fall back to the old label', () => {
+        expect(formatLot(null)).toBeNull();
+    });
+});
+
+describe('how many labels to print', () => {
+    const pieces = batch({ plannedYieldUnitCode: 'piece', usableYieldQuantity: '24.0000' });
+
+    it('defaults to one per usable unit when the unit is counted', () => {
+        expect(labelCopies(pieces, null)).toBe(24);
+    });
+
+    it('defaults to one when the batch is measured rather than counted', () => {
+        expect(labelCopies(batch({ usableYieldQuantity: '37.0000' }), null)).toBe(1);
+    });
+
+    it('takes a typed positive whole number over the default', () => {
+        expect(labelCopies(pieces, '3')).toBe(3);
+    });
+
+    it('ignores a typed zero or a word and keeps the default', () => {
+        expect(labelCopies(pieces, '0')).toBe(24);
+        expect(labelCopies(pieces, 'abc')).toBe(24);
+    });
+
+    it('never asks the print preview for more than two hundred', () => {
+        expect(labelCopies(pieces, '100000')).toBe(200);
     });
 });

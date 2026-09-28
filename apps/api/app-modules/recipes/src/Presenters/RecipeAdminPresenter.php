@@ -58,6 +58,7 @@ use Healthy360\Recipes\Services\RecipeSummaries;
  *     confidentiality: string,
  *     status: string,
  *     notes: string|null,
+ *     shelf_life_days: int|null,
  *     published_version_number: int|null,
  *     current_version_status: string|null,
  *     current_version_allergen_codes: list<string>,
@@ -101,6 +102,7 @@ final class RecipeAdminPresenter
             'confidentiality' => $recipe->confidentiality->value,
             'status' => $recipe->status->value,
             'notes' => $recipe->notes,
+            'shelf_life_days' => $recipe->shelf_life_days,
 
             // The answer to "what is live" without a second request, and
             // computed rather than stored: there is no `current_version_id`

@@ -148,8 +148,7 @@ describe('the request body', () => {
         const request = completionRequest({
             ...emptyCompletionDraft('2026-09-16'),
             produced: '38',
-            batchReference: '  CD-0916  ',
-            storageLocation: '',
+            storageLocation: '  Chill 2  ',
             expiryDate: '2026-09-23',
             notes: '   ',
         });
@@ -157,7 +156,7 @@ describe('the request body', () => {
         expect(request).toEqual({
             producedQuantity: 38,
             productionDate: '2026-09-16',
-            batchReference: 'CD-0916',
+            storageLocation: 'Chill 2',
             expiryDate: '2026-09-23',
         });
     });

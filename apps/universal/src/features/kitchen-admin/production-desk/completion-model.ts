@@ -32,8 +32,8 @@ export interface CompletionDraft {
     /** Stock item id → what went in the bin. Absent keys are zero. */
     readonly waste: Readonly<Record<string, string>>;
     readonly productionDate: string | null;
-    readonly batchReference: string;
     readonly storageLocation: string;
+    /** The typed use-by date. Stays null when the recipe has a shelf life: the server computes it. */
     readonly expiryDate: string | null;
     readonly notes: string;
     /** Required to abandon, ignored when completing. */
@@ -47,7 +47,6 @@ export function emptyCompletionDraft(today: string | null = null): CompletionDra
         consumed: {},
         waste: {},
         productionDate: today,
-        batchReference: '',
         storageLocation: '',
         expiryDate: null,
         notes: '',
@@ -159,9 +158,6 @@ export function completionRequest(draft: CompletionDraft): CompleteProductionOrd
         ...(Object.keys(consumed).length === 0 ? {} : { consumed }),
         ...(Object.keys(waste).length === 0 ? {} : { waste }),
         ...(draft.productionDate === null ? {} : { productionDate: draft.productionDate }),
-        ...(draft.batchReference.trim() === ''
-            ? {}
-            : { batchReference: draft.batchReference.trim() }),
         ...(draft.storageLocation.trim() === ''
             ? {}
             : { storageLocation: draft.storageLocation.trim() }),

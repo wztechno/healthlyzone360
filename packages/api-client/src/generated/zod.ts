@@ -914,13 +914,17 @@ export const zCreateRecipeRequest = z.object({
     recipe_category: z.string().max(40).nullish(),
     source_kind: z.string().max(40).nullish(),
     confidentiality: zRecipeConfidentiality.optional(),
-    notes: z.string().max(2000).nullish()
+    notes: z.string().max(2000).nullish(),
+    shelf_life_days: z.int().gte(0).lte(3650).nullish()
 });
 
 /**
  * A partial update. `slug` and `status` are absent by design — the slug
  * is the handle a re-import converges on, and status changes are
  * lifecycle actions with their own routes.
+ *
+ * Every field here belongs to the recipe, not a version, so it is writable
+ * whatever state the current version is in — `shelf_life_days` included.
  *
  */
 export const zUpdateRecipeRequest = z.object({
@@ -930,7 +934,8 @@ export const zUpdateRecipeRequest = z.object({
     recipe_category: z.string().max(40).nullish(),
     source_kind: z.string().max(40).nullish(),
     confidentiality: zRecipeConfidentiality.optional(),
-    notes: z.string().max(2000).nullish()
+    notes: z.string().max(2000).nullish(),
+    shelf_life_days: z.int().gte(0).lte(3650).nullish()
 });
 
 /**
@@ -1180,6 +1185,7 @@ export const zAdminRecipe = z.object({
     confidentiality: zRecipeConfidentiality,
     status: zRecipeStatus,
     notes: z.string().nullish(),
+    shelf_life_days: z.int().gte(0).lte(3650).nullish(),
     published_version_number: z.int().gte(1).nullable(),
     current_version_status: zRecipeVersionStatus.nullable(),
     current_version_allergen_codes: z.array(zAllergenCode),
@@ -4825,10 +4831,14 @@ export const zProductionCostSource = z.enum([
 export const zProductionOrder = z.object({
     id: zUuid,
     reference: z.string().nullable(),
+    lot_number: z.string().regex(/^[0-9]{10}$/).nullable(),
+    barcode: z.string().nullable(),
     branch_id: zUuid,
+    branch_name: z.string().nullable(),
     recipe_version_id: zUuid,
     production_item_ingredient_id: zUuid.nullable(),
     production_item_name_en: z.string().nullable(),
+    production_item_name_ar: z.string().nullable(),
     planned_yield_unit_code: z.string().nullable(),
     status: zProductionOrderStatus,
     batch_factor: z.string().nullable(),
@@ -4842,6 +4852,7 @@ export const zProductionOrder = z.object({
     batch_reference: z.string().nullable(),
     storage_location: z.string().nullable(),
     expiry_date: z.iso.date().nullable(),
+    recipe_shelf_life_days: z.int().nullable(),
     is_expired: z.boolean(),
     confirmed_at: z.iso.datetime({ offset: true }).nullable(),
     started_at: z.iso.datetime({ offset: true }).nullable(),
@@ -5114,7 +5125,6 @@ export const zCompleteProductionOrderRequest = z.object({
     consumed: z.record(z.string(), z.number().gte(0)).optional(),
     waste: z.record(z.string(), z.number().gte(0)).optional(),
     production_date: z.iso.date().nullish(),
-    batch_reference: z.string().nullish(),
     storage_location: z.string().nullish(),
     expiry_date: z.iso.date().nullish(),
     notes: z.string().nullish()
@@ -12797,6 +12807,7 @@ export const zListProductionOrdersHeaders = z.object({
 
 export const zListProductionOrdersQuery = z.object({
     status: zProductionOrderStatus.optional(),
+    code: z.string().max(128).optional(),
     branch_id: zUuid.optional(),
     page: z.int().gte(1).optional()
 });

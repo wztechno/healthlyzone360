@@ -1064,7 +1064,14 @@
             "usableCaption": "produced, less what was rejected",
             "planLiveCaption": "Live against this branch’s shelves. Nothing is claimed until the batch is confirmed.",
             "estimatedLiveCaption": "At today’s prices, until the batch is confirmed.",
-            "statusTitle": "Status"
+            "statusTitle": "Status",
+            "lotLabel": "Lot",
+            "printLabel": "Print label",
+            "labelCopies": "Copies",
+            "labelBatchOf": "Batch of {{quantity}} {{unit}}",
+            "expiryFromRecipe": "Made on plus {{days}}, from the recipe's shelf life.",
+            "scanLabel": "Scan or type a lot",
+            "scanNoMatch": "No batch carries that code"
         },
         "qc": {
             "title": "Quality control",
@@ -3747,6 +3754,7 @@
         "allergensTitle": "Allergens",
         "expiryAndWaste": "Expiry & waste",
         "expiryPeriod": "Expiry period",
+        "shelfLifeInvalid": "Enter a whole number of days between 0 and 3650.",
         "days": "days",
         "yieldAndWaste": "Yield & waste",
         "price": "Price",
