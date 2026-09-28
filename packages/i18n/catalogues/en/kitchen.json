@@ -1400,18 +1400,11 @@
             "columnPerBatch": "Per batch",
             "columnToIssue": "To issue",
             "packagingScaledHeading": "Scaled packaging",
-            "readOnlyCaption": "Nothing here is ordered or booked",
-            "startBatch": "Start a batch",
-            "factPortionsPerBatchLabel": "Portions per batch",
-            "factPortionsOut": "portions out of one batch",
-            "factWaste": "Production waste",
-            "factWasteCaption": "applies to cost, not yield",
-            "resultQuantity": "Resulting quantity",
-            "resultQuantityCaption": "what those portions weigh out to",
-            "resultPortionsCaption": "portions out of this target",
-            "columnAsWritten": "As written",
-            "footUnits": "Units are never converted on the way to a figure. A line written in grams is scaled in grams.",
-            "footNothingWritten": "Nothing is written from this sheet. A batch is opened from Production, and cost does not appear on this page."
+            "factorLine": "Scale factor ×{{factor}} — {{quantity}} {{unit}} of product",
+            "factorNone": "Enter a target to scale the sheet",
+            "factPortionsPerBatch_one": "{{count}} portion per batch",
+            "factPortionsPerBatch_other": "{{count}} portions per batch",
+            "wasteAppliesToCost": "Production waste {{percent}} % applies to cost, not yield"
         }
     },
     "kds": {

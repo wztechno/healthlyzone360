@@ -1600,18 +1600,15 @@
             "columnPerBatch": "لكل دفعة",
             "columnToIssue": "للصرف",
             "packagingScaledHeading": "التغليف بعد التحجيم",
-            "readOnlyCaption": "لا يُطلب أو يُحجز شيء من هنا",
-            "startBatch": "ابدأ دفعة",
-            "factPortionsPerBatchLabel": "حصص الدفعة",
-            "factPortionsOut": "حصص تخرج من دفعة واحدة",
-            "factWaste": "هدر الإنتاج",
-            "factWasteCaption": "يُحتسب في التكلفة لا في الناتج",
-            "resultQuantity": "الكمية الناتجة",
-            "resultQuantityCaption": "وزن هذه الحصص",
-            "resultPortionsCaption": "حصص تخرج من هذا الهدف",
-            "columnAsWritten": "كما كُتب",
-            "footUnits": "لا تُحوَّل الوحدات أبدًا في الطريق إلى أي رقم. السطر المكتوب بالغرام يُضاعَف بالغرام.",
-            "footNothingWritten": "لا يُكتب شيء من هذه الورقة. تُفتح الدفعة من الإنتاج، ولا تظهر التكلفة في هذه الصفحة."
+            "factorLine": "معامل التحجيم ×{{factor}} — {{quantity}} {{unit}} من المنتج",
+            "factorNone": "أدخل هدفًا لتحجيم الورقة",
+            "factPortionsPerBatch_zero": "لا حصص في الدفعة",
+            "factPortionsPerBatch_one": "حصة واحدة في الدفعة",
+            "factPortionsPerBatch_two": "حصتان في الدفعة",
+            "factPortionsPerBatch_few": "{{count}} حصص في الدفعة",
+            "factPortionsPerBatch_many": "{{count}} حصة في الدفعة",
+            "factPortionsPerBatch_other": "{{count}} حصة في الدفعة",
+            "wasteAppliesToCost": "هدر الإنتاج {{percent}} ٪ يُحتسب على التكلفة لا على المردود"
         }
     },
     "kds": {

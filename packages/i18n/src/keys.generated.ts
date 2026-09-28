@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7505 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7497 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3514,7 +3514,6 @@ export interface NamespaceKeys {
     | 'ops.batch.batchesUnit'
     | 'ops.batch.book'
     | 'ops.batch.bookHint'
-    | 'ops.batch.columnAsWritten'
     | 'ops.batch.columnAvailable'
     | 'ops.batch.columnBasis'
     | 'ops.batch.columnDesignation'
@@ -3532,15 +3531,12 @@ export interface NamespaceKeys {
     | 'ops.batch.factBaseYield'
     | 'ops.batch.factBatchesNeeded'
     | 'ops.batch.factPiecesNone'
-    | 'ops.batch.factPortionsOut'
-    | 'ops.batch.factPortionsPerBatchLabel'
+    | 'ops.batch.factPortionsPerBatch'
     | 'ops.batch.factPortionsProduced'
     | 'ops.batch.factVersion'
-    | 'ops.batch.factWaste'
-    | 'ops.batch.factWasteCaption'
     | 'ops.batch.factYieldCaption'
-    | 'ops.batch.footNothingWritten'
-    | 'ops.batch.footUnits'
+    | 'ops.batch.factorLine'
+    | 'ops.batch.factorNone'
     | 'ops.batch.fromDatabase'
     | 'ops.batch.ingredientsHeading'
     | 'ops.batch.lineCount'
@@ -3560,23 +3556,19 @@ export interface NamespaceKeys {
     | 'ops.batch.positionShort'
     | 'ops.batch.printSheet'
     | 'ops.batch.rawMaterialsHeading'
-    | 'ops.batch.readOnlyCaption'
     | 'ops.batch.readOnlyChip'
     | 'ops.batch.recipeLabel'
     | 'ops.batch.recipePlaceholder'
     | 'ops.batch.recipesErrorTitle'
-    | 'ops.batch.resultPortionsCaption'
-    | 'ops.batch.resultQuantity'
-    | 'ops.batch.resultQuantityCaption'
     | 'ops.batch.roundedFrom'
     | 'ops.batch.roundedUpFrom'
     | 'ops.batch.roundingFoot'
-    | 'ops.batch.startBatch'
     | 'ops.batch.targetNeededBody'
     | 'ops.batch.targetNeededTitle'
     | 'ops.batch.targetPortionsLabel'
     | 'ops.batch.targetQuantityLabel'
     | 'ops.batch.versionCell'
+    | 'ops.batch.wasteAppliesToCost'
     | 'ops.cashReport.a11y.unnamedAgent'
     | 'ops.cashReport.caption'
     | 'ops.cashReport.columnAgent'
@@ -11037,7 +11029,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.batchesUnit',
   'kitchen:ops.batch.book',
   'kitchen:ops.batch.bookHint',
-  'kitchen:ops.batch.columnAsWritten',
   'kitchen:ops.batch.columnAvailable',
   'kitchen:ops.batch.columnBasis',
   'kitchen:ops.batch.columnDesignation',
@@ -11055,15 +11046,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.factBaseYield',
   'kitchen:ops.batch.factBatchesNeeded',
   'kitchen:ops.batch.factPiecesNone',
-  'kitchen:ops.batch.factPortionsOut',
-  'kitchen:ops.batch.factPortionsPerBatchLabel',
+  'kitchen:ops.batch.factPortionsPerBatch',
   'kitchen:ops.batch.factPortionsProduced',
   'kitchen:ops.batch.factVersion',
-  'kitchen:ops.batch.factWaste',
-  'kitchen:ops.batch.factWasteCaption',
   'kitchen:ops.batch.factYieldCaption',
-  'kitchen:ops.batch.footNothingWritten',
-  'kitchen:ops.batch.footUnits',
+  'kitchen:ops.batch.factorLine',
+  'kitchen:ops.batch.factorNone',
   'kitchen:ops.batch.fromDatabase',
   'kitchen:ops.batch.ingredientsHeading',
   'kitchen:ops.batch.lineCount',
@@ -11083,23 +11071,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.positionShort',
   'kitchen:ops.batch.printSheet',
   'kitchen:ops.batch.rawMaterialsHeading',
-  'kitchen:ops.batch.readOnlyCaption',
   'kitchen:ops.batch.readOnlyChip',
   'kitchen:ops.batch.recipeLabel',
   'kitchen:ops.batch.recipePlaceholder',
   'kitchen:ops.batch.recipesErrorTitle',
-  'kitchen:ops.batch.resultPortionsCaption',
-  'kitchen:ops.batch.resultQuantity',
-  'kitchen:ops.batch.resultQuantityCaption',
   'kitchen:ops.batch.roundedFrom',
   'kitchen:ops.batch.roundedUpFrom',
   'kitchen:ops.batch.roundingFoot',
-  'kitchen:ops.batch.startBatch',
   'kitchen:ops.batch.targetNeededBody',
   'kitchen:ops.batch.targetNeededTitle',
   'kitchen:ops.batch.targetPortionsLabel',
   'kitchen:ops.batch.targetQuantityLabel',
   'kitchen:ops.batch.versionCell',
+  'kitchen:ops.batch.wasteAppliesToCost',
   'kitchen:ops.cashReport.a11y.unnamedAgent',
   'kitchen:ops.cashReport.caption',
   'kitchen:ops.cashReport.columnAgent',
