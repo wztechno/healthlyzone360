@@ -422,6 +422,7 @@ function StaffCreateForm() {
                         items: shownIssues.map((issue) => ({
                             key: issue.key,
                             label: issue.label,
+                            fieldId: issue.fieldId,
                             onPress: () => {
                                 goToIssue(issue);
                             },

@@ -2,21 +2,21 @@ import { isValidationFailure } from '@healthy360/api-client';
 import {
     Badge,
     Button,
+    Callout,
     Card,
     Dialog,
     EmptyState,
     ErrorState,
-    Heading,
-    Icon,
     ListItem,
     PasswordInput,
     Skeleton,
     Stack,
-    Text,
     useToast,
 } from '@healthy360/design-system';
+import type { IconName } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { Device, DeviceId } from '@healthy360/domain-types';
+import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -26,11 +26,19 @@ import {
     useDevicesQuery,
     useRevokeDeviceMutation,
 } from '../data/hooks.ts';
+import { MarkTile, SettingsPage } from '../ui/settings-page.tsx';
 
 const PLATFORM_KEY: Readonly<Record<Device['platform'], string>> = {
     ios: 'auth:devices.platform.ios',
     android: 'auth:devices.platform.android',
     web: 'auth:devices.platform.web',
+};
+
+/** A browser is a screen; an app session is a phone, as far as the platform can say. */
+const PLATFORM_MARK: Readonly<Record<Device['platform'], IconName>> = {
+    ios: 'smartphone',
+    android: 'smartphone',
+    web: 'monitor',
 };
 
 /**
@@ -52,6 +60,7 @@ export function DevicesScreen() {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const toast = useToast();
+    const router = useRouter();
 
     const devices = useDevicesQuery();
     const revoke = useRevokeDeviceMutation();
@@ -117,21 +126,30 @@ export function DevicesScreen() {
     }, [confirmPassword, password, performRevoke, stepUpDevice]);
 
     const listFailure = toFailure(devices.error);
+    const current = devices.data?.find((device) => device.isCurrent);
+    const others = devices.data?.filter((device) => !device.isCurrent) ?? [];
+
+    const describe = (device: Device) =>
+        `${t(PLATFORM_KEY[device.platform])} · ${
+            device.lastUsedAt === null
+                ? t('auth:devices.neverUsed')
+                : t('auth:devices.lastUsed', {
+                      when: formatter.formatRelativeTime(device.lastUsedAt),
+                  })
+        }`;
 
     return (
-        <Stack testID="devices-screen" space="lg">
-            <Stack space="xs">
-                <Heading level={1} testID="devices-title">
-                    {t('auth:devices.title')}
-                </Heading>
-                <Text tone="secondary">{t('auth:devices.subtitle')}</Text>
-            </Stack>
-
+        <SettingsPage
+            testID="devices-screen"
+            titleTestID="devices-title"
+            title={t('auth:devices.title')}
+            subtitle={t('auth:devices.subtitle')}
+        >
             {devices.isPending ? (
                 <Card padding="md">
                     <Stack space="sm">
-                        <Skeleton testID="devices-skeleton-1" heightClassName="h-6" />
-                        <Skeleton testID="devices-skeleton-2" heightClassName="h-6" />
+                        <Skeleton testID="devices-skeleton-1" heightClassName="h-10" />
+                        <Skeleton testID="devices-skeleton-2" heightClassName="h-10" />
                     </Stack>
                 </Card>
             ) : null}
@@ -155,50 +173,95 @@ export function DevicesScreen() {
                 />
             ) : null}
 
+            {/*
+             * The session in hand first, on its own. It is the one row with nothing to do here —
+             * signing out is how it ends — and set apart it stops reading as the first entry of a
+             * list the reader is meant to prune.
+             */}
+            {current === undefined ? null : (
+                <Card title={t('auth:devices.thisSession')} padding="sm">
+                    <ListItem
+                        testID={`device-${current.id}`}
+                        title={current.name}
+                        description={describe(current)}
+                        leading={<MarkTile name={PLATFORM_MARK[current.platform]} />}
+                        trailing={
+                            <Badge
+                                testID={`device-${current.id}-current`}
+                                tone="success"
+                                label={t('auth:devices.current')}
+                            />
+                        }
+                    />
+                </Card>
+            )}
+
             {devices.data !== undefined && devices.data.length > 0 ? (
-                <Card padding="sm">
-                    <Stack space="xs">
-                        {devices.data.map((device) => (
+                <Card
+                    title={t('auth:devices.otherSessions', { count: others.length })}
+                    padding="sm"
+                    testID="devices-others"
+                >
+                    {others.length === 0 ? (
+                        <EmptyState
+                            testID="devices-others-empty"
+                            title={t('auth:devices.empty')}
+                            body={t('auth:devices.emptyBody')}
+                        />
+                    ) : (
+                        others.map((device) => (
                             <ListItem
                                 key={device.id}
                                 testID={`device-${device.id}`}
                                 title={device.name}
-                                description={`${t(PLATFORM_KEY[device.platform])} · ${
-                                    device.lastUsedAt === null
-                                        ? t('auth:devices.neverUsed')
-                                        : t('auth:devices.lastUsed', {
-                                              when: formatter.formatRelativeTime(device.lastUsedAt),
-                                          })
-                                }`}
-                                leading={<Icon name="device" />}
+                                description={describe(device)}
+                                leading={<MarkTile name={PLATFORM_MARK[device.platform]} />}
                                 trailing={
-                                    device.isCurrent ? (
-                                        <Badge
-                                            testID={`device-${device.id}-current`}
-                                            tone="success"
-                                            label={t('auth:devices.current')}
-                                        />
-                                    ) : (
-                                        <Button
-                                            testID={`device-${device.id}-revoke`}
-                                            variant="danger"
-                                            size="sm"
-                                            label={t('auth:devices.revoke')}
-                                            accessibilityLabel={t('auth:devices.revokeLabel', {
-                                                device: device.name,
-                                            })}
-                                            loading={revoke.isPending}
-                                            onPress={() => {
-                                                setPendingDevice(device);
-                                            }}
-                                        />
-                                    )
+                                    <Button
+                                        testID={`device-${device.id}-revoke`}
+                                        variant="secondary"
+                                        size="sm"
+                                        label={t('auth:devices.revoke')}
+                                        accessibilityLabel={t('auth:devices.revokeLabel', {
+                                            device: device.name,
+                                        })}
+                                        // Only the row being revoked spins, not every row at once.
+                                        loading={revoke.isPending && revoke.variables === device.id}
+                                        onPress={() => {
+                                            setPendingDevice(device);
+                                        }}
+                                    />
                                 }
                             />
-                        ))}
-                    </Stack>
+                        ))
+                    )}
                 </Card>
             ) : null}
+
+            {/*
+             * A session nobody recognises takes two steps, and this page is only the first:
+             * revoking signs it out, but a password it already knows signs it straight back in. So
+             * the note sits under the list it is about, with the second step one press away.
+             */}
+            {others.length === 0 ? null : (
+                <Callout
+                    testID="devices-unrecognised"
+                    tone="info"
+                    title={t('auth:devices.unrecognisedTitle')}
+                    body={t('auth:devices.unrecognisedBody')}
+                    actions={
+                        <Button
+                            testID="devices-change-password"
+                            variant="secondary"
+                            size="sm"
+                            label={t('auth:profile.changePassword')}
+                            onPress={() => {
+                                router.push('/change-password');
+                            }}
+                        />
+                    }
+                />
+            )}
 
             <Dialog
                 testID="revoke-dialog"
@@ -274,6 +337,6 @@ export function DevicesScreen() {
                     {...(stepUpError === null ? {} : { error: stepUpError })}
                 />
             </Dialog>
-        </Stack>
+        </SettingsPage>
     );
 }

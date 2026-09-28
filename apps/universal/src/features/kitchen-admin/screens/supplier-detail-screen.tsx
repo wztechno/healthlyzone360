@@ -853,6 +853,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                     items: shownIssues.map((entry) => ({
                         key: entry.key,
                         label: entry.label,
+                        fieldId: entry.fieldId,
                         onPress: () => {
                             form.goTo('details');
                             focusField(entry.fieldId);

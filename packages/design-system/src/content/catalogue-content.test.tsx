@@ -243,11 +243,16 @@ describe('StatusBadge', () => {
         expect(className).toContain(expected);
     });
 
-    it('carries a mark as well as a colour', async () => {
-        // Meaning is never carried by colour alone — an archived ingredient and a live one must
-        // differ in greyscale too.
+    it('marks a state and leaves an archived record unmarked', async () => {
+        // An archived ingredient and a draft one must differ in greyscale too: the draft carries
+        // the dot, the archived one does not.
         await renderWithI18n(compact(<StatusBadge testID="badge" status="draft" label="Draft" />));
-        expect(screen.getByTestId('badge-icon')).toBeTruthy();
+        expect(screen.getByTestId('badge-mark')).toBeTruthy();
+
+        await renderWithI18n(
+            compact(<StatusBadge testID="gone" status="archived" label="Archived" />),
+        );
+        expect(screen.queryByTestId('gone-mark')).toBeNull();
     });
 });
 

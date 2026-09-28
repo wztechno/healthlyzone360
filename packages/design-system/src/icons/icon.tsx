@@ -211,6 +211,7 @@ export const DRAWN_ICON_FALLBACKS = {
     shieldPlus: 'branch',
     settings: 'prototype',
     monitorSmartphone: 'device',
+    smartphone: 'device',
     swatchBook: 'prototype',
 } as const satisfies Readonly<Record<string, IconGlyphName>>;
 export type DrawnIconName = keyof typeof DRAWN_ICON_FALLBACKS;

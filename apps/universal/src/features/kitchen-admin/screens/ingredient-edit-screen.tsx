@@ -1173,6 +1173,8 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const blockerItems: readonly FormIssueItem[] = shownBlockers.map((entry) => ({
         key: entry.key,
         label: entry.label,
+        // The chip says what the field's own line would, so the field drops that line.
+        fieldId: entry.fieldId,
         onPress: () => {
             focusField(entry.fieldId);
         },
@@ -1182,6 +1184,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
               {
                   key: 'waste',
                   label: t('kitchen:forms.waste'),
+                  fieldId: 'kitchen-ingredient-waste',
                   onPress: () => {
                       focusField('kitchen-ingredient-waste');
                   },

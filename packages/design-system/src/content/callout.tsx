@@ -9,10 +9,10 @@ export const CALLOUT_TONES = ['info', 'warning', 'danger', 'success'] as const;
 export type CalloutTone = (typeof CALLOUT_TONES)[number];
 
 const TONE_CLASS: Readonly<Record<CalloutTone, string>> = {
-    info: 'bg-info-subtle border-info-border',
-    warning: 'bg-warning-subtle border-warning-border',
-    danger: 'bg-danger-subtle border-danger-border',
-    success: 'bg-success-subtle border-success-border',
+    info: 'bg-info-subtle',
+    warning: 'bg-warning-subtle',
+    danger: 'bg-danger-subtle',
+    success: 'bg-success-subtle',
 };
 
 const TONE_TEXT_CLASS: Readonly<Record<CalloutTone, string>> = {
@@ -22,11 +22,20 @@ const TONE_TEXT_CLASS: Readonly<Record<CalloutTone, string>> = {
     success: 'text-success-on-subtle',
 };
 
+/** The mark's ink: the tone's `DEFAULT`, fuller than the text so the shape leads the line. */
+const TONE_MARK_CLASS: Readonly<Record<CalloutTone, string>> = {
+    info: 'text-info',
+    warning: 'text-warning',
+    danger: 'text-danger',
+    success: 'text-success',
+};
+
+/** Lucide's marks on the web; each falls back to its glyph (ⓘ ⚠ ✖ ✔) on native. */
 const TONE_ICON: Readonly<Record<CalloutTone, IconName>> = {
-    info: 'info',
-    warning: 'warning',
-    danger: 'error',
-    success: 'success',
+    info: 'infoCircle',
+    warning: 'alert',
+    danger: 'circleX',
+    success: 'circleCheck',
 };
 
 export const CALLOUT_ROLES = ['note', 'status', 'alert'] as const;
@@ -64,6 +73,10 @@ export interface CalloutProps {
  * `alert`. Making every callout an alert is how a screen reader user learns to ignore them.
  *
  * Tone never carries the meaning alone — each tone also brings its own icon.
+ *
+ * The frame is the soft one (Badges & Callouts, 1a): the tone's subtle fill with no border, a 10px
+ * inset and a 13px mark in the tone's full ink. The fill already separates it from the page; a
+ * border on top of it was a second edge saying the same thing.
  */
 export function Callout({
     title,
@@ -85,20 +98,22 @@ export function Callout({
             {...(role === 'alert' ? { accessibilityRole: 'alert' as const } : {})}
             {...(role === 'status' ? { 'aria-live': 'polite' as const } : {})}
             className={cx(
-                'flex-row items-start gap-3 rounded-lg border p-4',
+                'flex-row items-start gap-2.5 rounded-lg px-3 py-2.5',
                 TONE_CLASS[tone],
                 className,
             )}
         >
             {resolvedIcon === null ? null : (
+                // `mt-1` sets the 13px mark on the title's first line rather than on its top edge.
                 <Icon
                     testID={testID === undefined ? undefined : `${testID}-icon`}
                     name={resolvedIcon}
-                    className={TONE_TEXT_CLASS[tone]}
+                    size="sm"
+                    className={cx('mt-1', TONE_MARK_CLASS[tone])}
                 />
             )}
 
-            <View className="flex-1 flex-col gap-1">
+            <View className="min-w-0 flex-1 flex-col gap-0.5">
                 <RNText
                     testID={testID === undefined ? undefined : `${testID}-title`}
                     className={cx('text-sm font-semibold text-start', TONE_TEXT_CLASS[tone])}
@@ -120,7 +135,7 @@ export function Callout({
                 {actions === undefined ? null : (
                     <View
                         testID={testID === undefined ? undefined : `${testID}-actions`}
-                        className="flex-row flex-wrap items-center gap-2 pt-1"
+                        className="flex-row flex-wrap items-center gap-1.5 pt-1.5"
                     >
                         {actions}
                     </View>

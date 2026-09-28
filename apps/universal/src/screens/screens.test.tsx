@@ -13,7 +13,7 @@ import type {
     OrganisationId,
     RoleId,
 } from '@healthy360/domain-types';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import {
     TEST_USER_ID,
@@ -595,6 +595,22 @@ describe('ProfileScreen', () => {
             expect(screen.getByTestId('profile-no-context')).toBeTruthy();
         });
     });
+
+    it('edits nothing itself, but takes the reader to the password page', async () => {
+        await renderStubScreen(<ProfileScreen />, { session: dietitianSession() });
+        await waitFor(() => screen.getByTestId('profile-change-password'));
+
+        await fireEvent.press(screen.getByTestId('profile-change-password'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/change-password');
+    });
+
+    it('names the language rather than printing its code', async () => {
+        await renderStubScreen(<ProfileScreen />, { session: dietitianSession() });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('profile-locale')).not.toHaveTextContent(/^(en|ar)$/);
+        });
+    });
 });
 
 describe('DevicesScreen', () => {
@@ -609,6 +625,44 @@ describe('DevicesScreen', () => {
         });
         expect(screen.getByTestId(`device-${LAPTOP.id}-current`)).toBeTruthy();
         expect(screen.getByTestId(`device-${PHONE.id}-revoke`)).toBeTruthy();
+    });
+
+    it('sets this session apart from the ones to prune', async () => {
+        await renderStubScreen(<DevicesScreen />, {
+            session: dietitianSession(),
+            repositories: { devices: { list: async () => [LAPTOP, PHONE, TABLET] } },
+        });
+        await waitFor(() => screen.getByTestId('devices-others'));
+
+        const others = within(screen.getByTestId('devices-others'));
+        expect(others.queryByTestId(`device-${LAPTOP.id}`)).toBeNull();
+        expect(others.getByTestId(`device-${PHONE.id}`)).toBeTruthy();
+        expect(others.getByTestId(`device-${TABLET.id}`)).toBeTruthy();
+        // The session in hand has nothing to revoke from here.
+        expect(screen.queryByTestId(`device-${LAPTOP.id}-revoke`)).toBeNull();
+    });
+
+    it('points at the second step — the password — under a list worth pruning', async () => {
+        await renderStubScreen(<DevicesScreen />, {
+            session: dietitianSession(),
+            repositories: { devices: { list: async () => [LAPTOP, PHONE] } },
+        });
+        await waitFor(() => screen.getByTestId('devices-unrecognised'));
+
+        await fireEvent.press(screen.getByTestId('devices-change-password'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/change-password');
+    });
+
+    it('says this is the only session, and drops the note, when it is', async () => {
+        await renderStubScreen(<DevicesScreen />, {
+            session: dietitianSession(),
+            repositories: { devices: { list: async () => [LAPTOP] } },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('devices-others-empty')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('devices-unrecognised')).toBeNull();
     });
 
     it('asks for confirmation before revoking', async () => {

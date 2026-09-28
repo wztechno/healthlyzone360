@@ -456,6 +456,7 @@ function RoleEditor() {
                         items: shownIssues.map((issue) => ({
                             key: issue.key,
                             label: issue.label,
+                            fieldId: issue.fieldId,
                             onPress: () => {
                                 setStep('details');
                                 focusField(issue.fieldId);

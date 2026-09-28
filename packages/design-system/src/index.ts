@@ -118,6 +118,8 @@ export {
 export type { InputSize, TextInputFieldProps } from './forms/text-input.tsx';
 export { FormSection } from './forms/form-section.tsx';
 export type { FormSectionProps } from './forms/form-section.tsx';
+export { FormIssueScope, useFieldSummarised } from './forms/form-issue-scope.tsx';
+export type { FormIssueScopeProps } from './forms/form-issue-scope.tsx';
 export { FORM_ISSUE_TONES, FormIssueBanner } from './forms/form-issue-banner.tsx';
 export type {
     FormIssueBannerProps,
