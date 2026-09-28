@@ -6,6 +6,9 @@ use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
+use Healthy360\Orders\Enums\PaymentMethod;
+use Healthy360\Orders\Models\Order;
+use Healthy360\Orders\Services\OrderPaymentReceipts;
 use Healthy360\Orders\Tests\Fixtures\OrderWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
@@ -270,4 +273,35 @@ it('narrows the kitchen book by status and by order number, and rejects a status
         ->assertStatus(400)
         ->assertJsonPath('error.code', 'request.invalid')
         ->assertJsonPath('error.details.parameter', 'requested_delivery_date');
+});
+
+it('receipts the cash still outstanding when a cash order is fulfilled, and leaves a transfer alone', function (): void {
+    $fulfil = function (Order $order): void {
+        $confirmed = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/confirm', [], $this->kitchenHeaders + [
+            'If-Match' => '"'.$order->lock_version.'"',
+        ])->assertOk();
+
+        $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/fulfil', [], $this->kitchenHeaders + [
+            'If-Match' => $confirmed->headers->get('ETag'),
+        ])->assertOk();
+    };
+
+    // Part-paid at the door before the order was marked delivered: only the
+    // remainder is receipted, so the cash report does not count the part twice.
+    $cash = OrderWorld::place($this->world);
+    app(OrderPaymentReceipts::class)->write($cash, PaymentMethod::CashOnDelivery, 100, (string) $this->world->tenant->user->getKey());
+    $fulfil($cash);
+
+    $receipts = $cash->paymentReceipts()->orderBy('amount_minor')->get();
+
+    expect($receipts)->toHaveCount(2)
+        ->and((int) $receipts->sum('amount_minor'))->toBe($cash->total_minor)
+        ->and($receipts->last()->method)->toBe($cash->payment_method)
+        ->and($receipts->last()->confirmed_by)->toBe((string) $this->world->tenant->user->getKey());
+
+    $wish = OrderWorld::place($this->world);
+    $wish->forceFill(['payment_method' => PaymentMethod::Wish])->save();
+    $fulfil($wish->refresh());
+
+    expect($wish->paymentReceipts()->count())->toBe(0);
 });

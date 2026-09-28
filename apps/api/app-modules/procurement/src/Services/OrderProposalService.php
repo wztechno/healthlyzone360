@@ -90,7 +90,10 @@ final readonly class OrderProposalService
     {
         $queue = $this->queueLevels($branchId);
 
-        $queued = $queue->map(fn (StockLevel $level): array => $this->rowFromLevel(
+        // `toBase()` first: an Eloquent collection's `map()` only drops to a base
+        // collection when it has rows, so an empty queue (nothing short) stayed
+        // Eloquent and its `merge()` called `getKey()` on the requested rows.
+        $queued = $queue->toBase()->map(fn (StockLevel $level): array => $this->rowFromLevel(
             $level,
             $branchId,
             SupplyNeedsQuery::isOutOfStock((string) $level->quantity) ? 'out_of_stock' : 'low_stock',
