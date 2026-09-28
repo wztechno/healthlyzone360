@@ -1487,6 +1487,19 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         size="md"
                         value="250"
                     />
+                    {/* The same `xs` step on a picker, for a line-table cell beside `xs` inputs. */}
+                    <Select
+                        testID={id('select-size-xs')}
+                        id={id('select-size-xs')}
+                        label="xs select — a line-table cell"
+                        size="xs"
+                        options={[
+                            { value: 'kg', label: 'kg' },
+                            { value: 'g', label: 'g' },
+                        ]}
+                        value="kg"
+                        onChange={() => undefined}
+                    />
                 </FormGrid>
             </Stack>
 

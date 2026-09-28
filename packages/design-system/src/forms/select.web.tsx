@@ -75,6 +75,7 @@ export function Select<T extends string = string>({
     required = false,
     disabled = false,
     searchable = false,
+    size: sizeProp,
     id,
     className,
     testID,
@@ -84,7 +85,7 @@ export function Select<T extends string = string>({
     const [query, setQuery] = useState<string | null>(null);
     const input = useRef<RNTextInput | null>(null);
 
-    const size = density === 'compact' ? 'sm' : 'md';
+    const size = sizeProp ?? (density === 'compact' ? 'sm' : 'md');
     const selected = options.find((option) => option.value === value) ?? null;
     const displayText = selected?.label ?? placeholder ?? t('designSystem:select.placeholder');
     const accessibleName = required

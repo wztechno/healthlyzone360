@@ -38,6 +38,8 @@ import type { InputSize } from './text-input.tsx';
 
 export interface QuantityInputProps {
     readonly label: string;
+    /** See `FormField`'s `labelHidden` — for a figure in a line table, named by its column header. */
+    readonly labelHidden?: boolean | undefined;
     readonly value: string;
     readonly onChangeText: (value: string) => void;
     /** Fires on blur with the parsed value, or `null` when the text does not parse. */
@@ -69,6 +71,7 @@ export function parseQuantity(text: string): number | null {
 
 export function QuantityInput({
     label,
+    labelHidden = false,
     value,
     onChangeText,
     onCommit,
@@ -92,6 +95,7 @@ export function QuantityInput({
     return (
         <FormField
             label={label}
+            labelHidden={labelHidden}
             {...(hint === undefined ? {} : { hint })}
             {...(error === undefined ? {} : { error })}
             {...(warning === undefined ? {} : { warning })}
