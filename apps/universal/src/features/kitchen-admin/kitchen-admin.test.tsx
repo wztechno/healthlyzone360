@@ -1330,28 +1330,16 @@ describe('the ingredient editor', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 /**
- * The figures moved out of the read-only panel and became inputs — and the four things that has to
- * mean.
+ * The figures come from the database, and the editor only reads them.
  *
- * They **prefill**, or an operator correcting one figure would retype seven. They **save as a slim
- * envelope**, because that is the shape the column holds and the roll-up reads. A **part-filled set
- * is refused here**, in front of the person who can fill it, even though the server would accept it
- * — completeness is the roll-up's question and the validator declines to answer it. And a record
- * whose figures a published recipe **derives** gets no inputs at all, because the server refuses the
- * write and a control that always 422s is worse than no control.
+ * They are **drawn from the record** — an em dash where it holds none, never a zero. There is **no
+ * input** to type into, and the save **never sends `per100g`**, so a save can neither change the
+ * figures nor clear them. The estimate flag and the note are a claim *about* the figures and stay
+ * editable, sent on their own. And a record whose figures a published recipe **derives** gets
+ * neither, because the server refuses both on a derivation.
  */
 describe('nutrition per 100 g', () => {
-    const NUTRIENT_IDS = [
-        'energy',
-        'protein',
-        'carbohydrate',
-        'fat',
-        'fibre',
-        'sugars',
-        'sodium',
-    ] as const;
-
-    it('prefills every figure the record carries', async () => {
+    it('draws every figure the record carries, and offers nothing to type into', async () => {
         const record = ingredient(20, { per100g: per100gFacts(), nutritionEstimated: false });
 
         await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
@@ -1365,22 +1353,20 @@ describe('nutrition per 100 g', () => {
         });
 
         await openIngredientStep('nutrition');
-        await untilVisible('kitchen-ingredient-nutrient-energy-input');
+        await untilVisible('kitchen-ingredient-nutrition-grid-figure-energy-value');
 
-        expect(screen.getByTestId('kitchen-ingredient-nutrient-energy-input').props.value).toBe(
-            '53',
-        );
-        expect(screen.getByTestId('kitchen-ingredient-nutrient-sodium-input').props.value).toBe(
-            '10600',
-        );
-        // The eighth field is drawn whether or not the record has it: absent is a state an operator
-        // may want to leave, and a field that appears only once it is filled cannot be filled.
         expect(
-            screen.getByTestId('kitchen-ingredient-nutrient-saturated_fat-input').props.value,
-        ).toBe('');
+            screen.getByTestId('kitchen-ingredient-nutrition-grid-figure-energy-value'),
+        ).toHaveTextContent(/^53/);
+        // The eighth card is drawn whether or not the record has it, as an em dash — absent is
+        // not zero.
+        expect(
+            screen.getByTestId('kitchen-ingredient-nutrition-grid-figure-saturated_fat-value'),
+        ).toHaveTextContent('—');
+        expect(screen.queryByTestId('kitchen-ingredient-nutrient-energy-input')).toBeNull();
     });
 
-    it('sends the whole set, the flag and the note when the figures are saved', async () => {
+    it('saves the flag and the note, and never the figures', async () => {
         const record = ingredient(21, { per100g: per100gFacts() });
 
         const { repositories } = await renderStubScreen(
@@ -1401,14 +1387,8 @@ describe('nutrition per 100 g', () => {
         );
 
         await openIngredientStep('nutrition');
-        await untilVisible('kitchen-ingredient-nutrient-energy-input');
+        await untilVisible('kitchen-ingredient-nutrition-estimated-control');
 
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId('kitchen-ingredient-nutrient-energy-input'),
-                '61',
-            );
-        });
         await act(async () => {
             // `-control` is the pressable; the bare testID is the row that wraps it.
             fireEvent.press(screen.getByTestId('kitchen-ingredient-nutrition-estimated-control'));
@@ -1429,79 +1409,12 @@ describe('nutrition per 100 g', () => {
         });
 
         const [, request] = (repositories.kitchenAdmin.updateIngredient as jest.Mock).mock
-            .calls[0] as [
-            IngredientId,
-            { readonly per100g: NutritionFacts | null } & Record<string, unknown>,
-        ];
+            .calls[0] as [IngredientId, Record<string, unknown>];
 
-        expect(request.per100g).not.toBeNull();
-
-        const amounts = new Map(
-            (request.per100g?.amounts ?? []).map(
-                (amount): readonly [string, { readonly unit: string; readonly value: number }] => [
-                    amount.nutrientId,
-                    amount,
-                ],
-            ),
-        );
-
-        // The edit, and the six figures nobody touched beside it. A save that sent only what
-        // changed would clear the rest: `nutrition_per_100g` is one column, replaced whole.
-        expect(amounts.get('energy')?.value).toBe(61);
-        expect(amounts.get('sodium')?.value).toBe(10600);
-        expect(amounts.get('sodium')?.unit).toBe('mg');
-        expect([...amounts.keys()]).toEqual([...NUTRIENT_IDS]);
-
+        // Absent, not `null`: a missing field is untouched, and `null` would clear the figures.
+        expect(request).not.toHaveProperty('per100g');
         expect(request.nutritionEstimated).toBe(true);
         expect(request.nutritionNote).toBe('Supplier label, March 2026 batch');
-    });
-
-    it('refuses to save a part-filled set, and says why', async () => {
-        const record = ingredient(22, { per100g: per100gFacts() });
-
-        const { repositories } = await renderStubScreen(
-            <IngredientEditScreen ingredient={String(record.id)} />,
-            {
-                session: kitchenManagerSession(),
-                repositories: {
-                    kitchenAdmin: {
-                        ...editorReads(() => [record]),
-                        getIngredient: async () => record,
-                    },
-                },
-            },
-        );
-
-        await openIngredientStep('nutrition');
-        await untilVisible('kitchen-ingredient-nutrient-fibre-input');
-
-        // One figure emptied out of seven. The roll-up would read the gap as nothing at all rather
-        // than as a gap, so the save stops here instead of printing a label that understates itself.
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-nutrient-fibre-input'), '');
-        });
-
-        await untilVisible('kitchen-ingredient-nutrition-partial');
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
-        });
-
-        expect(repositories.kitchenAdmin.updateIngredient).not.toHaveBeenCalled();
-
-        // And clearing the other six releases it: "all seven or none" is the rule, not "all seven".
-        for (const id of NUTRIENT_IDS) {
-            await act(async () => {
-                fireEvent.changeText(
-                    screen.getByTestId(`kitchen-ingredient-nutrient-${id}-input`),
-                    '',
-                );
-            });
-        }
-
-        await waitFor(() => {
-            expect(screen.queryByTestId('kitchen-ingredient-nutrition-partial')).toBeNull();
-        });
     });
 
     it('offers no inputs on a record whose figures a published recipe derives', async () => {

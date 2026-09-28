@@ -3648,8 +3648,6 @@
         "estimateLabel": "These figures are an estimate",
         "noteLabel": "Note on the figures",
         "notePlaceholder": "Supplier label, March 2026 batch",
-        "partialError": "Fill in all seven figures, or clear them all.",
-        "partialHint": "A part-filled set cannot be added up: a recipe roll-up reads a blank as nothing at all and prints a label that understates it.",
         "estimatedBadge": "Estimated",
         "derivedBadge": "Derived from a recipe"
     },
@@ -3686,7 +3684,6 @@
         "fieldPackCost": "Pack cost",
         "identificationTitle": "Identification",
         "identificationSubtitle": "Catalogue record and costing",
-        "fieldOtherName": "Name in the other language",
         "fieldCapacity": "Pack contents",
         "fieldWaste": "Waste",
         "perUnitValue": "{{price}} / {{unit}}",

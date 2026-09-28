@@ -131,7 +131,8 @@ export function IngredientDetail({
      * Every field the list also draws as a column is labelled with the *column's* key, not a key of
      * its own. The view is the row opened up, and a reader who scanned "Item" and "Cost / 100 g"
      * down the table should find the same words here — two names for one field read as two fields.
-     * Fields with no column (the other-language name, margin, pack contents) keep their own.
+     * Fields with no column (margin, pack contents) keep their own; the other-language name is the
+     * column's word with its language beside it.
      */
     const identification: readonly RecordWindowField[] = [
         {
@@ -146,8 +147,12 @@ export function IngredientDetail({
             value: name.value,
         },
         {
+            // Named for the language it is in — "Item (AR)" — the words the editor's two name
+            // fields use, rather than "the other language", which makes the reader work out which.
             key: 'name-other',
-            label: t('kitchen:ingredientDetail.fieldOtherName'),
+            label: t(locale === 'ar' ? 'kitchen:bilingual.englishShort' : 'kitchen:bilingual.arabicShort', {
+                field: t('kitchen:list.columnItem'),
+            }),
             value: (locale === 'ar' ? ingredient.name.en : ingredient.name.ar) || dash,
         },
         {

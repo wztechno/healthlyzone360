@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7508 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7505 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3278,7 +3278,6 @@ export interface NamespaceKeys {
     | 'hub.title'
     | 'ingredientDetail.allergensDietsTitle'
     | 'ingredientDetail.fieldCapacity'
-    | 'ingredientDetail.fieldOtherName'
     | 'ingredientDetail.fieldPackCost'
     | 'ingredientDetail.fieldSellable'
     | 'ingredientDetail.fieldWaste'
@@ -3500,8 +3499,6 @@ export interface NamespaceKeys {
     | 'nutritionFacts.estimatedBadge'
     | 'nutritionFacts.noteLabel'
     | 'nutritionFacts.notePlaceholder'
-    | 'nutritionFacts.partialError'
-    | 'nutritionFacts.partialHint'
     | 'nutritionFacts.title'
     | 'nutritionFacts.unitGrams'
     | 'nutritionFacts.unitKcal'
@@ -10804,7 +10801,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.title',
   'kitchen:ingredientDetail.allergensDietsTitle',
   'kitchen:ingredientDetail.fieldCapacity',
-  'kitchen:ingredientDetail.fieldOtherName',
   'kitchen:ingredientDetail.fieldPackCost',
   'kitchen:ingredientDetail.fieldSellable',
   'kitchen:ingredientDetail.fieldWaste',
@@ -11026,8 +11022,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nutritionFacts.estimatedBadge',
   'kitchen:nutritionFacts.noteLabel',
   'kitchen:nutritionFacts.notePlaceholder',
-  'kitchen:nutritionFacts.partialError',
-  'kitchen:nutritionFacts.partialHint',
   'kitchen:nutritionFacts.title',
   'kitchen:nutritionFacts.unitGrams',
   'kitchen:nutritionFacts.unitKcal',

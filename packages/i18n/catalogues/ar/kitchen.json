@@ -4188,8 +4188,6 @@
         "estimateLabel": "هذه الأرقام تقديرية",
         "noteLabel": "ملاحظة على الأرقام",
         "notePlaceholder": "ملصق المورّد، دفعة آذار 2026",
-        "partialError": "أدخل الأرقام السبعة كلّها، أو امسحها كلّها.",
-        "partialHint": "المجموعة الناقصة لا يمكن جمعها: يقرأ احتساب الوصفة الخانة الفارغة على أنها لا شيء ويطبع ملصقًا أقلّ من الحقيقة.",
         "estimatedBadge": "تقديري",
         "derivedBadge": "مشتق من وصفة"
     },
@@ -4226,7 +4224,6 @@
         "fieldPackCost": "تكلفة العبوة",
         "identificationTitle": "التعريف",
         "identificationSubtitle": "سجل الكتالوج والتكلفة",
-        "fieldOtherName": "الاسم باللغة الأخرى",
         "fieldCapacity": "محتوى العبوة",
         "fieldWaste": "الهدر",
         "perUnitValue": "{{price}} / {{unit}}",

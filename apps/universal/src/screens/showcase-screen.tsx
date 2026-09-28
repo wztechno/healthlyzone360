@@ -1762,9 +1762,9 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     />
                 </FormSection>
                 {/*
-                 * The outline tile — the recipe's technical sheet, a surface opened *to read* the
-                 * figures: primary ink, the unit on the baseline, an absent figure dropping back to
-                 * secondary.
+                 * The outline tile — the recipe's technical sheet and the ingredient's nutrition, a
+                 * surface opened *to read* the figures: as wide as its content, primary ink, the
+                 * unit right beside the figure, an absent figure dropping back to secondary.
                  */}
                 <DerivedPanel
                     testID={id('derived-panel-outline')}
@@ -1772,25 +1772,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     figures={SHOWCASE_NUTRIENTS.map((figure, index) =>
                         index === 3 ? { ...figure, value: null } : figure,
                     )}
-                    emptyValue="—"
-                />
-                {/*
-                 * The same card, typeable — the ingredient editor's nutrition. The card is the
-                 * input's frame: its hairline takes the focus ring and, on a gap in a part-filled
-                 * set, the danger border.
-                 */}
-                <DerivedPanel
-                    testID={id('derived-panel-editable')}
-                    variant="outline"
-                    figures={SHOWCASE_NUTRIENTS.map((figure, index) => ({
-                        ...figure,
-                        input: {
-                            testID: id(`derived-editable-${figure.key}`),
-                            value: index === 1 ? '' : (figure.value ?? ''),
-                            invalid: index === 1,
-                            onChangeText: () => undefined,
-                        },
-                    }))}
                     emptyValue="—"
                 />
                 {/* The same four tiles with nothing behind them — em dashes, never zeroes. */}
