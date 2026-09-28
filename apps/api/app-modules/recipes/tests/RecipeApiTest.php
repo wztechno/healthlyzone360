@@ -861,3 +861,71 @@ it('carries the list prices into the next draft', function (): void {
         ->assertJsonPath('data.version.b2c_price_amount', '24.000000')
         ->assertJsonPath('data.version.price_currency_code', 'AED');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Shelf life — on the recipe, not the version (D-143)
+|--------------------------------------------------------------------------
+|
+| How long a batch keeps is how the kitchen keeps the food, not what the food
+| is. So it is written on the recipe identity, under the recipe's own lock, and
+| stays writable while the formulation is published and frozen.
+|
+*/
+
+it('takes a shelf life when the recipe is created', function (): void {
+    $this->actingAs($this->a->user);
+
+    $this->postJson('/api/v1/catalogue/recipes', ['name_en' => 'Caesar Dressing', 'shelf_life_days' => 5], RecipeWorld::headers($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.recipe.shelf_life_days', 5);
+
+    // Omitted is null — nobody has said — never a default number of days.
+    $this->postJson('/api/v1/catalogue/recipes', ['name_en' => 'Toum'], RecipeWorld::headers($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.recipe.shelf_life_days', null);
+});
+
+it('corrects a shelf life while the recipe’s version is published', function (): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+    RecipeVersion::factory()->published()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+    $url = '/api/v1/catalogue/recipes/'.$recipe->getKey();
+
+    // No new version and no review: the formulation did not change.
+    $this->patchJson($url, ['shelf_life_days' => 5], $headers + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->assertJsonPath('data.recipe.shelf_life_days', 5)
+        ->assertJsonPath('data.recipe.current_version_status', 'published');
+
+    expect(AuditLog::query()->where('action', 'catalogue.recipe_updated')->sole()->metadata['changed_fields'])
+        ->toBe(['shelf_life_days']);
+
+    // Null clears it, and the cook types the date by hand again.
+    $this->patchJson($url, ['shelf_life_days' => null], $headers + ['If-Match' => '"1"'])
+        ->assertOk()
+        ->assertJsonPath('data.recipe.shelf_life_days', null);
+
+    expect(RecipeVersion::withoutTenancy()->where('recipe_id', $recipe->getKey())->sole()->lock_version)->toBe(0);
+});
+
+it('refuses a shelf life that is not a number of days a food could keep', function (mixed $days): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    $this->actingAs($this->a->user);
+
+    $this->patchJson('/api/v1/catalogue/recipes/'.$recipe->getKey(), ['shelf_life_days' => $days],
+        RecipeWorld::headers($this->a) + ['If-Match' => '"0"'])
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed')
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['shelf_life_days']]]]);
+})->with([
+    'negative' => -1,
+    'past ten years' => 3651,
+    'not a number' => 'x',
+]);

@@ -981,6 +981,24 @@ export function useProductionOrdersQuery(
     });
 }
 
+/**
+ * Resolve a scanned or typed code — a GS1 string, a lot, a `PB-` reference — to its batch.
+ *
+ * A mutation rather than a query: Enter is an event and the answer is a navigation, not a screen's
+ * state. It caches nothing, so a miss is never served stale for a lot minted a minute later.
+ */
+export function useProductionOrderLookupMutation(): UseMutationResult<
+    ProductionOrderPage,
+    unknown,
+    string
+> {
+    const repositories = useRepositories();
+
+    return useMutation({
+        mutationFn: (code: string) => repositories.kitchenOps.listProductionOrders({ code }),
+    });
+}
+
 /** One batch, with its lines and — while it has none — its live plan. */
 export function useProductionOrderQuery(
     productionOrderId: ProductionOrderId | null,

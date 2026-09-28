@@ -34,6 +34,7 @@ import { PRODUCTION_MANAGE_PERMISSION, PRODUCTION_VIEW_PERMISSION } from '../ent
 import { formatMoney, knownCurrency } from '../format.ts';
 import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { nextProductionEdge, productionStatusKey, productionStatusTone } from '../ops-format.ts';
+import { formatLot } from '../production-desk/batch-figures.ts';
 import { BatchLinesPanel } from '../production-desk/batch-lines-panel.tsx';
 import { BatchPlanPanel } from '../production-desk/batch-plan-panel.tsx';
 import { BatchSettlementDialog } from '../production-desk/batch-settlement-dialog.tsx';
@@ -264,6 +265,19 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                                 }}
                             />
                         )}
+                        {batch.lotNumber === null ? null : (
+                            <Button
+                                testID="kitchen-production-batch-label"
+                                variant="secondary"
+                                size="sm"
+                                label={t('kitchen:ops.production.printLabel')}
+                                onPress={() => {
+                                    router.push(
+                                        `/kitchen/production-desk/${String(batch.id)}/label`,
+                                    );
+                                }}
+                            />
+                        )}
                         {canManage && edge !== null ? (
                             <Button
                                 testID={`kitchen-production-batch-${edge}`}
@@ -407,15 +421,24 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                 <Heading level={2}>{t('kitchen:ops.production.headingRecord')}</Heading>
                 <View className="flex-row flex-wrap gap-x-8 gap-y-3">
                     <Figure
+                        testID="kitchen-production-batch-lot"
+                        label={t('kitchen:ops.production.lotLabel')}
+                        value={formatLot(batch.lotNumber) ?? noValue}
+                        strong
+                    />
+                    <Figure
                         testID="kitchen-production-batch-production-date"
                         label={t('kitchen:ops.production.productionDateLabel')}
                         value={batch.productionDate ?? noValue}
                     />
-                    <Figure
-                        testID="kitchen-production-batch-reference"
-                        label={t('kitchen:ops.production.batchReferenceLabel')}
-                        value={batch.batchReference ?? noValue}
-                    />
+                    {/* What a cook typed before lots were minted — only old batches have it. */}
+                    {batch.batchReference === null ? null : (
+                        <Figure
+                            testID="kitchen-production-batch-reference"
+                            label={t('kitchen:ops.production.batchReferenceLabel')}
+                            value={batch.batchReference}
+                        />
+                    )}
                     <Figure
                         testID="kitchen-production-batch-storage"
                         label={t('kitchen:ops.production.storageLocationLabel')}
@@ -473,6 +496,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                 mode={settlement ?? 'complete'}
                 lines={detail.lines}
                 yieldUnitCode={batch.plannedYieldUnitCode}
+                shelfLifeDays={batch.recipeShelfLifeDays}
                 draft={draft}
                 onChange={setDraft}
                 onSubmit={submitSettlement}

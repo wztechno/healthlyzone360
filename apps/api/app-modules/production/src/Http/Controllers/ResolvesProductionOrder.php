@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Production\Http\Controllers;
 
 use Healthy360\Production\Models\ProductionOrder;
+use Healthy360\Production\Presenters\ProductionOrderPresenter;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Api\Exceptions\StaleLockVersion;
@@ -44,7 +45,7 @@ trait ResolvesProductionOrder
             // The names the surface renders, resolved with the row rather than
             // per field: a batch detail asking for its ingredient's name
             // separately is one more round trip for a string.
-            ->with(['productionItem:id,name_en', 'plannedYieldUnit:id,code'])
+            ->with(ProductionOrderPresenter::RELATIONS)
             ->where('organisation_id', $context->organisationId())
             ->whereKey($productionOrder)
             ->first();

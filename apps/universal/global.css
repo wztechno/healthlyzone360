@@ -167,8 +167,10 @@ input[data-picker-field]::-webkit-clear-button {
      offline-indicator                                        →  AreaShell's banner
      kitchen-breadcrumbs                                      →  KitchenTrail, in the top bar
      toast-region-polite / -assertive                         →  ToastProvider
+     kitchen-shell-rail-panel                                 →  AppShell's module rail
      kitchen-supply-print-toolbar                             →  the print screen's own controls
      kitchen-supply-print-sheets                              →  the box holding one sheet per order
+     kitchen-production-label-toolbar / -sheets               →  the batch label screen, the same way
 
    ## One sheet is a child of the sheets box, not a prefix match
 
@@ -189,6 +191,13 @@ input[data-picker-field]::-webkit-clear-button {
     @page {
         size: A4;
         margin: 14mm 12mm;
+    }
+
+    /* Calibration knob: the label stock. 58 × 40 mm until the printer is chosen — this is the only
+       place the size lives. Each label copy opts into it with `page: production-label`. */
+    @page production-label {
+        size: 58mm 40mm;
+        margin: 0;
     }
 
     html,
@@ -214,7 +223,9 @@ input[data-picker-field]::-webkit-clear-button {
     [data-testid='kitchen-ops-shell'],
     [data-testid='kitchen-ops-content'],
     [data-testid='kitchen-supply-print-screen'],
-    [data-testid='kitchen-supply-print-sheets'] {
+    [data-testid='kitchen-supply-print-sheets'],
+    [data-testid='kitchen-production-label-screen'],
+    [data-testid='kitchen-production-label-sheets'] {
         display: block !important;
         height: auto !important;
         max-height: none !important;
@@ -231,7 +242,8 @@ input[data-picker-field]::-webkit-clear-button {
        sheet's own prefix, so `:has([data-testid^='…-sheet-'])` would also match the sheet and half
        the boxes within it, flatten them all to `display: block` and take every gap on the page
        with it. */
-    body :has([data-testid='kitchen-supply-print-sheets']) {
+    body :has([data-testid='kitchen-supply-print-sheets']),
+    body :has([data-testid='kitchen-production-label-sheets']) {
         display: block !important;
         height: auto !important;
         max-height: none !important;
@@ -246,11 +258,13 @@ input[data-picker-field]::-webkit-clear-button {
     [data-testid='kitchen-shell-navigation'],
     [data-testid='kitchen-shell-drawer'],
     [data-testid='kitchen-shell-dock'],
+    [data-testid='kitchen-shell-rail-panel'],
     [data-testid='kitchen-breadcrumbs'],
     [data-testid='offline-indicator'],
     [data-testid='toast-region-polite'],
     [data-testid='toast-region-assertive'],
-    [data-testid='kitchen-supply-print-toolbar'] {
+    [data-testid='kitchen-supply-print-toolbar'],
+    [data-testid='kitchen-production-label-toolbar'] {
         display: none !important;
     }
 
@@ -286,7 +300,9 @@ input[data-picker-field]::-webkit-clear-button {
        prints as grey wash and costs toner for nothing. Descendants are included by `*` because most
        of the text on a sheet carries no test id of its own. */
     [data-testid='kitchen-supply-print-sheets'] > [data-testid^='kitchen-supply-print-sheet-'],
-    [data-testid='kitchen-supply-print-sheets'] > [data-testid^='kitchen-supply-print-sheet-'] * {
+    [data-testid='kitchen-supply-print-sheets'] > [data-testid^='kitchen-supply-print-sheet-'] *,
+    [data-testid='kitchen-production-label-sheets'],
+    [data-testid='kitchen-production-label-sheets'] * {
         color: #000 !important;
         background-color: transparent !important;
         background-image: none !important;
@@ -299,5 +315,59 @@ input[data-picker-field]::-webkit-clear-button {
     [data-testid='kitchen-supply-print-sheets'] [role='row'] {
         break-inside: avoid;
         page-break-inside: avoid;
+    }
+
+    /* One label per page on the label stock. `#root`-prefixed to outrank
+       `#root * { overflow: visible !important }` above: a label that grew past 40 mm must be
+       clipped, never spill onto a second label. A **child** selector for the same reason as the
+       supply-order sheets: every id inside a copy shares its prefix (`…-copy-1-dates`). The sheets
+       box holds nothing but copies, so the last child is the only break that is not printed. */
+    #root [data-testid='kitchen-production-label-sheets'] {
+        gap: 0 !important;
+    }
+
+    #root
+        [data-testid='kitchen-production-label-sheets']
+        > [data-testid^='kitchen-production-label-copy-'] {
+        page: production-label;
+        break-after: page;
+        page-break-after: always; /* Legacy alias — Safari and older WebKit ignore `break-after`. */
+        break-inside: avoid;
+        overflow: hidden !important;
+        width: auto !important;
+        max-height: 40mm;
+        padding: 1.5mm !important;
+        margin: 0 !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+    }
+
+    #root
+        [data-testid='kitchen-production-label-sheets']
+        > [data-testid^='kitchen-production-label-copy-']:last-child {
+        break-after: auto;
+        page-break-after: auto;
+    }
+
+    /* Calibration knob: label type. 7pt for everything, 10pt for the dates a cook reads first. */
+    #root
+        [data-testid='kitchen-production-label-sheets']
+        > [data-testid^='kitchen-production-label-copy-']
+        * {
+        font-size: 7pt !important;
+        line-height: 1.2 !important;
+    }
+
+    #root
+        [data-testid='kitchen-production-label-sheets']
+        > [data-testid^='kitchen-production-label-copy-']
+        [data-testid$='-dates'],
+    #root
+        [data-testid='kitchen-production-label-sheets']
+        > [data-testid^='kitchen-production-label-copy-']
+        [data-testid$='-dates']
+        * {
+        font-size: 10pt !important;
     }
 }

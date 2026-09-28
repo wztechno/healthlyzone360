@@ -33,7 +33,7 @@ final class RecipeStoreController
      */
     public function __invoke(StoreRecipeRequest $request): JsonResponse
     {
-        /** @var array{name_en: string, name_ar?: string|null, slug?: string|null, branch_id?: string|null, recipe_category?: string|null, source_kind?: string|null, confidentiality?: string|null, notes?: string|null} $attributes */
+        /** @var array{name_en: string, name_ar?: string|null, slug?: string|null, branch_id?: string|null, recipe_category?: string|null, source_kind?: string|null, confidentiality?: string|null, notes?: string|null, shelf_life_days?: int|null} $attributes */
         $attributes = $request->validated();
 
         $created = $this->recipes->create($attributes);

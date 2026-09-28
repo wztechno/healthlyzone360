@@ -3270,6 +3270,7 @@ export interface NamespaceKeys {
     | 'forms.price'
     | 'forms.required'
     | 'forms.requiredCount'
+    | 'forms.shelfLifeInvalid'
     | 'forms.toFixCount'
     | 'forms.warningCount'
     | 'forms.waste'
@@ -4002,6 +4003,7 @@ export interface NamespaceKeys {
     | 'ops.production.expiredBadge'
     | 'ops.production.expiredNotice'
     | 'ops.production.expiryDateLabel'
+    | 'ops.production.expiryFromRecipe'
     | 'ops.production.filterOpen'
     | 'ops.production.filterStatus'
     | 'ops.production.filteredEmptyBody'
@@ -4012,9 +4014,12 @@ export interface NamespaceKeys {
     | 'ops.production.headingPlan'
     | 'ops.production.headingRecord'
     | 'ops.production.headingYield'
+    | 'ops.production.labelBatchOf'
+    | 'ops.production.labelCopies'
     | 'ops.production.lineKindIngredient'
     | 'ops.production.lineKindPackaging'
     | 'ops.production.loadErrorTitle'
+    | 'ops.production.lotLabel'
     | 'ops.production.newSubtitle'
     | 'ops.production.newTitle'
     | 'ops.production.nextPage'
@@ -4045,6 +4050,7 @@ export interface NamespaceKeys {
     | 'ops.production.plannedYieldHintUnit'
     | 'ops.production.plannedYieldLabel'
     | 'ops.production.previousPage'
+    | 'ops.production.printLabel'
     | 'ops.production.producedHint'
     | 'ops.production.producedLabel'
     | 'ops.production.producedRequired'
@@ -4066,6 +4072,8 @@ export interface NamespaceKeys {
     | 'ops.production.scaleHint'
     | 'ops.production.scaleLabel'
     | 'ops.production.scaleYield'
+    | 'ops.production.scanLabel'
+    | 'ops.production.scanNoMatch'
     | 'ops.production.searchPlaceholder'
     | 'ops.production.sheetBasisHeading'
     | 'ops.production.sheetLink'
@@ -10800,6 +10808,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:forms.price',
   'kitchen:forms.required',
   'kitchen:forms.requiredCount',
+  'kitchen:forms.shelfLifeInvalid',
   'kitchen:forms.toFixCount',
   'kitchen:forms.warningCount',
   'kitchen:forms.waste',
@@ -11532,6 +11541,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.expiredBadge',
   'kitchen:ops.production.expiredNotice',
   'kitchen:ops.production.expiryDateLabel',
+  'kitchen:ops.production.expiryFromRecipe',
   'kitchen:ops.production.filterOpen',
   'kitchen:ops.production.filterStatus',
   'kitchen:ops.production.filteredEmptyBody',
@@ -11542,9 +11552,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.headingPlan',
   'kitchen:ops.production.headingRecord',
   'kitchen:ops.production.headingYield',
+  'kitchen:ops.production.labelBatchOf',
+  'kitchen:ops.production.labelCopies',
   'kitchen:ops.production.lineKindIngredient',
   'kitchen:ops.production.lineKindPackaging',
   'kitchen:ops.production.loadErrorTitle',
+  'kitchen:ops.production.lotLabel',
   'kitchen:ops.production.newSubtitle',
   'kitchen:ops.production.newTitle',
   'kitchen:ops.production.nextPage',
@@ -11575,6 +11588,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.plannedYieldHintUnit',
   'kitchen:ops.production.plannedYieldLabel',
   'kitchen:ops.production.previousPage',
+  'kitchen:ops.production.printLabel',
   'kitchen:ops.production.producedHint',
   'kitchen:ops.production.producedLabel',
   'kitchen:ops.production.producedRequired',
@@ -11596,6 +11610,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.scaleHint',
   'kitchen:ops.production.scaleLabel',
   'kitchen:ops.production.scaleYield',
+  'kitchen:ops.production.scanLabel',
+  'kitchen:ops.production.scanNoMatch',
   'kitchen:ops.production.searchPlaceholder',
   'kitchen:ops.production.sheetBasisHeading',
   'kitchen:ops.production.sheetLink',

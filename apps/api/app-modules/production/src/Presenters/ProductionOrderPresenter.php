@@ -8,6 +8,7 @@ use Healthy360\Production\Models\ProductionOrder;
 use Healthy360\Production\Models\ProductionOrderLine;
 use Healthy360\Production\Services\BatchPlan;
 use Healthy360\Production\Services\BatchPlanLine;
+use Healthy360\Production\Services\ProductionOrderNumbers;
 use Healthy360\Production\Services\StockItemLabels;
 
 /**
@@ -36,6 +37,24 @@ use Healthy360\Production\Services\StockItemLabels;
  */
 final class ProductionOrderPresenter
 {
+    /**
+     * What {@see summary()} reads beyond the row, for every query that feeds it.
+     *
+     * **One list**, because each entry names the columns it selects: a surface
+     * that eager-loaded its own copy and missed `name_ar` would print a label with
+     * a blank Arabic name on that surface alone, and nothing would fail. The
+     * batch's recipe is reached through its version for `shelf_life_days` — the
+     * shelf life *now*, which the completion form previews; a finished batch's
+     * own date is `expiry_date`.
+     */
+    public const array RELATIONS = [
+        'productionItem:id,name_en,name_ar',
+        'plannedYieldUnit:id,code',
+        'branch:id,name',
+        'recipeVersion:id,recipe_id',
+        'recipeVersion.recipe:id,shelf_life_days',
+    ];
+
     public function __construct(private readonly StockItemLabels $labels) {}
 
     /**
@@ -46,7 +65,12 @@ final class ProductionOrderPresenter
         $payload = [
             'id' => (string) $order->getKey(),
             'reference' => $order->reference,
+            'lot_number' => $order->lot_number,
+            // Derived, never stored: all three inputs are fixed once a lot exists,
+            // and a stored copy could only ever disagree with them (D-146).
+            'barcode' => $order->lot_number === null ? null : ProductionOrderNumbers::barcode($order->lot_number, $order->expiry_date),
             'branch_id' => (string) $order->branch_id,
+            'branch_name' => $order->branch?->name,
             'recipe_version_id' => (string) $order->recipe_version_id,
             'production_item_ingredient_id' => $order->production_item_ingredient_id,
             // The name beside the id, because a desk showing a uuid where a name
@@ -54,6 +78,7 @@ final class ProductionOrderPresenter
             // controllers; null here means the ingredient is gone, which is a
             // different answer from "not loaded" and reads as an em dash.
             'production_item_name_en' => $order->productionItem?->name_en,
+            'production_item_name_ar' => $order->productionItem?->name_ar,
             'planned_yield_unit_code' => $order->plannedYieldUnit?->code,
             'status' => $order->status->value,
             'batch_factor' => $order->batch_factor === null ? null : (string) $order->batch_factor,
@@ -67,6 +92,7 @@ final class ProductionOrderPresenter
             'batch_reference' => $order->batch_reference,
             'storage_location' => $order->storage_location,
             'expiry_date' => $order->expiry_date?->toDateString(),
+            'recipe_shelf_life_days' => $order->recipeVersion?->recipe?->shelf_life_days,
             'is_expired' => $order->isExpired(),
             'confirmed_at' => $order->confirmed_at?->toIso8601String(),
             'started_at' => $order->started_at?->toIso8601String(),

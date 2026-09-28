@@ -147,16 +147,26 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * What the right-hand roll-up pane used to say lives on **Technical sheet** now: the derived
  * nutrients, the inherited allergen classes and the print view, in one place instead of two.
  *
- * ## Two of the design's fields this contract cannot store
+ * ## One of the design's fields this contract cannot store
  *
- * The photo on Description and the expiry period on Packaging exist in the prototype's own state
- * and nowhere on `KitchenAdminRepository`. They are drawn, at the kitchen's request, and held in
- * this screen's state only — never sent, never marking the record dirty, and never blocking a save,
- * which is why the expiry period carries no required mark although the design's shelf life does.
- * It is on Packaging rather than Description because how long a batch keeps is a property of what
- * it is packed in as much as of the formulation. A required field whose value
- * is thrown away is a gate with nothing behind it. Storage and the Restricted switch belong to the
- * Method section below and are not drawn, for the reason that section gives.
+ * The photo on Description exists in the prototype's own state and nowhere on
+ * `KitchenAdminRepository`. It is drawn, at the kitchen's request, and held in this screen's state
+ * only — never sent, never marking the record dirty, and never blocking a save. Storage and the
+ * Restricted switch belong to the Method section below and are not drawn, for the reason that
+ * section gives.
+ *
+ * ## The expiry period is the recipe's, and it saves on a published recipe too
+ *
+ * `shelfLifeDays` on Packaging is how many days a batch keeps; completing a batch adds it to the
+ * production date to give the batch its use-by date. It is on Packaging rather than Description
+ * because how long a batch keeps is a property of what it is packed in as much as of the
+ * formulation. It is not required — a recipe without one leaves the cook to enter the date — so it
+ * carries no required mark although the design's shelf life does.
+ *
+ * It is stored on the **recipe**, not the version: correcting how long food keeps must not put the
+ * formulation back through review. So it is the one field that stays editable while the current
+ * version is published, and a save there sends it alone — the version half of `updateRecipe` would
+ * be refused with `catalogue.version_immutable`.
  *
  * **Everything on Packaging and Costing persists.** `setRecipePackaging` is a real endpoint
  * (`PUT …/versions/{version}/packaging`) and the save below calls it on create and on update alike;
@@ -211,9 +221,10 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ## A published version is immutable, and the editor says so rather than pretending
  *
- * Editing a published version does not change it — the server opens the next draft and the edit
- * lands there (plan §4.7). So this screen never presents one as editable. The version list on
- * Description renders it read-only with the one control that can actually happen next.
+ * A published version cannot be edited — the server refuses the write with
+ * `catalogue.version_immutable` (plan §4.7), and the change is a new draft copied from it. So this
+ * screen never presents one as editable. The version list on Description renders it read-only with
+ * the one control that can actually happen next.
  *
  * ## Costs are confidential, and every one of them is the server's
  *
@@ -262,6 +273,11 @@ interface DetailsDraft {
      * survives a save from a form that would not have offered it.
      */
     readonly recipeCategory: string;
+    /**
+     * Days a batch keeps — the recipe's, not the version's (see the module note). Blank is "nobody
+     * has said", which the save sends as `null`.
+     */
+    readonly shelfLifeDays: string;
 }
 
 const EMPTY_DETAILS: DetailsDraft = {
@@ -279,6 +295,7 @@ const EMPTY_DETAILS: DetailsDraft = {
     b2bPrice: '',
     b2cPrice: '',
     recipeCategory: '',
+    shelfLifeDays: '',
 };
 
 function detailsFrom(recipe: RecipeAdmin): DetailsDraft {
@@ -294,7 +311,19 @@ function detailsFrom(recipe: RecipeAdmin): DetailsDraft {
         b2bPrice: amountToInput(version.b2bPrice),
         b2cPrice: amountToInput(version.b2cPrice),
         recipeCategory: recipe.recipeCategory ?? '',
+        shelfLifeDays: recipe.shelfLifeDays === null ? '' : String(recipe.shelfLifeDays),
     };
+}
+
+/**
+ * The shelf life as the save sends it: blank is `null` (nobody has said), a whole number of days
+ * the column takes (0–3650) is itself, and anything else is `undefined` — a value that blocks the
+ * save, the way an unparsable price does.
+ */
+function parseShelfLife(value: string): number | null | undefined {
+    if (value.trim() === '') return null;
+    const days = parseQuantity(value);
+    return days !== null && Number.isInteger(days) && days <= 3650 ? days : undefined;
 }
 
 function linesFrom(version: RecipeVersionAdmin): readonly LineDraft[] {
@@ -555,9 +584,8 @@ function RecipeEditor({
     const [tab, setTab] = useState<RecipeTab>('description');
     /** Whether a save has been pressed — what lets an empty required field call itself out. */
     const [attempted, setAttempted] = useState(false);
-    /** The design's photo and the packed batch's expiry period. Not saved: see the docblock. */
+    /** The design's photo. Not saved: see the docblock. */
     const [image, setImage] = useState<string | null>(null);
-    const [expiryDays, setExpiryDays] = useState('');
 
     const [details, setDetails] = useState<DetailsDraft>(EMPTY_DETAILS);
     const [lines, setLinesDraft] = useState<readonly LineDraft[]>([]);
@@ -589,10 +617,13 @@ function RecipeEditor({
     const anyDirty = detailsDirty || linesDirty || packagingDirty;
 
     /*
-     * One rehydration key for the whole record rather than one per section: `setRecipeLines` against
-     * a published version *opens a new version*, so the steps a person is looking at may now belong
-     * to a different row entirely. Rebasing the untouched sections together is the only reading that
+     * One rehydration key for the whole record rather than one per section: every write answers with
+     * the whole `RecipeAdmin`, and rebasing the untouched sections together is the only reading that
      * stays true.
+     *
+     * The key is the *recipe's* lock version, which opening a draft does not move — a new version
+     * row is not a write to this one. The drafts keep what they were hydrated from, which is right
+     * only because New draft copies exactly the version on screen.
      */
     if (data !== undefined && serverKey !== hydratedKey && !anyDirty) {
         setHydratedKey(serverKey);
@@ -933,6 +964,15 @@ function RecipeEditor({
     const b2cPriceValue = parseAmount(details.b2cPrice);
     const pricesInvalid = b2bPriceValue === undefined || b2cPriceValue === undefined;
 
+    const shelfLife = parseShelfLife(details.shelfLifeDays);
+    const shelfLifeInvalid = shelfLife === undefined;
+    /*
+     * What makes Save live on a published recipe: the shelf life is the one field there that can be
+     * written (see the module note), so it is the only change that should light the button.
+     */
+    const shelfLifeChanged =
+        data !== undefined && shelfLife !== undefined && shelfLife !== data.shelfLifeDays;
+
     // A price cannot be written without a currency to write it in, so an amount typed with no
     // currency resolved is a blocked save rather than a guess.
     const currencyMissing =
@@ -975,6 +1015,7 @@ function RecipeEditor({
         nameMissing ||
         yieldInvalid ||
         pricesInvalid ||
+        shelfLifeInvalid ||
         currencyMissing ||
         incompleteLines.length > 0;
 
@@ -1027,6 +1068,17 @@ function RecipeEditor({
                       }),
                       tab: 'production' as const,
                       fieldId: null,
+                      required: false,
+                  },
+              ]
+            : []),
+        ...(shelfLifeInvalid
+            ? [
+                  {
+                      key: 'shelf-life',
+                      label: t('kitchen:forms.expiryPeriod'),
+                      tab: 'packaging' as const,
+                      fieldId: 'kitchen-recipe-expiry',
                       required: false,
                   },
               ]
@@ -1241,6 +1293,7 @@ function RecipeEditor({
                     ...(details.recipeCategory === ''
                         ? {}
                         : { recipeCategory: details.recipeCategory }),
+                    ...(typeof shelfLife === 'number' ? { shelfLifeDays: shelfLife } : {}),
                 });
 
                 const drafted = lineInputsFrom(lines);
@@ -1297,6 +1350,20 @@ function RecipeEditor({
         const recipeId = data.id;
 
         const run = async () => {
+            /*
+             * A published or retired version refuses every version write, so there the save is the
+             * shelf life alone — the one field on this screen that belongs to the recipe (see the
+             * module note). Nothing else can be dirty: every other field is disabled.
+             */
+            if (!isEditable) {
+                if (shelfLife === undefined) return;
+                await update.mutateAsync({
+                    recipeId,
+                    request: { lockVersion: data.meta.lockVersion, shelfLifeDays: shelfLife },
+                });
+                return;
+            }
+
             // Still carried forward rather than read twice: `updateRecipe` answers at a new version,
             // and the line write that follows has to be based on the one it just produced.
             let lockVersion = data.meta.lockVersion;
@@ -1325,6 +1392,8 @@ function RecipeEditor({
                                   recipeCategory:
                                       details.recipeCategory === '' ? null : details.recipeCategory,
                               }),
+                        // `null` clears it, like the prices above.
+                        ...(shelfLife === undefined ? {} : { shelfLifeDays: shelfLife }),
                     },
                 });
                 lockVersion = answer.meta.lockVersion;
@@ -1741,12 +1810,19 @@ function RecipeEditor({
                                     guard.intercept(goBack);
                                 }}
                             />
+                            {/*
+                             * On a published version only the shelf life can be written (it is the
+                             * recipe's), so Save lights for that change alone and stops calling the
+                             * write a draft.
+                             */}
                             <Button
                                 testID="kitchen-recipe-editor-screen-save"
                                 variant={isCreating ? 'primary' : 'secondary'}
-                                label={t('kitchen:common.saveDraft')}
+                                label={t(
+                                    isEditable ? 'kitchen:common.saveDraft' : 'kitchen:common.save',
+                                )}
                                 loading={create.isPending || update.isPending || setLines.isPending}
-                                disabled={!canManage || !isEditable}
+                                disabled={!canManage || (!isEditable && !shelfLifeChanged)}
                                 onPress={attemptSave}
                             />
                             {isCreating || !canManage ? null : (
@@ -2087,8 +2163,8 @@ function RecipeEditor({
                                 {/*
                                  * A published or retired version is immutable (plan §4.7). The one
                                  * thing that can happen next is the successor draft, and this is the
-                                 * control that makes it — an `updateRecipe` carrying nothing but the
-                                 * lock version.
+                                 * control that makes it — `createRecipeVersion`, copying the version
+                                 * on screen.
                                  */}
                                 {isViewingCurrent && !isEditable && canManage ? (
                                     <Callout
@@ -2108,9 +2184,8 @@ function RecipeEditor({
                                                     openDraft.mutate(
                                                         {
                                                             recipeId: data.id,
-                                                            request: {
-                                                                lockVersion: data.meta.lockVersion,
-                                                            },
+                                                            copyFromVersion:
+                                                                data.currentVersion.versionNumber,
                                                         },
                                                         {
                                                             onSuccess: (updated) => {
@@ -2255,8 +2330,8 @@ function RecipeEditor({
                         <FormGrid track="half" testID="kitchen-recipe-packaging-waste-grid">
                             {/*
                              * How long a packed batch keeps — a property of the pack as much as of
-                             * the formulation, so it sits with the packaging. Not saved: see the
-                             * docblock.
+                             * the formulation, so it sits with the packaging. The recipe's, so it
+                             * stays open on a published version (see the docblock).
                              */}
                             <QuantityInput
                                 testID="kitchen-recipe-expiry"
@@ -2265,9 +2340,15 @@ function RecipeEditor({
                                 label={t('kitchen:forms.expiryPeriod')}
                                 placeholder={t('kitchen:fields.daysPlaceholder')}
                                 unit={t('kitchen:forms.days')}
-                                value={expiryDays}
-                                disabled={!editable}
-                                onChangeText={setExpiryDays}
+                                value={details.shelfLifeDays}
+                                disabled={!canManage}
+                                {...(shows('shelf-life')
+                                    ? { error: t('kitchen:forms.shelfLifeInvalid') }
+                                    : {})}
+                                onChangeText={(next) => {
+                                    setDetails({ ...details, shelfLifeDays: next });
+                                    markDirty('details');
+                                }}
                             />
                             <QuantityInput
                                 testID="kitchen-recipe-packaging-waste"
@@ -2418,6 +2499,10 @@ function RecipeEditor({
                      * send an amount. The same reasoning is written out on the ingredient editor's
                      * price fields, which these deliberately mirror: an operator who prices a raw
                      * material and a recipe in one sitting meets one control twice, not two.
+                     *
+                     * Locked with the version, like every other version field: the prices live on
+                     * the version, so on a published one they cannot be written, and a box that
+                     * took a figure the save then dropped would be worse than a closed one.
                      */}
                     <FormSection
                         variant="underlined"
@@ -2444,7 +2529,7 @@ function RecipeEditor({
                                     })}
                                     placeholder={t('kitchen:fields.unitPricePlaceholder')}
                                     value={details.b2bPrice}
-                                    disabled={!canManage}
+                                    disabled={!editable}
                                     {...(currency === null
                                         ? {}
                                         : {
@@ -2474,7 +2559,7 @@ function RecipeEditor({
                                     })}
                                     placeholder={t('kitchen:fields.unitPricePlaceholder')}
                                     value={details.b2cPrice}
-                                    disabled={!canManage}
+                                    disabled={!editable}
                                     {...(currency === null
                                         ? {}
                                         : {

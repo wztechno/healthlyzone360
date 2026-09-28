@@ -6,7 +6,9 @@ namespace Healthy360\Production\Models;
 
 use Carbon\CarbonImmutable;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Production\Enums\ProductionOrderStatus;
+use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Support\Models\BaseModel;
 use Healthy360\Tenancy\Concerns\BelongsToOrganisation;
@@ -41,7 +43,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $branch_id
  * @property string $recipe_version_id
  * @property ProductionOrderStatus $status
- * @property string|null $reference the kitchen-facing batch number
+ * @property string|null $reference the work order's number, minted at confirm
+ * @property string|null $lot_number the number on the label: YYMMDD + sequence + check digit, minted when usable units reach a shelf
  * @property string|null $production_item_ingredient_id what the batch makes
  * @property numeric-string|null $planned_yield how much it is meant to make, in planned_yield_unit_id
  * @property string|null $planned_yield_unit_id
@@ -49,7 +52,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property numeric-string|null $produced_quantity what came out, including anything later rejected
  * @property numeric-string|null $rejected_quantity produced and then discarded
  * @property CarbonImmutable|null $production_date branch-local business date
- * @property string|null $batch_reference what the cook writes on the label
+ * @property string|null $batch_reference what a cook wrote on the tray before lots were minted; legacy, no longer written
  * @property string|null $storage_location
  * @property CarbonImmutable|null $expiry_date
  * @property numeric-string|null $estimated_cost_amount
@@ -73,6 +76,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
  * @property-read Collection<int, ProductionOrderLine> $lines
+ * @property-read OrganisationBranch|null $branch
+ * @property-read RecipeVersion|null $recipeVersion
  */
 class ProductionOrder extends BaseModel implements OrganisationScoped
 {
@@ -134,6 +139,28 @@ class ProductionOrder extends BaseModel implements OrganisationScoped
     public function productionItem(): BelongsTo
     {
         return $this->belongsTo(Ingredient::class, 'production_item_ingredient_id');
+    }
+
+    /**
+     * Where the batch is made: its timezone decides which day it was made on,
+     * and its name goes on the label.
+     *
+     * @return BelongsTo<OrganisationBranch, $this>
+     */
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(OrganisationBranch::class, 'branch_id');
+    }
+
+    /**
+     * The version the batch was confirmed against — and, through it, the recipe
+     * whose shelf life dates the batch at completion.
+     *
+     * @return BelongsTo<RecipeVersion, $this>
+     */
+    public function recipeVersion(): BelongsTo
+    {
+        return $this->belongsTo(RecipeVersion::class, 'recipe_version_id');
     }
 
     /**

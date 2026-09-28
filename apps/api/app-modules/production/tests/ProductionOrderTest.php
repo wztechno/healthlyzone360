@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Carbon\CarbonImmutable;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Enums\ReservationStatus;
@@ -29,6 +30,8 @@ use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\Recipes\Models\RecipeVersionOutput;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Healthy360\Support\Api\ErrorCode;
+use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -605,5 +608,156 @@ it('refuses an edge the batch’s state does not allow, and says which are allow
     } catch (ProductionStateInvalid $e) {
         expect($e->details['status'])->toBe('draft')
             ->and($e->details['allowed'])->toBe(['confirmed', 'cancelled']);
+    }
+});
+
+/* ── lots and dates (D-144, D-145) ────────────────────────────────────────── */
+
+/**
+ * Give the recipe behind a batch a shelf life, the way the recipe editor would.
+ */
+function batchShelfLife(ProductionOrder $order, ?int $days): void
+{
+    Recipe::withoutTenancy()
+        ->whereKey(RecipeVersion::withoutTenancy()->whereKey($order->recipe_version_id)->value('recipe_id'))
+        ->update(['shelf_life_days' => $days]);
+}
+
+it('mints the day’s lots in sequence, each with its check digit', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-09-25 10:00:00', 'UTC'));
+
+    [$first] = startedBatch($this);
+    [$second] = startedBatch($this);
+
+    // 260925, then 001 and 002, then the GS1 check digit of each.
+    expect($this->orders->complete($first, new BatchReport(producedQuantity: '38'))->lot_number)->toBe('2609250015')
+        ->and($this->orders->complete($second, new BatchReport(producedQuantity: '20'))->lot_number)->toBe('2609250022');
+});
+
+it('mints no lot and computes no expiry when nothing usable reaches a shelf', function (string $produced, string $rejected): void {
+    [$order] = startedBatch($this);
+    batchShelfLife($order, 5);
+
+    $completed = $this->orders->complete($order, new BatchReport(producedQuantity: $produced, rejectedQuantity: $rejected));
+
+    // Nothing to label and nothing to date: a lot here would print a label for a
+    // tray that does not exist.
+    expect($completed->lot_number)->toBeNull()
+        ->and($completed->expiry_date)->toBeNull();
+})->with([
+    'a batch that made nothing' => ['0', '0'],
+    'a batch that rejected everything it made' => ['5', '5'],
+]);
+
+it('mints a lot for an abandoned batch that still put units on a shelf', function (): void {
+    [$order, $flour] = startedBatch($this);
+
+    $abandoned = $this->orders->abandon(
+        $order,
+        new BatchReport(producedQuantity: '5', consumed: [(string) $flour->getKey() => '10']),
+        'The mixer failed halfway through.',
+    );
+
+    // Five litres are on a shelf and need a label as much as a finished batch’s.
+    expect($abandoned->lot_number)->toMatch('/^[0-9]{10}$/');
+});
+
+it('keeps the lot when a completion is delivered twice', function (): void {
+    [$order] = startedBatch($this);
+    $report = new BatchReport(producedQuantity: '38');
+
+    $first = $this->orders->complete($order, $report);
+    $second = $this->orders->complete($first, $report);
+
+    expect($second->lot_number)->toBe($first->lot_number)
+        ->and(ProductionOrder::withoutTenancy()->whereNotNull('lot_number')->count())->toBe(1);
+});
+
+it('dates the batch by the branch’s calendar, not the server’s', function (): void {
+    // Noon in UTC is already two in the morning of the next day on Kiritimati.
+    $this->travelTo(CarbonImmutable::parse('2026-09-25 12:00:00', 'UTC'));
+    $this->branch->update(['timezone' => 'Pacific/Kiritimati']);
+
+    [$order] = startedBatch($this);
+
+    $completed = $this->orders->complete($order, new BatchReport(producedQuantity: '38'));
+
+    expect($completed->production_date?->toDateString())->toBe('2026-09-26')
+        ->and($completed->lot_number)->toBe('2609260014');
+});
+
+it('refuses a production date that has not arrived at the branch yet', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-09-25 12:00:00', 'UTC'));
+
+    [$order, $flour] = startedBatch($this);
+
+    try {
+        $this->orders->complete($order, new BatchReport(producedQuantity: '38', productionDate: '2026-09-26'));
+        $this->fail('Expected a future production date to be refused.');
+    } catch (ApiException $e) {
+        expect($e->errorCode)->toBe(ErrorCode::ValidationFailed)
+            ->and($e->details['parameter'])->toBe('production_date');
+    }
+
+    // Refused before anything moved.
+    expect($order->refresh()->status)->toBe(ProductionOrderStatus::InProduction)
+        ->and(shelfOf($flour))->toBe('100.0000');
+});
+
+it('computes the use-by date from the recipe’s shelf life', function (int $days, string $expected): void {
+    $this->travelTo(CarbonImmutable::parse('2026-09-25 10:00:00', 'UTC'));
+
+    [$order] = startedBatch($this);
+    batchShelfLife($order, $days);
+
+    $completed = $this->orders->complete($order, new BatchReport(producedQuantity: '38'));
+
+    expect($completed->expiry_date?->toDateString())->toBe($expected);
+})->with([
+    'five days' => [5, '2026-09-30'],
+    // Zero is a real answer: use it the day it is made.
+    'the same day' => [0, '2026-09-25'],
+]);
+
+it('refuses a use-by date typed by hand when the recipe sets it', function (): void {
+    [$order] = startedBatch($this);
+    batchShelfLife($order, 5);
+
+    try {
+        $this->orders->complete(
+            $order,
+            new BatchReport(producedQuantity: '38', expiryDate: CarbonImmutable::now()->addDays(3)->toDateString()),
+        );
+        $this->fail('Expected a hand-typed use-by date to be refused.');
+    } catch (ApiException $e) {
+        // Refused rather than silently overruled: the cook would otherwise print
+        // a label the system disagrees with.
+        expect($e->details['parameter'])->toBe('expiry_date');
+    }
+});
+
+it('keeps a use-by date typed by hand when the recipe has no shelf life', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-09-25 10:00:00', 'UTC'));
+
+    [$order] = startedBatch($this);
+
+    $completed = $this->orders->complete($order, new BatchReport(producedQuantity: '38', expiryDate: '2026-10-01'));
+
+    expect($completed->expiry_date?->toDateString())->toBe('2026-10-01');
+});
+
+it('refuses a use-by date before the day the batch was made', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-09-25 10:00:00', 'UTC'));
+
+    [$order] = startedBatch($this);
+
+    try {
+        $this->orders->complete(
+            $order,
+            new BatchReport(producedQuantity: '38', productionDate: '2026-09-24', expiryDate: '2026-09-23'),
+        );
+        $this->fail('Expected a use-by date before the production date to be refused.');
+    } catch (ApiException $e) {
+        expect($e->details['parameter'])->toBe('expiry_date');
     }
 });

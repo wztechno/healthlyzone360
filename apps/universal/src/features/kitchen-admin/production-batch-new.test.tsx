@@ -111,6 +111,7 @@ function recipe(overrides: Partial<RecipeAdmin> = {}): RecipeAdmin {
         allergenCodes: [],
         lineCount: current.lines.length,
         description: { en: 'A dressing.', ar: 'صلصة.' },
+        shelfLifeDays: null,
         currentVersion: current,
         versions: [
             {

@@ -928,6 +928,19 @@ export type AdminRecipe = {
     status: RecipeStatus;
     notes?: string | null;
     /**
+     * How many days a batch of this recipe keeps. A batch's use-by date is its
+     * production date plus this, computed when the batch is completed. Zero
+     * means "use the day it is made". Null means nobody has said, and the
+     * cook enters the date by hand.
+     *
+     * On the recipe rather than its version, deliberately: it is how the
+     * kitchen keeps the food, not what the food is, and correcting it must not
+     * put the formulation back through review. A batch keeps the date it was
+     * given whatever this says later.
+     *
+     */
+    shelf_life_days?: number | null;
+    /**
      * The live version, or null when nothing is published. Computed, not
      * stored: there is no `current_version_id` column to fall out of
      * step with the versions themselves.
@@ -1687,12 +1700,19 @@ export type CreateRecipeRequest = {
     source_kind?: string | null;
     confidentiality?: RecipeConfidentiality;
     notes?: string | null;
+    /**
+     * Days a batch keeps; see `AdminRecipe.shelf_life_days`.
+     */
+    shelf_life_days?: number | null;
 };
 
 /**
  * A partial update. `slug` and `status` are absent by design — the slug
  * is the handle a re-import converges on, and status changes are
  * lifecycle actions with their own routes.
+ *
+ * Every field here belongs to the recipe, not a version, so it is writable
+ * whatever state the current version is in — `shelf_life_days` included.
  *
  */
 export type UpdateRecipeRequest = {
@@ -1703,6 +1723,10 @@ export type UpdateRecipeRequest = {
     source_kind?: string | null;
     confidentiality?: RecipeConfidentiality;
     notes?: string | null;
+    /**
+     * Days a batch keeps; null clears it. See `AdminRecipe.shelf_life_days`.
+     */
+    shelf_life_days?: number | null;
 };
 
 /**
@@ -7092,10 +7116,32 @@ export type ProductionCostSource = 'weekly' | 'component' | 'fallback';
 export type ProductionOrder = {
     id: Uuid;
     /**
-     * The kitchen-facing batch number, `PB-` plus eight Crockford base-32 characters. Null until confirm mints it. Not the label — that is `batch_reference`, which the cook writes.
+     * The work order's number, `PB-` plus eight Crockford base-32 characters. Null until confirm mints it. Not the number on the label — that is `lot_number`, which names what the batch made.
      */
     reference: string | null;
+    /**
+     * The lot — the number on the label and inside the barcode. `YYMMDD` (the
+     * production date), a three-digit sequence for that organisation and day,
+     * and a GS1 mod-10 check digit: `2609250077` is shown `260925-007-7`.
+     * Minted once, when the settlement puts usable units on a shelf, and never
+     * changed. Null on a batch that has not finished or made nothing usable.
+     *
+     */
+    lot_number: string | null;
+    /**
+     * The GS1-128 element string in its human-readable form,
+     * `(11)YYMMDD(17)YYMMDD(10)<lot>` — production date, expiry date, lot.
+     * `(17)` is left out when the batch has no expiry date. Derived from
+     * `production_date`, `expiry_date` and `lot_number`, none of which change
+     * after completion, so it is never stored. Null without a lot.
+     *
+     */
+    barcode: string | null;
     branch_id: Uuid;
+    /**
+     * The production site's name, for the label. Null means the branch is gone.
+     */
+    branch_name: string | null;
     recipe_version_id: Uuid;
     /**
      * What the batch makes — the recipe version's single output.
@@ -7108,6 +7154,10 @@ export type ProductionOrder = {
      *
      */
     production_item_name_en: string | null;
+    /**
+     * The same ingredient's Arabic name, printed beside the English one on the label.
+     */
+    production_item_name_ar: string | null;
     /**
      * The unit's code, for rendering a quantity that reads as a quantity.
      */
@@ -7147,11 +7197,26 @@ export type ProductionOrder = {
      */
     production_date: string | null;
     /**
-     * What the cook writes on the tray, in whatever scheme the kitchen already uses. Free text, deliberately not the system reference.
+     * What a cook wrote on the tray before the system minted lots. Legacy wording, kept so old batches still show it; completion no longer accepts it — the lot is the number on the label now.
      */
     batch_reference: string | null;
     storage_location: string | null;
+    /**
+     * The use-by date. When the recipe carries a shelf life it is computed at
+     * completion — `production_date` plus `shelf_life_days` — for a batch that
+     * put usable units on a shelf; otherwise it is the date the cook entered.
+     * Kept as the date it was, whatever the recipe says later.
+     *
+     */
     expiry_date: string | null;
+    /**
+     * The recipe's shelf life **now**, in days — what completion will add to the
+     * production date, so the completion form can show the use-by date it is
+     * about to get. Null when the recipe has none. A finished batch's own date is
+     * `expiry_date`, never this.
+     *
+     */
+    recipe_shelf_life_days: number | null;
     /**
      * Past its date. A batch with **no** expiry date is not expired — that is "nobody recorded one", which is never the same as "it is fine".
      */
@@ -7537,9 +7602,18 @@ export type CompleteProductionOrderRequest = {
     waste?: {
         [key: string]: number;
     };
+    /**
+     * The day the batch was made, as the branch counts days. Omitted, today at the branch. A day that has not arrived at the branch yet is `422`.
+     */
     production_date?: string | null;
-    batch_reference?: string | null;
     storage_location?: string | null;
+    /**
+     * Only for a recipe **without** a shelf life. When the recipe has one the
+     * server computes the use-by date itself (production date plus
+     * `shelf_life_days`), and a supplied one is `422` rather than silently
+     * overruled. Never before `production_date`.
+     *
+     */
     expiry_date?: string | null;
     notes?: string | null;
 };
@@ -26785,9 +26859,18 @@ export type ListProductionOrdersData = {
     path?: never;
     query?: {
         /**
-         * One of the six states. Omitted, the four open ones.
+         * One of the six states. Omitted, the four open ones — unless `code` is given, which searches every state.
          */
         status?: ProductionOrderStatus;
+        /**
+         * A scanned or typed code: the GS1-128 string a scanner sends (with or
+         * without the `]C1` prefix, the printed parentheses or a GS separator), a
+         * ten-digit lot (dashes and spaces allowed; the check digit must hold), or
+         * a `PB-` reference. Anything else matches nothing — an empty list, not an
+         * error.
+         *
+         */
+        code?: string;
         /**
          * Narrow to one production site.
          */

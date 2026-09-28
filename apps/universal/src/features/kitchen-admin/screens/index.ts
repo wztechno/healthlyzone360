@@ -51,6 +51,7 @@ export { ProcurementScreen } from './procurement-screen.tsx';
 export { ProductEditScreen } from './product-edit-screen.tsx';
 export { ProductsScreen } from './products-screen.tsx';
 export { ProductionBatchNewScreen } from './production-batch-new-screen.tsx';
+export { ProductionBatchLabelScreen } from './production-batch-label-screen.tsx';
 export { ProductionBatchScreen } from './production-batch-screen.tsx';
 export { ProductionBatchSheetScreen } from './production-batch-sheet-screen.tsx';
 export { ProductionBatchesScreen } from './production-batches-screen.tsx';

@@ -794,10 +794,14 @@ function mapProductionOrder(wire: WireProductionOrder): ProductionOrder {
     const order: ProductionOrder = {
         id: ProductionOrderId.unsafe(wire.id),
         reference: wire.reference,
+        lotNumber: wire.lot_number ?? null,
+        barcode: wire.barcode ?? null,
         branchId: BranchId.unsafe(wire.branch_id),
+        branchName: wire.branch_name ?? null,
         recipeVersionId: RecipeVersionId.unsafe(wire.recipe_version_id),
         productionItemIngredientId: wire.production_item_ingredient_id,
         productionItemNameEn: wire.production_item_name_en,
+        productionItemNameAr: wire.production_item_name_ar ?? null,
         plannedYieldUnitCode: wire.planned_yield_unit_code,
         status: wire.status,
         batchFactor: wire.batch_factor,
@@ -811,6 +815,7 @@ function mapProductionOrder(wire: WireProductionOrder): ProductionOrder {
         batchReference: wire.batch_reference,
         storageLocation: wire.storage_location,
         expiryDate: wire.expiry_date,
+        recipeShelfLifeDays: wire.recipe_shelf_life_days ?? null,
         isExpired: wire.is_expired,
         confirmedAt: wire.confirmed_at,
         startedAt: wire.started_at,
@@ -975,7 +980,6 @@ function batchReportBody(request: CompleteProductionOrderRequest): Record<string
         ...(request.consumed === undefined ? {} : { consumed: request.consumed }),
         ...(request.waste === undefined ? {} : { waste: request.waste }),
         ...(request.productionDate == null ? {} : { production_date: request.productionDate }),
-        ...(request.batchReference == null ? {} : { batch_reference: request.batchReference }),
         ...(request.storageLocation == null ? {} : { storage_location: request.storageLocation }),
         ...(request.expiryDate == null ? {} : { expiry_date: request.expiryDate }),
         ...(request.notes == null ? {} : { notes: request.notes }),
@@ -1758,6 +1762,7 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             if (filters.status !== undefined) query.set('status', filters.status);
             if (filters.branchId !== undefined) query.set('branch_id', String(filters.branchId));
             if (filters.page !== undefined) query.set('page', String(filters.page));
+            if (filters.code !== undefined) query.set('code', filters.code);
 
             const suffix = query.size === 0 ? '' : `?${query.toString()}`;
 

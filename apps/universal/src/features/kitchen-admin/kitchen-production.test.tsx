@@ -2,6 +2,7 @@ import type {
     CompleteProductionOrderRequest,
     ProductionOrder,
     ProductionOrderDetail,
+    ProductionOrderFilters,
     ProductionOrderLine,
     ProductionOrderPage,
     ProductionPlan,
@@ -9,6 +10,8 @@ import type {
 } from '@healthy360/api-client/contracts';
 import type { ProductionOrderId, StockItemId } from '@healthy360/domain-types';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
+import { Dimensions, Platform } from 'react-native';
 
 import {
     KITCHEN_MANAGER_PERMISSIONS,
@@ -17,19 +20,31 @@ import {
     testActiveContext,
 } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { ProductionBatchLabelScreen } from './screens/production-batch-label-screen.tsx';
 import { ProductionBatchScreen } from './screens/production-batch-screen.tsx';
 import { ProductionBatchSheetScreen } from './screens/production-batch-sheet-screen.tsx';
 import { ProductionBatchesScreen } from './screens/production-batches-screen.tsx';
 import { ProductionDeskScreen } from './screens/production-desk-screen.tsx';
 
-jest.mock('expo-router', () => ({
-    __esModule: true,
-    useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
-    usePathname: () => '/kitchen/production-desk',
-    useLocalSearchParams: () => ({}),
-    Redirect: () => null,
-    Link: ({ children }: { children: React.ReactNode }) => children,
-}));
+jest.mock('expo-router', () => {
+    const push = jest.fn();
+    return {
+        __esModule: true,
+        useRouter: () => ({ push, replace: jest.fn(), back: jest.fn() }),
+        usePathname: () => '/kitchen/production-desk',
+        useLocalSearchParams: () => ({}),
+        Redirect: () => null,
+        Link: ({ children }: { children: ReactNode }) => children,
+        __push: push,
+    };
+});
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const routerMock = require('expo-router') as { __push: jest.Mock };
+
+beforeEach(() => {
+    routerMock.__push.mockClear();
+});
 
 /**
  * The internal production desk (PROD1), against a batch book this file writes.
@@ -48,11 +63,15 @@ function batch(overrides: Partial<ProductionOrder> = {}): ProductionOrder {
     return {
         id: BATCH_ID,
         reference: 'PB-7K3MQ9ZV',
+        lotNumber: null,
+        barcode: null,
         branchId: TEST_BRANCH_ID,
+        branchName: 'Main Kitchen',
         recipeVersionId:
             '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e0004' as ProductionOrder['recipeVersionId'],
         productionItemIngredientId: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e0005',
         productionItemNameEn: 'Caesar dressing',
+        productionItemNameAr: 'صلصة سيزر',
         plannedYieldUnitCode: 'l',
         status: 'draft',
         batchFactor: '2.000000',
@@ -66,6 +85,7 @@ function batch(overrides: Partial<ProductionOrder> = {}): ProductionOrder {
         batchReference: null,
         storageLocation: null,
         expiryDate: null,
+        recipeShelfLifeDays: null,
         isExpired: false,
         confirmedAt: null,
         startedAt: null,
@@ -124,6 +144,23 @@ function plan(overrides: Partial<ProductionPlan> = {}): ProductionPlan {
         isConfirmable: false,
         ...overrides,
     };
+}
+
+/** A batch that finished with usable output, so it carries a lot and a barcode. */
+function labelled(overrides: Partial<ProductionOrder> = {}): ProductionOrder {
+    return batch({
+        status: 'completed',
+        confirmedAt: '2026-09-25T06:00:00Z',
+        completedAt: '2026-09-25T11:00:00Z',
+        producedQuantity: '20.0000',
+        rejectedQuantity: '0.0000',
+        usableYieldQuantity: '20.0000',
+        productionDate: '2026-09-25',
+        expiryDate: '2026-09-30',
+        lotNumber: '2609250077',
+        barcode: '(11)260925(17)260930(10)2609250077',
+        ...overrides,
+    });
 }
 
 function page(orders: readonly ProductionOrder[], hasMore = false): ProductionOrderPage {
@@ -424,6 +461,109 @@ describe('one batch', () => {
             productionDate: expect.any(String) as unknown as string,
         });
     });
+
+    it('shows the lot and offers its label once the batch has one', async () => {
+        await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getProductionOrder: async () =>
+                        detail({ order: labelled(), lines: [line()], plan: null }),
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-production-batch-lot')).toHaveTextContent(
+                '260925-007-7',
+            );
+        });
+        // The typed label is legacy: a batch without one shows no empty figure for it.
+        expect(screen.queryByTestId('kitchen-production-batch-reference')).toBeNull();
+
+        fireEvent.press(screen.getByTestId('kitchen-production-batch-label'));
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            `/kitchen/production-desk/${BATCH_ID}/label`,
+        );
+    });
+
+    it('offers no label for a batch that has no lot yet', async () => {
+        await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getProductionOrder: async () =>
+                        detail({
+                            order: batch({ status: 'in_production' }),
+                            lines: [line()],
+                            plan: null,
+                        }),
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-production-batch-lot')).toHaveTextContent('—');
+        });
+        expect(screen.queryByTestId('kitchen-production-batch-label')).toBeNull();
+    });
+
+    it('computes Use by from Made on and the shelf life, and never sends it', async () => {
+        const completeProductionOrder = jest.fn(
+            async (
+                _id: ProductionOrderId,
+                _version: number,
+                _request: CompleteProductionOrderRequest,
+            ) => detail(),
+        );
+
+        await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getProductionOrder: async () =>
+                        detail({
+                            order: batch({
+                                status: 'in_production',
+                                productionDate: '2026-09-25',
+                                recipeShelfLifeDays: 5,
+                            }),
+                            lines: [line()],
+                            plan: null,
+                        }),
+                    completeProductionOrder,
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-production-batch-complete')).toBeTruthy();
+        });
+        fireEvent.press(screen.getByTestId('kitchen-production-batch-complete'));
+
+        const useBy = 'kitchen-production-batch-settlement-expiry-date-input';
+        // Nothing usable drafted yet, so no date: a batch that made nothing gets none.
+        expect((await screen.findByTestId(useBy)).props.value).toBe('');
+
+        fireEvent.changeText(
+            screen.getByTestId('kitchen-production-batch-settlement-produced-input'),
+            '20',
+        );
+        await waitFor(() => {
+            expect(screen.getByTestId(useBy).props.value).toBe('2026-09-30');
+        });
+        // Read-only: the server computes the same date and refuses a typed one.
+        expect(screen.getByTestId(useBy).props.editable).toBe(false);
+
+        fireEvent.press(screen.getByTestId('kitchen-production-batch-settlement-submit'));
+
+        await waitFor(() => {
+            expect(completeProductionOrder).toHaveBeenCalled();
+        });
+        const [, , request] = completeProductionOrder.mock.calls[0] ?? [];
+        // No `expiryDate` (the server computes it) and no `batchReference` (the lot replaced it).
+        expect(request).toEqual({ producedQuantity: 20, productionDate: '2026-09-25' });
+    });
 });
 
 describe('the batch register', () => {
@@ -479,6 +619,177 @@ describe('the batch register', () => {
         await waitFor(() => {
             expect(screen.getByTestId(`kitchen-production-batch-${BATCH_ID}-expired`)).toBeTruthy();
         });
+    });
+
+    /*
+     * The caption belongs to the desk-width cell: below `md` a row is drawn from its columns' roles
+     * alone (D-120), so this is read at the width a kitchen desk actually has.
+     */
+    describe('at desk width', () => {
+        const NARROW_WINDOW = Dimensions.get('window');
+        const NARROW_SCREEN = Dimensions.get('screen');
+
+        beforeAll(() => {
+            Dimensions.set({
+                window: { ...NARROW_WINDOW, width: 1440, height: 900 },
+                screen: { ...NARROW_SCREEN, width: 1440, height: 900 },
+            });
+        });
+
+        afterAll(() => {
+            Dimensions.set({ window: NARROW_WINDOW, screen: NARROW_SCREEN });
+        });
+
+        it('captions each batch with its lot, or with the label a cook typed before lots', async () => {
+            const OLD_ID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e00aa' as ProductionOrderId;
+
+            await renderStubScreen(<ProductionBatchesScreen />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenOps: {
+                        listProductionOrders: async () =>
+                            page([
+                                labelled(),
+                                labelled({
+                                    id: OLD_ID,
+                                    lotNumber: null,
+                                    batchReference: 'CD-0916',
+                                }),
+                            ]),
+                    },
+                },
+            });
+
+            await waitFor(() => {
+                expect(
+                    screen.getByTestId(`kitchen-production-batch-${BATCH_ID}-lot`),
+                ).toHaveTextContent('260925-007-7');
+            });
+            expect(screen.getByTestId(`kitchen-production-batch-${OLD_ID}-lot`)).toHaveTextContent(
+                'CD-0916',
+            );
+        });
+    });
+
+    it('opens the batch a scanned code names, sending the code and nothing else', async () => {
+        const listProductionOrders = jest.fn(async (filters?: ProductionOrderFilters) =>
+            filters?.code === undefined ? page([]) : page([labelled()]),
+        );
+
+        await renderStubScreen(<ProductionBatchesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenOps: { listProductionOrders } },
+        });
+
+        // Awaited: the submit reads the text the change just stored, so it must land first.
+        const scan = await screen.findByTestId('kitchen-production-batches-scan-input');
+        await fireEvent.changeText(scan, '  260925-007-7  ');
+        await fireEvent(scan, 'submitEditing');
+
+        await waitFor(() => {
+            expect(routerMock.__push).toHaveBeenCalledWith(`/kitchen/production-desk/${BATCH_ID}`);
+        });
+        // No status and no branch: a label only exists on a finished batch, and the server
+        // resolves the code in any state.
+        expect(listProductionOrders).toHaveBeenCalledWith({ code: '260925-007-7' });
+    });
+
+    it('says so under the field when no batch carries the code', async () => {
+        await renderStubScreen(<ProductionBatchesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenOps: { listProductionOrders: async () => page([]) } },
+        });
+
+        const scan = await screen.findByTestId('kitchen-production-batches-scan-input');
+        await fireEvent.changeText(scan, '2609250078');
+        await fireEvent(scan, 'submitEditing');
+
+        expect(await screen.findByText('No batch carries that code')).toBeTruthy();
+        expect(routerMock.__push).not.toHaveBeenCalled();
+    });
+});
+
+describe('the batch label', () => {
+    it('prints the names, lot, dates, GS1 line and the batch it came from', async () => {
+        await renderStubScreen(<ProductionBatchLabelScreen order={BATCH_ID} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getProductionOrder: async () =>
+                        detail({ order: labelled(), lines: [], plan: null }),
+                },
+            },
+        });
+
+        const copy = 'kitchen-production-label-copy-1';
+        await waitFor(() => {
+            expect(screen.getByTestId(copy)).toBeTruthy();
+        });
+        expect(screen.getByTestId(`${copy}-name`)).toHaveTextContent('Caesar dressing');
+        expect(screen.getByTestId(`${copy}-name-ar`)).toHaveTextContent('صلصة سيزر');
+        expect(screen.getByTestId(`${copy}-lot`)).toHaveTextContent('260925-007-7');
+        expect(screen.getByTestId(`${copy}-made`)).toHaveTextContent(/25.*2026|2026.*25/);
+        expect(screen.getByTestId(`${copy}-use-by`)).toHaveTextContent(/30.*2026|2026.*30/);
+        // Isolated, so an Arabic session prints the same characters the bars encode.
+        expect(screen.getByTestId(`${copy}-hri`)).toHaveTextContent(
+            '\u2066(11)260925(17)260930(10)2609250077\u2069',
+        );
+        expect(screen.getByTestId(`${copy}-batch-of`)).toHaveTextContent('Batch of 20 L');
+        expect(screen.getByTestId(`${copy}-branch`)).toHaveTextContent('Main Kitchen');
+        expect(screen.getByTestId(`${copy}-reference`)).toHaveTextContent('PB-7K3MQ9ZV');
+
+        // Litres are one container, so one label.
+        expect(screen.queryByTestId('kitchen-production-label-copy-2')).toBeNull();
+
+        // Exactly one of the two: a print button on the web, the notice elsewhere. Jest runs as
+        // iOS, where the bars are not drawn either and the GS1 line above stands in.
+        const hasAction = screen.queryByTestId('kitchen-production-label-print') !== null;
+        const hasNotice = screen.queryByTestId('kitchen-production-label-native-notice') !== null;
+        expect(hasAction).toBe(Platform.OS === 'web');
+        expect(hasNotice).toBe(Platform.OS !== 'web');
+    });
+
+    it('defaults to one label per piece for a counted batch', async () => {
+        await renderStubScreen(<ProductionBatchLabelScreen order={BATCH_ID} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getProductionOrder: async () =>
+                        detail({
+                            order: labelled({
+                                plannedYieldUnitCode: 'piece',
+                                producedQuantity: '24.0000',
+                                usableYieldQuantity: '24.0000',
+                            }),
+                            lines: [],
+                            plan: null,
+                        }),
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-production-label-copy-24')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('kitchen-production-label-copy-25')).toBeNull();
+        expect(screen.getByTestId('kitchen-production-label-copies-input').props.value).toBe('24');
+    });
+
+    it('has nothing to print for a batch without a lot', async () => {
+        await renderStubScreen(<ProductionBatchLabelScreen order={BATCH_ID} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getProductionOrder: async () =>
+                        detail({ order: batch({ status: 'in_production' }), plan: null }),
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-production-label-nothing')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('kitchen-production-label-sheets')).toBeNull();
     });
 });
 

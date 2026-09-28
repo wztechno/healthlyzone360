@@ -93,6 +93,7 @@ export type ApiKitchenAdminWrites = Pick<
     | 'forkIngredient'
     | 'setIngredientAllergens'
     | 'createRecipe'
+    | 'createRecipeVersion'
     | 'updateRecipe'
     | 'setRecipeLines'
     | 'setRecipePackaging'
@@ -840,6 +841,9 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     ...(request.recipeCategory === undefined
                         ? {}
                         : { recipe_category: request.recipeCategory }),
+                    ...(request.shelfLifeDays === undefined
+                        ? {}
+                        : { shelf_life_days: request.shelfLifeDays }),
                 },
             });
 
@@ -869,6 +873,20 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             return reads.getRecipe(RecipeId.unsafe(recipeId));
         },
 
+        async createRecipeVersion(
+            recipeId: RecipeId,
+            copyFromVersion: number,
+        ): Promise<RecipeAdmin> {
+            // No `If-Match`: this adds a version row and writes nothing that already exists.
+            await transport.request({
+                method: 'POST',
+                path: `/catalogue/recipes/${encodeURIComponent(String(recipeId))}/versions`,
+                body: { copy_from_version: copyFromVersion },
+            });
+
+            return reads.getRecipe(recipeId);
+        },
+
         async updateRecipe(recipeId: RecipeId, request: UpdateRecipeRequest): Promise<RecipeAdmin> {
             const id = String(recipeId);
             const body: Record<string, unknown> = {};
@@ -881,6 +899,8 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             // `null` clears it, `undefined` leaves it alone — `RecipeService::update` reads its
             // payload key by key and treats the empty string as a clear for this column.
             if (request.recipeCategory !== undefined) body.recipe_category = request.recipeCategory;
+            // The recipe's, never the version's: this body is the one a published recipe accepts.
+            if (request.shelfLifeDays !== undefined) body.shelf_life_days = request.shelfLifeDays;
 
             if (Object.keys(body).length > 0) {
                 await transport.request({
