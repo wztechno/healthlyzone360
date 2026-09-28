@@ -41,6 +41,7 @@ import {
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CatalogueRange } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
@@ -743,12 +744,18 @@ function Procurement() {
                             },
                         ]}
                     />
-                    <Text variant="caption" tone="secondary" testID="kitchen-procurement-foot">
-                        {`${t('kitchen:toolbar.showing', {
-                            shown: controls.rows.length,
-                            total: receiptRows.length,
-                        })} · ${t('kitchen:ops.procurement.listFoot')}`}
-                    </Text>
+                    <Inline space="sm" align="center" wrap testID="kitchen-procurement-foot">
+                        <CatalogueRange
+                            testID="kitchen-procurement-range"
+                            range={t('kitchen:toolbar.showing', {
+                                shown: controls.rows.length,
+                                total: receiptRows.length,
+                            })}
+                        />
+                        <Text variant="caption" tone="secondary">
+                            {t('kitchen:ops.procurement.listFoot')}
+                        </Text>
+                    </Inline>
                 </Stack>
             )}
 

@@ -131,6 +131,7 @@ import { CatalogueListBody } from '../features/kitchen-admin/catalogue/catalogue
 import { RecordPhoto } from '../features/kitchen-admin/catalogue/record-photo.tsx';
 import { RowThumbnail } from '../features/kitchen-admin/catalogue/row-thumbnail.tsx';
 import type { CatalogueListBodyState } from '../features/kitchen-admin/catalogue/catalogue-list-body.tsx';
+import { CataloguePager } from '../features/kitchen-admin/catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../features/kitchen-admin/catalogue/catalogue-toolbar.tsx';
 import { CatalogueColumnHeader } from '../features/kitchen-admin/catalogue/catalogue-column-header.tsx';
@@ -2477,6 +2478,15 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     testID={id('pagination')}
                     page={3}
                     totalPages={10}
+                    onPageChange={() => undefined}
+                    label="Pages"
+                />
+                {/* The list footer: the range in the pager's own box, its figures picked out. */}
+                <CataloguePager
+                    testID={id('catalogue-pager')}
+                    range="Showing 18 of 29"
+                    page={1}
+                    totalPages={2}
                     onPageChange={() => undefined}
                     label="Pages"
                 />
