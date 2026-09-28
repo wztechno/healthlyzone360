@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7582 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7603 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4026,6 +4026,10 @@ export interface NamespaceKeys {
     | 'ops.production.createSubmit'
     | 'ops.production.createdToast'
     | 'ops.production.currencyConflict'
+    | 'ops.production.discardBody'
+    | 'ops.production.discardTitle'
+    | 'ops.production.draftOnTopBody'
+    | 'ops.production.draftOnTopTitle'
     | 'ops.production.emptyBody'
     | 'ops.production.emptyTitle'
     | 'ops.production.estimatedCost'
@@ -4039,6 +4043,7 @@ export interface NamespaceKeys {
     | 'ops.production.filteredEmptyBody'
     | 'ops.production.filteredEmptyTitle'
     | 'ops.production.footNote'
+    | 'ops.production.fromPlanner'
     | 'ops.production.headingCost'
     | 'ops.production.headingLines'
     | 'ops.production.headingPlan'
@@ -4061,6 +4066,7 @@ export interface NamespaceKeys {
     | 'ops.production.notesLabel'
     | 'ops.production.openBatch'
     | 'ops.production.openNote'
+    | 'ops.production.orderShortfall'
     | 'ops.production.planAvailable'
     | 'ops.production.planHolesBody'
     | 'ops.production.planHolesTitle'
@@ -4084,6 +4090,10 @@ export interface NamespaceKeys {
     | 'ops.production.producedLabel'
     | 'ops.production.producedRequired'
     | 'ops.production.productionDateLabel'
+    | 'ops.production.quickFactor'
+    | 'ops.production.recipeHint'
+    | 'ops.production.recipeHintDraft'
+    | 'ops.production.recipeHintPortions'
     | 'ops.production.recipeLabel'
     | 'ops.production.recipePlaceholder'
     | 'ops.production.recipeRequired'
@@ -4111,6 +4121,8 @@ export interface NamespaceKeys {
     | 'ops.production.sheetUnconfirmedBody'
     | 'ops.production.sheetUnconfirmedTitle'
     | 'ops.production.sheetVersionLabel'
+    | 'ops.production.shortNone'
+    | 'ops.production.shortSome'
     | 'ops.production.showingCount'
     | 'ops.production.start'
     | 'ops.production.startedAtLabel'
@@ -4136,11 +4148,20 @@ export interface NamespaceKeys {
     | 'ops.production.status.draft'
     | 'ops.production.status.inProduction'
     | 'ops.production.statusTitle'
+    | 'ops.production.stepCompletedBody'
+    | 'ops.production.stepConfirmedBody'
+    | 'ops.production.stepDraftBody'
+    | 'ops.production.stepInProductionBody'
+    | 'ops.production.stepsTitle'
     | 'ops.production.storageLocationLabel'
     | 'ops.production.summaryFoot'
     | 'ops.production.summaryMakes'
+    | 'ops.production.summaryPortions'
     | 'ops.production.summaryRuns'
     | 'ops.production.summaryRunsValue'
+    | 'ops.production.summaryShort'
+    | 'ops.production.summaryShortNone'
+    | 'ops.production.summaryShortValue'
     | 'ops.production.summaryTitle'
     | 'ops.production.summaryVersion'
     | 'ops.production.thisBranch'
@@ -11626,6 +11647,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.createSubmit',
   'kitchen:ops.production.createdToast',
   'kitchen:ops.production.currencyConflict',
+  'kitchen:ops.production.discardBody',
+  'kitchen:ops.production.discardTitle',
+  'kitchen:ops.production.draftOnTopBody',
+  'kitchen:ops.production.draftOnTopTitle',
   'kitchen:ops.production.emptyBody',
   'kitchen:ops.production.emptyTitle',
   'kitchen:ops.production.estimatedCost',
@@ -11639,6 +11664,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.filteredEmptyBody',
   'kitchen:ops.production.filteredEmptyTitle',
   'kitchen:ops.production.footNote',
+  'kitchen:ops.production.fromPlanner',
   'kitchen:ops.production.headingCost',
   'kitchen:ops.production.headingLines',
   'kitchen:ops.production.headingPlan',
@@ -11661,6 +11687,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.notesLabel',
   'kitchen:ops.production.openBatch',
   'kitchen:ops.production.openNote',
+  'kitchen:ops.production.orderShortfall',
   'kitchen:ops.production.planAvailable',
   'kitchen:ops.production.planHolesBody',
   'kitchen:ops.production.planHolesTitle',
@@ -11684,6 +11711,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.producedLabel',
   'kitchen:ops.production.producedRequired',
   'kitchen:ops.production.productionDateLabel',
+  'kitchen:ops.production.quickFactor',
+  'kitchen:ops.production.recipeHint',
+  'kitchen:ops.production.recipeHintDraft',
+  'kitchen:ops.production.recipeHintPortions',
   'kitchen:ops.production.recipeLabel',
   'kitchen:ops.production.recipePlaceholder',
   'kitchen:ops.production.recipeRequired',
@@ -11711,6 +11742,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.sheetUnconfirmedBody',
   'kitchen:ops.production.sheetUnconfirmedTitle',
   'kitchen:ops.production.sheetVersionLabel',
+  'kitchen:ops.production.shortNone',
+  'kitchen:ops.production.shortSome',
   'kitchen:ops.production.showingCount',
   'kitchen:ops.production.start',
   'kitchen:ops.production.startedAtLabel',
@@ -11736,11 +11769,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.status.draft',
   'kitchen:ops.production.status.inProduction',
   'kitchen:ops.production.statusTitle',
+  'kitchen:ops.production.stepCompletedBody',
+  'kitchen:ops.production.stepConfirmedBody',
+  'kitchen:ops.production.stepDraftBody',
+  'kitchen:ops.production.stepInProductionBody',
+  'kitchen:ops.production.stepsTitle',
   'kitchen:ops.production.storageLocationLabel',
   'kitchen:ops.production.summaryFoot',
   'kitchen:ops.production.summaryMakes',
+  'kitchen:ops.production.summaryPortions',
   'kitchen:ops.production.summaryRuns',
   'kitchen:ops.production.summaryRunsValue',
+  'kitchen:ops.production.summaryShort',
+  'kitchen:ops.production.summaryShortNone',
+  'kitchen:ops.production.summaryShortValue',
   'kitchen:ops.production.summaryTitle',
   'kitchen:ops.production.summaryVersion',
   'kitchen:ops.production.thisBranch',
