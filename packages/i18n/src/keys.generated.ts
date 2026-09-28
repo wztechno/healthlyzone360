@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7497 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7499 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4511,7 +4511,6 @@ export interface NamespaceKeys {
     | 'ops.suppliers.viewFoot'
     | 'ops.suppliers.viewKind'
     | 'ops.suppliers.whatsappHint'
-    | 'ops.supplyOrders.addLabel'
     | 'ops.supplyOrders.addLineHint'
     | 'ops.supplyOrders.addLineLabel'
     | 'ops.supplyOrders.addLinePlaceholder'
@@ -4552,6 +4551,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.columnSupplier'
     | 'ops.supplyOrders.commitLeftBehind'
     | 'ops.supplyOrders.commitLines'
+    | 'ops.supplyOrders.commitNote'
     | 'ops.supplyOrders.commitOrders'
     | 'ops.supplyOrders.createCancel'
     | 'ops.supplyOrders.createConfirm'
@@ -4564,7 +4564,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.detailSubtitle'
     | 'ops.supplyOrders.detailTitle'
     | 'ops.supplyOrders.excludedCount'
-    | 'ops.supplyOrders.groupSummary'
+    | 'ops.supplyOrders.groupCount'
     | 'ops.supplyOrders.issue'
     | 'ops.supplyOrders.issueConfirm'
     | 'ops.supplyOrders.issueConfirmBody'
@@ -4579,6 +4579,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.metrics.low'
     | 'ops.supplyOrders.metrics.outOfStock'
     | 'ops.supplyOrders.needsCount'
+    | 'ops.supplyOrders.needsTitle'
     | 'ops.supplyOrders.noLines'
     | 'ops.supplyOrders.noNotes'
     | 'ops.supplyOrders.notFoundBody'
@@ -4599,6 +4600,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.ordersFoot'
     | 'ops.supplyOrders.ordersTitle'
     | 'ops.supplyOrders.outBadge'
+    | 'ops.supplyOrders.outCount'
     | 'ops.supplyOrders.preferredBadge'
     | 'ops.supplyOrders.prepare'
     | 'ops.supplyOrders.previewCaption'
@@ -12026,7 +12028,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.viewFoot',
   'kitchen:ops.suppliers.viewKind',
   'kitchen:ops.suppliers.whatsappHint',
-  'kitchen:ops.supplyOrders.addLabel',
   'kitchen:ops.supplyOrders.addLineHint',
   'kitchen:ops.supplyOrders.addLineLabel',
   'kitchen:ops.supplyOrders.addLinePlaceholder',
@@ -12067,6 +12068,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.columnSupplier',
   'kitchen:ops.supplyOrders.commitLeftBehind',
   'kitchen:ops.supplyOrders.commitLines',
+  'kitchen:ops.supplyOrders.commitNote',
   'kitchen:ops.supplyOrders.commitOrders',
   'kitchen:ops.supplyOrders.createCancel',
   'kitchen:ops.supplyOrders.createConfirm',
@@ -12079,7 +12081,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.detailSubtitle',
   'kitchen:ops.supplyOrders.detailTitle',
   'kitchen:ops.supplyOrders.excludedCount',
-  'kitchen:ops.supplyOrders.groupSummary',
+  'kitchen:ops.supplyOrders.groupCount',
   'kitchen:ops.supplyOrders.issue',
   'kitchen:ops.supplyOrders.issueConfirm',
   'kitchen:ops.supplyOrders.issueConfirmBody',
@@ -12094,6 +12096,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.metrics.low',
   'kitchen:ops.supplyOrders.metrics.outOfStock',
   'kitchen:ops.supplyOrders.needsCount',
+  'kitchen:ops.supplyOrders.needsTitle',
   'kitchen:ops.supplyOrders.noLines',
   'kitchen:ops.supplyOrders.noNotes',
   'kitchen:ops.supplyOrders.notFoundBody',
@@ -12114,6 +12117,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.ordersFoot',
   'kitchen:ops.supplyOrders.ordersTitle',
   'kitchen:ops.supplyOrders.outBadge',
+  'kitchen:ops.supplyOrders.outCount',
   'kitchen:ops.supplyOrders.preferredBadge',
   'kitchen:ops.supplyOrders.prepare',
   'kitchen:ops.supplyOrders.previewCaption',

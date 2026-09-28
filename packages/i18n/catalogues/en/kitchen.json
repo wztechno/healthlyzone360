@@ -373,12 +373,9 @@
             "rememberLink": "Remember this supplier for this item",
             "addSupplier": "Add a new supplier",
             "addTitle": "Add something else",
-            "addLabel": "Item to add",
             "addPlaceholder": "Search items",
             "readyTitle": "Ready to order",
             "readyEmpty": "Nothing is ready yet. Enter a quantity and choose a supplier to see the order take shape.",
-            "groupSummary_one": "{{supplier}} — {{count}} item",
-            "groupSummary_other": "{{supplier}} — {{count}} items",
             "unassignedCount_one": "{{count}} item won't be ordered — no supplier chosen",
             "unassignedCount_other": "{{count}} items won't be ordered — no supplier chosen",
             "excludedCount_one": "{{count}} item left out — no quantity entered",
@@ -526,7 +523,13 @@
             "statLowCaption": "at or below reorder point",
             "statDraftCaption": "on this page — nothing sent yet",
             "statDraftAction": "Show only draft orders",
-            "statIssuedCaption": "on this page — a delivery is expected"
+            "statIssuedCaption": "on this page — a delivery is expected",
+            "needsTitle": "Needs ordering",
+            "outCount_one": "{{count}} out of stock",
+            "outCount_other": "{{count}} out of stock",
+            "groupCount_one": "{{count}} item",
+            "groupCount_other": "{{count}} items",
+            "commitNote": "One draft order per supplier. Nothing is sent to anyone yet — you can review, edit and issue each order afterwards."
         },
         "suppliers": {
             "title": "Suppliers",

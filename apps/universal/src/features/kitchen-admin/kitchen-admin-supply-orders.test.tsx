@@ -117,13 +117,15 @@ function untilVisible(testID: string) {
     );
 }
 
-/** The builder is a multi-step form: a later region is only drawn once its step is opened. */
-async function openBuilderStep(step: 'needs' | 'unlinked' | 'review') {
-    const testID = `kitchen-supply-order-builder-screen-steps-${step}`;
-    await untilVisible(testID);
-    await act(async () => {
-        fireEvent.press(screen.getByTestId(testID));
-    });
+/** The builder is one page: every region is drawn at once, so "opening" one is waiting for it. */
+const BUILDER_REGIONS = {
+    needs: 'kitchen-supply-order-needs',
+    unlinked: 'kitchen-supply-order-unlinked',
+    review: 'kitchen-supply-order-preview',
+} as const;
+
+async function openBuilderStep(step: keyof typeof BUILDER_REGIONS) {
+    await untilVisible(BUILDER_REGIONS[step]);
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -512,15 +514,19 @@ describe('supply order builder', () => {
 
         await untilVisible('kitchen-supply-order-rows');
 
+        // The picker names the chosen supplier; the badge beside it says it is the preferred one.
         const preferred = supplyOrderRowTestId(String(LOW_ONLY.stockItemId));
-        expect(screen.getByTestId(`${preferred}-supplier`)).toHaveTextContent('Supplier 1');
+        // The trigger also carries its chevron glyph, so the name is matched rather than equated.
+        expect(screen.getByTestId(`${preferred}-supplier-select-trigger`)).toHaveTextContent(
+            /Supplier 1/,
+        );
         expect(screen.getByTestId(`${preferred}-preferred`)).toBeTruthy();
 
         // Two candidates and no preference recorded: the system declines to guess and says so,
         // which is a different state from having nobody to choose from.
         const choose = supplyOrderRowTestId(String(undecided.stockItemId));
         expect(screen.getByTestId(`${choose}-choose-supplier`)).toBeTruthy();
-        expect(screen.queryByTestId(`${choose}-supplier`)).toBeNull();
+        expect(screen.queryByTestId(`${choose}-preferred`)).toBeNull();
     });
 
     it('separates shelves with no supplier on file and names the archived case differently', async () => {
@@ -738,7 +744,7 @@ describe('supply order builder', () => {
             fireEvent.press(screen.getByTestId('kitchen-supply-order-create-confirm-action'));
         });
 
-        // Exactly `toBatchPayload(plan)` — the same object the accordion above was built from.
+        // Exactly `toBatchPayload(plan)` — the same object the supplier rows were built from.
         await waitFor(() => {
             expect(repositories.kitchenOps.createPurchaseOrders).toHaveBeenCalledWith({
                 orders: [
@@ -778,7 +784,7 @@ describe('supply order builder', () => {
         await openBuilderStep('review');
         await untilVisible('kitchen-supply-order-commit');
 
-        // Create lives in the step footer, on the last step.
+        // Create is at the foot of Ready to order, under what it creates.
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-supply-order-create'));
         });
