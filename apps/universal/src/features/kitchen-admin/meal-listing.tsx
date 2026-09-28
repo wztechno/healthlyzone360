@@ -855,22 +855,14 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
             }
         >
             {/*
-             * One panel, three ruled sections — not four stacked cards.
-             *
-             * `EditorFrame` already draws the panel around these children, so every `Card` in here
-             * was a second rectangle inside the first. `FormSection` is the treatment the handoff
-             * asks for and the one the Catalogue already standardised on: a title, a
-             * hairline, and the fields. See `forms/form-section.tsx` for why that beats a panel.
+             * Each section is its own card (`FormSection variant="card"`), as on every record
+             * editor. `EditorFrame` draws no panel around them, so these are the only rectangles.
+             * `loose` between cards, the ingredient editor's gap.
              */}
-            {/*
-             * 12px, not 24. `FormSection` already draws 24px under its own hairline and 12px under
-             * its title, so a `loose` container gap on top of that put 48px of nothing between a
-             * chip row and the rule below it — a third of the panel spent on separation. This is
-             * the space above each rule only; the section owns everything after it.
-             */}
-            <View className="z-auto flex-col gap-snug">
+            <View className="z-auto flex-col gap-loose">
                 {/* ── identity ─────────────────────────────────────────────────────────────── */}
                 <FormSection
+                    variant="card"
                     first
                     testID="kitchen-meal-details"
                     title={t('kitchen:meals.sectionIdentity')}
@@ -942,6 +934,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                  * two fields somebody has to find again.
                  */}
                 <FormSection
+                    variant="card"
                     testID="kitchen-meal-production"
                     title={t('kitchen:meals.sectionProduction')}
                     aside={
@@ -1087,6 +1080,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                  * to lie about the interaction.
                  */}
                 <FormSection
+                    variant="card"
                     testID="kitchen-meal-types-section"
                     title={t('kitchen:meals.sectionWhen')}
                     aside={
@@ -1121,6 +1115,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                 {/* ── source transcription ──────────────────────────────────────────────────── */}
                 {data?.composition == null && data?.kitchenCategory == null ? null : (
                     <FormSection
+                        variant="card"
                         testID="kitchen-meal-composition"
                         title={t('kitchen:fields.composition')}
                     >
@@ -1147,6 +1142,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
 
                 {/* ── service days ──────────────────────────────────────────────────────────── */}
                 <FormSection
+                    variant="card"
                     testID="kitchen-meal-availability"
                     title={t('kitchen:availability.sectionServiceDays')}
                     aside={

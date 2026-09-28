@@ -739,19 +739,6 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                                 }}
                             />
                         )}
-                        {/*
-                         * The one Save, on every step rather than only the last: the walk writes at
-                         * the end, and the end is wherever the reader stops.
-                         */}
-                        {canManage ? (
-                            <Button
-                                testID="kitchen-zone-windows-save"
-                                label={t('kitchen:zones.saveZone')}
-                                loading={saving}
-                                disabled={saving}
-                                onPress={attemptSave}
-                            />
-                        ) : null}
                     </>
                 }
                 errors={{
@@ -797,7 +784,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
             {form.current !== 'zone' ? null : (
                 <FormSection
                     first
-                    variant="underlined"
+                    variant="card"
                     testID="kitchen-zone-details"
                     title={t('kitchen:zones.sectionDetails')}
                 >
@@ -960,7 +947,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
             {form.current !== 'areas' ? null : (
                 <FormSection
                     first
-                    variant="underlined"
+                    variant="card"
                     testID="kitchen-zone-areas"
                     title={t('kitchen:zones.sectionAreas')}
                 >
@@ -1010,7 +997,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
             {form.current !== 'windows' ? null : (
                 <FormSection
                     first
-                    variant="underlined"
+                    variant="card"
                     testID="kitchen-zone-windows"
                     title={t('kitchen:zones.sectionWindows')}
                 >
@@ -1048,11 +1035,26 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                 </FormSection>
             )}
 
+            {/*
+             * The one Save is the last step's Next: the walk writes at the end. While areas and
+             * windows are still locked, details is the last reachable step and carries it.
+             */}
             <TabStepNavigation<ZoneStep>
                 testID="kitchen-zone-editor-screen-steps-nav"
                 items={stepItems}
                 value={form.current}
                 onChange={form.goTo}
+                finalAction={
+                    canManage ? (
+                        <Button
+                            testID="kitchen-zone-windows-save"
+                            label={t('kitchen:zones.saveZone')}
+                            loading={saving}
+                            disabled={saving}
+                            onPress={attemptSave}
+                        />
+                    ) : undefined
+                }
             />
 
             {/* ── archive ──────────────────────────────────────────────────────────────────── */}

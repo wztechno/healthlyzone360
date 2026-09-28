@@ -120,7 +120,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ```
  * Kitchen workspace › Recipes › Thousand Islands   <- the shell's trail
- * Thousand Islands  DRAFT  RC-0104  RESTRICTED    [ Cancel ] [ Save draft ] [ Publish ]
+ * Thousand Islands  DRAFT  RC-0104  RESTRICTED                 [ Cancel ] [ Publish ]
  * ⚠ 1 at zero  [ Sleeve label ]                   <- once there is something to say
  * ┌─────────────────────────────────────────────────────────────────────────────┐
  * │(1) Description │(2) Production 9 │(3) Packaging 3 ① │(4) Costing │(5) Sheet │
@@ -132,7 +132,8 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * and — when something on it needs attention — a solid pill with the number of problems. The
  * banner under the header names each of those problems and takes the reader to it, switching tab
  * on the way; the pills are what tells a reader *which* tab to open without opening all five. The
- * row is how a reader jumps; the Previous/Next footer (`TabStepNavigation`) is how they walk it.
+ * row is how a reader jumps; the Previous/Next footer (`TabStepNavigation`) is how they walk it,
+ * and its last Next is Save draft.
  *
  * The yield moved from Description to Production, where it sits with the production waste as
  * "Yield & waste" above the lines it divides; the packaging waste sits above the packaging lines
@@ -1796,11 +1797,8 @@ function RecipeEditor({
                     primaryAction={
                         <Inline space="xs" align="center">
                             {/*
-                             * The design's Cancel · Save draft · Publish, at the header's one `md`.
-                             * While creating there is nothing to publish yet, so Save draft — which
-                             * creates the record — takes the primary's weight: it is the commit that
-                             * used to wait at the end of the step footer, now where every tab can
-                             * reach it.
+                             * Cancel and Publish, at the header's one `md`. Save draft is not here:
+                             * it is the last step's Next, under the form.
                              */}
                             <Button
                                 testID="kitchen-recipe-editor-screen-discard"
@@ -1809,21 +1807,6 @@ function RecipeEditor({
                                 onPress={() => {
                                     guard.intercept(goBack);
                                 }}
-                            />
-                            {/*
-                             * On a published version only the shelf life can be written (it is the
-                             * recipe's), so Save lights for that change alone and stops calling the
-                             * write a draft.
-                             */}
-                            <Button
-                                testID="kitchen-recipe-editor-screen-save"
-                                variant={isCreating ? 'primary' : 'secondary'}
-                                label={t(
-                                    isEditable ? 'kitchen:common.saveDraft' : 'kitchen:common.save',
-                                )}
-                                loading={create.isPending || update.isPending || setLines.isPending}
-                                disabled={!canManage || (!isEditable && !shelfLifeChanged)}
-                                onPress={attemptSave}
                             />
                             {isCreating || !canManage ? null : (
                                 <Button
@@ -1932,7 +1915,7 @@ function RecipeEditor({
                      */}
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-recipe-identity"
                         title={t('kitchen:recipes.sectionIdentity')}
                     >
@@ -2065,7 +2048,7 @@ function RecipeEditor({
 
                     {isCreating ? null : (
                         <FormSection
-                            variant="underlined"
+                            variant="card"
                             testID="kitchen-recipe-versions"
                             title={t('kitchen:recipes.sectionVersions')}
                             actions={
@@ -2230,7 +2213,7 @@ function RecipeEditor({
                      */}
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-recipe-yield"
                         title={t('kitchen:forms.yieldAndWaste')}
                     >
@@ -2296,7 +2279,7 @@ function RecipeEditor({
                     </FormSection>
 
                     <FormSection
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-recipe-lines"
                         title={t('kitchen:recipes.sectionRawMaterials')}
                     >
@@ -2323,7 +2306,7 @@ function RecipeEditor({
                 <View className="relative z-raised flex-col gap-loose">
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-recipe-packaging-coefficients"
                         title={t('kitchen:forms.expiryAndWaste')}
                     >
@@ -2376,7 +2359,7 @@ function RecipeEditor({
                     <View className="relative z-sticky">
                         <FormSection
                             first
-                            variant="underlined"
+                            variant="card"
                             testID="kitchen-recipe-packaging"
                             title={t('kitchen:recipes.sectionPackaging')}
                         >
@@ -2405,7 +2388,7 @@ function RecipeEditor({
                 <View className="relative z-raised flex-col gap-loose">
                     <FormSection
                         first
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-recipe-cost-cascade"
                         title={t('kitchen:recipes.sectionCostCascade')}
                         // Kept where the design drops its subtitles: it says which price the
@@ -2472,7 +2455,7 @@ function RecipeEditor({
                      */}
                     {!canViewCosts ? null : (
                         <FormSection
-                            variant="underlined"
+                            variant="card"
                             testID="kitchen-recipe-package-costs"
                             title={t('kitchen:recipes.sectionPackageCosts')}
                         >
@@ -2505,7 +2488,7 @@ function RecipeEditor({
                      * took a figure the save then dropped would be worse than a closed one.
                      */}
                     <FormSection
-                        variant="underlined"
+                        variant="card"
                         testID="kitchen-recipe-coefficients"
                         title={t('kitchen:forms.price')}
                     >
@@ -2645,7 +2628,7 @@ function RecipeEditor({
                          */}
                         <FormSection
                             first
-                            variant="underlined"
+                            variant="card"
                             testID="kitchen-recipe-sheet-summary"
                             title={t('kitchen:recipes.sheetTitle')}
                         >
@@ -2674,7 +2657,7 @@ function RecipeEditor({
 
                         <FormSection
                             first
-                            variant="underlined"
+                            variant="card"
                             testID="kitchen-recipe-composition"
                             title={t('kitchen:forms.nutritionTitle')}
                             aside={
@@ -2724,7 +2707,7 @@ function RecipeEditor({
                          * derivation by definition — so nothing here claims a hand-declared entry.
                          */}
                         <FormSection
-                            variant="underlined"
+                            variant="card"
                             testID="kitchen-recipe-allergens"
                             title={t('kitchen:forms.allergensTitle')}
                             aside={
@@ -2791,7 +2774,7 @@ function RecipeEditor({
                          * is no version to snapshot until the recipe exists.
                          */}
                         <FormSection
-                            variant="underlined"
+                            variant="card"
                             testID="kitchen-recipe-sheet"
                             title={t('kitchen:recipes.sheetPrintTitle')}
                         >
@@ -2826,7 +2809,7 @@ function RecipeEditor({
                     >
                         <FormSection
                             first
-                            variant="underlined"
+                            variant="card"
                             title={t('kitchen:recipes.publishChecksTitle')}
                         >
                             <View className="flex-col">
@@ -2870,6 +2853,18 @@ function RecipeEditor({
                 items={tabItems}
                 value={tab}
                 onChange={setTab}
+                finalAction={
+                    // On a published version only the shelf life can be written (it is the
+                    // recipe's), so Save lights for that change alone and stops calling the write
+                    // a draft.
+                    <Button
+                        testID="kitchen-recipe-editor-screen-save"
+                        label={t(isEditable ? 'kitchen:common.saveDraft' : 'kitchen:common.save')}
+                        loading={create.isPending || update.isPending || setLines.isPending}
+                        disabled={!canManage || (!isEditable && !shelfLifeChanged)}
+                        onPress={attemptSave}
+                    />
+                }
             />
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}

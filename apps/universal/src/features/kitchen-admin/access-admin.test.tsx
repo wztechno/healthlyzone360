@@ -700,6 +700,10 @@ describe('adding a member of staff', () => {
             );
         });
 
+        // The commit is the last step's Next.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-staff-create-tabs-tab-role'));
+        });
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-staff-create-submit'));
         });
@@ -821,6 +825,10 @@ describe('adding a member of staff', () => {
                 'ahmad',
             );
         });
+        // The commit is the last step's Next.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-staff-create-tabs-tab-role'));
+        });
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-staff-create-submit'));
         });
@@ -916,6 +924,8 @@ describe('one member of staff', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-team-member-role-evening_counter'));
         });
+        // Save is the last step's Next.
+        await openMemberStep('permissions');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
         });
@@ -961,6 +971,8 @@ describe('one member of staff', () => {
                 String(BRANCHES[1]?.id),
             );
         });
+        // Save is the last step's Next.
+        await openMemberStep('permissions');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
         });
@@ -1006,6 +1018,8 @@ describe('one member of staff', () => {
                 '__organisation__',
             );
         });
+        // Save is the last step's Next.
+        await openMemberStep('permissions');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
         });
@@ -1135,6 +1149,8 @@ describe('refusals that must not vanish', () => {
 
         await untilVisible('kitchen-team-member-roles');
 
+        // Save is the last step's Next.
+        await openMemberStep('permissions');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
         });
@@ -1188,6 +1204,8 @@ describe('refusals that must not vanish', () => {
 
         await untilVisible('kitchen-team-member-roles');
 
+        // Save is the last step's Next.
+        await openMemberStep('permissions');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
         });

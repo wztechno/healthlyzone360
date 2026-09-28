@@ -5,6 +5,8 @@ import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
 import { formatMoney, knownCurrency } from '../format.ts';
+import { BATCH_QUANTITY_FORMAT } from '../operations/batch-sheet.tsx';
+import { ledgerQuantity } from '../ops-format.ts';
 import { orderedLines } from './completion-model.ts';
 
 /**
@@ -36,6 +38,8 @@ export interface BatchLinesPanelProps {
     readonly costsVisible: boolean;
     /** The completion columns are noise on a batch that has not settled. */
     readonly withOutcome: boolean;
+    /** Leave the heading to a card title that already says it. */
+    readonly headless?: boolean | undefined;
 }
 
 export function BatchLinesPanel({
@@ -43,6 +47,7 @@ export function BatchLinesPanel({
     lines,
     costsVisible,
     withOutcome,
+    headless = false,
 }: BatchLinesPanelProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -52,7 +57,12 @@ export function BatchLinesPanel({
 
     /** A quantity with its unit, or the em dash. Never a bare zero standing in for "not yet". */
     const quantity = (value: string | null, unitCode: string | null): string =>
-        value === null ? noValue : `${value}${unitCode === null ? '' : ` ${unitCode}`}`;
+        ledgerQuantity(
+            (parsed) => formatter.formatNumber(parsed, BATCH_QUANTITY_FORMAT),
+            value,
+            unitCode,
+            noValue,
+        );
 
     const columns: readonly TableColumn<ProductionOrderLine>[] = [
         {
@@ -158,7 +168,9 @@ export function BatchLinesPanel({
 
     return (
         <Stack space="sm" testID={testID}>
-            <Heading level={2}>{t('kitchen:ops.production.headingLines')}</Heading>
+            {headless ? null : (
+                <Heading level={2}>{t('kitchen:ops.production.headingLines')}</Heading>
+            )}
             <Table<ProductionOrderLine>
                 testID={`${testID}-table`}
                 caption={t('kitchen:ops.production.headingLines')}
@@ -166,6 +178,7 @@ export function BatchLinesPanel({
                 columns={columns}
                 rows={rows}
                 rowKey={(line) => line.id}
+                rowSize="sm"
             />
         </Stack>
     );

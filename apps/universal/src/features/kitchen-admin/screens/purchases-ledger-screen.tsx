@@ -37,6 +37,7 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CatalogueRange } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
@@ -628,16 +629,13 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                             ]}
                         />
                         <Inline space="sm" align="center" justify="between" wrap>
-                            <Text
-                                variant="caption"
-                                tone="secondary"
+                            <CatalogueRange
                                 testID="kitchen-purchases-ledger-range"
-                            >
-                                {t('kitchen:toolbar.showing', {
+                                range={t('kitchen:toolbar.showing', {
                                     shown: controls.rows.length,
                                     total: pageRows.length,
                                 })}
-                            </Text>
+                            />
                             {hasMore ? (
                                 <Button
                                     testID="kitchen-purchases-ledger-next"

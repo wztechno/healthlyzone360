@@ -131,6 +131,7 @@ import { CatalogueListBody } from '../features/kitchen-admin/catalogue/catalogue
 import { RecordPhoto } from '../features/kitchen-admin/catalogue/record-photo.tsx';
 import { RowThumbnail } from '../features/kitchen-admin/catalogue/row-thumbnail.tsx';
 import type { CatalogueListBodyState } from '../features/kitchen-admin/catalogue/catalogue-list-body.tsx';
+import { CataloguePager } from '../features/kitchen-admin/catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../features/kitchen-admin/catalogue/catalogue-toolbar.tsx';
 import { CatalogueColumnHeader } from '../features/kitchen-admin/catalogue/catalogue-column-header.tsx';
@@ -1532,6 +1533,16 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         Section title, hairline, no card.
                     </Text>
                 </FormSection>
+                <FormSection
+                    testID={id('form-section-card')}
+                    variant="card"
+                    title="Purchase"
+                    description="The `card` variant: the underlined heading inside a raised panel."
+                >
+                    <Text variant="caption" tone="secondary">
+                        How every kitchen record editor draws its sections.
+                    </Text>
+                </FormSection>
             </Stack>
 
             {/*
@@ -1751,9 +1762,9 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     />
                 </FormSection>
                 {/*
-                 * The outline tile — the recipe's technical sheet, a surface opened *to read* the
-                 * figures: primary ink, the unit on the baseline, an absent figure dropping back to
-                 * secondary.
+                 * The outline tile — the recipe's technical sheet and the ingredient's nutrition, a
+                 * surface opened *to read* the figures: as wide as its content, primary ink, the
+                 * unit right beside the figure, an absent figure dropping back to secondary.
                  */}
                 <DerivedPanel
                     testID={id('derived-panel-outline')}
@@ -1761,25 +1772,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     figures={SHOWCASE_NUTRIENTS.map((figure, index) =>
                         index === 3 ? { ...figure, value: null } : figure,
                     )}
-                    emptyValue="—"
-                />
-                {/*
-                 * The same card, typeable — the ingredient editor's nutrition. The card is the
-                 * input's frame: its hairline takes the focus ring and, on a gap in a part-filled
-                 * set, the danger border.
-                 */}
-                <DerivedPanel
-                    testID={id('derived-panel-editable')}
-                    variant="outline"
-                    figures={SHOWCASE_NUTRIENTS.map((figure, index) => ({
-                        ...figure,
-                        input: {
-                            testID: id(`derived-editable-${figure.key}`),
-                            value: index === 1 ? '' : (figure.value ?? ''),
-                            invalid: index === 1,
-                            onChangeText: () => undefined,
-                        },
-                    }))}
                     emptyValue="—"
                 />
                 {/* The same four tiles with nothing behind them — em dashes, never zeroes. */}
@@ -2467,6 +2459,15 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     testID={id('pagination')}
                     page={3}
                     totalPages={10}
+                    onPageChange={() => undefined}
+                    label="Pages"
+                />
+                {/* The list footer: the range in the pager's own box, its figures picked out. */}
+                <CataloguePager
+                    testID={id('catalogue-pager')}
+                    range="Showing 18 of 29"
+                    page={1}
+                    totalPages={2}
                     onPageChange={() => undefined}
                     label="Pages"
                 />

@@ -115,7 +115,8 @@ export interface EditorFrameProps {
     /**
      * Draw the form as steps: the progress row under the header, the step footer under the form.
      * `children` is then the open step only. The last step's commit defaults to this frame's own
-     * Save (`{testID}-steps-save`); pass `finalAction` to draw something else there.
+     * Save, which then leaves the header and keeps its `{testID}-save` id; pass `finalAction` to
+     * draw something else there.
      */
     readonly steps?: Omit<EditorStepsProps<string>, 'testID'> | undefined;
     /**
@@ -173,6 +174,9 @@ export function EditorFrame({
     };
 
     useKitchenTrailLeaf(embedded ? null : title);
+
+    // A form of one step draws no footer, so it keeps the header's Save.
+    const stepped = steps !== undefined && steps.steps.length > 1;
 
     /*
      * The Catalogue editor's opening (Commercial handoff §2.3): the title with Cancel and Save at its
@@ -276,7 +280,8 @@ export function EditorFrame({
                                     />
                                 )}
                                 {primaryAction}
-                                {hideSave ? null : (
+                                {/* A stepped form saves from its last step's Next, not up here. */}
+                                {hideSave || stepped ? null : (
                                     <Button
                                         testID={`${testID}-save`}
                                         label={saveLabel}
@@ -328,7 +333,7 @@ export function EditorFrame({
                         steps.finalAction ??
                         (hideSave ? null : (
                             <Button
-                                testID={`${testID}-steps-save`}
+                                testID={`${testID}-save`}
                                 label={saveLabel}
                                 loading={saving}
                                 disabled={saveDisabled || saving}

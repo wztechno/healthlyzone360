@@ -2217,6 +2217,8 @@ describe('creating a recipe', () => {
             );
         });
 
+        // Save draft is the last step's Next.
+        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
@@ -2465,6 +2467,8 @@ describe('the line editor', () => {
         expect(screen.getAllByTestId(LINE_ROWS)).toHaveLength(seededCount);
 
         // ── save ─────────────────────────────────────────────────────────────────────────────
+        // Save draft is the last step's Next.
+        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
@@ -2576,6 +2580,8 @@ describe('the line editor', () => {
             });
         }
 
+        // Save draft is the last step's Next.
+        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
@@ -3042,6 +3048,8 @@ describe('costing', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-packaging-waste-input'), '5');
         });
+        // Save draft is the last step's Next.
+        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
@@ -3273,6 +3281,8 @@ describe('the sections this screen no longer edits', () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'Pesto');
         });
 
+        // Save draft is the last step's Next.
+        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
@@ -3794,6 +3804,8 @@ describe('safety', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'My version');
         });
+        // Save draft is the last step's Next.
+        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
@@ -3808,6 +3820,7 @@ describe('safety', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-conflict-reload'));
         });
+        await openTab('description');
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-recipe-name-en-input').props.value).toBe(
                 'Conflict me',
@@ -3830,8 +3843,8 @@ describe('safety', () => {
         // fields know nothing about, which is exactly the edit a person is most likely to lose.
         await addLine(String(UNMAPPED_INGREDIENT.id));
 
-        // Cancel is the way out now — the header is the design's Cancel · Save, and Back went with
-        // the two-pane frame. It routes through the same guard.
+        // Cancel is the way out now — the header is the design's Cancel, and Back went with the
+        // two-pane frame. It routes through the same guard.
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-discard'));
         });

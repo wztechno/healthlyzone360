@@ -36,7 +36,7 @@ import { displayName, unitShortKey } from '../format.ts';
 /** Scaled quantities to three decimals: 0.4 of an egg is an instruction, 0.4000 is noise. */
 export const BATCH_QUANTITY_FORMAT: Intl.NumberFormatOptions = { maximumFractionDigits: 3 };
 
-const BASIS_KEYS: Readonly<Record<PackagingBasis, string>> = {
+export const BASIS_KEYS: Readonly<Record<PackagingBasis, string>> = {
     fills_yield: 'kitchen:ops.batch.basis.fills_yield',
     per_container: 'kitchen:ops.batch.basis.per_container',
     per_batch: 'kitchen:ops.batch.basis.per_batch',

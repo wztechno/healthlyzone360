@@ -44,6 +44,25 @@ export function isOutOfStock(quantity: string): boolean {
 
 /* ── production orders ──────────────────────────────────────────────────────────────────────── */
 
+/**
+ * A ledger decimal as a cook reads it: to three places at most, with its unit, or the fallback.
+ *
+ * The ledger sends `"1.804906"` and `"0.0000"` — exact, and unreadable down a column. Three places
+ * is the batch sheet's own precision (`BATCH_QUANTITY_FORMAT`), so a figure here matches the figure
+ * the planner printed. A string that is not a number comes back as it arrived rather than as `NaN`.
+ */
+export function ledgerQuantity(
+    formatNumber: (value: number) => string,
+    value: string | null,
+    unitCode: string | null,
+    fallback: string,
+): string {
+    if (value === null) return fallback;
+    const parsed = Number(value);
+    const figure = Number.isFinite(parsed) ? formatNumber(parsed) : value;
+    return unitCode === null ? figure : `${figure} ${unitCode}`;
+}
+
 const PRODUCTION_STATUS_KEYS: Readonly<Record<ProductionOrderStatus, string>> = {
     draft: 'kitchen:ops.production.status.draft',
     confirmed: 'kitchen:ops.production.status.confirmed',

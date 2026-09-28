@@ -419,6 +419,8 @@ describe('supplier detail', () => {
             fireEvent.changeText(screen.getByTestId('kitchen-supplier-lead-time-input'), '400');
         });
         await untilVisible('kitchen-supplier-screen-issues-errors');
+        // Save is the last step's Next.
+        await openSupplierStep('items');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-supplier-screen-save'));
         });
@@ -447,6 +449,8 @@ describe('supplier detail', () => {
                 'Net 45',
             );
         });
+        // Save is the last step's Next.
+        await openSupplierStep('items');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-supplier-screen-save'));
         });
@@ -566,10 +570,11 @@ describe('supplier detail', () => {
         expect(screen.queryByTestId('kitchen-supplier-contacts-save')).toBeNull();
         expect(screen.queryByTestId('kitchen-supplier-contacts-add')).toBeNull();
 
-        // The last step offers no save either.
+        // The last step offers no save either — Next stays, disabled.
         await openSupplierStep('items');
         await untilVisible('kitchen-supplier-supplied-items');
-        expect(screen.queryByTestId('kitchen-supplier-screen-steps-save')).toBeNull();
+        expect(screen.queryByTestId('kitchen-supplier-screen-save')).toBeNull();
+        expect(screen.getByTestId('kitchen-supplier-screen-steps-nav-next')).toBeDisabled();
     });
 
     it('is one step — details — until the first save, so it draws no progress row', async () => {

@@ -524,7 +524,7 @@ function RoleEditor() {
                     {step !== 'details' ? null : (
                         <FormSection
                             first
-                            variant="underlined"
+                            variant="card"
                             testID="kitchen-role-editor-details"
                             title={t('accessAdmin:role.tabs.details')}
                         >
