@@ -315,7 +315,7 @@ export function ColumnPicker({
 
 /**
  * A table with its column picker right-aligned above it — for tables with no `CatalogueToolbar` to
- * hold the button, such as the order desk and the report tables.
+ * hold the button, such as the report tables.
  */
 export function WithColumnPicker({
     picker,
