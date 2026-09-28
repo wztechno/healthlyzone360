@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7603 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7651 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4183,16 +4183,35 @@ export interface NamespaceKeys {
     | 'ops.production.yieldVarianceLossCaption'
     | 'ops.production.yieldVarianceOverCaption'
     | 'ops.qc.backToList'
+    | 'ops.qc.batchMeta'
+    | 'ops.qc.batchesNone'
+    | 'ops.qc.checkBadge'
     | 'ops.qc.checksHeading'
+    | 'ops.qc.checksNone'
+    | 'ops.qc.colBatch'
+    | 'ops.qc.colChecks'
+    | 'ops.qc.colDate'
+    | 'ops.qc.colReceipt'
+    | 'ops.qc.colRecipe'
+    | 'ops.qc.colSupplier'
     | 'ops.qc.columnKind'
     | 'ops.qc.columnStatus'
     | 'ops.qc.columnSubject'
+    | 'ops.qc.coverAside'
+    | 'ops.qc.coverBatchTitle'
+    | 'ops.qc.coverMore'
+    | 'ops.qc.coverReceiptTitle'
     | 'ops.qc.create'
     | 'ops.qc.createChip'
     | 'ops.qc.createFailed'
     | 'ops.qc.createSubmit'
+    | 'ops.qc.createSubmitHold'
     | 'ops.qc.createTitle'
+    | 'ops.qc.createdHeldToast'
     | 'ops.qc.createdToast'
+    | 'ops.qc.duplicateHold'
+    | 'ops.qc.duplicateOpen'
+    | 'ops.qc.duplicatePending'
     | 'ops.qc.emptyBody'
     | 'ops.qc.emptyTitle'
     | 'ops.qc.fieldReference'
@@ -4201,29 +4220,58 @@ export interface NamespaceKeys {
     | 'ops.qc.footNote'
     | 'ops.qc.heldToast'
     | 'ops.qc.hold'
+    | 'ops.qc.holdAfterCreateFailed'
     | 'ops.qc.holdNote'
+    | 'ops.qc.issueNoSubject'
+    | 'ops.qc.kindBatchBody'
+    | 'ops.qc.kindBatchTitle'
+    | 'ops.qc.kindReceiptBody'
+    | 'ops.qc.kindReceiptTitle'
     | 'ops.qc.loadErrorBody'
     | 'ops.qc.loadErrorTitle'
     | 'ops.qc.metrics.holds'
     | 'ops.qc.metrics.openChecks'
     | 'ops.qc.metrics.releases'
+    | 'ops.qc.receiptsNone'
     | 'ops.qc.release'
     | 'ops.qc.releasedToast'
+    | 'ops.qc.searchBatches'
     | 'ops.qc.searchPlaceholder'
+    | 'ops.qc.searchReceipts'
+    | 'ops.qc.startHoldBody'
+    | 'ops.qc.startHoldTitle'
+    | 'ops.qc.startPendingBody'
+    | 'ops.qc.startPendingTitle'
+    | 'ops.qc.startSection'
     | 'ops.qc.statHoldCaption'
     | 'ops.qc.statPendingCaption'
     | 'ops.qc.statReleasedCaption'
     | 'ops.qc.statUnit'
+    | 'ops.qc.stateHold'
+    | 'ops.qc.statePending'
+    | 'ops.qc.stateReleased'
+    | 'ops.qc.statesTitle'
     | 'ops.qc.status.hold'
     | 'ops.qc.status.passed'
     | 'ops.qc.status.pending'
     | 'ops.qc.status.released'
+    | 'ops.qc.statusOnHold'
+    | 'ops.qc.statusPending'
     | 'ops.qc.subject.goodsReceipt'
     | 'ops.qc.subject.productionOrder'
-    | 'ops.qc.subjectIdHint'
-    | 'ops.qc.subjectIdLabel'
+    | 'ops.qc.subjectAside'
     | 'ops.qc.subjectSection'
-    | 'ops.qc.subjectTypeLabel'
+    | 'ops.qc.subjectsFailed'
+    | 'ops.qc.subjectsLimited'
+    | 'ops.qc.subjectsNoMatch'
+    | 'ops.qc.summaryFootHold'
+    | 'ops.qc.summaryFootPending'
+    | 'ops.qc.summaryPlannedFor'
+    | 'ops.qc.summaryReceived'
+    | 'ops.qc.summaryStartsAs'
+    | 'ops.qc.summarySubject'
+    | 'ops.qc.summarySubjectType'
+    | 'ops.qc.summaryTitle'
     | 'ops.qc.title'
     | 'ops.qc.viewKind'
     | 'ops.quotations.caption'
@@ -11804,16 +11852,35 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.yieldVarianceLossCaption',
   'kitchen:ops.production.yieldVarianceOverCaption',
   'kitchen:ops.qc.backToList',
+  'kitchen:ops.qc.batchMeta',
+  'kitchen:ops.qc.batchesNone',
+  'kitchen:ops.qc.checkBadge',
   'kitchen:ops.qc.checksHeading',
+  'kitchen:ops.qc.checksNone',
+  'kitchen:ops.qc.colBatch',
+  'kitchen:ops.qc.colChecks',
+  'kitchen:ops.qc.colDate',
+  'kitchen:ops.qc.colReceipt',
+  'kitchen:ops.qc.colRecipe',
+  'kitchen:ops.qc.colSupplier',
   'kitchen:ops.qc.columnKind',
   'kitchen:ops.qc.columnStatus',
   'kitchen:ops.qc.columnSubject',
+  'kitchen:ops.qc.coverAside',
+  'kitchen:ops.qc.coverBatchTitle',
+  'kitchen:ops.qc.coverMore',
+  'kitchen:ops.qc.coverReceiptTitle',
   'kitchen:ops.qc.create',
   'kitchen:ops.qc.createChip',
   'kitchen:ops.qc.createFailed',
   'kitchen:ops.qc.createSubmit',
+  'kitchen:ops.qc.createSubmitHold',
   'kitchen:ops.qc.createTitle',
+  'kitchen:ops.qc.createdHeldToast',
   'kitchen:ops.qc.createdToast',
+  'kitchen:ops.qc.duplicateHold',
+  'kitchen:ops.qc.duplicateOpen',
+  'kitchen:ops.qc.duplicatePending',
   'kitchen:ops.qc.emptyBody',
   'kitchen:ops.qc.emptyTitle',
   'kitchen:ops.qc.fieldReference',
@@ -11822,29 +11889,58 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.qc.footNote',
   'kitchen:ops.qc.heldToast',
   'kitchen:ops.qc.hold',
+  'kitchen:ops.qc.holdAfterCreateFailed',
   'kitchen:ops.qc.holdNote',
+  'kitchen:ops.qc.issueNoSubject',
+  'kitchen:ops.qc.kindBatchBody',
+  'kitchen:ops.qc.kindBatchTitle',
+  'kitchen:ops.qc.kindReceiptBody',
+  'kitchen:ops.qc.kindReceiptTitle',
   'kitchen:ops.qc.loadErrorBody',
   'kitchen:ops.qc.loadErrorTitle',
   'kitchen:ops.qc.metrics.holds',
   'kitchen:ops.qc.metrics.openChecks',
   'kitchen:ops.qc.metrics.releases',
+  'kitchen:ops.qc.receiptsNone',
   'kitchen:ops.qc.release',
   'kitchen:ops.qc.releasedToast',
+  'kitchen:ops.qc.searchBatches',
   'kitchen:ops.qc.searchPlaceholder',
+  'kitchen:ops.qc.searchReceipts',
+  'kitchen:ops.qc.startHoldBody',
+  'kitchen:ops.qc.startHoldTitle',
+  'kitchen:ops.qc.startPendingBody',
+  'kitchen:ops.qc.startPendingTitle',
+  'kitchen:ops.qc.startSection',
   'kitchen:ops.qc.statHoldCaption',
   'kitchen:ops.qc.statPendingCaption',
   'kitchen:ops.qc.statReleasedCaption',
   'kitchen:ops.qc.statUnit',
+  'kitchen:ops.qc.stateHold',
+  'kitchen:ops.qc.statePending',
+  'kitchen:ops.qc.stateReleased',
+  'kitchen:ops.qc.statesTitle',
   'kitchen:ops.qc.status.hold',
   'kitchen:ops.qc.status.passed',
   'kitchen:ops.qc.status.pending',
   'kitchen:ops.qc.status.released',
+  'kitchen:ops.qc.statusOnHold',
+  'kitchen:ops.qc.statusPending',
   'kitchen:ops.qc.subject.goodsReceipt',
   'kitchen:ops.qc.subject.productionOrder',
-  'kitchen:ops.qc.subjectIdHint',
-  'kitchen:ops.qc.subjectIdLabel',
+  'kitchen:ops.qc.subjectAside',
   'kitchen:ops.qc.subjectSection',
-  'kitchen:ops.qc.subjectTypeLabel',
+  'kitchen:ops.qc.subjectsFailed',
+  'kitchen:ops.qc.subjectsLimited',
+  'kitchen:ops.qc.subjectsNoMatch',
+  'kitchen:ops.qc.summaryFootHold',
+  'kitchen:ops.qc.summaryFootPending',
+  'kitchen:ops.qc.summaryPlannedFor',
+  'kitchen:ops.qc.summaryReceived',
+  'kitchen:ops.qc.summaryStartsAs',
+  'kitchen:ops.qc.summarySubject',
+  'kitchen:ops.qc.summarySubjectType',
+  'kitchen:ops.qc.summaryTitle',
   'kitchen:ops.qc.title',
   'kitchen:ops.qc.viewKind',
   'kitchen:ops.quotations.caption',
