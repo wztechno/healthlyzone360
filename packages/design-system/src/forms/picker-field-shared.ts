@@ -15,6 +15,22 @@ export interface PickerFieldProps {
     readonly hint?: string | undefined;
     readonly error?: string | undefined;
     readonly disabled?: boolean | undefined;
+    /**
+     * The value as the page words it — `21 Sep 2026`, or `Open-ended` for no value — drawn in place
+     * of the browser's own rendering, which follows the *operating system's* locale rather than the
+     * page's and has no way to say what an empty date means.
+     *
+     * On the web the whole field then opens the OS picker, not just the glyph: there is no typed
+     * text to place a caret in. Native, which types the ISO value, shows it as the placeholder of an
+     * empty field.
+     */
+    readonly displayValue?: string | undefined;
+    /**
+     * Take the width of the cell it sits in instead of {@link PICKER_WIDTH}. For a table column
+     * whose track is already the field's width; the track widths are headroom for the browser's own
+     * rendering, which a `displayValue` field does not use.
+     */
+    readonly fullWidth?: boolean | undefined;
     readonly testID?: string | undefined;
 }
 

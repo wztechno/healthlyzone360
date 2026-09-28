@@ -154,6 +154,13 @@ input[data-picker-field]::-webkit-clear-button {
     display: none;
 }
 
+/* A field that draws its own words (`displayValue`): the input lies invisibly over the whole frame,
+   so its indicator is stretched over all of it and a press anywhere opens the picker. */
+input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
+    inset-inline-start: 0;
+    width: 100%;
+}
+
 /* ================================================================================================
    Print / Save PDF — the Phase 1 export (supplier plan §7, SUP7).
 

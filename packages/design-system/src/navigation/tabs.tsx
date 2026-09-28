@@ -30,6 +30,12 @@ export interface TabItem<T extends string = string> {
      */
     readonly count?: number | undefined;
     /**
+     * `warning` sets the figure in the warning ink, a weight heavier — for a count that is itself a
+     * thing to act on rather than a size: the price list's *Changed 3*, which is three prices not yet
+     * saved. Only a non-zero count takes it; nothing pending is not news.
+     */
+    readonly countTone?: 'secondary' | 'warning' | undefined;
+    /**
      * What on this tab needs attention — the shelf life still blank on Description, the packaging
      * line at zero on Packaging. Drawn as a solid pill after the count on the `steps` variant only:
      * the tab row is where a reader looks for *which* tab to open, so it is where the tab that
@@ -305,7 +311,12 @@ export function Tabs<T extends string = string>({
                                 testID={
                                     item.testID === undefined ? undefined : `${item.testID}-count`
                                 }
-                                className="tabular-nums text-role-micro text-content-secondary"
+                                className={cx(
+                                    'tabular-nums text-role-micro',
+                                    item.countTone === 'warning' && item.count > 0
+                                        ? 'font-bold text-warning-strong'
+                                        : 'text-content-secondary',
+                                )}
                             >
                                 {String(item.count)}
                             </RNText>

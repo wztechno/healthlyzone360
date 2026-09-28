@@ -22,10 +22,12 @@ export function PickerField({
     hint,
     error,
     disabled,
+    displayValue,
+    fullWidth = false,
     testID,
 }: PickerFieldProps) {
     return (
-        <View style={{ width: PICKER_WIDTH[kind] }}>
+        <View style={fullWidth ? undefined : { width: PICKER_WIDTH[kind] }}>
             <TextInputField
                 label={label}
                 labelHidden={labelHidden}
@@ -35,7 +37,9 @@ export function PickerField({
                 size="sm"
                 value={value}
                 onChangeText={onChange}
-                placeholder={PICKER_FORMAT[kind]}
+                // The value is typed here, so the page's wording of it is only useful where there
+                // is nothing typed — `Open-ended` says more about an empty end date than a format.
+                placeholder={displayValue ?? PICKER_FORMAT[kind]}
                 testID={testID}
             />
         </View>
