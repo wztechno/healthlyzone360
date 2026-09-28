@@ -2,21 +2,16 @@ import type { ReceiptCostStatus, UnpricedReceipt } from '@healthy360/api-client/
 import {
     Badge,
     Button,
-    Callout,
-    Dialog,
     EmptyState,
     ErrorState,
-    Skeleton,
     Stack,
     TableSkeleton,
     Text,
-    TextInputField,
-    useToast,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { SupplierId } from '@healthy360/domain-types';
-import type { GoodsReceiptId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -24,12 +19,7 @@ import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import {
-    useCompleteReceiptPricesMutation,
-    useGoodsReceiptQuery,
-    useSuppliersQuery,
-    useUnpricedReceiptsQuery,
-} from '../../../data/kitchen-ops-hooks.ts';
+import { useSuppliersQuery, useUnpricedReceiptsQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -42,7 +32,6 @@ import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { receiptCostStatusKey, receiptCostStatusTone } from '../ops-format.ts';
-import { readAmount } from '../receive-delivery-model.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
@@ -50,7 +39,8 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  *
  * On the Catalogue list parts since the Operations handoff: stat cards counted over the queue in
  * hand, the toolbar (search over supplier and references, segments for the two unfinished states),
- * and `CatalogueList`, whose one row action — and whose row press — opens the price dialog.
+ * and `CatalogueList`, whose one row action — and whose row press — opens the receipt's own page,
+ * `unpriced-receipt-screen.tsx`, where the prices are typed.
  *
  * A delivery may be posted with no prices at all: the goods are on the shelf and the paperwork is in
  * the post. This is the list of receipts still waiting on that paperwork, and it exists because the
@@ -64,18 +54,6 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * action, and one they need to tell apart at a glance rather than by opening it. A queue showing one
  * number for both would send people to rows they cannot finish, and the honest explanation is worth
  * a sentence rather than a badge nobody can decode.
- *
- * ## Completing shows the quantities and will not let anyone touch them
- *
- * §7: "Completing a receipt shows its immutable received quantities and accepts only the missing
- * financial fields." So the dialog renders quantity and unit as text, and only the price is a
- * control. §3.6 is explicit that posted quantities are never edited in place — a correction is a
- * reasoned, audited adjustment, which is a different object this screen deliberately does not offer.
- *
- * Only lines with nothing costed yet get an input. A line already priced is shown as settled, and a
- * line waiting on an exchange rate is shown with the reason it cannot be finished here. Behind
- * `inventory.view_costs_organisation` (§5): the receiver enters prices at the door, the cost holder
- * goes back over the money afterwards.
  *
  * ## Which headers act, and why the rest do not
  *
@@ -96,8 +74,6 @@ export function UnpricedReceiptsScreen() {
     );
 }
 
-const RECEIPT_CURRENCY = 'USD';
-
 /** The queue holds only unfinished receipts, so its segments are the two unfinished states. */
 const STATE_SEGMENTS: readonly ReceiptCostStatus[] = ['unpriced', 'partial'];
 type StateSegmentValue = ReceiptCostStatus | 'all';
@@ -109,9 +85,8 @@ function UnpricedReceipts() {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const { locale } = useLocale();
-    const toast = useToast();
+    const router = useRouter();
 
-    const [openReceiptId, setOpenReceiptId] = useState<GoodsReceiptId | null>(null);
     const [query, setQuery] = useState('');
     const [state, setState] = useState<StateSegmentValue>('all');
     /** The Supplier header's choice, sent with the request — `UnpricedReceiptFilter.supplierId`. */
@@ -123,73 +98,8 @@ function UnpricedReceipts() {
     );
     const queue = useUnpricedReceiptsQuery(queueFilter);
     const supplierBook = useSuppliersQuery(SUPPLIER_BOOK);
-    const [prices, setPrices] = useState<Readonly<Record<string, string>>>({});
-
-    const receipt = useGoodsReceiptQuery(openReceiptId);
-    const complete = useCompleteReceiptPricesMutation();
 
     const rows = useMemo(() => queue.data?.items ?? [], [queue.data]);
-
-    const pendingLines = useMemo(
-        () => (receipt.data?.lines ?? []).filter((line) => line.costedAt === null),
-        [receipt.data],
-    );
-
-    /** Lines a person may actually price here — pending-FX rows are the accounting phase's. */
-    const priceableLines = useMemo(
-        () => pendingLines.filter((line) => !line.valuationPendingFx),
-        [pendingLines],
-    );
-
-    function closeDialog() {
-        setOpenReceiptId(null);
-        setPrices({});
-        complete.reset();
-    }
-
-    const everyPriceReadable = priceableLines.every((line) => {
-        const raw = prices[line.id] ?? '';
-        return raw.trim() === '' || readAmount(raw) !== null;
-    });
-
-    const filledCount = priceableLines.filter(
-        (line) => readAmount(prices[line.id] ?? '') !== null,
-    ).length;
-
-    function submit() {
-        if (openReceiptId === null || filledCount === 0 || !everyPriceReadable) return;
-
-        complete.mutate(
-            {
-                goodsReceiptId: openReceiptId,
-                request: {
-                    lines: priceableLines
-                        .map((line) => ({ line, amount: readAmount(prices[line.id] ?? '') }))
-                        .filter(
-                            (
-                                entry,
-                            ): entry is { line: (typeof priceableLines)[number]; amount: number } =>
-                                entry.amount !== null,
-                        )
-                        .map((entry) => ({
-                            goodsReceiptLineId: entry.line.id,
-                            unitPriceAmount: entry.amount,
-                            costCurrencyCode: RECEIPT_CURRENCY,
-                        })),
-                },
-            },
-            {
-                onSuccess: () => {
-                    closeDialog();
-                    toast.show({
-                        testID: 'kitchen-unpriced-completed-toast',
-                        tone: 'success',
-                        message: t('kitchen:ops.unpricedReceipts.completedToast'),
-                    });
-                },
-            },
-        );
-    }
 
     const trimmed = query.trim().toLocaleLowerCase();
     const filtered = useMemo(
@@ -205,8 +115,7 @@ function UnpricedReceipts() {
     );
 
     const openReceipt = (row: UnpricedReceipt) => {
-        setPrices({});
-        setOpenReceiptId(row.id);
+        router.push(`/kitchen/procurement/unpriced-receipts/${String(row.id)}` as never);
     };
 
     const receivedText = (row: UnpricedReceipt): string =>
@@ -431,94 +340,6 @@ function UnpricedReceipts() {
                 />
             )}
 
-            <Dialog
-                testID="kitchen-unpriced-complete-dialog"
-                open={openReceiptId !== null}
-                onClose={closeDialog}
-                title={t('kitchen:ops.unpricedReceipts.completeTitle')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-unpriced-complete-cancel"
-                            variant="quiet"
-                            label={t('kitchen:common.cancel')}
-                            onPress={closeDialog}
-                        />
-                        <Button
-                            testID="kitchen-unpriced-complete-save"
-                            label={t('kitchen:common.save')}
-                            loading={complete.isPending}
-                            disabled={filledCount === 0 || !everyPriceReadable}
-                            onPress={submit}
-                        />
-                    </>
-                }
-            >
-                <Stack space="md">
-                    {complete.error === null ? null : (
-                        <Text testID="kitchen-unpriced-complete-error" tone="danger">
-                            {toFailure(complete.error)?.message ??
-                                t('kitchen:ops.unpricedReceipts.completeFailed')}
-                        </Text>
-                    )}
-
-                    {receipt.isPending ? (
-                        <Skeleton
-                            heightClassName="h-24"
-                            testID="kitchen-unpriced-complete-loading"
-                        />
-                    ) : (
-                        <Stack space="sm">
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:ops.unpricedReceipts.quantitiesImmutable')}
-                            </Text>
-                            {pendingLines.map((line) => (
-                                <Stack
-                                    key={line.id}
-                                    space="xs"
-                                    testID={`kitchen-unpriced-line-${line.id}`}
-                                >
-                                    <Text variant="bodyStrong">{String(line.stockItemId)}</Text>
-                                    <Text variant="caption" tone="secondary">
-                                        {t('kitchen:ops.unpricedReceipts.receivedQuantity', {
-                                            quantity: line.quantity,
-                                        })}
-                                    </Text>
-                                    {line.valuationPendingFx ? (
-                                        <Callout
-                                            tone="warning"
-                                            testID={`kitchen-unpriced-line-${line.id}-pending-fx`}
-                                            title={t('kitchen:ops.unpricedReceipts.pendingFxTitle')}
-                                        >
-                                            <Text>
-                                                {t('kitchen:ops.unpricedReceipts.pendingFxBody')}
-                                            </Text>
-                                        </Callout>
-                                    ) : (
-                                        <TextInputField
-                                            testID={`kitchen-unpriced-line-${line.id}-price`}
-                                            label={t(
-                                                'kitchen:ops.unpricedReceipts.fieldUnitPrice',
-                                                {
-                                                    currency: RECEIPT_CURRENCY,
-                                                },
-                                            )}
-                                            value={prices[line.id] ?? ''}
-                                            keyboardType="decimal-pad"
-                                            onChangeText={(next) => {
-                                                setPrices((current) => ({
-                                                    ...current,
-                                                    [line.id]: next,
-                                                }));
-                                            }}
-                                        />
-                                    )}
-                                </Stack>
-                            ))}
-                        </Stack>
-                    )}
-                </Stack>
-            </Dialog>
         </Stack>
     );
 }

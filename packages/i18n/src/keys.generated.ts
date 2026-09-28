@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7557 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7582 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4759,28 +4759,53 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.unlinkedTitle'
     | 'ops.supplyOrders.viewBranch'
     | 'ops.supplyOrders.viewKind'
+    | 'ops.unpricedReceipts.backToQueue'
+    | 'ops.unpricedReceipts.columnItem'
+    | 'ops.unpricedReceipts.columnLineTotal'
+    | 'ops.unpricedReceipts.columnReceived'
     | 'ops.unpricedReceipts.columnReceivedOn'
     | 'ops.unpricedReceipts.columnRefs'
     | 'ops.unpricedReceipts.columnState'
     | 'ops.unpricedReceipts.columnSupplier'
     | 'ops.unpricedReceipts.columnToPrice'
     | 'ops.unpricedReceipts.completeFailed'
-    | 'ops.unpricedReceipts.completeTitle'
     | 'ops.unpricedReceipts.completedToast'
     | 'ops.unpricedReceipts.emptyBody'
     | 'ops.unpricedReceipts.emptyTitle'
+    | 'ops.unpricedReceipts.fieldDeliveryNote'
+    | 'ops.unpricedReceipts.fieldInvoice'
+    | 'ops.unpricedReceipts.fieldInvoiceDate'
+    | 'ops.unpricedReceipts.fieldOrder'
     | 'ops.unpricedReceipts.fieldUnitPrice'
+    | 'ops.unpricedReceipts.fieldVarianceNote'
+    | 'ops.unpricedReceipts.linePendingFx'
+    | 'ops.unpricedReceipts.linePriceLabel'
+    | 'ops.unpricedReceipts.linePriced'
+    | 'ops.unpricedReceipts.lineToPrice'
+    | 'ops.unpricedReceipts.linesHeading'
     | 'ops.unpricedReceipts.linesToPrice'
+    | 'ops.unpricedReceipts.loadErrorTitle'
     | 'ops.unpricedReceipts.metrics.receipts'
     | 'ops.unpricedReceipts.noInvoiceRef'
+    | 'ops.unpricedReceipts.noOrder'
+    | 'ops.unpricedReceipts.notFoundBody'
+    | 'ops.unpricedReceipts.notFoundTitle'
+    | 'ops.unpricedReceipts.nothingToPrice'
     | 'ops.unpricedReceipts.pendingFxBadge'
     | 'ops.unpricedReceipts.pendingFxBody'
     | 'ops.unpricedReceipts.pendingFxTitle'
+    | 'ops.unpricedReceipts.priceInvalid'
     | 'ops.unpricedReceipts.quantitiesImmutable'
-    | 'ops.unpricedReceipts.receivedQuantity'
+    | 'ops.unpricedReceipts.receiptFallbackTitle'
+    | 'ops.unpricedReceipts.receiptTitle'
+    | 'ops.unpricedReceipts.recordHeading'
+    | 'ops.unpricedReceipts.savePrices'
     | 'ops.unpricedReceipts.statPendingFxCaption'
     | 'ops.unpricedReceipts.statReceiptsCaption'
+    | 'ops.unpricedReceipts.statReceivedCaption'
     | 'ops.unpricedReceipts.statToPriceCaption'
+    | 'ops.unpricedReceipts.statTypedCaption'
+    | 'ops.unpricedReceipts.statTypedLabel'
     | 'ops.unpricedReceipts.title'
     | 'packaging.archiveBody'
     | 'packaging.archiveConfirm'
@@ -12334,28 +12359,53 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.unlinkedTitle',
   'kitchen:ops.supplyOrders.viewBranch',
   'kitchen:ops.supplyOrders.viewKind',
+  'kitchen:ops.unpricedReceipts.backToQueue',
+  'kitchen:ops.unpricedReceipts.columnItem',
+  'kitchen:ops.unpricedReceipts.columnLineTotal',
+  'kitchen:ops.unpricedReceipts.columnReceived',
   'kitchen:ops.unpricedReceipts.columnReceivedOn',
   'kitchen:ops.unpricedReceipts.columnRefs',
   'kitchen:ops.unpricedReceipts.columnState',
   'kitchen:ops.unpricedReceipts.columnSupplier',
   'kitchen:ops.unpricedReceipts.columnToPrice',
   'kitchen:ops.unpricedReceipts.completeFailed',
-  'kitchen:ops.unpricedReceipts.completeTitle',
   'kitchen:ops.unpricedReceipts.completedToast',
   'kitchen:ops.unpricedReceipts.emptyBody',
   'kitchen:ops.unpricedReceipts.emptyTitle',
+  'kitchen:ops.unpricedReceipts.fieldDeliveryNote',
+  'kitchen:ops.unpricedReceipts.fieldInvoice',
+  'kitchen:ops.unpricedReceipts.fieldInvoiceDate',
+  'kitchen:ops.unpricedReceipts.fieldOrder',
   'kitchen:ops.unpricedReceipts.fieldUnitPrice',
+  'kitchen:ops.unpricedReceipts.fieldVarianceNote',
+  'kitchen:ops.unpricedReceipts.linePendingFx',
+  'kitchen:ops.unpricedReceipts.linePriceLabel',
+  'kitchen:ops.unpricedReceipts.linePriced',
+  'kitchen:ops.unpricedReceipts.lineToPrice',
+  'kitchen:ops.unpricedReceipts.linesHeading',
   'kitchen:ops.unpricedReceipts.linesToPrice',
+  'kitchen:ops.unpricedReceipts.loadErrorTitle',
   'kitchen:ops.unpricedReceipts.metrics.receipts',
   'kitchen:ops.unpricedReceipts.noInvoiceRef',
+  'kitchen:ops.unpricedReceipts.noOrder',
+  'kitchen:ops.unpricedReceipts.notFoundBody',
+  'kitchen:ops.unpricedReceipts.notFoundTitle',
+  'kitchen:ops.unpricedReceipts.nothingToPrice',
   'kitchen:ops.unpricedReceipts.pendingFxBadge',
   'kitchen:ops.unpricedReceipts.pendingFxBody',
   'kitchen:ops.unpricedReceipts.pendingFxTitle',
+  'kitchen:ops.unpricedReceipts.priceInvalid',
   'kitchen:ops.unpricedReceipts.quantitiesImmutable',
-  'kitchen:ops.unpricedReceipts.receivedQuantity',
+  'kitchen:ops.unpricedReceipts.receiptFallbackTitle',
+  'kitchen:ops.unpricedReceipts.receiptTitle',
+  'kitchen:ops.unpricedReceipts.recordHeading',
+  'kitchen:ops.unpricedReceipts.savePrices',
   'kitchen:ops.unpricedReceipts.statPendingFxCaption',
   'kitchen:ops.unpricedReceipts.statReceiptsCaption',
+  'kitchen:ops.unpricedReceipts.statReceivedCaption',
   'kitchen:ops.unpricedReceipts.statToPriceCaption',
+  'kitchen:ops.unpricedReceipts.statTypedCaption',
+  'kitchen:ops.unpricedReceipts.statTypedLabel',
   'kitchen:ops.unpricedReceipts.title',
   'kitchen:packaging.archiveBody',
   'kitchen:packaging.archiveConfirm',
