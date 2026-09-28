@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7651 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7711 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -5084,20 +5084,36 @@ export interface NamespaceKeys {
     | 'plans.weekdaysLabel'
     | 'priceLists.addEntry'
     | 'priceLists.agreementBadge'
-    | 'priceLists.amountDisabledHint'
-    | 'priceLists.amountHint'
-    | 'priceLists.amountInvalid'
+    | 'priceLists.amountFieldLabel'
     | 'priceLists.amountLabel'
-    | 'priceLists.amountRequired'
     | 'priceLists.backToList'
     | 'priceLists.badgeConfirmed'
     | 'priceLists.badgeDaily'
     | 'priceLists.badgePending'
+    | 'priceLists.basisConfirmed'
+    | 'priceLists.basisDaily'
+    | 'priceLists.basisFieldLabel'
+    | 'priceLists.basisLabel'
+    | 'priceLists.basisPending'
     | 'priceLists.blockInconsistent'
     | 'priceLists.blockNoEntries'
     | 'priceLists.blockUnsaved'
+    | 'priceLists.bulkAppliedToast'
+    | 'priceLists.bulkApply'
+    | 'priceLists.bulkClear'
+    | 'priceLists.bulkLabel'
+    | 'priceLists.bulkNothingToast'
+    | 'priceLists.bulkPercentLabel'
+    | 'priceLists.bulkRemove'
     | 'priceLists.caption'
+    | 'priceLists.changesAdded'
+    | 'priceLists.changesBodyDraft'
+    | 'priceLists.changesBodyPublished'
+    | 'priceLists.changesEdited'
+    | 'priceLists.changesRemoved'
+    | 'priceLists.changesTitle'
     | 'priceLists.channelsLabel'
+    | 'priceLists.clearUntil'
     | 'priceLists.columnChannels'
     | 'priceLists.columnCurrency'
     | 'priceLists.columnEntries'
@@ -5106,43 +5122,83 @@ export interface NamespaceKeys {
     | 'priceLists.confidentialTitle'
     | 'priceLists.confirmedCount'
     | 'priceLists.currencyLabel'
-    | 'priceLists.datesReversed'
+    | 'priceLists.discardChanges'
+    | 'priceLists.discardedToast'
+    | 'priceLists.draftNoteBody'
+    | 'priceLists.draftNoteTitle'
     | 'priceLists.effectiveFromLabel'
-    | 'priceLists.effectiveUntilHint'
     | 'priceLists.effectiveUntilLabel'
     | 'priceLists.emptyBody'
     | 'priceLists.emptyTitle'
-    | 'priceLists.entriesEmpty'
     | 'priceLists.entriesTitle'
     | 'priceLists.entryCount'
-    | 'priceLists.entryNumber'
-    | 'priceLists.entryRemoved'
-    | 'priceLists.factsTitle'
+    | 'priceLists.filterAll'
+    | 'priceLists.filterChanged'
+    | 'priceLists.filterConfirmed'
+    | 'priceLists.filterDaily'
+    | 'priceLists.filterLabel'
+    | 'priceLists.filterPending'
     | 'priceLists.filteredEmptyBody'
     | 'priceLists.filteredEmptyTitle'
+    | 'priceLists.fixedHint'
+    | 'priceLists.fixedTag'
+    | 'priceLists.fromFieldLabel'
+    | 'priceLists.gapAdd'
+    | 'priceLists.gapAddedToast'
+    | 'priceLists.gapBody'
+    | 'priceLists.gapBodyMore'
+    | 'priceLists.gapTitle'
+    | 'priceLists.groupDressing'
+    | 'priceLists.groupFrozenMeal'
+    | 'priceLists.groupMeal'
+    | 'priceLists.groupPlan'
+    | 'priceLists.groupProduct'
+    | 'priceLists.groupSauce'
+    | 'priceLists.groupUnchosen'
     | 'priceLists.inconsistentCount'
-    | 'priceLists.itemDuplicate'
-    | 'priceLists.itemHint'
+    | 'priceLists.issueChip'
+    | 'priceLists.issuesTitle'
     | 'priceLists.itemLabel'
     | 'priceLists.itemPlaceholder'
-    | 'priceLists.itemRequired'
     | 'priceLists.kindMeal'
     | 'priceLists.kindPlan'
     | 'priceLists.kindProduct'
+    | 'priceLists.kitchenLabel'
+    | 'priceLists.legendConfirmed'
+    | 'priceLists.legendDaily'
+    | 'priceLists.legendPending'
+    | 'priceLists.legendReplaces'
     | 'priceLists.loadErrorTitle'
+    | 'priceLists.loadingNote'
     | 'priceLists.marketCount'
-    | 'priceLists.marketPricedExplainer'
+    | 'priceLists.metaDraft'
+    | 'priceLists.metaDraftUndated'
+    | 'priceLists.metaPublished'
+    | 'priceLists.metaPublishedUndated'
+    | 'priceLists.newEntry'
     | 'priceLists.noChannels'
     | 'priceLists.noEntries'
+    | 'priceLists.noEntriesBody'
+    | 'priceLists.noEntriesTitle'
+    | 'priceLists.noMatchBody'
+    | 'priceLists.noMatchTitle'
     | 'priceLists.notFoundBody'
     | 'priceLists.notFoundTitle'
-    | 'priceLists.noteHint'
-    | 'priceLists.noteLabel'
-    | 'priceLists.packHint'
+    | 'priceLists.notOnSale'
+    | 'priceLists.offlineBody'
+    | 'priceLists.offlineTitle'
+    | 'priceLists.openEnded'
     | 'priceLists.packLabel'
+    | 'priceLists.packPlan'
     | 'priceLists.placeholderCount'
-    | 'priceLists.placeholderExplainer'
-    | 'priceLists.publicationTitle'
+    | 'priceLists.problemAmountNotAllowed'
+    | 'priceLists.problemBadAmount'
+    | 'priceLists.problemNoAmount'
+    | 'priceLists.problemNoItem'
+    | 'priceLists.problemOverlap'
+    | 'priceLists.problemReversed'
+    | 'priceLists.problemsNote'
+    | 'priceLists.publish'
     | 'priceLists.publishBlockedTitle'
     | 'priceLists.publishBody'
     | 'priceLists.publishConsequence'
@@ -5150,27 +5206,31 @@ export interface NamespaceKeys {
     | 'priceLists.publishExcludedTitle'
     | 'priceLists.publishRefusedEntries'
     | 'priceLists.publishTitle'
-    | 'priceLists.publishedBody'
-    | 'priceLists.publishedTitle'
     | 'priceLists.publishedToast'
+    | 'priceLists.removeColumn'
+    | 'priceLists.removeEntry'
+    | 'priceLists.resolvingItem'
     | 'priceLists.resultCount'
-    | 'priceLists.saveEntries'
+    | 'priceLists.saveAndCharge'
+    | 'priceLists.saveDraft'
     | 'priceLists.saveFailedTitle'
-    | 'priceLists.savedToast'
+    | 'priceLists.savedToastDraft'
+    | 'priceLists.savedToastPublished'
+    | 'priceLists.searchLabel'
+    | 'priceLists.selectAll'
+    | 'priceLists.selectEntry'
+    | 'priceLists.selectedCount'
+    | 'priceLists.setAtCounter'
     | 'priceLists.statAgreementCaption'
     | 'priceLists.statNothingPriced'
     | 'priceLists.statNothingPricedCaption'
-    | 'priceLists.statusLabel'
     | 'priceLists.subtitle'
     | 'priceLists.title'
     | 'priceLists.unknownItem'
-    | 'priceLists.unnamedEntry'
-    | 'priceLists.variantHint'
-    | 'priceLists.variantLabel'
-    | 'priceLists.variantPlaceholder'
+    | 'priceLists.untilFieldLabel'
     | 'priceLists.viewKind'
     | 'priceLists.viewPending'
-    | 'priceLists.wholePlan'
+    | 'priceLists.wasAmount'
     | 'priceStatus.confirmed'
     | 'priceStatus.marketPriced'
     | 'priceStatus.placeholder'
@@ -12753,20 +12813,36 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.weekdaysLabel',
   'kitchen:priceLists.addEntry',
   'kitchen:priceLists.agreementBadge',
-  'kitchen:priceLists.amountDisabledHint',
-  'kitchen:priceLists.amountHint',
-  'kitchen:priceLists.amountInvalid',
+  'kitchen:priceLists.amountFieldLabel',
   'kitchen:priceLists.amountLabel',
-  'kitchen:priceLists.amountRequired',
   'kitchen:priceLists.backToList',
   'kitchen:priceLists.badgeConfirmed',
   'kitchen:priceLists.badgeDaily',
   'kitchen:priceLists.badgePending',
+  'kitchen:priceLists.basisConfirmed',
+  'kitchen:priceLists.basisDaily',
+  'kitchen:priceLists.basisFieldLabel',
+  'kitchen:priceLists.basisLabel',
+  'kitchen:priceLists.basisPending',
   'kitchen:priceLists.blockInconsistent',
   'kitchen:priceLists.blockNoEntries',
   'kitchen:priceLists.blockUnsaved',
+  'kitchen:priceLists.bulkAppliedToast',
+  'kitchen:priceLists.bulkApply',
+  'kitchen:priceLists.bulkClear',
+  'kitchen:priceLists.bulkLabel',
+  'kitchen:priceLists.bulkNothingToast',
+  'kitchen:priceLists.bulkPercentLabel',
+  'kitchen:priceLists.bulkRemove',
   'kitchen:priceLists.caption',
+  'kitchen:priceLists.changesAdded',
+  'kitchen:priceLists.changesBodyDraft',
+  'kitchen:priceLists.changesBodyPublished',
+  'kitchen:priceLists.changesEdited',
+  'kitchen:priceLists.changesRemoved',
+  'kitchen:priceLists.changesTitle',
   'kitchen:priceLists.channelsLabel',
+  'kitchen:priceLists.clearUntil',
   'kitchen:priceLists.columnChannels',
   'kitchen:priceLists.columnCurrency',
   'kitchen:priceLists.columnEntries',
@@ -12775,43 +12851,83 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:priceLists.confidentialTitle',
   'kitchen:priceLists.confirmedCount',
   'kitchen:priceLists.currencyLabel',
-  'kitchen:priceLists.datesReversed',
+  'kitchen:priceLists.discardChanges',
+  'kitchen:priceLists.discardedToast',
+  'kitchen:priceLists.draftNoteBody',
+  'kitchen:priceLists.draftNoteTitle',
   'kitchen:priceLists.effectiveFromLabel',
-  'kitchen:priceLists.effectiveUntilHint',
   'kitchen:priceLists.effectiveUntilLabel',
   'kitchen:priceLists.emptyBody',
   'kitchen:priceLists.emptyTitle',
-  'kitchen:priceLists.entriesEmpty',
   'kitchen:priceLists.entriesTitle',
   'kitchen:priceLists.entryCount',
-  'kitchen:priceLists.entryNumber',
-  'kitchen:priceLists.entryRemoved',
-  'kitchen:priceLists.factsTitle',
+  'kitchen:priceLists.filterAll',
+  'kitchen:priceLists.filterChanged',
+  'kitchen:priceLists.filterConfirmed',
+  'kitchen:priceLists.filterDaily',
+  'kitchen:priceLists.filterLabel',
+  'kitchen:priceLists.filterPending',
   'kitchen:priceLists.filteredEmptyBody',
   'kitchen:priceLists.filteredEmptyTitle',
+  'kitchen:priceLists.fixedHint',
+  'kitchen:priceLists.fixedTag',
+  'kitchen:priceLists.fromFieldLabel',
+  'kitchen:priceLists.gapAdd',
+  'kitchen:priceLists.gapAddedToast',
+  'kitchen:priceLists.gapBody',
+  'kitchen:priceLists.gapBodyMore',
+  'kitchen:priceLists.gapTitle',
+  'kitchen:priceLists.groupDressing',
+  'kitchen:priceLists.groupFrozenMeal',
+  'kitchen:priceLists.groupMeal',
+  'kitchen:priceLists.groupPlan',
+  'kitchen:priceLists.groupProduct',
+  'kitchen:priceLists.groupSauce',
+  'kitchen:priceLists.groupUnchosen',
   'kitchen:priceLists.inconsistentCount',
-  'kitchen:priceLists.itemDuplicate',
-  'kitchen:priceLists.itemHint',
+  'kitchen:priceLists.issueChip',
+  'kitchen:priceLists.issuesTitle',
   'kitchen:priceLists.itemLabel',
   'kitchen:priceLists.itemPlaceholder',
-  'kitchen:priceLists.itemRequired',
   'kitchen:priceLists.kindMeal',
   'kitchen:priceLists.kindPlan',
   'kitchen:priceLists.kindProduct',
+  'kitchen:priceLists.kitchenLabel',
+  'kitchen:priceLists.legendConfirmed',
+  'kitchen:priceLists.legendDaily',
+  'kitchen:priceLists.legendPending',
+  'kitchen:priceLists.legendReplaces',
   'kitchen:priceLists.loadErrorTitle',
+  'kitchen:priceLists.loadingNote',
   'kitchen:priceLists.marketCount',
-  'kitchen:priceLists.marketPricedExplainer',
+  'kitchen:priceLists.metaDraft',
+  'kitchen:priceLists.metaDraftUndated',
+  'kitchen:priceLists.metaPublished',
+  'kitchen:priceLists.metaPublishedUndated',
+  'kitchen:priceLists.newEntry',
   'kitchen:priceLists.noChannels',
   'kitchen:priceLists.noEntries',
+  'kitchen:priceLists.noEntriesBody',
+  'kitchen:priceLists.noEntriesTitle',
+  'kitchen:priceLists.noMatchBody',
+  'kitchen:priceLists.noMatchTitle',
   'kitchen:priceLists.notFoundBody',
   'kitchen:priceLists.notFoundTitle',
-  'kitchen:priceLists.noteHint',
-  'kitchen:priceLists.noteLabel',
-  'kitchen:priceLists.packHint',
+  'kitchen:priceLists.notOnSale',
+  'kitchen:priceLists.offlineBody',
+  'kitchen:priceLists.offlineTitle',
+  'kitchen:priceLists.openEnded',
   'kitchen:priceLists.packLabel',
+  'kitchen:priceLists.packPlan',
   'kitchen:priceLists.placeholderCount',
-  'kitchen:priceLists.placeholderExplainer',
-  'kitchen:priceLists.publicationTitle',
+  'kitchen:priceLists.problemAmountNotAllowed',
+  'kitchen:priceLists.problemBadAmount',
+  'kitchen:priceLists.problemNoAmount',
+  'kitchen:priceLists.problemNoItem',
+  'kitchen:priceLists.problemOverlap',
+  'kitchen:priceLists.problemReversed',
+  'kitchen:priceLists.problemsNote',
+  'kitchen:priceLists.publish',
   'kitchen:priceLists.publishBlockedTitle',
   'kitchen:priceLists.publishBody',
   'kitchen:priceLists.publishConsequence',
@@ -12819,27 +12935,31 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:priceLists.publishExcludedTitle',
   'kitchen:priceLists.publishRefusedEntries',
   'kitchen:priceLists.publishTitle',
-  'kitchen:priceLists.publishedBody',
-  'kitchen:priceLists.publishedTitle',
   'kitchen:priceLists.publishedToast',
+  'kitchen:priceLists.removeColumn',
+  'kitchen:priceLists.removeEntry',
+  'kitchen:priceLists.resolvingItem',
   'kitchen:priceLists.resultCount',
-  'kitchen:priceLists.saveEntries',
+  'kitchen:priceLists.saveAndCharge',
+  'kitchen:priceLists.saveDraft',
   'kitchen:priceLists.saveFailedTitle',
-  'kitchen:priceLists.savedToast',
+  'kitchen:priceLists.savedToastDraft',
+  'kitchen:priceLists.savedToastPublished',
+  'kitchen:priceLists.searchLabel',
+  'kitchen:priceLists.selectAll',
+  'kitchen:priceLists.selectEntry',
+  'kitchen:priceLists.selectedCount',
+  'kitchen:priceLists.setAtCounter',
   'kitchen:priceLists.statAgreementCaption',
   'kitchen:priceLists.statNothingPriced',
   'kitchen:priceLists.statNothingPricedCaption',
-  'kitchen:priceLists.statusLabel',
   'kitchen:priceLists.subtitle',
   'kitchen:priceLists.title',
   'kitchen:priceLists.unknownItem',
-  'kitchen:priceLists.unnamedEntry',
-  'kitchen:priceLists.variantHint',
-  'kitchen:priceLists.variantLabel',
-  'kitchen:priceLists.variantPlaceholder',
+  'kitchen:priceLists.untilFieldLabel',
   'kitchen:priceLists.viewKind',
   'kitchen:priceLists.viewPending',
-  'kitchen:priceLists.wholePlan',
+  'kitchen:priceLists.wasAmount',
   'kitchen:priceStatus.confirmed',
   'kitchen:priceStatus.marketPriced',
   'kitchen:priceStatus.placeholder',
