@@ -9,6 +9,7 @@ import type {
     OrderDeskSaleRequest,
     PlaceOrderDeskSaleRequest,
     ProductAdmin,
+    ProductAdminFilter,
 } from '@healthy360/api-client/contracts';
 import {
     AllergenCode,
@@ -53,6 +54,7 @@ jest.mock('expo-router', () => ({
 
 const MEAL_ID = MealId.unsafe('test-0000-meal-0001');
 const PRODUCT_ID = ProductId.unsafe('test-0000-prod-0001');
+const SAUCE_ID = ProductId.unsafe('test-0000-sauc-0001');
 const KITCHEN_ID = KitchenId.unsafe('test-0000-kitchen-01');
 const ACCOUNT_ID = 'test-0000-account-001';
 const ADDRESS_ID = 'test-0000-address-001';
@@ -225,7 +227,23 @@ async function renderSale(stubs: DeskStubs = {}) {
         repositories: {
             kitchenAdmin: {
                 listMeals: async () => pageOf([adminMeal()]),
-                listProducts: async () => pageOf([adminProduct()]),
+                // Keyed on the kind asked for, as the endpoint is: the picker reads the packaged
+                // kinds one `item_type` at a time.
+                listProducts: async (filter?: ProductAdminFilter) =>
+                    pageOf(
+                        filter?.itemType === 'sauce'
+                            ? [
+                                  {
+                                      ...adminProduct(),
+                                      id: SAUCE_ID,
+                                      itemType: 'sauce' as const,
+                                      name: { en: 'Aioli', ar: 'أيولي' },
+                                  },
+                              ]
+                            : filter?.itemType === undefined || filter.itemType === 'product'
+                              ? [adminProduct()]
+                              : [],
+                    ),
                 listServiceAreas: async () =>
                     pageOf([
                         {
@@ -360,6 +378,23 @@ describe('sale wizard — the ladder each sale walks', () => {
 });
 
 describe('sale wizard — the quote is the only price', () => {
+    it('offers sauces as well as meals and products, since the desk sells them too', async () => {
+        await renderSale();
+        await untilVisible('kitchen-order-desk-sale-type');
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-next'));
+        await untilVisible('kitchen-order-desk-sale-picker-rows');
+
+        expect(
+            screen.getByTestId(`kitchen-order-desk-sale-picker-${String(MEAL_ID)}-add`),
+        ).toBeTruthy();
+        expect(
+            screen.getByTestId(`kitchen-order-desk-sale-picker-${String(PRODUCT_ID)}-add`),
+        ).toBeTruthy();
+        expect(
+            screen.getByTestId(`kitchen-order-desk-sale-picker-${String(SAUCE_ID)}-add`),
+        ).toBeTruthy();
+    });
+
     it('renders the line total and the order total from the quote, and no fee when there is none', async () => {
         await renderSale();
         await untilVisible('kitchen-order-desk-sale-type');
