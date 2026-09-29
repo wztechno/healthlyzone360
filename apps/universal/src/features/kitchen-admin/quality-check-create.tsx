@@ -103,7 +103,11 @@ interface SubjectRow {
     readonly who: string;
     readonly date: string | null;
     readonly check: QualityCheck | null;
-    readonly cover: readonly { readonly key: string; readonly name: string; readonly qty: string }[];
+    readonly cover: readonly {
+        readonly key: string;
+        readonly name: string;
+        readonly qty: string;
+    }[];
     readonly more: number;
 }
 
@@ -157,7 +161,10 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
         const map = new Map<string, QualityCheck>();
         for (const check of checks.data ?? []) {
             const held = map.get(check.subjectId);
-            if (held === undefined || (!OPEN_STATUSES.has(held.status) && OPEN_STATUSES.has(check.status))) {
+            if (
+                held === undefined ||
+                (!OPEN_STATUSES.has(held.status) && OPEN_STATUSES.has(check.status))
+            ) {
                 map.set(check.subjectId, check);
             }
         }
@@ -208,7 +215,9 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
         }
         const batches = [...(openBatches.data?.orders ?? []), ...(doneBatches.data?.orders ?? [])];
         return batches
-            .sort((left, right) => (right.productionDate ?? '').localeCompare(left.productionDate ?? ''))
+            .sort((left, right) =>
+                (right.productionDate ?? '').localeCompare(left.productionDate ?? ''),
+            )
             .map((row: ProductionOrder) => {
                 const made = ledgerQuantity(
                     number,
@@ -235,11 +244,13 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
 
     const needle = query.trim().toLowerCase();
     const matching = rows.filter(
-        (row) => needle === '' || `${row.ref} ${row.who} ${row.meta}`.toLowerCase().includes(needle),
+        (row) =>
+            needle === '' || `${row.ref} ${row.who} ${row.meta}`.toLowerCase().includes(needle),
     );
     const shown = matching.slice(0, LIST_LIMIT);
     const picked = rows.find((row) => row.id === pickedId) ?? null;
-    const duplicate = picked?.check != null && OPEN_STATUSES.has(picked.check.status) ? picked.check : null;
+    const duplicate =
+        picked?.check != null && OPEN_STATUSES.has(picked.check.status) ? picked.check : null;
 
     const loading = isReceipt
         ? receipts.isPending || stockItems.isPending || reference.isPending
@@ -284,7 +295,9 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                             toast.show({
                                 testID: 'kitchen-qc-created-held-toast',
                                 tone: 'warning',
-                                message: t('kitchen:ops.qc.createdHeldToast', { subject: subject.ref }),
+                                message: t('kitchen:ops.qc.createdHeldToast', {
+                                    subject: subject.ref,
+                                }),
                             });
                             onDone();
                         },
@@ -306,18 +319,28 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
         {
             key: 'kind',
             label: t('kitchen:ops.qc.summarySubjectType'),
-            value: t(isReceipt ? 'kitchen:ops.qc.kindReceiptTitle' : 'kitchen:ops.qc.kindBatchTitle'),
+            value: t(
+                isReceipt ? 'kitchen:ops.qc.kindReceiptTitle' : 'kitchen:ops.qc.kindBatchTitle',
+            ),
         },
-        { key: 'subject', label: t('kitchen:ops.qc.summarySubject'), value: picked?.ref ?? noValue },
+        {
+            key: 'subject',
+            label: t('kitchen:ops.qc.summarySubject'),
+            value: picked?.ref ?? noValue,
+        },
         {
             key: 'date',
-            label: t(isReceipt ? 'kitchen:ops.qc.summaryReceived' : 'kitchen:ops.qc.summaryPlannedFor'),
+            label: t(
+                isReceipt ? 'kitchen:ops.qc.summaryReceived' : 'kitchen:ops.qc.summaryPlannedFor',
+            ),
             value: picked === null ? noValue : formatDate(picked.date),
         },
         {
             key: 'start',
             label: t('kitchen:ops.qc.summaryStartsAs'),
-            value: t(start === 'hold' ? 'kitchen:ops.qc.statusOnHold' : 'kitchen:ops.qc.statusPending'),
+            value: t(
+                start === 'hold' ? 'kitchen:ops.qc.statusOnHold' : 'kitchen:ops.qc.statusPending',
+            ),
         },
     ];
 
@@ -336,7 +359,11 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                         testID={`kitchen-qc-create-summary-${row.key}`}
                         className="flex-row items-baseline justify-between gap-tight"
                     >
-                        <Text variant="caption" numberOfLines={1} className="text-content-on-brand-subtle">
+                        <Text
+                            variant="caption"
+                            numberOfLines={1}
+                            className="text-content-on-brand-subtle"
+                        >
                             {row.label}
                         </Text>
                         <Text
@@ -350,7 +377,11 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                     </View>
                 ))}
                 <Text variant="caption" className="text-content-on-brand-subtle">
-                    {t(start === 'hold' ? 'kitchen:ops.qc.summaryFootHold' : 'kitchen:ops.qc.summaryFootPending')}
+                    {t(
+                        start === 'hold'
+                            ? 'kitchen:ops.qc.summaryFootHold'
+                            : 'kitchen:ops.qc.summaryFootPending',
+                    )}
                 </Text>
             </View>
 
@@ -399,7 +430,11 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
             meta={null}
             guard={guard}
             concurrency={concurrency}
-            saveLabel={t(start === 'hold' ? 'kitchen:ops.qc.createSubmitHold' : 'kitchen:ops.qc.createSubmit')}
+            saveLabel={t(
+                start === 'hold'
+                    ? 'kitchen:ops.qc.createSubmitHold'
+                    : 'kitchen:ops.qc.createSubmit',
+            )}
             saving={createCheck.isPending || holdCheck.isPending}
             onSaveDraft={submit}
             backLabel={t('kitchen:ops.qc.backToList')}
@@ -498,7 +533,11 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                                 invalid={missingSubject}
                                 empty={
                                     rows.length === 0
-                                        ? t(isReceipt ? 'kitchen:ops.qc.receiptsNone' : 'kitchen:ops.qc.batchesNone')
+                                        ? t(
+                                              isReceipt
+                                                  ? 'kitchen:ops.qc.receiptsNone'
+                                                  : 'kitchen:ops.qc.batchesNone',
+                                          )
                                         : t('kitchen:ops.qc.subjectsNoMatch')
                                 }
                                 formatDate={formatDate}
@@ -510,7 +549,11 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                         )}
 
                         {matching.length > shown.length ? (
-                            <Text variant="caption" tone="secondary" testID="kitchen-qc-subject-more">
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                testID="kitchen-qc-subject-more"
+                            >
                                 {t('kitchen:ops.qc.subjectsLimited', { count: shown.length })}
                             </Text>
                         ) : null}
@@ -553,10 +596,17 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                             first
                             variant="card"
                             testID="kitchen-qc-create-cover"
-                            title={t(isReceipt ? 'kitchen:ops.qc.coverReceiptTitle' : 'kitchen:ops.qc.coverBatchTitle')}
+                            title={t(
+                                isReceipt
+                                    ? 'kitchen:ops.qc.coverReceiptTitle'
+                                    : 'kitchen:ops.qc.coverBatchTitle',
+                            )}
                             aside={
                                 <Text variant="caption" tone="secondary" numberOfLines={1}>
-                                    {t('kitchen:ops.qc.coverAside', { ref: picked.ref, who: picked.who })}
+                                    {t('kitchen:ops.qc.coverAside', {
+                                        ref: picked.ref,
+                                        who: picked.who,
+                                    })}
                                 </Text>
                             }
                         >
@@ -566,10 +616,17 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                                         key={line.key}
                                         className="min-h-row-sm flex-row items-center justify-between gap-tight border-b border-stroke-subtle px-control-sm"
                                     >
-                                        <Text variant="caption" numberOfLines={1} className="min-w-0 shrink">
+                                        <Text
+                                            variant="caption"
+                                            numberOfLines={1}
+                                            className="min-w-0 shrink"
+                                        >
                                             {line.name}
                                         </Text>
-                                        <Text variant="caption" className="font-semibold tabular-nums">
+                                        <Text
+                                            variant="caption"
+                                            className="font-semibold tabular-nums"
+                                        >
                                             {line.qty}
                                         </Text>
                                     </View>
@@ -660,7 +717,11 @@ function SubjectList({
     const { t } = useTranslation();
 
     const header = (text: string, className?: string) => (
-        <Text variant="strong" numberOfLines={1} className={cx('text-content-on-brand-subtle', className)}>
+        <Text
+            variant="strong"
+            numberOfLines={1}
+            className={cx('text-content-on-brand-subtle', className)}
+        >
             {text}
         </Text>
     );
@@ -677,14 +738,25 @@ function SubjectList({
         >
             <View className="min-h-row-sm flex-row items-center gap-tight bg-surface-brand-subtle px-control-sm">
                 <View className="w-4" />
-                {header(t(isReceipt ? 'kitchen:ops.qc.colReceipt' : 'kitchen:ops.qc.colBatch'), 'min-w-0 flex-1')}
-                {header(t(isReceipt ? 'kitchen:ops.qc.colSupplier' : 'kitchen:ops.qc.colRecipe'), 'min-w-0 flex-1')}
+                {header(
+                    t(isReceipt ? 'kitchen:ops.qc.colReceipt' : 'kitchen:ops.qc.colBatch'),
+                    'min-w-0 flex-1',
+                )}
+                {header(
+                    t(isReceipt ? 'kitchen:ops.qc.colSupplier' : 'kitchen:ops.qc.colRecipe'),
+                    'min-w-0 flex-1',
+                )}
                 {header(t('kitchen:ops.qc.colDate'), DATE_TRACK)}
                 {header(t('kitchen:ops.qc.colChecks'), CHECK_TRACK)}
             </View>
 
             {rows.length === 0 ? (
-                <Text variant="caption" tone="secondary" testID="kitchen-qc-subject-empty" className="px-control-sm py-base">
+                <Text
+                    variant="caption"
+                    tone="secondary"
+                    testID="kitchen-qc-subject-empty"
+                    className="px-control-sm py-base"
+                >
                     {empty}
                 </Text>
             ) : (
@@ -711,7 +783,11 @@ function SubjectList({
                                 <RadioMark on={on} />
                             </View>
                             <View className="min-w-0 flex-1 flex-col">
-                                <Text variant="caption" numberOfLines={1} className="font-semibold tabular-nums">
+                                <Text
+                                    variant="caption"
+                                    numberOfLines={1}
+                                    className="font-semibold tabular-nums"
+                                >
                                     {row.ref}
                                 </Text>
                                 <Text variant="micro" tone="secondary" numberOfLines={1}>
@@ -721,7 +797,12 @@ function SubjectList({
                             <Text variant="caption" numberOfLines={1} className="min-w-0 flex-1">
                                 {row.who}
                             </Text>
-                            <Text variant="caption" tone="secondary" numberOfLines={1} className={cx(DATE_TRACK, 'tabular-nums')}>
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                numberOfLines={1}
+                                className={cx(DATE_TRACK, 'tabular-nums')}
+                            >
                                 {formatDate(row.date)}
                             </Text>
                             <View className={cx(CHECK_TRACK, 'flex-row')}>

@@ -81,8 +81,7 @@ function harness() {
             const path = decodeURIComponent(url.replace('https://api.example/api/v1', ''));
             paths.push(path);
 
-            const json = (body: unknown) =>
-                new Response(JSON.stringify(body), { status: 200 });
+            const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
 
             if (path === '/catalogue/sales-channels') return json({ data: [] });
             if (path === `/catalogue/price-lists/${LIST_UUID}`) {
@@ -94,7 +93,10 @@ function harness() {
                     ? json({
                           data: [
                               entry('e3', OTHER_MEAL_UUID, 'meal', null),
-                              entry('e4', SAUCE_UUID, 'sauce', { id: SAUCE_PACK_UUID, code: 'b2c' }),
+                              entry('e4', SAUCE_UUID, 'sauce', {
+                                  id: SAUCE_PACK_UUID,
+                                  code: 'b2c',
+                              }),
                           ],
                           meta: { has_more: false, next_cursor: null },
                       })

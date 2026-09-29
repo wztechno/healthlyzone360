@@ -1288,24 +1288,23 @@ export function mapPriceListEntry(
     itemId: string,
     variantCode: string | null,
 ): PriceListEntry {
-    const itemRef =
-        PRODUCT_SHAPED_TYPES.has(itemType)
-            ? {
-                  kind: 'product' as const,
-                  productId: ProductId.unsafe(itemId),
-                  packCode: variantCode,
-              }
-            : itemType === 'meal'
-              ? { kind: 'meal' as const, mealId: MealId.unsafe(itemId) }
-              : {
-                    kind: 'plan' as const,
-                    planId: SubscriptionPlanId.unsafe(itemId),
-                    variantId:
-                        wire.catalogue_item_variant_id === null ||
-                        wire.catalogue_item_variant_id === undefined
-                            ? null
-                            : PlanVariantId.unsafe(wire.catalogue_item_variant_id),
-                };
+    const itemRef = PRODUCT_SHAPED_TYPES.has(itemType)
+        ? {
+              kind: 'product' as const,
+              productId: ProductId.unsafe(itemId),
+              packCode: variantCode,
+          }
+        : itemType === 'meal'
+          ? { kind: 'meal' as const, mealId: MealId.unsafe(itemId) }
+          : {
+                kind: 'plan' as const,
+                planId: SubscriptionPlanId.unsafe(itemId),
+                variantId:
+                    wire.catalogue_item_variant_id === null ||
+                    wire.catalogue_item_variant_id === undefined
+                        ? null
+                        : PlanVariantId.unsafe(wire.catalogue_item_variant_id),
+            };
 
     return {
         item: itemRef,

@@ -644,7 +644,9 @@ function ProductionBatchNew() {
                                                 value={amount}
                                                 {...(submitted && !amountValid
                                                     ? {
-                                                          error: t('kitchen:ops.production.amountRequired'),
+                                                          error: t(
+                                                              'kitchen:ops.production.amountRequired',
+                                                          ),
                                                       }
                                                     : {})}
                                                 onChangeText={(next) => {
@@ -707,8 +709,14 @@ function ProductionBatchNew() {
                                     <Callout
                                         testID="kitchen-production-batch-new-draft-on-top"
                                         tone="warning"
-                                        title={t('kitchen:ops.production.draftOnTopTitle', draftOnTop)}
-                                        body={t('kitchen:ops.production.draftOnTopBody', draftOnTop)}
+                                        title={t(
+                                            'kitchen:ops.production.draftOnTopTitle',
+                                            draftOnTop,
+                                        )}
+                                        body={t(
+                                            'kitchen:ops.production.draftOnTopBody',
+                                            draftOnTop,
+                                        )}
                                     />
                                 )}
                             </Stack>
@@ -1001,7 +1009,9 @@ function NextSteps() {
                                             : 'mt-1 h-2.5 w-2.5 rounded-full border border-stroke-strong bg-surface-raised'
                                     }
                                 />
-                                {last ? null : <View className="mt-1 w-px flex-1 bg-stroke-subtle" />}
+                                {last ? null : (
+                                    <View className="mt-1 w-px flex-1 bg-stroke-subtle" />
+                                )}
                             </View>
                             <View className="min-w-0 flex-1 flex-col pb-tight">
                                 <Text variant="label" tone={current ? 'primary' : 'secondary'}>

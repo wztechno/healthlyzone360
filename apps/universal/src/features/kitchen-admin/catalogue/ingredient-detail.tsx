@@ -150,9 +150,14 @@ export function IngredientDetail({
             // Named for the language it is in — "Item (AR)" — the words the editor's two name
             // fields use, rather than "the other language", which makes the reader work out which.
             key: 'name-other',
-            label: t(locale === 'ar' ? 'kitchen:bilingual.englishShort' : 'kitchen:bilingual.arabicShort', {
-                field: t('kitchen:list.columnItem'),
-            }),
+            label: t(
+                locale === 'ar'
+                    ? 'kitchen:bilingual.englishShort'
+                    : 'kitchen:bilingual.arabicShort',
+                {
+                    field: t('kitchen:list.columnItem'),
+                },
+            ),
             value: (locale === 'ar' ? ingredient.name.en : ingredient.name.ar) || dash,
         },
         {

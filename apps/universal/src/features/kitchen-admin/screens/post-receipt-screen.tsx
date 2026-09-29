@@ -43,7 +43,10 @@ import {
     useSuppliersQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
-import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
+import {
+    INVENTORY_MANAGE_PERMISSION,
+    INVENTORY_VIEW_COSTS_PERMISSION,
+} from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import { displayName } from '../format.ts';
 import { ChoiceTiles } from '../choice-tiles.tsx';
@@ -377,9 +380,7 @@ function PostReceipt() {
         () =>
             [
                 ...new Set(
-                    lines
-                        .map((line) => line.stockItemId)
-                        .filter((id): id is string => id !== null),
+                    lines.map((line) => line.stockItemId).filter((id): id is string => id !== null),
                 ),
             ]
                 .sort()
@@ -403,7 +404,8 @@ function PostReceipt() {
         if (last.unitPriceAmount === null) return null;
 
         const lastPrice = Number(last.unitPriceAmount);
-        const foreign = last.costCurrencyCode !== null && last.costCurrencyCode !== RECEIPT_CURRENCY;
+        const foreign =
+            last.costCurrencyCode !== null && last.costCurrencyCode !== RECEIPT_CURRENCY;
         const lastText = `${formatAmount(lastPrice)}${foreign ? ` ${String(last.costCurrencyCode)}` : ''}`;
         const lastUnit = last.unitCode ?? itemOwnUnitCode(line.stockItemId) ?? '';
         const typed = readAmount(line.unitPrice ?? '');
@@ -731,7 +733,9 @@ function PostReceipt() {
                         setBodyWidth(event.nativeEvent.layout.width);
                     }}
                     className={
-                        sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
+                        sideBySide
+                            ? 'z-auto flex-row items-start gap-base'
+                            : 'z-auto flex-col gap-base'
                     }
                 >
                     {/* The form is the row's filler beside the fixed summary. */}
@@ -812,7 +816,11 @@ function PostReceipt() {
                                                 onChange={chooseOrder}
                                                 fullWidth
                                                 {...(submitted && order === null
-                                                    ? { error: t('kitchen:ops.procurement.issueNoOrder') }
+                                                    ? {
+                                                          error: t(
+                                                              'kitchen:ops.procurement.issueNoOrder',
+                                                          ),
+                                                      }
                                                     : {})}
                                                 searchable
                                             />
@@ -952,9 +960,12 @@ function PostReceipt() {
                                     defaultUnitIdForItem={defaultUnitIdForItem}
                                     unitLabelFor={unitLabelFor}
                                     withCost={canViewCosts}
-                                    unitPriceLabel={t('kitchen:ops.procurement.fieldLineUnitPrice', {
-                                        currency: RECEIPT_CURRENCY,
-                                    })}
+                                    unitPriceLabel={t(
+                                        'kitchen:ops.procurement.fieldLineUnitPrice',
+                                        {
+                                            currency: RECEIPT_CURRENCY,
+                                        },
+                                    )}
                                     unitPricePlaceholder={t(
                                         'kitchen:ops.procurement.pricePlaceholder',
                                     )}
@@ -1230,11 +1241,19 @@ function ReceiptSummary({
 }: {
     /** A fixed column beside the form, or `null` to run the full width under it. */
     readonly width: number | null;
-    readonly rows: readonly { readonly key: string; readonly label: string; readonly value: string }[];
+    readonly rows: readonly {
+        readonly key: string;
+        readonly label: string;
+        readonly value: string;
+    }[];
     /** The receipt's total with its currency, or `null` for a reader who cannot see money. */
     readonly total: string | null;
     readonly risesTitle: string;
-    readonly rises: readonly { readonly key: string; readonly name: string; readonly quantity: string }[];
+    readonly rises: readonly {
+        readonly key: string;
+        readonly name: string;
+        readonly quantity: string;
+    }[];
     readonly note: ReactNode;
     readonly action: ReactNode;
 }) {
@@ -1277,7 +1296,9 @@ function ReceiptSummary({
                         ))}
                         {total === null ? null : (
                             <View className="mt-hair flex-row items-baseline justify-between gap-tight border-t border-stroke-subtle pt-tight">
-                                <Text variant="label">{t('kitchen:ops.procurement.receiptTotal')}</Text>
+                                <Text variant="label">
+                                    {t('kitchen:ops.procurement.receiptTotal')}
+                                </Text>
                                 <Text
                                     testID="kitchen-post-receipt-summary-total"
                                     variant="title"

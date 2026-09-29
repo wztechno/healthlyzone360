@@ -488,7 +488,6 @@ function Procurement() {
                     </Inline>
                 </Stack>
             )}
-
         </Stack>
     );
 }

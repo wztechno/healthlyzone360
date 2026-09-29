@@ -339,7 +339,6 @@ function UnpricedReceipts() {
                     ]}
                 />
             )}
-
         </Stack>
     );
 }

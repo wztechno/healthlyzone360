@@ -317,7 +317,9 @@ export function CustomerSection({
                                                     testID={`kitchen-order-desk-sale-customer-duplicate-${duplicate.id}-choose`}
                                                     size="sm"
                                                     variant="secondary"
-                                                    label={t('kitchen:desk.sale.customerUseInstead')}
+                                                    label={t(
+                                                        'kitchen:desk.sale.customerUseInstead',
+                                                    )}
                                                     onPress={() => {
                                                         choose(duplicate);
                                                     }}

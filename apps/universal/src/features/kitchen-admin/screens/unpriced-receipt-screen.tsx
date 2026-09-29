@@ -1,4 +1,8 @@
-import type { GoodsReceiptDetail, GoodsReceiptLine, StockItem } from '@healthy360/api-client/contracts';
+import type {
+    GoodsReceiptDetail,
+    GoodsReceiptLine,
+    StockItem,
+} from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,

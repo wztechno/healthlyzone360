@@ -5,12 +5,7 @@ import type {
     QualityCheck,
     StockItem,
 } from '@healthy360/api-client/contracts';
-import {
-    GoodsReceiptId,
-    QualityCheckId,
-    StockItemId,
-    SupplierId,
-} from '@healthy360/domain-types';
+import { GoodsReceiptId, QualityCheckId, StockItemId, SupplierId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { TEST_BRANCH_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
@@ -87,7 +82,13 @@ function shelf(id: StockItemId, nameEn: string): StockItem {
     };
 }
 
-function receipt(id: string, documentRef: string, supplierName: string, receivedOn: string, lines: readonly [StockItemId, string][]): GoodsReceipt {
+function receipt(
+    id: string,
+    documentRef: string,
+    supplierName: string,
+    receivedOn: string,
+    lines: readonly [StockItemId, string][],
+): GoodsReceipt {
     return {
         id: GoodsReceiptId.unsafe(id),
         branchId: TEST_BRANCH_ID,

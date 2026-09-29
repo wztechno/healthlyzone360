@@ -106,14 +106,13 @@ export interface StockItemLineEditorProps {
     /** Formats a line total and the receipt total. */
     readonly formatMoney?: (amount: number) => string;
     /** The small line under a row's price, or `null` for none. Only read when `withCost`. */
-    readonly priceNoteFor?: ((line: StockItemLineDraft) => StockItemLinePriceNote | null) | undefined;
+    readonly priceNoteFor?:
+        ((line: StockItemLineDraft) => StockItemLinePriceNote | null) | undefined;
     /**
      * The problems to mark on each row, keyed by line key. The page's issue banner names them, so a
      * field here draws only its invalid border; the message stays for a screen reader.
      */
-    readonly issues?:
-        | ReadonlyMap<string, Partial<Record<StockItemLineField, string>>>
-        | undefined;
+    readonly issues?: ReadonlyMap<string, Partial<Record<StockItemLineField, string>>> | undefined;
 }
 
 /**
