@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7847 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7848 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3778,7 +3778,6 @@ export interface NamespaceKeys {
     | 'ops.exceptions.window.title'
     | 'ops.ledger.allItems'
     | 'ops.ledger.allSuppliers'
-    | 'ops.ledger.anyDate'
     | 'ops.ledger.chargeDelivery'
     | 'ops.ledger.chargeDiscount'
     | 'ops.ledger.chargeOther'
@@ -3800,6 +3799,7 @@ export interface NamespaceKeys {
     | 'ops.ledger.filterItem'
     | 'ops.ledger.filterSupplier'
     | 'ops.ledger.filterTo'
+    | 'ops.ledger.fromPlaceholder'
     | 'ops.ledger.hideCharges'
     | 'ops.ledger.incompleteBadge'
     | 'ops.ledger.modeDetail'
@@ -3827,6 +3827,7 @@ export interface NamespaceKeys {
     | 'ops.ledger.summaryRange'
     | 'ops.ledger.summarySubtotal'
     | 'ops.ledger.title'
+    | 'ops.ledger.toPlaceholder'
     | 'ops.ledger.unpricedLines'
     | 'ops.ledger.viewFoot'
     | 'ops.ledger.viewKind'
@@ -11643,7 +11644,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.window.title',
   'kitchen:ops.ledger.allItems',
   'kitchen:ops.ledger.allSuppliers',
-  'kitchen:ops.ledger.anyDate',
   'kitchen:ops.ledger.chargeDelivery',
   'kitchen:ops.ledger.chargeDiscount',
   'kitchen:ops.ledger.chargeOther',
@@ -11665,6 +11665,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.filterItem',
   'kitchen:ops.ledger.filterSupplier',
   'kitchen:ops.ledger.filterTo',
+  'kitchen:ops.ledger.fromPlaceholder',
   'kitchen:ops.ledger.hideCharges',
   'kitchen:ops.ledger.incompleteBadge',
   'kitchen:ops.ledger.modeDetail',
@@ -11692,6 +11693,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.summaryRange',
   'kitchen:ops.ledger.summarySubtotal',
   'kitchen:ops.ledger.title',
+  'kitchen:ops.ledger.toPlaceholder',
   'kitchen:ops.ledger.unpricedLines',
   'kitchen:ops.ledger.viewFoot',
   'kitchen:ops.ledger.viewKind',

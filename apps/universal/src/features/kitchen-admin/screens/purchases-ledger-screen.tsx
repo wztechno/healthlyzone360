@@ -49,6 +49,7 @@ import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { receiptCostStatusKey } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
@@ -97,6 +98,9 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * the endpoint can answer — and the search box narrows only the page in hand, because the endpoint
  * has no text search. Read-only: View is the one row action, and it opens the record window.
  */
+
+/** The supplier and item pickers' track on the filter panel — the toolbar's compact width. */
+const FILTER_SELECT_WIDTH = 200;
 
 /** Detail walks the lines; weekly and monthly total them. */
 const LEDGER_MODES = ['detail', 'weekly', 'monthly'] as const;
@@ -511,45 +515,81 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                 <ColumnPicker {...controls.picker} />
             </CatalogueToolbar>
 
-            <Inline space="sm" align="end" wrap testID="kitchen-ledger-filters">
-                <Select
-                    testID="kitchen-ledger-filter-supplier"
-                    label={t('kitchen:ops.ledger.filterSupplier')}
-                    options={supplierOptions}
-                    value={supplierId ?? ''}
-                    onChange={(value) => {
-                        setSupplierId(value === '' ? null : value);
-                        resetCursor();
-                    }}
-                    searchable
-                    className="min-w-[200px] flex-1"
-                />
-                <Select
-                    testID="kitchen-ledger-filter-item"
-                    label={t('kitchen:ops.ledger.filterItem')}
-                    options={stockItemOptions}
-                    value={stockItemId ?? ''}
-                    onChange={(value) => {
-                        setStockItemId(value === '' ? null : value);
-                        resetCursor();
-                    }}
-                    searchable
-                    className="min-w-[200px] flex-1"
-                />
+            {/*
+             * The filters on the raised panel the search row above sits on, in one row: the two
+             * pickers at the toolbar's compact width, the received-between window, and — for the
+             * lines, where it applies — the price chips at the inline end, under the mode switch.
+             */}
+            <ToolbarPanel
+                testID="kitchen-ledger-filters"
+                end={
+                    isDetail ? (
+                        <View
+                            testID="kitchen-ledger-filter-cost-status"
+                            role="group"
+                            aria-label={t('kitchen:ops.ledger.filterCostStatus')}
+                            className="flex-row flex-wrap items-center gap-tight"
+                        >
+                            {RECEIPT_COST_STATUSES.map((status) => (
+                                <FilterChip
+                                    key={status}
+                                    testID={`kitchen-ledger-cost-status-${status}`}
+                                    label={t(receiptCostStatusKey(status))}
+                                    selected={costStatus === status}
+                                    onChange={(selected) => {
+                                        // One state at a time: the endpoint takes a single
+                                        // `cost_status`, and a second selected chip would be a
+                                        // control promising a union it cannot ask for.
+                                        setCostStatus(selected ? status : null);
+                                        resetCursor();
+                                    }}
+                                />
+                            ))}
+                        </View>
+                    ) : undefined
+                }
+            >
+                <View className="z-tooltip" style={{ width: FILTER_SELECT_WIDTH }}>
+                    <Select
+                        testID="kitchen-ledger-filter-supplier"
+                        label={t('kitchen:ops.ledger.filterSupplier')}
+                        labelHidden
+                        size="sm"
+                        options={supplierOptions}
+                        value={supplierId ?? ''}
+                        onChange={(value) => {
+                            setSupplierId(value === '' ? null : value);
+                            resetCursor();
+                        }}
+                        searchable
+                    />
+                </View>
+                <View className="z-tooltip" style={{ width: FILTER_SELECT_WIDTH }}>
+                    <Select
+                        testID="kitchen-ledger-filter-item"
+                        label={t('kitchen:ops.ledger.filterItem')}
+                        labelHidden
+                        size="sm"
+                        options={stockItemOptions}
+                        value={stockItemId ?? ''}
+                        onChange={(value) => {
+                            setStockItemId(value === '' ? null : value);
+                            resetCursor();
+                        }}
+                        searchable
+                    />
+                </View>
                 {/*
-                 * The order desk's calendar picker, in place of two boxes that asked for a typed
-                 * `YYYY-MM-DD`. Either bound may stay open — "Any date" — and each picker keeps the
-                 * other honest: From cannot pass To, nor To precede From.
+                 * The order desk's calendar picker, as the cost report draws its window: two days
+                 * with "to" between. Either bound may stay open, and each picker keeps the other
+                 * honest — From cannot pass To, nor To precede From.
                  */}
                 <DatePickerButton
                     testID="kitchen-ledger-filter-from"
                     label={t('kitchen:ops.ledger.filterFrom')}
-                    labelVisible
                     value={from}
                     max={to === '' ? undefined : to}
-                    placeholder={t('kitchen:ops.ledger.anyDate')}
-                    // Both pickers close the row, so both panels open back towards the page.
-                    align="end"
+                    placeholder={t('kitchen:ops.ledger.fromPlaceholder')}
                     onChange={(value) => {
                         setFrom(value);
                         resetCursor();
@@ -559,14 +599,15 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                         resetCursor();
                     }}
                 />
+                <Text variant="caption" tone="secondary" aria-hidden>
+                    {t('kitchen:ops.requirements.windowTo')}
+                </Text>
                 <DatePickerButton
                     testID="kitchen-ledger-filter-to"
                     label={t('kitchen:ops.ledger.filterTo')}
-                    labelVisible
                     value={to}
                     min={from === '' ? undefined : from}
-                    placeholder={t('kitchen:ops.ledger.anyDate')}
-                    align="end"
+                    placeholder={t('kitchen:ops.ledger.toPlaceholder')}
                     onChange={(value) => {
                         setTo(value);
                         resetCursor();
@@ -576,30 +617,7 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                         resetCursor();
                     }}
                 />
-            </Inline>
-
-            {isDetail ? (
-                <Inline space="xs" align="center" wrap testID="kitchen-ledger-filter-cost-status">
-                    <Text variant="caption" tone="secondary">
-                        {t('kitchen:ops.ledger.filterCostStatus')}
-                    </Text>
-                    {RECEIPT_COST_STATUSES.map((status) => (
-                        <FilterChip
-                            key={status}
-                            testID={`kitchen-ledger-cost-status-${status}`}
-                            label={t(receiptCostStatusKey(status))}
-                            selected={costStatus === status}
-                            onChange={(selected) => {
-                                // One state at a time: the endpoint takes a single `cost_status`,
-                                // and a second selected chip would be a control promising a union
-                                // it cannot ask for.
-                                setCostStatus(selected ? status : null);
-                                resetCursor();
-                            }}
-                        />
-                    ))}
-                </Inline>
-            ) : null}
+            </ToolbarPanel>
 
             {pending ? (
                 <TableSkeleton
