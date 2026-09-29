@@ -1803,7 +1803,6 @@
             "lineTwoLabel": "Second line",
             "buildingLabel": "Building",
             "directionsLabel": "Directions for the driver",
-            "directionsHint": "Landmarks, the gate to use, where to park. Not part of the address.",
             "addressSave": "Save address",
             "addressUndeliverableTitle": "Nobody delivers to that area yet",
             "addressUndeliverableBody": "The address is saved, but no zone covers it at the moment, so this order cannot be sent there. Tell the customer, and offer collection instead.",

@@ -537,7 +537,6 @@ export function AddressSection({
                             testID="kitchen-order-desk-sale-address-directions"
                             id="kitchen-order-desk-sale-address-directions"
                             label={t('kitchen:desk.sale.directionsLabel')}
-                            hint={t('kitchen:desk.sale.directionsHint')}
                             size="sm"
                             span={2}
                             multiline
