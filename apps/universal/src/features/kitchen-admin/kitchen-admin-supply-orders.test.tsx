@@ -721,13 +721,13 @@ describe('supply order builder', () => {
         });
 
         await openBuilderStep('review');
-        await untilVisible('kitchen-supply-order-commit');
+        await untilVisible('kitchen-supply-order-preview-total');
 
         // One supplier, one line — LOW_ONLY opened with a suggestion and a preferred supplier, and
         // the other two rows carry no quantity.
-        expect(screen.getByTestId('kitchen-supply-order-commit-orders')).toHaveTextContent(/1/);
-        expect(screen.getByTestId('kitchen-supply-order-commit-lines')).toHaveTextContent(/1/);
-        expect(screen.getByTestId('kitchen-supply-order-commit-left-behind')).toHaveTextContent(
+        expect(screen.getByTestId('kitchen-supply-order-preview-total')).toHaveTextContent(/1/);
+        expect(screen.getByTestId('kitchen-supply-order-preview-lines')).toHaveTextContent(/1/);
+        expect(screen.getByTestId('kitchen-supply-order-preview-left-behind')).toHaveTextContent(
             /2/,
         );
 
@@ -782,7 +782,7 @@ describe('supply order builder', () => {
         });
 
         await openBuilderStep('review');
-        await untilVisible('kitchen-supply-order-commit');
+        await untilVisible('kitchen-supply-order-create');
 
         // Create is at the foot of Ready to order, under what it creates.
         await act(async () => {
@@ -808,15 +808,19 @@ describe('supply order builder', () => {
 
         await untilVisible('kitchen-supply-order-add-select');
 
+        // Items are named, never coded: the catalogue code is a slug of the name beside it.
+        expect(screen.queryByText(LOW_ONLY.itemCode)).toBeNull();
+
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-supply-order-add-select-trigger'));
         });
+        const option = await screen.findByTestId(
+            `kitchen-supply-order-add-select-option-${String(itemId(9))}`,
+        );
+        expect(option).toHaveTextContent(/^Item 9/);
+        expect(option).not.toHaveTextContent(/ITM-09/);
         await act(async () => {
-            fireEvent.press(
-                await screen.findByTestId(
-                    `kitchen-supply-order-add-select-option-${String(itemId(9))}`,
-                ),
-            );
+            fireEvent.press(option);
         });
 
         // One place decides what a proposal row looks like, suppliers resolved and all — so a shelf

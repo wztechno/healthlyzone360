@@ -142,6 +142,7 @@ import {
 } from '../features/kitchen-admin/catalogue/column-picker.tsx';
 import { RecordViewPage } from '../features/kitchen-admin/catalogue/record-view-page.tsx';
 import { GateRailCard } from '../features/kitchen-admin/gate-rail-card.tsx';
+import { RecordSummaryAside } from '../features/kitchen-admin/record-summary-aside.tsx';
 import { KitchenPageHeader } from '../features/kitchen-admin/kitchen-page-header.tsx';
 import { KpiTile } from '../features/kitchen-admin/kpi-tile.tsx';
 import { ListToolbar } from '../features/kitchen-admin/list-toolbar.tsx';
@@ -4364,6 +4365,41 @@ export function ShowcaseScreen() {
                             }
                         />
                     </View>
+                    {/* The record form's aside — Post receipt's, shared with the supply-order builder. */}
+                    <RecordSummaryAside
+                        testID="showcase-kitchen-summary"
+                        title="Ready to order"
+                        width={300}
+                        rows={[
+                            { key: 'out', label: 'Out of stock', value: '2' },
+                            { key: 'lines', label: 'Lines to order', value: '5' },
+                        ]}
+                        total={{ label: 'Draft orders', value: '2' }}
+                        list={{
+                            title: 'One draft per supplier',
+                            empty: 'Nothing is ready yet.',
+                            testID: 'showcase-kitchen-summary-list',
+                            emptyTestID: 'showcase-kitchen-summary-empty',
+                            items: [
+                                { key: 'beqaa', name: 'Beqaa Fresh Produce', value: '3 items' },
+                                {
+                                    key: 'wadi',
+                                    name: 'Al Wadi Dairy',
+                                    value: '+24 kg',
+                                    tone: 'success',
+                                },
+                            ],
+                        }}
+                        note={<Callout tone="warning" title="1 item won't be ordered" />}
+                        action={
+                            <Button
+                                testID="showcase-kitchen-summary-action"
+                                label="Create 2 draft orders"
+                                block
+                            />
+                        }
+                        foot="Nothing is sent to anyone yet."
+                    />
                 </Section>
             </Stack>
         </PageTransition>

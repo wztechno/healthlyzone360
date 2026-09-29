@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7719 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7721 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4684,10 +4684,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.columnReorderAt'
     | 'ops.supplyOrders.columnStatus'
     | 'ops.supplyOrders.columnSupplier'
-    | 'ops.supplyOrders.commitLeftBehind'
-    | 'ops.supplyOrders.commitLines'
     | 'ops.supplyOrders.commitNote'
-    | 'ops.supplyOrders.commitOrders'
     | 'ops.supplyOrders.createCancel'
     | 'ops.supplyOrders.createConfirm'
     | 'ops.supplyOrders.createConfirmBody'
@@ -4725,6 +4722,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.notesTitle'
     | 'ops.supplyOrders.nothingNeededBody'
     | 'ops.supplyOrders.nothingNeededTitle'
+    | 'ops.supplyOrders.onHand'
     | 'ops.supplyOrders.order'
     | 'ops.supplyOrders.orderAnyway'
     | 'ops.supplyOrders.ordersCaption'
@@ -4823,6 +4821,10 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.status.partiallyReceived'
     | 'ops.supplyOrders.status.received'
     | 'ops.supplyOrders.subtitle'
+    | 'ops.supplyOrders.summaryBySupplier'
+    | 'ops.supplyOrders.summaryDrafts'
+    | 'ops.supplyOrders.summaryLeftBehind'
+    | 'ops.supplyOrders.summaryLines'
     | 'ops.supplyOrders.supplierArchivedBody'
     | 'ops.supplyOrders.supplierArchivedTitle'
     | 'ops.supplyOrders.supplierLabel'
@@ -12421,10 +12423,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.columnReorderAt',
   'kitchen:ops.supplyOrders.columnStatus',
   'kitchen:ops.supplyOrders.columnSupplier',
-  'kitchen:ops.supplyOrders.commitLeftBehind',
-  'kitchen:ops.supplyOrders.commitLines',
   'kitchen:ops.supplyOrders.commitNote',
-  'kitchen:ops.supplyOrders.commitOrders',
   'kitchen:ops.supplyOrders.createCancel',
   'kitchen:ops.supplyOrders.createConfirm',
   'kitchen:ops.supplyOrders.createConfirmBody',
@@ -12462,6 +12461,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.notesTitle',
   'kitchen:ops.supplyOrders.nothingNeededBody',
   'kitchen:ops.supplyOrders.nothingNeededTitle',
+  'kitchen:ops.supplyOrders.onHand',
   'kitchen:ops.supplyOrders.order',
   'kitchen:ops.supplyOrders.orderAnyway',
   'kitchen:ops.supplyOrders.ordersCaption',
@@ -12560,6 +12560,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.status.partiallyReceived',
   'kitchen:ops.supplyOrders.status.received',
   'kitchen:ops.supplyOrders.subtitle',
+  'kitchen:ops.supplyOrders.summaryBySupplier',
+  'kitchen:ops.supplyOrders.summaryDrafts',
+  'kitchen:ops.supplyOrders.summaryLeftBehind',
+  'kitchen:ops.supplyOrders.summaryLines',
   'kitchen:ops.supplyOrders.supplierArchivedBody',
   'kitchen:ops.supplyOrders.supplierArchivedTitle',
   'kitchen:ops.supplyOrders.supplierLabel',

@@ -26,7 +26,6 @@ import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
@@ -67,6 +66,7 @@ import type {
 } from '../ops-line-editor.tsx';
 import { readAmount, readQuantity, todayIsoDate } from '../receive-delivery-model.ts';
 import { RecordFormOpening } from '../record-form-opening.tsx';
+import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -1025,7 +1025,9 @@ function PostReceipt() {
                         </FormSection>
                     </View>
 
-                    <ReceiptSummary
+                    <RecordSummaryAside
+                        testID="kitchen-post-receipt-summary"
+                        title={t('kitchen:ops.procurement.summaryTitle')}
                         width={sideBySide ? ASIDE_WIDTH : null}
                         rows={[
                             {
@@ -1061,24 +1063,35 @@ function PostReceipt() {
                         ]}
                         total={
                             canViewCosts
-                                ? `${formatAmount(receiptTotal)} ${RECEIPT_CURRENCY}`
+                                ? {
+                                      label: t('kitchen:ops.procurement.receiptTotal'),
+                                      value: `${formatAmount(receiptTotal)} ${RECEIPT_CURRENCY}`,
+                                  }
                                 : null
                         }
-                        risesTitle={
-                            branchName === null
-                                ? t('kitchen:ops.procurement.risesTitleNoBranch')
-                                : t('kitchen:ops.procurement.risesTitle', { branch: branchName })
-                        }
-                        rises={risingLines.map((line) => ({
-                            key: line.key,
-                            name: itemById.get(line.stockItemId ?? '')?.name ?? '',
-                            quantity: t('kitchen:ops.procurement.risesQuantity', {
-                                quantity: formatter.formatNumber(readQuantity(line.quantity) ?? 0, {
-                                    maximumFractionDigits: 3,
+                        list={{
+                            title:
+                                branchName === null
+                                    ? t('kitchen:ops.procurement.risesTitleNoBranch')
+                                    : t('kitchen:ops.procurement.risesTitle', {
+                                          branch: branchName,
+                                      }),
+                            empty: t('kitchen:ops.procurement.risesEmpty'),
+                            testID: 'kitchen-post-receipt-rises',
+                            emptyTestID: 'kitchen-post-receipt-rises-empty',
+                            items: risingLines.map((line) => ({
+                                key: line.key,
+                                name: itemById.get(line.stockItemId ?? '')?.name ?? '',
+                                tone: 'success' as const,
+                                value: t('kitchen:ops.procurement.risesQuantity', {
+                                    quantity: formatter.formatNumber(
+                                        readQuantity(line.quantity) ?? 0,
+                                        { maximumFractionDigits: 3 },
+                                    ),
+                                    unit: unitLabelFor(line.stockItemId, line.unitId ?? null),
                                 }),
-                                unit: unitLabelFor(line.stockItemId, line.unitId ?? null),
-                            }),
-                        }))}
+                            })),
+                        }}
                         note={
                             canViewCosts ? (
                                 unpricedCount > 0 ? (
@@ -1109,6 +1122,7 @@ function PostReceipt() {
                                 onPress={attemptPost}
                             />
                         }
+                        foot={t('kitchen:ops.procurement.postFoot')}
                     />
                 </View>
             )}
@@ -1217,146 +1231,5 @@ function PostReceipt() {
                 }
             />
         </Stack>
-    );
-}
-
-/* ------------------------------------------------------------------------------------------------
- * The summary
- * ---------------------------------------------------------------------------------------------- */
-
-/**
- * The aside: this receipt in a few facts, what the shelves will read after it, and the post.
- *
- * One card rather than three, its parts divided by hairlines, because it is read top to bottom as
- * one statement — this is what you are posting, this is what it does, post it.
- */
-function ReceiptSummary({
-    width,
-    rows,
-    total,
-    risesTitle,
-    rises,
-    note,
-    action,
-}: {
-    /** A fixed column beside the form, or `null` to run the full width under it. */
-    readonly width: number | null;
-    readonly rows: readonly {
-        readonly key: string;
-        readonly label: string;
-        readonly value: string;
-    }[];
-    /** The receipt's total with its currency, or `null` for a reader who cannot see money. */
-    readonly total: string | null;
-    readonly risesTitle: string;
-    readonly rises: readonly {
-        readonly key: string;
-        readonly name: string;
-        readonly quantity: string;
-    }[];
-    readonly note: ReactNode;
-    readonly action: ReactNode;
-}) {
-    const { t } = useTranslation();
-
-    return (
-        <View
-            testID="kitchen-post-receipt-summary"
-            role="complementary"
-            aria-label={t('kitchen:ops.procurement.summaryTitle')}
-            style={width === null ? undefined : { width }}
-            className="z-auto self-start web:sticky web:top-0"
-        >
-            <FormSection
-                first
-                variant="card"
-                testID="kitchen-post-receipt-summary-card"
-                title={t('kitchen:ops.procurement.summaryTitle')}
-            >
-                <View className="flex-col gap-base">
-                    <View className="flex-col gap-snug">
-                        {rows.map((row) => (
-                            <View
-                                key={row.key}
-                                testID={`kitchen-post-receipt-summary-${row.key}`}
-                                className="flex-row items-baseline justify-between gap-tight"
-                            >
-                                <Text variant="caption" tone="secondary" numberOfLines={1}>
-                                    {row.label}
-                                </Text>
-                                <Text
-                                    variant="caption"
-                                    align="end"
-                                    numberOfLines={1}
-                                    className="min-w-0 shrink font-medium tabular-nums"
-                                >
-                                    {row.value}
-                                </Text>
-                            </View>
-                        ))}
-                        {total === null ? null : (
-                            <View className="mt-hair flex-row items-baseline justify-between gap-tight border-t border-stroke-subtle pt-tight">
-                                <Text variant="label">
-                                    {t('kitchen:ops.procurement.receiptTotal')}
-                                </Text>
-                                <Text
-                                    testID="kitchen-post-receipt-summary-total"
-                                    variant="title"
-                                    className="tabular-nums"
-                                >
-                                    {total}
-                                </Text>
-                            </View>
-                        )}
-                    </View>
-
-                    <View className="flex-col gap-snug border-t border-stroke-subtle pt-base">
-                        <Text variant="strong">{risesTitle}</Text>
-                        {rises.length === 0 ? (
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                testID="kitchen-post-receipt-rises-empty"
-                            >
-                                {t('kitchen:ops.procurement.risesEmpty')}
-                            </Text>
-                        ) : (
-                            <View testID="kitchen-post-receipt-rises" className="flex-col gap-hair">
-                                {rises.map((rise) => (
-                                    <View
-                                        key={rise.key}
-                                        className="flex-row items-baseline justify-between gap-tight"
-                                    >
-                                        <Text
-                                            variant="caption"
-                                            numberOfLines={1}
-                                            className="min-w-0 shrink"
-                                        >
-                                            {rise.name}
-                                        </Text>
-                                        <Text
-                                            variant="caption"
-                                            tone="success"
-                                            className="font-semibold tabular-nums"
-                                        >
-                                            {rise.quantity}
-                                        </Text>
-                                    </View>
-                                ))}
-                            </View>
-                        )}
-                    </View>
-
-                    {note}
-
-                    <View className="flex-col gap-tight border-t border-stroke-subtle pt-base">
-                        {action}
-                        <Text variant="micro" tone="secondary">
-                            {t('kitchen:ops.procurement.postFoot')}
-                        </Text>
-                    </View>
-                </View>
-            </FormSection>
-        </View>
     );
 }
