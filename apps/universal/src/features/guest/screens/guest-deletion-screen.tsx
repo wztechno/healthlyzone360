@@ -109,6 +109,7 @@ export function GuestDeletionScreen() {
                         <TextInputField
                             testID={`${TEST_ID}-email`}
                             label={t('guest:deletion.email')}
+                            placeholder={t('auth:login.emailPlaceholder')}
                             hint={t('guest:deletion.emailHint')}
                             value={email}
                             onChangeText={setEmail}
@@ -118,6 +119,7 @@ export function GuestDeletionScreen() {
                         <TextInputField
                             testID={`${TEST_ID}-mobile`}
                             label={t('guest:deletion.mobile')}
+                            placeholder={t('guest:deletion.mobilePlaceholder')}
                             hint={t('guest:deletion.mobileHint')}
                             value={mobile}
                             onChangeText={setMobile}

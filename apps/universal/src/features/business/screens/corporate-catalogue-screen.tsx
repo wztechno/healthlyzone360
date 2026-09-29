@@ -177,6 +177,7 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
                 testID="corporate-catalogue-search"
                 id="corporate-catalogue-search"
                 label={t('business:catalogue.searchLabel')}
+                placeholder={t('business:catalogue.searchPlaceholder')}
                 value={query}
                 onChangeText={setQuery}
                 autoCapitalize="none"

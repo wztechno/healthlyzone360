@@ -662,6 +662,7 @@ export function PlannerWeekScreen({ week }: PlannerWeekScreenProps) {
                     testID="planner-week-template-name"
                     id="planner-week-template-name"
                     label={t('planner:week.templateNameLabel')}
+                    placeholder={t('planner:week.templateNamePlaceholder')}
                     value={templateName}
                     onChangeText={setTemplateName}
                 />

@@ -483,6 +483,7 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                             label={t('kitchen:ops.supplyOrders.quantityLabel', {
                                 item: line.itemNameEn,
                             })}
+                            placeholder={t('kitchen:ops.supplyOrders.quantityPlaceholder')}
                             keyboardType="decimal-pad"
                             value={line.quantity}
                             error={
@@ -866,6 +867,7 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                                 testID="kitchen-supply-order-detail-notes-input"
                                 label={t('kitchen:ops.supplyOrders.notesLabel')}
                                 hint={t('kitchen:ops.supplyOrders.notesHint')}
+                                placeholder={t('kitchen:ops.supplyOrders.notesPlaceholder')}
                                 multiline
                                 value={notes}
                                 onChangeText={(next) => {

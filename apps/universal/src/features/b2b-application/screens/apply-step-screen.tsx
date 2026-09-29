@@ -377,6 +377,7 @@ function SectionStep({
                         testID={fieldTestID}
                         id={fieldTestID}
                         label={label}
+                        placeholder={t(`b2bApplication:fields.${field.name}Placeholder`)}
                         {...(hint === undefined ? {} : { hint })}
                         required={field.required}
                         multiline={field.kind === 'multiline'}

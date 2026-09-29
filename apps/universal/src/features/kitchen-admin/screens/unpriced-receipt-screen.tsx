@@ -471,6 +471,7 @@ function lineColumns({
                         })}
                         labelHidden
                         size="sm"
+                        placeholder={t('kitchen:fields.unitPricePlaceholder')}
                         value={raw}
                         error={invalid ? t('kitchen:ops.unpricedReceipts.priceInvalid') : undefined}
                         onChangeText={(next) => {

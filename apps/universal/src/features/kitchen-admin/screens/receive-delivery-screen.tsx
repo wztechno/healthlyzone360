@@ -366,6 +366,9 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                             testID="kitchen-receive-document-ref"
                                             label={t('kitchen:ops.receiving.fieldDocumentRef')}
                                             hint={t('kitchen:ops.receiving.fieldDocumentRefHint')}
+                                            placeholder={t(
+                                                'kitchen:ops.receiving.documentRefPlaceholder',
+                                            )}
                                             value={header.documentRef}
                                             onChangeText={(next) => {
                                                 setHeader((current) => ({
@@ -379,6 +382,9 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                             testID="kitchen-receive-invoice-ref"
                                             label={t('kitchen:ops.receiving.fieldInvoiceRef')}
                                             hint={t('kitchen:ops.receiving.fieldInvoiceRefHint')}
+                                            placeholder={t(
+                                                'kitchen:ops.receiving.invoiceRefPlaceholder',
+                                            )}
                                             value={header.supplierInvoiceRef}
                                             onChangeText={(next) => {
                                                 setHeader((current) => ({
@@ -437,6 +443,9 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                             'kitchen:ops.receiving.fieldLineQuantity',
                                                             { unit: line.unitCode },
                                                         )}
+                                                        placeholder={t(
+                                                            'kitchen:fields.quantityPlaceholder',
+                                                        )}
                                                         value={line.quantity}
                                                         keyboardType="decimal-pad"
                                                         onChangeText={(next) => {
@@ -458,6 +467,9 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                         )}
                                                         hint={t(
                                                             'kitchen:ops.receiving.fieldLineUnitPriceHint',
+                                                        )}
+                                                        placeholder={t(
+                                                            'kitchen:fields.unitPricePlaceholder',
                                                         )}
                                                         value={line.unitPrice}
                                                         keyboardType="decimal-pad"
@@ -518,6 +530,9 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                             testID="kitchen-receive-variance-note"
                                             label={t('kitchen:ops.receiving.fieldVarianceNote')}
                                             hint={t('kitchen:ops.receiving.fieldVarianceNoteHint')}
+                                            placeholder={t(
+                                                'kitchen:ops.receiving.varianceNotePlaceholder',
+                                            )}
                                             required
                                             value={confirmations.varianceNote}
                                             onChangeText={(next) => {
@@ -550,6 +565,9 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                     testID="kitchen-receive-close-short-reason"
                                                     label={t(
                                                         'kitchen:ops.receiving.fieldCloseShortReason',
+                                                    )}
+                                                    placeholder={t(
+                                                        'kitchen:ops.receiving.closeShortReasonPlaceholder',
                                                     )}
                                                     required
                                                     value={confirmations.closeShortReason}
@@ -613,6 +631,9 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                             label={t(
                                                                 `kitchen:ops.receiving.${labelKey}`,
                                                                 { currency: RECEIPT_CURRENCY },
+                                                            )}
+                                                            placeholder={t(
+                                                                'kitchen:fields.amountPlaceholder',
                                                             )}
                                                             value={header[field]}
                                                             keyboardType="decimal-pad"

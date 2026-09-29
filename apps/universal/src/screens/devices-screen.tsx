@@ -329,6 +329,7 @@ export function DevicesScreen() {
                     testID="step-up-password"
                     id="step-up-password"
                     label={t('auth:stepUp.passwordLabel')}
+                    placeholder={t('auth:stepUp.passwordPlaceholder')}
                     autoComplete="current-password"
                     revealable={false}
                     required

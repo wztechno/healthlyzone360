@@ -376,6 +376,7 @@ function BilingualStory({ prefix }: { readonly prefix: string }) {
                     value={row}
                     requiredEnglish
                     onChange={setRow}
+                    placeholder={{ en: 'Tahini paste', ar: 'طحينة' }}
                 />
             </FormGrid>
             <BilingualField
@@ -384,6 +385,7 @@ function BilingualStory({ prefix }: { readonly prefix: string }) {
                 value={stacked}
                 requiredEnglish
                 onChange={setStacked}
+                placeholder={{ en: 'Garlic sauce', ar: 'صلصة الثوم' }}
             />
         </Stack>
     );
@@ -1355,6 +1357,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 label="Reference"
                                 size="sm"
                                 value="ING-0142"
+                                placeholder="ING-0000"
                                 disabled
                             />
                         )}
@@ -1373,6 +1376,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 size="sm"
                                 value="0"
                                 onChangeText={() => undefined}
+                                placeholder="0"
                             />
                         )}
                     </FormField>
@@ -1388,6 +1392,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 label="Category"
                                 size="sm"
                                 value="Sauces"
+                                placeholder="Dips"
                                 disabled
                             />
                         )}
@@ -1407,6 +1412,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 multiline
                                 value="Blend, then rest."
                                 onChangeText={() => undefined}
+                                placeholder="Soak, blend, season"
                             />
                         )}
                     </FormField>
@@ -1424,6 +1430,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 size="sm"
                                 value="Chilled, 4 °C"
                                 onChangeText={() => undefined}
+                                placeholder="Dry, room temperature"
                             />
                         )}
                     </FormField>
@@ -1446,6 +1453,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         numberOfLines={3}
                         value="Arrives in 10 kg pails."
                         onChangeText={() => undefined}
+                        placeholder="A few words"
                     />
                 </FormGrid>
                 {/* Stated column count: deliberately not responsive. */}
@@ -1456,7 +1464,13 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         label="Fixed at two"
                     >
                         {(control) => (
-                            <TextInputField {...control} label="Fixed at two" size="sm" value="A" />
+                            <TextInputField
+                                {...control}
+                                label="Fixed at two"
+                                size="sm"
+                                value="A"
+                                placeholder="Column one"
+                            />
                         )}
                     </FormField>
                     <FormField
@@ -1470,6 +1484,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 label="Not responsive"
                                 size="sm"
                                 value="B"
+                                placeholder="Column two"
                             />
                         )}
                     </FormField>
@@ -1485,6 +1500,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         label="xs — a line-table cell"
                         size="xs"
                         value="1"
+                        placeholder="0"
                     />
                     <TextInputField
                         testID={id('field-size-sm')}
@@ -1492,6 +1508,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         label="sm — the Catalogue default"
                         size="sm"
                         value="250"
+                        placeholder="0"
                     />
                     <TextInputField
                         testID={id('field-size-md')}
@@ -1499,6 +1516,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         label="md"
                         size="md"
                         value="250"
+                        placeholder="0"
                     />
                     {/* The same `xs` step on a picker, for a line-table cell beside `xs` inputs. */}
                     <Select
@@ -1619,6 +1637,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             size="sm"
                             label="Item (EN)"
                             value="Bottle 500 ml"
+                            placeholder="Jar 250 g"
                         />
                         <QuantityInput
                             testID={id('half-error')}
@@ -1626,6 +1645,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             label="Pack price"
                             unit="SAR"
                             value=""
+                            placeholder="0.00"
                             error="Required"
                             onChangeText={() => undefined}
                         />
@@ -1635,6 +1655,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             label="Waste"
                             unit="%"
                             value="12"
+                            placeholder="0"
                             warning="Above 10%"
                             onChangeText={() => undefined}
                         />
@@ -1644,6 +1665,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             label="Cost per item"
                             unit="SAR"
                             value="0.0833"
+                            placeholder="—"
                             readOnly
                             onChangeText={() => undefined}
                         />
@@ -1674,6 +1696,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         label="Unit price"
                         unit="SAR"
                         value=""
+                        placeholder="0.00"
                         required
                         error="Required"
                         onChangeText={() => undefined}
@@ -1824,6 +1847,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         unit="%"
                         hint="B2B against unit price 3.50"
                         value="+20.0"
+                        placeholder="—"
                         onChangeText={() => undefined}
                     />
                     <QuantityInput
@@ -1892,6 +1916,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             label="Search, disabled"
                             value=""
                             onChangeText={() => undefined}
+                            placeholder="Search ingredients"
                             disabled
                         />
                     </Stack>
@@ -1907,6 +1932,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             unit="kg"
                             value={quantity}
                             onChangeText={setQuantity}
+                            placeholder="0"
                         />
                     ))}
                     <QuantityInput
@@ -1918,6 +1944,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         unit="KWD"
                         hint="Two decimal places."
                         value="4.22"
+                        placeholder="0.00"
                         onChangeText={() => undefined}
                     />
                     <QuantityInput
@@ -1928,6 +1955,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         unit="%"
                         error="Enter a percentage between 0 and 100."
                         value="140"
+                        placeholder="0"
                         onChangeText={() => undefined}
                     />
                     <QuantityInput
@@ -1939,6 +1967,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         unit="KWD"
                         hint="Derived — read-only on the sunken fill."
                         value="4.5700"
+                        placeholder="—"
                         onChangeText={() => undefined}
                     />
                     <QuantityInput
@@ -1948,6 +1977,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         disabled
                         label="Portions"
                         value="8"
+                        placeholder="0"
                         onChangeText={() => undefined}
                     />
                     <QuantityInput
@@ -1977,6 +2007,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 size={size}
                                 label={`Input ${size}`}
                                 value="Tahini paste"
+                                placeholder="Sumac"
                                 onChangeText={() => undefined}
                             />
                         </View>
@@ -1990,6 +2021,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             label="Item"
                             error="Enter an item name."
                             value=""
+                            placeholder="Tahini paste"
                             onChangeText={() => undefined}
                         />
                     </View>
@@ -2001,6 +2033,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             label="Yield"
                             hint="The trailing slot sits inside the frame."
                             value="1.700"
+                            placeholder="0.000"
                             onChangeText={() => undefined}
                             trailing={
                                 <Text variant="mono" tone="secondary">
@@ -2017,6 +2050,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             disabled
                             label="Reference"
                             value="ING-0142"
+                            placeholder="ING-0000"
                         />
                     </View>
                 </View>
@@ -3255,6 +3289,7 @@ export function ShowcaseScreen() {
                         required
                         value={text}
                         onChangeText={setText}
+                        placeholder="A few words"
                     />
                     <TextInputField
                         testID="showcase-text-input-error"
@@ -3262,6 +3297,7 @@ export function ShowcaseScreen() {
                         label={t('designSystem:showcase.sampleLabel')}
                         error={t('designSystem:showcase.sampleError')}
                         value=""
+                        placeholder="A few words"
                         onChangeText={() => undefined}
                     />
                     <PasswordInput
@@ -3269,6 +3305,7 @@ export function ShowcaseScreen() {
                         id="showcase-password"
                         label={t('auth:login.passwordLabel')}
                         value=""
+                        placeholder="Enter your password"
                         onChangeText={() => undefined}
                     />
                     {/*

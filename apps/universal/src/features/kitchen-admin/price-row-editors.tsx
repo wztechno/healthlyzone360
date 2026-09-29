@@ -1238,6 +1238,7 @@ export function PriceEntriesCard({
                                 labelHidden
                                 size="sm"
                                 unit="%"
+                                placeholder={t('kitchen:fields.percentPlaceholder')}
                                 value={percent}
                                 onChangeText={setPercent}
                             />

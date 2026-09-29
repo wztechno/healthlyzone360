@@ -873,6 +873,10 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                             layout="fill"
                             fieldLabel={t('kitchen:fields.name')}
                             value={details.name}
+                            placeholder={{
+                                en: t('kitchen:fields.recipeNamePlaceholderEn'),
+                                ar: t('kitchen:fields.recipeNamePlaceholderAr'),
+                            }}
                             requiredEnglish
                             {...(nameMissing
                                 ? { englishError: t('kitchen:meals.nameRequired') }
@@ -889,6 +893,10 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                             fieldLabel={t('kitchen:meals.descriptionLabel')}
                             multiline
                             value={details.description}
+                            placeholder={{
+                                en: t('kitchen:fields.descriptionPlaceholderEn'),
+                                ar: t('kitchen:fields.descriptionPlaceholderAr'),
+                            }}
                             onChange={(next) => {
                                 setDetails({ ...details, description: next });
                                 markDetailsDirty();
@@ -905,6 +913,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                             id="kitchen-meal-portion"
                             label={t('kitchen:meals.portionLabel')}
                             hint={t('kitchen:meals.portionHint')}
+                            placeholder={t('kitchen:meals.portionPlaceholder')}
                             value={details.portionFactor}
                             inputMode="decimal"
                             required
@@ -1032,6 +1041,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                                         id="kitchen-meal-net-content"
                                         label={t('kitchen:meals.netContentLabel')}
                                         hint={t('kitchen:meals.netContentHint')}
+                                        placeholder={t('kitchen:fields.quantityPlaceholder')}
                                         value={details.netContentQuantity}
                                         inputMode="decimal"
                                         required={producedShelfWeighed}

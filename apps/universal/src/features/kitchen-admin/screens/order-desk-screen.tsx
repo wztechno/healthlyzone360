@@ -728,6 +728,7 @@ function RecordPaymentDialog({
                         currency: row.currencyCode,
                     }),
                 })}
+                placeholder={t('kitchen:fields.amountPlaceholder')}
                 // Only once the person has actually typed something wrong: a field that opens
                 // red because it is empty is a form telling somebody off for arriving.
                 {...(amount.trim() !== '' && !amountValid
@@ -751,6 +752,7 @@ function RecordPaymentDialog({
                         ? 'kitchen:desk.recordPayment.referenceHintWish'
                         : 'kitchen:desk.recordPayment.referenceHint',
                 )}
+                placeholder={t('kitchen:desk.sale.referencePlaceholder')}
                 value={reference}
                 onChangeText={setReference}
                 autoCapitalize="none"
@@ -762,6 +764,7 @@ function RecordPaymentDialog({
                 id="kitchen-order-desk-payment-notes"
                 label={t('kitchen:desk.sale.notesLabel')}
                 hint={t('kitchen:desk.recordPayment.notesHint')}
+                placeholder={t('kitchen:desk.recordPayment.notesPlaceholder')}
                 value={notes}
                 onChangeText={setNotes}
                 multiline

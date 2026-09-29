@@ -335,6 +335,7 @@ export function QuotationBuilderScreen({
                     testID="quotation-builder-contact-name"
                     id="quotation-builder-contact-name"
                     label={t('business:builder.contactName')}
+                    placeholder={t('business:builder.contactNamePlaceholder')}
                     value={contact.name}
                     required
                     onChangeText={(next: string) => {
@@ -347,6 +348,7 @@ export function QuotationBuilderScreen({
                     testID="quotation-builder-contact-email"
                     id="quotation-builder-contact-email"
                     label={t('business:builder.contactEmail')}
+                    placeholder={t('business:builder.contactEmailPlaceholder')}
                     value={contact.email}
                     required
                     autoCapitalize="none"
@@ -383,6 +385,7 @@ export function QuotationBuilderScreen({
                     testID="quotation-builder-note"
                     id="quotation-builder-note"
                     label={t('business:builder.note')}
+                    placeholder={t('business:builder.notePlaceholder')}
                     hint={t('business:builder.noteHint')}
                     value={contact.note}
                     multiline

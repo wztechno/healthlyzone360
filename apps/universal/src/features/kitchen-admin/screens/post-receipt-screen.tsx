@@ -867,6 +867,9 @@ function PostReceipt() {
                                     <TextInputField
                                         testID="kitchen-procurement-post-document-ref"
                                         label={t('kitchen:ops.procurement.fieldDeliveryNote')}
+                                        placeholder={t(
+                                            'kitchen:ops.procurement.deliveryNotePlaceholder',
+                                        )}
                                         size="sm"
                                         value={documentRef}
                                         onChangeText={edited(setDocumentRef)}
@@ -1012,6 +1015,9 @@ function PostReceipt() {
                                                 label={t('kitchen:ops.receiving.fieldVarianceNote')}
                                                 hint={t(
                                                     'kitchen:ops.receiving.fieldVarianceNoteHint',
+                                                )}
+                                                placeholder={t(
+                                                    'kitchen:ops.receiving.varianceNotePlaceholder',
                                                 )}
                                                 size="sm"
                                                 required
@@ -1185,6 +1191,7 @@ function PostReceipt() {
                         <TextInputField
                             testID="kitchen-procurement-supplier-email"
                             label={t('kitchen:ops.procurement.fieldSupplierEmail')}
+                            placeholder={t('kitchen:ops.suppliers.emailPlaceholder')}
                             size="sm"
                             value={newSupplierEmail}
                             onChangeText={setNewSupplierEmail}
@@ -1193,6 +1200,7 @@ function PostReceipt() {
                         <TextInputField
                             testID="kitchen-procurement-supplier-phone"
                             label={t('kitchen:ops.procurement.fieldSupplierPhone')}
+                            placeholder={t('kitchen:ops.suppliers.phonePlaceholder')}
                             size="sm"
                             value={newSupplierPhone}
                             onChangeText={setNewSupplierPhone}

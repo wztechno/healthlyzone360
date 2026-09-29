@@ -11,6 +11,7 @@ import {
 } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 /**
@@ -167,6 +168,8 @@ export function StockItemLineEditor({
     priceNoteFor,
     issues,
 }: StockItemLineEditorProps) {
+    const { t } = useTranslation();
+
     function updateLine(key: string, patch: Partial<StockItemLineDraft>) {
         onChange(lines.map((line) => (line.key === key ? { ...line, ...patch } : line)));
     }
@@ -266,6 +269,7 @@ export function StockItemLineEditor({
                         labelHidden
                         size="xs"
                         value={line.quantity}
+                        placeholder={t('kitchen:fields.quantityPlaceholder')}
                         {...(issues?.get(line.key)?.quantity === undefined
                             ? {}
                             : { error: issues.get(line.key)?.quantity })}

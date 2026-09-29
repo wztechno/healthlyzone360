@@ -267,6 +267,7 @@ function DriverJobs() {
                         testID="driver-jobs-deliver-notes"
                         id="driver-jobs-deliver-notes"
                         label={t('kitchen:driver.notesLabel')}
+                        placeholder={t('kitchen:driver.notesPlaceholder')}
                         hint={t('kitchen:driver.notesHint')}
                         value={notes}
                         onChangeText={setNotes}

@@ -227,6 +227,7 @@ export function AddEntryDrawer({
                             testID={`${testID}-restaurant-dish`}
                             id={`${testID}-restaurant-dish`}
                             label={t('planner:add.restaurantDishLabel')}
+                            placeholder={t('planner:add.restaurantDishPlaceholder')}
                             hint={t('planner:add.restaurantDishHint')}
                             value={dish}
                             onChangeText={setDish}

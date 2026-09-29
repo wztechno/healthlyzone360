@@ -169,6 +169,7 @@ export function SupplierContactCard({
                         id={`${testID}-name`}
                         size="sm"
                         label={t('kitchen:ops.suppliers.fieldContactName')}
+                        placeholder={t('kitchen:ops.suppliers.contactNamePlaceholder')}
                         value={draft.name}
                         required
                         disabled={!canManage}
@@ -182,6 +183,7 @@ export function SupplierContactCard({
                         id={`${testID}-role`}
                         size="sm"
                         label={t('kitchen:ops.suppliers.fieldContactRole')}
+                        placeholder={t('kitchen:ops.suppliers.contactRolePlaceholder')}
                         value={draft.roleTitle}
                         disabled={!canManage}
                         onChangeText={(value) => {
@@ -194,6 +196,7 @@ export function SupplierContactCard({
                         id={`${testID}-email`}
                         size="sm"
                         label={t('kitchen:ops.suppliers.fieldContactEmail')}
+                        placeholder={t('kitchen:ops.suppliers.contactEmailPlaceholder')}
                         value={draft.email}
                         keyboardType="email-address"
                         autoCapitalize="none"
@@ -208,6 +211,7 @@ export function SupplierContactCard({
                         id={`${testID}-phone`}
                         size="sm"
                         label={t('kitchen:ops.suppliers.fieldContactPhone')}
+                        placeholder={t('kitchen:ops.suppliers.phonePlaceholder')}
                         value={draft.phone}
                         keyboardType="phone-pad"
                         disabled={!canManage}
@@ -222,6 +226,7 @@ export function SupplierContactCard({
                         size="sm"
                         label={t('kitchen:ops.suppliers.fieldContactWhatsapp')}
                         hint={t('kitchen:ops.suppliers.whatsappHint')}
+                        placeholder={t('kitchen:ops.suppliers.contactWhatsappPlaceholder')}
                         value={draft.whatsappPhone}
                         keyboardType="phone-pad"
                         disabled={!canManage}

@@ -1201,6 +1201,10 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 layout="row"
                                 testID="kitchen-plan-name"
                                 fieldLabel={t('kitchen:fields.name')}
+                                placeholder={{
+                                    en: t('kitchen:fields.planNamePlaceholderEn'),
+                                    ar: t('kitchen:fields.planNamePlaceholderAr'),
+                                }}
                                 value={details.name}
                                 requiredEnglish
                                 disabled={!canManage}
@@ -1220,6 +1224,10 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 layout="row"
                                 testID="kitchen-plan-summary"
                                 fieldLabel={t('kitchen:plans.summaryLabel')}
+                                placeholder={{
+                                    en: t('kitchen:plans.summaryPlaceholderEn'),
+                                    ar: t('kitchen:plans.summaryPlaceholderAr'),
+                                }}
                                 value={details.summary}
                                 disabled={!canManage}
                                 onChange={(next) => {
@@ -1235,6 +1243,10 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 layout="row"
                                 testID="kitchen-plan-description"
                                 fieldLabel={t('kitchen:plans.descriptionLabel')}
+                                placeholder={{
+                                    en: t('kitchen:plans.descriptionPlaceholderEn'),
+                                    ar: t('kitchen:plans.descriptionPlaceholderAr'),
+                                }}
                                 multiline
                                 value={details.description}
                                 disabled={!canManage}

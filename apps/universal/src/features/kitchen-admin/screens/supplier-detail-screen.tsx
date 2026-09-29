@@ -1250,6 +1250,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                     <TextInputField
                                         testID="kitchen-supplier-link-ref"
                                         label={t('kitchen:ops.suppliers.fieldItemRef')}
+                                        placeholder={t('kitchen:ops.suppliers.itemRefPlaceholder')}
                                         value={pickedRef}
                                         autoCapitalize="characters"
                                         onChangeText={setPickedRef}
@@ -1310,6 +1311,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                 <TextInputField
                     testID="kitchen-supplier-item-ref-value"
                     label={t('kitchen:ops.suppliers.fieldItemRef')}
+                    placeholder={t('kitchen:ops.suppliers.itemRefPlaceholder')}
                     value={refDraft}
                     autoCapitalize="characters"
                     onChangeText={setRefDraft}

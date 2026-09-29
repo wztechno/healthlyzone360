@@ -277,6 +277,7 @@ function BatchPlanner() {
                                       unit: yieldUnitLabel,
                                   })
                         }
+                        placeholder={t('kitchen:fields.quantityPlaceholder')}
                         value={target}
                         onChangeText={setTarget}
                         unit={

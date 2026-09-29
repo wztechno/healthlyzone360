@@ -259,6 +259,7 @@ export function CustomerSection({
                                     id="kitchen-order-desk-sale-customer-name"
                                     label={t('kitchen:desk.sale.customerNameLabel')}
                                     hint={t('kitchen:desk.sale.customerNameHint')}
+                                    placeholder={t('kitchen:desk.sale.customerNamePlaceholder')}
                                     size="sm"
                                     required
                                     value={name}
@@ -512,6 +513,7 @@ export function AddressSection({
                             testID="kitchen-order-desk-sale-address-line-one"
                             id="kitchen-order-desk-sale-address-line-one"
                             label={t('kitchen:desk.sale.lineOneLabel')}
+                            placeholder={t('kitchen:desk.sale.lineOnePlaceholder')}
                             size="sm"
                             required
                             value={lineOne}
@@ -521,6 +523,7 @@ export function AddressSection({
                             testID="kitchen-order-desk-sale-address-line-two"
                             id="kitchen-order-desk-sale-address-line-two"
                             label={t('kitchen:desk.sale.lineTwoLabel')}
+                            placeholder={t('kitchen:desk.sale.lineTwoPlaceholder')}
                             size="sm"
                             value={lineTwo}
                             onChangeText={setLineTwo}
@@ -529,6 +532,7 @@ export function AddressSection({
                             testID="kitchen-order-desk-sale-address-building"
                             id="kitchen-order-desk-sale-address-building"
                             label={t('kitchen:desk.sale.buildingLabel')}
+                            placeholder={t('kitchen:desk.sale.buildingPlaceholder')}
                             size="sm"
                             value={building}
                             onChangeText={setBuilding}
@@ -537,6 +541,7 @@ export function AddressSection({
                             testID="kitchen-order-desk-sale-address-directions"
                             id="kitchen-order-desk-sale-address-directions"
                             label={t('kitchen:desk.sale.directionsLabel')}
+                            placeholder={t('kitchen:desk.sale.directionsPlaceholder')}
                             size="sm"
                             span={2}
                             multiline

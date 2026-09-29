@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7720 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7845 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -318,6 +318,7 @@ export interface NamespaceKeys {
     | 'addresses.areaPlaceholder'
     | 'addresses.backToList'
     | 'addresses.buildingLabel'
+    | 'addresses.buildingPlaceholder'
     | 'addresses.coverageBody'
     | 'addresses.coverageTitle'
     | 'addresses.default'
@@ -325,10 +326,13 @@ export interface NamespaceKeys {
     | 'addresses.empty'
     | 'addresses.emptyBody'
     | 'addresses.floorLabel'
+    | 'addresses.floorPlaceholder'
     | 'addresses.labelLabel'
     | 'addresses.labelPlaceholder'
     | 'addresses.line1Label'
+    | 'addresses.line1Placeholder'
     | 'addresses.line2Label'
+    | 'addresses.line2Placeholder'
     | 'addresses.makeDefault'
     | 'addresses.missingBody'
     | 'addresses.missingTitle'
@@ -336,6 +340,7 @@ export interface NamespaceKeys {
     | 'addresses.noAreasTitle'
     | 'addresses.notesHint'
     | 'addresses.notesLabel'
+    | 'addresses.notesPlaceholder'
     | 'addresses.partSeparator'
     | 'addresses.remove'
     | 'addresses.removeBody'
@@ -392,6 +397,7 @@ export interface NamespaceKeys {
     | 'closure.noChallenge'
     | 'closure.noteHint'
     | 'closure.noteLabel'
+    | 'closure.notePlaceholder'
     | 'closure.optOutConfirm'
     | 'closure.optOutDoneBody'
     | 'closure.optOutDoneTitle'
@@ -498,6 +504,7 @@ export interface NamespaceKeys {
     | 'dietary.hasAllergiesLabel'
     | 'dietary.noneBody'
     | 'dietary.noteLabel'
+    | 'dietary.notePlaceholder'
     | 'dietary.save'
     | 'dietary.saved'
     | 'dietary.severity.allergy'
@@ -543,6 +550,7 @@ export interface NamespaceKeys {
     | 'phone.noNumberTitle'
     | 'phone.numberHint'
     | 'phone.numberLabel'
+    | 'phone.numberPlaceholder'
     | 'phone.otpFallback'
     | 'phone.pendingBody'
     | 'phone.sendCode'
@@ -567,10 +575,13 @@ export interface NamespaceKeys {
     | 'changePassword.continueLabel'
     | 'changePassword.currentHint'
     | 'changePassword.currentLabel'
+    | 'changePassword.currentPlaceholder'
     | 'changePassword.optionalSubtitle'
     | 'changePassword.optionalTitle'
     | 'changePassword.passwordConfirmationLabel'
+    | 'changePassword.passwordConfirmationPlaceholder'
     | 'changePassword.passwordLabel'
+    | 'changePassword.passwordPlaceholder'
     | 'changePassword.submit'
     | 'changePassword.subtitle'
     | 'changePassword.successBody'
@@ -612,6 +623,7 @@ export interface NamespaceKeys {
     | 'login.forgotLink'
     | 'login.guest'
     | 'login.passwordLabel'
+    | 'login.passwordPlaceholder'
     | 'login.rateLimited'
     | 'login.registerLink'
     | 'login.registerPrompt'
@@ -624,8 +636,10 @@ export interface NamespaceKeys {
     | 'login.twoFactor.back'
     | 'login.twoFactor.codeHint'
     | 'login.twoFactor.codeLabel'
+    | 'login.twoFactor.codePlaceholder'
     | 'login.twoFactor.recoveryHint'
     | 'login.twoFactor.recoveryLabel'
+    | 'login.twoFactor.recoveryPlaceholder'
     | 'login.twoFactor.submit'
     | 'login.twoFactor.subtitle'
     | 'login.twoFactor.title'
@@ -716,9 +730,12 @@ export interface NamespaceKeys {
     | 'register.loginLink'
     | 'register.loginPrompt'
     | 'register.nameLabel'
+    | 'register.namePlaceholder'
     | 'register.passwordConfirmationLabel'
+    | 'register.passwordConfirmationPlaceholder'
     | 'register.passwordHint'
     | 'register.passwordLabel'
+    | 'register.passwordPlaceholder'
     | 'register.privacyLink'
     | 'register.submit'
     | 'register.subtitle'
@@ -728,7 +745,9 @@ export interface NamespaceKeys {
     | 'resetPassword.missingLink'
     | 'resetPassword.missingLinkBody'
     | 'resetPassword.passwordConfirmationLabel'
+    | 'resetPassword.passwordConfirmationPlaceholder'
     | 'resetPassword.passwordLabel'
+    | 'resetPassword.passwordPlaceholder'
     | 'resetPassword.requestNew'
     | 'resetPassword.submit'
     | 'resetPassword.subtitle'
@@ -738,6 +757,7 @@ export interface NamespaceKeys {
     | 'stepUp.body'
     | 'stepUp.confirmed'
     | 'stepUp.passwordLabel'
+    | 'stepUp.passwordPlaceholder'
     | 'stepUp.submit'
     | 'stepUp.title'
     | 'verifyEmail.body'
@@ -776,6 +796,7 @@ export interface NamespaceKeys {
     | 'agreement.sign'
     | 'agreement.signTitle'
     | 'agreement.signatoryTitle'
+    | 'agreement.signatoryTitlePlaceholder'
     | 'agreement.signedOn'
     | 'agreement.signing'
     | 'agreement.startsOn'
@@ -784,6 +805,7 @@ export interface NamespaceKeys {
     | 'agreement.title'
     | 'agreement.typedName'
     | 'agreement.typedNameHint'
+    | 'agreement.typedNamePlaceholder'
     | 'agreement.verified'
     | 'agreement.verifyBody'
     | 'agreement.verifyFirst'
@@ -854,27 +876,43 @@ export interface NamespaceKeys {
     | 'errors.sectionRefused'
     | 'fields.businessType'
     | 'fields.commercialRegistrationNumber'
+    | 'fields.commercialRegistrationNumberPlaceholder'
     | 'fields.countryCode'
+    | 'fields.countryCodePlaceholder'
     | 'fields.currencyCode'
+    | 'fields.currencyCodePlaceholder'
     | 'fields.deliveryNotes'
+    | 'fields.deliveryNotesPlaceholder'
     | 'fields.expectedOrderFrequency'
     | 'fields.expectedVolumeBand'
     | 'fields.incorporatedOn'
+    | 'fields.incorporatedOnPlaceholder'
     | 'fields.leadTimeDays'
+    | 'fields.leadTimeDaysPlaceholder'
     | 'fields.legalName'
     | 'fields.legalNameAr'
+    | 'fields.legalNameArPlaceholder'
+    | 'fields.legalNamePlaceholder'
     | 'fields.preferredDeliveryWindow'
     | 'fields.productCategories'
     | 'fields.requestedCreditLimitMinor'
+    | 'fields.requestedCreditLimitMinorPlaceholder'
     | 'fields.requestedPaymentTerms'
     | 'fields.requiresInvoicePerLocation'
     | 'fields.signatoryEmail'
+    | 'fields.signatoryEmailPlaceholder'
     | 'fields.signatoryName'
+    | 'fields.signatoryNamePlaceholder'
     | 'fields.signatoryPhone'
+    | 'fields.signatoryPhonePlaceholder'
     | 'fields.signatoryTitle'
+    | 'fields.signatoryTitlePlaceholder'
     | 'fields.taxRegistrationNumber'
+    | 'fields.taxRegistrationNumberPlaceholder'
     | 'fields.tradingName'
+    | 'fields.tradingNamePlaceholder'
     | 'fields.website'
+    | 'fields.websitePlaceholder'
     | 'hints.deliveryNotes'
     | 'hints.leadTimeDays'
     | 'hints.legalName'
@@ -988,6 +1026,7 @@ export interface NamespaceKeys {
     | 'windDown.effectiveOn'
     | 'windDown.failedTitle'
     | 'windDown.nameLabel'
+    | 'windDown.namePlaceholder'
     | 'windDown.noEffectiveDate'
     | 'windDown.noneBody'
     | 'windDown.noneTitle'
@@ -1038,6 +1077,7 @@ export interface NamespaceKeys {
     | 'windDown.timelineTitle'
     | 'windDown.title'
     | 'windDown.titleLabel'
+    | 'windDown.titlePlaceholder'
     | 'windDown.triggers.client_request'
     | 'windDown.triggers.contract_end'
     | 'windDown.triggers.non_renewal'
@@ -1061,7 +1101,9 @@ export interface NamespaceKeys {
   readonly "business":
     | 'builder.back'
     | 'builder.contactEmail'
+    | 'builder.contactEmailPlaceholder'
     | 'builder.contactName'
+    | 'builder.contactNamePlaceholder'
     | 'builder.contactTitle'
     | 'builder.deliveryDate'
     | 'builder.deliveryDateHint'
@@ -1079,6 +1121,7 @@ export interface NamespaceKeys {
     | 'builder.notFoundTitle'
     | 'builder.note'
     | 'builder.noteHint'
+    | 'builder.notePlaceholder'
     | 'builder.openList'
     | 'builder.quantityLabel'
     | 'builder.recurring'
@@ -1122,6 +1165,7 @@ export interface NamespaceKeys {
     | 'catalogue.quote'
     | 'catalogue.recurring'
     | 'catalogue.searchLabel'
+    | 'catalogue.searchPlaceholder'
     | 'catalogue.singleCurrency'
     | 'catalogue.title'
     | 'catalogue.unpriced'
@@ -1141,6 +1185,7 @@ export interface NamespaceKeys {
     | 'dashboard.lookupHint'
     | 'dashboard.lookupLabel'
     | 'dashboard.lookupOpen'
+    | 'dashboard.lookupPlaceholder'
     | 'dashboard.lookupTitle'
     | 'dashboard.noQuotationsBody'
     | 'dashboard.noQuotationsTitle'
@@ -1644,18 +1689,25 @@ export interface NamespaceKeys {
   readonly "commerce":
     | 'address.area'
     | 'address.areaHint'
+    | 'address.areaPlaceholder'
     | 'address.city'
     | 'address.cityHint'
+    | 'address.cityPlaceholder'
     | 'address.countryCode'
     | 'address.countryCodeHint'
+    | 'address.countryCodePlaceholder'
     | 'address.instructions'
     | 'address.instructionsHint'
+    | 'address.instructionsPlaceholder'
     | 'address.label'
     | 'address.labelHint'
+    | 'address.labelPlaceholder'
     | 'address.line1'
     | 'address.line1Hint'
+    | 'address.line1Placeholder'
     | 'address.line2'
     | 'address.line2Hint'
+    | 'address.line2Placeholder'
     | 'address.notStored'
     | 'balance.cutOffNote'
     | 'balance.perDay'
@@ -2345,8 +2397,10 @@ export interface NamespaceKeys {
     | 'contact.errors.nameRequired'
     | 'contact.fullName'
     | 'contact.fullNameHint'
+    | 'contact.fullNamePlaceholder'
     | 'contact.mobile'
     | 'contact.mobileHint'
+    | 'contact.mobilePlaceholder'
     | 'contact.subtitle'
     | 'contact.title'
     | 'convert.body'
@@ -2354,11 +2408,13 @@ export interface NamespaceKeys {
     | 'convert.doneBody'
     | 'convert.doneTitle'
     | 'convert.fullName'
+    | 'convert.fullNamePlaceholder'
     | 'convert.marketing'
     | 'convert.marketingHint'
     | 'convert.noThanks'
     | 'convert.password'
     | 'convert.passwordHint'
+    | 'convert.passwordPlaceholder'
     | 'convert.submit'
     | 'convert.title'
     | 'convert.verifiedNote'
@@ -2375,6 +2431,7 @@ export interface NamespaceKeys {
     | 'deletion.invalidCode'
     | 'deletion.mobile'
     | 'deletion.mobileHint'
+    | 'deletion.mobilePlaceholder'
     | 'deletion.request'
     | 'deletion.sentBody'
     | 'deletion.sentTitle'
@@ -2911,6 +2968,7 @@ export interface NamespaceKeys {
     | 'desk.recordPayment.methodHint'
     | 'desk.recordPayment.methodLabel'
     | 'desk.recordPayment.notesHint'
+    | 'desk.recordPayment.notesPlaceholder'
     | 'desk.recordPayment.open'
     | 'desk.recordPayment.recordedToast'
     | 'desk.recordPayment.referenceHint'
@@ -2944,6 +3002,7 @@ export interface NamespaceKeys {
     | 'desk.sale.areaLabel'
     | 'desk.sale.areaPlaceholder'
     | 'desk.sale.buildingLabel'
+    | 'desk.sale.buildingPlaceholder'
     | 'desk.sale.change'
     | 'desk.sale.charge'
     | 'desk.sale.chargeEmpty'
@@ -2957,6 +3016,7 @@ export interface NamespaceKeys {
     | 'desk.sale.customerDuplicatesTitle'
     | 'desk.sale.customerNameHint'
     | 'desk.sale.customerNameLabel'
+    | 'desk.sale.customerNamePlaceholder'
     | 'desk.sale.customerNew'
     | 'desk.sale.customerNoneBody'
     | 'desk.sale.customerNoneTitle'
@@ -2972,10 +3032,13 @@ export interface NamespaceKeys {
     | 'desk.sale.customerUseInstead'
     | 'desk.sale.deliveryFee'
     | 'desk.sale.directionsLabel'
+    | 'desk.sale.directionsPlaceholder'
     | 'desk.sale.each'
     | 'desk.sale.itemCount'
     | 'desk.sale.lineOneLabel'
+    | 'desk.sale.lineOnePlaceholder'
     | 'desk.sale.lineTwoLabel'
+    | 'desk.sale.lineTwoPlaceholder'
     | 'desk.sale.method.cashAtCounter'
     | 'desk.sale.method.cashOnDelivery'
     | 'desk.sale.method.wish'
@@ -2996,6 +3059,7 @@ export interface NamespaceKeys {
     | 'desk.sale.quoteUpdating'
     | 'desk.sale.referenceHint'
     | 'desk.sale.referenceLabel'
+    | 'desk.sale.referencePlaceholder'
     | 'desk.sale.refusedBody'
     | 'desk.sale.refusedTitle'
     | 'desk.sale.section.dressings'
@@ -3055,6 +3119,7 @@ export interface NamespaceKeys {
     | 'driver.noAddress'
     | 'driver.notesHint'
     | 'driver.notesLabel'
+    | 'driver.notesPlaceholder'
     | 'driver.orderLabel'
     | 'driver.orderReference'
     | 'driver.phone'
@@ -3173,6 +3238,7 @@ export interface NamespaceKeys {
     | 'families.supplyOrders.name'
     | 'families.team.description'
     | 'families.team.name'
+    | 'fields.amountPlaceholder'
     | 'fields.category'
     | 'fields.categoryHint'
     | 'fields.categoryPlaceholder'
@@ -3196,6 +3262,8 @@ export interface NamespaceKeys {
     | 'fields.packagingNamePlaceholderAr'
     | 'fields.packagingNamePlaceholderEn'
     | 'fields.percentPlaceholder'
+    | 'fields.planNamePlaceholderAr'
+    | 'fields.planNamePlaceholderEn'
     | 'fields.productNamePlaceholderAr'
     | 'fields.productNamePlaceholderEn'
     | 'fields.purchaseUnit'
@@ -3219,6 +3287,8 @@ export interface NamespaceKeys {
     | 'fields.unitPrice'
     | 'fields.unitPriceHint'
     | 'fields.unitPricePlaceholder'
+    | 'fields.zoneNamePlaceholderAr'
+    | 'fields.zoneNamePlaceholderEn'
     | 'forms.aboveWaste'
     | 'forms.allergensTitle'
     | 'forms.atZeroCount'
@@ -3442,6 +3512,7 @@ export interface NamespaceKeys {
     | 'meals.portionHint'
     | 'meals.portionInvalid'
     | 'meals.portionLabel'
+    | 'meals.portionPlaceholder'
     | 'meals.producedIngredientHint'
     | 'meals.producedIngredientLabel'
     | 'meals.producedIngredientNone'
@@ -3862,6 +3933,7 @@ export interface NamespaceKeys {
     | 'ops.procurement.columnSupplier'
     | 'ops.procurement.columnTotal'
     | 'ops.procurement.costsRedacted'
+    | 'ops.procurement.deliveryNotePlaceholder'
     | 'ops.procurement.discardBody'
     | 'ops.procurement.discardTitle'
     | 'ops.procurement.emptyBody'
@@ -3962,6 +4034,7 @@ export interface NamespaceKeys {
     | 'ops.production.abandon'
     | 'ops.production.abandonReasonHint'
     | 'ops.production.abandonReasonLabel'
+    | 'ops.production.abandonReasonPlaceholder'
     | 'ops.production.abandonReasonRequired'
     | 'ops.production.abandonSubmit'
     | 'ops.production.abandonSubtitle'
@@ -3975,6 +4048,7 @@ export interface NamespaceKeys {
     | 'ops.production.backToDesk'
     | 'ops.production.backToList'
     | 'ops.production.batchFactorLabel'
+    | 'ops.production.batchFactorPlaceholder'
     | 'ops.production.batchFallbackTitle'
     | 'ops.production.batchReferenceLabel'
     | 'ops.production.batchSection'
@@ -4068,6 +4142,7 @@ export interface NamespaceKeys {
     | 'ops.production.notFoundTitle'
     | 'ops.production.notesHint'
     | 'ops.production.notesLabel'
+    | 'ops.production.notesPlaceholder'
     | 'ops.production.openBatch'
     | 'ops.production.openNote'
     | 'ops.production.orderShortfall'
@@ -4093,6 +4168,7 @@ export interface NamespaceKeys {
     | 'ops.production.printLabel'
     | 'ops.production.producedHint'
     | 'ops.production.producedLabel'
+    | 'ops.production.producedPlaceholder'
     | 'ops.production.producedRequired'
     | 'ops.production.productionDateLabel'
     | 'ops.production.quickFactor'
@@ -4161,6 +4237,7 @@ export interface NamespaceKeys {
     | 'ops.production.stepInProductionBody'
     | 'ops.production.stepsTitle'
     | 'ops.production.storageLocationLabel'
+    | 'ops.production.storageLocationPlaceholder'
     | 'ops.production.summaryFoot'
     | 'ops.production.summaryMakes'
     | 'ops.production.summaryPortions'
@@ -4356,6 +4433,7 @@ export interface NamespaceKeys {
     | 'ops.receiving.chipPostsStock'
     | 'ops.receiving.closeShortHint'
     | 'ops.receiving.closeShortLabel'
+    | 'ops.receiving.closeShortReasonPlaceholder'
     | 'ops.receiving.confirmCloseShort'
     | 'ops.receiving.confirmComplete'
     | 'ops.receiving.confirmDate'
@@ -4369,6 +4447,7 @@ export interface NamespaceKeys {
     | 'ops.receiving.costStatus.complete'
     | 'ops.receiving.costStatus.partial'
     | 'ops.receiving.costStatus.unpriced'
+    | 'ops.receiving.documentRefPlaceholder'
     | 'ops.receiving.emptyBody'
     | 'ops.receiving.emptyTitle'
     | 'ops.receiving.fieldCloseShortReason'
@@ -4391,6 +4470,7 @@ export interface NamespaceKeys {
     | 'ops.receiving.fieldVarianceNote'
     | 'ops.receiving.fieldVarianceNoteHint'
     | 'ops.receiving.hideCharges'
+    | 'ops.receiving.invoiceRefPlaceholder'
     | 'ops.receiving.lineOverReceipt'
     | 'ops.receiving.linesTitle'
     | 'ops.receiving.orderMissingBody'
@@ -4411,6 +4491,7 @@ export interface NamespaceKeys {
     | 'ops.receiving.summary'
     | 'ops.receiving.title'
     | 'ops.receiving.unpricedToast'
+    | 'ops.receiving.varianceNotePlaceholder'
     | 'ops.requirements.branchRequiredBody'
     | 'ops.requirements.branchRequiredTitle'
     | 'ops.requirements.columnAvailable'
@@ -4507,6 +4588,7 @@ export interface NamespaceKeys {
     | 'ops.stock.noPurchaseSupplier'
     | 'ops.stock.noThreshold'
     | 'ops.stock.numberInvalid'
+    | 'ops.stock.parLevelPlaceholder'
     | 'ops.stock.productsEmptyBody'
     | 'ops.stock.productsEmptyTitle'
     | 'ops.stock.quantityHint'
@@ -4522,6 +4604,7 @@ export interface NamespaceKeys {
     | 'ops.stock.statOutCaption'
     | 'ops.stock.statUnit'
     | 'ops.stock.thresholdClearedToast'
+    | 'ops.stock.thresholdPlaceholder'
     | 'ops.stock.thresholdSetToast'
     | 'ops.stock.viewKind'
     | 'ops.stock.viewNoteEmpty'
@@ -4549,8 +4632,12 @@ export interface NamespaceKeys {
     | 'ops.suppliers.columnName'
     | 'ops.suppliers.columnRef'
     | 'ops.suppliers.columnTerms'
+    | 'ops.suppliers.contactEmailPlaceholder'
+    | 'ops.suppliers.contactNamePlaceholder'
     | 'ops.suppliers.contactNeedsChannel'
     | 'ops.suppliers.contactPosition'
+    | 'ops.suppliers.contactRolePlaceholder'
+    | 'ops.suppliers.contactWhatsappPlaceholder'
     | 'ops.suppliers.contactsSavedToast'
     | 'ops.suppliers.create'
     | 'ops.suppliers.createTitle'
@@ -4581,6 +4668,7 @@ export interface NamespaceKeys {
     | 'ops.suppliers.filteredEmptyTitle'
     | 'ops.suppliers.generalContact'
     | 'ops.suppliers.itemCount'
+    | 'ops.suppliers.itemRefPlaceholder'
     | 'ops.suppliers.itemsEmptyBody'
     | 'ops.suppliers.itemsTitle'
     | 'ops.suppliers.leadTimeDays'
@@ -4718,6 +4806,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.notOrdering'
     | 'ops.supplyOrders.notesHint'
     | 'ops.supplyOrders.notesLabel'
+    | 'ops.supplyOrders.notesPlaceholder'
     | 'ops.supplyOrders.notesTitle'
     | 'ops.supplyOrders.nothingNeededBody'
     | 'ops.supplyOrders.nothingNeededTitle'
@@ -4946,6 +5035,8 @@ export interface NamespaceKeys {
     | 'plans.daysRequired'
     | 'plans.daysUnit'
     | 'plans.descriptionLabel'
+    | 'plans.descriptionPlaceholderAr'
+    | 'plans.descriptionPlaceholderEn'
     | 'plans.dietsLabel'
     | 'plans.discountInvalid'
     | 'plans.discountLabel'
@@ -4964,7 +5055,9 @@ export interface NamespaceKeys {
     | 'plans.emptyBody'
     | 'plans.emptyTitle'
     | 'plans.energyMaxLabel'
+    | 'plans.energyMaxPlaceholder'
     | 'plans.energyMinLabel'
+    | 'plans.energyMinPlaceholder'
     | 'plans.energyRequired'
     | 'plans.energyReversed'
     | 'plans.filteredEmptyBody'
@@ -4979,6 +5072,7 @@ export interface NamespaceKeys {
     | 'plans.matrixRowHeader'
     | 'plans.matrixSaveError'
     | 'plans.mealsPerDayLabel'
+    | 'plans.mealsPerDayPlaceholder'
     | 'plans.menuAddDish'
     | 'plans.menuAddedAnnouncement'
     | 'plans.menuAnchorLabel'
@@ -5064,12 +5158,15 @@ export interface NamespaceKeys {
     | 'plans.servingsRequired'
     | 'plans.servingsSummary'
     | 'plans.snacksPerDayLabel'
+    | 'plans.snacksPerDayPlaceholder'
     | 'plans.statDraftCaption'
     | 'plans.statPlansUnit'
     | 'plans.statPublishedCaption'
     | 'plans.stepsLabel'
     | 'plans.subtitle'
     | 'plans.summaryLabel'
+    | 'plans.summaryPlaceholderAr'
+    | 'plans.summaryPlaceholderEn'
     | 'plans.tabMatrix'
     | 'plans.tabVariants'
     | 'plans.title'
@@ -5081,6 +5178,7 @@ export interface NamespaceKeys {
     | 'plans.variantCount'
     | 'plans.variantInactive'
     | 'plans.variantNameLabel'
+    | 'plans.variantNamePlaceholder'
     | 'plans.variantNameRequired'
     | 'plans.variantNumber'
     | 'plans.variantRemoved'
@@ -5920,9 +6018,11 @@ export interface NamespaceKeys {
     | 'zones.estimatedLabel'
     | 'zones.estimatedMinutes'
     | 'zones.estimatedNone'
+    | 'zones.estimatedPlaceholder'
     | 'zones.estimatedUnit'
     | 'zones.feeHint'
     | 'zones.feeLabel'
+    | 'zones.feePlaceholder'
     | 'zones.feeStateAmount'
     | 'zones.feeStateUnset'
     | 'zones.feeStateZero'
@@ -5934,6 +6034,7 @@ export interface NamespaceKeys {
     | 'zones.loadErrorTitle'
     | 'zones.minimumHint'
     | 'zones.minimumLabel'
+    | 'zones.minimumPlaceholder'
     | 'zones.minimumStateAmount'
     | 'zones.minimumStateUnset'
     | 'zones.minimumStateZero'
@@ -6867,6 +6968,7 @@ export interface NamespaceKeys {
     | 'add.perServing'
     | 'add.restaurantDishHint'
     | 'add.restaurantDishLabel'
+    | 'add.restaurantDishPlaceholder'
     | 'add.restaurantHint'
     | 'add.restaurantSubmit'
     | 'add.restaurantVenueLabel'
@@ -7024,6 +7126,7 @@ export interface NamespaceKeys {
     | 'index.startVirtualDietitian'
     | 'notes.customerHint'
     | 'notes.customerLabel'
+    | 'notes.customerPlaceholder'
     | 'notes.dietitianTitle'
     | 'notes.errorBody'
     | 'notes.errorTitle'
@@ -7176,6 +7279,7 @@ export interface NamespaceKeys {
     | 'week.templateBody'
     | 'week.templateConfirm'
     | 'week.templateNameLabel'
+    | 'week.templateNamePlaceholder'
     | 'week.templateTitle'
     | 'week.title'
     | 'week.warningsBody'
@@ -7183,19 +7287,28 @@ export interface NamespaceKeys {
   readonly "platformAdmin":
     | 'create.branchNameHint'
     | 'create.branchNameLabel'
+    | 'create.branchNamePlaceholder'
     | 'create.cityLabel'
+    | 'create.cityPlaceholder'
     | 'create.countryLabel'
+    | 'create.countryPlaceholder'
     | 'create.created'
     | 'create.currencyLabel'
+    | 'create.currencyPlaceholder'
     | 'create.languageLabel'
+    | 'create.languagePlaceholder'
     | 'create.nameLabel'
+    | 'create.namePlaceholderAr'
+    | 'create.namePlaceholderEn'
     | 'create.ownerNext'
     | 'create.slugHint'
     | 'create.slugLabel'
+    | 'create.slugPlaceholder'
     | 'create.submit'
     | 'create.submitting'
     | 'create.subtitle'
     | 'create.timezoneLabel'
+    | 'create.timezonePlaceholder'
     | 'create.title'
     | 'detail.backToList'
     | 'detail.branchColumn.city'
@@ -7221,8 +7334,10 @@ export interface NamespaceKeys {
     | 'invite.emailPlaceholder'
     | 'invite.messageHint'
     | 'invite.messageLabel'
+    | 'invite.messagePlaceholder'
     | 'invite.nameHint'
     | 'invite.nameLabel'
+    | 'invite.namePlaceholder'
     | 'invite.sent'
     | 'invite.sentNotMailed'
     | 'invite.submit'
@@ -7263,6 +7378,7 @@ export interface NamespaceKeys {
     | 'lifecycle.suspendConfirm'
     | 'lifecycle.suspendReasonHint'
     | 'lifecycle.suspendReasonLabel'
+    | 'lifecycle.suspendReasonPlaceholder'
     | 'lifecycle.suspendTitle'
     | 'lifecycle.suspended'
     | 'lifecycle.suspending'
@@ -7314,6 +7430,7 @@ export interface NamespaceKeys {
     | 'plan.noteFailedTitle'
     | 'plan.noteHint'
     | 'plan.noteLabel'
+    | 'plan.notePlaceholder'
     | 'plan.noteSave'
     | 'plan.noteTitle'
     | 'plan.open'
@@ -7386,6 +7503,7 @@ export interface NamespaceKeys {
     | 'review.changesDialogTitle'
     | 'review.changesNoteHint'
     | 'review.changesNoteLabel'
+    | 'review.changesNotePlaceholder'
     | 'review.changesPriorityLabel'
     | 'review.clientNoteTitle'
     | 'review.contextTitle'
@@ -7400,6 +7518,7 @@ export interface NamespaceKeys {
     | 'review.noteDialogTitle'
     | 'review.noteHint'
     | 'review.noteLabel'
+    | 'review.notePlaceholder'
     | 'review.overrideConfirm'
     | 'review.overrideDialogBody'
     | 'review.overrideDialogTitle'
@@ -7407,12 +7526,14 @@ export interface NamespaceKeys {
     | 'review.overrideEnergyLabel'
     | 'review.overrideReasonHint'
     | 'review.overrideReasonLabel'
+    | 'review.overrideReasonPlaceholder'
     | 'review.reasonsTitle'
     | 'review.requestChanges'
     | 'review.setNote'
     | 'review.setOverride'
     | 'review.signatureHint'
     | 'review.signatureLabel'
+    | 'review.signaturePlaceholder'
     | 'severities.advisory'
     | 'severities.critical'
     | 'severities.strict'
@@ -7595,10 +7716,12 @@ export interface NamespaceKeys {
     | 'override.energyHint'
     | 'override.energyInvalid'
     | 'override.energyLabel'
+    | 'override.energyPlaceholder'
     | 'override.failed'
     | 'override.open'
     | 'override.reasonHint'
     | 'override.reasonLabel'
+    | 'override.reasonPlaceholder'
     | 'override.reasonRequired'
     | 'quickReplies.analysing.addDislike'
     | 'quickReplies.analysing.confirmRestrictions'
@@ -7683,8 +7806,10 @@ export interface NamespaceKeys {
     | 'states.suggested_targets.summary'
     | 'structure.areaHint'
     | 'structure.areaLabel'
+    | 'structure.areaPlaceholder'
     | 'structure.budgetHint'
     | 'structure.budgetLabel'
+    | 'structure.budgetPlaceholder'
     | 'structure.energyShare'
     | 'structure.generate'
     | 'structure.generateFailed'
@@ -8067,6 +8192,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:addresses.areaPlaceholder',
   'account:addresses.backToList',
   'account:addresses.buildingLabel',
+  'account:addresses.buildingPlaceholder',
   'account:addresses.coverageBody',
   'account:addresses.coverageTitle',
   'account:addresses.default',
@@ -8074,10 +8200,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:addresses.empty',
   'account:addresses.emptyBody',
   'account:addresses.floorLabel',
+  'account:addresses.floorPlaceholder',
   'account:addresses.labelLabel',
   'account:addresses.labelPlaceholder',
   'account:addresses.line1Label',
+  'account:addresses.line1Placeholder',
   'account:addresses.line2Label',
+  'account:addresses.line2Placeholder',
   'account:addresses.makeDefault',
   'account:addresses.missingBody',
   'account:addresses.missingTitle',
@@ -8085,6 +8214,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:addresses.noAreasTitle',
   'account:addresses.notesHint',
   'account:addresses.notesLabel',
+  'account:addresses.notesPlaceholder',
   'account:addresses.partSeparator',
   'account:addresses.remove',
   'account:addresses.removeBody',
@@ -8141,6 +8271,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:closure.noChallenge',
   'account:closure.noteHint',
   'account:closure.noteLabel',
+  'account:closure.notePlaceholder',
   'account:closure.optOutConfirm',
   'account:closure.optOutDoneBody',
   'account:closure.optOutDoneTitle',
@@ -8247,6 +8378,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:dietary.hasAllergiesLabel',
   'account:dietary.noneBody',
   'account:dietary.noteLabel',
+  'account:dietary.notePlaceholder',
   'account:dietary.save',
   'account:dietary.saved',
   'account:dietary.severity.allergy',
@@ -8292,6 +8424,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:phone.noNumberTitle',
   'account:phone.numberHint',
   'account:phone.numberLabel',
+  'account:phone.numberPlaceholder',
   'account:phone.otpFallback',
   'account:phone.pendingBody',
   'account:phone.sendCode',
@@ -8315,10 +8448,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:changePassword.continueLabel',
   'auth:changePassword.currentHint',
   'auth:changePassword.currentLabel',
+  'auth:changePassword.currentPlaceholder',
   'auth:changePassword.optionalSubtitle',
   'auth:changePassword.optionalTitle',
   'auth:changePassword.passwordConfirmationLabel',
+  'auth:changePassword.passwordConfirmationPlaceholder',
   'auth:changePassword.passwordLabel',
+  'auth:changePassword.passwordPlaceholder',
   'auth:changePassword.submit',
   'auth:changePassword.subtitle',
   'auth:changePassword.successBody',
@@ -8360,6 +8496,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:login.forgotLink',
   'auth:login.guest',
   'auth:login.passwordLabel',
+  'auth:login.passwordPlaceholder',
   'auth:login.rateLimited',
   'auth:login.registerLink',
   'auth:login.registerPrompt',
@@ -8372,8 +8509,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:login.twoFactor.back',
   'auth:login.twoFactor.codeHint',
   'auth:login.twoFactor.codeLabel',
+  'auth:login.twoFactor.codePlaceholder',
   'auth:login.twoFactor.recoveryHint',
   'auth:login.twoFactor.recoveryLabel',
+  'auth:login.twoFactor.recoveryPlaceholder',
   'auth:login.twoFactor.submit',
   'auth:login.twoFactor.subtitle',
   'auth:login.twoFactor.title',
@@ -8464,9 +8603,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:register.loginLink',
   'auth:register.loginPrompt',
   'auth:register.nameLabel',
+  'auth:register.namePlaceholder',
   'auth:register.passwordConfirmationLabel',
+  'auth:register.passwordConfirmationPlaceholder',
   'auth:register.passwordHint',
   'auth:register.passwordLabel',
+  'auth:register.passwordPlaceholder',
   'auth:register.privacyLink',
   'auth:register.submit',
   'auth:register.subtitle',
@@ -8476,7 +8618,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:resetPassword.missingLink',
   'auth:resetPassword.missingLinkBody',
   'auth:resetPassword.passwordConfirmationLabel',
+  'auth:resetPassword.passwordConfirmationPlaceholder',
   'auth:resetPassword.passwordLabel',
+  'auth:resetPassword.passwordPlaceholder',
   'auth:resetPassword.requestNew',
   'auth:resetPassword.submit',
   'auth:resetPassword.subtitle',
@@ -8486,6 +8630,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:stepUp.body',
   'auth:stepUp.confirmed',
   'auth:stepUp.passwordLabel',
+  'auth:stepUp.passwordPlaceholder',
   'auth:stepUp.submit',
   'auth:stepUp.title',
   'auth:verifyEmail.body',
@@ -8523,6 +8668,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:agreement.sign',
   'b2bApplication:agreement.signTitle',
   'b2bApplication:agreement.signatoryTitle',
+  'b2bApplication:agreement.signatoryTitlePlaceholder',
   'b2bApplication:agreement.signedOn',
   'b2bApplication:agreement.signing',
   'b2bApplication:agreement.startsOn',
@@ -8531,6 +8677,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:agreement.title',
   'b2bApplication:agreement.typedName',
   'b2bApplication:agreement.typedNameHint',
+  'b2bApplication:agreement.typedNamePlaceholder',
   'b2bApplication:agreement.verified',
   'b2bApplication:agreement.verifyBody',
   'b2bApplication:agreement.verifyFirst',
@@ -8601,27 +8748,43 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:errors.sectionRefused',
   'b2bApplication:fields.businessType',
   'b2bApplication:fields.commercialRegistrationNumber',
+  'b2bApplication:fields.commercialRegistrationNumberPlaceholder',
   'b2bApplication:fields.countryCode',
+  'b2bApplication:fields.countryCodePlaceholder',
   'b2bApplication:fields.currencyCode',
+  'b2bApplication:fields.currencyCodePlaceholder',
   'b2bApplication:fields.deliveryNotes',
+  'b2bApplication:fields.deliveryNotesPlaceholder',
   'b2bApplication:fields.expectedOrderFrequency',
   'b2bApplication:fields.expectedVolumeBand',
   'b2bApplication:fields.incorporatedOn',
+  'b2bApplication:fields.incorporatedOnPlaceholder',
   'b2bApplication:fields.leadTimeDays',
+  'b2bApplication:fields.leadTimeDaysPlaceholder',
   'b2bApplication:fields.legalName',
   'b2bApplication:fields.legalNameAr',
+  'b2bApplication:fields.legalNameArPlaceholder',
+  'b2bApplication:fields.legalNamePlaceholder',
   'b2bApplication:fields.preferredDeliveryWindow',
   'b2bApplication:fields.productCategories',
   'b2bApplication:fields.requestedCreditLimitMinor',
+  'b2bApplication:fields.requestedCreditLimitMinorPlaceholder',
   'b2bApplication:fields.requestedPaymentTerms',
   'b2bApplication:fields.requiresInvoicePerLocation',
   'b2bApplication:fields.signatoryEmail',
+  'b2bApplication:fields.signatoryEmailPlaceholder',
   'b2bApplication:fields.signatoryName',
+  'b2bApplication:fields.signatoryNamePlaceholder',
   'b2bApplication:fields.signatoryPhone',
+  'b2bApplication:fields.signatoryPhonePlaceholder',
   'b2bApplication:fields.signatoryTitle',
+  'b2bApplication:fields.signatoryTitlePlaceholder',
   'b2bApplication:fields.taxRegistrationNumber',
+  'b2bApplication:fields.taxRegistrationNumberPlaceholder',
   'b2bApplication:fields.tradingName',
+  'b2bApplication:fields.tradingNamePlaceholder',
   'b2bApplication:fields.website',
+  'b2bApplication:fields.websitePlaceholder',
   'b2bApplication:hints.deliveryNotes',
   'b2bApplication:hints.leadTimeDays',
   'b2bApplication:hints.legalName',
@@ -8735,6 +8898,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:windDown.effectiveOn',
   'b2bApplication:windDown.failedTitle',
   'b2bApplication:windDown.nameLabel',
+  'b2bApplication:windDown.namePlaceholder',
   'b2bApplication:windDown.noEffectiveDate',
   'b2bApplication:windDown.noneBody',
   'b2bApplication:windDown.noneTitle',
@@ -8785,6 +8949,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:windDown.timelineTitle',
   'b2bApplication:windDown.title',
   'b2bApplication:windDown.titleLabel',
+  'b2bApplication:windDown.titlePlaceholder',
   'b2bApplication:windDown.triggers.client_request',
   'b2bApplication:windDown.triggers.contract_end',
   'b2bApplication:windDown.triggers.non_renewal',
@@ -8807,7 +8972,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:wizard.stepPosition',
   'business:builder.back',
   'business:builder.contactEmail',
+  'business:builder.contactEmailPlaceholder',
   'business:builder.contactName',
+  'business:builder.contactNamePlaceholder',
   'business:builder.contactTitle',
   'business:builder.deliveryDate',
   'business:builder.deliveryDateHint',
@@ -8825,6 +8992,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:builder.notFoundTitle',
   'business:builder.note',
   'business:builder.noteHint',
+  'business:builder.notePlaceholder',
   'business:builder.openList',
   'business:builder.quantityLabel',
   'business:builder.recurring',
@@ -8868,6 +9036,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:catalogue.quote',
   'business:catalogue.recurring',
   'business:catalogue.searchLabel',
+  'business:catalogue.searchPlaceholder',
   'business:catalogue.singleCurrency',
   'business:catalogue.title',
   'business:catalogue.unpriced',
@@ -8887,6 +9056,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:dashboard.lookupHint',
   'business:dashboard.lookupLabel',
   'business:dashboard.lookupOpen',
+  'business:dashboard.lookupPlaceholder',
   'business:dashboard.lookupTitle',
   'business:dashboard.noQuotationsBody',
   'business:dashboard.noQuotationsTitle',
@@ -9388,18 +9558,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:tools.weightUnitMetric',
   'commerce:address.area',
   'commerce:address.areaHint',
+  'commerce:address.areaPlaceholder',
   'commerce:address.city',
   'commerce:address.cityHint',
+  'commerce:address.cityPlaceholder',
   'commerce:address.countryCode',
   'commerce:address.countryCodeHint',
+  'commerce:address.countryCodePlaceholder',
   'commerce:address.instructions',
   'commerce:address.instructionsHint',
+  'commerce:address.instructionsPlaceholder',
   'commerce:address.label',
   'commerce:address.labelHint',
+  'commerce:address.labelPlaceholder',
   'commerce:address.line1',
   'commerce:address.line1Hint',
+  'commerce:address.line1Placeholder',
   'commerce:address.line2',
   'commerce:address.line2Hint',
+  'commerce:address.line2Placeholder',
   'commerce:address.notStored',
   'commerce:balance.cutOffNote',
   'commerce:balance.perDay',
@@ -10085,8 +10262,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:contact.errors.nameRequired',
   'guest:contact.fullName',
   'guest:contact.fullNameHint',
+  'guest:contact.fullNamePlaceholder',
   'guest:contact.mobile',
   'guest:contact.mobileHint',
+  'guest:contact.mobilePlaceholder',
   'guest:contact.subtitle',
   'guest:contact.title',
   'guest:convert.body',
@@ -10094,11 +10273,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:convert.doneBody',
   'guest:convert.doneTitle',
   'guest:convert.fullName',
+  'guest:convert.fullNamePlaceholder',
   'guest:convert.marketing',
   'guest:convert.marketingHint',
   'guest:convert.noThanks',
   'guest:convert.password',
   'guest:convert.passwordHint',
+  'guest:convert.passwordPlaceholder',
   'guest:convert.submit',
   'guest:convert.title',
   'guest:convert.verifiedNote',
@@ -10115,6 +10296,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:deletion.invalidCode',
   'guest:deletion.mobile',
   'guest:deletion.mobileHint',
+  'guest:deletion.mobilePlaceholder',
   'guest:deletion.request',
   'guest:deletion.sentBody',
   'guest:deletion.sentTitle',
@@ -10649,6 +10831,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.recordPayment.methodHint',
   'kitchen:desk.recordPayment.methodLabel',
   'kitchen:desk.recordPayment.notesHint',
+  'kitchen:desk.recordPayment.notesPlaceholder',
   'kitchen:desk.recordPayment.open',
   'kitchen:desk.recordPayment.recordedToast',
   'kitchen:desk.recordPayment.referenceHint',
@@ -10682,6 +10865,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.areaLabel',
   'kitchen:desk.sale.areaPlaceholder',
   'kitchen:desk.sale.buildingLabel',
+  'kitchen:desk.sale.buildingPlaceholder',
   'kitchen:desk.sale.change',
   'kitchen:desk.sale.charge',
   'kitchen:desk.sale.chargeEmpty',
@@ -10695,6 +10879,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.customerDuplicatesTitle',
   'kitchen:desk.sale.customerNameHint',
   'kitchen:desk.sale.customerNameLabel',
+  'kitchen:desk.sale.customerNamePlaceholder',
   'kitchen:desk.sale.customerNew',
   'kitchen:desk.sale.customerNoneBody',
   'kitchen:desk.sale.customerNoneTitle',
@@ -10710,10 +10895,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.customerUseInstead',
   'kitchen:desk.sale.deliveryFee',
   'kitchen:desk.sale.directionsLabel',
+  'kitchen:desk.sale.directionsPlaceholder',
   'kitchen:desk.sale.each',
   'kitchen:desk.sale.itemCount',
   'kitchen:desk.sale.lineOneLabel',
+  'kitchen:desk.sale.lineOnePlaceholder',
   'kitchen:desk.sale.lineTwoLabel',
+  'kitchen:desk.sale.lineTwoPlaceholder',
   'kitchen:desk.sale.method.cashAtCounter',
   'kitchen:desk.sale.method.cashOnDelivery',
   'kitchen:desk.sale.method.wish',
@@ -10734,6 +10922,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.quoteUpdating',
   'kitchen:desk.sale.referenceHint',
   'kitchen:desk.sale.referenceLabel',
+  'kitchen:desk.sale.referencePlaceholder',
   'kitchen:desk.sale.refusedBody',
   'kitchen:desk.sale.refusedTitle',
   'kitchen:desk.sale.section.dressings',
@@ -10793,6 +10982,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.noAddress',
   'kitchen:driver.notesHint',
   'kitchen:driver.notesLabel',
+  'kitchen:driver.notesPlaceholder',
   'kitchen:driver.orderLabel',
   'kitchen:driver.orderReference',
   'kitchen:driver.phone',
@@ -10911,6 +11101,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.supplyOrders.name',
   'kitchen:families.team.description',
   'kitchen:families.team.name',
+  'kitchen:fields.amountPlaceholder',
   'kitchen:fields.category',
   'kitchen:fields.categoryHint',
   'kitchen:fields.categoryPlaceholder',
@@ -10934,6 +11125,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.packagingNamePlaceholderAr',
   'kitchen:fields.packagingNamePlaceholderEn',
   'kitchen:fields.percentPlaceholder',
+  'kitchen:fields.planNamePlaceholderAr',
+  'kitchen:fields.planNamePlaceholderEn',
   'kitchen:fields.productNamePlaceholderAr',
   'kitchen:fields.productNamePlaceholderEn',
   'kitchen:fields.purchaseUnit',
@@ -10957,6 +11150,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.unitPrice',
   'kitchen:fields.unitPriceHint',
   'kitchen:fields.unitPricePlaceholder',
+  'kitchen:fields.zoneNamePlaceholderAr',
+  'kitchen:fields.zoneNamePlaceholderEn',
   'kitchen:forms.aboveWaste',
   'kitchen:forms.allergensTitle',
   'kitchen:forms.atZeroCount',
@@ -11180,6 +11375,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.portionHint',
   'kitchen:meals.portionInvalid',
   'kitchen:meals.portionLabel',
+  'kitchen:meals.portionPlaceholder',
   'kitchen:meals.producedIngredientHint',
   'kitchen:meals.producedIngredientLabel',
   'kitchen:meals.producedIngredientNone',
@@ -11600,6 +11796,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.columnSupplier',
   'kitchen:ops.procurement.columnTotal',
   'kitchen:ops.procurement.costsRedacted',
+  'kitchen:ops.procurement.deliveryNotePlaceholder',
   'kitchen:ops.procurement.discardBody',
   'kitchen:ops.procurement.discardTitle',
   'kitchen:ops.procurement.emptyBody',
@@ -11700,6 +11897,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.abandon',
   'kitchen:ops.production.abandonReasonHint',
   'kitchen:ops.production.abandonReasonLabel',
+  'kitchen:ops.production.abandonReasonPlaceholder',
   'kitchen:ops.production.abandonReasonRequired',
   'kitchen:ops.production.abandonSubmit',
   'kitchen:ops.production.abandonSubtitle',
@@ -11713,6 +11911,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.backToDesk',
   'kitchen:ops.production.backToList',
   'kitchen:ops.production.batchFactorLabel',
+  'kitchen:ops.production.batchFactorPlaceholder',
   'kitchen:ops.production.batchFallbackTitle',
   'kitchen:ops.production.batchReferenceLabel',
   'kitchen:ops.production.batchSection',
@@ -11806,6 +12005,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.notFoundTitle',
   'kitchen:ops.production.notesHint',
   'kitchen:ops.production.notesLabel',
+  'kitchen:ops.production.notesPlaceholder',
   'kitchen:ops.production.openBatch',
   'kitchen:ops.production.openNote',
   'kitchen:ops.production.orderShortfall',
@@ -11831,6 +12031,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.printLabel',
   'kitchen:ops.production.producedHint',
   'kitchen:ops.production.producedLabel',
+  'kitchen:ops.production.producedPlaceholder',
   'kitchen:ops.production.producedRequired',
   'kitchen:ops.production.productionDateLabel',
   'kitchen:ops.production.quickFactor',
@@ -11899,6 +12100,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.stepInProductionBody',
   'kitchen:ops.production.stepsTitle',
   'kitchen:ops.production.storageLocationLabel',
+  'kitchen:ops.production.storageLocationPlaceholder',
   'kitchen:ops.production.summaryFoot',
   'kitchen:ops.production.summaryMakes',
   'kitchen:ops.production.summaryPortions',
@@ -12094,6 +12296,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.receiving.chipPostsStock',
   'kitchen:ops.receiving.closeShortHint',
   'kitchen:ops.receiving.closeShortLabel',
+  'kitchen:ops.receiving.closeShortReasonPlaceholder',
   'kitchen:ops.receiving.confirmCloseShort',
   'kitchen:ops.receiving.confirmComplete',
   'kitchen:ops.receiving.confirmDate',
@@ -12107,6 +12310,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.receiving.costStatus.complete',
   'kitchen:ops.receiving.costStatus.partial',
   'kitchen:ops.receiving.costStatus.unpriced',
+  'kitchen:ops.receiving.documentRefPlaceholder',
   'kitchen:ops.receiving.emptyBody',
   'kitchen:ops.receiving.emptyTitle',
   'kitchen:ops.receiving.fieldCloseShortReason',
@@ -12129,6 +12333,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.receiving.fieldVarianceNote',
   'kitchen:ops.receiving.fieldVarianceNoteHint',
   'kitchen:ops.receiving.hideCharges',
+  'kitchen:ops.receiving.invoiceRefPlaceholder',
   'kitchen:ops.receiving.lineOverReceipt',
   'kitchen:ops.receiving.linesTitle',
   'kitchen:ops.receiving.orderMissingBody',
@@ -12149,6 +12354,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.receiving.summary',
   'kitchen:ops.receiving.title',
   'kitchen:ops.receiving.unpricedToast',
+  'kitchen:ops.receiving.varianceNotePlaceholder',
   'kitchen:ops.requirements.branchRequiredBody',
   'kitchen:ops.requirements.branchRequiredTitle',
   'kitchen:ops.requirements.columnAvailable',
@@ -12245,6 +12451,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.noPurchaseSupplier',
   'kitchen:ops.stock.noThreshold',
   'kitchen:ops.stock.numberInvalid',
+  'kitchen:ops.stock.parLevelPlaceholder',
   'kitchen:ops.stock.productsEmptyBody',
   'kitchen:ops.stock.productsEmptyTitle',
   'kitchen:ops.stock.quantityHint',
@@ -12260,6 +12467,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.statOutCaption',
   'kitchen:ops.stock.statUnit',
   'kitchen:ops.stock.thresholdClearedToast',
+  'kitchen:ops.stock.thresholdPlaceholder',
   'kitchen:ops.stock.thresholdSetToast',
   'kitchen:ops.stock.viewKind',
   'kitchen:ops.stock.viewNoteEmpty',
@@ -12287,8 +12495,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.columnName',
   'kitchen:ops.suppliers.columnRef',
   'kitchen:ops.suppliers.columnTerms',
+  'kitchen:ops.suppliers.contactEmailPlaceholder',
+  'kitchen:ops.suppliers.contactNamePlaceholder',
   'kitchen:ops.suppliers.contactNeedsChannel',
   'kitchen:ops.suppliers.contactPosition',
+  'kitchen:ops.suppliers.contactRolePlaceholder',
+  'kitchen:ops.suppliers.contactWhatsappPlaceholder',
   'kitchen:ops.suppliers.contactsSavedToast',
   'kitchen:ops.suppliers.create',
   'kitchen:ops.suppliers.createTitle',
@@ -12319,6 +12531,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.filteredEmptyTitle',
   'kitchen:ops.suppliers.generalContact',
   'kitchen:ops.suppliers.itemCount',
+  'kitchen:ops.suppliers.itemRefPlaceholder',
   'kitchen:ops.suppliers.itemsEmptyBody',
   'kitchen:ops.suppliers.itemsTitle',
   'kitchen:ops.suppliers.leadTimeDays',
@@ -12456,6 +12669,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.notOrdering',
   'kitchen:ops.supplyOrders.notesHint',
   'kitchen:ops.supplyOrders.notesLabel',
+  'kitchen:ops.supplyOrders.notesPlaceholder',
   'kitchen:ops.supplyOrders.notesTitle',
   'kitchen:ops.supplyOrders.nothingNeededBody',
   'kitchen:ops.supplyOrders.nothingNeededTitle',
@@ -12684,6 +12898,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.daysRequired',
   'kitchen:plans.daysUnit',
   'kitchen:plans.descriptionLabel',
+  'kitchen:plans.descriptionPlaceholderAr',
+  'kitchen:plans.descriptionPlaceholderEn',
   'kitchen:plans.dietsLabel',
   'kitchen:plans.discountInvalid',
   'kitchen:plans.discountLabel',
@@ -12702,7 +12918,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.emptyBody',
   'kitchen:plans.emptyTitle',
   'kitchen:plans.energyMaxLabel',
+  'kitchen:plans.energyMaxPlaceholder',
   'kitchen:plans.energyMinLabel',
+  'kitchen:plans.energyMinPlaceholder',
   'kitchen:plans.energyRequired',
   'kitchen:plans.energyReversed',
   'kitchen:plans.filteredEmptyBody',
@@ -12717,6 +12935,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.matrixRowHeader',
   'kitchen:plans.matrixSaveError',
   'kitchen:plans.mealsPerDayLabel',
+  'kitchen:plans.mealsPerDayPlaceholder',
   'kitchen:plans.menuAddDish',
   'kitchen:plans.menuAddedAnnouncement',
   'kitchen:plans.menuAnchorLabel',
@@ -12802,12 +13021,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.servingsRequired',
   'kitchen:plans.servingsSummary',
   'kitchen:plans.snacksPerDayLabel',
+  'kitchen:plans.snacksPerDayPlaceholder',
   'kitchen:plans.statDraftCaption',
   'kitchen:plans.statPlansUnit',
   'kitchen:plans.statPublishedCaption',
   'kitchen:plans.stepsLabel',
   'kitchen:plans.subtitle',
   'kitchen:plans.summaryLabel',
+  'kitchen:plans.summaryPlaceholderAr',
+  'kitchen:plans.summaryPlaceholderEn',
   'kitchen:plans.tabMatrix',
   'kitchen:plans.tabVariants',
   'kitchen:plans.title',
@@ -12819,6 +13041,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.variantCount',
   'kitchen:plans.variantInactive',
   'kitchen:plans.variantNameLabel',
+  'kitchen:plans.variantNamePlaceholder',
   'kitchen:plans.variantNameRequired',
   'kitchen:plans.variantNumber',
   'kitchen:plans.variantRemoved',
@@ -13658,9 +13881,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:zones.estimatedLabel',
   'kitchen:zones.estimatedMinutes',
   'kitchen:zones.estimatedNone',
+  'kitchen:zones.estimatedPlaceholder',
   'kitchen:zones.estimatedUnit',
   'kitchen:zones.feeHint',
   'kitchen:zones.feeLabel',
+  'kitchen:zones.feePlaceholder',
   'kitchen:zones.feeStateAmount',
   'kitchen:zones.feeStateUnset',
   'kitchen:zones.feeStateZero',
@@ -13672,6 +13897,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:zones.loadErrorTitle',
   'kitchen:zones.minimumHint',
   'kitchen:zones.minimumLabel',
+  'kitchen:zones.minimumPlaceholder',
   'kitchen:zones.minimumStateAmount',
   'kitchen:zones.minimumStateUnset',
   'kitchen:zones.minimumStateZero',
@@ -14601,6 +14827,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'planner:add.perServing',
   'planner:add.restaurantDishHint',
   'planner:add.restaurantDishLabel',
+  'planner:add.restaurantDishPlaceholder',
   'planner:add.restaurantHint',
   'planner:add.restaurantSubmit',
   'planner:add.restaurantVenueLabel',
@@ -14758,6 +14985,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'planner:index.startVirtualDietitian',
   'planner:notes.customerHint',
   'planner:notes.customerLabel',
+  'planner:notes.customerPlaceholder',
   'planner:notes.dietitianTitle',
   'planner:notes.errorBody',
   'planner:notes.errorTitle',
@@ -14910,25 +15138,35 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'planner:week.templateBody',
   'planner:week.templateConfirm',
   'planner:week.templateNameLabel',
+  'planner:week.templateNamePlaceholder',
   'planner:week.templateTitle',
   'planner:week.title',
   'planner:week.warningsBody',
   'planner:week.warningsTitle',
   'platformAdmin:create.branchNameHint',
   'platformAdmin:create.branchNameLabel',
+  'platformAdmin:create.branchNamePlaceholder',
   'platformAdmin:create.cityLabel',
+  'platformAdmin:create.cityPlaceholder',
   'platformAdmin:create.countryLabel',
+  'platformAdmin:create.countryPlaceholder',
   'platformAdmin:create.created',
   'platformAdmin:create.currencyLabel',
+  'platformAdmin:create.currencyPlaceholder',
   'platformAdmin:create.languageLabel',
+  'platformAdmin:create.languagePlaceholder',
   'platformAdmin:create.nameLabel',
+  'platformAdmin:create.namePlaceholderAr',
+  'platformAdmin:create.namePlaceholderEn',
   'platformAdmin:create.ownerNext',
   'platformAdmin:create.slugHint',
   'platformAdmin:create.slugLabel',
+  'platformAdmin:create.slugPlaceholder',
   'platformAdmin:create.submit',
   'platformAdmin:create.submitting',
   'platformAdmin:create.subtitle',
   'platformAdmin:create.timezoneLabel',
+  'platformAdmin:create.timezonePlaceholder',
   'platformAdmin:create.title',
   'platformAdmin:detail.backToList',
   'platformAdmin:detail.branchColumn.city',
@@ -14954,8 +15192,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:invite.emailPlaceholder',
   'platformAdmin:invite.messageHint',
   'platformAdmin:invite.messageLabel',
+  'platformAdmin:invite.messagePlaceholder',
   'platformAdmin:invite.nameHint',
   'platformAdmin:invite.nameLabel',
+  'platformAdmin:invite.namePlaceholder',
   'platformAdmin:invite.sent',
   'platformAdmin:invite.sentNotMailed',
   'platformAdmin:invite.submit',
@@ -14996,6 +15236,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:lifecycle.suspendConfirm',
   'platformAdmin:lifecycle.suspendReasonHint',
   'platformAdmin:lifecycle.suspendReasonLabel',
+  'platformAdmin:lifecycle.suspendReasonPlaceholder',
   'platformAdmin:lifecycle.suspendTitle',
   'platformAdmin:lifecycle.suspended',
   'platformAdmin:lifecycle.suspending',
@@ -15046,6 +15287,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'professional:plan.noteFailedTitle',
   'professional:plan.noteHint',
   'professional:plan.noteLabel',
+  'professional:plan.notePlaceholder',
   'professional:plan.noteSave',
   'professional:plan.noteTitle',
   'professional:plan.open',
@@ -15118,6 +15360,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'professional:review.changesDialogTitle',
   'professional:review.changesNoteHint',
   'professional:review.changesNoteLabel',
+  'professional:review.changesNotePlaceholder',
   'professional:review.changesPriorityLabel',
   'professional:review.clientNoteTitle',
   'professional:review.contextTitle',
@@ -15132,6 +15375,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'professional:review.noteDialogTitle',
   'professional:review.noteHint',
   'professional:review.noteLabel',
+  'professional:review.notePlaceholder',
   'professional:review.overrideConfirm',
   'professional:review.overrideDialogBody',
   'professional:review.overrideDialogTitle',
@@ -15139,12 +15383,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'professional:review.overrideEnergyLabel',
   'professional:review.overrideReasonHint',
   'professional:review.overrideReasonLabel',
+  'professional:review.overrideReasonPlaceholder',
   'professional:review.reasonsTitle',
   'professional:review.requestChanges',
   'professional:review.setNote',
   'professional:review.setOverride',
   'professional:review.signatureHint',
   'professional:review.signatureLabel',
+  'professional:review.signaturePlaceholder',
   'professional:severities.advisory',
   'professional:severities.critical',
   'professional:severities.strict',
@@ -15326,10 +15572,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'virtualDietitian:override.energyHint',
   'virtualDietitian:override.energyInvalid',
   'virtualDietitian:override.energyLabel',
+  'virtualDietitian:override.energyPlaceholder',
   'virtualDietitian:override.failed',
   'virtualDietitian:override.open',
   'virtualDietitian:override.reasonHint',
   'virtualDietitian:override.reasonLabel',
+  'virtualDietitian:override.reasonPlaceholder',
   'virtualDietitian:override.reasonRequired',
   'virtualDietitian:quickReplies.analysing.addDislike',
   'virtualDietitian:quickReplies.analysing.confirmRestrictions',
@@ -15414,8 +15662,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'virtualDietitian:states.suggested_targets.summary',
   'virtualDietitian:structure.areaHint',
   'virtualDietitian:structure.areaLabel',
+  'virtualDietitian:structure.areaPlaceholder',
   'virtualDietitian:structure.budgetHint',
   'virtualDietitian:structure.budgetLabel',
+  'virtualDietitian:structure.budgetPlaceholder',
   'virtualDietitian:structure.energyShare',
   'virtualDietitian:structure.generate',
   'virtualDietitian:structure.generateFailed',

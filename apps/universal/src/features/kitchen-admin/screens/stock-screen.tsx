@@ -1012,6 +1012,7 @@ function StockMovementEditor({
                         testID="kitchen-stock-threshold-value"
                         label={t('kitchen:ops.stock.fieldThreshold')}
                         hint={t('kitchen:ops.stock.fieldThresholdHint')}
+                        placeholder={t('kitchen:ops.stock.thresholdPlaceholder')}
                         error={thresholdInvalid ? t('kitchen:ops.stock.numberInvalid') : undefined}
                         value={thresholdValue}
                         onChangeText={edit(setThresholdValue)}
@@ -1022,6 +1023,7 @@ function StockMovementEditor({
                         testID="kitchen-stock-threshold-par"
                         label={t('kitchen:ops.stock.fieldParLevel')}
                         hint={t('kitchen:ops.stock.fieldParLevelHint')}
+                        placeholder={t('kitchen:ops.stock.parLevelPlaceholder')}
                         error={parInvalid ? t('kitchen:ops.stock.numberInvalid') : undefined}
                         value={parLevelValue}
                         onChangeText={edit(setParLevelValue)}
@@ -1055,6 +1057,7 @@ function StockMovementEditor({
                         testID="kitchen-stock-movement-quantity"
                         label={t('kitchen:ops.stock.fieldAdjustQuantity')}
                         hint={t('kitchen:ops.stock.quantityHint', { unit: row.item.unitCode })}
+                        placeholder={t('kitchen:fields.quantityPlaceholder')}
                         error={quantityInvalid ? t('kitchen:ops.stock.quantityInvalid') : undefined}
                         value={quantity}
                         onChangeText={edit(setQuantity)}

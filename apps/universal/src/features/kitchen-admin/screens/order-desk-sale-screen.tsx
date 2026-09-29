@@ -924,6 +924,7 @@ function Ticket({
                             id="kitchen-order-desk-sale-reference"
                             label={t('kitchen:desk.sale.referenceLabel')}
                             hint={t('kitchen:desk.sale.referenceHint')}
+                            placeholder={t('kitchen:desk.sale.referencePlaceholder')}
                             size="sm"
                             required
                             value={state.payment.reference}

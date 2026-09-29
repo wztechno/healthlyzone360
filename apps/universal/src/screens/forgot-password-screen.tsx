@@ -90,6 +90,7 @@ export function ForgotPasswordScreen() {
                         testID="forgot-password-email"
                         id="forgot-password-email"
                         label={t('auth:forgotPassword.emailLabel')}
+                        placeholder={t('auth:login.emailPlaceholder')}
                         keyboardType="email-address"
                         autoCapitalize="none"
                         autoComplete="email"

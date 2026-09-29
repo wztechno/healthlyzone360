@@ -184,6 +184,7 @@ export function StructurePanel({
                 <TextInputField
                     testID={`${testID}-budget`}
                     label={t('virtualDietitian:structure.budgetLabel')}
+                    placeholder={t('virtualDietitian:structure.budgetPlaceholder')}
                     hint={t('virtualDietitian:structure.budgetHint')}
                     inputMode="numeric"
                     keyboardType="number-pad"
@@ -194,6 +195,7 @@ export function StructurePanel({
                 <TextInputField
                     testID={`${testID}-area`}
                     label={t('virtualDietitian:structure.areaLabel')}
+                    placeholder={t('virtualDietitian:structure.areaPlaceholder')}
                     hint={t('virtualDietitian:structure.areaHint')}
                     value={area}
                     onChangeText={setArea}

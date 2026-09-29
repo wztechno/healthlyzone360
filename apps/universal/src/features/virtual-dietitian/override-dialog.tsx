@@ -143,6 +143,7 @@ export function OverrideDialog({
                 <TextInputField
                     testID={`${VD_OVERRIDE_DIALOG_TEST_ID}-reason`}
                     label={t('virtualDietitian:override.reasonLabel')}
+                    placeholder={t('virtualDietitian:override.reasonPlaceholder')}
                     hint={t('virtualDietitian:override.reasonHint')}
                     required
                     value={reason}
@@ -155,6 +156,7 @@ export function OverrideDialog({
                 <TextInputField
                     testID={`${VD_OVERRIDE_DIALOG_TEST_ID}-energy`}
                     label={t('virtualDietitian:override.energyLabel')}
+                    placeholder={t('virtualDietitian:override.energyPlaceholder')}
                     hint={t('virtualDietitian:override.energyHint')}
                     inputMode="numeric"
                     keyboardType="number-pad"
