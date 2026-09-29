@@ -45,6 +45,7 @@ import {
     productionStatusKey,
     productionStatusTone,
 } from '../ops-format.ts';
+import { formatLot } from '../production-desk/batch-figures.ts';
 import { BatchLinesPanel } from '../production-desk/batch-lines-panel.tsx';
 import { BatchPlanPanel } from '../production-desk/batch-plan-panel.tsx';
 import { BatchSettlementDialog } from '../production-desk/batch-settlement-dialog.tsx';
@@ -310,6 +311,19 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                                 }}
                             />
                         )}
+                        {batch.lotNumber === null ? null : (
+                            <Button
+                                testID="kitchen-production-batch-label"
+                                variant="secondary"
+                                size="sm"
+                                label={t('kitchen:ops.production.printLabel')}
+                                onPress={() => {
+                                    router.push(
+                                        `/kitchen/production-desk/${String(batch.id)}/label`,
+                                    );
+                                }}
+                            />
+                        )}
                         {canManage && isCallableOff(batch) ? (
                             <Button
                                 testID="kitchen-production-batch-cancel"
@@ -540,15 +554,24 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                         title={t('kitchen:ops.production.headingRecord')}
                     >
                         <RailRow
+                            testID="kitchen-production-batch-lot"
+                            label={t('kitchen:ops.production.lotLabel')}
+                            value={formatLot(batch.lotNumber) ?? noValue}
+                            strong
+                        />
+                        <RailRow
                             testID="kitchen-production-batch-production-date"
                             label={t('kitchen:ops.production.productionDateLabel')}
                             value={batch.productionDate ?? noValue}
                         />
-                        <RailRow
-                            testID="kitchen-production-batch-reference"
-                            label={t('kitchen:ops.production.batchReferenceLabel')}
-                            value={batch.batchReference ?? noValue}
-                        />
+                        {/* What a cook typed before lots were minted — only old batches have it. */}
+                        {batch.batchReference === null ? null : (
+                            <RailRow
+                                testID="kitchen-production-batch-reference"
+                                label={t('kitchen:ops.production.batchReferenceLabel')}
+                                value={batch.batchReference}
+                            />
+                        )}
                         <RailRow
                             testID="kitchen-production-batch-storage"
                             label={t('kitchen:ops.production.storageLocationLabel')}
@@ -569,6 +592,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                 mode={settlement ?? 'complete'}
                 lines={detail.lines}
                 yieldUnitCode={batch.plannedYieldUnitCode}
+                shelfLifeDays={batch.recipeShelfLifeDays}
                 draft={draft}
                 onChange={setDraft}
                 onSubmit={submitSettlement}

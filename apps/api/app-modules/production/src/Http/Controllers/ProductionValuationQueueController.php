@@ -51,7 +51,7 @@ final class ProductionValuationQueueController
     {
         $rows = ProductionOrder::query()
             ->withoutGlobalScopes()
-            ->with(['productionItem:id,name_en', 'plannedYieldUnit:id,code'])
+            ->with(ProductionOrderPresenter::RELATIONS)
             ->where('organisation_id', $context->organisationId())
             ->whereIn('status', [
                 ProductionOrderStatus::Completed->value,

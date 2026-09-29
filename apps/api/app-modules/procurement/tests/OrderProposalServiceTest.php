@@ -284,6 +284,16 @@ it('appends a requested shelf as a zero without writing a level row, and never t
     expect(StockLevel::withoutTenancy()->count())->toBe($levelsBefore);
 });
 
+it('proposes a requested shelf when nothing at the branch is short', function (): void {
+    $vanilla = proposalStockItem($this->world->organisationId, 'VAN-1', 'Vanilla');
+
+    ($this->proposal)(['stock_item_ids' => [(string) $vanilla->getKey()]])
+        ->assertOk()
+        ->assertJsonPath('data.items.0.item_code', 'VAN-1')
+        ->assertJsonPath('data.items.0.origin', 'requested')
+        ->assertJsonPath('meta.requested_item_count', 1);
+});
+
 it('resolves the preferred supplier, then the sole one, then nobody — and tells archived apart from absent', function (): void {
     $organisationId = $this->world->organisationId;
     $branchId = $this->world->branchId;

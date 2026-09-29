@@ -773,6 +773,9 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     createRecipe(_request: CreateRecipeRequest): Promise<RecipeAdmin> {
         return notImplemented(`POST ${BASE}/catalogue/recipes`);
     },
+    createRecipeVersion(_recipeId: RecipeId, _copyFromVersion: number): Promise<RecipeAdmin> {
+        return notImplemented(`POST ${BASE}/catalogue/recipes/{recipe}/versions`);
+    },
     updateRecipe(_recipeId: RecipeId, _request: UpdateRecipeRequest): Promise<RecipeAdmin> {
         return notImplemented(`PATCH ${BASE}/catalogue/recipes/{recipe}`);
     },

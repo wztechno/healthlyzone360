@@ -204,6 +204,7 @@ const RECIPE: RecipeAdmin = {
     allergenCodes: [],
     lineCount: 1,
     description: { en: 'Toum.', ar: 'ثومية.' },
+    shelfLifeDays: null,
     currentVersion: VERSION,
     versions: [
         {

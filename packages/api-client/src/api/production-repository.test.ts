@@ -62,10 +62,14 @@ function wireOrder(withCosts: boolean): Record<string, unknown> {
     const order: Record<string, unknown> = {
         id: String(ORDER_ID),
         reference: 'PB-7K3MQ9ZV',
+        lot_number: '2609180013',
+        barcode: '(11)260918(17)261020(10)2609180013',
         branch_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e7101',
+        branch_name: 'Main Kitchen',
         recipe_version_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e7201',
         production_item_ingredient_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e7301',
         production_item_name_en: 'Caesar dressing',
+        production_item_name_ar: 'صلصة سيزر',
         planned_yield_unit_code: 'l',
         status: 'completed',
         batch_factor: '2.000000',
@@ -79,6 +83,7 @@ function wireOrder(withCosts: boolean): Record<string, unknown> {
         batch_reference: 'TRAY-14',
         storage_location: 'Freezer 2',
         expiry_date: '2026-10-20',
+        recipe_shelf_life_days: 32,
         is_expired: false,
         confirmed_at: '2026-09-18T08:00:00+00:00',
         started_at: '2026-09-18T09:00:00+00:00',
@@ -153,6 +158,34 @@ describe('production — the redaction model', () => {
         expect(detail.order.usableYieldQuantity).toBe('37.0000');
         expect(detail.order.yieldVarianceQuantity).toBe('-2.0000');
         expect(typeof detail.order.producedQuantity).toBe('string');
+    });
+});
+
+describe('production — the lot and its label', () => {
+    it('maps the five keys the label and the scan read', async () => {
+        const { repository } = harness([
+            { data: { production_order: wireOrder(false), lines: [] }, meta: {} },
+        ]);
+
+        const { order } = await repository.getProductionOrder(ORDER_ID);
+
+        expect(order.lotNumber).toBe('2609180013');
+        expect(order.barcode).toBe('(11)260918(17)261020(10)2609180013');
+        expect(order.branchName).toBe('Main Kitchen');
+        expect(order.productionItemNameAr).toBe('صلصة سيزر');
+        expect(order.recipeShelfLifeDays).toBe(32);
+    });
+
+    it('sends a scanned code URL-encoded, parentheses and all', async () => {
+        const { repository, calls } = harness([
+            { data: { production_orders: [wireOrder(false)] }, meta: {} },
+        ]);
+
+        await repository.listProductionOrders({ code: '(11)260918(10)2609180013' });
+
+        expect(calls[0]?.path).toBe(
+            '/catalogue/production/orders?code=%2811%29260918%2810%292609180013',
+        );
     });
 });
 

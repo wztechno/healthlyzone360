@@ -1631,9 +1631,25 @@ export type ProductionCostSource = (typeof PRODUCTION_COST_SOURCES)[number];
  */
 export interface ProductionOrder {
     readonly id: ProductionOrderId;
-    /** `PB-` plus eight Crockford base-32 characters. Null until confirm mints it. */
+    /**
+     * `PB-` plus eight Crockford base-32 characters: the work order. Null until confirm mints it.
+     * Not the number on the label — that is {@link lotNumber}.
+     */
     readonly reference: string | null;
+    /**
+     * The lot: `YYMMDD`, a three-digit daily sequence and a GS1 check digit, ten digits in all.
+     * Minted once, when a settlement puts usable units on a shelf. Null before that, or when the
+     * batch made nothing usable.
+     */
+    readonly lotNumber: string | null;
+    /**
+     * The GS1-128 element string, human-readable: `(11)YYMMDD(17)YYMMDD(10)<lot>`. `(17)` is absent
+     * without an expiry. Derived by the server; null without a lot.
+     */
+    readonly barcode: string | null;
     readonly branchId: BranchId;
+    /** The production site's name, for the label. Null is the branch having gone. */
+    readonly branchName: string | null;
     readonly recipeVersionId: RecipeVersionId;
     /** What the batch makes — the recipe version's single output. */
     readonly productionItemIngredientId: string | null;
@@ -1642,6 +1658,8 @@ export interface ProductionOrder {
      * a desk nobody can work from. `null` is the ingredient having gone — an em dash, not a blank.
      */
     readonly productionItemNameEn: string | null;
+    /** The same ingredient's Arabic name, printed beside the English one on the label. */
+    readonly productionItemNameAr: string | null;
     /** The unit code, so a quantity renders as a quantity. */
     readonly plannedYieldUnitCode: string | null;
     readonly status: ProductionOrderStatus;
@@ -1661,10 +1679,19 @@ export interface ProductionOrder {
     readonly yieldVarianceQuantity: string | null;
     /** `YYYY-MM-DD`, the branch-local business date. */
     readonly productionDate: string | null;
-    /** What the cook writes on the tray. Free text, deliberately not {@link reference}. */
+    /**
+     * What a cook wrote on the tray before the system minted lots. Legacy: kept so old batches still
+     * show it, never sent any more.
+     */
     readonly batchReference: string | null;
     readonly storageLocation: string | null;
+    /** Computed from the recipe's shelf life when it has one, else what the cook entered. */
     readonly expiryDate: string | null;
+    /**
+     * The recipe's shelf life **now**, in days — what completion will add to the production date.
+     * A finished batch's own date is {@link expiryDate}, never this.
+     */
+    readonly recipeShelfLifeDays: number | null;
     /** A batch with **no** expiry date is not expired — that is "nobody recorded one". */
     readonly isExpired: boolean;
     readonly confirmedAt: string | null;
@@ -1824,6 +1851,11 @@ export interface ProductionOrderFilters {
     readonly status?: ProductionOrderStatus | undefined;
     readonly branchId?: BranchId | undefined;
     readonly page?: number | undefined;
+    /**
+     * A scanned GS1 string, a typed lot (dashes allowed) or a `PB-` reference. Resolves to zero or
+     * one batch in **any** status, since a label only exists on a finished batch.
+     */
+    readonly code?: string | undefined;
 }
 
 /**
@@ -1904,8 +1936,8 @@ export interface CompleteProductionOrderRequest {
     /** Stock item id to input discarded during the batch. */
     readonly waste?: Readonly<Record<string, number>> | undefined;
     readonly productionDate?: string | null | undefined;
-    readonly batchReference?: string | null | undefined;
     readonly storageLocation?: string | null | undefined;
+    /** Omit when the recipe has a shelf life: the server computes it and refuses a typed one. */
     readonly expiryDate?: string | null | undefined;
     readonly notes?: string | null | undefined;
 }

@@ -370,13 +370,15 @@ export function useRecipeList(): RecipeListState {
 
         // A published or retired version is frozen by the contract, so the only way to change it is
         // to open its successor. Offering New draft against a draft that is already open would
-        // write a version bump that changed nothing.
+        // open a second draft beside it.
         isImmutable: (row) =>
             row.currentVersionStatus === 'published' || row.currentVersionStatus === 'retired',
+        // Copies `currentVersionNumber`, which on a row that offers New draft is the published
+        // version: the row must be live, so a retired current version never gets here.
         startDraft: (row, onOpened) => {
             setDraftOpeningFor(row.id);
             openDraft.mutate(
-                { recipeId: row.id, request: { lockVersion: row.meta.lockVersion } },
+                { recipeId: row.id, copyFromVersion: row.currentVersionNumber },
                 {
                     onSuccess: (updated) => {
                         onOpened(updated.currentVersion.versionNumber);

@@ -1002,6 +1002,27 @@ function OrderDeskQueueList() {
         if (order === null) return;
         const request = { id: order.id, lockVersion: order.lockVersion };
         const onSuccess = (next: KitchenOrder) => {
+            // Fulfilling a cash order receipts whatever was outstanding (server-side, in
+            // `OrderLifecycle::takeCashRemainder`), and the order leaves the queue with it — so
+            // the stale row held here would otherwise still read "not settled" and offer to record
+            // the same money twice.
+            if (action === 'fulfil' && next.paymentMethod !== 'wish') {
+                setSelected((row) =>
+                    row === null
+                        ? row
+                        : {
+                              ...row,
+                              payment: {
+                                  ...row.payment,
+                                  receivedMinor: Math.max(
+                                      row.payment.receivedMinor,
+                                      next.totalMinor,
+                                  ),
+                                  receipted: true,
+                              },
+                          },
+                );
+            }
             toast.show({
                 testID: `kitchen-order-desk-${action}ed-toast`,
                 tone: 'success',

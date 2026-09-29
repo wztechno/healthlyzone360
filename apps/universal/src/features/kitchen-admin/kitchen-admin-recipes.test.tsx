@@ -80,8 +80,9 @@ import { RecipesScreen } from './screens/recipes-screen.tsx';
  *
  * Five things this file exists to prove:
  *
- * 1. **A version is a real thing.** A published version is read-only, opening a draft from it sends
- *    the contract's smallest legal write, and the editor rebases onto whatever came back.
+ * 1. **A version is a real thing.** A published version is read-only, opening a draft from it asks
+ *    for the successor (`createRecipeVersion`) rather than writing to the frozen one, and the
+ *    editor rebases onto whatever came back.
  * 2. **The line editor keeps its promises.** Stable keys across a move, an undo that restores a row
  *    to *its own position*, a live-region announcement that names where the row landed, and no
  *    silent de-duplication of an ingredient that legitimately appears twice.
@@ -416,6 +417,7 @@ function recipe({ ordinal, name, currentVersion, overrides = {} }: RecipeSeed): 
         kinds: ['preparation'],
         soldAs: [],
         description: { en: 'A dish.', ar: 'طبق.' },
+        shelfLifeDays: null,
         currentVersion: version,
         versions: [versionSummary(version)],
         ...overrides,
@@ -1709,7 +1711,7 @@ describe('the recipe list at desk width', () => {
         const open = recipe({ ordinal: 2, name: 'Fattoush' });
         const library = [frozen, open];
 
-        await renderStubScreen(<RecipesScreen />, {
+        const { repositories } = await renderStubScreen(<RecipesScreen />, {
             session: kitchenManagerSession(),
             repositories: {
                 kitchenAdmin: {
@@ -1719,6 +1721,12 @@ describe('the recipe list at desk width', () => {
                         if (found === undefined) throw new Error('No such recipe.');
                         return found;
                     },
+                    createRecipeVersion: async () =>
+                        recipe({
+                            ordinal: 1,
+                            name: 'Tabbouleh',
+                            currentVersion: recipeVersion({ recipeOrdinal: 1, versionNumber: 3 }),
+                        }),
                 },
             },
         });
@@ -1729,7 +1737,7 @@ describe('the recipe list at desk width', () => {
 
         // Three actions on every row, and the fourth only where it would do something: a published
         // version is immutable, so the only way to change it is to open its successor; a draft that
-        // is already open would take a version bump that changed nothing.
+        // is already open would only get a second draft beside it.
         await untilVisible(`${frozenRow}-new-draft`);
         expect(screen.getByTestId(`${frozenRow}-view`)).toBeTruthy();
         expect(screen.getByTestId(`${frozenRow}-open`)).toBeTruthy();
@@ -1739,6 +1747,23 @@ describe('the recipe list at desk width', () => {
         expect(screen.getByTestId(`${openRow}-open`)).toBeTruthy();
         expect(screen.getByTestId(`${openRow}-archive`)).toBeTruthy();
         expect(screen.queryByTestId(`${openRow}-new-draft`)).toBeNull();
+
+        // Pressed, it copies the published version the row shows, names the draft it opened and
+        // takes the reader to it.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${frozenRow}-new-draft`));
+        });
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.createRecipeVersion).toHaveBeenCalledWith(
+                frozen.id,
+                2,
+            );
+        });
+        await untilVisible('kitchen-recipes-draft-opened-toast');
+        expect(screen.getByTestId('kitchen-recipes-draft-opened-toast')).toHaveTextContent(
+            /Draft version 3 is open\./,
+        );
+        expect(routerMock.__push).toHaveBeenCalledWith(`/kitchen/recipes/${String(frozen.id)}`);
     });
 
     it('opens the read-only View panel from the row, carrying the derived label', async () => {
@@ -2251,9 +2276,10 @@ describe('versions', () => {
                 repositories: {
                     kitchenAdmin: {
                         ...editorReads(() => stored),
-                        // The server's rule: the first write against a published version opens the
-                        // successor draft, carrying a *copy* of the published version's lines.
-                        updateRecipe: async (_id, request) => {
+                        // `POST …/versions`, as the server answers it: a new draft row beside the
+                        // published one, carrying a *copy* of its lines. The recipe row itself is not
+                        // written, so its lock version stays where it was.
+                        createRecipeVersion: async () => {
                             const successor = recipeVersion({
                                 recipeOrdinal: 3,
                                 versionNumber: publishedVersion.versionNumber + 1,
@@ -2261,12 +2287,10 @@ describe('versions', () => {
                             });
                             stored = {
                                 ...stored,
-                                meta: meta({
-                                    status: 'published',
-                                    lockVersion: request.lockVersion + 1,
-                                }),
+                                meta: meta({ status: 'draft', lockVersion: 4 }),
                                 currentVersionNumber: successor.versionNumber,
                                 versionCount: successor.versionNumber,
+                                currentVersionStatus: successor.status,
                                 currentVersion: successor,
                                 versions: [
                                     versionSummary(successor),
@@ -2299,15 +2323,30 @@ describe('versions', () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-new-draft'));
         });
 
-        // The contract's smallest legal write: the version it was based on, and no fields. Anything
-        // more would be an edit nobody asked for, audited server-side as one.
+        // The successor is asked for, copied from the version on screen. Nothing is written to the
+        // frozen one: the server refuses that write, and a write with no fields is never sent at
+        // all — which is how this button used to announce a draft that did not exist.
         await waitFor(() => {
-            expect(repositories.kitchenAdmin.updateRecipe).toHaveBeenCalledWith(stored.id, {
-                lockVersion: 4,
-            });
+            expect(repositories.kitchenAdmin.createRecipeVersion).toHaveBeenCalledWith(
+                stored.id,
+                publishedVersion.versionNumber,
+            );
         });
+        expect(repositories.kitchenAdmin.updateRecipe).not.toHaveBeenCalled();
 
-        // The editor rebases onto the new version and becomes editable — the picker is back.
+        // It names the draft it opened, not the version it was opened from…
+        await untilVisible('kitchen-recipe-draft-opened-toast');
+        expect(screen.getByTestId('kitchen-recipe-draft-opened-toast')).toHaveTextContent(
+            new RegExp(`Draft version ${String(publishedVersion.versionNumber + 1)} is open\\.`),
+        );
+
+        // …and the editor rebases onto it: no longer frozen, and editable — the picker is back.
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-recipe-immutable')).toBeNull();
+        });
+        expect(screen.getByTestId('kitchen-recipe-editor-screen-status')).toHaveTextContent(
+            /Draft/,
+        );
         await openTab('production');
         await untilVisible(LINE_PICKER_INPUT);
 
@@ -3020,6 +3059,175 @@ describe('costing', () => {
                 stored.id,
                 expect.objectContaining({ packagingWastePercent: 5 }),
             );
+        });
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Shelf life
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * How many days a batch keeps, which a completed batch adds to its production date.
+ *
+ * The recipe's rather than the version's, so it saves with everything else on a draft — and on a
+ * published recipe it is the one field that can be written, and a save there must send it alone:
+ * the version half of `updateRecipe` is refused as immutable.
+ */
+describe('the shelf life', () => {
+    it('reads it off the recipe and saves it with the details, a blank clearing it', async () => {
+        const stored = recipe({
+            ordinal: 2,
+            name: 'Bottled tahini',
+            overrides: { shelfLifeDays: 5 },
+        });
+
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => stored),
+                        updateRecipe: async () => stored,
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('packaging');
+        await untilVisible('kitchen-recipe-expiry-input');
+        expect(screen.getByTestId('kitchen-recipe-expiry-input').props.value).toBe('5');
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), '7');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
+        });
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateRecipe).toHaveBeenCalledWith(
+                stored.id,
+                expect.objectContaining({ shelfLifeDays: 7 }),
+            );
+        });
+        // The first save settles before the next edit: until it does, Save is busy, and settling
+        // afterwards would mark the second edit clean.
+        await untilVisible('kitchen-recipe-saved-toast');
+
+        // An emptied box is "nobody has said", sent as a clear rather than left out.
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), '');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
+        });
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateRecipe).toHaveBeenLastCalledWith(
+                stored.id,
+                expect.objectContaining({ shelfLifeDays: null }),
+            );
+        });
+    });
+
+    it('writes it alone on a published recipe, and keeps the version’s prices closed', async () => {
+        const publishedVersion = recipeVersion({
+            recipeOrdinal: 3,
+            overrides: { status: 'published', publishedAt: '2026-08-02T09:00:00.000Z' },
+        });
+        const stored = recipe({
+            ordinal: 3,
+            name: 'Freekeh bowl',
+            currentVersion: publishedVersion,
+            overrides: { meta: meta({ status: 'published', lockVersion: 4 }) },
+        });
+
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => stored),
+                        updateRecipe: async () => stored,
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        const save = () => screen.getByTestId('kitchen-recipe-editor-screen-save');
+        // Nothing to write yet, and every version field is closed.
+        expect(save().props.accessibilityState.disabled).toBe(true);
+
+        await openTab('costing');
+        await untilVisible('kitchen-recipe-b2b-price-input');
+        expect(screen.getByTestId('kitchen-recipe-b2b-price-input').props.editable).toBe(false);
+        expect(screen.getByTestId('kitchen-recipe-b2c-price-input').props.editable).toBe(false);
+
+        await openTab('packaging');
+        await untilVisible('kitchen-recipe-expiry-input');
+        expect(screen.getByTestId('kitchen-recipe-expiry-input').props.editable).toBe(true);
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), '7');
+        });
+        expect(save().props.accessibilityState.disabled).toBe(false);
+
+        await act(async () => {
+            fireEvent.press(save());
+        });
+
+        // The recipe's field and its lock version, and nothing that would reach the version.
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateRecipe).toHaveBeenCalledWith(stored.id, {
+                lockVersion: 4,
+                shelfLifeDays: 7,
+            });
+        });
+    });
+
+    it('flags a value that is not a whole number of days the recipe can hold', async () => {
+        const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
+
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => stored),
+                        updateRecipe: async () => stored,
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('packaging');
+        await untilVisible('kitchen-recipe-expiry-input');
+
+        for (const typed of ['3.5', '4000']) {
+            await act(async () => {
+                fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), typed);
+            });
+            await untilVisible('kitchen-recipe-expiry-error');
+            expect(screen.getByTestId('kitchen-recipe-expiry-error')).toHaveTextContent(
+                'Enter a whole number of days between 0 and 3650.',
+            );
+        }
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
+        });
+        expect(repositories.kitchenAdmin.updateRecipe).not.toHaveBeenCalled();
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), '30');
+        });
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-recipe-expiry-error')).toBeNull();
         });
     });
 });

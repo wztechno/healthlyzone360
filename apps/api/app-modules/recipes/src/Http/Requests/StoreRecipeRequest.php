@@ -46,6 +46,7 @@ class StoreRecipeRequest extends FormRequest
             'source_kind' => ['nullable', 'string', 'max:40'],
             'confidentiality' => ['nullable', new Enum(RecipeConfidentiality::class)],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'shelf_life_days' => ['nullable', 'integer', 'between:0,3650'],
         ];
     }
 }
