@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 import { useDensity } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
@@ -23,6 +23,11 @@ export type { PickerFieldProps } from './picker-field-shared.ts';
  * glyph, no JavaScript, and it keeps working where `showPicker()` does not exist.
  *
  * The value stays ISO whatever the locale renders — that is the input's contract, not this file's.
+ *
+ * **With a `displayValue`** the page draws the words and the input is laid invisibly over the whole
+ * frame (`data-picker-field="cover"`, whose indicator `global.css` stretches edge to edge), so a
+ * press anywhere on the field opens the OS picker. The input still owns focus, the label and the
+ * value; only its rendering is replaced.
  */
 export function PickerField({
     kind,
@@ -33,10 +38,13 @@ export function PickerField({
     hint,
     error,
     disabled = false,
+    displayValue,
+    fullWidth = false,
     testID,
 }: PickerFieldProps) {
     const density = useDensity();
     const [focused, setFocused] = useState(false);
+    const covered = displayValue !== undefined;
 
     return (
         <FormField
@@ -49,7 +57,7 @@ export function PickerField({
         >
             {(control: FieldControlProps) => (
                 <View
-                    style={{ width: PICKER_WIDTH[kind] }}
+                    style={fullWidth ? undefined : { width: PICKER_WIDTH[kind] }}
                     className={cx(
                         inputFrameClassName({
                             invalid: error !== undefined,
@@ -61,9 +69,22 @@ export function PickerField({
                         'relative items-center pe-0',
                     )}
                 >
+                    {covered ? (
+                        <RNText
+                            testID={testID === undefined ? undefined : `${testID}-display`}
+                            aria-hidden
+                            numberOfLines={1}
+                            className={cx(
+                                'min-w-0 flex-1 pe-1 text-start text-role-body tabular-nums',
+                                value === '' ? 'text-content-secondary' : 'text-content-primary',
+                            )}
+                        >
+                            {displayValue}
+                        </RNText>
+                    ) : null}
                     <input
                         type={kind}
-                        data-picker-field=""
+                        data-picker-field={covered ? 'cover' : ''}
                         id={control.nativeID}
                         data-testid={testID === undefined ? undefined : `${testID}-input`}
                         aria-labelledby={control['aria-labelledby']}
@@ -80,12 +101,19 @@ export function PickerField({
                         onChange={(event) => {
                             onChange(event.target.value);
                         }}
-                        className="relative h-full min-w-0 flex-1 appearance-none border-0 bg-transparent pe-7 text-role-body tabular-nums text-content-primary outline-none"
+                        className={
+                            covered
+                                ? 'absolute inset-0 h-full w-full appearance-none border-0 bg-transparent opacity-0 outline-none'
+                                : 'relative h-full min-w-0 flex-1 appearance-none border-0 bg-transparent pe-7 text-role-body tabular-nums text-content-primary outline-none'
+                        }
                     />
                     <View
                         pointerEvents="none"
                         aria-hidden
-                        className="absolute end-0.5 h-6 w-6 items-center justify-center"
+                        className={cx(
+                            'h-6 w-6 items-center justify-center',
+                            covered ? 'me-0.5' : 'absolute end-0.5',
+                        )}
                     >
                         <Icon
                             name={kind === 'time' ? 'clock' : 'calendar'}

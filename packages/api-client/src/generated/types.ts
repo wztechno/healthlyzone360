@@ -2812,6 +2812,21 @@ export type AdminPriceListEntry = {
      */
     catalogue_item_variant_id?: Uuid | null;
     /**
+     * What kind of article the row prices, read with the row so an editor
+     * can draw it — a product's pack, a meal, a plan's configuration —
+     * without one read per article. Null only when the article is out of
+     * the caller's reach.
+     *
+     */
+    catalogue_item_type?: CatalogueItemType | null;
+    /**
+     * The priced variant's own code (a product's pack, `jar-250g`). Null
+     * when the row prices the article as a whole, and when the variant is
+     * out of the caller's reach.
+     *
+     */
+    catalogue_item_variant_code?: string | null;
+    /**
      * The tier threshold, as a fixed-scale decimal string. Null is the
      * base price. A row applies from its threshold **upwards**, and
      * resolution picks the highest threshold at or below the quantity

@@ -74,4 +74,6 @@ export { SupplyOrderBuilderScreen } from './supply-order-builder-screen.tsx';
 export { SupplyOrderDetailScreen } from './supply-order-detail-screen.tsx';
 export { SupplyOrderPrintScreen } from './supply-order-print-screen.tsx';
 export { SupplyOrdersScreen } from './supply-orders-screen.tsx';
+export { PostReceiptScreen } from './post-receipt-screen.tsx';
+export { UnpricedReceiptScreen } from './unpriced-receipt-screen.tsx';
 export { UnpricedReceiptsScreen } from './unpriced-receipts-screen.tsx';

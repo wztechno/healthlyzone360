@@ -1269,30 +1269,42 @@ function mapPriceStatus(wire: PriceStatus): PriceListEntry['priceStatus'] {
     return wire;
 }
 
+/**
+ * The item types priced as a product: sauces, dressings and frozen meals share the product shape
+ * wholesale — packs, pricing, publication — as {@link ProductAdmin.itemType} records. Only a plan is
+ * a plan; reading every type that was not `product` or `meal` as one turned a list of sauces into
+ * rows referring to plans that do not exist.
+ */
+const PRODUCT_SHAPED_TYPES: ReadonlySet<AdminCatalogueItem['item_type']> = new Set([
+    'product',
+    'sauce',
+    'dressing',
+    'frozen_meal',
+]);
+
 export function mapPriceListEntry(
     wire: AdminPriceListEntry,
     itemType: AdminCatalogueItem['item_type'],
     itemId: string,
     variantCode: string | null,
 ): PriceListEntry {
-    const itemRef =
-        itemType === 'product'
-            ? {
-                  kind: 'product' as const,
-                  productId: ProductId.unsafe(itemId),
-                  packCode: variantCode,
-              }
-            : itemType === 'meal'
-              ? { kind: 'meal' as const, mealId: MealId.unsafe(itemId) }
-              : {
-                    kind: 'plan' as const,
-                    planId: SubscriptionPlanId.unsafe(itemId),
-                    variantId:
-                        wire.catalogue_item_variant_id === null ||
-                        wire.catalogue_item_variant_id === undefined
-                            ? null
-                            : PlanVariantId.unsafe(wire.catalogue_item_variant_id),
-                };
+    const itemRef = PRODUCT_SHAPED_TYPES.has(itemType)
+        ? {
+              kind: 'product' as const,
+              productId: ProductId.unsafe(itemId),
+              packCode: variantCode,
+          }
+        : itemType === 'meal'
+          ? { kind: 'meal' as const, mealId: MealId.unsafe(itemId) }
+          : {
+                kind: 'plan' as const,
+                planId: SubscriptionPlanId.unsafe(itemId),
+                variantId:
+                    wire.catalogue_item_variant_id === null ||
+                    wire.catalogue_item_variant_id === undefined
+                        ? null
+                        : PlanVariantId.unsafe(wire.catalogue_item_variant_id),
+            };
 
     return {
         item: itemRef,

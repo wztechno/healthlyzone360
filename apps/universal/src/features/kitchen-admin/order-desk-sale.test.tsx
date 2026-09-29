@@ -290,7 +290,9 @@ async function chooseLayla() {
     await settle();
     await untilVisible(`kitchen-order-desk-sale-customer-${ACCOUNT_ID}-choose`);
     await act(async () => {
-        fireEvent.press(screen.getByTestId(`kitchen-order-desk-sale-customer-${ACCOUNT_ID}-choose`));
+        fireEvent.press(
+            screen.getByTestId(`kitchen-order-desk-sale-customer-${ACCOUNT_ID}-choose`),
+        );
     });
 }
 
@@ -458,9 +460,7 @@ describe('sale — a counter sale', () => {
             payment: { method: 'cash_at_counter' },
         });
         expect(
-            within(screen.getByTestId('kitchen-order-desk-sale-sold')).getByText(
-                /H360-2026-0500/,
-            ),
+            within(screen.getByTestId('kitchen-order-desk-sale-sold')).getByText(/H360-2026-0500/),
         ).toBeTruthy();
         // The order is already fulfilled, so there is no queue to send anybody to.
         expect(mockReplace).not.toHaveBeenCalled();

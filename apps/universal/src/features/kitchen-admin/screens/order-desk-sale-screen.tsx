@@ -831,9 +831,12 @@ function Ticket({
                                                     icon={<Icon name="minus" size="sm" />}
                                                     variant="secondary"
                                                     size="sm"
-                                                    label={t('designSystem:numberStepper.decrease', {
-                                                        label: name,
-                                                    })}
+                                                    label={t(
+                                                        'designSystem:numberStepper.decrease',
+                                                        {
+                                                            label: name,
+                                                        },
+                                                    )}
                                                     onPress={() => {
                                                         step(quantity - 1);
                                                     }}
@@ -851,9 +854,12 @@ function Ticket({
                                                     icon={<Icon name="plus" size="sm" />}
                                                     variant="secondary"
                                                     size="sm"
-                                                    label={t('designSystem:numberStepper.increase', {
-                                                        label: name,
-                                                    })}
+                                                    label={t(
+                                                        'designSystem:numberStepper.increase',
+                                                        {
+                                                            label: name,
+                                                        },
+                                                    )}
                                                     disabled={quantity >= MAX_LINE_QUANTITY}
                                                     onPress={() => {
                                                         step(quantity + 1);

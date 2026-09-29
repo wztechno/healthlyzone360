@@ -1176,6 +1176,18 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     value={segment}
                     onChange={setSegment}
                 />
+                {/* Counts on a filter; the last one is work waiting, so it takes the warning ink. */}
+                <SegmentedControl
+                    testID={id('segments-counted')}
+                    label="Filter entries"
+                    items={[
+                        { value: 'all', label: 'All', count: 14 },
+                        { value: 'draft', label: 'Pending', count: 1 },
+                        { value: 'live', label: 'Changed', count: 3, countTone: 'warning' },
+                    ]}
+                    value={segment}
+                    onChange={setSegment}
+                />
             </Stack>
 
             {/* Badge and StatusBadge. Both are closed sets, so both are iterated. */}
@@ -1486,6 +1498,19 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         label="md"
                         size="md"
                         value="250"
+                    />
+                    {/* The same `xs` step on a picker, for a line-table cell beside `xs` inputs. */}
+                    <Select
+                        testID={id('select-size-xs')}
+                        id={id('select-size-xs')}
+                        label="xs select — a line-table cell"
+                        size="xs"
+                        options={[
+                            { value: 'kg', label: 'kg' },
+                            { value: 'g', label: 'g' },
+                        ]}
+                        value="kg"
+                        onChange={() => undefined}
                     />
                 </FormGrid>
             </Stack>
@@ -2008,6 +2033,23 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         onChange={() => undefined}
                         label="Disabled"
                     />
+                    {/* A table row's selection: the name is spoken, not drawn. */}
+                    <Checkbox
+                        testID={id('checkbox-label-hidden')}
+                        checked={restricted}
+                        onChange={setRestricted}
+                        label="Select Aioli Sauce 250 g"
+                        labelHidden
+                    />
+                    {/* Select-all over a partly selected list. */}
+                    <Checkbox
+                        testID={id('checkbox-mixed')}
+                        checked={false}
+                        mixed
+                        onChange={() => undefined}
+                        label="Select every entry shown"
+                        labelHidden
+                    />
                 </Inline>
                 <Checkbox
                     testID={id('checkbox-error')}
@@ -2444,6 +2486,18 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         value={pickerTime}
                         onChange={setPickerTime}
                     />
+                    {/* The page words the value, and an empty date says what it means. */}
+                    <View className="w-[132px]">
+                        <PickerField
+                            kind="date"
+                            testID={id('picker-date-display')}
+                            label="Until"
+                            value={pickerDate}
+                            onChange={setPickerDate}
+                            displayValue={pickerDate === '' ? 'Open-ended' : pickerDate}
+                            fullWidth
+                        />
+                    </View>
                 </Inline>
             </Stack>
 

@@ -1,4 +1,4 @@
-import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
+import { lazyScreen } from '../../../../src/shell/lazy-screen.tsx';
 
 /**
  * `/kitchen/procurement/unpriced-receipts` — the receipts still waiting on their invoices (SUP5).
@@ -9,7 +9,7 @@ import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
 const UnpricedReceiptsScreen = lazyScreen(
     'kitchen-unpriced-receipts-loading',
     async () =>
-        (await import('../../../src/features/kitchen-admin/screens/index.ts'))
+        (await import('../../../../src/features/kitchen-admin/screens/index.ts'))
             .UnpricedReceiptsScreen,
 );
 

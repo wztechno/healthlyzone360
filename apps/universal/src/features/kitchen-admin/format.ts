@@ -741,6 +741,21 @@ export function parseMinorAmount(value: string, currency: CurrencyCode): number 
     return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
+/**
+ * A price's date as the Kitchen Forms draw every date — day, short month, year: `21 Sep 2026`.
+ *
+ * The value is a calendar day, not an instant, so it is read at UTC midnight and formatted in UTC:
+ * formatting it in the kitchen's zone would move a day west of Greenwich to the day before.
+ */
+export function formatEntryDate(formatter: Formatter, iso: string): string {
+    return formatter.formatDate(`${iso}T00:00:00.000Z`, {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'UTC',
+    });
+}
+
 /* ── subscription plans (K1.6) ───────────────────────────────────────────────────────────────── */
 
 /** Statuses the plan list filter offers, in lifecycle order. */

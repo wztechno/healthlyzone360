@@ -1,27 +1,16 @@
-import type {
-    GoodsReceipt,
-    MeasurementUnitOption,
-    ReceiptCostStatus,
-} from '@healthy360/api-client/contracts';
+import type { GoodsReceipt, ReceiptCostStatus } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
-    DateField,
-    Dialog,
     EmptyState,
     ErrorState,
-    Icon,
     Inline,
-    Select,
     Stack,
     TableSkeleton,
     Text,
-    TextInputField,
-    useToast,
 } from '@healthy360/design-system';
-import type { MenuItem, SelectOption } from '@healthy360/design-system';
-import { StockItemId, SupplierId } from '@healthy360/domain-types';
-import { useFormatter, useLocale } from '@healthy360/i18n';
+import type { MenuItem } from '@healthy360/design-system';
+import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
@@ -30,15 +19,7 @@ import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import {
-    useCreateSupplierMutation,
-    useGoodsReceiptsQuery,
-    usePostGoodsReceiptMutation,
-    useProcurementReferenceQuery,
-    useStockItemsQuery,
-    useSuppliersQuery,
-} from '../../../data/kitchen-ops-hooks.ts';
-import { useAccessState } from '../../../session/session-provider.tsx';
+import { useGoodsReceiptsQuery, useStockItemsQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CatalogueRange } from '../catalogue/catalogue-pager.tsx';
@@ -58,20 +39,12 @@ import {
     INVENTORY_VIEW_COSTS_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import { displayName } from '../format.ts';
 import {
     goodsReceiptRowTestId,
     receiptCostStatusKey,
     receiptCostStatusTone,
     stockItemLabel,
 } from '../ops-format.ts';
-import {
-    StockItemLineEditor,
-    stockItemLinesToReceiptInputs,
-    stockItemLinesWellFormed,
-} from '../ops-line-editor.tsx';
-import type { StockItemLineDraft } from '../ops-line-editor.tsx';
-import { todayIsoDate } from '../receive-delivery-model.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
@@ -88,54 +61,12 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * hand, the toolbar with the price-completeness segments, `CatalogueList`, and the `RecordWindow`
  * behind View. `listGoodsReceipts` takes no filter and publishes no page, so search and the
  * segments narrow the rows already loaded and there is no pager. A posted receipt is immutable, so
- * View is the only row action. "Post receipt" stays the dialog below rather than a routed editor:
- * there is no `/kitchen/procurement/new` route, and an ordered delivery already has its full page at
- * `/kitchen/procurement/receive`.
+ * View is the only row action.
  *
- * This dialog is the **market purchase**: somebody bought something without an order, and the
- * quickest honest record of it is a supplier, a date and some lines. A delivery against an issued
- * order goes to `/kitchen/procurement/receive` instead, which prefills outstanding quantities,
- * matches order lines and handles over-receipts — none of which belongs in a dialog.
- *
- * SUP5 extends this one **minimally and deliberately**: a business date and an invoice reference,
- * because those two are what the new columns make load-bearing (a receipt filed under today when
- * the van came yesterday lands in the wrong week's spend). Everything else the receiving workflow
- * needs stayed out, because a dialog that grew an order picker, a variance note and five charge
- * fields would be the receive screen with worse ergonomics.
- *
- * ## What the receipt form actually needs to be usable (INV1.1)
- *
- * Three gaps this screen closes. A supplier can be **created inline** — the contract now publishes a
- * writer — so a kitchen with an empty book is not stuck; the action sits directly under the supplier
- * picker it feeds rather than between two unrelated fields. Prices are booked in
- * {@link RECEIPT_CURRENCY} and the form offers no way to change that, so a price is never silently
- * dropped for want of a currency; the price fields sit behind `inventory.view_costs_organisation`,
- * so a chef without that code posts quantities only. And each line carries a **purchase unit**,
- * defaulting to the stock item's own and offering only the units in its dimension, so "25 kg of
- * flour at 2.00/kg" records exactly that rather than a bare number.
+ * **Post receipt** opens `/kitchen/procurement/new` — the market purchase, on a page of its own
+ * (`post-receipt-screen.tsx`) rather than the dialog it used to be. A delivery against an issued
+ * order goes to `/kitchen/procurement/receive` instead.
  */
-
-/**
- * The dimensions the server's `UnitConversionService` can convert *between different units* within
- * (INV1.0) — mass and volume carry real `base_ratio` factors; `count`, `serving`, `package`,
- * `energy` and `length` carry an identity 1 and only the same-unit identity converts. Offering a
- * second unit inside a non-convertible dimension would post a receipt the server must reject, so the
- * picker offers alternatives only inside these two and shows the item's own unit as a label
- * otherwise — the label is always present, whether or not there was ever a choice to make.
- */
-const CONVERTIBLE_DIMENSIONS: ReadonlySet<string> = new Set(['mass', 'volume']);
-
-/**
- * The one currency a goods receipt's prices are booked in.
- *
- * Fixed, and deliberately not a control: a receipt currency the receiver could change is a currency
- * they can get wrong, and the server refuses a purchase that would blend a second currency into an
- * ingredient's moving average anyway (`MixedIngredientCostCurrency` — there is no exchange rate in
- * this system). One currency on the form is the same rule stated where it can still be obeyed. It
- * reaches the reader through the unit-price label rather than a disabled picker, so it is announced
- * with the field it constrains instead of sitting beside it as dead furniture.
- */
-const RECEIPT_CURRENCY = 'USD';
 
 export function ProcurementScreen() {
     return (
@@ -156,20 +87,12 @@ type PriceSegmentValue = ReceiptCostStatus | 'all';
 function Procurement() {
     const { t } = useTranslation();
     const formatter = useFormatter();
-    const { locale } = useLocale();
     const router = useRouter();
-    const toast = useToast();
-    const access = useAccessState();
     const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
     const canViewCosts = useCan(INVENTORY_VIEW_COSTS_PERMISSION);
-    const branchId = access.branch?.id ?? null;
 
-    const suppliers = useSuppliersQuery();
     const receipts = useGoodsReceiptsQuery();
     const stockItems = useStockItemsQuery();
-    const reference = useProcurementReferenceQuery();
-    const postReceipt = usePostGoodsReceiptMutation();
-    const createSupplier = useCreateSupplierMutation();
 
     // The list's own state: search and the price segment filter the receipts in hand (the endpoint
     // takes no filter and publishes no page), and View opens the record window over a row.
@@ -177,208 +100,13 @@ function Procurement() {
     const [priceStatus, setPriceStatus] = useState<PriceSegmentValue>('all');
     const [viewing, setViewing] = useState<GoodsReceipt | null>(null);
 
-    const [posting, setPosting] = useState(false);
-    const [lines, setLines] = useState<readonly StockItemLineDraft[]>([]);
-    const [supplierId, setSupplierId] = useState<string | null>(null);
-    const [documentRef, setDocumentRef] = useState('');
-    // SUP5, kept minimal on purpose: this dialog is the **direct** market-purchase path and stays
-    // the small thing it is. The business date and the invoice reference are the two fields the new
-    // columns make load-bearing — a receipt with no `receivedOn` would be filed under today even
-    // when the van came yesterday, and slice 6 groups spend by exactly that. The order matching,
-    // over-receipt confirmation and header charges belong to the receive screen, which is where an
-    // ordered delivery goes.
-    const [receivedOn, setReceivedOn] = useState(() => todayIsoDate());
-    const [invoiceRef, setInvoiceRef] = useState('');
-
-    const [creatingSupplier, setCreatingSupplier] = useState(false);
-    const [newSupplierName, setNewSupplierName] = useState('');
-    const [newSupplierCode, setNewSupplierCode] = useState('');
-    const [newSupplierEmail, setNewSupplierEmail] = useState('');
-    const [newSupplierPhone, setNewSupplierPhone] = useState('');
-
     const receiptRows = useMemo(() => receipts.data ?? [], [receipts.data]);
-
-    const referenceData = reference.data ?? null;
-
-    // Suppliers are bilingual since SUP1, so the picker labels them in the reader's own language
-    // and falls back to the other side rather than showing an empty option.
-    const supplierOptions = useMemo(
-        () =>
-            (suppliers.data ?? []).map((row) => ({
-                value: String(row.id),
-                label: `${row.code} — ${displayName(row.name, locale).value}`,
-            })),
-        [suppliers.data, locale],
-    );
-
-    // Prices are booked in RECEIPT_CURRENCY, never silently dropped for want of a supplier
-    // currency. A user without the cost permission carries no currency and posts quantities only.
-    const currencyCode = canViewCosts ? RECEIPT_CURRENCY : null;
-    const formatMoney = (amount: number) =>
-        `${formatter.formatNumber(amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${currencyCode === null ? '' : ` ${currencyCode}`}`;
-
-    // Unit reference, indexed so the line editor can resolve a stock item's own unit and offer only
-    // the units in its dimension. A stock item names its unit by code (`unitCode`); the reference
-    // gives that code an id and a dimension.
-    const unitByCode = useMemo(() => {
-        const map = new Map<string, MeasurementUnitOption>();
-        for (const unit of referenceData?.measurementUnits ?? []) map.set(unit.code, unit);
-        return map;
-    }, [referenceData]);
-
-    const unitById = useMemo(() => {
-        const map = new Map<string, string>();
-        for (const unit of referenceData?.measurementUnits ?? []) map.set(unit.id, unit.code);
-        return map;
-    }, [referenceData]);
-
-    const stockItemByIdForUnits = useMemo(() => {
-        const map = new Map<string, string>();
-        for (const item of stockItems.data ?? []) map.set(String(item.id), item.unitCode);
-        return map;
-    }, [stockItems.data]);
-
-    function itemOwnUnitCode(stockItemId: string | null): string | null {
-        if (stockItemId === null) return null;
-        return stockItemByIdForUnits.get(stockItemId) ?? null;
-    }
-
-    function defaultUnitIdForItem(stockItemId: string | null): string | null {
-        const code = itemOwnUnitCode(stockItemId);
-        if (code === null) return null;
-        return unitByCode.get(code)?.id ?? null;
-    }
-
-    function unitOptionsForItem(stockItemId: string | null): readonly SelectOption<string>[] {
-        const code = itemOwnUnitCode(stockItemId);
-        const own = code === null ? undefined : unitByCode.get(code);
-        if (own === undefined) return [];
-        if (!CONVERTIBLE_DIMENSIONS.has(own.dimension)) {
-            return [{ value: own.id, label: own.code }];
-        }
-        return (referenceData?.measurementUnits ?? [])
-            .filter((unit) => unit.dimension === own.dimension)
-            .map((unit) => ({ value: unit.id, label: unit.code }));
-    }
-
-    /** A human unit label beside the quantity — the resolved unit's code, or the item's own. */
-    function unitLabelFor(stockItemId: string | null, unitId: string | null): string {
-        if (unitId !== null) {
-            const code = unitById.get(unitId);
-            if (code !== undefined) return code;
-        }
-        return itemOwnUnitCode(stockItemId) ?? '';
-    }
-
-    /*
-     * Mapped in the order the server gave them and **never re-sorted** (INV2.0). Stock items are
-     * derived now — every ingredient in the library has a shelf — so this picker is hundreds of rows
-     * long, and the server ranks the ones this kitchen actually holds or has ever moved to the top.
-     * Sorting alphabetically here would bury them under two hundred it has never touched; the
-     * `searchable` type-ahead handles the tail.
-     */
-    const stockItemOptions = useMemo(
-        () =>
-            (stockItems.data ?? []).map((item) => ({
-                value: String(item.id),
-                label: stockItemLabel(item),
-            })),
-        [stockItems.data],
-    );
 
     const stockItemLabelById = useMemo(() => {
         const map = new Map<string, string>();
         for (const item of stockItems.data ?? []) map.set(String(item.id), stockItemLabel(item));
         return map;
     }, [stockItems.data]);
-
-    function openPosting() {
-        setPosting(true);
-    }
-
-    function closePosting() {
-        setPosting(false);
-        setLines([]);
-        setSupplierId(null);
-        setDocumentRef('');
-        setReceivedOn(todayIsoDate());
-        setInvoiceRef('');
-        postReceipt.reset();
-    }
-
-    const linesValid = lines.length > 0 && stockItemLinesWellFormed(lines);
-
-    function submitReceipt() {
-        if (branchId === null || !linesValid) return;
-        postReceipt.mutate(
-            {
-                branchId,
-                supplierId: supplierId === null ? null : SupplierId.unsafe(supplierId),
-                documentRef: documentRef.trim() === '' ? null : documentRef.trim(),
-                supplierInvoiceRef: invoiceRef.trim() === '' ? null : invoiceRef.trim(),
-                receivedOn: receivedOn.trim() === '' ? null : receivedOn.trim(),
-                purchaseOrderId: null,
-                lines: stockItemLinesToReceiptInputs(lines, currencyCode).map((line) => ({
-                    stockItemId: StockItemId.unsafe(line.stockItemId),
-                    quantity: line.quantity,
-                    ...(line.unitId === undefined ? {} : { unitId: line.unitId }),
-                    ...(line.unitPriceAmount === undefined
-                        ? {}
-                        : {
-                              unitPriceAmount: line.unitPriceAmount,
-                              costCurrencyCode: line.costCurrencyCode,
-                          }),
-                })),
-            },
-            {
-                onSuccess: () => {
-                    closePosting();
-                    toast.show({
-                        testID: 'kitchen-procurement-posted-toast',
-                        tone: 'success',
-                        message: t('kitchen:ops.procurement.postedToast'),
-                    });
-                },
-            },
-        );
-    }
-
-    function closeCreateSupplier() {
-        setCreatingSupplier(false);
-        setNewSupplierName('');
-        setNewSupplierCode('');
-        setNewSupplierEmail('');
-        setNewSupplierPhone('');
-        createSupplier.reset();
-    }
-
-    const newSupplierValid = newSupplierName.trim() !== '';
-
-    function submitNewSupplier() {
-        if (!newSupplierValid) return;
-        createSupplier.mutate(
-            {
-                nameEn: newSupplierName.trim(),
-                code: newSupplierCode.trim() === '' ? null : newSupplierCode.trim(),
-                // The only currency this system prices in, so it is the only honest answer.
-                currencyCode: RECEIPT_CURRENCY,
-                contactEmail: newSupplierEmail.trim() === '' ? null : newSupplierEmail.trim(),
-                contactPhone: newSupplierPhone.trim() === '' ? null : newSupplierPhone.trim(),
-            },
-            {
-                onSuccess: (supplier) => {
-                    // Select the freshly created supplier so a post in progress can use it at once.
-                    setSupplierId(String(supplier.id));
-                    closeCreateSupplier();
-                    toast.show({
-                        testID: 'kitchen-procurement-supplier-created-toast',
-                        tone: 'success',
-                        message: t('kitchen:ops.procurement.supplierCreatedToast'),
-                    });
-                },
-            },
-        );
-    }
 
     const trimmed = query.trim().toLocaleLowerCase();
     const filteredReceipts = useMemo(
@@ -686,7 +414,9 @@ function Procurement() {
                     <Button
                         testID="kitchen-procurement-post-receipt"
                         label={t('kitchen:ops.procurement.postReceipt')}
-                        onPress={openPosting}
+                        onPress={() => {
+                            router.push('/kitchen/procurement/new' as never);
+                        }}
                     />
                 ) : null}
             </CatalogueToolbar>
@@ -758,186 +488,6 @@ function Procurement() {
                     </Inline>
                 </Stack>
             )}
-
-            <Dialog
-                testID="kitchen-procurement-post-dialog"
-                open={posting}
-                onClose={closePosting}
-                title={t('kitchen:ops.procurement.postTitle')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-procurement-post-cancel"
-                            variant="quiet"
-                            label={t('kitchen:common.cancel')}
-                            onPress={closePosting}
-                        />
-                        <Button
-                            testID="kitchen-procurement-post-confirm"
-                            label={t('kitchen:common.save')}
-                            loading={postReceipt.isPending}
-                            disabled={branchId === null || !linesValid}
-                            onPress={submitReceipt}
-                        />
-                    </>
-                }
-            >
-                <Stack space="md">
-                    {postReceipt.error === null ? null : (
-                        <Text testID="kitchen-procurement-post-error" tone="danger">
-                            {toFailure(postReceipt.error)?.message ??
-                                t('kitchen:ops.procurement.postFailed')}
-                        </Text>
-                    )}
-                    <Inline space="sm" align="start" wrap>
-                        {/*
-                         * "New supplier" belongs to the picker above it, not between the two fields
-                         * of a wrapping row — there it read as a third field with no label, and it
-                         * pushed the document reference onto a line of its own. A ghost button
-                         * under the control it feeds is the shape of an action *about* that field.
-                         */}
-                        <Stack space="xs" className="min-w-[220px] flex-1">
-                            <Select
-                                testID="kitchen-procurement-post-supplier"
-                                label={t('kitchen:ops.procurement.fieldSupplier')}
-                                options={supplierOptions}
-                                value={supplierId}
-                                onChange={setSupplierId}
-                                searchable
-                            />
-                            {canManage ? (
-                                <Button
-                                    testID="kitchen-procurement-post-new-supplier"
-                                    size="sm"
-                                    variant="ghost"
-                                    iconStart={<Icon name="plus" size="sm" />}
-                                    label={t('kitchen:ops.procurement.newSupplier')}
-                                    onPress={() => {
-                                        setCreatingSupplier(true);
-                                    }}
-                                />
-                            ) : null}
-                        </Stack>
-                        <TextInputField
-                            testID="kitchen-procurement-post-document-ref"
-                            label={t('kitchen:ops.procurement.fieldDocumentRef')}
-                            value={documentRef}
-                            onChangeText={setDocumentRef}
-                            className="min-w-[180px] flex-1"
-                        />
-                        <TextInputField
-                            testID="kitchen-procurement-post-invoice-ref"
-                            label={t('kitchen:ops.procurement.fieldInvoiceRef')}
-                            hint={t('kitchen:ops.procurement.fieldInvoiceRefHint')}
-                            value={invoiceRef}
-                            onChangeText={setInvoiceRef}
-                            className="min-w-[180px] flex-1"
-                        />
-                        <DateField
-                            testID="kitchen-procurement-post-received-on"
-                            label={t('kitchen:ops.procurement.fieldReceivedOn')}
-                            hint={t('kitchen:ops.procurement.fieldReceivedOnHint')}
-                            value={receivedOn}
-                            max={todayIsoDate()}
-                            onChange={(next) => {
-                                setReceivedOn(next ?? '');
-                            }}
-                        />
-                    </Inline>
-                    <StockItemLineEditor
-                        testID="kitchen-procurement-post-lines"
-                        lines={lines}
-                        onChange={setLines}
-                        stockItemOptions={stockItemOptions}
-                        itemLabel={t('kitchen:ops.procurement.fieldLineItem')}
-                        quantityLabel={t('kitchen:ops.procurement.fieldLineQuantity')}
-                        addLabel={t('kitchen:ops.procurement.addLine')}
-                        removeLabel={t('kitchen:ops.procurement.removeLine')}
-                        withUnit
-                        unitLabel={t('kitchen:ops.procurement.fieldLineUnit')}
-                        unitOptionsForItem={unitOptionsForItem}
-                        defaultUnitIdForItem={defaultUnitIdForItem}
-                        unitLabelFor={unitLabelFor}
-                        withCost={canViewCosts}
-                        unitPriceLabel={t('kitchen:ops.procurement.fieldLineUnitPrice', {
-                            currency: RECEIPT_CURRENCY,
-                        })}
-                        formatMoney={formatMoney}
-                    />
-                </Stack>
-            </Dialog>
-
-            <Dialog
-                testID="kitchen-procurement-supplier-dialog"
-                open={creatingSupplier}
-                onClose={closeCreateSupplier}
-                title={t('kitchen:ops.procurement.newSupplierTitle')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-procurement-supplier-cancel"
-                            variant="quiet"
-                            label={t('kitchen:common.cancel')}
-                            onPress={closeCreateSupplier}
-                        />
-                        <Button
-                            testID="kitchen-procurement-supplier-confirm"
-                            label={t('kitchen:common.save')}
-                            loading={createSupplier.isPending}
-                            disabled={!newSupplierValid}
-                            onPress={submitNewSupplier}
-                        />
-                    </>
-                }
-            >
-                <Stack space="md">
-                    {createSupplier.error === null ? null : (
-                        <Text testID="kitchen-procurement-supplier-error" tone="danger">
-                            {toFailure(createSupplier.error)?.message ??
-                                t('kitchen:ops.procurement.newSupplierFailed')}
-                        </Text>
-                    )}
-                    {/*
-                     * No currency picker. It was only ever a hint the receipt form pre-selected,
-                     * and the receipt now books in RECEIPT_CURRENCY regardless — a picker whose
-                     * answer changes nothing is a question that should not be asked.
-                     */}
-                    <Inline space="sm" align="start" wrap>
-                        <TextInputField
-                            testID="kitchen-procurement-supplier-name"
-                            label={t('kitchen:ops.procurement.fieldSupplierName')}
-                            value={newSupplierName}
-                            onChangeText={setNewSupplierName}
-                            className="min-w-[200px] flex-1"
-                        />
-                        <TextInputField
-                            testID="kitchen-procurement-supplier-code"
-                            label={t('kitchen:ops.procurement.fieldSupplierCode')}
-                            value={newSupplierCode}
-                            onChangeText={setNewSupplierCode}
-                            className="min-w-[160px] flex-1"
-                        />
-                    </Inline>
-                    <Inline space="sm" align="start" wrap>
-                        <TextInputField
-                            testID="kitchen-procurement-supplier-email"
-                            label={t('kitchen:ops.procurement.fieldSupplierEmail')}
-                            value={newSupplierEmail}
-                            onChangeText={setNewSupplierEmail}
-                            keyboardType="email-address"
-                            className="min-w-[160px] flex-1"
-                        />
-                        <TextInputField
-                            testID="kitchen-procurement-supplier-phone"
-                            label={t('kitchen:ops.procurement.fieldSupplierPhone')}
-                            value={newSupplierPhone}
-                            onChangeText={setNewSupplierPhone}
-                            keyboardType="phone-pad"
-                            className="min-w-[160px] flex-1"
-                        />
-                    </Inline>
-                </Stack>
-            </Dialog>
         </Stack>
     );
 }

@@ -3103,6 +3103,8 @@ describe('the shelf life', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), '7');
         });
+        // Save draft is the last step's Next.
+        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
@@ -3117,9 +3119,11 @@ describe('the shelf life', () => {
         await untilVisible('kitchen-recipe-saved-toast');
 
         // An emptied box is "nobody has said", sent as a clear rather than left out.
+        await openTab('packaging');
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), '');
         });
+        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
@@ -3158,7 +3162,8 @@ describe('the shelf life', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         const save = () => screen.getByTestId('kitchen-recipe-editor-screen-save');
-        // Nothing to write yet, and every version field is closed.
+        // Nothing to write yet, and every version field is closed. Save is the last step's Next.
+        await openTab('sheet');
         expect(save().props.accessibilityState.disabled).toBe(true);
 
         await openTab('costing');
@@ -3173,6 +3178,7 @@ describe('the shelf life', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), '7');
         });
+        await openTab('sheet');
         expect(save().props.accessibilityState.disabled).toBe(false);
 
         await act(async () => {
@@ -3218,11 +3224,13 @@ describe('the shelf life', () => {
             );
         }
 
+        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
         expect(repositories.kitchenAdmin.updateRecipe).not.toHaveBeenCalled();
 
+        await openTab('packaging');
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), '30');
         });

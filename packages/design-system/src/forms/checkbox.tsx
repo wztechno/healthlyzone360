@@ -11,6 +11,18 @@ export interface CheckboxProps {
     readonly checked: boolean;
     readonly onChange: (checked: boolean) => void;
     readonly label: string;
+    /**
+     * Keeps `label` as the accessible name and draws only the box — a row's selection in a table,
+     * where the row beside it already says what the box selects and a second copy of the name
+     * would only push the row's own cells along.
+     */
+    readonly labelHidden?: boolean | undefined;
+    /**
+     * Some of what the box stands for is ticked and some is not — the select-all box over a list
+     * that is partly selected. Draws a dash and announces `mixed`; a press reports `!checked`, so
+     * the caller decides whether a mixed box selects the rest or clears it.
+     */
+    readonly mixed?: boolean | undefined;
     /** Extra copy under the label — used for consent wording that is too long for a label. */
     readonly description?: string | undefined;
     readonly error?: string | undefined;
@@ -38,6 +50,8 @@ export function Checkbox({
     checked,
     onChange,
     label,
+    labelHidden = false,
+    mixed = false,
     description,
     error,
     required = false,
@@ -52,6 +66,9 @@ export function Checkbox({
     const base = id ?? `checkbox-${generated.replace(/:/g, '')}`;
     const descriptionId = description === undefined ? undefined : `${base}-description`;
     const errorId = error === undefined ? undefined : `${base}-error`;
+    // A mixed box is neither state, and says so: `aria-checked="mixed"` is the ARIA value for it.
+    const state = mixed && !checked ? 'mixed' : checked;
+    const filled = checked || mixed;
 
     return (
         <View className={cx('flex-col gap-1', className)} testID={testID}>
@@ -62,8 +79,8 @@ export function Checkbox({
                 accessibilityRole="checkbox"
                 accessibilityLabel={label}
                 aria-label={label}
-                accessibilityState={{ checked, disabled }}
-                aria-checked={checked}
+                accessibilityState={{ checked: state, disabled }}
+                aria-checked={state}
                 aria-disabled={disabled}
                 aria-required={required}
                 {...descriptionProps([descriptionId, errorId], description ?? error)}
@@ -73,7 +90,11 @@ export function Checkbox({
                 }}
                 className={cx(
                     'flex-row items-start',
-                    density === 'compact' ? 'gap-control-sm py-hair' : 'min-h-touch gap-3 py-1',
+                    labelHidden
+                        ? null
+                        : density === 'compact'
+                          ? 'gap-control-sm py-hair'
+                          : 'min-h-touch gap-3 py-1',
                     disabled ? 'opacity-50' : null,
                 )}
             >
@@ -93,41 +114,49 @@ export function Checkbox({
                     className={cx(
                         density === 'compact' ? 'mt-px h-4 w-4' : 'mt-0.5 size-5',
                         'shrink-0 items-center justify-center rounded-sm border',
-                        checked ? 'bg-surface-brand border-transparent' : 'bg-surface-base',
+                        filled ? 'bg-surface-brand border-transparent' : 'bg-surface-base',
                         error === undefined ? 'border-stroke-strong' : 'border-danger-border',
                     )}
                 >
-                    {checked ? (
-                        <Icon name="check" size="sm" className="text-content-on-brand" />
+                    {filled ? (
+                        <Icon
+                            name={checked ? 'check' : 'minus'}
+                            size="sm"
+                            className="text-content-on-brand"
+                        />
                     ) : null}
                 </View>
 
-                <View className="flex-1 flex-col gap-0.5">
-                    {labelSlot ?? (
-                        <RNText
-                            className={cx(
-                                'text-content-primary text-start',
-                                density === 'compact' ? 'text-role-body' : 'text-sm',
-                            )}
-                        >
-                            {label}
-                            {required ? (
-                                <RNText className="text-danger-strong">{' *'}</RNText>
-                            ) : null}
-                        </RNText>
-                    )}
-                    {description === undefined ? null : (
-                        <RNText
-                            nativeID={descriptionId}
-                            className={cx(
-                                'text-content-secondary text-start',
-                                density === 'compact' ? 'text-role-caption' : 'text-xs',
-                            )}
-                        >
-                            {description}
-                        </RNText>
-                    )}
-                </View>
+                {labelHidden && description === undefined ? null : (
+                    <View className="flex-1 flex-col gap-0.5">
+                        {labelHidden
+                            ? null
+                            : (labelSlot ?? (
+                                  <RNText
+                                      className={cx(
+                                          'text-content-primary text-start',
+                                          density === 'compact' ? 'text-role-body' : 'text-sm',
+                                      )}
+                                  >
+                                      {label}
+                                      {required ? (
+                                          <RNText className="text-danger-strong">{' *'}</RNText>
+                                      ) : null}
+                                  </RNText>
+                              ))}
+                        {description === undefined ? null : (
+                            <RNText
+                                nativeID={descriptionId}
+                                className={cx(
+                                    'text-content-secondary text-start',
+                                    density === 'compact' ? 'text-role-caption' : 'text-xs',
+                                )}
+                            >
+                                {description}
+                            </RNText>
+                        )}
+                    </View>
+                )}
             </Pressable>
 
             {error === undefined ? null : (

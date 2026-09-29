@@ -26796,6 +26796,21 @@ components:
             Null prices the article as a whole. Naming a variant prices exactly
             that pack or configuration; resolution prefers a variant's own row
             and falls back to the article's.
+        catalogue_item_type:
+          oneOf:
+            - $ref: '#/components/schemas/CatalogueItemType'
+            - type: 'null'
+          description: |
+            What kind of article the row prices, read with the row so an editor
+            can draw it — a product's pack, a meal, a plan's configuration —
+            without one read per article. Null only when the article is out of
+            the caller's reach.
+        catalogue_item_variant_code:
+          type: ['string', 'null']
+          description: |
+            The priced variant's own code (a product's pack, `jar-250g`). Null
+            when the row prices the article as a whole, and when the variant is
+            out of the caller's reach.
         min_quantity:
           type: ['string', 'null']
           pattern: '^\d+\.\d{4}$'

@@ -54,6 +54,7 @@ export function Select<T extends string = string>({
     required = false,
     disabled = false,
     searchable = false,
+    size: sizeProp,
     id,
     className,
     testID,
@@ -154,7 +155,7 @@ export function Select<T extends string = string>({
                     focused: open,
                     disabled,
                     density,
-                    size: density === 'compact' ? 'sm' : 'md',
+                    size: sizeProp ?? (density === 'compact' ? 'sm' : 'md'),
                 })}
             >
                 <RNText

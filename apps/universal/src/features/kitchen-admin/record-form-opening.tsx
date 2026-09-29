@@ -51,6 +51,11 @@ export interface RecordFormOpeningProps<Step extends string> {
     /** Beside the title: status, handle, a kind chip. The unsaved marker is added after them. */
     readonly badges?: ReactNode | undefined;
     readonly dirty: boolean;
+    /**
+     * Under the title row: what the record *is* and cannot change here — the price list's currency,
+     * kitchen and channels. Facts of the record rather than fields of the form.
+     */
+    readonly details?: ReactNode | undefined;
     /** At the inline end — Cancel, then any lifecycle act, then the commit. */
     readonly actions?: ReactNode | undefined;
     readonly errors?:
@@ -73,6 +78,7 @@ export function RecordFormOpening<Step extends string>({
     title,
     badges,
     dirty,
+    details,
     actions,
     errors,
     warnings,
@@ -118,6 +124,8 @@ export function RecordFormOpening<Step extends string>({
                     )
                 }
             />
+
+            {details === undefined ? null : <View testID={`${testID}-details`}>{details}</View>}
 
             {!showErrors && !showWarnings ? null : (
                 <Inline space="xs" wrap testID={`${testID}-issues`}>

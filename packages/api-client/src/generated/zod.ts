@@ -1785,6 +1785,8 @@ export const zAdminPriceListEntry = z.object({
     id: zUuid,
     catalogue_item_id: zUuid,
     catalogue_item_variant_id: zUuid.nullish(),
+    catalogue_item_type: zCatalogueItemType.nullish(),
+    catalogue_item_variant_code: z.string().nullish(),
     min_quantity: z.string().regex(/^\d+\.\d{4}$/).nullish(),
     unit_amount_minor: z.int().gte(1).nullish(),
     currency_code: zCurrencyCode,

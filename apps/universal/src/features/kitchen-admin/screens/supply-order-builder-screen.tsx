@@ -6,11 +6,11 @@ import type {
 } from '@healthy360/api-client/contracts';
 import type { StockItemId, SupplierId } from '@healthy360/domain-types';
 import {
-    Accordion,
     Badge,
     Button,
     Callout,
     Checkbox,
+    DataList,
     Dialog,
     EmptyState,
     ErrorState,
@@ -18,14 +18,12 @@ import {
     Inline,
     Select,
     Stack,
-    Table,
     TableSkeleton,
+    QuantityInput,
     Text,
-    TextInputField,
-    useFormSteps,
     useToast,
 } from '@healthy360/design-system';
-import type { AccordionItem, SelectOption, TabItem, TableColumn } from '@healthy360/design-system';
+import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -43,7 +41,6 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
-import { TabStepNavigation } from '../editor-steps.tsx';
 import { displayName } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { RecordFormOpening } from '../record-form-opening.tsx';
@@ -66,13 +63,33 @@ import type {
 /**
  * `/kitchen/supply-orders/new` — the supply-order builder (SUP3).
  *
- * Drawn on the Operations design's `edSupply` editor: the read-at notice with Refresh, then titled
- * sections on hairline rules rather than cards — *Needs ordering*, the shelves nobody can supply,
- * *Add something else*, and *Ready to order* with the one create button. The page title is the
+ * Drawn on the Operations design's `edSupply` editor, as one page: the read-at notice with Refresh,
+ * then *Needs ordering* (with a picker under it for anything else), the shelves nobody can supply
+ * when there are any, and *Ready to order* with the one create button. The page title is the
  * trail's leaf; there is no header band, because the notice is the page's opening.
  *
- * Four regions, walked as steps, and the order of them is the order of the job: **what is short**
- * (with **what else you want**), **what nobody can supply**, and **what you are about to ask for**.
+ * ```
+ * ⓘ Read at 14:32. Counted live from this branch's shelves.                          Refresh
+ * ┌ NEEDS ORDERING  6 items · 2 out of stock ──────────────────────────────────────────────┐
+ * │ Item            On hand   Reorder at / Par   Order quantity   From               Ordering │
+ * │ Tahini  [OUT]     0 kg        5 / 20         [ 20     ] kg   [ Beqaa Fresh ▾ ]   Not ordering│
+ * │ [ Add something else… ]                                                                 │
+ * └─────────────────────────────────────────────────────────────────────────────────────────┘
+ * ┌ NOT LINKED TO A SUPPLIER YET ─ only when a row has nobody to buy it from ───────────────┐
+ * ┌ READY TO ORDER ─────────────────────────────┐
+ * │ Beqaa Fresh Produce                3 items  │
+ * │ ⚠ 1 item won't be ordered — no supplier.    │
+ * │ [ Create 1 draft order ]  One per supplier… │
+ * └─────────────────────────────────────────────┘
+ * ```
+ *
+ * One page rather than steps, and the order of it is the order of the job: **what is short** (with
+ * **what else you want**), **what nobody can supply**, and **what you are about to ask for**. The
+ * three regions are read against each other — a quantity typed above moves a count below — and a
+ * step between them hid the consequence of every keystroke.
+ *
+ * The rows are `DataList`s at the Catalogue's small density with `sm` controls: the design's 28px
+ * row of one input, one picker and one toggle, rather than a table of full-height labelled fields.
  *
  * ## Server order, never re-sorted
  *
@@ -120,9 +137,9 @@ import type {
  *
  * ## The commit bar, and why the thing confirmed is the thing sent
  *
- * On the last step, below the preview: a person reads what they are about to ask for and then presses
- * the create under it (or the same create in the step footer). The payload is `toBatchPayload(plan)` — the same pure function that built
- * the accordion above — so the grouping somebody looked at and the request that leaves the device
+ * At the foot of *Ready to order*: a person reads what they are about to ask for and then presses
+ * the create under it. The payload is `toBatchPayload(plan)` — the same pure function that built the
+ * supplier rows above it — so the grouping somebody looked at and the request that leaves the device
  * are provably one object rather than two views that agree by inspection.
  *
  * The confirmation states the two numbers and the rows being left behind, and the two kinds of
@@ -136,18 +153,6 @@ import type {
  */
 
 const EM_DASH = '—';
-
-/**
- * The builder as steps, in the order of the job: **Needs** (the short shelves, and anything else to
- * add — the added shelf comes back as a row in the table above the picker, so the two share a step),
- * **No supplier on file** (only when a row has nobody to buy it from), then **Ready to order**, whose
- * create is the last step's commit.
- */
-type BuilderStep = 'needs' | 'unlinked' | 'review';
-
-const BUILDER_STEPS: readonly BuilderStep[] = ['needs', 'unlinked', 'review'];
-
-const BUILDER_STEPS_ALL_LINKED: readonly BuilderStep[] = ['needs', 'review'];
 
 /** Which issues the row paints red. Blank and zero are exclusions and say so in the summary. */
 const ERROR_ISSUES: ReadonlySet<QuantityIssue> = new Set<QuantityIssue>([
@@ -191,8 +196,8 @@ function SupplyOrderBuilder() {
     const [createFailed, setCreateFailed] = useState(false);
 
     const proposal = useOrderProposalQuery(branchId, requestedIds);
-    // The whole live book, for region B's picker: a shelf with no links may still be assigned any
-    // active supplier, and this is the only place that set comes from.
+    // The whole live book, for the unlinked rows' picker: a shelf with no links may still be
+    // assigned any active supplier, and this is the only place that set comes from.
     const suppliers = useSuppliersQuery();
     const stockItems = useStockItemsQuery();
     const linkSupplier = useUpsertSupplierLinkMutation();
@@ -230,14 +235,7 @@ function SupplyOrderBuilder() {
 
     const assigned = rows.filter((row: OrderProposalItem) => row.unassignedReason === null);
     const unlinked = rows.filter((row: OrderProposalItem) => row.unassignedReason !== null);
-
-    const stepKeys = unlinked.length === 0 ? BUILDER_STEPS_ALL_LINKED : BUILDER_STEPS;
-    const form = useFormSteps(stepKeys);
-    const stepLabels: Readonly<Record<BuilderStep, string>> = {
-        needs: t('kitchen:ops.supplyOrders.previewTitle'),
-        unlinked: t('kitchen:ops.supplyOrders.unlinkedTitle'),
-        review: t('kitchen:ops.supplyOrders.readyTitle'),
-    };
+    const outOfStock = rows.filter((row: OrderProposalItem) => row.isOutOfStock).length;
 
     /**
      * One number for the bar, two for the dialog.
@@ -274,8 +272,8 @@ function SupplyOrderBuilder() {
     }
 
     /**
-     * The commit. `toBatchPayload(plan)` is the object the preview above was built from, so what a
-     * person confirmed and what leaves the device cannot drift.
+     * The commit. `toBatchPayload(plan)` is the object the supplier rows above were built from, so
+     * what a person confirmed and what leaves the device cannot drift.
      *
      * On success the builder is done and steps aside: the landing page is where the new orders live,
      * and leaving somebody on a builder whose rows have just been ordered would invite a second
@@ -325,65 +323,81 @@ function SupplyOrderBuilder() {
     const failure = toFailure(proposal.error);
     const readAt = proposal.dataUpdatedAt === 0 ? null : new Date(proposal.dataUpdatedAt);
 
-    /** Every column but the supplier cell, which the two regions render differently. */
-    function baseColumns(): readonly TableColumn<OrderProposalItem>[] {
+    /**
+     * Every column but the supplier cell, which the two regions render differently.
+     *
+     * The design's grid — `1fr 96 120 120 220 96` — as `DataList` tracks: the item takes what is
+     * left, the figures are centred on their own tracks, and nothing below the item grows.
+     */
+    function baseColumns(): readonly DataListColumn<OrderProposalItem>[] {
         return [
             {
                 key: 'item',
-                header: t('kitchen:ops.supplyOrders.columnItem'),
-                rowHeader: true,
-                flex: 2,
+                label: t('kitchen:ops.supplyOrders.columnItem'),
+                width: 200,
+                priority: 100,
                 render: (row) => {
                     const testID = supplyOrderRowTestId(String(row.stockItemId));
                     return (
-                        <Stack space="none">
-                            <Text variant="bodyStrong" testID={`${testID}-name`}>
-                                {row.itemNameEn}
-                            </Text>
-                            <Text variant="caption" tone="secondary" testID={`${testID}-code`}>
+                        <View className="min-w-0 flex-col py-1">
+                            <View className="min-w-0 flex-row items-center gap-hair">
+                                <Text variant="strong" numberOfLines={1} testID={`${testID}-name`}>
+                                    {row.itemNameEn}
+                                </Text>
+                                {row.isOutOfStock ? (
+                                    <Badge
+                                        testID={`${testID}-out`}
+                                        tone="danger"
+                                        label={t('kitchen:ops.supplyOrders.outBadge')}
+                                    />
+                                ) : row.isLow ? (
+                                    <Badge
+                                        testID={`${testID}-low`}
+                                        tone="warning"
+                                        label={t('kitchen:ops.supplyOrders.lowBadge')}
+                                    />
+                                ) : null}
+                            </View>
+                            <Text
+                                variant="mono"
+                                tone="secondary"
+                                numberOfLines={1}
+                                testID={`${testID}-code`}
+                            >
                                 {row.itemCode}
                             </Text>
-                        </Stack>
+                        </View>
                     );
                 },
             },
             {
                 key: 'onHand',
-                numeric: true,
-                header: t('kitchen:ops.supplyOrders.columnOnHand'),
-                flex: 2,
-                render: (row) => {
-                    const testID = supplyOrderRowTestId(String(row.stockItemId));
-                    return (
-                        <Inline space="xs" align="center" wrap>
-                            <Text testID={`${testID}-on-hand`}>
-                                {`${formatter.formatNumber(Number(row.quantityOnHand))} ${row.unitCode}`}
-                            </Text>
-                            {row.isOutOfStock ? (
-                                <Badge
-                                    testID={`${testID}-out`}
-                                    tone="danger"
-                                    label={t('kitchen:ops.supplyOrders.outBadge')}
-                                />
-                            ) : row.isLow ? (
-                                <Badge
-                                    testID={`${testID}-low`}
-                                    tone="warning"
-                                    label={t('kitchen:ops.supplyOrders.lowBadge')}
-                                />
-                            ) : null}
-                        </Inline>
-                    );
-                },
+                label: t('kitchen:ops.supplyOrders.columnOnHand'),
+                width: 96,
+                priority: 70,
+                align: 'center',
+                grow: false,
+                render: (row) => (
+                    <Text
+                        variant="mono"
+                        testID={`${supplyOrderRowTestId(String(row.stockItemId))}-on-hand`}
+                    >
+                        {`${formatter.formatNumber(Number(row.quantityOnHand))} ${row.unitCode}`}
+                    </Text>
+                ),
             },
             {
                 key: 'levels',
                 // One column for both numbers: they are read together — "reorder at 5, fill to 20" —
                 // and two columns of mostly em dashes would be two columns of nothing.
-                header: t('kitchen:ops.supplyOrders.columnLevels'),
-                numeric: true,
+                label: t('kitchen:ops.supplyOrders.columnLevels'),
+                width: 120,
+                priority: 60,
+                align: 'center',
+                grow: false,
                 render: (row) => (
                     <Text
+                        variant="mono"
                         tone="secondary"
                         testID={`${supplyOrderRowTestId(String(row.stockItemId))}-levels`}
                     >
@@ -397,9 +411,11 @@ function SupplyOrderBuilder() {
             },
             {
                 key: 'quantity',
-                numeric: true,
-                header: t('kitchen:ops.supplyOrders.columnQuantity'),
-                flex: 2,
+                label: t('kitchen:ops.supplyOrders.columnQuantity'),
+                width: 140,
+                priority: 95,
+                align: 'center',
+                grow: false,
                 render: (row) => {
                     const key = String(row.stockItemId);
                     const testID = supplyOrderRowTestId(key);
@@ -410,18 +426,21 @@ function SupplyOrderBuilder() {
                         reading.issue !== null && ERROR_ISSUES.has(reading.issue) && value !== '';
 
                     return (
-                        <Inline space="xs" align="center" wrap>
-                            <TextInputField
+                        <View className="min-w-0 flex-1">
+                            <QuantityInput
                                 testID={`${testID}-quantity`}
                                 /*
-                                 * Labelled with the item's own name, not a shared "Order quantity".
-                                 * Forty inputs sharing one accessible name is a form a screen-reader
-                                 * user cannot navigate, and the duplication is invisible by eye.
+                                 * Labelled with the item's own name, not a shared "Order
+                                 * quantity". Forty inputs sharing one accessible name is a form
+                                 * a screen-reader user cannot navigate, and the duplication is
+                                 * invisible by eye.
                                  */
                                 label={t('kitchen:ops.supplyOrders.quantityLabel', {
                                     item: row.itemNameEn,
                                 })}
-                                keyboardType="decimal-pad"
+                                labelHidden
+                                size="sm"
+                                unit={row.unitCode}
                                 value={value}
                                 // An em dash placeholder rather than "0": the row has no honest
                                 // suggestion and a zero in the box would read as one.
@@ -442,20 +461,20 @@ function SupplyOrderBuilder() {
                                     update(row, { quantity: next });
                                 }}
                             />
-                            <Text tone="secondary" testID={`${testID}-unit`}>
-                                {row.unitCode}
-                            </Text>
-                        </Inline>
+                        </View>
                     );
                 },
             },
         ];
     }
 
-    function orderingColumn(): TableColumn<OrderProposalItem> {
+    function orderingColumn(): DataListColumn<OrderProposalItem> {
         return {
             key: 'ordering',
-            header: t('kitchen:ops.supplyOrders.columnOrdering'),
+            label: t('kitchen:ops.supplyOrders.columnOrdering'),
+            width: 110,
+            priority: 80,
+            grow: false,
             render: (row) => {
                 const key = String(row.stockItemId);
                 const ordering = effective[key]?.ordering ?? true;
@@ -481,12 +500,14 @@ function SupplyOrderBuilder() {
         };
     }
 
-    const assignedColumns: readonly TableColumn<OrderProposalItem>[] = [
+    const assignedColumns: readonly DataListColumn<OrderProposalItem>[] = [
         ...baseColumns(),
         {
             key: 'supplier',
-            header: t('kitchen:ops.supplyOrders.columnFrom'),
-            flex: 2,
+            label: t('kitchen:ops.supplyOrders.columnFrom'),
+            width: 220,
+            priority: 90,
+            grow: false,
             render: (row) => {
                 const key = String(row.stockItemId);
                 const testID = supplyOrderRowTestId(key);
@@ -505,50 +526,55 @@ function SupplyOrderBuilder() {
                 );
 
                 return (
-                    <Stack space="xs">
+                    <View className="min-w-0 flex-row items-center gap-hair py-hair">
+                        <View className="min-w-0 flex-1">
+                            <Select
+                                testID={`${testID}-supplier-select`}
+                                label={t('kitchen:ops.supplyOrders.supplierLabel', {
+                                    item: row.itemNameEn,
+                                })}
+                                labelHidden
+                                options={options}
+                                value={chosen === null ? null : String(chosen)}
+                                placeholder={t('kitchen:ops.supplyOrders.supplierPlaceholder')}
+                                onChange={(value) => {
+                                    chooseSupplier(row, value as SupplierId);
+                                }}
+                            />
+                        </View>
+                        {/*
+                         * The two states the picker cannot say by itself: this is the preferred
+                         * supplier, or there are candidates and nobody has chosen between them.
+                         */}
                         {current === undefined ? (
                             <Badge
                                 testID={`${testID}-choose-supplier`}
                                 tone="warning"
+                                icon="warning"
                                 label={t('kitchen:ops.supplyOrders.chooseSupplier')}
                             />
-                        ) : (
-                            <Inline space="xs" align="center" wrap>
-                                <Text testID={`${testID}-supplier`}>{current.nameEn}</Text>
-                                {current.isPreferred ? (
-                                    <Badge
-                                        testID={`${testID}-preferred`}
-                                        tone="info"
-                                        label={t('kitchen:ops.supplyOrders.preferredBadge')}
-                                    />
-                                ) : null}
-                            </Inline>
-                        )}
-                        <Select
-                            testID={`${testID}-supplier-select`}
-                            label={t('kitchen:ops.supplyOrders.supplierLabel', {
-                                item: row.itemNameEn,
-                            })}
-                            options={options}
-                            value={chosen === null ? null : String(chosen)}
-                            placeholder={t('kitchen:ops.supplyOrders.supplierPlaceholder')}
-                            onChange={(value) => {
-                                chooseSupplier(row, value as SupplierId);
-                            }}
-                        />
-                    </Stack>
+                        ) : current.isPreferred ? (
+                            <Badge
+                                testID={`${testID}-preferred`}
+                                tone="info"
+                                label={t('kitchen:ops.supplyOrders.preferredBadge')}
+                            />
+                        ) : null}
+                    </View>
                 );
             },
         },
         orderingColumn(),
     ];
 
-    const unlinkedColumns: readonly TableColumn<OrderProposalItem>[] = [
+    const unlinkedColumns: readonly DataListColumn<OrderProposalItem>[] = [
         ...baseColumns(),
         {
             key: 'supplier',
-            header: t('kitchen:ops.supplyOrders.columnFrom'),
-            flex: 3,
+            label: t('kitchen:ops.supplyOrders.columnFrom'),
+            width: 240,
+            priority: 90,
+            grow: false,
             render: (row) => {
                 const key = String(row.stockItemId);
                 const testID = supplyOrderRowTestId(key);
@@ -562,7 +588,7 @@ function SupplyOrderBuilder() {
                 );
 
                 return (
-                    <Stack space="xs">
+                    <View className="min-w-0 flex-col gap-hair py-1">
                         {/*
                          * The two reasons get different words because they have different fixes: a
                          * shelf nobody was ever linked to needs a supplier; a shelf whose suppliers
@@ -578,6 +604,7 @@ function SupplyOrderBuilder() {
                             label={t('kitchen:ops.supplyOrders.supplierLabel', {
                                 item: row.itemNameEn,
                             })}
+                            labelHidden
                             options={options}
                             searchable
                             value={chosen === null ? null : String(chosen)}
@@ -594,7 +621,7 @@ function SupplyOrderBuilder() {
                                 setRemember((previous) => ({ ...previous, [key]: checked }));
                             }}
                         />
-                    </Stack>
+                    </View>
                 );
             },
         },
@@ -613,110 +640,26 @@ function SupplyOrderBuilder() {
             description: item.unitCode,
         }));
 
-    const groupItems: readonly AccordionItem[] = plan.groups.map((group) => ({
-        key: String(group.supplier.id),
-        title: t('kitchen:ops.supplyOrders.groupSummary', {
-            supplier: displayName(
-                { en: group.supplier.nameEn, ar: group.supplier.nameAr ?? '' },
-                locale,
-            ).value,
-            count: group.lines.length,
-        }),
-        testID: supplyOrderGroupTestId(String(group.supplier.id)),
-        children: (
-            <Stack space="xs">
-                {group.lines.map((line) => (
-                    <Inline
-                        key={String(line.row.stockItemId)}
-                        space="sm"
-                        justify="between"
-                        wrap
-                        testID={`${supplyOrderGroupTestId(String(group.supplier.id))}-line-${String(line.row.stockItemId)}`}
-                    >
-                        <Text>{line.row.itemNameEn}</Text>
-                        <Text tone="secondary">
-                            {`${formatter.formatNumber(Number(line.quantity))} ${line.row.unitCode}`}
-                        </Text>
-                    </Inline>
-                ))}
-            </Stack>
-        ),
-    }));
-
-    const loaded = branchId !== null && !proposal.isPending && failure === null;
-
-    const stepItems: readonly TabItem<BuilderStep>[] = stepKeys.map((key) => ({
-        value: key,
-        label: stepLabels[key],
-        count:
-            key === 'needs'
-                ? assigned.length
-                : key === 'unlinked'
-                  ? unlinked.length
-                  : plan.groups.length,
-        ...(key === 'unlinked' && plan.unassigned.length > 0
-            ? {
-                  issues: {
-                      count: plan.unassigned.length,
-                      tone: 'warning' as const,
-                      label: t('kitchen:forms.warningCount', {
-                          count: plan.unassigned.length,
-                      }),
-                  },
-              }
-            : {}),
-        testID: `kitchen-supply-order-builder-screen-steps-${key}`,
-    }));
-
     return (
         <Stack space="md" testID="kitchen-supply-order-builder-screen">
             {/*
-             * The opening the record forms share: the title and Cancel at the inline end, and the
-             * steps as numbered tabs — each with its count, and the unlinked step with a warning pill
-             * for the shelves that will not be ordered. The one create is the last step's Next, on
-             * the review; it waits only for there to be something to order.
+             * The opening the record forms share: the title and Cancel at the inline end. No steps:
+             * the page is the whole job, and the create is at the foot of what it creates.
              */}
-            <RecordFormOpening<BuilderStep>
+            <RecordFormOpening
                 testID="kitchen-supply-order-builder-screen"
                 title={t('kitchen:ops.supplyOrders.builderTitle')}
                 dirty={touched}
                 actions={
-                    <>
-                        <Button
-                            testID="kitchen-supply-order-builder-cancel"
-                            variant="secondary"
-                            label={t('kitchen:editor.cancel')}
-                            onPress={() => {
-                                router.push('/kitchen/supply-orders' as never);
-                            }}
-                        />
-                    </>
+                    <Button
+                        testID="kitchen-supply-order-builder-cancel"
+                        variant="secondary"
+                        label={t('kitchen:editor.cancel')}
+                        onPress={() => {
+                            router.push('/kitchen/supply-orders' as never);
+                        }}
+                    />
                 }
-                warnings={{
-                    summary: t('kitchen:forms.warningCount', { count: plan.unassigned.length }),
-                    items:
-                        !loaded || plan.unassigned.length === 0 || !stepKeys.includes('unlinked')
-                            ? []
-                            : [
-                                  {
-                                      key: 'unlinked',
-                                      label: stepLabels.unlinked,
-                                      onPress: () => {
-                                          form.goTo('unlinked');
-                                      },
-                                  },
-                              ],
-                }}
-                {...(loaded
-                    ? {
-                          steps: {
-                              label: t('kitchen:editor.stepsLabel'),
-                              value: form.current,
-                              onChange: form.goTo,
-                              items: stepItems,
-                          },
-                      }
-                    : {})}
             />
 
             {branchId === null ? null : (
@@ -774,62 +717,80 @@ function SupplyOrderBuilder() {
                 />
             ) : (
                 <View className="z-auto flex-col gap-loose">
-                    {form.current !== 'needs' ? null : (
-                        <>
-                            <FormSection
-                                first
-                                variant="card"
-                                testID="kitchen-supply-order-needs"
-                                title={t('kitchen:ops.supplyOrders.previewTitle')}
-                            >
-                                {assigned.length === 0 ? (
-                                    <EmptyState
-                                        testID="kitchen-supply-order-builder-empty"
-                                        icon="success"
-                                        title={t('kitchen:ops.supplyOrders.nothingNeededTitle')}
-                                        body={t('kitchen:ops.supplyOrders.builderEmptyBody')}
-                                    />
-                                ) : (
-                                    <Table<OrderProposalItem>
-                                        testID="kitchen-supply-order-rows"
-                                        caption={t('kitchen:ops.supplyOrders.builderCaption')}
-                                        captionHidden
-                                        columns={assignedColumns}
-                                        rows={assigned}
-                                        rowKey={(row) => String(row.stockItemId)}
-                                    />
-                                )}
-                            </FormSection>
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-supply-order-needs"
+                        title={t('kitchen:ops.supplyOrders.needsTitle')}
+                        aside={
+                            assigned.length === 0 ? undefined : (
+                                <Text
+                                    variant="caption"
+                                    tone="secondary"
+                                    testID="kitchen-supply-order-needs-summary"
+                                >
+                                    {outOfStock === 0
+                                        ? t('kitchen:ops.supplyOrders.needsCount', {
+                                              count: assigned.length,
+                                          })
+                                        : `${t('kitchen:ops.supplyOrders.needsCount', {
+                                              count: assigned.length,
+                                          })} · ${t('kitchen:ops.supplyOrders.outCount', {
+                                              count: outOfStock,
+                                          })}`}
+                                </Text>
+                            )
+                        }
+                    >
+                        <Stack space="sm">
+                            {assigned.length === 0 ? (
+                                <EmptyState
+                                    testID="kitchen-supply-order-builder-empty"
+                                    icon="success"
+                                    title={t('kitchen:ops.supplyOrders.nothingNeededTitle')}
+                                    body={t('kitchen:ops.supplyOrders.builderEmptyBody')}
+                                />
+                            ) : (
+                                <DataList<OrderProposalItem>
+                                    testID="kitchen-supply-order-rows"
+                                    label={t('kitchen:ops.supplyOrders.builderCaption')}
+                                    columns={assignedColumns}
+                                    rows={assigned}
+                                    rowKey={(row) => String(row.stockItemId)}
+                                    density="sm"
+                                />
+                            )}
 
-                            <FormSection
-                                first
-                                variant="card"
+                            {/*
+                             * Anything else to order, under the rows it joins. Re-query rather than
+                             * append a row here: the server owns what a proposal row looks like,
+                             * suppliers resolved and all, so a shelf somebody typed in comes back
+                             * the same shape as one that ran out.
+                             */}
+                            <View
                                 testID="kitchen-supply-order-add"
-                                title={t('kitchen:ops.supplyOrders.addTitle')}
+                                className="z-tooltip w-full max-w-field"
                             >
                                 <Select
                                     testID="kitchen-supply-order-add-select"
-                                    label={t('kitchen:ops.supplyOrders.addLabel')}
+                                    label={t('kitchen:ops.supplyOrders.addTitle')}
+                                    labelHidden
                                     options={addOptions}
                                     searchable
                                     value={null}
                                     placeholder={t('kitchen:ops.supplyOrders.addPlaceholder')}
                                     onChange={(value) => {
-                                        // Re-query rather than append a row here: the server owns
-                                        // what a proposal row looks like, suppliers resolved and
-                                        // all, so a shelf somebody typed in comes back the same
-                                        // shape as one that ran out.
                                         setRequestedIds((previous) => [
                                             ...previous,
                                             value as unknown as StockItemId,
                                         ]);
                                     }}
                                 />
-                            </FormSection>
-                        </>
-                    )}
+                            </View>
+                        </Stack>
+                    </FormSection>
 
-                    {form.current !== 'unlinked' ? null : (
+                    {unlinked.length === 0 ? null : (
                         <FormSection
                             first
                             variant="card"
@@ -847,79 +808,105 @@ function SupplyOrderBuilder() {
                                 />
                             }
                         >
-                            <Table<OrderProposalItem>
+                            <DataList<OrderProposalItem>
                                 testID="kitchen-supply-order-unlinked-rows"
-                                caption={t('kitchen:ops.supplyOrders.unlinkedCaption')}
-                                captionHidden
+                                label={t('kitchen:ops.supplyOrders.unlinkedCaption')}
                                 columns={unlinkedColumns}
                                 rows={unlinked}
                                 rowKey={(row) => String(row.stockItemId)}
+                                density="sm"
                             />
                         </FormSection>
                     )}
 
-                    {form.current !== 'review' ? null : (
-                        <>
-                            <FormSection
-                                first
-                                variant="card"
-                                testID="kitchen-supply-order-preview"
-                                title={t('kitchen:ops.supplyOrders.readyTitle')}
-                            >
-                                <Stack space="sm">
-                                    {plan.groups.length === 0 ? (
-                                        <Text
-                                            tone="secondary"
-                                            testID="kitchen-supply-order-preview-empty"
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-supply-order-preview"
+                        title={t('kitchen:ops.supplyOrders.readyTitle')}
+                    >
+                        <Stack space="sm">
+                            {plan.groups.length === 0 ? (
+                                <Text
+                                    variant="caption"
+                                    tone="secondary"
+                                    testID="kitchen-supply-order-preview-empty"
+                                >
+                                    {t('kitchen:ops.supplyOrders.readyEmpty')}
+                                </Text>
+                            ) : (
+                                /*
+                                 * One row per draft order: the supplier and how many items it will
+                                 * carry. The lines themselves are the rows above; repeating them
+                                 * here made the page twice as long to say the same thing.
+                                 */
+                                <View
+                                    testID="kitchen-supply-order-groups"
+                                    className="flex-col gap-hair"
+                                >
+                                    {plan.groups.map((group) => (
+                                        <View
+                                            key={String(group.supplier.id)}
+                                            testID={supplyOrderGroupTestId(
+                                                String(group.supplier.id),
+                                            )}
+                                            className="flex-row items-baseline justify-between gap-snug rounded border border-stroke-subtle bg-surface-raised px-snug py-tight"
                                         >
-                                            {t('kitchen:ops.supplyOrders.readyEmpty')}
-                                        </Text>
-                                    ) : (
-                                        <Accordion
-                                            testID="kitchen-supply-order-groups"
-                                            items={groupItems}
-                                            multiple
-                                            defaultExpandedKeys={groupItems.map((item) => item.key)}
-                                        />
-                                    )}
-                                    {plan.unassigned.length === 0 ? null : (
-                                        <Text
-                                            tone="warning"
-                                            variant="caption"
-                                            testID="kitchen-supply-order-unassigned-warning"
-                                        >
-                                            {t('kitchen:ops.supplyOrders.unassignedCount', {
-                                                count: plan.unassigned.length,
-                                            })}
-                                        </Text>
-                                    )}
-                                    {plan.excluded.length === 0 ? null : (
-                                        <Text
-                                            tone="secondary"
-                                            variant="caption"
-                                            testID="kitchen-supply-order-excluded"
-                                        >
-                                            {t('kitchen:ops.supplyOrders.excludedCount', {
-                                                count: plan.excluded.length,
-                                            })}
-                                        </Text>
-                                    )}
-                                </Stack>
-                            </FormSection>
+                                            <Text variant="label" numberOfLines={1}>
+                                                {
+                                                    displayName(
+                                                        {
+                                                            en: group.supplier.nameEn,
+                                                            ar: group.supplier.nameAr ?? '',
+                                                        },
+                                                        locale,
+                                                    ).value
+                                                }
+                                            </Text>
+                                            <Text variant="mono" tone="secondary">
+                                                {t('kitchen:ops.supplyOrders.groupCount', {
+                                                    count: group.lines.length,
+                                                })}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+
+                            {plan.unassigned.length === 0 ? null : (
+                                <Callout
+                                    testID="kitchen-supply-order-unassigned-warning"
+                                    tone="warning"
+                                    title={t('kitchen:ops.supplyOrders.unassignedCount', {
+                                        count: plan.unassigned.length,
+                                    })}
+                                />
+                            )}
+                            {plan.excluded.length === 0 ? null : (
+                                <Text
+                                    tone="secondary"
+                                    variant="caption"
+                                    testID="kitchen-supply-order-excluded"
+                                >
+                                    {t('kitchen:ops.supplyOrders.excludedCount', {
+                                        count: plan.excluded.length,
+                                    })}
+                                </Text>
+                            )}
 
                             {plan.groups.length === 0 ? null : (
                                 <View
                                     testID="kitchen-supply-order-commit"
-                                    className="flex-row flex-wrap items-center gap-3"
+                                    className="flex-col gap-tight border-t border-stroke-subtle pt-tight"
                                 >
                                     {/*
-                                     * Three counts as three complete phrases rather than one interpolated
-                                     * sentence: each pluralises on its own number, which is the only shape
-                                     * that survives a six-form language.
+                                     * Three counts as three complete phrases rather than one
+                                     * interpolated sentence: each pluralises on its own number,
+                                     * which is the only shape that survives a six-form language.
                                      */}
                                     <Inline space="sm" align="center" wrap>
                                         <Text
-                                            variant="bodyStrong"
+                                            variant="strong"
                                             testID="kitchen-supply-order-commit-orders"
                                         >
                                             {t('kitchen:ops.supplyOrders.commitOrders', {
@@ -927,6 +914,7 @@ function SupplyOrderBuilder() {
                                             })}
                                         </Text>
                                         <Text
+                                            variant="caption"
                                             tone="secondary"
                                             testID="kitchen-supply-order-commit-lines"
                                         >
@@ -936,6 +924,7 @@ function SupplyOrderBuilder() {
                                         </Text>
                                         {leftBehind === 0 ? null : (
                                             <Text
+                                                variant="caption"
                                                 tone="secondary"
                                                 testID="kitchen-supply-order-commit-left-behind"
                                             >
@@ -945,35 +934,28 @@ function SupplyOrderBuilder() {
                                             </Text>
                                         )}
                                     </Inline>
+                                    <View className="flex-row flex-wrap items-center gap-tight">
+                                        <Button
+                                            testID="kitchen-supply-order-create"
+                                            label={t('kitchen:ops.supplyOrders.createDrafts', {
+                                                count: plan.groups.length,
+                                            })}
+                                            loading={createOrders.isPending}
+                                            onPress={() => {
+                                                setCreateFailed(false);
+                                                setConfirmingCreate(true);
+                                            }}
+                                        />
+                                        <Text variant="caption" tone="secondary">
+                                            {t('kitchen:ops.supplyOrders.commitNote')}
+                                        </Text>
+                                    </View>
                                 </View>
                             )}
-                        </>
-                    )}
+                        </Stack>
+                    </FormSection>
                 </View>
             )}
-
-            {loaded ? (
-                <TabStepNavigation<BuilderStep>
-                    testID="kitchen-supply-order-builder-screen-steps-nav"
-                    items={stepItems}
-                    value={form.current}
-                    onChange={form.goTo}
-                    finalAction={
-                        <Button
-                            testID="kitchen-supply-order-create"
-                            label={t('kitchen:ops.supplyOrders.createDrafts', {
-                                count: plan.groups.length,
-                            })}
-                            loading={createOrders.isPending}
-                            disabled={plan.groups.length === 0}
-                            onPress={() => {
-                                setCreateFailed(false);
-                                setConfirmingCreate(true);
-                            }}
-                        />
-                    }
-                />
-            ) : null}
 
             <Dialog
                 open={confirmingCreate}

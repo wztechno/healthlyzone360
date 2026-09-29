@@ -1,8 +1,4 @@
-import type {
-    QualityCheck,
-    QualityCheckStatus,
-    QualityCheckSubjectType,
-} from '@healthy360/api-client/contracts';
+import type { QualityCheck, QualityCheckStatus } from '@healthy360/api-client/contracts';
 import {
     QUALITY_CHECK_STATUSES,
     QUALITY_CHECK_SUBJECT_TYPES,
@@ -10,16 +6,12 @@ import {
 import {
     Badge,
     Button,
-    Callout,
     EmptyState,
     ErrorState,
-    FormSection,
     Icon,
-    Select,
     Stack,
     TableSkeleton,
     Text,
-    TextInputField,
     useToast,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
@@ -30,7 +22,6 @@ import { useTranslation } from 'react-i18next';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
-    useCreateQualityCheckMutation,
     useHoldQualityCheckMutation,
     useQualityChecksQuery,
     useReleaseQualityCheckMutation,
@@ -45,7 +36,6 @@ import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { EditorFrame } from '../editor-frame.tsx';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
     qualityCheckRowTestId,
@@ -53,9 +43,8 @@ import {
     qualityCheckStatusTone,
     qualityCheckSubjectKey,
 } from '../ops-format.ts';
-import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
-import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { QualityCheckCreate } from '../quality-check-create.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
@@ -68,7 +57,8 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * ```
  *
  * Hold and release are the only lifecycle actions beyond opening a check (O3/O4). Subjects are
- * limited to `goods_receipt` and `production_order`. "New check" opens the generic editor.
+ * limited to `goods_receipt` and `production_order`. "New check" opens `QualityCheckCreate`, where
+ * the subject is picked from this branch's recent receipts and batches.
  *
  * ## What the design shows that the contract does not
  *
@@ -97,22 +87,36 @@ function shortId(id: string): string {
 
 function QualityControl() {
     const [creating, setCreating] = useState(false);
+    // A check the editor sent the reader to — its duplicate warning's "Open" — shown on arrival.
+    const [opening, setOpening] = useState<QualityCheck | null>(null);
     return creating ? (
         <QualityCheckCreate
             onDone={() => {
                 setCreating(false);
             }}
+            onOpenCheck={(check) => {
+                setOpening(check);
+                setCreating(false);
+            }}
         />
     ) : (
         <QualityCheckList
+            initialViewing={opening}
             onCreate={() => {
+                setOpening(null);
                 setCreating(true);
             }}
         />
     );
 }
 
-function QualityCheckList({ onCreate }: { readonly onCreate: () => void }) {
+function QualityCheckList({
+    initialViewing,
+    onCreate,
+}: {
+    readonly initialViewing: QualityCheck | null;
+    readonly onCreate: () => void;
+}) {
     const { t } = useTranslation();
     const toast = useToast();
     const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
@@ -123,7 +127,7 @@ function QualityCheckList({ onCreate }: { readonly onCreate: () => void }) {
 
     const [query, setQuery] = useState('');
     const [status, setStatus] = useState<StatusSegmentValue>('all');
-    const [viewing, setViewing] = useState<QualityCheck | null>(null);
+    const [viewing, setViewing] = useState<QualityCheck | null>(initialViewing);
 
     const trimmed = query.trim().toLowerCase();
     const filtered = useMemo(
@@ -484,109 +488,4 @@ function qcCards(rows: readonly QualityCheck[], t: TFunction): readonly Catalogu
             mark: 'circleCheck',
         },
     ];
-}
-
-/* ------------------------------------------------------------------------------------------------
- * New check — the generic editor
- * ---------------------------------------------------------------------------------------------- */
-
-function QualityCheckCreate({ onDone }: { readonly onDone: () => void }) {
-    const { t } = useTranslation();
-    const toast = useToast();
-
-    const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
-    const concurrency = useOptimisticConcurrency({ onReload: onDone });
-    const createCheck = useCreateQualityCheckMutation();
-
-    const [subjectType, setSubjectType] = useState<QualityCheckSubjectType>('goods_receipt');
-    const [subjectId, setSubjectId] = useState('');
-
-    const subjectOptions = QUALITY_CHECK_SUBJECT_TYPES.map((value) => ({
-        value,
-        label: t(qualityCheckSubjectKey(value)),
-    }));
-
-    const saveFailure = toFailure(createCheck.error);
-
-    function submit() {
-        const trimmed = subjectId.trim();
-        if (trimmed === '') return;
-        createCheck.mutate(
-            { subjectType, subjectId: trimmed },
-            {
-                onSuccess: () => {
-                    guard.markClean();
-                    toast.show({
-                        testID: 'kitchen-qc-created-toast',
-                        tone: 'success',
-                        message: t('kitchen:ops.qc.createdToast'),
-                    });
-                    onDone();
-                },
-            },
-        );
-    }
-
-    return (
-        <EditorFrame
-            testID="kitchen-qc-create-editor"
-            title={t('kitchen:ops.qc.createTitle')}
-            titleChip={{ label: t('kitchen:ops.qc.createChip'), tone: 'danger' }}
-            meta={null}
-            guard={guard}
-            concurrency={concurrency}
-            saveLabel={t('kitchen:ops.qc.createSubmit')}
-            saving={createCheck.isPending}
-            saveDisabled={subjectId.trim() === ''}
-            onSaveDraft={submit}
-            backLabel={t('kitchen:ops.qc.backToList')}
-            onBack={onDone}
-            banner={
-                saveFailure === null ? undefined : (
-                    <Callout
-                        testID="kitchen-qc-create-error"
-                        role="alert"
-                        tone="danger"
-                        title={t('kitchen:ops.qc.createFailed')}
-                        body={saveFailure.message}
-                    />
-                )
-            }
-        >
-            <FormSection
-                first
-                testID="kitchen-qc-create-subject"
-                title={t('kitchen:ops.qc.subjectSection')}
-                description={t('kitchen:ops.qc.footNote')}
-            >
-                <Stack space="sm">
-                    <Select
-                        testID="kitchen-qc-subject-type"
-                        id="kitchen-qc-subject-type"
-                        label={t('kitchen:ops.qc.subjectTypeLabel')}
-                        options={subjectOptions}
-                        value={subjectType}
-                        onChange={(next) => {
-                            setSubjectType(next);
-                            guard.markDirty();
-                        }}
-                        className="min-w-[260px]"
-                    />
-                    <TextInputField
-                        testID="kitchen-qc-subject-id"
-                        id="kitchen-qc-subject-id"
-                        label={t('kitchen:ops.qc.subjectIdLabel')}
-                        hint={t('kitchen:ops.qc.subjectIdHint')}
-                        value={subjectId}
-                        onChangeText={(next) => {
-                            setSubjectId(next);
-                            guard.markDirty();
-                        }}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                    />
-                </Stack>
-            </FormSection>
-        </EditorFrame>
-    );
 }
