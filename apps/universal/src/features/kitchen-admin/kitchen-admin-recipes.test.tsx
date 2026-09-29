@@ -2696,7 +2696,7 @@ describe('the steps', () => {
             screen.getByTestId('kitchen-recipe-sheet-summary-designation-value'),
         ).toHaveTextContent('Hummus');
         expect(screen.getByTestId('kitchen-recipe-check-languages-note')).toHaveTextContent(
-            'Add the designation in both English and Arabic',
+            'Add the item name in both English and Arabic',
         );
         expect(screen.getByTestId('kitchen-recipe-check-costed-note')).toHaveTextContent(
             'Add at least one raw material on the Production step',

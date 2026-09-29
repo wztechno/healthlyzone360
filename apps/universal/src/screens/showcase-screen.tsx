@@ -263,7 +263,7 @@ const CATALOGUE_KINDS = ['paste', 'spice', 'dairy'] as const;
 const CATALOGUE_PHOTO_COLUMNS: readonly CatalogueColumn<CatalogueRow>[] = [
     {
         key: 'designation',
-        label: 'Designation',
+        label: 'Item',
         width: 200,
         priority: 100,
         role: 'title',
@@ -371,7 +371,7 @@ function BilingualStory({ prefix }: { readonly prefix: string }) {
                     span={2}
                     layout="row"
                     testID={id('bilingual-row')}
-                    fieldLabel="Designation"
+                    fieldLabel="Item"
                     value={row}
                     requiredEnglish
                     onChange={setRow}
@@ -845,7 +845,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
     const catalogueColumns = (scope: string): readonly DataListColumn<CatalogueRow>[] => [
         {
             key: 'designation',
-            label: 'Designation',
+            label: 'Item',
             width: 180,
             priority: 100,
             sortable: true,
@@ -1329,12 +1329,12 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     <FormField
                         testID={id('field-designation')}
                         id={id('field-designation')}
-                        label="Designation"
+                        label="Item"
                     >
                         {(control) => (
                             <TextInputField
                                 {...control}
-                                label="Designation"
+                                label="Item"
                                 size="sm"
                                 value={designation}
                                 onChangeText={setDesignation}
@@ -1584,7 +1584,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         tone="danger"
                         summary="3 required"
                         items={[
-                            { key: 'name', label: 'Designation (EN)', onPress: () => undefined },
+                            { key: 'name', label: 'Item (EN)', onPress: () => undefined },
                             { key: 'category', label: 'Category', onPress: () => undefined },
                             { key: 'price', label: 'Unit price', onPress: () => undefined },
                         ]}
@@ -1986,8 +1986,8 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             id={id('text-input-error')}
                             size="sm"
                             required
-                            label="Designation"
-                            error="Enter a designation."
+                            label="Item"
+                            error="Enter an item name."
                             value=""
                             onChangeText={() => undefined}
                         />
@@ -3103,7 +3103,7 @@ export function ShowcaseScreen() {
                                 <TextInputField
                                     testID="showcase-density-input"
                                     size="sm"
-                                    label="Designation"
+                                    label="Item"
                                     placeholder="Zaatar"
                                 />
                                 <Checkbox

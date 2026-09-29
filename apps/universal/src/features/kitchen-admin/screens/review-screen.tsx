@@ -33,8 +33,8 @@ import { RecordViewPage } from '../catalogue/record-view-page.tsx';
  * ```
  * Needs review  [ READ ONLY ]
  * ┌ SHOWN ┐ ┌ BLOCKED ┐ ┌ TO FINISH ┐
- * [ ⌕ Designation or name ]  [ All | Blocked | To finish ]
- * ID        DESIGNATION         WHY IT IS HERE          LAST CHANGED          ◉ ✎
+ * [ ⌕ Item ]             [ All | Blocked | To finish ]
+ * ID        ITEM                WHY IT IS HERE          LAST CHANGED          ◉ ✎
  * ING-0142  …
  * RC-0007   …
  * ```

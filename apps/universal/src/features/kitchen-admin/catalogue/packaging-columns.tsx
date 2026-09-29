@@ -105,9 +105,8 @@ export function packagingColumns({
         },
         {
             key: 'name',
-            // The same `columnItem` the ingredient list takes. `list.columnName` still reads
-            // "Designation" and still names the recipe line table's title column, which is a
-            // different surface with a different word for it.
+            // The same `columnItem` the ingredient list takes. `list.columnName` names the recipe
+            // line table's title column — the same word today, but a different surface.
             label: t('kitchen:list.columnItem'),
             width: 200,
             min: 150,
