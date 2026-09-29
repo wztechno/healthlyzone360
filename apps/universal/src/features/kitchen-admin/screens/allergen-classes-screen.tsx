@@ -2,10 +2,10 @@ import type { AllergenClass } from '@healthy360/api-client/contracts';
 import {
     Button,
     Callout,
+    Cascade,
     EmptyState,
     ErrorState,
     Inline,
-    Stack,
     TableSkeleton,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
@@ -170,18 +170,17 @@ function AllergenClasses() {
     }
 
     return (
-        <Stack space="md" testID="kitchen-allergen-classes-screen">
+        <Cascade space="md" testID="kitchen-allergen-classes-screen">
             {/*
              * No header row. This list has no actions at all - allergen classes are the platform's
              * to govern, which the notice below says in words - so the header was an empty box
              * holding the cards apart from nothing.
              */}
-            {list.isPending ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-allergen-classes-stats"
-                    cards={statCards(list, t)}
-                />
-            )}
+            <CatalogueStatCards
+                testID="kitchen-allergen-classes-stats"
+                cards={statCards(list, t)}
+                pending={list.isPending}
+            />
 
             <Callout
                 testID="kitchen-allergen-classes-governance"
@@ -269,7 +268,7 @@ function AllergenClasses() {
                     ]}
                 />
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

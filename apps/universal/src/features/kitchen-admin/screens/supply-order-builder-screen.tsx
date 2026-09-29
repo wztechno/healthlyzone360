@@ -9,6 +9,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     Checkbox,
     DataList,
     Dialog,
@@ -657,7 +658,7 @@ function SupplyOrderBuilder() {
     };
 
     return (
-        <Stack space="md" testID="kitchen-supply-order-builder-screen">
+        <Cascade space="md" testID="kitchen-supply-order-builder-screen">
             {/*
              * The opening the record forms share, as Post receipt draws it: the title, Cancel, and the
              * commit at the inline end — repeated at the foot of the summary, beside what it creates.
@@ -1076,6 +1077,6 @@ function SupplyOrderBuilder() {
                     </>
                 }
             />
-        </Stack>
+        </Cascade>
     );
 }

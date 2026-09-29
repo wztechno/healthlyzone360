@@ -2,10 +2,10 @@ import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-cli
 import {
     Badge,
     Button,
+    Cascade,
     EmptyState,
     ErrorState,
     SegmentedControl,
-    Stack,
     TableSkeleton,
     Text,
     useToast,
@@ -119,7 +119,6 @@ function ProductionDesk() {
     const rows = batches.data?.orders ?? [];
     const hasMore = batches.data?.hasMore ?? false;
     const failure = toFailure(batches.error);
-    const hasData = !batches.isPending && failure === null;
 
     /** A filter change is a navigation: the page goes with it. */
     const refilter = (next: DeskFilter) => {
@@ -294,10 +293,11 @@ function ProductionDesk() {
     const controls = useColumnControls(rows, columns, 'kitchen-production-desk-table');
 
     return (
-        <Stack space="md" testID="kitchen-production-desk-screen">
-            {!hasData ? null : (
+        <Cascade space="md" testID="kitchen-production-desk-screen">
+            {failure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-production-desk-summary"
+                    pending={batches.isPending}
                     cards={[
                         {
                             key: 'draft',
@@ -447,7 +447,7 @@ function ProductionDesk() {
                     </View>
                 </View>
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

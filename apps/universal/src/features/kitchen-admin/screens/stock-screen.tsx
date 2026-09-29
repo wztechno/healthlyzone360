@@ -2,6 +2,7 @@ import type { ItemLatestPurchase, StockItem, StockLevel } from '@healthy360/api-
 import {
     Badge,
     Callout,
+    Cascade,
     EmptyState,
     ErrorState,
     FormGrid,
@@ -665,11 +666,12 @@ function Stock() {
     }
 
     return (
-        <Stack space="md" testID="kitchen-stock-screen">
-            {pending || failure !== null ? null : (
+        <Cascade space="md" testID="kitchen-stock-screen">
+            {failure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-stock-stats"
                     cards={statCards(controls.rows, bookRows.length, unfiltered, t, clearFilters)}
+                    pending={pending}
                 />
             )}
 
@@ -784,7 +786,7 @@ function Stock() {
                     </Text>
                 </Stack>
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

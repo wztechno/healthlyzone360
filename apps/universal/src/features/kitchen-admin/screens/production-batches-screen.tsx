@@ -2,10 +2,10 @@ import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-cli
 import {
     Badge,
     Button,
+    Cascade,
     EmptyState,
     ErrorState,
     SegmentedControl,
-    Stack,
     TableSkeleton,
     Text,
     TextInputField,
@@ -135,7 +135,6 @@ function ProductionBatches() {
     const rows = batches.data?.orders ?? [];
     const hasMore = batches.data?.hasMore ?? false;
     const failure = toFailure(batches.error);
-    const hasData = !batches.isPending && failure === null;
     const noValue = t('kitchen:list.noValue');
 
     const tile = (value: number | null): string =>
@@ -273,10 +272,11 @@ function ProductionBatches() {
     const controls = useColumnControls(rows, columns, 'kitchen-production-batches-table');
 
     return (
-        <Stack space="md" testID="kitchen-production-batches-screen">
-            {!hasData ? null : (
+        <Cascade space="md" testID="kitchen-production-batches-screen">
+            {failure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-production-batches-summary"
+                    pending={batches.isPending}
                     cards={[
                         {
                             key: 'settled',
@@ -402,7 +402,7 @@ function ProductionBatches() {
                     </View>
                 </View>
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

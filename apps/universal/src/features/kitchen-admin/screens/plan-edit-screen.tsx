@@ -4,6 +4,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     DateField,
     Dialog,
     ErrorState,
@@ -1033,7 +1034,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     };
 
     return (
-        <Stack space="md" testID="kitchen-plan-editor-screen">
+        <Cascade space="md" testID="kitchen-plan-editor-screen">
             {/*
              * The opening, as the recipe editor draws it: the title with its status beside it, the
              * actions at the inline end, the banner naming what needs fixing, and the steps as
@@ -2159,6 +2160,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     </Text>
                 )}
             </Dialog>
-        </Stack>
+        </Cascade>
     );
 }

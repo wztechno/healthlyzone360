@@ -3,6 +3,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     Dialog,
     ErrorState,
     FormGrid,
@@ -699,7 +700,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
     ];
 
     return (
-        <Stack space="md" testID="kitchen-zone-editor-screen">
+        <Cascade space="md" testID="kitchen-zone-editor-screen">
             <RecordFormOpening<ZoneStep>
                 testID="kitchen-zone-editor-screen"
                 title={title}
@@ -1154,6 +1155,6 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                 guard={guard}
                 concurrency={concurrency}
             />
-        </Stack>
+        </Cascade>
     );
 }

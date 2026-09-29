@@ -9,6 +9,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     DatePickerButton,
     EmptyState,
     ErrorState,
@@ -478,7 +479,7 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
     }
 
     return (
-        <Stack space="md" testID="kitchen-purchases-ledger-screen">
+        <Cascade space="md" testID="kitchen-purchases-ledger-screen">
             {/* §5: the ledger is the valuation, and the reader should know why they can see it. */}
             <Callout
                 testID="kitchen-purchases-ledger-cost-note"
@@ -488,10 +489,11 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                 body={t('kitchen:ops.ledger.costNoteBody')}
             />
 
-            {isDetail && !pending && failure === null ? (
+            {isDetail && failure === null ? (
                 <CatalogueStatCards
                     testID="kitchen-purchases-ledger-stats"
                     cards={ledgerStatCards(controls.rows, t)}
+                    pending={pending}
                 />
             ) : null}
 
@@ -717,7 +719,7 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                     ))}
                 </Stack>
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

@@ -1,6 +1,7 @@
 import { apiFailure } from '@healthy360/api-client/contracts';
 import {
     Button,
+    Cascade,
     EmptyState,
     ErrorState,
     Stack,
@@ -143,18 +144,24 @@ function ReviewQueueBody() {
     }
 
     return (
-        <Stack space="md" testID="kitchen-review-screen">
-            {queue === null || queue.total === 0 || failure !== null ? null : (
+        <Cascade space="md" testID="kitchen-review-screen">
+            {(queue !== null && queue.total === 0) || failure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-review-summary"
                     cards={statCards(queue, sections, t, (next) => {
                         setScope(next);
                         setViewing(null);
                     })}
+                    pending={sources.isPending}
                 />
             )}
 
-            {queue === null || queue.total === 0 || failure !== null ? null : (
+            {/*
+             * Drawn while the queue loads, on the cards' own terms: a toolbar that waited for the
+             * data would push the list down a row the moment it landed. It goes only with the
+             * cards — an empty queue has nothing to search.
+             */}
+            {(queue !== null && queue.total === 0) || failure !== null ? null : (
                 <CatalogueToolbar<ReviewScope>
                     testID="kitchen-review-toolbar"
                     search={search}
@@ -238,7 +245,7 @@ function ReviewQueueBody() {
                     )}
                 </Stack>
             )}
-        </Stack>
+        </Cascade>
     );
 }
 
@@ -342,9 +349,15 @@ function narrow(
         .filter((section) => section.items.length > 0);
 }
 
-/** The admin's standard figure cards — each one also narrows the queue to what it counts. */
+/**
+ * The admin's standard figure cards — each one also narrows the queue to what it counts.
+ *
+ * `queue` is null while the sources are in flight. The cards are drawn then with their figures
+ * held, and the Shown caption is the only other line that counts anything, so it says "—" rather
+ * than "0 families" about a queue nobody has read yet.
+ */
 function statCards(
-    queue: ReviewQueue,
+    queue: ReviewQueue | null,
     sections: readonly ReviewSection[],
     t: TFunction,
     setScope: (scope: ReviewScope) => void,
@@ -359,8 +372,11 @@ function statCards(
             key: 'shown',
             label: t('kitchen:review.statShown'),
             value: String(shown),
-            unit: t('kitchen:list.statShownUnit', { total: queue.total }),
-            caption: t('kitchen:review.statShownCaption', { count: sections.length }),
+            unit: t('kitchen:list.statShownUnit', { total: queue?.total ?? 0 }),
+            caption:
+                queue === null
+                    ? t('kitchen:list.noValue')
+                    : t('kitchen:review.statShownCaption', { count: sections.length }),
             mark: 'list',
             tone: 'brand',
             onPress: () => {

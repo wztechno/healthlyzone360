@@ -8,6 +8,7 @@ import {
     Button,
     Callout,
     Card,
+    Cascade,
     DataList,
     Dialog,
     EmptyState,
@@ -237,7 +238,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
     });
 
     return (
-        <Stack space="md" testID="kitchen-unpriced-receipt-screen">
+        <Cascade space="md" testID="kitchen-unpriced-receipt-screen">
             <CataloguePageHeader
                 testID="kitchen-unpriced-receipt-header"
                 title={title ?? undefined}
@@ -371,7 +372,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                     </>
                 }
             />
-        </Stack>
+        </Cascade>
     );
 }
 

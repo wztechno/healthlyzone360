@@ -1,5 +1,14 @@
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import { Button, Dialog, Icon, Inline, Stack, Text, useToast } from '@healthy360/design-system';
+import {
+    Button,
+    Cascade,
+    Dialog,
+    Icon,
+    Inline,
+    Stack,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -196,14 +205,13 @@ function PackagingList() {
     }
 
     return (
-        <Stack space="md" testID="kitchen-packaging-screen">
+        <Cascade space="md" testID="kitchen-packaging-screen">
             <Stack space="xs">
-                {list.isPending ? null : (
-                    <CatalogueStatCards
-                        testID="kitchen-packaging-stats"
-                        cards={statCards(list, t)}
-                    />
-                )}
+                <CatalogueStatCards
+                    testID="kitchen-packaging-stats"
+                    cards={statCards(list, t)}
+                    pending={list.isPending}
+                />
             </Stack>
 
             <CatalogueToolbar<StatusSegmentValue>
@@ -366,7 +374,7 @@ function PackagingList() {
                     </Text>
                 )}
             </Dialog>
-        </Stack>
+        </Cascade>
     );
 }
 

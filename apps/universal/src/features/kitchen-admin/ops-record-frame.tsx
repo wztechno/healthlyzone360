@@ -1,12 +1,4 @@
-import {
-    Badge,
-    Button,
-    Dialog,
-    Inline,
-    PageTransition,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
+import { Badge, Button, Cascade, Dialog, Inline, Text } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -93,124 +85,122 @@ export function OpsRecordFrame({
     const { t } = useTranslation();
 
     return (
-        <PageTransition testID={testID} transitionKey={testID}>
-            <Stack space="lg">
-                <KitchenPageHeader
-                    testID={`${testID}-header`}
-                    variant="band"
-                    title={title}
-                    hideTitle={hideTitle}
-                    titleTestID={`${testID}-title`}
-                    back={
-                        <View className="flex-row">
-                            <Button
-                                testID={`${testID}-back`}
-                                variant="ghost"
-                                size="sm"
-                                label={backLabel}
-                                onPress={() => {
-                                    guard.intercept(onBack);
-                                }}
-                            />
-                        </View>
-                    }
-                    meta={
-                        guard.isDirty ? (
-                            <Inline space="sm" align="center" wrap>
-                                <Badge
-                                    testID={`${testID}-dirty`}
-                                    tone="warning"
-                                    icon="warning"
-                                    label={t('kitchen:editor.unsaved')}
-                                />
-                            </Inline>
-                        ) : undefined
-                    }
-                />
-
-                {banner}
-
-                <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card md:p-5">
-                    {children}
-                </View>
-
-                <View
-                    testID={`${testID}-actions`}
-                    className="flex-row flex-wrap items-center justify-end gap-2 rounded-panel border border-brand-100 bg-surface-raised p-3 shadow-elevation-card"
-                >
-                    {primaryAction}
-                    {hideSave ? null : (
+        <Cascade space="lg" testID={testID}>
+            <KitchenPageHeader
+                testID={`${testID}-header`}
+                variant="band"
+                title={title}
+                hideTitle={hideTitle}
+                titleTestID={`${testID}-title`}
+                back={
+                    <View className="flex-row">
                         <Button
-                            testID={`${testID}-save`}
-                            label={saveLabel}
-                            loading={saving}
-                            disabled={saveDisabled || saving}
-                            onPress={onSave}
+                            testID={`${testID}-back`}
+                            variant="ghost"
+                            size="sm"
+                            label={backLabel}
+                            onPress={() => {
+                                guard.intercept(onBack);
+                            }}
                         />
-                    )}
-                </View>
+                    </View>
+                }
+                meta={
+                    guard.isDirty ? (
+                        <Inline space="sm" align="center" wrap>
+                            <Badge
+                                testID={`${testID}-dirty`}
+                                tone="warning"
+                                icon="warning"
+                                label={t('kitchen:editor.unsaved')}
+                            />
+                        </Inline>
+                    ) : undefined
+                }
+            />
 
+            {banner}
+
+            <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card md:p-5">
+                {children}
+            </View>
+
+            <View
+                testID={`${testID}-actions`}
+                className="flex-row flex-wrap items-center justify-end gap-2 rounded-panel border border-brand-100 bg-surface-raised p-3 shadow-elevation-card"
+            >
+                {primaryAction}
+                {hideSave ? null : (
+                    <Button
+                        testID={`${testID}-save`}
+                        label={saveLabel}
+                        loading={saving}
+                        disabled={saveDisabled || saving}
+                        onPress={onSave}
+                    />
+                )}
+            </View>
+
+            <Dialog
+                testID={`${testID}-unsaved-dialog`}
+                open={guard.isPrompting}
+                onClose={guard.cancelDiscard}
+                title={t('kitchen:unsaved.title')}
+                description={t('kitchen:unsaved.body')}
+                actions={
+                    <>
+                        <Button
+                            testID={`${testID}-unsaved-keep`}
+                            variant="quiet"
+                            label={t('kitchen:unsaved.keepEditing')}
+                            onPress={guard.cancelDiscard}
+                        />
+                        <Button
+                            testID={`${testID}-unsaved-discard`}
+                            variant="danger"
+                            label={t('kitchen:unsaved.discard')}
+                            onPress={guard.confirmDiscard}
+                        />
+                    </>
+                }
+            />
+
+            {concurrency === undefined ? null : (
                 <Dialog
-                    testID={`${testID}-unsaved-dialog`}
-                    open={guard.isPrompting}
-                    onClose={guard.cancelDiscard}
-                    title={t('kitchen:unsaved.title')}
-                    description={t('kitchen:unsaved.body')}
+                    testID={`${testID}-conflict-dialog`}
+                    open={concurrency.conflict !== null}
+                    onClose={concurrency.keepEditing}
+                    dismissOnBackdrop={false}
+                    title={t('kitchen:conflict.title')}
+                    description={t('kitchen:conflict.body')}
                     actions={
                         <>
                             <Button
-                                testID={`${testID}-unsaved-keep`}
+                                testID={`${testID}-conflict-keep`}
                                 variant="quiet"
-                                label={t('kitchen:unsaved.keepEditing')}
-                                onPress={guard.cancelDiscard}
+                                label={t('kitchen:conflict.keepEditing')}
+                                onPress={concurrency.keepEditing}
                             />
                             <Button
-                                testID={`${testID}-unsaved-discard`}
+                                testID={`${testID}-conflict-reload`}
                                 variant="danger"
-                                label={t('kitchen:unsaved.discard')}
-                                onPress={guard.confirmDiscard}
+                                label={t('kitchen:conflict.reload')}
+                                onPress={concurrency.reload}
                             />
                         </>
                     }
-                />
-
-                {concurrency === undefined ? null : (
-                    <Dialog
-                        testID={`${testID}-conflict-dialog`}
-                        open={concurrency.conflict !== null}
-                        onClose={concurrency.keepEditing}
-                        dismissOnBackdrop={false}
-                        title={t('kitchen:conflict.title')}
-                        description={t('kitchen:conflict.body')}
-                        actions={
-                            <>
-                                <Button
-                                    testID={`${testID}-conflict-keep`}
-                                    variant="quiet"
-                                    label={t('kitchen:conflict.keepEditing')}
-                                    onPress={concurrency.keepEditing}
-                                />
-                                <Button
-                                    testID={`${testID}-conflict-reload`}
-                                    variant="danger"
-                                    label={t('kitchen:conflict.reload')}
-                                    onPress={concurrency.reload}
-                                />
-                            </>
-                        }
-                    >
-                        {concurrency.conflict === null ? null : (
-                            <Text
-                                testID={`${testID}-conflict-detail`}
-                                tone="secondary"
-                                variant="caption"
-                            >
-                                {concurrency.conflict.failure.message}
-                            </Text>
-                        )}
-                    </Dialog>
-                )}
-            </Stack>
-        </PageTransition>
+                >
+                    {concurrency.conflict === null ? null : (
+                        <Text
+                            testID={`${testID}-conflict-detail`}
+                            tone="secondary"
+                            variant="caption"
+                        >
+                            {concurrency.conflict.failure.message}
+                        </Text>
+                    )}
+                </Dialog>
+            )}
+        </Cascade>
     );
 }

@@ -2,6 +2,7 @@ import type { CreateStaffAccountRequest } from '@healthy360/api-client/contracts
 import {
     Button,
     Callout,
+    Cascade,
     Dialog,
     FormGrid,
     FormSection,
@@ -382,7 +383,7 @@ function StaffCreateForm() {
 
     return (
         <>
-            <Stack space="md" testID="kitchen-staff-create-screen">
+            <Cascade space="md" testID="kitchen-staff-create-screen">
                 <RecordFormOpening<StaffStep>
                     testID="kitchen-staff-create"
                     title={t('accessAdmin:add.title')}
@@ -656,7 +657,7 @@ function StaffCreateForm() {
                         />
                     }
                 />
-            </Stack>
+            </Cascade>
 
             <EditorGuardDialogs testID="kitchen-staff-create" guard={guard} />
 

@@ -1263,7 +1263,9 @@ describe('the recipe list', () => {
             repositories: { kitchenAdmin: { listRecipes: listing.listRecipes } },
         });
 
-        await untilVisible('kitchen-recipes-stats-onSale');
+        // The card is drawn while the page loads, with a placeholder where its figure goes; the
+        // figure is what says the listing has landed.
+        await untilVisible('kitchen-recipes-stats-onSale-value');
         // The sauce's item is live; the meal's is a draft, and the marination sells nothing.
         expect(screen.getByTestId('kitchen-recipes-stats-onSale-value')).toHaveTextContent('1');
         expect(screen.getByTestId('kitchen-recipes-stats-review')).toBeTruthy();
@@ -1311,7 +1313,7 @@ describe('the recipe list', () => {
 
         // A sauce with no pack has nothing a price list can point at — the figure the sauces page
         // showed in this slot. Read-only, because the contract has no parameter for it.
-        await untilVisible('kitchen-recipes-stats-noPack');
+        await untilVisible('kitchen-recipes-stats-noPack-value');
         expect(screen.getByTestId('kitchen-recipes-stats-noPack-value')).toHaveTextContent('1');
         expect(screen.queryByTestId('kitchen-recipes-stats-review')).toBeNull();
     });

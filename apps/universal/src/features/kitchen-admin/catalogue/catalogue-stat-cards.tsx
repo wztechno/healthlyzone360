@@ -1,4 +1,4 @@
-import { Card, Icon, Text } from '@healthy360/design-system';
+import { Card, FadeIn, Icon, Skeleton, Text } from '@healthy360/design-system';
 import type { CardTone, IconName, TextTone } from '@healthy360/design-system';
 import { cardWidth } from '@healthy360/design-tokens';
 import { View } from 'react-native';
@@ -109,12 +109,28 @@ const CARD_TONE: Readonly<Record<CatalogueStatTone, CardTone>> = {
     danger: 'raised',
 };
 
+/** A space the layout cannot collapse, so an otherwise empty line still takes its full height. */
+const NO_BREAK_SPACE = String.fromCharCode(0xa0);
+
 export interface CatalogueStatCardsProps {
     readonly cards: readonly CatalogueStatCard[];
+    /**
+     * The figures are still in flight.
+     *
+     * Each card is drawn anyway — frame, label, mark and caption, none of which wait on the data —
+     * with a placeholder holding the figure's line. The row is its loaded height from the first
+     * frame, so when the figures land the toolbar and table below do not move. A screen that drew
+     * nothing here until its list resolved pushed both down by a card's height at that moment,
+     * which is the jump a reader sees as the page arriving twice.
+     *
+     * Passing it at all is also what animates the arrival: a caller that has a pending state gets
+     * its figures faded in when they land, and one that does not draws them as they are.
+     */
+    readonly pending?: boolean | undefined;
     readonly testID: string;
 }
 
-export function CatalogueStatCards({ cards, testID }: CatalogueStatCardsProps) {
+export function CatalogueStatCards({ cards, pending, testID }: CatalogueStatCardsProps) {
     return (
         /*
          * The cards fill the row, with a gap between them.
@@ -170,15 +186,46 @@ export function CatalogueStatCards({ cards, testID }: CatalogueStatCardsProps) {
                     className="flex-1 flex-col"
                     style={{ minWidth: cardWidth.min }}
                 >
-                    <StatCard card={card} testID={`${testID}-${card.key}`} />
+                    <StatCard card={card} pending={pending} testID={`${testID}-${card.key}`} />
                 </View>
             ))}
         </View>
     );
 }
 
-function StatCard({ card, testID }: { readonly card: CatalogueStatCard; readonly testID: string }) {
+function StatCard({
+    card,
+    pending,
+    testID,
+}: {
+    readonly card: CatalogueStatCard;
+    readonly pending: boolean | undefined;
+    readonly testID: string;
+}) {
     const tone = card.tone ?? 'default';
+
+    const figure = (
+        <View className="flex-row flex-wrap items-baseline gap-tight">
+            {/*
+             * `display` (20/26, 700), not the `mono` role. The design sets these figures
+             * in IBM Plex Mono, and CLAUDE.md's sequencing decision defers that family
+             * to the palette pass — "carry numerics with weight and alignment for now" —
+             * so the figure takes the ramp's one large step and nothing else.
+             */}
+            <Text variant="display" tone={VALUE_TONE[tone]} testID={`${testID}-value`}>
+                {card.value}
+            </Text>
+            {/*
+             * The unit on the figure's own step, so "18 of 18" and "1 records" read as
+             * one phrase at one size — ink, not size, separates the count from its noun.
+             */}
+            {card.unit === undefined ? null : (
+                <Text variant="display" tone="secondary">
+                    {card.unit}
+                </Text>
+            )}
+        </View>
+    );
 
     return (
         <Card
@@ -201,26 +248,23 @@ function StatCard({ card, testID }: { readonly card: CatalogueStatCard; readonly
                     <Icon name={card.mark} size="lg" className={MARK_CLASS[tone]} />
                 </View>
 
-                <View className="flex-row flex-wrap items-baseline gap-tight">
-                    {/*
-                     * `display` (20/26, 700), not the `mono` role. The design sets these figures
-                     * in IBM Plex Mono, and CLAUDE.md's sequencing decision defers that family
-                     * to the palette pass — "carry numerics with weight and alignment for now" —
-                     * so the figure takes the ramp's one large step and nothing else.
-                     */}
-                    <Text variant="display" tone={VALUE_TONE[tone]} testID={`${testID}-value`}>
-                        {card.value}
-                    </Text>
-                    {/*
-                     * The unit on the figure's own step, so "18 of 18" and "1 records" read as
-                     * one phrase at one size — ink, not size, separates the count from its noun.
-                     */}
-                    {card.unit === undefined ? null : (
-                        <Text variant="display" tone="secondary">
-                            {card.unit}
+                {pending === true ? (
+                    <View testID={`${testID}-loading`} className="flex-row items-center">
+                        {/*
+                         * The figure's own line box with nothing in it. It holds the card at its
+                         * loaded height by the type ramp itself, so the placeholder cannot drift
+                         * from the figure it stands in for when the ramp moves.
+                         */}
+                        <Text variant="display" aria-hidden>
+                            {NO_BREAK_SPACE}
                         </Text>
-                    )}
-                </View>
+                        <Skeleton heightClassName="h-5" widthClassName="w-1/3" />
+                    </View>
+                ) : pending === false ? (
+                    <FadeIn>{figure}</FadeIn>
+                ) : (
+                    figure
+                )}
 
                 <Text variant="body" tone={CAPTION_TONE[tone]} numberOfLines={2}>
                     {card.caption}

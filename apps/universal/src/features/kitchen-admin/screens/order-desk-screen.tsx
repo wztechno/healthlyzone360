@@ -19,6 +19,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     Dialog,
     EmptyState,
     ErrorState,
@@ -1860,14 +1861,16 @@ function OrderDeskQueueList() {
     }
 
     return (
-        <Stack space="md" testID="kitchen-order-desk-screen">
+        <Cascade space="md" testID="kitchen-order-desk-screen">
             {/*
              * No title, no summary line: the shell's trail names the page, and the four cards are
              * the figures — the ingredients screen's opening, for the same reasons.
              */}
-            {queue.isPending ? null : (
-                <CatalogueStatCards testID="kitchen-order-desk-figures" cards={figures} />
-            )}
+            <CatalogueStatCards
+                testID="kitchen-order-desk-figures"
+                cards={figures}
+                pending={queue.isPending}
+            />
 
             {/*
              * One row of 28px controls. Two filters on it look alike and are not: the status chips
@@ -2096,6 +2099,6 @@ function OrderDeskQueueList() {
                     />
                 </Stack>
             )}
-        </Stack>
+        </Cascade>
     );
 }

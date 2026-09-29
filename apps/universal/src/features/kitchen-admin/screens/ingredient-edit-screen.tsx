@@ -13,6 +13,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     Checkbox,
     Dialog,
     ErrorState,
@@ -1377,7 +1378,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         );
 
     return (
-        <Stack space="md" testID="kitchen-ingredient-editor-screen">
+        <Cascade space="md" testID="kitchen-ingredient-editor-screen">
             {/*
              * The opening: the title with its status and handle beside it, Cancel and Save at the
              * inline end, the banners under it and one rule closing it. No trail here —
@@ -2136,6 +2137,6 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     </Text>
                 )}
             </Dialog>
-        </Stack>
+        </Cascade>
     );
 }

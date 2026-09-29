@@ -2,6 +2,7 @@ import type { PlanAdmin, PublishableStatus } from '@healthy360/api-client/contra
 import {
     Badge,
     Button,
+    Cascade,
     EmptyState,
     ErrorState,
     Stack,
@@ -429,9 +430,13 @@ function PlansList() {
     }
 
     return (
-        <Stack space="md" testID="kitchen-plans-screen">
-            {plans.isPending || failure !== null ? null : (
-                <CatalogueStatCards testID="kitchen-plans-stats" cards={cards} />
+        <Cascade space="md" testID="kitchen-plans-screen">
+            {failure !== null ? null : (
+                <CatalogueStatCards
+                    testID="kitchen-plans-stats"
+                    cards={cards}
+                    pending={plans.isPending}
+                />
             )}
 
             <CatalogueToolbar<StatusSegmentValue>
@@ -537,7 +542,7 @@ function PlansList() {
                     />
                 </Stack>
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

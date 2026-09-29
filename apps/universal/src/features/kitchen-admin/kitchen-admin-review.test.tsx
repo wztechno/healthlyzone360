@@ -698,7 +698,8 @@ describe('the review queue screen', () => {
             repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
         });
 
-        await untilVisible('kitchen-review-summary');
+        // The figures, not the cards: the cards are drawn while the queue is still in flight.
+        await untilVisible('kitchen-review-summary-shown-value');
         // Counted cards, not a sentence: one record shown, and that one is refused publication.
         expect(screen.getByTestId('kitchen-review-summary-shown-value')).toHaveTextContent('1');
         expect(screen.getByTestId('kitchen-review-summary-blocked-value')).toHaveTextContent('1');
@@ -757,7 +758,7 @@ describe('the review queue screen', () => {
             repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
         });
 
-        await untilVisible('kitchen-review-summary');
+        await untilVisible('kitchen-review-summary-shown-value');
         expect(screen.queryByTestId('kitchen-review-title')).toBeNull();
         expect(screen.queryByTestId('kitchen-review-scope')).toBeNull();
         expect(screen.queryByTestId('kitchen-review-not-checked')).toBeNull();

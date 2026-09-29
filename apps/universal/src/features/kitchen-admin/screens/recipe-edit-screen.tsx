@@ -17,6 +17,8 @@ import {
     Button,
     Callout,
     Card,
+    Cascade,
+    CascadeItem,
     Dialog,
     ErrorState,
     FormGrid,
@@ -1737,7 +1739,7 @@ function RecipeEditor({
     ];
 
     return (
-        <Stack space="md" testID="kitchen-recipe-editor-screen">
+        <Cascade space="md" testID="kitchen-recipe-editor-screen">
             {/*
              * The opening — title, badges, actions, the meta line and the tab row — is one 4px block
              * inside the page's 16px rhythm, exactly as the ingredient editor and the two lists
@@ -2607,14 +2609,16 @@ function RecipeEditor({
              * Its drafts live inside it, so unmounting it on a tab switch would throw away a pack
              * somebody had half typed — the recipe's own drafts survive a switch because they live on
              * this screen, and the listing's have to as well.
+             *
+             * It is its own `CascadeItem` so that `hidden` lands on the band's box: hidden one level
+             * further in, the band would still stand in the page and take a gap on every other tab.
              */}
             {sellsAs === undefined ? null : (
-                <View
-                    className={tab === 'selling' ? 'relative z-raised' : 'hidden'}
-                    testID="kitchen-recipe-selling"
-                >
-                    {sellsAs.content}
-                </View>
+                <CascadeItem index={0} className={tab === 'selling' ? undefined : 'hidden'}>
+                    <View className="relative z-raised" testID="kitchen-recipe-selling">
+                        {sellsAs.content}
+                    </View>
+                </CascadeItem>
             )}
 
             {/* ── Technical sheet ──────────────────────────────────────────────────────────── */}
@@ -3172,7 +3176,7 @@ function RecipeEditor({
                     </Text>
                 )}
             </Dialog>
-        </Stack>
+        </Cascade>
     );
 }
 

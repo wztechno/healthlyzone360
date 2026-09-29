@@ -2,9 +2,9 @@ import type { Supplier } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
+    Cascade,
     EmptyState,
     ErrorState,
-    Stack,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
@@ -374,8 +374,8 @@ function SuppliersList() {
     }
 
     return (
-        <Stack space="md" testID="kitchen-suppliers-screen">
-            {suppliers.isPending || failure !== null ? null : (
+        <Cascade space="md" testID="kitchen-suppliers-screen">
+            {failure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-suppliers-stats"
                     cards={statCards(controls.rows, unfiltered, t, () => {
@@ -383,6 +383,7 @@ function SuppliersList() {
                         setSegment('active');
                         controls.clearFilters();
                     })}
+                    pending={suppliers.isPending}
                 />
             )}
 
@@ -473,7 +474,7 @@ function SuppliersList() {
                     ]}
                 />
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

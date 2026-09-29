@@ -8,6 +8,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     DataList,
     EmptyState,
     ErrorState,
@@ -15,7 +16,6 @@ import {
     Icon,
     RecordSkeleton,
     RecordWindowFieldGrid,
-    Stack,
     TableSkeleton,
     Text,
     useToast,
@@ -267,7 +267,7 @@ function Quotations() {
         );
     }
 
-    const loaded = quotations.isPending ? null : all.length;
+    const loaded = all.length;
     const awaiting = all.filter((row) => row.status === 'submitted').length;
     const quoted = all.filter((row) => row.status === 'quoted').length;
 
@@ -299,10 +299,11 @@ function Quotations() {
     }
 
     return (
-        <Stack space="md" testID="kitchen-quotations-screen">
-            {loaded === null || listFailure !== null ? null : (
+        <Cascade space="md" testID="kitchen-quotations-screen">
+            {listFailure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-quotations-panel-metric"
+                    pending={quotations.isPending}
                     cards={[
                         {
                             key: 'loaded',
@@ -434,7 +435,7 @@ function Quotations() {
                     ]}
                 />
             )}
-        </Stack>
+        </Cascade>
     );
 }
 
@@ -529,7 +530,7 @@ function QuotationPricing({
     }
 
     return (
-        <Stack space="md" testID="kitchen-quotations-screen">
+        <Cascade space="md" testID="kitchen-quotations-screen">
             <View className="flex-row">
                 <Button
                     testID="kitchen-quotations-back"
@@ -554,7 +555,7 @@ function QuotationPricing({
                     retrying={detail.isFetching}
                 />
             ) : quotation === null ? null : (
-                <Stack space="md" testID="kitchen-quotations-detail-body">
+                <Cascade space="md" testID="kitchen-quotations-detail-body">
                     <CataloguePageHeader
                         testID="kitchen-quotations-detail-header"
                         title={t('kitchen:ops.quotations.detailTitle', {
@@ -690,9 +691,9 @@ function QuotationPricing({
                             />
                         </View>
                     ) : null}
-                </Stack>
+                </Cascade>
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

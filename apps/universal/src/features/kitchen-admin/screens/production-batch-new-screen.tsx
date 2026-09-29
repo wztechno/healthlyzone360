@@ -3,6 +3,7 @@ import {
     Button,
     Callout,
     Card,
+    Cascade,
     Dialog,
     EmptyState,
     FilterChip,
@@ -426,7 +427,7 @@ function ProductionBatchNew() {
               : undefined;
 
     return (
-        <Stack space="md" testID="kitchen-production-batch-new-screen">
+        <Cascade space="md" testID="kitchen-production-batch-new-screen">
             {/*
              * The record forms' opening: the title with the state the batch will be opened in,
              * Cancel and the create at the inline end, and the banner naming what stops the create.
@@ -845,7 +846,7 @@ function ProductionBatchNew() {
                     </>
                 }
             />
-        </Stack>
+        </Cascade>
     );
 }
 

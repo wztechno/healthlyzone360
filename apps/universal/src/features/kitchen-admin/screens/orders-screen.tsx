@@ -13,6 +13,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     Dialog,
     EmptyState,
     ErrorState,
@@ -383,8 +384,8 @@ function Orders() {
     }
 
     return (
-        <Stack space="md" testID="kitchen-orders-screen">
-            {orders.isPending && rows.length === 0 ? null : listFailure !== null ? null : (
+        <Cascade space="md" testID="kitchen-orders-screen">
+            {listFailure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-orders-stats"
                     cards={statCards(rows, unfiltered, t, changeStatus, () => {
@@ -392,6 +393,7 @@ function Orders() {
                         setDeliveryDate(null);
                         changeStatus('all');
                     })}
+                    pending={orders.isPending && rows.length === 0}
                 />
             )}
 
@@ -522,7 +524,7 @@ function Orders() {
                     </View>
                 </Stack>
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

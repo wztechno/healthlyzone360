@@ -7,6 +7,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     Checkbox,
     Dialog,
     FormGrid,
@@ -688,7 +689,7 @@ function PostReceipt() {
     }));
 
     return (
-        <Stack space="md" testID="kitchen-post-receipt-screen">
+        <Cascade space="md" testID="kitchen-post-receipt-screen">
             <RecordFormOpening
                 testID="kitchen-post-receipt-screen"
                 title={title}
@@ -1238,6 +1239,6 @@ function PostReceipt() {
                     </>
                 }
             />
-        </Stack>
+        </Cascade>
     );
 }

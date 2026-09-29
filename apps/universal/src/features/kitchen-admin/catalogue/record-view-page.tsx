@@ -3,9 +3,9 @@ import {
     Button,
     Callout,
     Card,
+    Cascade,
     Icon,
     Inline,
-    PageTransition,
     RecordWindowFieldGrid,
     Stack,
     TagRow,
@@ -185,174 +185,162 @@ export function RecordViewPage({
         primaryAction !== undefined;
 
     return (
-        <PageTransition testID={testID} transitionKey={testID}>
-            <Stack space="md">
-                <CataloguePageHeader
-                    testID={`${testID}-header`}
-                    titleTestID={`${testID}-title`}
-                    title={title}
-                    titleAside={
-                        <Inline space="xs" align="center" wrap>
-                            <Badge tone="neutral" label={kind} testID={`${testID}-kind`} />
-                            {reference === undefined ? null : (
-                                <Text
-                                    variant="mono"
-                                    tone="secondary"
-                                    testID={`${testID}-reference`}
-                                >
-                                    {reference}
-                                </Text>
-                            )}
-                            {status === undefined ? null : (
-                                <Badge
-                                    tone={status.tone}
-                                    label={status.label}
-                                    testID={`${testID}-status`}
-                                />
-                            )}
-                            {titleAside}
-                        </Inline>
-                    }
-                />
+        <Cascade space="md" testID={testID}>
+            <CataloguePageHeader
+                testID={`${testID}-header`}
+                titleTestID={`${testID}-title`}
+                title={title}
+                titleAside={
+                    <Inline space="xs" align="center" wrap>
+                        <Badge tone="neutral" label={kind} testID={`${testID}-kind`} />
+                        {reference === undefined ? null : (
+                            <Text variant="mono" tone="secondary" testID={`${testID}-reference`}>
+                                {reference}
+                            </Text>
+                        )}
+                        {status === undefined ? null : (
+                            <Badge
+                                tone={status.tone}
+                                label={status.label}
+                                testID={`${testID}-status`}
+                            />
+                        )}
+                        {titleAside}
+                    </Inline>
+                }
+            />
 
-                {note === undefined ? null : (
-                    <Callout testID={`${testID}-note`} tone="info" role="note" title={note} />
-                )}
+            {note === undefined ? null : (
+                <Callout testID={`${testID}-note`} tone="info" role="note" title={note} />
+            )}
 
-                <View
-                    testID={`${testID}-body`}
-                    className="flex-col gap-base xl:flex-row xl:items-start"
-                >
-                    <View
-                        testID={`${testID}-main`}
-                        className="min-w-0 flex-col gap-base xl:flex-[21]"
+            <View
+                testID={`${testID}-body`}
+                className="flex-col gap-base xl:flex-row xl:items-start"
+            >
+                <View testID={`${testID}-main`} className="min-w-0 flex-col gap-base xl:flex-[21]">
+                    <Card
+                        tone="raised"
+                        padding="md"
+                        title={fieldsTitle ?? t('kitchen:recordView.details')}
+                        subtitle={fieldsSubtitle}
                     >
+                        <RecordWindowFieldGrid fields={fields} testID={`${testID}-field`} />
+                    </Card>
+
+                    {sections.map((section) => (
+                        <SectionCard key={section.key} section={section} testID={testID} />
+                    ))}
+
+                    {lines === undefined ? null : (
                         <Card
+                            testID={`${testID}-lines`}
                             tone="raised"
                             padding="md"
-                            title={fieldsTitle ?? t('kitchen:recordView.details')}
-                            subtitle={fieldsSubtitle}
+                            title={linesTitle}
                         >
-                            <RecordWindowFieldGrid fields={fields} testID={`${testID}-field`} />
+                            {lines}
                         </Card>
-
-                        {sections.map((section) => (
-                            <SectionCard key={section.key} section={section} testID={testID} />
-                        ))}
-
-                        {lines === undefined ? null : (
-                            <Card
-                                testID={`${testID}-lines`}
-                                tone="raised"
-                                padding="md"
-                                title={linesTitle}
-                            >
-                                {lines}
-                            </Card>
-                        )}
-                    </View>
-
-                    <View
-                        testID={`${testID}-rail`}
-                        className="min-w-0 flex-col gap-base xl:flex-[10]"
-                    >
-                        {media}
-
-                        {hasStatusCard ? (
-                            <Card
-                                testID={`${testID}-record-status`}
-                                tone="brand"
-                                padding="md"
-                                title={t('kitchen:recordView.statusTitle')}
-                            >
-                                <Stack space="sm">
-                                    {status === undefined ? null : (
-                                        <View className="flex-row">
-                                            <Badge tone={status.tone} label={status.label} />
-                                        </View>
-                                    )}
-                                    {statusLines.map((line, index) => (
-                                        <Text
-                                            key={`${String(index)}-${line}`}
-                                            testID={`${testID}-status-line-${String(index)}`}
-                                            variant="caption"
-                                            tone="secondary"
-                                        >
-                                            {line}
-                                        </Text>
-                                    ))}
-                                    {footNote === undefined ? null : (
-                                        <Text
-                                            testID={`${testID}-foot-note`}
-                                            variant="caption"
-                                            tone="secondary"
-                                        >
-                                            {footNote}
-                                        </Text>
-                                    )}
-                                    {statusContent}
-                                    {primaryAction === undefined ? null : (
-                                        <Button
-                                            testID={primaryAction.testID ?? `${testID}-primary`}
-                                            size="sm"
-                                            block
-                                            label={primaryAction.label}
-                                            {...(primaryAction.icon === null
-                                                ? {}
-                                                : {
-                                                      iconStart: (
-                                                          <Icon
-                                                              name={primaryAction.icon ?? 'pen'}
-                                                              size="sm"
-                                                          />
-                                                      ),
-                                                  })}
-                                            loading={primaryAction.loading}
-                                            disabled={primaryAction.disabled}
-                                            onPress={primaryAction.onPress}
-                                        />
-                                    )}
-                                </Stack>
-                            </Card>
-                        ) : null}
-
-                        {hasChips ? (
-                            <Card
-                                testID={`${testID}-chips`}
-                                tone="raised"
-                                padding="md"
-                                title={chipsLabel}
-                            >
-                                <Stack space="sm">
-                                    {chipsSourceBadge === undefined ? null : (
-                                        <View className="flex-row">
-                                            <Badge
-                                                tone="neutral"
-                                                label={chipsSourceBadge}
-                                                testID={`${testID}-chips-source`}
-                                            />
-                                        </View>
-                                    )}
-                                    {chipsContent ??
-                                        (chips === undefined || chips.length === 0 ? null : (
-                                            <TagRow items={chips} testID={`${testID}-chip-row`} />
-                                        ))}
-                                    {chipsCaption === undefined ? null : (
-                                        <Text variant="caption" tone="secondary">
-                                            {chipsCaption}
-                                        </Text>
-                                    )}
-                                </Stack>
-                            </Card>
-                        ) : null}
-
-                        {rail.map((section) => (
-                            <SectionCard key={section.key} section={section} testID={testID} />
-                        ))}
-                    </View>
+                    )}
                 </View>
-            </Stack>
-        </PageTransition>
+
+                <View testID={`${testID}-rail`} className="min-w-0 flex-col gap-base xl:flex-[10]">
+                    {media}
+
+                    {hasStatusCard ? (
+                        <Card
+                            testID={`${testID}-record-status`}
+                            tone="brand"
+                            padding="md"
+                            title={t('kitchen:recordView.statusTitle')}
+                        >
+                            <Stack space="sm">
+                                {status === undefined ? null : (
+                                    <View className="flex-row">
+                                        <Badge tone={status.tone} label={status.label} />
+                                    </View>
+                                )}
+                                {statusLines.map((line, index) => (
+                                    <Text
+                                        key={`${String(index)}-${line}`}
+                                        testID={`${testID}-status-line-${String(index)}`}
+                                        variant="caption"
+                                        tone="secondary"
+                                    >
+                                        {line}
+                                    </Text>
+                                ))}
+                                {footNote === undefined ? null : (
+                                    <Text
+                                        testID={`${testID}-foot-note`}
+                                        variant="caption"
+                                        tone="secondary"
+                                    >
+                                        {footNote}
+                                    </Text>
+                                )}
+                                {statusContent}
+                                {primaryAction === undefined ? null : (
+                                    <Button
+                                        testID={primaryAction.testID ?? `${testID}-primary`}
+                                        size="sm"
+                                        block
+                                        label={primaryAction.label}
+                                        {...(primaryAction.icon === null
+                                            ? {}
+                                            : {
+                                                  iconStart: (
+                                                      <Icon
+                                                          name={primaryAction.icon ?? 'pen'}
+                                                          size="sm"
+                                                      />
+                                                  ),
+                                              })}
+                                        loading={primaryAction.loading}
+                                        disabled={primaryAction.disabled}
+                                        onPress={primaryAction.onPress}
+                                    />
+                                )}
+                            </Stack>
+                        </Card>
+                    ) : null}
+
+                    {hasChips ? (
+                        <Card
+                            testID={`${testID}-chips`}
+                            tone="raised"
+                            padding="md"
+                            title={chipsLabel}
+                        >
+                            <Stack space="sm">
+                                {chipsSourceBadge === undefined ? null : (
+                                    <View className="flex-row">
+                                        <Badge
+                                            tone="neutral"
+                                            label={chipsSourceBadge}
+                                            testID={`${testID}-chips-source`}
+                                        />
+                                    </View>
+                                )}
+                                {chipsContent ??
+                                    (chips === undefined || chips.length === 0 ? null : (
+                                        <TagRow items={chips} testID={`${testID}-chip-row`} />
+                                    ))}
+                                {chipsCaption === undefined ? null : (
+                                    <Text variant="caption" tone="secondary">
+                                        {chipsCaption}
+                                    </Text>
+                                )}
+                            </Stack>
+                        </Card>
+                    ) : null}
+
+                    {rail.map((section) => (
+                        <SectionCard key={section.key} section={section} testID={testID} />
+                    ))}
+                </View>
+            </View>
+        </Cascade>
     );
 }
 

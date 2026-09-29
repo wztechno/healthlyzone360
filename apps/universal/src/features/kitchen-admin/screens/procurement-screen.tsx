@@ -2,6 +2,7 @@ import type { GoodsReceipt, ReceiptCostStatus } from '@healthy360/api-client/con
 import {
     Badge,
     Button,
+    Cascade,
     EmptyState,
     ErrorState,
     Inline,
@@ -360,11 +361,12 @@ function Procurement() {
     }
 
     return (
-        <Stack space="md" testID="kitchen-procurement-screen">
-            {receipts.isPending || failure !== null ? null : (
+        <Cascade space="md" testID="kitchen-procurement-screen">
+            {failure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-procurement-stats"
                     cards={receiptStatCards(controls.rows, t)}
+                    pending={receipts.isPending}
                 />
             )}
 
@@ -488,7 +490,7 @@ function Procurement() {
                     </Inline>
                 </Stack>
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

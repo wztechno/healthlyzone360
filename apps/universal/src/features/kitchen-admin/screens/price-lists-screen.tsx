@@ -2,6 +2,7 @@ import type { PriceListAdmin, PublishableStatus } from '@healthy360/api-client/c
 import {
     Badge,
     Callout,
+    Cascade,
     EmptyState,
     ErrorState,
     Stack,
@@ -334,8 +335,8 @@ function PriceListsList() {
     }
 
     return (
-        <Stack space="md" testID="kitchen-price-lists-screen">
-            {priceLists.isPending || failure !== null ? null : (
+        <Cascade space="md" testID="kitchen-price-lists-screen">
+            {failure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-price-lists-stats"
                     cards={statCards(controls.rows, total, unfiltered, t, () => {
@@ -343,6 +344,7 @@ function PriceListsList() {
                         setStatus('all');
                         setChannel(null);
                     })}
+                    pending={priceLists.isPending}
                 />
             )}
 
@@ -455,7 +457,7 @@ function PriceListsList() {
                     />
                 </Stack>
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

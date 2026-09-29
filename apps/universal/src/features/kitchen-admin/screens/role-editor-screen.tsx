@@ -3,12 +3,12 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     Dialog,
     ErrorState,
     FormGrid,
     FormSection,
     FormSkeleton,
-    Stack,
     Text,
     TextInputField,
     useToast,
@@ -395,7 +395,7 @@ function RoleEditor() {
 
     return (
         <>
-            <Stack space="md" testID="kitchen-role-editor-screen">
+            <Cascade space="md" testID="kitchen-role-editor-screen">
                 <RecordFormOpening<RoleStep>
                     testID="kitchen-role-editor"
                     title={title}
@@ -658,7 +658,7 @@ function RoleEditor() {
                         )
                     }
                 />
-            </Stack>
+            </Cascade>
 
             <EditorGuardDialogs
                 testID="kitchen-role-editor"

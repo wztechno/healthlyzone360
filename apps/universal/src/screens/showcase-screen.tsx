@@ -15,6 +15,7 @@ import {
     Callout,
     CALLOUT_TONES,
     Card,
+    Cascade,
     CommandPalette,
     CARD_TONES,
     CARD_PADDINGS,
@@ -110,7 +111,7 @@ import type {
 } from '@healthy360/design-system';
 import { palette, typefaces } from '@healthy360/design-tokens';
 import { useLocale } from '@healthy360/i18n';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useColorScheme } from 'nativewind';
 import { Text as RNText, View } from 'react-native';
@@ -134,6 +135,7 @@ import { RowThumbnail } from '../features/kitchen-admin/catalogue/row-thumbnail.
 import type { CatalogueListBodyState } from '../features/kitchen-admin/catalogue/catalogue-list-body.tsx';
 import { CataloguePager } from '../features/kitchen-admin/catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
+import type { CatalogueStatCard } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../features/kitchen-admin/catalogue/catalogue-toolbar.tsx';
 import { CatalogueColumnHeader } from '../features/kitchen-admin/catalogue/catalogue-column-header.tsx';
 import { RecipeCardGrid } from '../features/kitchen-admin/catalogue/recipe-card-grid.tsx';
@@ -221,6 +223,52 @@ const SHOWCASE_NUTRIENTS: readonly DerivedFigure[] = [
     { key: 'carbohydrate', label: 'Carbohydrate', value: '1.4', unit: 'g / 100 g' },
     { key: 'protein', label: 'Protein', value: '1.1', unit: 'g / 100 g' },
 ];
+
+/** The four figures a Catalogue list opens with, in all four tones. Two are filters. */
+const SHOWCASE_STAT_CARDS: readonly CatalogueStatCard[] = [
+    {
+        key: 'shown',
+        label: 'Shown',
+        value: '18',
+        unit: 'of 306',
+        caption: 'Filtered — clear',
+        mark: 'list',
+        tone: 'brand',
+        onPress: () => undefined,
+        accessibilityLabel: 'Clear every filter',
+    },
+    {
+        key: 'draft',
+        label: 'Draft',
+        value: '2',
+        unit: 'records',
+        caption: 'not published yet',
+        mark: 'fileDraft',
+        tone: 'warning',
+        onPress: () => undefined,
+        accessibilityLabel: 'Show only draft records',
+    },
+    {
+        key: 'missing',
+        label: 'Missing Arabic',
+        value: '3',
+        unit: 'records',
+        caption: 'blocked from publishing',
+        mark: 'languages',
+        tone: 'danger',
+    },
+    {
+        key: 'uncosted',
+        label: 'Uncosted',
+        value: '0',
+        unit: 'records',
+        caption: 'no unit price on file',
+        mark: 'coins',
+    },
+];
+
+/** How long the arrival story holds its pending frame — long enough to look at, not to wait on. */
+const ARRIVAL_HOLD_MS = 900;
 
 const CATALOGUE_ROWS: readonly CatalogueRow[] = [
     {
@@ -765,6 +813,82 @@ function RecipeCardsStory({ prefix }: { readonly prefix: string }) {
                     },
                 ]}
             />
+        </Stack>
+    );
+}
+
+/**
+ * A list page arriving, replayable, as every admin page does: the bands rise in as a `Cascade`,
+ * the stat cards drawn in full with their figures pending and the table's skeleton in its frame;
+ * then the figures fade in and the rows cascade into the frame. Nothing above or below the list
+ * moves between the two halves — that is what the story is for. Under reduced motion both halves
+ * are still there and the second is simply drawn in place.
+ */
+function ArrivalStory({
+    prefix,
+    columns,
+}: {
+    readonly prefix: string;
+    readonly columns: readonly DataListColumn<CatalogueRow>[];
+}) {
+    const [pending, setPending] = useState(true);
+    const [round, setRound] = useState(0);
+
+    useEffect(() => {
+        if (!pending) return undefined;
+        const timer = setTimeout(() => {
+            setPending(false);
+        }, ARRIVAL_HOLD_MS);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, [pending, round]);
+
+    return (
+        <Stack space="xs">
+            <Text variant="section" tone="secondary">
+                Page arrival
+            </Text>
+            <Inline space="xs" align="center">
+                <Button
+                    testID={`${prefix}-arrival-replay`}
+                    variant="secondary"
+                    label="Replay"
+                    onPress={() => {
+                        setPending(true);
+                        setRound((previous) => previous + 1);
+                    }}
+                />
+                <Text variant="caption" tone="secondary">
+                    {pending ? 'pending' : 'landed'}
+                </Text>
+            </Inline>
+            {/* Keyed by the round, so Replay is a fresh page: the bands rise in again. */}
+            <Cascade key={round} space="xs" testID={`${prefix}-arrival-page`}>
+                <CatalogueStatCards
+                    testID={`${prefix}-arrival-stats`}
+                    cards={SHOWCASE_STAT_CARDS}
+                    pending={pending}
+                />
+                {pending ? (
+                    <TableSkeleton
+                        testID={`${prefix}-arrival-loading`}
+                        rows={CATALOGUE_ROWS.length}
+                    />
+                ) : (
+                    <View className="flex-col rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card">
+                        <DataList
+                            testID={`${prefix}-arrival-list`}
+                            label="Ingredients, arriving"
+                            framed
+                            rowEntrance
+                            columns={columns}
+                            rows={CATALOGUE_ROWS}
+                            rowKey={(row) => row.key}
+                        />
+                    </View>
+                )}
+            </Cascade>
         </Stack>
     );
 }
@@ -2106,51 +2230,18 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                 <Text variant="section" tone="secondary">
                     Catalogue stat cards
                 </Text>
+                <CatalogueStatCards testID={id('stat-cards')} cards={SHOWCASE_STAT_CARDS} />
+                <Text variant="caption" tone="secondary">
+                    pending
+                </Text>
                 <CatalogueStatCards
-                    testID={id('stat-cards')}
-                    cards={[
-                        {
-                            key: 'shown',
-                            label: 'Shown',
-                            value: '18',
-                            unit: 'of 306',
-                            caption: 'Filtered — clear',
-                            mark: 'list',
-                            tone: 'brand',
-                            onPress: () => undefined,
-                            accessibilityLabel: 'Clear every filter',
-                        },
-                        {
-                            key: 'draft',
-                            label: 'Draft',
-                            value: '2',
-                            unit: 'records',
-                            caption: 'not published yet',
-                            mark: 'fileDraft',
-                            tone: 'warning',
-                            onPress: () => undefined,
-                            accessibilityLabel: 'Show only draft records',
-                        },
-                        {
-                            key: 'missing',
-                            label: 'Missing Arabic',
-                            value: '3',
-                            unit: 'records',
-                            caption: 'blocked from publishing',
-                            mark: 'languages',
-                            tone: 'danger',
-                        },
-                        {
-                            key: 'uncosted',
-                            label: 'Uncosted',
-                            value: '0',
-                            unit: 'records',
-                            caption: 'no unit price on file',
-                            mark: 'coins',
-                        },
-                    ]}
+                    testID={id('stat-cards-pending')}
+                    cards={SHOWCASE_STAT_CARDS}
+                    pending
                 />
             </Stack>
+
+            <ArrivalStory prefix={prefix} columns={catalogueColumns('list-arrival')} />
 
             <RecipeCardsStory prefix={prefix} />
 

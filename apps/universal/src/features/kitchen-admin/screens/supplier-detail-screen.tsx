@@ -3,6 +3,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     Dialog,
     ErrorState,
     FormGrid,
@@ -780,7 +781,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
         );
 
     return (
-        <Stack space="md" testID="kitchen-supplier-screen">
+        <Cascade space="md" testID="kitchen-supplier-screen">
             <RecordFormOpening<SupplierStep>
                 testID="kitchen-supplier-screen"
                 title={
@@ -1401,6 +1402,6 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
             </Dialog>
 
             <EditorGuardDialogs testID="kitchen-supplier-screen" guard={guard} />
-        </Stack>
+        </Cascade>
     );
 }

@@ -1,4 +1,4 @@
-import { EmptyState, FadeIn, PageTransition, Stack, useMotion } from '@healthy360/design-system';
+import { Cascade, EmptyState } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -71,48 +71,39 @@ export function OpsPanel({
     children,
 }: OpsPanelProps) {
     const { t } = useTranslation();
-    const { stagger } = useMotion();
 
     return (
-        <PageTransition testID={testID} transitionKey={testID}>
-            <Stack space="lg">
-                <FadeIn delayMs={stagger(0)}>
-                    <KitchenPageHeader
-                        testID={`${testID}-header`}
-                        title={t(titleKey)}
-                        subtitle={t(subtitleKey)}
-                        titleTestID={`${testID}-title`}
-                        subtitleTestID={`${testID}-subtitle`}
-                        statusChip={statusChip}
-                        actions={actions}
+        <Cascade space="lg" testID={testID}>
+            <KitchenPageHeader
+                testID={`${testID}-header`}
+                title={t(titleKey)}
+                subtitle={t(subtitleKey)}
+                titleTestID={`${testID}-title`}
+                subtitleTestID={`${testID}-subtitle`}
+                statusChip={statusChip}
+                actions={actions}
+            />
+
+            <View testID={`${testID}-metrics`} className="flex-col gap-3.5 md:flex-row">
+                {metrics.map((metric) => (
+                    <MetricSlot
+                        key={metric.key}
+                        testID={`${testID}-metric-${metric.key}`}
+                        label={t(metric.labelKey)}
+                        value={metric.value}
                     />
-                </FadeIn>
+                ))}
+            </View>
 
-                <FadeIn delayMs={stagger(1)} testID={`${testID}-metrics`}>
-                    <View className="flex-col gap-3.5 md:flex-row">
-                        {metrics.map((metric) => (
-                            <MetricSlot
-                                key={metric.key}
-                                testID={`${testID}-metric-${metric.key}`}
-                                label={t(metric.labelKey)}
-                                value={metric.value}
-                            />
-                        ))}
-                    </View>
-                </FadeIn>
-
-                <FadeIn delayMs={stagger(2)}>
-                    <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card md:p-5">
-                        {children ?? (
-                            <EmptyState
-                                testID={`${testID}-empty`}
-                                title={t(emptyTitleKey)}
-                                body={t(emptyBodyKey)}
-                            />
-                        )}
-                    </View>
-                </FadeIn>
-            </Stack>
-        </PageTransition>
+            <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card md:p-5">
+                {children ?? (
+                    <EmptyState
+                        testID={`${testID}-empty`}
+                        title={t(emptyTitleKey)}
+                        body={t(emptyBodyKey)}
+                    />
+                )}
+            </View>
+        </Cascade>
     );
 }

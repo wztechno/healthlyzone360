@@ -6,6 +6,7 @@ import {
 import {
     Badge,
     Button,
+    Cascade,
     EmptyState,
     ErrorState,
     Icon,
@@ -336,9 +337,13 @@ function QualityCheckList({
     }
 
     return (
-        <Stack space="md" testID="kitchen-qc-screen">
-            {checks.isPending || failure !== null ? null : (
-                <CatalogueStatCards testID="kitchen-qc-stats" cards={qcCards(controls.rows, t)} />
+        <Cascade space="md" testID="kitchen-qc-screen">
+            {failure !== null ? null : (
+                <CatalogueStatCards
+                    testID="kitchen-qc-stats"
+                    cards={qcCards(controls.rows, t)}
+                    pending={checks.isPending}
+                />
             )}
 
             <CatalogueToolbar<StatusSegmentValue>
@@ -452,7 +457,7 @@ function QualityCheckList({
                     />
                 </Stack>
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

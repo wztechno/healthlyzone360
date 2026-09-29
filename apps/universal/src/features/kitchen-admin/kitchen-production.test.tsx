@@ -208,9 +208,10 @@ describe('the production desk queue', () => {
         });
 
         // Two drafts on screen out of who knows how many. "1" would be a claim about the kitchen
-        // that nobody earned, so the tile shows the em dash instead.
+        // that nobody earned, so the tile shows the em dash instead. Waited for on a figure: the
+        // cards themselves are drawn while the page is still in flight.
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-production-desk-summary')).toBeTruthy();
+            expect(screen.getByTestId('kitchen-production-desk-summary-draft-value')).toBeTruthy();
         });
         expect(
             within(screen.getByTestId('kitchen-production-desk-summary')).getAllByText('—'),
