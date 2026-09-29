@@ -1,4 +1,5 @@
 import { Icon } from '@healthy360/design-system';
+import { gradients } from '@healthy360/design-tokens';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
@@ -12,8 +13,9 @@ import { Text as RNText, View } from 'react-native';
  * organisation picker and the verify screens reads as one place, and costs no per-route plumbing
  * through the shared layout.
  *
- * Hexes ride `LinearGradient` props the way `PageHero` and the marketplace brand mark carry
- * theirs — canopy → canopy-deep → the gradient's green foot, values from the token set.
+ * The panel is `gradients.canopy` and the mark `gradients.accent`, both from the token set, so the
+ * aside re-colours with the rest of the product. The canopy's stops are spread evenly here rather
+ * than at the hero band's `locations`: a tall narrow panel wants the brighter foot to show.
  */
 export function AuthAside() {
     const { t } = useTranslation();
@@ -21,7 +23,7 @@ export function AuthAside() {
 
     return (
         <LinearGradient
-            colors={['#0b3b26', '#124f33', '#0e6b41']}
+            colors={gradients.canopy.colours}
             start={{ x: 0, y: 0 }}
             end={{ x: 0.4, y: 1 }}
             style={{ flex: 1 }}
@@ -29,7 +31,7 @@ export function AuthAside() {
             <View testID="auth-aside" className="flex-1 justify-center gap-6 p-10">
                 <View className="flex-row items-center gap-2">
                     <LinearGradient
-                        colors={['#6d28d9', '#16a34a']}
+                        colors={gradients.accent.colours}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={{ width: 32, height: 32, borderRadius: 8 }}
@@ -45,7 +47,7 @@ export function AuthAside() {
                     </RNText>
                 </View>
 
-                <RNText className="text-3xl leading-tight text-content-on-canopy text-start">
+                <RNText className="font-display text-3xl leading-tight text-content-on-canopy text-start">
                     {t('auth:aside.headline')}
                 </RNText>
 

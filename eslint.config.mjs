@@ -65,6 +65,31 @@ const ARBITRARY_COLOUR_CLASS =
 const ARBITRARY_COLOUR_MESSAGE =
     'Arbitrary colour literals bypass the token set and the dark theme with it. Use a token utility (`bg-surface-canopy`, `text-content-secondary`, `border-stroke-subtle`); if the colour you need has no token, add one in `packages/design-tokens/src` rather than inlining the hex.';
 
+/**
+ * The other half of the colour policy: a colour typed as a string anywhere in a component.
+ *
+ * The class-string rules above catch `bg-[#16a34a]`; they cannot see `colors={['#16a34a']}`, a
+ * spinner's `color` prop or an SVG `stroke`, which is how eight files came to carry their own copies
+ * of the mood board's palette. Each copy is a place a palette change silently does not reach. So
+ * any string that *is* a hex or `rgb()` colour is banned outside the token package. `rgb(var(…))`
+ * stays legal: it reads a token, it does not restate one.
+ */
+const COLOUR_LITERAL_MESSAGE =
+    'Colours come from @healthy360/design-tokens, never from a literal: `palette` for a mood board colour, a theme role via `useTheme().tokens`, `gradients`, `chartColours`. If none fits, add a token in packages/design-tokens/src/colour.ts — then a palette change reaches this screen too.';
+
+const colourLiteralSelectors = [
+    {
+        selector: 'Literal[value=/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]',
+        message: COLOUR_LITERAL_MESSAGE,
+    },
+    // `[(]`, not `\\(`: esquery strips the backslash before `RegExp` sees it, and `/^rgba?((?!var)/`
+    // is an unterminated group that crashes every lint run rather than failing one rule.
+    {
+        selector: 'Literal[value=/^rgba?[(](?!var)/]',
+        message: COLOUR_LITERAL_MESSAGE,
+    },
+];
+
 /** Class-string rules applied to both `className` and `class` attributes, in both quoting forms. */
 const CLASS_STRING_RULES = [
     { pattern: PHYSICAL_DIRECTION_CLASS, message: RTL_MESSAGE },
@@ -337,6 +362,19 @@ export default tseslint.config(
         },
     },
 
+    // The design system states no colour of its own either — see `colourLiteralSelectors`.
+    {
+        files: ['packages/design-system/src/**/*.{ts,tsx}'],
+        ignores: ['**/*.test.{ts,tsx}', '**/__tests__/**/*.{ts,tsx}'],
+        rules: {
+            'no-restricted-syntax': [
+                'error',
+                ...classNameAttributeSelectors,
+                ...colourLiteralSelectors,
+            ],
+        },
+    },
+
     // Guard invariants, orchestrator-owned.
     //
     // 1. No screen reaches into a `mock` folder: the fixture world was deleted (ADR-0013) and
@@ -369,6 +407,7 @@ export default tseslint.config(
             'no-restricted-syntax': [
                 'error',
                 ...classNameAttributeSelectors,
+                ...colourLiteralSelectors,
                 {
                     selector:
                         "JSXAttribute[name.name='onPress'] ArrowFunctionExpression[body.type='BlockStatement'][body.body.length=0]",
@@ -409,6 +448,7 @@ export default tseslint.config(
             'no-restricted-syntax': [
                 'error',
                 ...classNameAttributeSelectors,
+                ...colourLiteralSelectors,
                 ...noStretchSelectors,
                 FLEX_GROW_SELECTOR,
             ],

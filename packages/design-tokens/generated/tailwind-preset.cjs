@@ -190,8 +190,8 @@ module.exports = {
       },
       "fontFamily": {
         "latin": [
-          "SchibstedGrotesk_400Regular",
-          "'Schibsted Grotesk'",
+          "Inter_400Regular",
+          "'Inter'",
           "'IBM Plex Sans Arabic'",
           "system-ui",
           "-apple-system",
@@ -208,8 +208,9 @@ module.exports = {
           "sans-serif"
         ],
         "display": [
-          "SchibstedGrotesk_700Bold",
-          "'Schibsted Grotesk'",
+          "SpaceGrotesk_700Bold",
+          "'Space Grotesk'",
+          "'Inter'",
           "'IBM Plex Sans Arabic'",
           "system-ui",
           "-apple-system",
@@ -218,8 +219,8 @@ module.exports = {
           "sans-serif"
         ],
         "mono": [
-          "SchibstedGrotesk_400Regular",
-          "'Schibsted Grotesk'",
+          "Inter_400Regular",
+          "'Inter'",
           "'IBM Plex Sans Arabic'",
           "system-ui",
           "-apple-system",

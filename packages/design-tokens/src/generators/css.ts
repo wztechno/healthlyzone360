@@ -16,6 +16,7 @@ import {
     FONT_SIZE_NAMES,
     SCRIPTS,
     TEXT_ROLE_NAMES,
+    displayFamilies,
     displayLetterSpacing,
     fontFamilies,
     fontSizes,
@@ -69,10 +70,11 @@ export function renderTokensCss(): string {
     }
     staticTokens.push([`${CSS_VARIABLE_PREFIX}-font-family-latin`, fontFamilies.latin.stack]);
     staticTokens.push([`${CSS_VARIABLE_PREFIX}-font-family-arabic`, fontFamilies.arabic.stack]);
-    // Declared, and bound to nothing. `global.css` applies the two families above to `html`; these
-    // two are opted into by the surfaces that want them — the admin family by the Catalogue, the
-    // mono family by anything that has to line a column of numbers up. Binding either one globally
-    // would reflow the customer app, which is not what a token file gets to decide.
+    // `global.css` binds this to `h1`–`h3` and `.font-display` under a Latin `lang` — the mood
+    // board's own heading rule. Arabic headings stay on the Arabic family above.
+    staticTokens.push([`${CSS_VARIABLE_PREFIX}-font-family-display`, displayFamilies.latin.stack]);
+    // Declared, and bound to nothing: the numeric role is the body family (see `monoFamilies`),
+    // kept so a surface that means "a figure" can still say so.
     staticTokens.push([`${CSS_VARIABLE_PREFIX}-font-family-mono`, monoFamilies.latin.stack]);
     staticTokens.push([`${CSS_VARIABLE_PREFIX}-tracking-display`, displayLetterSpacing]);
     // The Catalogue ramp. Emitted per script for the same reason the size scale is: a role's Latin

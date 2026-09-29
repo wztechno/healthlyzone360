@@ -14,6 +14,7 @@
         "./tailwind-preset": "./generated/tailwind-preset.cjs",
         "./tokens.css": "./generated/tokens.css",
         "./native": "./generated/tokens.native.ts",
+        "./fonts": "./generated/fonts.ts",
         "./package.json": "./package.json"
     },
     "scripts": {
@@ -22,6 +23,11 @@
         "lint": "eslint . --max-warnings=0",
         "typecheck": "tsc --noEmit",
         "test": "vitest run"
+    },
+    "dependencies": {
+        "@expo-google-fonts/ibm-plex-sans-arabic": "^0.4.2",
+        "@expo-google-fonts/inter": "^0.4.2",
+        "@expo-google-fonts/space-grotesk": "^0.4.1"
     },
     "devDependencies": {
         "@healthy360/testing": "workspace:*",

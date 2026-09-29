@@ -62,8 +62,8 @@ export function KpiTile({
                     testID={`${testID}-value`}
                     className={
                         size === 'lg'
-                            ? 'mt-1 tabular-nums text-3xl font-bold text-content-primary text-start'
-                            : 'mt-1 tabular-nums text-2xl font-bold text-content-primary text-start'
+                            ? 'mt-1 font-display tabular-nums text-3xl font-bold text-content-primary text-start'
+                            : 'mt-1 font-display tabular-nums text-2xl font-bold text-content-primary text-start'
                     }
                 >
                     {value ?? '—'}

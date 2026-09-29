@@ -1,4 +1,5 @@
 import { Inline } from '@healthy360/design-system';
+import { gradients } from '@healthy360/design-tokens';
 import { useIsRtl } from '@healthy360/i18n';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
@@ -6,7 +7,6 @@ import { StyleSheet, Text as RNText, View } from 'react-native';
 import type { ImageRequireSource } from 'react-native';
 
 import { EntityImage } from '../media/entity-image.tsx';
-import { CANOPY_COLOURS, CANOPY_LOCATIONS, SCRIM } from './page-hero.tsx';
 
 /**
  * The split hero a storefront opens with — a canopy panel beside a photograph.
@@ -87,14 +87,14 @@ export function StorefrontHero({
                 className="flex-1 overflow-hidden rounded-xl lg:flex-[1.05]"
             >
                 <LinearGradient
-                    colors={CANOPY_COLOURS}
-                    locations={CANOPY_LOCATIONS}
+                    colors={gradients.canopy.colours}
+                    locations={gradients.canopy.locations}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={StyleSheet.absoluteFill}
                 />
                 <LinearGradient
-                    colors={SCRIM}
+                    colors={gradients.canopyScrim.colours}
                     start={scrimStart}
                     end={scrimEnd}
                     style={StyleSheet.absoluteFill}

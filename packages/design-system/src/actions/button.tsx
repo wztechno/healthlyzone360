@@ -1,3 +1,6 @@
+import { themes } from '@healthy360/design-tokens';
+import type { ThemeTokens } from '@healthy360/design-tokens';
+import { useColorScheme } from 'nativewind';
 import { ActivityIndicator, Platform, Pressable, Text as RNText, View } from 'react-native';
 import type { PressableProps } from 'react-native';
 import { useCallback, useEffect, useRef } from 'react';
@@ -94,18 +97,16 @@ const LABEL_SIZE: Readonly<Record<Density, Readonly<Record<ButtonSize, string>>>
 };
 
 /**
- * The spinner cannot inherit `currentColor` through `ActivityIndicator`, so the colour is repeated
- * here — and it is repeated as a literal because this is a prop, not a class name.
- *
- * These were `#4e8a37`, an olive that belongs to no palette this product has ever shipped; against
- * the wellness green it read as a different brand mid-request. They are `brand-surface` now.
+ * The spinner cannot inherit `currentColor` through `ActivityIndicator`, so its colour is a prop —
+ * read from the theme's roles rather than typed here, so it follows the palette and the dark theme.
+ * The ink on a filled button, and the brand green on the outlined ones.
  */
-const SPINNER_COLOUR: Readonly<Record<ButtonVariant, string>> = {
-    primary: '#ffffff',
-    secondary: '#157043',
-    quiet: '#5b6673',
-    ghost: '#157043',
-    danger: '#ffffff',
+const SPINNER_COLOUR: Readonly<Record<ButtonVariant, (theme: ThemeTokens) => string>> = {
+    primary: (theme) => theme.colours.textOnBrand,
+    secondary: (theme) => theme.colours.brandSurface,
+    quiet: (theme) => theme.colours.textSecondary,
+    ghost: (theme) => theme.colours.brandSurface,
+    danger: (theme) => theme.semantic.danger.onDefault,
 };
 
 export interface ButtonProps extends Omit<
@@ -154,6 +155,7 @@ export function Button({
     ...rest
 }: ButtonProps) {
     const density = useDensity();
+    const { colorScheme } = useColorScheme();
     // A loading button is not merely styled as busy — it must not fire again, or a double tap
     // submits the form twice while the first request is still in flight.
     const inert = disabled || loading;
@@ -218,7 +220,9 @@ export function Button({
                 <ActivityIndicator
                     testID={testID === undefined ? undefined : `${testID}-spinner`}
                     size="small"
-                    color={SPINNER_COLOUR[variant]}
+                    color={SPINNER_COLOUR[variant](
+                        themes[colorScheme === 'dark' ? 'dark' : 'light'],
+                    )}
                     accessibilityElementsHidden
                     aria-hidden
                 />

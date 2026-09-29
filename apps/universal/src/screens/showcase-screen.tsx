@@ -108,6 +108,7 @@ import type {
     RecordStatus,
     TableColumn,
 } from '@healthy360/design-system';
+import { palette, typefaces } from '@healthy360/design-tokens';
 import { useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -3007,10 +3008,39 @@ export function ShowcaseScreen() {
                     <Text variant="caption" tone="secondary">
                         {t('designSystem:spike.sample.digits')}
                     </Text>
+                    {/* `display` is the one variant that names a face — the KPI figure. */}
+                    <Text testID="showcase-display-figure" variant="display">
+                        96%
+                    </Text>
+                    <Text variant="caption" tone="secondary">
+                        {`Body ${typefaces.body.family} · display ${typefaces.display.family} · Arabic ${typefaces.arabic.family}`}
+                    </Text>
                     <Inline space="sm">
                         <Badge label="Inline" tone="neutral" icon={null} />
                         <Badge label="items" tone="neutral" icon={null} />
                         <Badge label="wrap" tone="neutral" icon={null} />
+                    </Inline>
+                </Section>
+
+                {/* Read from `palette` itself, so this is what the one place currently says. */}
+                <Section id="palette" title="Palette — mood board Option 02">
+                    <Inline space="md">
+                        {Object.entries(palette).map(([name, value]) => (
+                            <View
+                                key={name}
+                                testID={`showcase-palette-${name}`}
+                                className="w-32 gap-1"
+                            >
+                                <View
+                                    className="h-12 rounded-lg border border-stroke-subtle"
+                                    style={{ backgroundColor: value }}
+                                />
+                                <Text variant="label">{name}</Text>
+                                <Text variant="caption" tone="secondary">
+                                    {value}
+                                </Text>
+                            </View>
+                        ))}
                     </Inline>
                 </Section>
 

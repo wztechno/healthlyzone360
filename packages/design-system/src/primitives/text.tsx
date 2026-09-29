@@ -70,7 +70,7 @@ const COMFORTABLE_VARIANT_CLASS: Readonly<Record<TextVariant, string>> = {
     strong: 'text-role-strong',
     section: 'text-role-section',
     title: 'text-role-title',
-    display: 'text-role-display',
+    display: 'text-role-display font-display',
     mono: 'text-sm tabular-nums',
 };
 
@@ -84,7 +84,7 @@ const COMPACT_VARIANT_CLASS: Readonly<Record<TextVariant, string>> = {
     strong: 'text-role-strong',
     section: 'text-role-section',
     title: 'text-role-title',
-    display: 'text-role-display',
+    display: 'text-role-display font-display',
     mono: 'text-role-body tabular-nums',
 };
 
@@ -217,8 +217,9 @@ export function Text({
     return (
         <RNText
             {...rest}
-            // No family class: one Latin family, set on `html` per script. `mono` differs by
-            // asking for fixed-advance digits (`tabular-nums`), not by asking for another face.
+            // Only `display` names a family — Space Grotesk, the mood board's face for KPIs and
+            // numeric emphasis. Every other variant takes the body family `global.css` sets per
+            // script; `mono` differs by asking for fixed-advance digits, not for another face.
             className={cx(
                 cell === null
                     ? VARIANT_CLASS[density][variant]
@@ -284,12 +285,11 @@ export function Heading({
             {...rest}
             accessibilityRole="header"
             aria-level={level}
-            // No family class at all. A heading used to carry `font-display` (Space Grotesk) on the
-            // customer surfaces and `font-admin` (Schibsted Grotesk) on the admin — two faces, and
-            // a third on the page under them. There is one family now, set on `html` per script, so
-            // a heading is the ramp's size and weight and nothing else. That also retires the
-            // hydration hazard the old comment described: no family class means no class that could
-            // differ between the static export and the client.
+            // No family class. Levels 1–3 render as `h1`–`h3`, and `global.css` sets those in the
+            // display face — the mood board's own heading rule — so every heading takes it, the
+            // hand-built ones included, and a component cannot disagree with it. Level 4 is a card
+            // title and stays in the body face, as the mood board's `h5` does. No family class
+            // also means none that could differ between the static export and the client.
             className={cx(
                 HEADING_CLASS[density][level],
                 TONE_CLASS[tone],

@@ -173,9 +173,10 @@ export function renderTailwindPreset(): string {
                 fontFamily: {
                     latin: [fontFamilies.latin.regular, ...fontFamilies.latin.stack.split(', ')],
                     arabic: [fontFamilies.arabic.regular, ...fontFamilies.arabic.stack.split(', ')],
-                    // `display` and `mono` are roles, not families: both resolve to the Latin
-                    // stack above. They stay as keys so a caller that means "display type" or "a
-                    // figure" keeps saying so — see `displayFamilies` / `monoFamilies`.
+                    // `display` is Space Grotesk; `mono` is a role that resolves to the body stack,
+                    // kept so a caller that means "a figure" keeps saying so. The first entry is the
+                    // loader key React Native addresses; the web skips it (the web registers
+                    // families by name) and lands on the stack — see `displayFamilies`.
                     display: [displayFamilies.latin.bold, ...displayFamilies.latin.stack.split(', ')],
                     mono: [monoFamilies.latin.regular, ...monoFamilies.latin.stack.split(', ')],
                 },

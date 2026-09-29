@@ -1,5 +1,6 @@
 import { Badge } from '@healthy360/design-system';
 import type { IconName, NavigationItem } from '@healthy360/design-system';
+import { gradients } from '@healthy360/design-tokens';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
@@ -54,7 +55,7 @@ function BrandMark() {
     const { t } = useTranslation();
     return (
         <LinearGradient
-            colors={['#6d28d9', '#16a34a']}
+            colors={gradients.accent.colours}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{ width: 32, height: 32, borderRadius: 8 }}
