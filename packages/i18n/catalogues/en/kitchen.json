@@ -919,6 +919,7 @@
             "filterSupplier": "Supplier",
             "filterFrom": "From",
             "filterTo": "To",
+            "anyDate": "Any date",
             "nextPage": "Next 25",
             "filterItem": "Item",
             "allItems": "All items",

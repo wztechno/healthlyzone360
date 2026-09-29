@@ -9,6 +9,7 @@ import {
     Badge,
     Button,
     Callout,
+    DatePickerButton,
     EmptyState,
     ErrorState,
     FilterChip,
@@ -17,7 +18,6 @@ import {
     Stack,
     TableSkeleton,
     Text,
-    TextInputField,
 } from '@healthy360/design-system';
 import type { BadgeTone, MenuItem } from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
@@ -536,27 +536,45 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                     searchable
                     className="min-w-[200px] flex-1"
                 />
-                <TextInputField
+                {/*
+                 * The order desk's calendar picker, in place of two boxes that asked for a typed
+                 * `YYYY-MM-DD`. Either bound may stay open — "Any date" — and each picker keeps the
+                 * other honest: From cannot pass To, nor To precede From.
+                 */}
+                <DatePickerButton
                     testID="kitchen-ledger-filter-from"
                     label={t('kitchen:ops.ledger.filterFrom')}
+                    labelVisible
                     value={from}
-                    onChangeText={(value) => {
+                    max={to === '' ? undefined : to}
+                    placeholder={t('kitchen:ops.ledger.anyDate')}
+                    // Both pickers close the row, so both panels open back towards the page.
+                    align="end"
+                    onChange={(value) => {
                         setFrom(value);
                         resetCursor();
                     }}
-                    placeholder="YYYY-MM-DD"
-                    className="w-40"
+                    onClear={() => {
+                        setFrom('');
+                        resetCursor();
+                    }}
                 />
-                <TextInputField
+                <DatePickerButton
                     testID="kitchen-ledger-filter-to"
                     label={t('kitchen:ops.ledger.filterTo')}
+                    labelVisible
                     value={to}
-                    onChangeText={(value) => {
+                    min={from === '' ? undefined : from}
+                    placeholder={t('kitchen:ops.ledger.anyDate')}
+                    align="end"
+                    onChange={(value) => {
                         setTo(value);
                         resetCursor();
                     }}
-                    placeholder="YYYY-MM-DD"
-                    className="w-40"
+                    onClear={() => {
+                        setTo('');
+                        resetCursor();
+                    }}
                 />
             </Inline>
 

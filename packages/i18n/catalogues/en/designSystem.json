@@ -98,7 +98,8 @@
     },
     "datePicker": {
         "previousMonth": "Previous month",
-        "nextMonth": "Next month"
+        "nextMonth": "Next month",
+        "clear": "Clear date"
     },
     "rating": {
         "summary": "{{value}} out of {{max}}",

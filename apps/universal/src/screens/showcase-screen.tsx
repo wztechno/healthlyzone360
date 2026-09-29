@@ -2893,6 +2893,7 @@ export function ShowcaseScreen() {
     const [floor, setFloor] = useState<number | null>(null);
     const [filterOn, setFilterOn] = useState(true);
     const [startDate, setStartDate] = useState<string | null>('2026-08-03');
+    const [boundDate, setBoundDate] = useState('');
     const [replays, setReplays] = useState(0);
     const [kitchenQuery, setKitchenQuery] = useState('');
     const [kitchenStatuses, setKitchenStatuses] = useState<readonly PublishableStatus[]>(['draft']);
@@ -3601,6 +3602,18 @@ export function ShowcaseScreen() {
                         min="2026-01-01"
                         max="2027-12-31"
                         onChange={setStartDate}
+                    />
+                    {/* An optional bound: labelled like a field, empty until picked, clearable. */}
+                    <DatePickerButton
+                        testID="showcase-date-picker-optional"
+                        label="From"
+                        labelVisible
+                        value={boundDate}
+                        placeholder="Any date"
+                        onChange={setBoundDate}
+                        onClear={() => {
+                            setBoundDate('');
+                        }}
                     />
                     <CalendarGrid
                         testID="showcase-calendar"

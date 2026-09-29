@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7845 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7847 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2143,6 +2143,7 @@ export interface NamespaceKeys {
     | 'dateField.day'
     | 'dateField.month'
     | 'dateField.year'
+    | 'datePicker.clear'
     | 'datePicker.nextMonth'
     | 'datePicker.previousMonth'
     | 'emptyState.prototypeBadge'
@@ -3777,6 +3778,7 @@ export interface NamespaceKeys {
     | 'ops.exceptions.window.title'
     | 'ops.ledger.allItems'
     | 'ops.ledger.allSuppliers'
+    | 'ops.ledger.anyDate'
     | 'ops.ledger.chargeDelivery'
     | 'ops.ledger.chargeDiscount'
     | 'ops.ledger.chargeOther'
@@ -10010,6 +10012,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:dateField.day',
   'designSystem:dateField.month',
   'designSystem:dateField.year',
+  'designSystem:datePicker.clear',
   'designSystem:datePicker.nextMonth',
   'designSystem:datePicker.previousMonth',
   'designSystem:emptyState.prototypeBadge',
@@ -11640,6 +11643,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.window.title',
   'kitchen:ops.ledger.allItems',
   'kitchen:ops.ledger.allSuppliers',
+  'kitchen:ops.ledger.anyDate',
   'kitchen:ops.ledger.chargeDelivery',
   'kitchen:ops.ledger.chargeDiscount',
   'kitchen:ops.ledger.chargeOther',
