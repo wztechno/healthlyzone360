@@ -50,9 +50,11 @@ export function fontFaceEntries(): readonly FontFaceEntry[] {
 export function renderFontManifest(): string {
     const entries = fontFaceEntries();
     const imports = entries.map((entry) => `import { ${entry.key} } from '${entry.module}';`);
+    // `name`, not `key`: gitleaks' generic-api-key rule reads `key: '<mixed-case string>'` as a
+    // credential, and a font's loader name is exactly that shape — see `.gitleaksignore`.
     const rows = entries.map(
         (entry) =>
-            `    { family: '${entry.family}', weight: '${entry.weight}', key: '${entry.key}', source: ${entry.key} },`,
+            `    { family: '${entry.family}', weight: '${entry.weight}', name: '${entry.key}', source: ${entry.key} },`,
     );
 
     return `${GENERATED_BANNER}
@@ -64,8 +66,8 @@ export interface BundledFontFace {
     readonly family: string;
     /** The CSS weight it is registered at. */
     readonly weight: string;
-    /** The expo-font key React Native addresses it by. */
-    readonly key: string;
+    /** The name expo-font loads it under — the \`fontFamily\` React Native addresses it by. */
+    readonly name: string;
     /** The bundled font file. */
     readonly source: number;
 }

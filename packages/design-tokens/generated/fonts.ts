@@ -22,21 +22,21 @@ export interface BundledFontFace {
     readonly family: string;
     /** The CSS weight it is registered at. */
     readonly weight: string;
-    /** The expo-font key React Native addresses it by. */
-    readonly key: string;
+    /** The name expo-font loads it under — the `fontFamily` React Native addresses it by. */
+    readonly name: string;
     /** The bundled font file. */
     readonly source: number;
 }
 
 export const fontFaces: readonly BundledFontFace[] = [
-    { family: 'Inter', weight: '400', key: 'Inter_400Regular', source: Inter_400Regular },
-    { family: 'Inter', weight: '500', key: 'Inter_500Medium', source: Inter_500Medium },
-    { family: 'Inter', weight: '600', key: 'Inter_600SemiBold', source: Inter_600SemiBold },
-    { family: 'Inter', weight: '700', key: 'Inter_700Bold', source: Inter_700Bold },
-    { family: 'Space Grotesk', weight: '500', key: 'SpaceGrotesk_500Medium', source: SpaceGrotesk_500Medium },
-    { family: 'Space Grotesk', weight: '700', key: 'SpaceGrotesk_700Bold', source: SpaceGrotesk_700Bold },
-    { family: 'IBM Plex Sans Arabic', weight: '400', key: 'IBMPlexSansArabic_400Regular', source: IBMPlexSansArabic_400Regular },
-    { family: 'IBM Plex Sans Arabic', weight: '500', key: 'IBMPlexSansArabic_500Medium', source: IBMPlexSansArabic_500Medium },
-    { family: 'IBM Plex Sans Arabic', weight: '600', key: 'IBMPlexSansArabic_600SemiBold', source: IBMPlexSansArabic_600SemiBold },
-    { family: 'IBM Plex Sans Arabic', weight: '700', key: 'IBMPlexSansArabic_700Bold', source: IBMPlexSansArabic_700Bold },
+    { family: 'Inter', weight: '400', name: 'Inter_400Regular', source: Inter_400Regular },
+    { family: 'Inter', weight: '500', name: 'Inter_500Medium', source: Inter_500Medium },
+    { family: 'Inter', weight: '600', name: 'Inter_600SemiBold', source: Inter_600SemiBold },
+    { family: 'Inter', weight: '700', name: 'Inter_700Bold', source: Inter_700Bold },
+    { family: 'Space Grotesk', weight: '500', name: 'SpaceGrotesk_500Medium', source: SpaceGrotesk_500Medium },
+    { family: 'Space Grotesk', weight: '700', name: 'SpaceGrotesk_700Bold', source: SpaceGrotesk_700Bold },
+    { family: 'IBM Plex Sans Arabic', weight: '400', name: 'IBMPlexSansArabic_400Regular', source: IBMPlexSansArabic_400Regular },
+    { family: 'IBM Plex Sans Arabic', weight: '500', name: 'IBMPlexSansArabic_500Medium', source: IBMPlexSansArabic_500Medium },
+    { family: 'IBM Plex Sans Arabic', weight: '600', name: 'IBMPlexSansArabic_600SemiBold', source: IBMPlexSansArabic_600SemiBold },
+    { family: 'IBM Plex Sans Arabic', weight: '700', name: 'IBMPlexSansArabic_700Bold', source: IBMPlexSansArabic_700Bold },
 ];

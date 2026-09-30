@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
 const NATIVE_FONTS: Record<string, number> = Object.fromEntries(
-    fontFaces.map((face) => [face.key, face.source]),
+    fontFaces.map((face) => [face.name, face.source]),
 );
 
 /** Once per document: strict mode runs effects twice, and a second set of faces is pure waste. */
