@@ -702,11 +702,21 @@ describe('supply order builder', () => {
                 '9',
             );
         });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-supply-order-refresh'));
-        });
 
-        await untilVisible('kitchen-supply-order-refresh-confirm');
+        /*
+         * Pressed until the screen takes the press. Waiting for "not busy" above narrows the race
+         * but cannot close it: on a loaded CI runner a fetch was still holding the button in its
+         * loading state at this press, and the run failed with the typed 9 on screen, the page
+         * marked unsaved, and no dialog. Once something has been typed a press never refetches —
+         * it only asks — so pressing again cannot change what this test is checking.
+         */
+        await waitFor(
+            () => {
+                fireEvent.press(screen.getByTestId('kitchen-supply-order-refresh'));
+                expect(screen.getByTestId('kitchen-supply-order-refresh-confirm')).toBeTruthy();
+            },
+            { timeout: 10_000 },
+        );
     });
 
     it('counts what it is about to create and sends exactly the plan the preview shows', async () => {
