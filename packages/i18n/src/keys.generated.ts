@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7848 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7846 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2786,7 +2786,6 @@ export interface NamespaceKeys {
     | 'catalogue.filter'
     | 'catalogue.navToggle'
     | 'catalogue.pagerLabel'
-    | 'catalogue.pagerRange'
     | 'catalogue.rowActions'
     | 'catalogue.sortAscending'
     | 'catalogue.sortDescending'
@@ -5902,7 +5901,6 @@ export interface NamespaceKeys {
     | 'toolbar.segmentDraft'
     | 'toolbar.segmentLive'
     | 'toolbar.segmentReview'
-    | 'toolbar.showing'
     | 'toolbar.statusAll'
     | 'toolbar.statusLabel'
     | 'units.cup'
@@ -10652,7 +10650,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:catalogue.filter',
   'kitchen:catalogue.navToggle',
   'kitchen:catalogue.pagerLabel',
-  'kitchen:catalogue.pagerRange',
   'kitchen:catalogue.rowActions',
   'kitchen:catalogue.sortAscending',
   'kitchen:catalogue.sortDescending',
@@ -13768,7 +13765,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:toolbar.segmentDraft',
   'kitchen:toolbar.segmentLive',
   'kitchen:toolbar.segmentReview',
-  'kitchen:toolbar.showing',
   'kitchen:toolbar.statusAll',
   'kitchen:toolbar.statusLabel',
   'kitchen:units.cup',

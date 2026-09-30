@@ -250,10 +250,6 @@ export function ReviewTable({ items, onView, onOpen, testID }: ReviewTableProps)
             />
             <CataloguePager
                 testID={`${testID}-pagination`}
-                range={t('kitchen:toolbar.showing', {
-                    shown: pageRows.length,
-                    total: controls.rows.length,
-                })}
                 page={page}
                 totalPages={totalPages}
                 onPageChange={(next) => {

@@ -521,10 +521,6 @@ function DeliveryZonesList() {
                     />
                     <CataloguePager
                         testID="kitchen-zones-pagination"
-                        range={t('kitchen:toolbar.showing', {
-                            shown: controls.rows.length,
-                            total: total ?? controls.rows.length,
-                        })}
                         page={page}
                         totalPages={totalPages}
                         onPageChange={(next) => {

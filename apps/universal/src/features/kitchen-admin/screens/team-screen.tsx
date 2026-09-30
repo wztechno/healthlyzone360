@@ -560,10 +560,6 @@ function TeamList() {
 
                     <CataloguePager
                         testID="kitchen-team-pagination"
-                        range={t('kitchen:toolbar.showing', {
-                            shown: controls.rows.length,
-                            total: totalCount ?? controls.rows.length,
-                        })}
                         page={page}
                         totalPages={totalPages}
                         onPageChange={setPage}

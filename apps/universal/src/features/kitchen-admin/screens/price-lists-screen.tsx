@@ -441,10 +441,6 @@ function PriceListsList() {
 
                     <CataloguePager
                         testID="kitchen-price-lists-pagination"
-                        range={t('kitchen:toolbar.showing', {
-                            shown: controls.rows.length,
-                            total: total ?? controls.rows.length,
-                        })}
                         page={page}
                         totalPages={totalPages}
                         onPageChange={(next) => {

@@ -846,9 +846,6 @@ describe('the review queue screen', () => {
         });
 
         await untilVisible('kitchen-review-table-pagination');
-        expect(screen.getByTestId('kitchen-review-table-pagination-range')).toHaveTextContent(
-            /18.*19/,
-        );
 
         const shownFirst = many.filter((row) =>
             screen.queryByTestId(reviewRowTestId('ingredients', String(row.id))),

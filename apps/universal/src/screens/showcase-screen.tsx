@@ -2646,7 +2646,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                 {/* The list footer: the range in the pager's own box, its figures picked out. */}
                 <CataloguePager
                     testID={id('catalogue-pager')}
-                    range="Showing 18 of 29"
                     page={1}
                     totalPages={2}
                     onPageChange={() => undefined}

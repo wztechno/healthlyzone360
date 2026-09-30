@@ -764,11 +764,6 @@ function Stock() {
 
                     <CataloguePager
                         testID="kitchen-stock-pagination"
-                        range={t('kitchen:catalogue.pagerRange', {
-                            from: from + 1,
-                            to: from + visible.length,
-                            total: controls.rows.length,
-                        })}
                         page={currentPage}
                         totalPages={totalPages}
                         onPageChange={(next) => {

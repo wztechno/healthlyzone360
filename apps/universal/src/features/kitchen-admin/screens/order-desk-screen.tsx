@@ -2085,10 +2085,6 @@ function OrderDeskQueueList() {
 
                     <CataloguePager
                         testID="kitchen-order-desk-pagination"
-                        range={t('kitchen:toolbar.showing', {
-                            shown: pageRows.length,
-                            total: rows.length,
-                        })}
                         page={page}
                         totalPages={totalPages}
                         onPageChange={(next) => {

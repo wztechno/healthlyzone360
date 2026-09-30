@@ -525,10 +525,6 @@ function PlansList() {
                     />
                     <CataloguePager
                         testID="kitchen-plans-pagination"
-                        range={t('kitchen:toolbar.showing', {
-                            shown: controls.rows.length,
-                            total: total ?? controls.rows.length,
-                        })}
                         page={page}
                         totalPages={totalPages}
                         onPageChange={(next) => {

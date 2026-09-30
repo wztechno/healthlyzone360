@@ -351,11 +351,8 @@ describe('order desk queue — the four-state ladder', () => {
         expect(screen.getByTestId(rowTestId(3, 'number'))).toHaveTextContent('H360-2026-0148');
         // 16 000 minor units through the currency's own exponent, exactly once.
         expect(screen.getByTestId(rowTestId(1, 'total'))).toHaveTextContent('AED 160.00');
-        // Pages are cut from the loaded queue, eighteen rows each; three rows need no page buttons.
-        expect(screen.getByTestId('kitchen-order-desk-pagination-range')).toHaveTextContent(
-            'Showing 3 of 3',
-        );
-        expect(screen.queryByTestId('kitchen-order-desk-pagination-pages')).toBeNull();
+        // Pages are cut from the loaded queue, eighteen rows each; three rows need no pager at all.
+        expect(screen.queryByTestId('kitchen-order-desk-pagination')).toBeNull();
     });
 });
 
