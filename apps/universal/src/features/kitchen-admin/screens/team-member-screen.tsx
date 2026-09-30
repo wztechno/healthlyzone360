@@ -4,6 +4,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     Dialog,
     ErrorState,
     FormGrid,
@@ -356,7 +357,7 @@ function TeamMemberEditor() {
 
     return (
         <>
-            <Stack space="md" testID="kitchen-team-member-screen">
+            <Cascade space="md" testID="kitchen-team-member-screen">
                 <RecordFormOpening<MemberStep>
                     testID="kitchen-team-member"
                     title={name}
@@ -582,7 +583,7 @@ function TeamMemberEditor() {
                         ) : undefined
                     }
                 />
-            </Stack>
+            </Cascade>
 
             <EditorGuardDialogs
                 testID="kitchen-team-member"

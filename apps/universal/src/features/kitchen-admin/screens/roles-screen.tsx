@@ -3,10 +3,10 @@ import { isDeletableRole, isEditableRole } from '@healthy360/api-client/contract
 import {
     Badge,
     Button,
+    Cascade,
     EmptyState,
     ErrorState,
     Icon,
-    Stack,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
@@ -256,8 +256,8 @@ function RolesList() {
     };
 
     return (
-        <Stack space="md" testID="kitchen-roles-screen">
-            {roles.isPending || failure !== null ? null : (
+        <Cascade space="md" testID="kitchen-roles-screen">
+            {failure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-roles-stats"
                     cards={statCards({
@@ -272,6 +272,7 @@ function RolesList() {
                         },
                         setSegment,
                     })}
+                    pending={roles.isPending}
                 />
             )}
 
@@ -372,7 +373,7 @@ function RolesList() {
                     ]}
                 />
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

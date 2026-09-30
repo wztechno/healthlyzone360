@@ -3,11 +3,11 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     DatePickerButton,
     EmptyState,
     ErrorState,
     RecordSkeleton,
-    Stack,
     Text,
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
@@ -426,7 +426,7 @@ function CostReport() {
     );
 
     return (
-        <Stack space="md" testID="kitchen-cost-report-screen">
+        <Cascade space="md" testID="kitchen-cost-report-screen">
             {showsReport ? null : filterBar}
             {report.isPending ? (
                 <RecordSkeleton
@@ -451,7 +451,12 @@ function CostReport() {
                     body={t('kitchen:ops.costReport.emptyBody')}
                 />
             ) : (
-                <Stack space="md">
+                /*
+                 * The report's own run of sections, as a cascade that continues the page's count:
+                 * when the months land they arrive in order in place of the skeleton, rather than
+                 * all at once.
+                 */
+                <Cascade space="md">
                     {flaggedCount > 0 ? (
                         <Callout
                             testID="kitchen-cost-report-data-quality"
@@ -570,8 +575,8 @@ function CostReport() {
                             rowActionsLabel={t('kitchen:list.rowActions')}
                         />
                     </WithColumnPicker>
-                </Stack>
+                </Cascade>
             )}
-        </Stack>
+        </Cascade>
     );
 }

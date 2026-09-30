@@ -4,6 +4,7 @@ import {
     Button,
     Callout,
     Card,
+    Cascade,
     Dialog,
     EmptyState,
     ErrorState,
@@ -269,7 +270,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
     const history = stamps(batch);
 
     return (
-        <Stack space="md" testID="kitchen-production-batch-screen">
+        <Cascade space="md" testID="kitchen-production-batch-screen">
             {/*
              * The trail is the way back — `… › Production › Batch` with Production as the link —
              * so the header carries the batch, its state and every edge it has left, and nothing
@@ -672,7 +673,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                     )}
                 </Stack>
             </Dialog>
-        </Stack>
+        </Cascade>
     );
 }
 

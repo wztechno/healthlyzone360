@@ -89,6 +89,7 @@ export function CorporateDashboardScreen() {
                     testID="corporate-lookup-code"
                     id="corporate-lookup-code"
                     label={t('business:dashboard.lookupLabel')}
+                    placeholder={t('business:dashboard.lookupPlaceholder')}
                     hint={t('business:dashboard.lookupHint')}
                     value={code}
                     autoCapitalize="none"

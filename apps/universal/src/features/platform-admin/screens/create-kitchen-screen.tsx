@@ -105,6 +105,10 @@ function CreateKitchenForm() {
                     <BilingualField
                         testID="platform-admin-create-name"
                         fieldLabel={t('platformAdmin:create.nameLabel')}
+                        placeholder={{
+                            en: t('platformAdmin:create.namePlaceholderEn'),
+                            ar: t('platformAdmin:create.namePlaceholderAr'),
+                        }}
                         value={name}
                         onChange={setName}
                         requiredEnglish
@@ -116,6 +120,7 @@ function CreateKitchenForm() {
                     <TextInputField
                         testID="platform-admin-create-slug"
                         label={t('platformAdmin:create.slugLabel')}
+                        placeholder={t('platformAdmin:create.slugPlaceholder')}
                         hint={t('platformAdmin:create.slugHint')}
                         value={slug}
                         onChangeText={setSlug}
@@ -128,6 +133,7 @@ function CreateKitchenForm() {
                     <TextInputField
                         testID="platform-admin-create-country"
                         label={t('platformAdmin:create.countryLabel')}
+                        placeholder={t('platformAdmin:create.countryPlaceholder')}
                         value={country}
                         onChangeText={setCountry}
                         autoCapitalize="characters"
@@ -142,6 +148,7 @@ function CreateKitchenForm() {
                     <TextInputField
                         testID="platform-admin-create-currency"
                         label={t('platformAdmin:create.currencyLabel')}
+                        placeholder={t('platformAdmin:create.currencyPlaceholder')}
                         value={currency}
                         onChangeText={setCurrency}
                         autoCapitalize="characters"
@@ -156,6 +163,7 @@ function CreateKitchenForm() {
                     <TextInputField
                         testID="platform-admin-create-language"
                         label={t('platformAdmin:create.languageLabel')}
+                        placeholder={t('platformAdmin:create.languagePlaceholder')}
                         value={language}
                         onChangeText={setLanguage}
                         autoCapitalize="none"
@@ -170,6 +178,7 @@ function CreateKitchenForm() {
                     <TextInputField
                         testID="platform-admin-create-timezone"
                         label={t('platformAdmin:create.timezoneLabel')}
+                        placeholder={t('platformAdmin:create.timezonePlaceholder')}
                         value={timezone}
                         onChangeText={setTimezone}
                         autoCapitalize="none"
@@ -183,6 +192,7 @@ function CreateKitchenForm() {
                     <TextInputField
                         testID="platform-admin-create-branch"
                         label={t('platformAdmin:create.branchNameLabel')}
+                        placeholder={t('platformAdmin:create.branchNamePlaceholder')}
                         hint={t('platformAdmin:create.branchNameHint')}
                         value={branchName}
                         onChangeText={setBranchName}
@@ -195,6 +205,7 @@ function CreateKitchenForm() {
                     <TextInputField
                         testID="platform-admin-create-city"
                         label={t('platformAdmin:create.cityLabel')}
+                        placeholder={t('platformAdmin:create.cityPlaceholder')}
                         value={city}
                         onChangeText={setCity}
                     />

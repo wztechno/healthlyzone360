@@ -142,6 +142,7 @@ export function quotationLineColumns({
                         })}
                         labelHidden
                         size="sm"
+                        placeholder={t('kitchen:fields.unitPricePlaceholder')}
                         value={raw}
                         onChangeText={(next) => {
                             onPrice(line.id, next);

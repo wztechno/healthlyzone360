@@ -1,0 +1,174 @@
+import { FormSection, Text } from '@healthy360/design-system';
+import type { TextTone } from '@healthy360/design-system';
+import type { ReactNode } from 'react';
+import { View } from 'react-native';
+
+/** One fact in the aside's head: a label at the start, its value at the end. */
+export interface RecordSummaryRow {
+    readonly key: string;
+    readonly label: string;
+    readonly value: string;
+}
+
+/** One line of what the record will do — an item and its effect. */
+export interface RecordSummaryListItem {
+    readonly key: string;
+    readonly name: string;
+    readonly value: string;
+    /** `success` for what rises, `secondary` for a plain count. */
+    readonly tone?: TextTone | undefined;
+    readonly testID?: string | undefined;
+}
+
+export interface RecordSummaryAsideProps {
+    /**
+     * The aside's root. The card is `${testID}-card`, each head row `${testID}-${row.key}` and the
+     * total `${testID}-total`; the list carries its own ids because it is the part tests read.
+     */
+    readonly testID: string;
+    readonly title: string;
+    /** A fixed column beside the form, or `null` to run the full width under it. */
+    readonly width: number | null;
+    readonly rows: readonly RecordSummaryRow[];
+    /** The record's bottom line, or `null` when there is none to show this reader. */
+    readonly total: { readonly label: string; readonly value: string } | null;
+    readonly list: {
+        readonly title: string;
+        readonly empty: string;
+        readonly items: readonly RecordSummaryListItem[];
+        readonly testID: string;
+        readonly emptyTestID: string;
+    };
+    /** A callout between the list and the action — what still needs saying before the commit. */
+    readonly note?: ReactNode;
+    readonly action: ReactNode;
+    /** One line under the action: what pressing it does, in plain words. */
+    readonly foot: string;
+}
+
+/**
+ * The record form's aside: the record in a few facts, what committing it will do, and the commit.
+ *
+ * Drawn first for Post receipt and shared with the supply-order builder, which asks the same thing
+ * of its reader — *this is what you are about to create, this is its effect, create it*.
+ *
+ * ```
+ * ┌ THIS RECEIPT ────────────┐
+ * │ Kind      Market purchase │
+ * │ Supplier  Beqaa Fresh     │
+ * │ Total        318.30 USD   │
+ * │ ───────────────────────── │
+ * │ Stock at Beirut rises by  │
+ * │ Chicken breast   +24 kg   │
+ * │ ⚠ 1 line has no price…    │
+ * │ ───────────────────────── │
+ * │ [      Post receipt     ] │
+ * └───────────────────────────┘
+ * ```
+ *
+ * One card rather than three, its parts divided by hairlines, because it is read top to bottom as
+ * one statement. Sticky on the web, so the commit stays beside a long form; the offset resolves
+ * against the shell's scroll port, which pins it just under the top bar.
+ */
+export function RecordSummaryAside({
+    testID,
+    title,
+    width,
+    rows,
+    total,
+    list,
+    note,
+    action,
+    foot,
+}: RecordSummaryAsideProps) {
+    return (
+        <View
+            testID={testID}
+            role="complementary"
+            aria-label={title}
+            style={width === null ? undefined : { width }}
+            className="z-auto self-start web:sticky web:top-0"
+        >
+            <FormSection first variant="card" testID={`${testID}-card`} title={title}>
+                <View className="flex-col gap-base">
+                    <View className="flex-col gap-snug">
+                        {rows.map((row) => (
+                            <View
+                                key={row.key}
+                                testID={`${testID}-${row.key}`}
+                                className="flex-row items-baseline justify-between gap-tight"
+                            >
+                                <Text variant="caption" tone="secondary" numberOfLines={1}>
+                                    {row.label}
+                                </Text>
+                                <Text
+                                    variant="caption"
+                                    align="end"
+                                    numberOfLines={1}
+                                    className="min-w-0 shrink font-medium tabular-nums"
+                                >
+                                    {row.value}
+                                </Text>
+                            </View>
+                        ))}
+                        {total === null ? null : (
+                            <View className="mt-hair flex-row items-baseline justify-between gap-tight border-t border-stroke-subtle pt-tight">
+                                <Text variant="label">{total.label}</Text>
+                                <Text
+                                    testID={`${testID}-total`}
+                                    variant="title"
+                                    className="tabular-nums"
+                                >
+                                    {total.value}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+
+                    <View className="flex-col gap-snug border-t border-stroke-subtle pt-base">
+                        <Text variant="strong">{list.title}</Text>
+                        {list.items.length === 0 ? (
+                            <Text variant="caption" tone="secondary" testID={list.emptyTestID}>
+                                {list.empty}
+                            </Text>
+                        ) : (
+                            <View testID={list.testID} className="flex-col gap-hair">
+                                {list.items.map((item) => (
+                                    <View
+                                        key={item.key}
+                                        testID={item.testID}
+                                        className="flex-row items-baseline justify-between gap-tight"
+                                    >
+                                        <Text
+                                            variant="caption"
+                                            numberOfLines={1}
+                                            className="min-w-0 shrink"
+                                        >
+                                            {item.name}
+                                        </Text>
+                                        <Text
+                                            variant="caption"
+                                            tone={item.tone ?? 'secondary'}
+                                            className="font-semibold tabular-nums"
+                                        >
+                                            {item.value}
+                                        </Text>
+                                    </View>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+
+                    {note}
+
+                    <View className="flex-col gap-tight border-t border-stroke-subtle pt-base">
+                        {action}
+                        <Text variant="micro" tone="secondary">
+                            {foot}
+                        </Text>
+                    </View>
+                </View>
+            </FormSection>
+        </View>
+    );
+}

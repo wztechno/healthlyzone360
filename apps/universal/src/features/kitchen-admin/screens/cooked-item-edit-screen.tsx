@@ -11,6 +11,7 @@ import type {
 import {
     Button,
     Callout,
+    Cascade,
     ErrorState,
     FormSkeleton,
     SegmentedControl,
@@ -561,7 +562,7 @@ function CookedItemEditor({ item: routeItem, kind }: CookedItemEditScreenProps) 
     };
 
     return (
-        <Stack space="md" testID="kitchen-cooked-item-screen">
+        <Cascade space="md" testID="kitchen-cooked-item-screen">
             <Callout
                 testID="kitchen-cooked-item-recipe-missing"
                 role="note"
@@ -593,6 +594,6 @@ function CookedItemEditor({ item: routeItem, kind }: CookedItemEditScreenProps) 
              * question its recipe has to answer first.
              */}
             {listing}
-        </Stack>
+        </Cascade>
     );
 }

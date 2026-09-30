@@ -244,6 +244,7 @@ export function PhoneScreen() {
                                 <TextInputField
                                     testID={`${TEST_ID}-number`}
                                     label={t('account:phone.numberLabel')}
+                                    placeholder={t('account:phone.numberPlaceholder')}
                                     hint={t('account:phone.numberHint')}
                                     value={national}
                                     required

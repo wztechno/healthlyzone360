@@ -102,7 +102,8 @@
     },
     "datePicker": {
         "previousMonth": "الشهر السابق",
-        "nextMonth": "الشهر التالي"
+        "nextMonth": "الشهر التالي",
+        "clear": "مسح التاريخ"
     },
     "rating": {
         "summary": "{{value}} من {{max}}",

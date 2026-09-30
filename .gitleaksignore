@@ -1,0 +1,23 @@
+# Gitleaks findings that are known not to be secrets, one exact fingerprint per line.
+#
+# A fingerprint names a commit, a file, a rule and a line, so an entry here can never cover
+# anything else — unlike an allowlist in .gitleaks.toml, it cannot widen to live code.
+#
+# 0ccfb472 ("Match the mood board's fonts and colours") — packages/design-tokens/generated/fonts.ts
+# `generic-api-key` read the font manifest's rows as credentials: each gave a font's loader name,
+# such as Inter_400Regular, in a field called key. They are expo-font names for the bundled font
+# files. The generator now writes that field as `name`, so a regenerated manifest cannot trip the
+# rule again; these entries remain because a pull request scans its commit range, and this commit
+# stays in the history.
+0ccfb4729eb3249b3c58825e0bca808ce93635ed:packages/design-tokens/generated/fonts.ts:generic-api-key:32
+0ccfb4729eb3249b3c58825e0bca808ce93635ed:packages/design-tokens/generated/fonts.ts:generic-api-key:33
+0ccfb4729eb3249b3c58825e0bca808ce93635ed:packages/design-tokens/generated/fonts.ts:generic-api-key:34
+0ccfb4729eb3249b3c58825e0bca808ce93635ed:packages/design-tokens/generated/fonts.ts:generic-api-key:35
+0ccfb4729eb3249b3c58825e0bca808ce93635ed:packages/design-tokens/generated/fonts.ts:generic-api-key:38
+0ccfb4729eb3249b3c58825e0bca808ce93635ed:packages/design-tokens/generated/fonts.ts:generic-api-key:39
+0ccfb4729eb3249b3c58825e0bca808ce93635ed:packages/design-tokens/generated/fonts.ts:generic-api-key:40
+0ccfb4729eb3249b3c58825e0bca808ce93635ed:packages/design-tokens/generated/fonts.ts:generic-api-key:41
+#
+# 419d4d90 ("Clear the font manifest's secret-scan false positives") — this file's own comment
+# quoted one of those rows verbatim, and the rule read the quotation the same way.
+419d4d902bf334e34bfa9bdaa56e72019ceccbe8:.gitleaksignore:generic-api-key:7

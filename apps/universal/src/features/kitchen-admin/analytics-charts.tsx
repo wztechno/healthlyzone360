@@ -6,7 +6,7 @@
  */
 
 import { Text, useTheme } from '@healthy360/design-system';
-import { brand } from '@healthy360/design-tokens';
+import { brand, chartColours } from '@healthy360/design-tokens';
 import { createElement, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Platform, Pressable, Text as RNText, View } from 'react-native';
@@ -120,7 +120,7 @@ export interface LineChartProps {
 }
 
 export function LineChart({ testID, points }: LineChartProps) {
-    const { isDark } = useTheme();
+    const { name } = useTheme();
     const [active, setActive] = useState<number | null>(null);
     const width = 320;
     const height = 160;
@@ -147,9 +147,7 @@ export function LineChart({ testID, points }: LineChartProps) {
         .map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`)
         .join(' ');
     const areaPath = `${path} L ${coords[coords.length - 1]!.x.toFixed(1)} ${height - padY} L ${coords[0]!.x.toFixed(1)} ${height - padY} Z`;
-    const stroke = brand[500];
-    const fill = isDark ? 'rgba(22, 163, 74, 0.22)' : 'rgba(22, 163, 74, 0.14)';
-    const grid = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15, 23, 42, 0.08)';
+    const { stroke, areaFill: fill, grid } = chartColours[name];
 
     if (Platform.OS === 'web') {
         return (
@@ -236,6 +234,7 @@ export interface DonutChartProps {
 }
 
 export function DonutChart({ testID, slices, centerLabel, sliceLabel }: DonutChartProps) {
+    const { name } = useTheme();
     const [active, setActive] = useState<number | null>(null);
     const total = Math.max(
         1,
@@ -284,7 +283,7 @@ export function DonutChart({ testID, slices, centerLabel, sliceLabel }: DonutCha
                             cy: size / 2,
                             r: radius,
                             fill: 'none',
-                            stroke: 'rgba(148, 163, 184, 0.25)',
+                            stroke: chartColours[name].track,
                             strokeWidth,
                         }),
                         ...arcs.map((arc, index) =>

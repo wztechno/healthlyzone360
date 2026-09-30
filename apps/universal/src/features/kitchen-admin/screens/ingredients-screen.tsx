@@ -1,4 +1,13 @@
-import { Button, Dialog, Icon, Inline, Stack, Text, useToast } from '@healthy360/design-system';
+import {
+    Button,
+    Cascade,
+    Dialog,
+    Icon,
+    Inline,
+    Stack,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -82,6 +91,22 @@ import {
  * **Import is drawn and disabled.** There is no import route and no import endpoint — the library
  * arrives through the seeder — so the button holds its place with the reason on it rather than
  * shipping one that 404s.
+ *
+ * ## How the page arrives
+ *
+ * The way every admin page arrives, and the page it was worked out on.
+ *
+ * 1. **The page enters.** The root is a `Cascade`: the three bands — cards, toolbar, list — each
+ *    rise 8dp and fade in, 40ms apart, so the eye reads down the page the way it will be used.
+ * 2. **Nothing moves while it loads.** The cards are drawn in full with a placeholder where each
+ *    figure goes, and the list is `TableSkeleton` in the table's own frame. Both are their loaded
+ *    height, so the data landing moves nothing on the page.
+ * 3. **The data lands.** The figures fade in inside their cards and the rows cascade into the
+ *    frame (`CatalogueList` does this for every list). A later page of the pager cascades the same
+ *    way; a re-sort does not, because a row that is already on the page has already arrived.
+ *
+ * Every step is `useMotion`'s: under reduced motion the page is drawn in its final place on the
+ * first frame, and no step can leave a band invisible.
  */
 export function IngredientsScreen() {
     return (
@@ -171,7 +196,7 @@ function IngredientsList() {
     }
 
     return (
-        <Stack space="md" testID="kitchen-ingredients-screen">
+        <Cascade space="md" testID="kitchen-ingredients-screen">
             {/*
              * The opening — the actions and the four figures — is one block at 4px, nested inside
              * the page's 16px rhythm.
@@ -186,12 +211,11 @@ function IngredientsList() {
              * shrinks is the one inside the opening, and the rhythm below it is untouched.
              */}
             <Stack space="xs">
-                {list.isPending ? null : (
-                    <CatalogueStatCards
-                        testID="kitchen-ingredients-stats"
-                        cards={statCards(list, t)}
-                    />
-                )}
+                <CatalogueStatCards
+                    testID="kitchen-ingredients-stats"
+                    cards={statCards(list, t)}
+                    pending={list.isPending}
+                />
             </Stack>
 
             <CatalogueToolbar<StatusSegmentValue>
@@ -224,7 +248,10 @@ function IngredientsList() {
             <CatalogueListBody
                 testID="kitchen-ingredients"
                 list={list}
-                empty={{ title: t('kitchen:list.emptyTitle'), body: t('kitchen:list.emptyBody') }}
+                empty={{
+                    title: t('kitchen:list.emptyTitle'),
+                    body: t('kitchen:list.emptyBody'),
+                }}
                 filteredEmpty={{
                     title: t('kitchen:list.filteredEmptyTitle'),
                     body: t('kitchen:list.filteredEmptyBody'),
@@ -342,7 +369,7 @@ function IngredientsList() {
                     </Text>
                 )}
             </Dialog>
-        </Stack>
+        </Cascade>
     );
 }
 

@@ -292,6 +292,7 @@ export function AddressEditorScreen({ addressId }: AddressEditorScreenProps) {
                             <TextInputField
                                 testID={`${TEST_ID}-line1`}
                                 label={t('account:addresses.line1Label')}
+                                placeholder={t('account:addresses.line1Placeholder')}
                                 value={draft.line1}
                                 required
                                 onChangeText={(line1: string) => {
@@ -305,6 +306,7 @@ export function AddressEditorScreen({ addressId }: AddressEditorScreenProps) {
                             <TextInputField
                                 testID={`${TEST_ID}-line2`}
                                 label={t('account:addresses.line2Label')}
+                                placeholder={t('account:addresses.line2Placeholder')}
                                 value={draft.line2}
                                 onChangeText={(line2: string) => {
                                     set({ line2 });
@@ -314,6 +316,7 @@ export function AddressEditorScreen({ addressId }: AddressEditorScreenProps) {
                             <TextInputField
                                 testID={`${TEST_ID}-building`}
                                 label={t('account:addresses.buildingLabel')}
+                                placeholder={t('account:addresses.buildingPlaceholder')}
                                 value={draft.building}
                                 onChangeText={(building: string) => {
                                     set({ building });
@@ -323,6 +326,7 @@ export function AddressEditorScreen({ addressId }: AddressEditorScreenProps) {
                             <TextInputField
                                 testID={`${TEST_ID}-floor`}
                                 label={t('account:addresses.floorLabel')}
+                                placeholder={t('account:addresses.floorPlaceholder')}
                                 value={draft.floor}
                                 onChangeText={(floor: string) => {
                                     set({ floor });
@@ -332,6 +336,7 @@ export function AddressEditorScreen({ addressId }: AddressEditorScreenProps) {
                             <TextInputField
                                 testID={`${TEST_ID}-notes`}
                                 label={t('account:addresses.notesLabel')}
+                                placeholder={t('account:addresses.notesPlaceholder')}
                                 hint={t('account:addresses.notesHint')}
                                 value={draft.notes}
                                 multiline

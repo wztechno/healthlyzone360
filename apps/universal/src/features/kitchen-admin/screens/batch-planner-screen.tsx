@@ -8,6 +8,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     DataList,
     ErrorState,
     FormSection,
@@ -166,7 +167,7 @@ function BatchPlanner() {
               });
 
     return (
-        <Stack space="md" testID="kitchen-batch-planner-screen">
+        <Cascade space="md" testID="kitchen-batch-planner-screen">
             {/*
              * No title and no subtitle: the shell's trail already ends in "Batch planner", so the
              * row carries only the Read-only badge and Print.
@@ -277,6 +278,7 @@ function BatchPlanner() {
                                       unit: yieldUnitLabel,
                                   })
                         }
+                        placeholder={t('kitchen:fields.quantityPlaceholder')}
                         value={target}
                         onChangeText={setTarget}
                         unit={
@@ -346,7 +348,7 @@ function BatchPlanner() {
             ) : (
                 <ScaledSheet version={version} factor={factor} ingredients={ingredients} />
             )}
-        </Stack>
+        </Cascade>
     );
 }
 
@@ -672,6 +674,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
                         rows={lineControls.rows}
                         rowKey={(line) => String(line.ingredientId)}
                         density="sm"
+                        rowEntrance
                     />
                 </WithColumnPicker>
             </FormSection>
@@ -703,6 +706,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
                                 rows={packagingControls.rows}
                                 rowKey={(row) => String(row.ingredientId)}
                                 density="sm"
+                                rowEntrance
                             />
                         </WithColumnPicker>
                         <Text variant="caption" tone="secondary">

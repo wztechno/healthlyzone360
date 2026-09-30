@@ -36,7 +36,11 @@ import {
     lineHeightFor,
     lineHeights,
     lineHeightMultipliers,
+    resolveWeight,
     scriptForLocale,
+    typefaceKey,
+    typefacePackage,
+    typefaces,
 } from './typography.ts';
 
 describe('spacing', () => {
@@ -146,29 +150,56 @@ describe('typography', () => {
             expect(family.stack).toContain('sans-serif');
         }
         expect(fontFamilies.arabic.stack).toContain('IBM Plex Sans Arabic');
-        expect(fontFamilies.latin.stack).toContain('Schibsted Grotesk');
 
-        // Display is a *role*, not a second typeface: it resolves to the body family's own stack,
-        // with an Arabic-capable face next so per-glyph fallback keeps mixed headings legible.
-        expect(displayFamilies.latin.stack).toBe(fontFamilies.latin.stack);
-        expect(displayFamilies.latin.stack).toContain('IBM Plex Sans Arabic');
+        // Every Latin stack carries an Arabic-capable face next, so per-glyph fallback keeps a
+        // mixed Latin/Arabic string legible.
+        for (const role of [fontFamilies, displayFamilies, monoFamilies]) {
+            expect(role.latin.stack).toContain('IBM Plex Sans Arabic');
+        }
         expect(displayFamilies.arabic.stack).toContain('IBM Plex Sans Arabic');
     });
 
     /**
-     * One Latin family, and the retired three stay retired.
+     * The mood board's pairing, and nothing else.
      *
-     * The product shipped Inter, Space Grotesk, Schibsted Grotesk and IBM Plex Mono at once while
-     * the Catalogue was mid-migration. Four faces is what a reader sees as "the fonts do not
-     * match", so this is the guard that no role quietly reintroduces one.
+     * Inter carries body, UI and data; Space Grotesk carries headings, KPIs and numeric emphasis.
+     * The product once shipped four Latin faces at once, which is what a reader sees as "the fonts
+     * do not match" — so this is also the guard that no role quietly brings a third one back.
      */
-    it('resolves every Latin role to the one family', () => {
+    it('sets body and figures in Inter and display in Space Grotesk', () => {
+        expect(typefaces.body.family).toBe('Inter');
+        expect(typefaces.display.family).toBe('Space Grotesk');
+        expect(fontFamilies.latin.stack.startsWith("'Inter',")).toBe(true);
+        expect(monoFamilies.latin.stack).toBe(fontFamilies.latin.stack);
+        expect(displayFamilies.latin.stack.startsWith("'Space Grotesk', 'Inter',")).toBe(true);
         for (const role of [fontFamilies, displayFamilies, monoFamilies]) {
-            expect(role.latin.stack).toContain('Schibsted Grotesk');
-            for (const face of ['Inter', 'Space Grotesk', 'IBM Plex Mono']) {
-                expect(role.latin.stack).not.toContain(face);
+            for (const retired of ['Schibsted Grotesk', 'IBM Plex Mono']) {
+                expect(role.latin.stack).not.toContain(retired);
             }
         }
+    });
+
+    it('derives every loader key and package from the family name alone', () => {
+        expect(typefacePackage(typefaces.display)).toBe('@expo-google-fonts/space-grotesk');
+        expect(typefacePackage(typefaces.arabic)).toBe('@expo-google-fonts/ibm-plex-sans-arabic');
+        expect(typefaceKey(typefaces.display, '700')).toBe('SpaceGrotesk_700Bold');
+        expect(typefaceKey(typefaces.body, '600')).toBe('Inter_600SemiBold');
+    });
+
+    /**
+     * Native addresses one file per key, so a weight the typeface does not load has to resolve to
+     * the cut the browser would draw — the CSS font-matching order — or a heading would be one
+     * weight on the web and another on a phone.
+     */
+    it('resolves an unloaded weight the way CSS does', () => {
+        const display = typefaces.display; // 500 and 700 only
+        expect(resolveWeight(display, '600')).toBe('700');
+        expect(resolveWeight(display, '400')).toBe('500');
+        expect(resolveWeight({ family: 'X', weights: ['400', '700'] }, '500')).toBe('400');
+        expect(resolveWeight({ family: 'X', weights: ['600'] }, '400')).toBe('600');
+        expect(displayFamilies.latin.bold).toBe('SpaceGrotesk_700Bold');
+        expect(displayFamilies.latin.regular).toBe('SpaceGrotesk_700Bold');
+        expect(fontFamilies.latin.semibold).toBe('Inter_600SemiBold');
     });
 });
 

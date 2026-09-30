@@ -2,7 +2,9 @@ import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { Animated } from 'react-native';
 
+import { AnimatedView } from '../internal/animated-view.ts';
 import { cx } from '../internal/class-names.ts';
+import { startAfterPaint } from './start-after-paint.ts';
 import { useMotion } from './use-motion.ts';
 import type { DurationName, MotionDistanceName } from './use-motion.ts';
 
@@ -61,10 +63,7 @@ export function SlideIn({
             easing: easing.decelerate,
             useNativeDriver: true,
         });
-        animation.start();
-        return () => {
-            animation.stop();
-        };
+        return startAfterPaint(animation);
     }, [enabled, progress, durations, duration, delayMs, easing, offset]);
 
     const translate = enabled
@@ -72,7 +71,7 @@ export function SlideIn({
         : 0;
 
     return (
-        <Animated.View
+        <AnimatedView
             testID={testID}
             className={cx(className)}
             style={{
@@ -81,6 +80,6 @@ export function SlideIn({
             }}
         >
             {children}
-        </Animated.View>
+        </AnimatedView>
     );
 }

@@ -1,4 +1,5 @@
 import { cx } from '@healthy360/design-system';
+import { gradients } from '@healthy360/design-tokens';
 import { useIsRtl } from '@healthy360/i18n';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
@@ -21,24 +22,13 @@ import { StyleSheet, View } from 'react-native';
  */
 export type BrandGradientVariant = 'hero' | 'accent';
 
-/** Vivid colour gradients, keyed by variant. Diagonal, top-leading to bottom-trailing. */
-const COLOURS: Readonly<Record<BrandGradientVariant, readonly [string, string, ...string[]]>> = {
-    // Emerald → lime → violet: the full hero sweep.
-    hero: ['#16a34a', '#84cc16', '#6d28d9'],
-    // Violet → emerald: the AI / premium accent.
-    accent: ['#6d28d9', '#16a34a'],
-};
-
-const LOCATIONS: Readonly<Record<BrandGradientVariant, readonly [number, number, ...number[]]>> = {
-    hero: [0, 0.52, 1],
-    accent: [0, 1],
-};
-
-/** How dark the leading edge of the scrim is — enough for white body text on the brightest colour. */
-const SCRIM: Readonly<Record<BrandGradientVariant, readonly [string, string]>> = {
-    hero: ['rgba(6,20,12,0.82)', 'rgba(6,20,12,0.28)'],
-    accent: ['rgba(12,10,34,0.72)', 'rgba(6,20,12,0.42)'],
-};
+/**
+ * The vivid colour gradient per variant — emerald → lime → violet for the hero, violet → emerald for
+ * the AI accent — and the scrim laid over it. Both come from the token set, where the mood board's
+ * palette lives. Diagonal, top-leading to bottom-trailing.
+ */
+const COLOUR = { hero: gradients.hero, accent: gradients.accent } as const;
+const SCRIM = { hero: gradients.heroScrim, accent: gradients.accentScrim } as const;
 
 export interface BrandGradientProps {
     readonly variant?: BrandGradientVariant | undefined;
@@ -63,14 +53,14 @@ export function BrandGradient({
     return (
         <View testID={testID} className="overflow-hidden rounded-3xl">
             <LinearGradient
-                colors={COLOURS[variant]}
-                locations={LOCATIONS[variant]}
+                colors={COLOUR[variant].colours}
+                locations={COLOUR[variant].locations}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
             />
             <LinearGradient
-                colors={SCRIM[variant]}
+                colors={SCRIM[variant].colours}
                 start={scrimStart}
                 end={scrimEnd}
                 style={StyleSheet.absoluteFill}

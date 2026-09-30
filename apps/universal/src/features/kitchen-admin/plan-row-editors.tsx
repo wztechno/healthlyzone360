@@ -140,6 +140,7 @@ export function PlanVariantRows({
                                         testID={`${rowTestId}-name`}
                                         id={`${rowTestId}-name`}
                                         label={t('kitchen:plans.variantNameLabel')}
+                                        placeholder={t('kitchen:plans.variantNamePlaceholder')}
                                         size="sm"
                                         required
                                         disabled={!canManage}
@@ -175,6 +176,7 @@ export function PlanVariantRows({
                                     <CountField
                                         testID={`${rowTestId}-meals`}
                                         label={t('kitchen:plans.mealsPerDayLabel')}
+                                        placeholder={t('kitchen:plans.mealsPerDayPlaceholder')}
                                         value={row.mealsPerDay}
                                         disabled={!canManage}
                                         onChange={(next) => {
@@ -186,6 +188,7 @@ export function PlanVariantRows({
                                     <CountField
                                         testID={`${rowTestId}-snacks`}
                                         label={t('kitchen:plans.snacksPerDayLabel')}
+                                        placeholder={t('kitchen:plans.snacksPerDayPlaceholder')}
                                         value={row.snacksPerDay}
                                         disabled={!canManage}
                                         onChange={(next) => {
@@ -202,6 +205,7 @@ export function PlanVariantRows({
                                         <CountField
                                             testID={`${rowTestId}-energy-min`}
                                             label={t('kitchen:plans.energyMinLabel')}
+                                            placeholder={t('kitchen:plans.energyMinPlaceholder')}
                                             value={row.energyMin}
                                             disabled={!canManage}
                                             onChange={(next) => {
@@ -213,6 +217,7 @@ export function PlanVariantRows({
                                         <CountField
                                             testID={`${rowTestId}-energy-max`}
                                             label={t('kitchen:plans.energyMaxLabel')}
+                                            placeholder={t('kitchen:plans.energyMaxPlaceholder')}
                                             value={row.energyMax}
                                             disabled={!canManage}
                                             onChange={(next) => {

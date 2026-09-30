@@ -3,6 +3,7 @@ import {
     Button,
     Callout,
     Card,
+    Cascade,
     Dialog,
     EmptyState,
     FilterChip,
@@ -426,7 +427,7 @@ function ProductionBatchNew() {
               : undefined;
 
     return (
-        <Stack space="md" testID="kitchen-production-batch-new-screen">
+        <Cascade space="md" testID="kitchen-production-batch-new-screen">
             {/*
              * The record forms' opening: the title with the state the batch will be opened in,
              * Cancel and the create at the inline end, and the banner naming what stops the create.
@@ -634,6 +635,11 @@ function ProductionBatchNew() {
                                                         : 'kitchen:ops.production.batchFactorLabel',
                                                 )}
                                                 required
+                                                placeholder={t(
+                                                    scale === 'yield'
+                                                        ? 'kitchen:fields.quantityPlaceholder'
+                                                        : 'kitchen:ops.production.batchFactorPlaceholder',
+                                                )}
                                                 // The suffix only appears once the unit is actually
                                                 // known. A box labelled with a unit the screen guessed
                                                 // is worse than one with none: the figure is typed
@@ -696,6 +702,7 @@ function ProductionBatchNew() {
                                         size="sm"
                                         label={t('kitchen:ops.production.notesLabel')}
                                         hint={t('kitchen:ops.production.notesHint')}
+                                        placeholder={t('kitchen:ops.production.notesPlaceholder')}
                                         value={notes}
                                         multiline
                                         onChangeText={(next) => {
@@ -839,7 +846,7 @@ function ProductionBatchNew() {
                     </>
                 }
             />
-        </Stack>
+        </Cascade>
     );
 }
 

@@ -5,6 +5,7 @@ import { Platform, Pressable, Text as RNText, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 
 import { cx } from '../internal/class-names.ts';
+import { CascadeItem } from '../motion/cascade.tsx';
 import { GRID_CONTENT_ATTR } from '../overlays/anchored-surface.ts';
 import { TableCellTextContext } from '../primitives/text.tsx';
 import type { TableCellText } from '../primitives/text.tsx';
@@ -245,9 +246,30 @@ export interface DataListProps<Row> {
      * the box the port is measured from, and the tracks would overrun it by two pixels.
      */
     readonly framed?: boolean | undefined;
+    /**
+     * Rows fade and rise into place as they mount, cascading down the list — when its data lands,
+     * and again for each page the pager brings in. The header does not move: it is the frame the
+     * rows arrive into, and the skeleton before it already drew one in the same place.
+     *
+     * Off by default, so a list that re-renders from a form or a filter it sits beside does not
+     * animate unless its screen asked for it.
+     */
+    readonly rowEntrance?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
+
+/**
+ * A row's entrance is a {@link CascadeItem}: a shorter rise and a quicker fade than a page band's,
+ * because a row is one line of a list rather than a section of a page.
+ *
+ * The item takes its delay once, at mount, so a re-sort — which moves every row's index — does not
+ * send the rows back through their entrance. `stagger` caps the cascade at `MAX_STAGGERED_ITEMS`:
+ * on a 25-row page the first eight arrive one after another and the rest arrive with the eighth, so
+ * the bottom of the list never waits a second behind the top.
+ */
+const ROW_DISTANCE = 'subtle';
+const ROW_DURATION = 'normal';
 
 /**
  * The density ladder, as a *floor* rather than a fixed height.
@@ -314,6 +336,7 @@ export function DataList<Row>({
     onRowPress,
     emptyState,
     framed = false,
+    rowEntrance = false,
     className,
     testID,
 }: DataListProps<Row>) {
@@ -544,36 +567,55 @@ export function DataList<Row>({
                               framed && last ? 'rounded-b-panel' : null,
                           );
 
-                          if (onRowPress === undefined) {
-                              return (
+                          const rowTestID =
+                              testID === undefined ? undefined : `${testID}-row-${key}`;
+                          const drawn =
+                              onRowPress === undefined ? (
                                   <View
                                       key={key}
                                       role="row"
-                                      testID={
-                                          testID === undefined ? undefined : `${testID}-row-${key}`
-                                      }
+                                      testID={rowTestID}
                                       className={rowClass}
                                   >
                                       {cells}
                                   </View>
+                              ) : (
+                                  <Pressable
+                                      key={key}
+                                      role="row"
+                                      testID={rowTestID}
+                                      onPress={() => {
+                                          onRowPress(row);
+                                      }}
+                                      // The hover tint is the row's only affordance — there is no
+                                      // chevron and no button — so it covers the whole track sum
+                                      // rather than the port, which is what the `minWidth` above
+                                      // buys.
+                                      className={cx(rowClass, 'hover:bg-surface-sunken')}
+                                  >
+                                      {cells}
+                                  </Pressable>
                               );
-                          }
 
-                          return (
-                              <Pressable
+                          /*
+                           * The entrance wraps the row rather than animating it, so the row keeps
+                           * its own element, id and hover — the wrapper is a plain box between the
+                           * table and its row, which ARIA 1.2 allows for a required context.
+                           */
+                          return rowEntrance ? (
+                              <CascadeItem
                                   key={key}
-                                  role="row"
-                                  testID={testID === undefined ? undefined : `${testID}-row-${key}`}
-                                  onPress={() => {
-                                      onRowPress(row);
-                                  }}
-                                  // The hover tint is the row's only affordance — there is no
-                                  // chevron and no button — so it covers the whole track sum rather
-                                  // than the port, which is what the `minWidth` above buys.
-                                  className={cx(rowClass, 'hover:bg-surface-sunken')}
+                                  index={index}
+                                  distance={ROW_DISTANCE}
+                                  duration={ROW_DURATION}
+                                  testID={
+                                      rowTestID === undefined ? undefined : `${rowTestID}-entrance`
+                                  }
                               >
-                                  {cells}
-                              </Pressable>
+                                  {drawn}
+                              </CascadeItem>
+                          ) : (
+                              drawn
                           );
                       })}
             </View>

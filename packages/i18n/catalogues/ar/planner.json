@@ -56,6 +56,7 @@
         "templateTitle": "احفظ هذا الأسبوع كقالب",
         "templateBody": "يحتفظ القالب بالوجبات لا بالملاحظات. ويمكنك بدء أسبوع لاحق منه.",
         "templateNameLabel": "اسم القالب",
+        "templateNamePlaceholder": "مثال: أسبوع غني بالبروتين",
         "templateConfirm": "احفظ القالب",
         "duplicateTitle": "انسخ هذا الأسبوع",
         "duplicateBody": "تُنسخ كل وجبة إلى الأسبوع الذي تختاره، ويبقى أسبوعك الحالي كما هو.",
@@ -247,6 +248,7 @@
         "restaurantVenuePlaceholder": "المكان الذي ستذهب إليه",
         "restaurantDishLabel": "ما تتوقّع طلبه",
         "restaurantDishHint": "اختياري. اتركه فارغًا ويُستخدم اسم المكان.",
+        "restaurantDishPlaceholder": "مثال: سلطة دجاج مشوي",
         "restaurantSubmit": "أضف الوجبة خارج المنزل",
         "errorTitle": "لم تُضَف",
         "errorBody": "لم تتغيّر خطتك. أعد المحاولة بعد قليل."
@@ -255,6 +257,7 @@
         "title": "ملاحظات الخطة",
         "customerLabel": "ملاحظاتك على هذه الخطة",
         "customerHint": "لا يراها إلا أنت وأي أخصائي تغذية منحته الوصول.",
+        "customerPlaceholder": "مثال: أرز أقل في أيام التمرين",
         "save": "احفظ الملاحظات",
         "saving": "جارٍ الحفظ…",
         "neverSaved": "لم تحفظ ملاحظة على هذه الخطة بعد.",

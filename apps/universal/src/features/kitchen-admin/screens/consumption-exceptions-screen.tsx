@@ -2,12 +2,12 @@ import type { ConsumptionException } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
+    Cascade,
     DatePickerButton,
     Dialog,
     EmptyState,
     ErrorState,
     SegmentedControl,
-    Stack,
     TableSkeleton,
     Text,
     useToast,
@@ -303,7 +303,6 @@ function ConsumptionExceptions() {
 
     const controls = useColumnControls(rows, columns, 'kitchen-consumption-exceptions-table');
     const failure = toFailure(exceptions.error);
-    const hasData = !exceptions.isPending && failure === null;
 
     if (viewing !== null) {
         return (
@@ -384,10 +383,11 @@ function ConsumptionExceptions() {
     }
 
     return (
-        <Stack space="md" testID="kitchen-consumption-exceptions-screen">
-            {!hasData ? null : (
+        <Cascade space="md" testID="kitchen-consumption-exceptions-screen">
+            {failure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-consumption-exceptions-summary"
+                    pending={exceptions.isPending}
                     cards={[
                         {
                             key: 'shown',
@@ -547,6 +547,6 @@ function ConsumptionExceptions() {
                     </>
                 }
             />
-        </Stack>
+        </Cascade>
     );
 }

@@ -15,6 +15,7 @@ import {
     Callout,
     CALLOUT_TONES,
     Card,
+    Cascade,
     CommandPalette,
     CARD_TONES,
     CARD_PADDINGS,
@@ -108,8 +109,9 @@ import type {
     RecordStatus,
     TableColumn,
 } from '@healthy360/design-system';
+import { palette, typefaces } from '@healthy360/design-tokens';
 import { useLocale } from '@healthy360/i18n';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useColorScheme } from 'nativewind';
 import { Text as RNText, View } from 'react-native';
@@ -133,6 +135,7 @@ import { RowThumbnail } from '../features/kitchen-admin/catalogue/row-thumbnail.
 import type { CatalogueListBodyState } from '../features/kitchen-admin/catalogue/catalogue-list-body.tsx';
 import { CataloguePager } from '../features/kitchen-admin/catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
+import type { CatalogueStatCard } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../features/kitchen-admin/catalogue/catalogue-toolbar.tsx';
 import { CatalogueColumnHeader } from '../features/kitchen-admin/catalogue/catalogue-column-header.tsx';
 import { RecipeCardGrid } from '../features/kitchen-admin/catalogue/recipe-card-grid.tsx';
@@ -142,6 +145,7 @@ import {
 } from '../features/kitchen-admin/catalogue/column-picker.tsx';
 import { RecordViewPage } from '../features/kitchen-admin/catalogue/record-view-page.tsx';
 import { GateRailCard } from '../features/kitchen-admin/gate-rail-card.tsx';
+import { RecordSummaryAside } from '../features/kitchen-admin/record-summary-aside.tsx';
 import { KitchenPageHeader } from '../features/kitchen-admin/kitchen-page-header.tsx';
 import { KpiTile } from '../features/kitchen-admin/kpi-tile.tsx';
 import { ListToolbar } from '../features/kitchen-admin/list-toolbar.tsx';
@@ -220,6 +224,52 @@ const SHOWCASE_NUTRIENTS: readonly DerivedFigure[] = [
     { key: 'protein', label: 'Protein', value: '1.1', unit: 'g / 100 g' },
 ];
 
+/** The four figures a Catalogue list opens with, in all four tones. Two are filters. */
+const SHOWCASE_STAT_CARDS: readonly CatalogueStatCard[] = [
+    {
+        key: 'shown',
+        label: 'Shown',
+        value: '18',
+        unit: 'of 306',
+        caption: 'Filtered — clear',
+        mark: 'list',
+        tone: 'brand',
+        onPress: () => undefined,
+        accessibilityLabel: 'Clear every filter',
+    },
+    {
+        key: 'draft',
+        label: 'Draft',
+        value: '2',
+        unit: 'records',
+        caption: 'not published yet',
+        mark: 'fileDraft',
+        tone: 'warning',
+        onPress: () => undefined,
+        accessibilityLabel: 'Show only draft records',
+    },
+    {
+        key: 'missing',
+        label: 'Missing Arabic',
+        value: '3',
+        unit: 'records',
+        caption: 'blocked from publishing',
+        mark: 'languages',
+        tone: 'danger',
+    },
+    {
+        key: 'uncosted',
+        label: 'Uncosted',
+        value: '0',
+        unit: 'records',
+        caption: 'no unit price on file',
+        mark: 'coins',
+    },
+];
+
+/** How long the arrival story holds its pending frame — long enough to look at, not to wait on. */
+const ARRIVAL_HOLD_MS = 900;
+
 const CATALOGUE_ROWS: readonly CatalogueRow[] = [
     {
         key: 'tahini',
@@ -263,7 +313,7 @@ const CATALOGUE_KINDS = ['paste', 'spice', 'dairy'] as const;
 const CATALOGUE_PHOTO_COLUMNS: readonly CatalogueColumn<CatalogueRow>[] = [
     {
         key: 'designation',
-        label: 'Designation',
+        label: 'Item',
         width: 200,
         priority: 100,
         role: 'title',
@@ -371,10 +421,11 @@ function BilingualStory({ prefix }: { readonly prefix: string }) {
                     span={2}
                     layout="row"
                     testID={id('bilingual-row')}
-                    fieldLabel="Designation"
+                    fieldLabel="Item"
                     value={row}
                     requiredEnglish
                     onChange={setRow}
+                    placeholder={{ en: 'Tahini paste', ar: 'طحينة' }}
                 />
             </FormGrid>
             <BilingualField
@@ -383,6 +434,7 @@ function BilingualStory({ prefix }: { readonly prefix: string }) {
                 value={stacked}
                 requiredEnglish
                 onChange={setStacked}
+                placeholder={{ en: 'Garlic sauce', ar: 'صلصة الثوم' }}
             />
         </Stack>
     );
@@ -765,6 +817,82 @@ function RecipeCardsStory({ prefix }: { readonly prefix: string }) {
     );
 }
 
+/**
+ * A list page arriving, replayable, as every admin page does: the bands rise in as a `Cascade`,
+ * the stat cards drawn in full with their figures pending and the table's skeleton in its frame;
+ * then the figures fade in and the rows cascade into the frame. Nothing above or below the list
+ * moves between the two halves — that is what the story is for. Under reduced motion both halves
+ * are still there and the second is simply drawn in place.
+ */
+function ArrivalStory({
+    prefix,
+    columns,
+}: {
+    readonly prefix: string;
+    readonly columns: readonly DataListColumn<CatalogueRow>[];
+}) {
+    const [pending, setPending] = useState(true);
+    const [round, setRound] = useState(0);
+
+    useEffect(() => {
+        if (!pending) return undefined;
+        const timer = setTimeout(() => {
+            setPending(false);
+        }, ARRIVAL_HOLD_MS);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, [pending, round]);
+
+    return (
+        <Stack space="xs">
+            <Text variant="section" tone="secondary">
+                Page arrival
+            </Text>
+            <Inline space="xs" align="center">
+                <Button
+                    testID={`${prefix}-arrival-replay`}
+                    variant="secondary"
+                    label="Replay"
+                    onPress={() => {
+                        setPending(true);
+                        setRound((previous) => previous + 1);
+                    }}
+                />
+                <Text variant="caption" tone="secondary">
+                    {pending ? 'pending' : 'landed'}
+                </Text>
+            </Inline>
+            {/* Keyed by the round, so Replay is a fresh page: the bands rise in again. */}
+            <Cascade key={round} space="xs" testID={`${prefix}-arrival-page`}>
+                <CatalogueStatCards
+                    testID={`${prefix}-arrival-stats`}
+                    cards={SHOWCASE_STAT_CARDS}
+                    pending={pending}
+                />
+                {pending ? (
+                    <TableSkeleton
+                        testID={`${prefix}-arrival-loading`}
+                        rows={CATALOGUE_ROWS.length}
+                    />
+                ) : (
+                    <View className="flex-col rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card">
+                        <DataList
+                            testID={`${prefix}-arrival-list`}
+                            label="Ingredients, arriving"
+                            framed
+                            rowEntrance
+                            columns={columns}
+                            rows={CATALOGUE_ROWS}
+                            rowKey={(row) => row.key}
+                        />
+                    </View>
+                )}
+            </Cascade>
+        </Stack>
+    );
+}
+
 function CataloguePassStories({ prefix }: { readonly prefix: string }) {
     const [search, setSearch] = useState('zaatar');
     const [quantity, setQuantity] = useState('1.750');
@@ -845,7 +973,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
     const catalogueColumns = (scope: string): readonly DataListColumn<CatalogueRow>[] => [
         {
             key: 'designation',
-            label: 'Designation',
+            label: 'Item',
             width: 180,
             priority: 100,
             sortable: true,
@@ -1329,12 +1457,12 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     <FormField
                         testID={id('field-designation')}
                         id={id('field-designation')}
-                        label="Designation"
+                        label="Item"
                     >
                         {(control) => (
                             <TextInputField
                                 {...control}
-                                label="Designation"
+                                label="Item"
                                 size="sm"
                                 value={designation}
                                 onChangeText={setDesignation}
@@ -1354,6 +1482,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 label="Reference"
                                 size="sm"
                                 value="ING-0142"
+                                placeholder="ING-0000"
                                 disabled
                             />
                         )}
@@ -1372,6 +1501,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 size="sm"
                                 value="0"
                                 onChangeText={() => undefined}
+                                placeholder="0"
                             />
                         )}
                     </FormField>
@@ -1387,6 +1517,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 label="Category"
                                 size="sm"
                                 value="Sauces"
+                                placeholder="Dips"
                                 disabled
                             />
                         )}
@@ -1406,6 +1537,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 multiline
                                 value="Blend, then rest."
                                 onChangeText={() => undefined}
+                                placeholder="Soak, blend, season"
                             />
                         )}
                     </FormField>
@@ -1423,6 +1555,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 size="sm"
                                 value="Chilled, 4 °C"
                                 onChangeText={() => undefined}
+                                placeholder="Dry, room temperature"
                             />
                         )}
                     </FormField>
@@ -1445,6 +1578,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         numberOfLines={3}
                         value="Arrives in 10 kg pails."
                         onChangeText={() => undefined}
+                        placeholder="A few words"
                     />
                 </FormGrid>
                 {/* Stated column count: deliberately not responsive. */}
@@ -1455,7 +1589,13 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         label="Fixed at two"
                     >
                         {(control) => (
-                            <TextInputField {...control} label="Fixed at two" size="sm" value="A" />
+                            <TextInputField
+                                {...control}
+                                label="Fixed at two"
+                                size="sm"
+                                value="A"
+                                placeholder="Column one"
+                            />
                         )}
                     </FormField>
                     <FormField
@@ -1469,6 +1609,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 label="Not responsive"
                                 size="sm"
                                 value="B"
+                                placeholder="Column two"
                             />
                         )}
                     </FormField>
@@ -1484,6 +1625,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         label="xs — a line-table cell"
                         size="xs"
                         value="1"
+                        placeholder="0"
                     />
                     <TextInputField
                         testID={id('field-size-sm')}
@@ -1491,6 +1633,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         label="sm — the Catalogue default"
                         size="sm"
                         value="250"
+                        placeholder="0"
                     />
                     <TextInputField
                         testID={id('field-size-md')}
@@ -1498,6 +1641,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         label="md"
                         size="md"
                         value="250"
+                        placeholder="0"
                     />
                     {/* The same `xs` step on a picker, for a line-table cell beside `xs` inputs. */}
                     <Select
@@ -1584,7 +1728,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         tone="danger"
                         summary="3 required"
                         items={[
-                            { key: 'name', label: 'Designation (EN)', onPress: () => undefined },
+                            { key: 'name', label: 'Item (EN)', onPress: () => undefined },
                             { key: 'category', label: 'Category', onPress: () => undefined },
                             { key: 'price', label: 'Unit price', onPress: () => undefined },
                         ]}
@@ -1618,6 +1762,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             size="sm"
                             label="Item (EN)"
                             value="Bottle 500 ml"
+                            placeholder="Jar 250 g"
                         />
                         <QuantityInput
                             testID={id('half-error')}
@@ -1625,6 +1770,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             label="Pack price"
                             unit="SAR"
                             value=""
+                            placeholder="0.00"
                             error="Required"
                             onChangeText={() => undefined}
                         />
@@ -1634,6 +1780,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             label="Waste"
                             unit="%"
                             value="12"
+                            placeholder="0"
                             warning="Above 10%"
                             onChangeText={() => undefined}
                         />
@@ -1643,6 +1790,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             label="Cost per item"
                             unit="SAR"
                             value="0.0833"
+                            placeholder="—"
                             readOnly
                             onChangeText={() => undefined}
                         />
@@ -1673,6 +1821,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         label="Unit price"
                         unit="SAR"
                         value=""
+                        placeholder="0.00"
                         required
                         error="Required"
                         onChangeText={() => undefined}
@@ -1823,6 +1972,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         unit="%"
                         hint="B2B against unit price 3.50"
                         value="+20.0"
+                        placeholder="—"
                         onChangeText={() => undefined}
                     />
                     <QuantityInput
@@ -1891,6 +2041,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             label="Search, disabled"
                             value=""
                             onChangeText={() => undefined}
+                            placeholder="Search ingredients"
                             disabled
                         />
                     </Stack>
@@ -1906,6 +2057,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             unit="kg"
                             value={quantity}
                             onChangeText={setQuantity}
+                            placeholder="0"
                         />
                     ))}
                     <QuantityInput
@@ -1917,6 +2069,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         unit="KWD"
                         hint="Two decimal places."
                         value="4.22"
+                        placeholder="0.00"
                         onChangeText={() => undefined}
                     />
                     <QuantityInput
@@ -1927,6 +2080,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         unit="%"
                         error="Enter a percentage between 0 and 100."
                         value="140"
+                        placeholder="0"
                         onChangeText={() => undefined}
                     />
                     <QuantityInput
@@ -1938,6 +2092,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         unit="KWD"
                         hint="Derived — read-only on the sunken fill."
                         value="4.5700"
+                        placeholder="—"
                         onChangeText={() => undefined}
                     />
                     <QuantityInput
@@ -1947,6 +2102,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         disabled
                         label="Portions"
                         value="8"
+                        placeholder="0"
                         onChangeText={() => undefined}
                     />
                     <QuantityInput
@@ -1976,6 +2132,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 size={size}
                                 label={`Input ${size}`}
                                 value="Tahini paste"
+                                placeholder="Sumac"
                                 onChangeText={() => undefined}
                             />
                         </View>
@@ -1986,9 +2143,10 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             id={id('text-input-error')}
                             size="sm"
                             required
-                            label="Designation"
-                            error="Enter a designation."
+                            label="Item"
+                            error="Enter an item name."
                             value=""
+                            placeholder="Tahini paste"
                             onChangeText={() => undefined}
                         />
                     </View>
@@ -2000,6 +2158,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             label="Yield"
                             hint="The trailing slot sits inside the frame."
                             value="1.700"
+                            placeholder="0.000"
                             onChangeText={() => undefined}
                             trailing={
                                 <Text variant="mono" tone="secondary">
@@ -2016,6 +2175,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             disabled
                             label="Reference"
                             value="ING-0142"
+                            placeholder="ING-0000"
                         />
                     </View>
                 </View>
@@ -2070,51 +2230,18 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                 <Text variant="section" tone="secondary">
                     Catalogue stat cards
                 </Text>
+                <CatalogueStatCards testID={id('stat-cards')} cards={SHOWCASE_STAT_CARDS} />
+                <Text variant="caption" tone="secondary">
+                    pending
+                </Text>
                 <CatalogueStatCards
-                    testID={id('stat-cards')}
-                    cards={[
-                        {
-                            key: 'shown',
-                            label: 'Shown',
-                            value: '18',
-                            unit: 'of 306',
-                            caption: 'Filtered — clear',
-                            mark: 'list',
-                            tone: 'brand',
-                            onPress: () => undefined,
-                            accessibilityLabel: 'Clear every filter',
-                        },
-                        {
-                            key: 'draft',
-                            label: 'Draft',
-                            value: '2',
-                            unit: 'records',
-                            caption: 'not published yet',
-                            mark: 'fileDraft',
-                            tone: 'warning',
-                            onPress: () => undefined,
-                            accessibilityLabel: 'Show only draft records',
-                        },
-                        {
-                            key: 'missing',
-                            label: 'Missing Arabic',
-                            value: '3',
-                            unit: 'records',
-                            caption: 'blocked from publishing',
-                            mark: 'languages',
-                            tone: 'danger',
-                        },
-                        {
-                            key: 'uncosted',
-                            label: 'Uncosted',
-                            value: '0',
-                            unit: 'records',
-                            caption: 'no unit price on file',
-                            mark: 'coins',
-                        },
-                    ]}
+                    testID={id('stat-cards-pending')}
+                    cards={SHOWCASE_STAT_CARDS}
+                    pending
                 />
             </Stack>
+
+            <ArrivalStory prefix={prefix} columns={catalogueColumns('list-arrival')} />
 
             <RecipeCardsStory prefix={prefix} />
 
@@ -2858,6 +2985,7 @@ export function ShowcaseScreen() {
     const [floor, setFloor] = useState<number | null>(null);
     const [filterOn, setFilterOn] = useState(true);
     const [startDate, setStartDate] = useState<string | null>('2026-08-03');
+    const [boundDate, setBoundDate] = useState('');
     const [replays, setReplays] = useState(0);
     const [kitchenQuery, setKitchenQuery] = useState('');
     const [kitchenStatuses, setKitchenStatuses] = useState<readonly PublishableStatus[]>(['draft']);
@@ -2971,10 +3099,39 @@ export function ShowcaseScreen() {
                     <Text variant="caption" tone="secondary">
                         {t('designSystem:spike.sample.digits')}
                     </Text>
+                    {/* `display` is the one variant that names a face — the KPI figure. */}
+                    <Text testID="showcase-display-figure" variant="display">
+                        96%
+                    </Text>
+                    <Text variant="caption" tone="secondary">
+                        {`Body ${typefaces.body.family} · display ${typefaces.display.family} · Arabic ${typefaces.arabic.family}`}
+                    </Text>
                     <Inline space="sm">
                         <Badge label="Inline" tone="neutral" icon={null} />
                         <Badge label="items" tone="neutral" icon={null} />
                         <Badge label="wrap" tone="neutral" icon={null} />
+                    </Inline>
+                </Section>
+
+                {/* Read from `palette` itself, so this is what the one place currently says. */}
+                <Section id="palette" title="Palette — mood board Option 02">
+                    <Inline space="md">
+                        {Object.entries(palette).map(([name, value]) => (
+                            <View
+                                key={name}
+                                testID={`showcase-palette-${name}`}
+                                className="w-32 gap-1"
+                            >
+                                <View
+                                    className="h-12 rounded-lg border border-stroke-subtle"
+                                    style={{ backgroundColor: value }}
+                                />
+                                <Text variant="label">{name}</Text>
+                                <Text variant="caption" tone="secondary">
+                                    {value}
+                                </Text>
+                            </View>
+                        ))}
                     </Inline>
                 </Section>
 
@@ -3103,7 +3260,7 @@ export function ShowcaseScreen() {
                                 <TextInputField
                                     testID="showcase-density-input"
                                     size="sm"
-                                    label="Designation"
+                                    label="Item"
                                     placeholder="Zaatar"
                                 />
                                 <Checkbox
@@ -3254,6 +3411,7 @@ export function ShowcaseScreen() {
                         required
                         value={text}
                         onChangeText={setText}
+                        placeholder="A few words"
                     />
                     <TextInputField
                         testID="showcase-text-input-error"
@@ -3261,6 +3419,7 @@ export function ShowcaseScreen() {
                         label={t('designSystem:showcase.sampleLabel')}
                         error={t('designSystem:showcase.sampleError')}
                         value=""
+                        placeholder="A few words"
                         onChangeText={() => undefined}
                     />
                     <PasswordInput
@@ -3268,6 +3427,7 @@ export function ShowcaseScreen() {
                         id="showcase-password"
                         label={t('auth:login.passwordLabel')}
                         value=""
+                        placeholder="Enter your password"
                         onChangeText={() => undefined}
                     />
                     {/*
@@ -3563,6 +3723,18 @@ export function ShowcaseScreen() {
                         min="2026-01-01"
                         max="2027-12-31"
                         onChange={setStartDate}
+                    />
+                    {/* An optional bound: labelled like a field, empty until picked, clearable. */}
+                    <DatePickerButton
+                        testID="showcase-date-picker-optional"
+                        label="From"
+                        labelVisible
+                        value={boundDate}
+                        placeholder="Any date"
+                        onChange={setBoundDate}
+                        onClear={() => {
+                            setBoundDate('');
+                        }}
                     />
                     <CalendarGrid
                         testID="showcase-calendar"
@@ -4364,6 +4536,41 @@ export function ShowcaseScreen() {
                             }
                         />
                     </View>
+                    {/* The record form's aside — Post receipt's, shared with the supply-order builder. */}
+                    <RecordSummaryAside
+                        testID="showcase-kitchen-summary"
+                        title="Ready to order"
+                        width={300}
+                        rows={[
+                            { key: 'out', label: 'Out of stock', value: '2' },
+                            { key: 'lines', label: 'Lines to order', value: '5' },
+                        ]}
+                        total={{ label: 'Draft orders', value: '2' }}
+                        list={{
+                            title: 'One draft per supplier',
+                            empty: 'Nothing is ready yet.',
+                            testID: 'showcase-kitchen-summary-list',
+                            emptyTestID: 'showcase-kitchen-summary-empty',
+                            items: [
+                                { key: 'beqaa', name: 'Beqaa Fresh Produce', value: '3 items' },
+                                {
+                                    key: 'wadi',
+                                    name: 'Al Wadi Dairy',
+                                    value: '+24 kg',
+                                    tone: 'success',
+                                },
+                            ],
+                        }}
+                        note={<Callout tone="warning" title="1 item won't be ordered" />}
+                        action={
+                            <Button
+                                testID="showcase-kitchen-summary-action"
+                                label="Create 2 draft orders"
+                                block
+                            />
+                        }
+                        foot="Nothing is sent to anyone yet."
+                    />
                 </Section>
             </Stack>
         </PageTransition>

@@ -2,6 +2,7 @@ import type { DeliveryZoneAdmin, PublishableStatus } from '@healthy360/api-clien
 import {
     Badge,
     Button,
+    Cascade,
     EmptyState,
     ErrorState,
     Stack,
@@ -426,9 +427,13 @@ function DeliveryZonesList() {
     }
 
     return (
-        <Stack space="md" testID="kitchen-zones-screen">
-            {zones.isPending || failure !== null ? null : (
-                <CatalogueStatCards testID="kitchen-zones-stats" cards={cards} />
+        <Cascade space="md" testID="kitchen-zones-screen">
+            {failure !== null ? null : (
+                <CatalogueStatCards
+                    testID="kitchen-zones-stats"
+                    cards={cards}
+                    pending={zones.isPending}
+                />
             )}
 
             <CatalogueToolbar<StatusSegmentValue>
@@ -532,7 +537,7 @@ function DeliveryZonesList() {
                     />
                 </Stack>
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

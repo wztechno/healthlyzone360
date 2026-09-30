@@ -45,6 +45,7 @@ export function GuestContactForm({
             <TextInputField
                 testID={`${testID}-fullName`}
                 label={t('guest:contact.fullName')}
+                placeholder={t('guest:contact.fullNamePlaceholder')}
                 hint={t('guest:contact.fullNameHint')}
                 value={values.fullName}
                 onChangeText={(next: string) => {
@@ -59,6 +60,7 @@ export function GuestContactForm({
             <TextInputField
                 testID={`${testID}-email`}
                 label={t('guest:contact.email')}
+                placeholder={t('auth:login.emailPlaceholder')}
                 hint={t('guest:contact.emailHint')}
                 value={values.email}
                 onChangeText={(next: string) => {
@@ -73,6 +75,7 @@ export function GuestContactForm({
             <TextInputField
                 testID={`${testID}-mobile`}
                 label={t('guest:contact.mobile')}
+                placeholder={t('guest:contact.mobilePlaceholder')}
                 hint={t('guest:contact.mobileHint')}
                 value={values.mobile}
                 onChangeText={(next: string) => {

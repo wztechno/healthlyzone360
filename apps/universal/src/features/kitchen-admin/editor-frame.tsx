@@ -1,13 +1,5 @@
 import type { AdminEntityMeta, AdminRecordMeta } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    Dialog,
-    Inline,
-    PageTransition,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
+import { Badge, Button, Cascade, Dialog, Inline, Stack, Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -220,8 +212,14 @@ export function EditorFrame({
         </Inline>
     );
 
+    /*
+     * The page arrives in bands — header, progress, banner, form, step navigation — each rising in
+     * behind the one above it. Embedded in another page the frame is one band of *that* page's
+     * cascade, so it lays its own parts out flat rather than arriving twice.
+     */
+    const Frame = embedded ? Stack : Cascade;
     const body = (
-        <Stack space="md">
+        <Frame space="md" testID={embedded ? undefined : testID}>
             {chromeless ? null : embedded ? (
                 <Inline space="sm" align="center" wrap justify="between">
                     {metaLine}
@@ -398,14 +396,8 @@ export function EditorFrame({
                     </Text>
                 )}
             </Dialog>
-        </Stack>
+        </Frame>
     );
 
-    return embedded ? (
-        <View testID={testID}>{body}</View>
-    ) : (
-        <PageTransition testID={testID} transitionKey={testID}>
-            {body}
-        </PageTransition>
-    );
+    return embedded ? <View testID={testID}>{body}</View> : body;
 }

@@ -131,6 +131,7 @@ export function SignInScreen() {
                         testID="sign-in-password"
                         id="sign-in-password"
                         label={t('auth:login.passwordLabel')}
+                        placeholder={t('auth:login.passwordPlaceholder')}
                         autoComplete="current-password"
                         textContentType="password"
                         required
@@ -453,6 +454,11 @@ function TwoFactorChallenge({ challengeId, onCancel }: TwoFactorChallengeProps) 
                     recovery
                         ? t('auth:login.twoFactor.recoveryHint')
                         : t('auth:login.twoFactor.codeHint')
+                }
+                placeholder={
+                    recovery
+                        ? t('auth:login.twoFactor.recoveryPlaceholder')
+                        : t('auth:login.twoFactor.codePlaceholder')
                 }
                 keyboardType={recovery ? 'default' : 'number-pad'}
                 autoCapitalize="characters"

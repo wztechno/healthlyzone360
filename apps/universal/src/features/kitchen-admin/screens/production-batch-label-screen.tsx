@@ -166,6 +166,9 @@ function ProductionBatchLabel({ order }: ProductionBatchLabelScreenProps) {
                             testID="kitchen-production-label-copies"
                             id="kitchen-production-label-copies"
                             label={t('kitchen:ops.production.labelCopies')}
+                            // Emptied, the sheet prints the batch's own count — so that is what
+                            // the empty box shows, rather than a number it will not print.
+                            placeholder={String(labelCopies(batch, null))}
                             value={typedCopies ?? String(copies)}
                             onChangeText={setTypedCopies}
                         />

@@ -1,16 +1,25 @@
 /**
  * Typography tokens.
  *
- * **One family per script, and that is the whole list.** Schibsted Grotesk for Latin, IBM Plex Sans
- * Arabic for Arabic. Nothing picks a second face for emphasis: a heading, a price, a column label
- * and a paragraph are the same typeface at different sizes and weights.
+ * **Two Latin faces, matching the mood board (Option 02, "Wellness Green + AI"): Inter for body,
+ * UI, labels and data; Space Grotesk for display — headings, KPIs and numeric emphasis.** Arabic is
+ * IBM Plex Sans Arabic in every role, because neither Latin face carries Arabic glyphs.
  *
- * This is the end of the staging `CLAUDE.md` describes. The product briefly shipped four Latin
- * faces at once — Inter for body, Space Grotesk for headings, Schibsted Grotesk on the admin, IBM
- * Plex Mono for figures — because the Catalogue adopted the new family before the customer surfaces
- * did. Four faces is what a reader sees as "the fonts do not match", and it cost four webfont
- * payloads to say nothing. `displayFamilies` and `monoFamilies` survive as *roles* so callers keep
- * their meaning, but both now resolve to the same stack; `adminFamilies` is gone entirely.
+ * ## Changing a font
+ *
+ * Edit {@link typefaces} — the family name as Google Fonts spells it, and the weights to load — add
+ * its `@expo-google-fonts/*` package to this package's dependencies, and run `pnpm build:tokens`.
+ * Everything else is derived from that one entry: the loader keys, the CSS stacks, the Tailwind
+ * families, and `generated/fonts.ts`, the manifest the app registers the font files from. A family
+ * whose package is missing fails `generators.test.ts` by name.
+ *
+ * ## Why the web registers families by name
+ *
+ * The product briefly shipped four Latin faces at once, then collapsed to Schibsted Grotesk alone —
+ * and on the web neither state rendered. expo-font registers each file under its loader key
+ * (`SchibstedGrotesk_400Regular`) while the CSS asked for the family name (`'Schibsted Grotesk'`),
+ * so every screen fell back to the system face. The web now registers each file under its
+ * {@link Typeface.family} name with its real weight — `apps/universal/src/brand-fonts.ts`.
  *
  * Figures that have to line up in a column get {@link TABULAR_NUMERIC_CLASS}, not a mono typeface.
  *
@@ -21,21 +30,109 @@
  */
 
 /**
- * How a column of figures lines up on its digits now that there is no mono face.
+ * How a column of figures lines up on its digits without a mono face.
  *
  * Proportional digits are why a total never appears to sit under its addends. A monospaced
- * *typeface* fixes that and costs a second family on every screen carrying a price; `tabular-nums`
- * fixes it inside the family already loaded, by asking for the fixed-advance figures Schibsted
- * Grotesk ships. Web-only in effect — React Native maps it where it can and ignores it otherwise,
- * which degrades to proportional figures rather than to a wrong font.
+ * *typeface* fixes that and costs another family on every screen carrying a price; `tabular-nums`
+ * fixes it inside the family already loaded, by asking for the fixed-advance figures Inter ships.
+ * Web-only in effect — React Native maps it where it can and ignores it otherwise, which degrades
+ * to proportional figures rather than to a wrong font.
  */
 export const TABULAR_NUMERIC_CLASS = 'tabular-nums';
 
 export const SCRIPTS = ['latin', 'arabic'] as const;
 export type Script = (typeof SCRIPTS)[number];
 
+export const fontWeights = {
+    regular: '400',
+    medium: '500',
+    semibold: '600',
+    bold: '700',
+} as const;
+export type FontWeightName = keyof typeof fontWeights;
+/** The CSS/RN weight string a name resolves to. */
+export type FontWeightValue = (typeof fontWeights)[FontWeightName];
+
+/** A typeface the product loads. */
+export interface Typeface {
+    /** The family name exactly as Google Fonts spells it — `'Space Grotesk'`, not a loader key. */
+    readonly family: string;
+    /**
+     * The cuts to load. A weight that is asked for but not listed renders in the nearest one that
+     * is, by the CSS font-matching rules — which is how the mood board sets Space Grotesk: 500 and
+     * 700 only, so a 600 heading draws at 700.
+     */
+    readonly weights: readonly FontWeightValue[];
+}
+
+export const TYPEFACE_ROLES = ['body', 'display', 'arabic'] as const;
+export type TypefaceRole = (typeof TYPEFACE_ROLES)[number];
+
+/** **The one place a font is chosen.** See "Changing a font" above. */
+export const typefaces: Readonly<Record<TypefaceRole, Typeface>> = {
+    /** Body, UI, labels, table data and figures. */
+    body: { family: 'Inter', weights: ['400', '500', '600', '700'] },
+    /** Headings, page titles, KPI values and numeric emphasis. */
+    display: { family: 'Space Grotesk', weights: ['500', '700'] },
+    /** Every role, in Arabic. */
+    arabic: { family: 'IBM Plex Sans Arabic', weights: ['400', '500', '600', '700'] },
+};
+
+/** The suffix `@expo-google-fonts` names a cut by. */
+const WEIGHT_SUFFIX: Readonly<Record<FontWeightValue, string>> = {
+    '400': 'Regular',
+    '500': 'Medium',
+    '600': 'SemiBold',
+    '700': 'Bold',
+};
+
+/** `'Space Grotesk'` → `'@expo-google-fonts/space-grotesk'` — the package that ships its files. */
+export function typefacePackage(typeface: Typeface): string {
+    return `@expo-google-fonts/${typeface.family.toLowerCase().replace(/\s+/g, '-')}`;
+}
+
+/** The subpath one cut lives at inside {@link typefacePackage} — `'700Bold'`. */
+export function typefaceWeightPath(weight: FontWeightValue): string {
+    return `${weight}${WEIGHT_SUFFIX[weight]}`;
+}
+
+/**
+ * The loader key of one cut — `'SpaceGrotesk_700Bold'`. It is the name the file is exported under,
+ * and the family name React Native knows it by once `useFonts` has registered it.
+ */
+export function typefaceKey(typeface: Typeface, weight: FontWeightValue): string {
+    return `${typeface.family.replace(/\s+/g, '')}_${typefaceWeightPath(weight)}`;
+}
+
+/**
+ * The loaded weight a requested one renders in — the CSS font-matching algorithm, so native (which
+ * addresses one file per key) picks the same cut the browser does.
+ */
+export function resolveWeight(typeface: Typeface, desired: FontWeightValue): FontWeightValue {
+    const loaded = [...typeface.weights].sort((a, b) => Number(a) - Number(b));
+    const want = Number(desired);
+    const above = loaded.filter((weight) => Number(weight) >= want);
+    const below = loaded.filter((weight) => Number(weight) < want).reverse();
+    // 400–500 look up as far as 500 first, then down, then beyond 500; heavier looks up first.
+    let order: FontWeightValue[];
+    if (want >= 400 && want <= 500) {
+        order = [
+            ...above.filter((weight) => Number(weight) <= 500),
+            ...below,
+            ...above.filter((weight) => Number(weight) > 500),
+        ];
+    } else if (want > 500) {
+        order = [...above, ...below];
+    } else {
+        order = [...below, ...above];
+    }
+    const found = order[0];
+    if (found === undefined) throw new Error(`${typeface.family} declares no weights`);
+    return found;
+}
+
 export interface FontFamilyTokens {
-    /** Key registered with expo-font / the CSS `font-family` name. */
+    /** Key registered with expo-font — the name React Native addresses one cut by. */
     readonly regular: string;
     readonly medium: string;
     readonly semibold: string;
@@ -44,79 +141,72 @@ export interface FontFamilyTokens {
     readonly stack: string;
 }
 
+const quote = (family: string) => `'${family}'`;
+
+const SYSTEM_FALLBACK = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+const ARABIC_FALLBACK = "'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif";
+
+function familyTokens(
+    typeface: Typeface,
+    stack: string,
+    slots: Readonly<Record<FontWeightName, FontWeightValue>> = fontWeights,
+): FontFamilyTokens {
+    const key = (slot: FontWeightName) =>
+        typefaceKey(typeface, resolveWeight(typeface, slots[slot]));
+    return {
+        regular: key('regular'),
+        medium: key('medium'),
+        semibold: key('semibold'),
+        bold: key('bold'),
+        stack,
+    };
+}
+
+/*
+ * The Latin stacks list the Arabic face next, so the web's per-glyph fallback renders a mixed
+ * Latin/Arabic string correctly rather than dropping to the system face for the Arabic run.
+ */
+const bodyStack = [typefaces.body.family, typefaces.arabic.family].map(quote).join(', ');
+const displayStack = [typefaces.display.family, typefaces.body.family, typefaces.arabic.family]
+    .map(quote)
+    .join(', ');
+const arabicStack = quote(typefaces.arabic.family);
+
 export const fontFamilies: Readonly<Record<Script, FontFamilyTokens>> = {
-    latin: {
-        regular: 'SchibstedGrotesk_400Regular',
-        medium: 'SchibstedGrotesk_500Medium',
-        semibold: 'SchibstedGrotesk_600SemiBold',
-        bold: 'SchibstedGrotesk_700Bold',
-        stack: "'Schibsted Grotesk', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-    },
-    arabic: {
-        regular: 'IBMPlexSansArabic_400Regular',
-        medium: 'IBMPlexSansArabic_500Medium',
-        semibold: 'IBMPlexSansArabic_600SemiBold',
-        bold: 'IBMPlexSansArabic_700Bold',
-        stack: "'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif",
-    },
+    latin: familyTokens(typefaces.body, `${bodyStack}, ${SYSTEM_FALLBACK}`),
+    arabic: familyTokens(typefaces.arabic, `${arabicStack}, ${ARABIC_FALLBACK}`),
 };
 
 /**
- * Display role — the same family, at its bold cuts.
+ * Display is set a step heavier than body at every slot: a display "regular" is the semibold cut,
+ * which is what makes a heading read as one before its size does.
+ */
+const DISPLAY_SLOTS: Readonly<Record<FontWeightName, FontWeightValue>> = {
+    regular: '600',
+    medium: '600',
+    semibold: '700',
+    bold: '700',
+};
+
+/**
+ * Display role — Space Grotesk, the mood board's face for headings, KPIs and numeric emphasis.
  *
- * It was Space Grotesk, a second typeface reserved for headings, KPIs and numeric emphasis. A
- * heading does not need a different *typeface* to read as a heading; it needs size, weight and
- * space, all of which the ramp already gives it. Keeping the role while collapsing the family is
- * deliberate: call sites that mean "this is display type" keep saying so, and there is exactly one
- * place to change if that ever stops being true.
- *
- * Arabic keeps IBM Plex Sans Arabic. Schibsted Grotesk carries no Arabic glyphs, and the Latin
- * stack lists Plex next so the web's per-glyph fallback renders a mixed heading correctly.
+ * On the web `global.css` applies it to `h1`–`h3` (the mood board's own rule) and to anything
+ * carrying `font-display`. Arabic keeps IBM Plex Sans Arabic, at its heavier cuts.
  */
 export const displayFamilies: Readonly<Record<Script, FontFamilyTokens>> = {
-    latin: {
-        regular: 'SchibstedGrotesk_600SemiBold',
-        medium: 'SchibstedGrotesk_600SemiBold',
-        semibold: 'SchibstedGrotesk_700Bold',
-        bold: 'SchibstedGrotesk_700Bold',
-        stack: "'Schibsted Grotesk', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-    },
-    arabic: {
-        regular: 'IBMPlexSansArabic_600SemiBold',
-        medium: 'IBMPlexSansArabic_600SemiBold',
-        semibold: 'IBMPlexSansArabic_700Bold',
-        bold: 'IBMPlexSansArabic_700Bold',
-        stack: "'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif",
-    },
+    latin: familyTokens(typefaces.display, `${displayStack}, ${SYSTEM_FALLBACK}`, DISPLAY_SLOTS),
+    arabic: familyTokens(typefaces.arabic, `${arabicStack}, ${ARABIC_FALLBACK}`, DISPLAY_SLOTS),
 };
 
 /**
- * Numeric role — the same family, with {@link TABULAR_NUMERIC_CLASS} doing the alignment.
+ * Numeric role — the body family, with {@link TABULAR_NUMERIC_CLASS} doing the alignment.
  *
- * It was IBM Plex Mono. The job was never "look like code"; it was that a right-aligned cost column
- * must line up on its digits, which proportional figures break. `tabular-nums` buys exactly that
- * from the family already loaded, so a price sits under a price without a fourth webfont and
- * without a price looking like it came from a different product than the label beside it.
- *
- * The role stays so callers keep saying "this is a figure" — `Text variant="mono"` still means
- * something, and it is still the one variant that opts out of nothing.
+ * The mood board sets data in Inter. A right-aligned cost column has to line up on its digits,
+ * which `tabular-nums` buys from the family already loaded. The role stays so callers keep saying
+ * "this is a figure" — `Text variant="mono"` still means something.
  */
-export const monoFamilies: Readonly<Record<Script, FontFamilyTokens>> = {
-    latin: {
-        regular: 'SchibstedGrotesk_400Regular',
-        medium: 'SchibstedGrotesk_500Medium',
-        semibold: 'SchibstedGrotesk_600SemiBold',
-        bold: 'SchibstedGrotesk_700Bold',
-        stack: "'Schibsted Grotesk', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-    },
-    arabic: {
-        regular: 'IBMPlexSansArabic_400Regular',
-        medium: 'IBMPlexSansArabic_500Medium',
-        semibold: 'IBMPlexSansArabic_600SemiBold',
-        bold: 'IBMPlexSansArabic_700Bold',
-        stack: "'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif",
-    },
-};
+export const monoFamilies: Readonly<Record<Script, FontFamilyTokens>> = fontFamilies;
 
 /** Line-height multipliers, per script. Applied to the font size to get a line height. */
 export const lineHeightMultipliers: Readonly<Record<Script, number>> = {
@@ -159,16 +249,6 @@ export const fontSizes: Readonly<Record<FontSizeName, number>> = {
 /** Sizes at or above this use the display multipliers. */
 export const DISPLAY_SIZE_THRESHOLD = 30;
 
-export const fontWeights = {
-    regular: '400',
-    medium: '500',
-    semibold: '600',
-    bold: '700',
-} as const;
-export type FontWeightName = keyof typeof fontWeights;
-/** The CSS/RN weight string a name resolves to. */
-export type FontWeightValue = (typeof fontWeights)[FontWeightName];
-
 /** Letter spacing in density-independent pixels. Arabic never receives positive tracking. */
 export const letterSpacing = {
     tight: -0.4,
@@ -178,7 +258,7 @@ export const letterSpacing = {
 export type LetterSpacingName = keyof typeof letterSpacing;
 
 /**
- * Display tracking — for Space Grotesk at {@link DISPLAY_SIZE_THRESHOLD} and above.
+ * Display tracking — for display type at {@link DISPLAY_SIZE_THRESHOLD} and above.
  *
  * Expressed in `em` rather than px, which is why it is not a fourth stop on {@link letterSpacing}:
  * the three above are absolute and the same at every size, but display tracking has to scale with

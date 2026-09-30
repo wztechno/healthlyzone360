@@ -154,6 +154,7 @@ export function BatchSettlementDialog({
                             id={`${testID}-produced`}
                             label={t('kitchen:ops.production.producedLabel')}
                             hint={t('kitchen:ops.production.producedHint')}
+                            placeholder={t('kitchen:ops.production.producedPlaceholder')}
                             unit={yieldUnitCode ?? undefined}
                             required
                             value={draft.produced}
@@ -169,6 +170,7 @@ export function BatchSettlementDialog({
                             id={`${testID}-rejected`}
                             label={t('kitchen:ops.production.rejectedLabel')}
                             hint={t('kitchen:ops.production.rejectedHint')}
+                            placeholder={t('kitchen:fields.quantityPlaceholder')}
                             unit={yieldUnitCode ?? undefined}
                             value={draft.rejected}
                             error={errors.rejected === undefined ? undefined : t(errors.rejected)}
@@ -224,6 +226,7 @@ export function BatchSettlementDialog({
                                             testID={`${testID}-waste-${id}`}
                                             id={`${testID}-waste-${id}`}
                                             label={t('kitchen:ops.production.wasteHeading')}
+                                            placeholder={t('kitchen:fields.quantityPlaceholder')}
                                             unit={line.unitCode ?? undefined}
                                             value={draft.waste[id] ?? ''}
                                             onChangeText={(value) => {
@@ -280,6 +283,7 @@ export function BatchSettlementDialog({
                             testID={`${testID}-storage-location`}
                             id={`${testID}-storage-location`}
                             label={t('kitchen:ops.production.storageLocationLabel')}
+                            placeholder={t('kitchen:ops.production.storageLocationPlaceholder')}
                             value={draft.storageLocation}
                             onChangeText={(value) => {
                                 onChange({ ...draft, storageLocation: value });
@@ -294,6 +298,7 @@ export function BatchSettlementDialog({
                         id={`${testID}-reason`}
                         label={t('kitchen:ops.production.abandonReasonLabel')}
                         hint={t('kitchen:ops.production.abandonReasonHint')}
+                        placeholder={t('kitchen:ops.production.abandonReasonPlaceholder')}
                         value={draft.reason}
                         required
                         error={errors.reason === undefined ? undefined : t(errors.reason)}

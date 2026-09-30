@@ -39,6 +39,7 @@ export function AddressForm({ values, errors, onChange, disabled, testID }: Addr
                         key={field}
                         testID={`${testID}-${field}`}
                         label={t(`commerce:address.${field}`)}
+                        placeholder={t(`commerce:address.${field}Placeholder`)}
                         hint={t(`commerce:address.${field}Hint`)}
                         value={values[field]}
                         onChangeText={(next: string) => {

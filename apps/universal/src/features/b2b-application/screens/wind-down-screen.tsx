@@ -170,12 +170,14 @@ export function WindDownScreen({ organisationId }: WindDownScreenProps) {
                                     <TextInputField
                                         testID={`${TEST_ID}-name`}
                                         label={t('b2bApplication:windDown.nameLabel')}
+                                        placeholder={t('b2bApplication:windDown.namePlaceholder')}
                                         value={typedName}
                                         onChangeText={setTypedName}
                                     />
                                     <TextInputField
                                         testID={`${TEST_ID}-role`}
                                         label={t('b2bApplication:windDown.titleLabel')}
+                                        placeholder={t('b2bApplication:windDown.titlePlaceholder')}
                                         value={signatoryTitle}
                                         onChangeText={setSignatoryTitle}
                                     />

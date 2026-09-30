@@ -1,4 +1,4 @@
-import { Badge, SegmentedControl, Select, Stack, Text } from '@healthy360/design-system';
+import { Badge, Cascade, SegmentedControl, Select, Text } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -259,7 +259,7 @@ function AnalyticsDashboard() {
     }
 
     return (
-        <Stack space="md" testID="kitchen-analytics-panel">
+        <Cascade space="md" testID="kitchen-analytics-panel">
             {/* Every figure on this screen is `analytics-sample-data.ts` — the label says so first. */}
             <View className="flex-row">
                 <Badge
@@ -399,7 +399,7 @@ function AnalyticsDashboard() {
                     />
                 </WithColumnPicker>
             </View>
-        </Stack>
+        </Cascade>
     );
 }
 const DAY_MS = 86_400_000;

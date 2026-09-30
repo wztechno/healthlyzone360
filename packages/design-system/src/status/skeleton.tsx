@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Animated, Easing, View } from 'react-native';
 
 import { useReducedMotion } from '../hooks/use-reduced-motion.ts';
+import { AnimatedView } from '../internal/animated-view.ts';
 import { cx } from '../internal/class-names.ts';
 import { Shimmer } from '../motion/shimmer.tsx';
 
@@ -112,7 +113,7 @@ export function Skeleton({
     }
 
     return (
-        <Animated.View
+        <AnimatedView
             testID={testID}
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"

@@ -1,10 +1,10 @@
 import type { OrderDeskRequirement } from '@healthy360/api-client/contracts';
 import {
     Callout,
+    Cascade,
     DatePickerButton,
     EmptyState,
     ErrorState,
-    Stack,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
@@ -77,7 +77,8 @@ import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
  *
  * A zero in the table is a **true zero**: the server computed it. `available: 0` is a shelf holding
  * none of that thing, not an unknown. The em dash is reserved for what genuinely is not known — a
- * shelf with no resolved unit, and the ops metrics while they are still loading.
+ * shelf with no resolved unit. The figures above the table, while they load, hold a placeholder
+ * rather than any character at all.
  *
  * **What is emphatically not a zero is `not_computable`.** A dish with no recipe, a plan whose menu
  * was never written, a unit that will not convert — those days produce no quantity *and no row*, and
@@ -313,10 +314,11 @@ function OrderDeskRequirements() {
     });
 
     return (
-        <Stack space="md" testID="kitchen-order-desk-requirements-screen">
+        <Cascade space="md" testID="kitchen-order-desk-requirements-screen">
             {/*
-             * The figures as cards. Absent until something has answered — a zero here would claim
-             * an answer the screen does not have yet.
+             * The figures as cards, from the first frame. While the window is in flight each card
+             * holds a placeholder where its figure goes — a zero there would claim an answer the
+             * screen does not have yet.
              */}
             {branchId === null || filters === null || failure !== null ? null : (
                 <CatalogueStatCards
@@ -325,9 +327,7 @@ function OrderDeskRequirements() {
                         {
                             key: 'ingredients',
                             label: t('kitchen:ops.requirements.kpiIngredients'),
-                            value: requirements.isPending
-                                ? EM_DASH
-                                : formatter.formatNumber(rows.length),
+                            value: formatter.formatNumber(rows.length),
                             caption: t('kitchen:ops.requirements.kpiIngredientsCaption'),
                             mark: 'wheat',
                             tone: 'brand',
@@ -335,9 +335,7 @@ function OrderDeskRequirements() {
                         {
                             key: 'short',
                             label: t('kitchen:ops.requirements.kpiShort'),
-                            value: requirements.isPending
-                                ? EM_DASH
-                                : formatter.formatNumber(shortCount),
+                            value: formatter.formatNumber(shortCount),
                             caption: t('kitchen:ops.requirements.kpiShortCaption'),
                             mark: 'alert',
                             tone: shortCount > 0 ? 'danger' : 'default',
@@ -345,13 +343,15 @@ function OrderDeskRequirements() {
                         {
                             key: 'notComputable',
                             label: t('kitchen:ops.requirements.kpiNotComputable'),
-                            value: requirements.isPending
-                                ? EM_DASH
-                                : formatter.formatNumber(notComputable?.days ?? 0),
-                            caption:
-                                notComputable !== null && notComputable.days > 0
-                                    ? reasonSummary(notComputable.reasons)
-                                    : t('kitchen:ops.requirements.kpiNotComputableNone'),
+                            value: formatter.formatNumber(notComputable?.days ?? 0),
+                            // The one caption that is an answer rather than a description, so
+                            // while the window is in flight it says so instead of "every day was
+                            // worked out".
+                            caption: requirements.isPending
+                                ? t('common:state.loading')
+                                : notComputable !== null && notComputable.days > 0
+                                  ? reasonSummary(notComputable.reasons)
+                                  : t('kitchen:ops.requirements.kpiNotComputableNone'),
                             mark: 'circleHelp',
                             tone:
                                 notComputable !== null && notComputable.days > 0
@@ -359,6 +359,7 @@ function OrderDeskRequirements() {
                                     : 'default',
                         },
                     ]}
+                    pending={requirements.isPending}
                 />
             )}
 
@@ -436,7 +437,7 @@ function OrderDeskRequirements() {
                     )}
                 </View>
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

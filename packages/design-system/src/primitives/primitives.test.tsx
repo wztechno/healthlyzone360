@@ -104,8 +104,8 @@ describe('Text', () => {
             </DensityProvider>,
         );
 
-        // No variant names a family — there is one, set on `html` per script. The figure differs
-        // by asking for fixed-advance digits, not by asking for a different typeface.
+        // None of these names a family — body text takes the one `global.css` sets per script. The
+        // figure differs by asking for fixed-advance digits, not by asking for a different face.
         for (const id of ['eyebrow', 'label', 'figure']) {
             const classes: string = screen.getByTestId(id).props.className;
             for (const face of ['font-admin', 'font-display', 'font-mono']) {

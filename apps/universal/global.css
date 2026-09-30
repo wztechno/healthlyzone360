@@ -18,11 +18,12 @@
     }
 
     /* Tailwind preflight sets ::placeholder to gray-400 (#9ca3af, 2.5:1 on white), which fails
-       WCAG AA and overrides react-native-web's placeholderTextColor. 104 97 90 is neutral.600 —
-       the same value the native TextInput uses — at ~6.1:1 on the base surface. */
+       WCAG AA and overrides react-native-web's placeholderTextColor. `text-disabled` is the token
+       for demoted text, AA on every surface in both themes — and a role, so it follows the palette
+       and the dark theme instead of being a colour typed here. */
     input::placeholder,
     textarea::placeholder {
-        color: rgb(104 97 90);
+        color: rgb(var(--h360-color-text-disabled));
         opacity: 1;
     }
 
@@ -72,15 +73,31 @@
         `@layer base` would silently undo it. It has to sit here.
 
    `html:lang(en) *` is (0,1,1) against react-native-web's (0,1,0), which is the smallest margin
-   that holds. The universal selector is safe *because* there is now exactly one family per script:
-   there is no second face for it to stamp on. Reintroduce a family role and this rule has to learn
-   about it — which is the point, and is asserted in packages/design-tokens/src/scales.test.ts.
+   that holds.
 
-   Figures line up on `tabular-nums`, which this does not touch.
+   The display face is the one exception, and it is the mood board's own rule: `h1, h2, h3` are
+   Space Grotesk, and so is anything carrying `font-display` (KPI values, one-number displays). At
+   (0,1,2) and (0,2,1) both outrank the body rule above — and a heading's children follow it, so a
+   heading built from nested text does not flip back to the body face mid-line. Arabic has no display
+   face of its own, so it has no exception.
+
+   The families themselves live in packages/design-tokens/src/typography.ts; this file only says
+   which elements take which role. Figures line up on `tabular-nums`, which this does not touch.
    ================================================================================================ */
 html:lang(en) *,
 html:lang(en-XA) * {
     font-family: var(--h360-font-family-latin);
+}
+
+html:lang(en) :is(h1, h2, h3),
+html:lang(en) :is(h1, h2, h3) *,
+html:lang(en) .font-display,
+html:lang(en) .font-display *,
+html:lang(en-XA) :is(h1, h2, h3),
+html:lang(en-XA) :is(h1, h2, h3) *,
+html:lang(en-XA) .font-display,
+html:lang(en-XA) .font-display * {
+    font-family: var(--h360-font-family-display);
 }
 
 html:lang(ar) * {

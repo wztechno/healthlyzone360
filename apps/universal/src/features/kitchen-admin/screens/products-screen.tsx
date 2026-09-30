@@ -2,6 +2,7 @@ import type { ProductAdmin, PublishableStatus } from '@healthy360/api-client/con
 import {
     Badge,
     Button,
+    Cascade,
     Dialog,
     Icon,
     Inline,
@@ -240,7 +241,7 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
     }
 
     return (
-        <Stack space="md" testID="kitchen-products-screen">
+        <Cascade space="md" testID="kitchen-products-screen">
             {/*
              * The opening — the actions and the four figures — is one block at 4px, nested inside
              * the page's 16px rhythm. The reasoning is the ingredient list's: with no trail and no
@@ -248,12 +249,11 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
              * 16px it read as two empty bands stacked above the first thing worth looking at.
              */}
             <Stack space="xs">
-                {list.isPending ? null : (
-                    <CatalogueStatCards
-                        testID="kitchen-products-stats"
-                        cards={statCards(list, t)}
-                    />
-                )}
+                <CatalogueStatCards
+                    testID="kitchen-products-stats"
+                    cards={statCards(list, t)}
+                    pending={list.isPending}
+                />
             </Stack>
 
             <CatalogueToolbar<StatusSegmentValue>
@@ -390,7 +390,7 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                     </Text>
                 )}
             </Dialog>
-        </Stack>
+        </Cascade>
     );
 }
 

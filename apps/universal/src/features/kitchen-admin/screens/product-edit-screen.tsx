@@ -8,6 +8,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     Checkbox,
     Dialog,
     ErrorState,
@@ -1070,8 +1071,15 @@ function ProductEditor({
         </FormGrid>
     );
 
+    /*
+     * The page arrives in bands, each rising in behind the one above it. Embedded, this listing is
+     * a tab of its host's page rather than a page, so it lays its parts out flat and arrives however
+     * the host does — never twice.
+     */
+    const Page = embedded ? Stack : Cascade;
+
     return (
-        <Stack space="md" testID="kitchen-product-editor-screen">
+        <Page space="md" testID="kitchen-product-editor-screen">
             {/*
              * The opening: the title with its status and handle beside it, the actions at the
              * inline end, the banners under it and one rule closing it. No trail here —
@@ -1667,6 +1675,6 @@ function ProductEditor({
                     </Text>
                 )}
             </Dialog>
-        </Stack>
+        </Page>
     );
 }

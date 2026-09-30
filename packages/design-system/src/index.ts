@@ -373,3 +373,5 @@ export { useAnimatedNumber } from './motion/use-animated-number.ts';
 export type { UseAnimatedNumberOptions } from './motion/use-animated-number.ts';
 export { PageTransition } from './motion/page-transition.tsx';
 export type { PageTransitionProps } from './motion/page-transition.tsx';
+export { Cascade, CascadeItem } from './motion/cascade.tsx';
+export type { CascadeItemProps, CascadeProps } from './motion/cascade.tsx';

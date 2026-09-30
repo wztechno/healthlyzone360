@@ -117,6 +117,7 @@ export function RegisterScreen() {
                         testID="register-name"
                         id="register-name"
                         label={t('auth:register.nameLabel')}
+                        placeholder={t('auth:register.namePlaceholder')}
                         autoComplete="name"
                         textContentType="name"
                         required
@@ -136,6 +137,7 @@ export function RegisterScreen() {
                         testID="register-email"
                         id="register-email"
                         label={t('auth:register.emailLabel')}
+                        placeholder={t('auth:login.emailPlaceholder')}
                         keyboardType="email-address"
                         autoCapitalize="none"
                         autoComplete="email"
@@ -157,6 +159,7 @@ export function RegisterScreen() {
                         testID="register-password"
                         id="register-password"
                         label={t('auth:register.passwordLabel')}
+                        placeholder={t('auth:register.passwordPlaceholder')}
                         hint={t('auth:register.passwordHint', { count: PASSWORD_MIN_LENGTH })}
                         autoComplete="new-password"
                         textContentType="newPassword"
@@ -177,6 +180,7 @@ export function RegisterScreen() {
                         testID="register-password-confirmation"
                         id="register-password-confirmation"
                         label={t('auth:register.passwordConfirmationLabel')}
+                        placeholder={t('auth:register.passwordConfirmationPlaceholder')}
                         autoComplete="new-password"
                         textContentType="newPassword"
                         required

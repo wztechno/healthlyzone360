@@ -159,6 +159,7 @@ export function ResetPasswordScreen() {
                         testID="reset-password-password"
                         id="reset-password-password"
                         label={t('auth:resetPassword.passwordLabel')}
+                        placeholder={t('auth:resetPassword.passwordPlaceholder')}
                         hint={t('auth:register.passwordHint', { count: PASSWORD_MIN_LENGTH })}
                         autoComplete="new-password"
                         required
@@ -178,6 +179,7 @@ export function ResetPasswordScreen() {
                         testID="reset-password-confirmation"
                         id="reset-password-confirmation"
                         label={t('auth:resetPassword.passwordConfirmationLabel')}
+                        placeholder={t('auth:resetPassword.passwordConfirmationPlaceholder')}
                         autoComplete="new-password"
                         required
                         value={field.value}

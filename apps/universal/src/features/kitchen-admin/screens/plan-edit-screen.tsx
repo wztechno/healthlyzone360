@@ -4,6 +4,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     DateField,
     Dialog,
     ErrorState,
@@ -1033,7 +1034,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     };
 
     return (
-        <Stack space="md" testID="kitchen-plan-editor-screen">
+        <Cascade space="md" testID="kitchen-plan-editor-screen">
             {/*
              * The opening, as the recipe editor draws it: the title with its status beside it, the
              * actions at the inline end, the banner naming what needs fixing, and the steps as
@@ -1201,6 +1202,10 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 layout="row"
                                 testID="kitchen-plan-name"
                                 fieldLabel={t('kitchen:fields.name')}
+                                placeholder={{
+                                    en: t('kitchen:fields.planNamePlaceholderEn'),
+                                    ar: t('kitchen:fields.planNamePlaceholderAr'),
+                                }}
                                 value={details.name}
                                 requiredEnglish
                                 disabled={!canManage}
@@ -1220,6 +1225,10 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 layout="row"
                                 testID="kitchen-plan-summary"
                                 fieldLabel={t('kitchen:plans.summaryLabel')}
+                                placeholder={{
+                                    en: t('kitchen:plans.summaryPlaceholderEn'),
+                                    ar: t('kitchen:plans.summaryPlaceholderAr'),
+                                }}
                                 value={details.summary}
                                 disabled={!canManage}
                                 onChange={(next) => {
@@ -1235,6 +1244,10 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 layout="row"
                                 testID="kitchen-plan-description"
                                 fieldLabel={t('kitchen:plans.descriptionLabel')}
+                                placeholder={{
+                                    en: t('kitchen:plans.descriptionPlaceholderEn'),
+                                    ar: t('kitchen:plans.descriptionPlaceholderAr'),
+                                }}
                                 multiline
                                 value={details.description}
                                 disabled={!canManage}
@@ -2147,6 +2160,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     </Text>
                 )}
             </Dialog>
-        </Stack>
+        </Cascade>
     );
 }

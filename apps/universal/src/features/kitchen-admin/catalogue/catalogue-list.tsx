@@ -97,6 +97,14 @@ export interface CatalogueListProps<Row> {
     /** Accessible name for the overflow trigger. */
     readonly rowActionsLabel: string;
     readonly emptyState?: ReactNode | undefined;
+    /**
+     * Rows cascade in as they mount — `DataList`'s `rowEntrance`. On by default: every admin list
+     * arrives the same way, and a list that should not (one redrawn on every keystroke of a form
+     * beside it) says so. Wide table only: below `md` the two-line rows arrive with the list's own
+     * band, because a phone shows four of them and a cascade down four rows reads as lag rather
+     * than arrival.
+     */
+    readonly rowEntrance?: boolean | undefined;
     readonly testID: string;
 }
 
@@ -110,6 +118,7 @@ export function CatalogueList<Row>({
     rowActions,
     rowActionsLabel,
     emptyState,
+    rowEntrance = true,
     testID,
 }: CatalogueListProps<Row>) {
     const { atLeast } = useBreakpoint();
@@ -209,6 +218,7 @@ export function CatalogueList<Row>({
                     onRowPress={onRowPress}
                     emptyState={emptyState}
                     framed={rows.length > 0}
+                    rowEntrance={rowEntrance}
                     testID={testID}
                 />
             </View>

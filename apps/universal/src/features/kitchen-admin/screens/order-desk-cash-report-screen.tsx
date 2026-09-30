@@ -4,10 +4,10 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Callout,
+    Cascade,
     DatePickerButton,
     EmptyState,
     ErrorState,
-    Stack,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
@@ -242,15 +242,15 @@ function OrderDeskCashReport() {
     const controls = useColumnControls(rows, columns, 'kitchen-order-desk-cash-report-table');
 
     return (
-        <Stack space="md" testID="kitchen-order-desk-cash-report-screen">
+        <Cascade space="md" testID="kitchen-order-desk-cash-report-screen">
             {/*
-             * The figures first, and only once there are rows to count — a zero here would claim an
-             * answer the screen does not have yet.
+             * The figures first. While the day is in flight each card holds a placeholder where its
+             * figure goes — a zero there would claim an answer the screen does not have yet — and a
+             * day that answers with no rows keeps none: the empty table below says so.
              */}
             {filters === null ||
-            report.isPending ||
             failure !== null ||
-            rows.length === 0 ? null : (
+            (!report.isPending && rows.length === 0) ? null : (
                 <CatalogueStatCards
                     testID="kitchen-order-desk-cash-report-figures"
                     cards={[
@@ -281,6 +281,7 @@ function OrderDeskCashReport() {
                             mark: 'coins',
                         },
                     ]}
+                    pending={report.isPending}
                 />
             )}
 
@@ -397,7 +398,7 @@ function OrderDeskCashReport() {
                     </View>
                 </View>
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

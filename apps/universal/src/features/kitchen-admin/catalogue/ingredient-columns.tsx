@@ -205,8 +205,8 @@ export function ingredientColumns({
             // longer than the track still wraps rather than clipping — `DataList` floors the row
             // height instead of fixing it.
             key: 'name',
-            // Its own key, not the shared `list.columnName`: that one still reads "Designation" and
-            // still names the packaging list's title column and the recipe line table's.
+            // Its own key, not the shared `list.columnName`: both read "Item" today, but that one
+            // also names the recipe line table's title column, a surface free to word it otherwise.
             label: t('kitchen:list.columnItem'),
             width: 200,
             min: 150,

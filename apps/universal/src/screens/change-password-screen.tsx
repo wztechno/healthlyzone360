@@ -141,6 +141,7 @@ export function ChangePasswordScreen() {
                         testID="change-password-current"
                         id="change-password-current"
                         label={t('auth:changePassword.currentLabel')}
+                        placeholder={t('auth:changePassword.currentPlaceholder')}
                         {...(forced ? { hint: t('auth:changePassword.currentHint') } : {})}
                         autoComplete="current-password"
                         required
@@ -160,6 +161,7 @@ export function ChangePasswordScreen() {
                         testID="change-password-new"
                         id="change-password-new"
                         label={t('auth:changePassword.passwordLabel')}
+                        placeholder={t('auth:changePassword.passwordPlaceholder')}
                         hint={t('auth:register.passwordHint', { count: PASSWORD_MIN_LENGTH })}
                         autoComplete="new-password"
                         required
@@ -179,6 +181,7 @@ export function ChangePasswordScreen() {
                         testID="change-password-confirmation"
                         id="change-password-confirmation"
                         label={t('auth:changePassword.passwordConfirmationLabel')}
+                        placeholder={t('auth:changePassword.passwordConfirmationPlaceholder')}
                         autoComplete="new-password"
                         required
                         value={field.value}

@@ -218,6 +218,7 @@ export function AgreementPanel({
                             testID={`${testID}-typed-name`}
                             id={`${testID}-typed-name`}
                             label={t('b2bApplication:agreement.typedName')}
+                            placeholder={t('b2bApplication:agreement.typedNamePlaceholder')}
                             hint={t('b2bApplication:agreement.typedNameHint')}
                             required
                             value={typedName}
@@ -227,6 +228,7 @@ export function AgreementPanel({
                             testID={`${testID}-signatory-title`}
                             id={`${testID}-signatory-title`}
                             label={t('b2bApplication:agreement.signatoryTitle')}
+                            placeholder={t('b2bApplication:agreement.signatoryTitlePlaceholder')}
                             required
                             value={signatoryTitle}
                             onChangeText={setSignatoryTitle}

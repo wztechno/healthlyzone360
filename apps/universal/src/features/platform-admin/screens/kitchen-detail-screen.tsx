@@ -377,6 +377,7 @@ function KitchenDetail() {
                 <TextInputField
                     testID="platform-admin-suspend-reason"
                     label={t('platformAdmin:lifecycle.suspendReasonLabel')}
+                    placeholder={t('platformAdmin:lifecycle.suspendReasonPlaceholder')}
                     hint={t('platformAdmin:lifecycle.suspendReasonHint')}
                     value={suspendReason}
                     onChangeText={setSuspendReason}
@@ -592,6 +593,7 @@ function InviteOwnerCard({ kitchen }: { readonly kitchen: PlatformKitchen }) {
                 <TextInputField
                     testID="platform-admin-invite-name"
                     label={t('platformAdmin:invite.nameLabel')}
+                    placeholder={t('platformAdmin:invite.namePlaceholder')}
                     hint={t('platformAdmin:invite.nameHint')}
                     value={name}
                     onChangeText={setName}
@@ -600,6 +602,7 @@ function InviteOwnerCard({ kitchen }: { readonly kitchen: PlatformKitchen }) {
                 <TextInputField
                     testID="platform-admin-invite-message"
                     label={t('platformAdmin:invite.messageLabel')}
+                    placeholder={t('platformAdmin:invite.messagePlaceholder')}
                     hint={t('platformAdmin:invite.messageHint')}
                     value={message}
                     onChangeText={setMessage}

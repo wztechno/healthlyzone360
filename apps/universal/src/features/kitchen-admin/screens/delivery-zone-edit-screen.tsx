@@ -3,6 +3,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     Dialog,
     ErrorState,
     FormGrid,
@@ -699,7 +700,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
     ];
 
     return (
-        <Stack space="md" testID="kitchen-zone-editor-screen">
+        <Cascade space="md" testID="kitchen-zone-editor-screen">
             <RecordFormOpening<ZoneStep>
                 testID="kitchen-zone-editor-screen"
                 title={title}
@@ -798,6 +799,10 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                             layout="row"
                             testID="kitchen-zone-name"
                             fieldLabel={t('kitchen:fields.name')}
+                            placeholder={{
+                                en: t('kitchen:fields.zoneNamePlaceholderEn'),
+                                ar: t('kitchen:fields.zoneNamePlaceholderAr'),
+                            }}
                             value={details.name}
                             requiredEnglish
                             {...(shows('name')
@@ -848,6 +853,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                             testID="kitchen-zone-estimated"
                             id="kitchen-zone-estimated"
                             label={t('kitchen:zones.estimatedLabel')}
+                            placeholder={t('kitchen:zones.estimatedPlaceholder')}
                             size="sm"
                             value={
                                 details.estimatedMinutes === null
@@ -876,6 +882,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                             label={t('kitchen:zones.feeLabel', {
                                 currency: currency ?? t('kitchen:common.notRecorded'),
                             })}
+                            placeholder={t('kitchen:zones.feePlaceholder')}
                             size="sm"
                             value={details.deliveryFee}
                             inputMode="decimal"
@@ -897,6 +904,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                             label={t('kitchen:zones.minimumLabel', {
                                 currency: currency ?? t('kitchen:common.notRecorded'),
                             })}
+                            placeholder={t('kitchen:zones.minimumPlaceholder')}
                             size="sm"
                             value={details.minimumOrder}
                             inputMode="decimal"
@@ -1147,6 +1155,6 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                 guard={guard}
                 concurrency={concurrency}
             />
-        </Stack>
+        </Cascade>
     );
 }

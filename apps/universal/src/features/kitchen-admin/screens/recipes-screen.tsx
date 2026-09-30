@@ -1,6 +1,7 @@
 import {
     Badge,
     Button,
+    Cascade,
     Dialog,
     Icon,
     Inline,
@@ -363,16 +364,18 @@ function RecipesList() {
     const emptyKind = list.kind ?? 'preparation';
 
     return (
-        <Stack space="md" testID="kitchen-recipes-screen">
-            {list.isPending ? null : (
-                <CatalogueStatCards testID="kitchen-recipes-stats" cards={statCards(list, t)} />
-            )}
+        <Cascade space="md" testID="kitchen-recipes-screen">
+            <CatalogueStatCards
+                testID="kitchen-recipes-stats"
+                cards={statCards(list, t)}
+                pending={list.isPending}
+            />
 
             {/*
              * The search and filter bar, then the kind strip under it, both directly over the list
              * they narrow — two matching cards at 8px, so they read as one set of controls. The
-             * strip stands outside the pending guard, so the tabs do not blink while a new tab's
-             * page loads.
+             * strip does not wait on the list, so the tabs do not blink while a new tab's page
+             * loads.
              */}
             <Stack space="sm">
                 <CatalogueToolbar<StatusSegmentValue>
@@ -575,7 +578,7 @@ function RecipesList() {
                     </Text>
                 )}
             </Dialog>
-        </Stack>
+        </Cascade>
     );
 }
 

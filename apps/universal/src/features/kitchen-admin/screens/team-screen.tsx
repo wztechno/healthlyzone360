@@ -3,6 +3,7 @@ import { isWorkingMember } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
+    Cascade,
     Chip,
     EmptyState,
     ErrorState,
@@ -461,8 +462,8 @@ function TeamList() {
     };
 
     return (
-        <Stack space="md" testID="kitchen-team-screen">
-            {team.isPending || failure !== null ? null : (
+        <Cascade space="md" testID="kitchen-team-screen">
+            {failure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-team-stats"
                     cards={statCards({
@@ -478,6 +479,7 @@ function TeamList() {
                             controls.clearFilters();
                         },
                     })}
+                    pending={team.isPending}
                 />
             )}
 
@@ -571,7 +573,7 @@ function TeamList() {
             )}
 
             <PendingInvitations invitations={liveInvitations} />
-        </Stack>
+        </Cascade>
     );
 }
 

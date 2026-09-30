@@ -19,6 +19,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     Dialog,
     EmptyState,
     ErrorState,
@@ -728,6 +729,7 @@ function RecordPaymentDialog({
                         currency: row.currencyCode,
                     }),
                 })}
+                placeholder={t('kitchen:fields.amountPlaceholder')}
                 // Only once the person has actually typed something wrong: a field that opens
                 // red because it is empty is a form telling somebody off for arriving.
                 {...(amount.trim() !== '' && !amountValid
@@ -751,6 +753,7 @@ function RecordPaymentDialog({
                         ? 'kitchen:desk.recordPayment.referenceHintWish'
                         : 'kitchen:desk.recordPayment.referenceHint',
                 )}
+                placeholder={t('kitchen:desk.sale.referencePlaceholder')}
                 value={reference}
                 onChangeText={setReference}
                 autoCapitalize="none"
@@ -762,6 +765,7 @@ function RecordPaymentDialog({
                 id="kitchen-order-desk-payment-notes"
                 label={t('kitchen:desk.sale.notesLabel')}
                 hint={t('kitchen:desk.recordPayment.notesHint')}
+                placeholder={t('kitchen:desk.recordPayment.notesPlaceholder')}
                 value={notes}
                 onChangeText={setNotes}
                 multiline
@@ -1857,14 +1861,16 @@ function OrderDeskQueueList() {
     }
 
     return (
-        <Stack space="md" testID="kitchen-order-desk-screen">
+        <Cascade space="md" testID="kitchen-order-desk-screen">
             {/*
              * No title, no summary line: the shell's trail names the page, and the four cards are
              * the figures — the ingredients screen's opening, for the same reasons.
              */}
-            {queue.isPending ? null : (
-                <CatalogueStatCards testID="kitchen-order-desk-figures" cards={figures} />
-            )}
+            <CatalogueStatCards
+                testID="kitchen-order-desk-figures"
+                cards={figures}
+                pending={queue.isPending}
+            />
 
             {/*
              * One row of 28px controls. Two filters on it look alike and are not: the status chips
@@ -2093,6 +2099,6 @@ function OrderDeskQueueList() {
                     />
                 </Stack>
             )}
-        </Stack>
+        </Cascade>
     );
 }

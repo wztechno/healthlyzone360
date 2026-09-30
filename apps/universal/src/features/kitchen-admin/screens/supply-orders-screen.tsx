@@ -7,6 +7,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     EmptyState,
     ErrorState,
     FormSection,
@@ -538,7 +539,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
     }
 
     return (
-        <Stack space="md" testID="kitchen-supply-orders-screen">
+        <Cascade space="md" testID="kitchen-supply-orders-screen">
             {createdIds.length === 0 ? null : (
                 <Callout
                     testID="kitchen-supply-orders-created"
@@ -757,7 +758,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                     </Stack>
                 )}
             </FormSection>
-        </Stack>
+        </Cascade>
     );
 }
 

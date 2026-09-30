@@ -3,6 +3,7 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     Dialog,
     ErrorState,
     FormGrid,
@@ -780,7 +781,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
         );
 
     return (
-        <Stack space="md" testID="kitchen-supplier-screen">
+        <Cascade space="md" testID="kitchen-supplier-screen">
             <RecordFormOpening<SupplierStep>
                 testID="kitchen-supplier-screen"
                 title={
@@ -1250,6 +1251,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                     <TextInputField
                                         testID="kitchen-supplier-link-ref"
                                         label={t('kitchen:ops.suppliers.fieldItemRef')}
+                                        placeholder={t('kitchen:ops.suppliers.itemRefPlaceholder')}
                                         value={pickedRef}
                                         autoCapitalize="characters"
                                         onChangeText={setPickedRef}
@@ -1310,6 +1312,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                 <TextInputField
                     testID="kitchen-supplier-item-ref-value"
                     label={t('kitchen:ops.suppliers.fieldItemRef')}
+                    placeholder={t('kitchen:ops.suppliers.itemRefPlaceholder')}
                     value={refDraft}
                     autoCapitalize="characters"
                     onChangeText={setRefDraft}
@@ -1399,6 +1402,6 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
             </Dialog>
 
             <EditorGuardDialogs testID="kitchen-supplier-screen" guard={guard} />
-        </Stack>
+        </Cascade>
     );
 }

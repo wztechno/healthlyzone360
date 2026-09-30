@@ -2,9 +2,9 @@ import type { ReceiptCostStatus, UnpricedReceipt } from '@healthy360/api-client/
 import {
     Badge,
     Button,
+    Cascade,
     EmptyState,
     ErrorState,
-    Stack,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
@@ -251,11 +251,12 @@ function UnpricedReceipts() {
     ];
 
     return (
-        <Stack space="md" testID="kitchen-unpriced-screen">
-            {queue.isPending || failure !== null ? null : (
+        <Cascade space="md" testID="kitchen-unpriced-screen">
+            {failure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-unpriced-stats"
                     cards={queueStatCards(controls.rows, t)}
+                    pending={queue.isPending}
                 />
             )}
 
@@ -339,7 +340,7 @@ function UnpricedReceipts() {
                     ]}
                 />
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

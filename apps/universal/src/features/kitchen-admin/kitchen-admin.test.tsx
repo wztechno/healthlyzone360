@@ -654,8 +654,20 @@ describe('the ingredient list at desk width', () => {
         });
 
         await untilVisible('kitchen-ingredients-loading');
+        // The cards are drawn while the list loads — label, caption, and a placeholder holding the
+        // figure's line — so the toolbar and table do not drop by a card's height when it lands.
+        expect(screen.getByTestId('kitchen-ingredients-stats-draft')).toHaveTextContent(/Draft/);
+        expect(screen.getByTestId('kitchen-ingredients-stats-draft-loading')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-ingredients-stats-draft-value')).toBeNull();
+
         await untilVisible('kitchen-ingredients-table');
 
+        expect(screen.queryByTestId('kitchen-ingredients-stats-draft-loading')).toBeNull();
+        expect(screen.getByTestId('kitchen-ingredients-stats-shown-value')).toHaveTextContent('2');
+        // The rows arrive through their entrance; the row itself is the same element as ever.
+        expect(
+            screen.getByTestId(`kitchen-ingredients-table-row-${String(mapped.id)}-entrance`),
+        ).toBeTruthy();
         expect(screen.getByTestId(`kitchen-ingredient-${String(mapped.id)}-name`)).toBeTruthy();
         // The 20px thumbnail sits in the title cell, addressed by the server's slug.
         expect(
