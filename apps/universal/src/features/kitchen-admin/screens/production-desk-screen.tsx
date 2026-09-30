@@ -5,7 +5,6 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
-    SegmentedControl,
     TableSkeleton,
     Text,
     useToast,
@@ -29,6 +28,8 @@ import type { MenuItem } from '@healthy360/design-system';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
+import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { PRODUCTION_MANAGE_PERMISSION, PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
@@ -104,6 +105,7 @@ function ProductionDesk() {
     const branchId = access.branch?.id ?? null;
 
     const [filter, setFilter] = useState<DeskFilter>('open');
+    const [query, setQuery] = useState('');
     const [page, setPage] = useState(1);
     const [pendingId, setPendingId] = useState<string | null>(null);
 
@@ -289,7 +291,26 @@ function ProductionDesk() {
         ];
     };
 
-    const controls = useColumnControls(rows, columns, 'kitchen-production-desk-table');
+    /*
+     * The search narrows the page in hand, in memory — the batch number, the lot as printed and as
+     * stored, what the batch makes. The endpoint takes no free-text query, and the page is the
+     * queue the desk is working through, which is what somebody looking for "the lasagne" means.
+     */
+    const needle = query.trim().toLowerCase();
+    const searched =
+        needle === ''
+            ? rows
+            : rows.filter((row) =>
+                  [
+                      row.reference,
+                      row.batchReference,
+                      row.lotNumber,
+                      formatLot(row.lotNumber),
+                      row.productionItemNameEn,
+                  ].some((field) => field?.toLowerCase().includes(needle) === true),
+              );
+
+    const controls = useColumnControls(searched, columns, 'kitchen-production-desk-table');
 
     return (
         <Cascade space="md" testID="kitchen-production-desk-screen">
@@ -350,28 +371,25 @@ function ProductionDesk() {
                 />
             )}
 
-            <View
+            <CatalogueToolbar<DeskFilter>
                 testID="kitchen-production-desk-toolbar"
-                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-snug"
+                search={query}
+                onSearchChange={setQuery}
+                searchLabel={t('kitchen:toolbar.searchLabel')}
+                searchPlaceholder={t('kitchen:ops.production.searchPlaceholder')}
+                statusLabel={t('kitchen:ops.production.filterStatus')}
+                statusSegments={(
+                    [
+                        ['open', 'kitchen:ops.production.filterOpen'],
+                        ['completed', 'kitchen:ops.production.status.completed'],
+                        ['cancelled', 'kitchen:ops.production.status.cancelled'],
+                        ['abandoned', 'kitchen:ops.production.status.abandoned'],
+                    ] as const
+                ).map(([value, labelKey]) => ({ value, label: t(labelKey) }))}
+                status={filter}
+                onStatusChange={refilter}
             >
-                <SegmentedControl<DeskFilter>
-                    testID="kitchen-production-desk-filter"
-                    label={t('kitchen:ops.production.filterStatus')}
-                    value={filter}
-                    onChange={refilter}
-                    items={(
-                        [
-                            ['open', 'kitchen:ops.production.filterOpen'],
-                            ['completed', 'kitchen:ops.production.status.completed'],
-                            ['cancelled', 'kitchen:ops.production.status.cancelled'],
-                            ['abandoned', 'kitchen:ops.production.status.abandoned'],
-                        ] as const
-                    ).map(([value, labelKey]) => ({
-                        value,
-                        label: t(labelKey),
-                        testID: `kitchen-production-desk-filter-${value}`,
-                    }))}
-                />
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Button
                         testID="kitchen-production-desk-new"
@@ -382,7 +400,7 @@ function ProductionDesk() {
                         }}
                     />
                 ) : null}
-            </View>
+            </CatalogueToolbar>
 
             {batches.isPending ? (
                 <TableSkeleton testID="kitchen-production-desk-loading" rows={8} />
@@ -401,6 +419,12 @@ function ProductionDesk() {
                     title={t('kitchen:ops.production.emptyTitle')}
                     body={t('kitchen:ops.production.emptyBody')}
                 />
+            ) : searched.length === 0 ? (
+                <EmptyState
+                    testID="kitchen-production-desk-no-match"
+                    title={t('kitchen:ops.production.filteredEmptyTitle')}
+                    body={t('kitchen:ops.production.filteredEmptyBody')}
+                />
             ) : (
                 <View className="flex-col gap-2.5">
                     <CatalogueList<ProductionOrder>
@@ -415,34 +439,29 @@ function ProductionDesk() {
                         rowActions={rowActions}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                     />
-                    <View className="flex-row flex-wrap items-center justify-between gap-snug">
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:ops.production.showingCount', { count: rows.length })}
-                        </Text>
-                        <View className="flex-row items-center gap-snug">
-                            {page > 1 ? (
-                                <Button
-                                    testID="kitchen-production-desk-previous"
-                                    variant="secondary"
-                                    size="sm"
-                                    label={t('kitchen:ops.production.previousPage')}
-                                    onPress={() => {
-                                        setPage(page - 1);
-                                    }}
-                                />
-                            ) : null}
-                            {hasMore ? (
-                                <Button
-                                    testID="kitchen-production-desk-next"
-                                    variant="secondary"
-                                    size="sm"
-                                    label={t('kitchen:ops.production.nextPage')}
-                                    onPress={() => {
-                                        setPage(page + 1);
-                                    }}
-                                />
-                            ) : null}
-                        </View>
+                    <View className="flex-row flex-wrap items-center justify-center gap-snug">
+                        {page > 1 ? (
+                            <Button
+                                testID="kitchen-production-desk-previous"
+                                variant="secondary"
+                                size="sm"
+                                label={t('kitchen:ops.production.previousPage')}
+                                onPress={() => {
+                                    setPage(page - 1);
+                                }}
+                            />
+                        ) : null}
+                        {hasMore ? (
+                            <Button
+                                testID="kitchen-production-desk-next"
+                                variant="secondary"
+                                size="sm"
+                                label={t('kitchen:ops.production.nextPage')}
+                                onPress={() => {
+                                    setPage(page + 1);
+                                }}
+                            />
+                        ) : null}
                     </View>
                 </View>
             )}

@@ -67,6 +67,13 @@ export interface CatalogueToolbarProps<Status extends string = string> {
     /** Translated. The field carries no visible label on this row, so this is its accessible one. */
     readonly searchLabel: string;
     readonly searchPlaceholder?: string | undefined;
+    /**
+     * Enter in the search does something besides filter — the batch register's scan field, which
+     * looks a code up and opens the batch it names. The field keeps focus after it, so a scanner's
+     * next label lands without a click, and it stops correcting and capitalising what is typed,
+     * because what is typed is a code.
+     */
+    readonly onSearchSubmit?: (() => void) | undefined;
 
     /**
      * Single-select status segments, "All" first. Omit both this and `status` for an entity with no
@@ -87,6 +94,7 @@ export function CatalogueToolbar<Status extends string = string>({
     onSearchChange,
     searchLabel,
     searchPlaceholder,
+    onSearchSubmit,
     statusSegments,
     status,
     onStatusChange,
@@ -131,6 +139,14 @@ export function CatalogueToolbar<Status extends string = string>({
                     label={searchLabel}
                     placeholder={searchPlaceholder}
                     size="sm"
+                    {...(onSearchSubmit === undefined
+                        ? {}
+                        : {
+                              onSubmitEditing: onSearchSubmit,
+                              blurOnSubmit: false,
+                              autoCorrect: false,
+                              autoCapitalize: 'none' as const,
+                          })}
                     testID={`${testID}-search`}
                 />
             </View>

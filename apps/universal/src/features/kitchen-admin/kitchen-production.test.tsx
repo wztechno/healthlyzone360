@@ -683,7 +683,7 @@ describe('the batch register', () => {
         });
 
         // Awaited: the submit reads the text the change just stored, so it must land first.
-        const scan = await screen.findByTestId('kitchen-production-batches-scan-input');
+        const scan = await screen.findByTestId('kitchen-production-batches-toolbar-search-input');
         await fireEvent.changeText(scan, '  260925-007-7  ');
         await fireEvent(scan, 'submitEditing');
 
@@ -695,13 +695,13 @@ describe('the batch register', () => {
         expect(listProductionOrders).toHaveBeenCalledWith({ code: '260925-007-7' });
     });
 
-    it('says so under the field when no batch carries the code', async () => {
+    it('says so under the toolbar when no batch carries the code', async () => {
         await renderStubScreen(<ProductionBatchesScreen />, {
             session: kitchenManagerSession(),
             repositories: { kitchenOps: { listProductionOrders: async () => page([]) } },
         });
 
-        const scan = await screen.findByTestId('kitchen-production-batches-scan-input');
+        const scan = await screen.findByTestId('kitchen-production-batches-toolbar-search-input');
         await fireEvent.changeText(scan, '2609250078');
         await fireEvent(scan, 'submitEditing');
 
