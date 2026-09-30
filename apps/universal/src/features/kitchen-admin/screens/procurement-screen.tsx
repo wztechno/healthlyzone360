@@ -190,7 +190,6 @@ function Procurement() {
         },
         {
             key: 'lines',
-            align: 'center',
             role: 'metric',
             label: t('kitchen:ops.procurement.columnLines'),
             width: 70,
@@ -226,7 +225,6 @@ function Procurement() {
         },
         {
             key: 'total',
-            align: 'center',
             role: 'metric',
             label: t('kitchen:ops.procurement.columnTotal'),
             width: 120,

@@ -429,8 +429,6 @@ function lineColumns({
             label: t('kitchen:ops.unpricedReceipts.columnReceived'),
             width: 110,
             priority: 90,
-            align: 'center',
-            grow: false,
             render: (line) => (
                 <Text variant="mono" testID={`kitchen-unpriced-line-${line.id}-quantity`}>
                     {`${formatter.formatNumber(Number(line.quantity))} ${
@@ -446,8 +444,6 @@ function lineColumns({
             }),
             width: 150,
             priority: 95,
-            align: 'center',
-            grow: false,
             render: (line) => {
                 const state = lineState(line);
                 if (state !== 'toPrice') {
@@ -487,8 +483,6 @@ function lineColumns({
             label: t('kitchen:ops.unpricedReceipts.columnLineTotal'),
             width: 120,
             priority: 80,
-            align: 'center',
-            grow: false,
             render: (line) => {
                 // Typed lines show the consequence of the figure before it is saved; settled ones
                 // show what is on record. An unpriced line has no total — not a zero.

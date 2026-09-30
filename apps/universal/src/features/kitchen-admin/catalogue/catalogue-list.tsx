@@ -252,10 +252,17 @@ function withTableThumbnail<Row>(
                 column.render(row)
             );
 
+        /*
+         * Held to the cell's width, with the title beside the picture rather than under it: the
+         * title's track is an equal share of the row like every other column's, so a long name
+         * has to wrap inside it. Left to its content width, the pair ran past the track and wrote
+         * the name over the next column.
+         */
         return {
             ...column,
             render: (row: Row) => (
-                <Inline space="xs" align="center">
+                // eslint-disable-next-line no-restricted-syntax -- the list row's title column, not a control: it fills its track.
+                <Inline space="xs" align="center" wrap={false} className="min-w-0 flex-1">
                     <RowThumbnail
                         assetId={thumbnail(row)}
                         seed={rowKey(row)}
@@ -263,7 +270,8 @@ function withTableThumbnail<Row>(
                         size="table"
                         testID={`${testID}-row-${rowKey(row)}-image`}
                     />
-                    {titleCell(row)}
+                    {/* eslint-disable-next-line no-restricted-syntax -- the title beside the picture takes the rest of the title track. */}
+                    <View className="min-w-0 flex-1">{titleCell(row)}</View>
                 </Inline>
             ),
         };

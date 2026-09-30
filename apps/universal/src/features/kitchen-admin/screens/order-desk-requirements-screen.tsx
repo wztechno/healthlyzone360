@@ -164,7 +164,6 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnRequired'),
             width: 100,
             priority: 95,
-            align: 'center',
             sort: (left, right, direction) =>
                 compareNumber(Number(left.required), Number(right.required), direction),
             render: (row) => (
@@ -178,7 +177,6 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnOnHand'),
             width: 100,
             priority: 55,
-            align: 'center',
             sort: (left, right, direction) =>
                 compareNumber(Number(left.onHand), Number(right.onHand), direction),
             render: (row) => (
@@ -192,7 +190,6 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnReserved'),
             width: 100,
             priority: 60,
-            align: 'center',
             sort: (left, right, direction) =>
                 compareNumber(Number(left.reserved), Number(right.reserved), direction),
             render: (row) => (
@@ -210,7 +207,6 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnAvailable'),
             width: 100,
             priority: 80,
-            align: 'center',
             sort: (left, right, direction) =>
                 compareNumber(Number(left.available), Number(right.available), direction),
             render: (row) => (
@@ -225,7 +221,6 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnShort'),
             width: 100,
             priority: 90,
-            align: 'center',
             sort: (left, right, direction) =>
                 compareNumber(Number(left.short), Number(right.short), direction),
             render: (row) => (
@@ -243,7 +238,6 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnSuggestedBuy'),
             width: 110,
             priority: 70,
-            align: 'center',
             sort: (left, right, direction) =>
                 compareNumber(Number(left.suggestedBuy), Number(right.suggestedBuy), direction),
             render: (row) => (
@@ -257,7 +251,6 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnUnit'),
             width: 70,
             priority: 60,
-            align: 'center',
             filter: {
                 values: (loaded) =>
                     [...new Set(loaded.map((row) => row.unitCode ?? EM_DASH))].map((unit) => ({

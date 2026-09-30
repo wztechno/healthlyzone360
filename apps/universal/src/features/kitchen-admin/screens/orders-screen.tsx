@@ -270,7 +270,6 @@ function Orders() {
             label: t('kitchen:ops.orders.columnItems'),
             width: 70,
             priority: 50,
-            align: 'center',
             value: (row) => formatter.formatNumber(row.lineCount),
             sort: (left, right, direction) =>
                 compareNumber(left.lineCount, right.lineCount, direction),
@@ -286,7 +285,6 @@ function Orders() {
             label: t('kitchen:ops.orders.columnTotal'),
             width: 110,
             priority: 85,
-            align: 'center',
             value: (row) => money(formatter, row.totalMinor, row.currencyCode),
             sort: (left, right, direction) =>
                 compareNumber(left.totalMinor, right.totalMinor, direction),

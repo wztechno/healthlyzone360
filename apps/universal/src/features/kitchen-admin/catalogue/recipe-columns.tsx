@@ -325,8 +325,6 @@ export function recipeColumns({
 
     const reference: CatalogueColumn<RecipeAdminSummary> = {
         key: 'reference',
-        // Fixed at its declared track: the title and the allergens spend the row's spare width.
-        grow: false,
         label: t('kitchen:list.columnReference'),
         width: 96,
         min: 84,
@@ -413,8 +411,6 @@ export function recipeColumns({
     // filter here would be reset by hiding the column — which must never move the reader's tab.
     const kind: CatalogueColumn<RecipeAdminSummary> = {
         key: 'kind',
-        // Fixed at its declared track: the title and the allergens spend the row's spare width.
-        grow: false,
         label: t('kitchen:recipes.columnKind'),
         width: 120,
         min: 96,
@@ -428,8 +424,6 @@ export function recipeColumns({
     // recipe filed under nothing borrows its seller's pair so the cell says where the menu files it.
     const category: CatalogueColumn<RecipeAdminSummary> = {
         key: 'category',
-        // Fixed at its declared track: the title and the allergens spend the row's spare width.
-        grow: false,
         label: t('kitchen:list.columnCategory'),
         width: 150,
         min: 112,
@@ -481,8 +475,6 @@ export function recipeColumns({
     // spec states one status role, and the recipe's own state holds it.
     const onSale: CatalogueColumn<RecipeAdminSummary> = {
         key: 'onSale',
-        // Fixed at its declared track: the title and the allergens spend the row's spare width.
-        grow: false,
         label: t('kitchen:recipes.columnOnSale'),
         width: 110,
         min: 78,
@@ -509,8 +501,6 @@ export function recipeColumns({
 
     const status: CatalogueColumn<RecipeAdminSummary> = {
         key: 'status',
-        // Fixed at its declared track: the title and the allergens spend the row's spare width.
-        grow: false,
         label: t('kitchen:list.columnStatus'),
         width: 110,
         min: 78,
@@ -533,8 +523,6 @@ export function recipeColumns({
 
     const channels: CatalogueColumn<RecipeAdminSummary> = {
         key: 'channels',
-        // Fixed at its declared track: the title and the allergens spend the row's spare width.
-        grow: false,
         label: t('kitchen:products.columnChannels'),
         width: 150,
         min: 110,
@@ -553,9 +541,6 @@ export function recipeColumns({
 
     const packs: CatalogueColumn<RecipeAdminSummary> = {
         key: 'packs',
-        // Fixed at its declared track: the title and the allergens spend the row's spare width.
-        grow: false,
-        align: 'center',
         label: t('kitchen:products.columnPacks'),
         width: 160,
         min: 118,
@@ -597,8 +582,6 @@ export function recipeColumns({
     // One column for three caveats, as the product list has it; ids unchanged from there.
     const flags: CatalogueColumn<RecipeAdminSummary> = {
         key: 'flags',
-        // Fixed at its declared track: the title and the allergens spend the row's spare width.
-        grow: false,
         label: t('kitchen:products.columnFlags'),
         width: 132,
         min: 96,
@@ -643,8 +626,6 @@ export function recipeColumns({
 
     const kitchen: CatalogueColumn<RecipeAdminSummary> = {
         key: 'kitchen',
-        // Fixed at its declared track: the title and the allergens spend the row's spare width.
-        grow: false,
         label: t('kitchen:recipes.columnKitchen'),
         width: 140,
         min: 120,

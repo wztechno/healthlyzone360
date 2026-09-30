@@ -173,7 +173,6 @@ function PriceListsList() {
         },
         {
             key: 'currency',
-            align: 'center',
             role: 'meta',
             label: t('kitchen:priceLists.columnCurrency'),
             width: 80,
@@ -213,7 +212,6 @@ function PriceListsList() {
         },
         {
             key: 'entries',
-            align: 'center',
             role: 'metric',
             label: t('kitchen:priceLists.columnEntries'),
             width: 180,

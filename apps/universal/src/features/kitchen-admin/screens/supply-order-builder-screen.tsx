@@ -398,8 +398,6 @@ function SupplyOrderBuilder() {
                 label: t('kitchen:ops.supplyOrders.columnLevels'),
                 width: 104,
                 priority: 60,
-                align: 'center',
-                grow: false,
                 render: (row) => (
                     <Text
                         variant="mono"
@@ -419,8 +417,6 @@ function SupplyOrderBuilder() {
                 label: t('kitchen:ops.supplyOrders.columnQuantity'),
                 width: 128,
                 priority: 95,
-                align: 'center',
-                grow: false,
                 render: (row) => {
                     const key = String(row.stockItemId);
                     const testID = supplyOrderRowTestId(key);
@@ -512,7 +508,6 @@ function SupplyOrderBuilder() {
             label: t('kitchen:ops.supplyOrders.columnFrom'),
             width: 200,
             priority: 90,
-            grow: false,
             render: (row) => {
                 const key = String(row.stockItemId);
                 const testID = supplyOrderRowTestId(key);
@@ -579,7 +574,6 @@ function SupplyOrderBuilder() {
             label: t('kitchen:ops.supplyOrders.columnFrom'),
             width: 220,
             priority: 90,
-            grow: false,
             render: (row) => {
                 const key = String(row.stockItemId);
                 const testID = supplyOrderRowTestId(key);

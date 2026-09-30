@@ -188,7 +188,6 @@ function OrderDeskCashReport() {
         },
         {
             key: 'currency',
-            align: 'center',
             label: t('kitchen:ops.cashReport.columnCurrency'),
             width: 80,
             priority: 70,
@@ -211,7 +210,6 @@ function OrderDeskCashReport() {
             label: t('kitchen:ops.cashReport.columnCount'),
             width: 80,
             priority: 60,
-            align: 'center',
             sort: (left, right, direction) =>
                 compareNumber(left.receiptCount, right.receiptCount, direction),
             render: (row) => (
@@ -226,7 +224,6 @@ function OrderDeskCashReport() {
             label: t('kitchen:ops.cashReport.columnAmount'),
             width: 140,
             priority: 95,
-            align: 'center',
             sort: (left, right, direction) =>
                 compareNumber(left.amountMinorSum, right.amountMinorSum, direction),
             render: (row) => (

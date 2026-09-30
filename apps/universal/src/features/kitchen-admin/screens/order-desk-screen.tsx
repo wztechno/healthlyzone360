@@ -1226,7 +1226,6 @@ function OrderDeskQueueList() {
             priority: 85,
             sort: (left, right, direction) =>
                 compareNumber(left.totalMinor, right.totalMinor, direction),
-            align: 'center',
             mono: true,
             render: (row) => (
                 <Text variant="mono" testID={`${orderDeskRowTestId(String(row.id))}-total`}>

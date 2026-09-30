@@ -518,7 +518,6 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnUnit'),
             width: 64,
             priority: 60,
-            align: 'center',
             filter: unitFilter<RecipeLine>(),
             value: (line) => t(unitShortKey(line.unit)),
         },
@@ -527,7 +526,6 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnPerBatch'),
             width: 96,
             priority: 50,
-            align: 'center',
             mono: true,
             sort: (left, right, direction) =>
                 compareNumber(left.quantity, right.quantity, direction),
@@ -542,7 +540,6 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnToIssue'),
             width: 96,
             priority: 90,
-            align: 'center',
             mono: true,
             sort: (left, right, direction) =>
                 compareNumber(
@@ -591,7 +588,6 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnUnit'),
             width: 64,
             priority: 60,
-            align: 'center',
             filter: unitFilter<RecipePackagingLine>(),
             value: (row) => t(unitShortKey(row.unit)),
         },
@@ -600,7 +596,6 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnPerBatch'),
             width: 96,
             priority: 50,
-            align: 'center',
             mono: true,
             sort: (left, right, direction) =>
                 compareNumber(left.quantity, right.quantity, direction),
@@ -611,7 +606,6 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnToIssue'),
             width: 140,
             priority: 90,
-            align: 'center',
             mono: true,
             // By what is issued, the rounded-up count: the figure the cell leads with.
             sort: (left, right, direction) =>
