@@ -451,96 +451,176 @@ import img439 from '../../assets/images/kitchens/the-daily-pot.detail.webp';
 import img440 from '../../assets/images/kitchens/verdant-kitchen.card.webp';
 import img441 from '../../assets/images/kitchens/verdant-kitchen.detail.webp';
 import img442 from '../../assets/images/landing/hero.hero.webp';
-import img443 from '../../assets/images/meals/beef-fajita.card.webp';
-import img444 from '../../assets/images/meals/beef-fajita.detail.webp';
-import img445 from '../../assets/images/meals/breaded-fish-filet.card.webp';
-import img446 from '../../assets/images/meals/breaded-fish-filet.detail.webp';
-import img447 from '../../assets/images/meals/breaded-shrimps.card.webp';
-import img448 from '../../assets/images/meals/breaded-shrimps.detail.webp';
-import img449 from '../../assets/images/meals/burger-patty-beef.card.webp';
-import img450 from '../../assets/images/meals/burger-patty-beef.detail.webp';
-import img451 from '../../assets/images/meals/caramelised-onions.card.webp';
-import img452 from '../../assets/images/meals/caramelised-onions.detail.webp';
-import img453 from '../../assets/images/meals/cheese-balls.card.webp';
-import img454 from '../../assets/images/meals/cheese-balls.detail.webp';
-import img455 from '../../assets/images/meals/chicken-breast-marinated.card.webp';
-import img456 from '../../assets/images/meals/chicken-breast-marinated.detail.webp';
-import img457 from '../../assets/images/meals/chicken-burger-patty.card.webp';
-import img458 from '../../assets/images/meals/chicken-burger-patty.detail.webp';
-import img459 from '../../assets/images/meals/chicken-crispy.card.webp';
-import img460 from '../../assets/images/meals/chicken-crispy.detail.webp';
-import img461 from '../../assets/images/meals/chicken-fajita.card.webp';
-import img462 from '../../assets/images/meals/chicken-fajita.detail.webp';
-import img463 from '../../assets/images/meals/chicken-nuggets.card.webp';
-import img464 from '../../assets/images/meals/chicken-nuggets.detail.webp';
-import img465 from '../../assets/images/meals/chicken-popcorn.card.webp';
-import img466 from '../../assets/images/meals/chicken-popcorn.detail.webp';
-import img467 from '../../assets/images/meals/chicken-red-tawouk.card.webp';
-import img468 from '../../assets/images/meals/chicken-red-tawouk.detail.webp';
-import img469 from '../../assets/images/meals/chicken-strips.card.webp';
-import img470 from '../../assets/images/meals/chicken-strips.detail.webp';
-import img471 from '../../assets/images/meals/chicken-white-tawouk.card.webp';
-import img472 from '../../assets/images/meals/chicken-white-tawouk.detail.webp';
-import img473 from '../../assets/images/meals/chicken-wings-marinated.card.webp';
-import img474 from '../../assets/images/meals/chicken-wings-marinated.detail.webp';
-import img475 from '../../assets/images/meals/chicken-wings.card.webp';
-import img476 from '../../assets/images/meals/chicken-wings.detail.webp';
-import img477 from '../../assets/images/meals/chicken-zinger.card.webp';
-import img478 from '../../assets/images/meals/chicken-zinger.detail.webp';
-import img479 from '../../assets/images/meals/chocolate-fondant.card.webp';
-import img480 from '../../assets/images/meals/chocolate-fondant.detail.webp';
-import img481 from '../../assets/images/meals/coleslaw.card.webp';
-import img482 from '../../assets/images/meals/coleslaw.detail.webp';
-import img483 from '../../assets/images/meals/cordon-bleu.card.webp';
-import img484 from '../../assets/images/meals/cordon-bleu.detail.webp';
-import img485 from '../../assets/images/meals/escalope-milanaise.card.webp';
-import img486 from '../../assets/images/meals/escalope-milanaise.detail.webp';
-import img487 from '../../assets/images/meals/escalope.card.webp';
-import img488 from '../../assets/images/meals/escalope.detail.webp';
-import img489 from '../../assets/images/meals/guacamole.card.webp';
-import img490 from '../../assets/images/meals/guacamole.detail.webp';
-import img491 from '../../assets/images/meals/halloumi-sticks.card.webp';
-import img492 from '../../assets/images/meals/halloumi-sticks.detail.webp';
-import img493 from '../../assets/images/meals/hummus-dip.card.webp';
-import img494 from '../../assets/images/meals/hummus-dip.detail.webp';
-import img495 from '../../assets/images/meals/kebbe.card.webp';
-import img496 from '../../assets/images/meals/kebbe.detail.webp';
-import img497 from '../../assets/images/meals/makanek-lebanese-sausage.card.webp';
-import img498 from '../../assets/images/meals/makanek-lebanese-sausage.detail.webp';
-import img499 from '../../assets/images/meals/mozzarella-sticks-small.card.webp';
-import img500 from '../../assets/images/meals/mozzarella-sticks-small.detail.webp';
-import img501 from '../../assets/images/meals/mozzarella-sticks.card.webp';
-import img502 from '../../assets/images/meals/mozzarella-sticks.detail.webp';
-import img503 from '../../assets/images/meals/pain-perdu.card.webp';
-import img504 from '../../assets/images/meals/pain-perdu.detail.webp';
-import img505 from '../../assets/images/meals/rkakat-cheese.card.webp';
-import img506 from '../../assets/images/meals/rkakat-cheese.detail.webp';
-import img507 from '../../assets/images/meals/roasted-mushroom.card.webp';
-import img508 from '../../assets/images/meals/roasted-mushroom.detail.webp';
-import img509 from '../../assets/images/meals/sambousek-cheese.card.webp';
-import img510 from '../../assets/images/meals/sambousek-cheese.detail.webp';
-import img511 from '../../assets/images/meals/smashed-burger-patty.card.webp';
-import img512 from '../../assets/images/meals/smashed-burger-patty.detail.webp';
-import img513 from '../../assets/images/meals/stuffed-vine-leaves-warak-enab.card.webp';
-import img514 from '../../assets/images/meals/stuffed-vine-leaves-warak-enab.detail.webp';
-import img515 from '../../assets/images/meals/tiramisu.card.webp';
-import img516 from '../../assets/images/meals/tiramisu.detail.webp';
-import img517 from '../../assets/images/plans/balanced-week.card.webp';
-import img518 from '../../assets/images/plans/balanced-week.detail.webp';
-import img519 from '../../assets/images/plans/coastal-light.card.webp';
-import img520 from '../../assets/images/plans/coastal-light.detail.webp';
-import img521 from '../../assets/images/plans/desk-lunch-club.card.webp';
-import img522 from '../../assets/images/plans/desk-lunch-club.detail.webp';
-import img523 from '../../assets/images/plans/everyday-family-box.card.webp';
-import img524 from '../../assets/images/plans/everyday-family-box.detail.webp';
-import img525 from '../../assets/images/plans/lean-cut.card.webp';
-import img526 from '../../assets/images/plans/lean-cut.detail.webp';
-import img527 from '../../assets/images/plans/mediterranean-reset.card.webp';
-import img528 from '../../assets/images/plans/mediterranean-reset.detail.webp';
-import img529 from '../../assets/images/plans/plant-forward.card.webp';
-import img530 from '../../assets/images/plans/plant-forward.detail.webp';
-import img531 from '../../assets/images/plans/strength-build.card.webp';
-import img532 from '../../assets/images/plans/strength-build.detail.webp';
+import img443 from '../../assets/images/meals/aioli-sauce.card.webp';
+import img444 from '../../assets/images/meals/aioli-sauce.detail.webp';
+import img445 from '../../assets/images/meals/asian-salad-dressing.card.webp';
+import img446 from '../../assets/images/meals/asian-salad-dressing.detail.webp';
+import img447 from '../../assets/images/meals/avocado-salad-dressing.card.webp';
+import img448 from '../../assets/images/meals/avocado-salad-dressing.detail.webp';
+import img449 from '../../assets/images/meals/balsamic-dressing.card.webp';
+import img450 from '../../assets/images/meals/balsamic-dressing.detail.webp';
+import img451 from '../../assets/images/meals/barbecue-dip.card.webp';
+import img452 from '../../assets/images/meals/barbecue-dip.detail.webp';
+import img453 from '../../assets/images/meals/beef-fajita.card.webp';
+import img454 from '../../assets/images/meals/beef-fajita.detail.webp';
+import img455 from '../../assets/images/meals/breaded-fish-filet.card.webp';
+import img456 from '../../assets/images/meals/breaded-fish-filet.detail.webp';
+import img457 from '../../assets/images/meals/breaded-shrimps.card.webp';
+import img458 from '../../assets/images/meals/breaded-shrimps.detail.webp';
+import img459 from '../../assets/images/meals/buffalo-dip.card.webp';
+import img460 from '../../assets/images/meals/buffalo-dip.detail.webp';
+import img461 from '../../assets/images/meals/burger-patty-beef.card.webp';
+import img462 from '../../assets/images/meals/burger-patty-beef.detail.webp';
+import img463 from '../../assets/images/meals/caesar-dressing.card.webp';
+import img464 from '../../assets/images/meals/caesar-dressing.detail.webp';
+import img465 from '../../assets/images/meals/caramel-sauce.card.webp';
+import img466 from '../../assets/images/meals/caramel-sauce.detail.webp';
+import img467 from '../../assets/images/meals/caramelised-onions.card.webp';
+import img468 from '../../assets/images/meals/caramelised-onions.detail.webp';
+import img469 from '../../assets/images/meals/cheese-balls.card.webp';
+import img470 from '../../assets/images/meals/cheese-balls.detail.webp';
+import img471 from '../../assets/images/meals/chicken-breast-marinated.card.webp';
+import img472 from '../../assets/images/meals/chicken-breast-marinated.detail.webp';
+import img473 from '../../assets/images/meals/chicken-burger-patty.card.webp';
+import img474 from '../../assets/images/meals/chicken-burger-patty.detail.webp';
+import img475 from '../../assets/images/meals/chicken-crispy.card.webp';
+import img476 from '../../assets/images/meals/chicken-crispy.detail.webp';
+import img477 from '../../assets/images/meals/chicken-fajita.card.webp';
+import img478 from '../../assets/images/meals/chicken-fajita.detail.webp';
+import img479 from '../../assets/images/meals/chicken-nuggets.card.webp';
+import img480 from '../../assets/images/meals/chicken-nuggets.detail.webp';
+import img481 from '../../assets/images/meals/chicken-popcorn.card.webp';
+import img482 from '../../assets/images/meals/chicken-popcorn.detail.webp';
+import img483 from '../../assets/images/meals/chicken-red-tawouk.card.webp';
+import img484 from '../../assets/images/meals/chicken-red-tawouk.detail.webp';
+import img485 from '../../assets/images/meals/chicken-strips.card.webp';
+import img486 from '../../assets/images/meals/chicken-strips.detail.webp';
+import img487 from '../../assets/images/meals/chicken-white-tawouk.card.webp';
+import img488 from '../../assets/images/meals/chicken-white-tawouk.detail.webp';
+import img489 from '../../assets/images/meals/chicken-wings-marinated.card.webp';
+import img490 from '../../assets/images/meals/chicken-wings-marinated.detail.webp';
+import img491 from '../../assets/images/meals/chicken-wings.card.webp';
+import img492 from '../../assets/images/meals/chicken-wings.detail.webp';
+import img493 from '../../assets/images/meals/chicken-zinger.card.webp';
+import img494 from '../../assets/images/meals/chicken-zinger.detail.webp';
+import img495 from '../../assets/images/meals/chimichurri-sauce.card.webp';
+import img496 from '../../assets/images/meals/chimichurri-sauce.detail.webp';
+import img497 from '../../assets/images/meals/chocolate-fondant.card.webp';
+import img498 from '../../assets/images/meals/chocolate-fondant.detail.webp';
+import img499 from '../../assets/images/meals/cocktail-sauce.card.webp';
+import img500 from '../../assets/images/meals/cocktail-sauce.detail.webp';
+import img501 from '../../assets/images/meals/coleslaw.card.webp';
+import img502 from '../../assets/images/meals/coleslaw.detail.webp';
+import img503 from '../../assets/images/meals/cordon-bleu.card.webp';
+import img504 from '../../assets/images/meals/cordon-bleu.detail.webp';
+import img505 from '../../assets/images/meals/coriander-garlic-cooking-sauce.card.webp';
+import img506 from '../../assets/images/meals/coriander-garlic-cooking-sauce.detail.webp';
+import img507 from '../../assets/images/meals/coriander-salad-dressing.card.webp';
+import img508 from '../../assets/images/meals/coriander-salad-dressing.detail.webp';
+import img509 from '../../assets/images/meals/curry-cooking-sauce.card.webp';
+import img510 from '../../assets/images/meals/curry-cooking-sauce.detail.webp';
+import img511 from '../../assets/images/meals/curry-salad-dressing.card.webp';
+import img512 from '../../assets/images/meals/curry-salad-dressing.detail.webp';
+import img513 from '../../assets/images/meals/dynamite-sauce.card.webp';
+import img514 from '../../assets/images/meals/dynamite-sauce.detail.webp';
+import img515 from '../../assets/images/meals/escalope-milanaise.card.webp';
+import img516 from '../../assets/images/meals/escalope-milanaise.detail.webp';
+import img517 from '../../assets/images/meals/escalope.card.webp';
+import img518 from '../../assets/images/meals/escalope.detail.webp';
+import img519 from '../../assets/images/meals/four-cheese-sauce.card.webp';
+import img520 from '../../assets/images/meals/four-cheese-sauce.detail.webp';
+import img521 from '../../assets/images/meals/garlic-paste-toum.card.webp';
+import img522 from '../../assets/images/meals/garlic-paste-toum.detail.webp';
+import img523 from '../../assets/images/meals/guacamole.card.webp';
+import img524 from '../../assets/images/meals/guacamole.detail.webp';
+import img525 from '../../assets/images/meals/halloumi-sticks.card.webp';
+import img526 from '../../assets/images/meals/halloumi-sticks.detail.webp';
+import img527 from '../../assets/images/meals/honey-mustard-sauce.card.webp';
+import img528 from '../../assets/images/meals/honey-mustard-sauce.detail.webp';
+import img529 from '../../assets/images/meals/honey-vinaigrette.card.webp';
+import img530 from '../../assets/images/meals/honey-vinaigrette.detail.webp';
+import img531 from '../../assets/images/meals/hummus-dip.card.webp';
+import img532 from '../../assets/images/meals/hummus-dip.detail.webp';
+import img533 from '../../assets/images/meals/indian-cooking-sauce.card.webp';
+import img534 from '../../assets/images/meals/indian-cooking-sauce.detail.webp';
+import img535 from '../../assets/images/meals/kebbe.card.webp';
+import img536 from '../../assets/images/meals/kebbe.detail.webp';
+import img537 from '../../assets/images/meals/korma-cooking-sauce.card.webp';
+import img538 from '../../assets/images/meals/korma-cooking-sauce.detail.webp';
+import img539 from '../../assets/images/meals/lemon-oil-dressing.card.webp';
+import img540 from '../../assets/images/meals/lemon-oil-dressing.detail.webp';
+import img541 from '../../assets/images/meals/makanek-lebanese-sausage.card.webp';
+import img542 from '../../assets/images/meals/makanek-lebanese-sausage.detail.webp';
+import img543 from '../../assets/images/meals/marinara-sauce.card.webp';
+import img544 from '../../assets/images/meals/marinara-sauce.detail.webp';
+import img545 from '../../assets/images/meals/mozzarella-sticks-small.card.webp';
+import img546 from '../../assets/images/meals/mozzarella-sticks-small.detail.webp';
+import img547 from '../../assets/images/meals/mozzarella-sticks.card.webp';
+import img548 from '../../assets/images/meals/mozzarella-sticks.detail.webp';
+import img549 from '../../assets/images/meals/mustard-cooking-sauce.card.webp';
+import img550 from '../../assets/images/meals/mustard-cooking-sauce.detail.webp';
+import img551 from '../../assets/images/meals/mustard-salad-dressing.card.webp';
+import img552 from '../../assets/images/meals/mustard-salad-dressing.detail.webp';
+import img553 from '../../assets/images/meals/orange-oil-dressing.card.webp';
+import img554 from '../../assets/images/meals/orange-oil-dressing.detail.webp';
+import img555 from '../../assets/images/meals/oregano-salad-dressing.card.webp';
+import img556 from '../../assets/images/meals/oregano-salad-dressing.detail.webp';
+import img557 from '../../assets/images/meals/pain-perdu.card.webp';
+import img558 from '../../assets/images/meals/pain-perdu.detail.webp';
+import img559 from '../../assets/images/meals/peanut-butter-sauce.card.webp';
+import img560 from '../../assets/images/meals/peanut-butter-sauce.detail.webp';
+import img561 from '../../assets/images/meals/pesto-oil-dressing.card.webp';
+import img562 from '../../assets/images/meals/pesto-oil-dressing.detail.webp';
+import img563 from '../../assets/images/meals/pico-de-gallo.card.webp';
+import img564 from '../../assets/images/meals/pico-de-gallo.detail.webp';
+import img565 from '../../assets/images/meals/pizza-tomato-cooking-sauce.card.webp';
+import img566 from '../../assets/images/meals/pizza-tomato-cooking-sauce.detail.webp';
+import img567 from '../../assets/images/meals/pomegranate-salad-dressing.card.webp';
+import img568 from '../../assets/images/meals/pomegranate-salad-dressing.detail.webp';
+import img569 from '../../assets/images/meals/ranch-dressing.card.webp';
+import img570 from '../../assets/images/meals/ranch-dressing.detail.webp';
+import img571 from '../../assets/images/meals/rkakat-cheese.card.webp';
+import img572 from '../../assets/images/meals/rkakat-cheese.detail.webp';
+import img573 from '../../assets/images/meals/roasted-mushroom.card.webp';
+import img574 from '../../assets/images/meals/roasted-mushroom.detail.webp';
+import img575 from '../../assets/images/meals/sambousek-cheese.card.webp';
+import img576 from '../../assets/images/meals/sambousek-cheese.detail.webp';
+import img577 from '../../assets/images/meals/smashed-burger-patty.card.webp';
+import img578 from '../../assets/images/meals/smashed-burger-patty.detail.webp';
+import img579 from '../../assets/images/meals/soya-sesame-cooking-sauce.card.webp';
+import img580 from '../../assets/images/meals/soya-sesame-cooking-sauce.detail.webp';
+import img581 from '../../assets/images/meals/steak-sauce.card.webp';
+import img582 from '../../assets/images/meals/steak-sauce.detail.webp';
+import img583 from '../../assets/images/meals/stuffed-vine-leaves-warak-enab.card.webp';
+import img584 from '../../assets/images/meals/stuffed-vine-leaves-warak-enab.detail.webp';
+import img585 from '../../assets/images/meals/tarator-salad-dressing.card.webp';
+import img586 from '../../assets/images/meals/tarator-salad-dressing.detail.webp';
+import img587 from '../../assets/images/meals/tartar-sauce.card.webp';
+import img588 from '../../assets/images/meals/tartar-sauce.detail.webp';
+import img589 from '../../assets/images/meals/tempura-batter.card.webp';
+import img590 from '../../assets/images/meals/tempura-batter.detail.webp';
+import img591 from '../../assets/images/meals/thousand-island-dressing.card.webp';
+import img592 from '../../assets/images/meals/thousand-island-dressing.detail.webp';
+import img593 from '../../assets/images/meals/tiramisu.card.webp';
+import img594 from '../../assets/images/meals/tiramisu.detail.webp';
+import img595 from '../../assets/images/meals/tomato-cooking-sauce.card.webp';
+import img596 from '../../assets/images/meals/tomato-cooking-sauce.detail.webp';
+import img597 from '../../assets/images/plans/balanced-week.card.webp';
+import img598 from '../../assets/images/plans/balanced-week.detail.webp';
+import img599 from '../../assets/images/plans/coastal-light.card.webp';
+import img600 from '../../assets/images/plans/coastal-light.detail.webp';
+import img601 from '../../assets/images/plans/desk-lunch-club.card.webp';
+import img602 from '../../assets/images/plans/desk-lunch-club.detail.webp';
+import img603 from '../../assets/images/plans/everyday-family-box.card.webp';
+import img604 from '../../assets/images/plans/everyday-family-box.detail.webp';
+import img605 from '../../assets/images/plans/lean-cut.card.webp';
+import img606 from '../../assets/images/plans/lean-cut.detail.webp';
+import img607 from '../../assets/images/plans/mediterranean-reset.card.webp';
+import img608 from '../../assets/images/plans/mediterranean-reset.detail.webp';
+import img609 from '../../assets/images/plans/plant-forward.card.webp';
+import img610 from '../../assets/images/plans/plant-forward.detail.webp';
+import img611 from '../../assets/images/plans/strength-build.card.webp';
+import img612 from '../../assets/images/plans/strength-build.detail.webp';
 
 /** Fixture/marketing image key → bundled WebP asset. */
 export const IMAGE_ASSETS: Record<string, ImageRequireSource> = {
@@ -987,100 +1067,180 @@ export const IMAGE_ASSETS: Record<string, ImageRequireSource> = {
     'kitchens/verdant-kitchen.card': img440,
     'kitchens/verdant-kitchen.detail': img441,
     'landing/hero.hero': img442,
-    'meals/beef-fajita.card': img443,
-    'meals/beef-fajita.detail': img444,
-    'meals/breaded-fish-filet.card': img445,
-    'meals/breaded-fish-filet.detail': img446,
-    'meals/breaded-shrimps.card': img447,
-    'meals/breaded-shrimps.detail': img448,
-    'meals/burger-patty-beef.card': img449,
-    'meals/burger-patty-beef.detail': img450,
-    'meals/caramelised-onions.card': img451,
-    'meals/caramelised-onions.detail': img452,
-    'meals/cheese-balls.card': img453,
-    'meals/cheese-balls.detail': img454,
-    'meals/chicken-breast-marinated.card': img455,
-    'meals/chicken-breast-marinated.detail': img456,
-    'meals/chicken-burger-patty.card': img457,
-    'meals/chicken-burger-patty.detail': img458,
-    'meals/chicken-crispy.card': img459,
-    'meals/chicken-crispy.detail': img460,
-    'meals/chicken-fajita.card': img461,
-    'meals/chicken-fajita.detail': img462,
-    'meals/chicken-nuggets.card': img463,
-    'meals/chicken-nuggets.detail': img464,
-    'meals/chicken-popcorn.card': img465,
-    'meals/chicken-popcorn.detail': img466,
-    'meals/chicken-red-tawouk.card': img467,
-    'meals/chicken-red-tawouk.detail': img468,
-    'meals/chicken-strips.card': img469,
-    'meals/chicken-strips.detail': img470,
-    'meals/chicken-white-tawouk.card': img471,
-    'meals/chicken-white-tawouk.detail': img472,
-    'meals/chicken-wings-marinated.card': img473,
-    'meals/chicken-wings-marinated.detail': img474,
-    'meals/chicken-wings.card': img475,
-    'meals/chicken-wings.detail': img476,
-    'meals/chicken-zinger.card': img477,
-    'meals/chicken-zinger.detail': img478,
-    'meals/chocolate-fondant.card': img479,
-    'meals/chocolate-fondant.detail': img480,
-    'meals/coleslaw.card': img481,
-    'meals/coleslaw.detail': img482,
-    'meals/cordon-bleu.card': img483,
-    'meals/cordon-bleu.detail': img484,
-    'meals/escalope-milanaise.card': img485,
-    'meals/escalope-milanaise.detail': img486,
-    'meals/escalope.card': img487,
-    'meals/escalope.detail': img488,
-    'meals/guacamole.card': img489,
-    'meals/guacamole.detail': img490,
-    'meals/halloumi-sticks.card': img491,
-    'meals/halloumi-sticks.detail': img492,
-    'meals/hummus-dip.card': img493,
-    'meals/hummus-dip.detail': img494,
-    'meals/kebbe.card': img495,
-    'meals/kebbe.detail': img496,
-    'meals/makanek-lebanese-sausage.card': img497,
-    'meals/makanek-lebanese-sausage.detail': img498,
-    'meals/mozzarella-sticks-small.card': img499,
-    'meals/mozzarella-sticks-small.detail': img500,
-    'meals/mozzarella-sticks.card': img501,
-    'meals/mozzarella-sticks.detail': img502,
-    'meals/pain-perdu.card': img503,
-    'meals/pain-perdu.detail': img504,
-    'meals/rkakat-cheese.card': img505,
-    'meals/rkakat-cheese.detail': img506,
-    'meals/roasted-mushroom.card': img507,
-    'meals/roasted-mushroom.detail': img508,
-    'meals/sambousek-cheese.card': img509,
-    'meals/sambousek-cheese.detail': img510,
-    'meals/smashed-burger-patty.card': img511,
-    'meals/smashed-burger-patty.detail': img512,
-    'meals/stuffed-vine-leaves-warak-enab.card': img513,
-    'meals/stuffed-vine-leaves-warak-enab.detail': img514,
-    'meals/tiramisu.card': img515,
-    'meals/tiramisu.detail': img516,
-    'plans/balanced-week.card': img517,
-    'plans/balanced-week.detail': img518,
-    'plans/coastal-light.card': img519,
-    'plans/coastal-light.detail': img520,
-    'plans/desk-lunch-club.card': img521,
-    'plans/desk-lunch-club.detail': img522,
-    'plans/everyday-family-box.card': img523,
-    'plans/everyday-family-box.detail': img524,
-    'plans/lean-cut.card': img525,
-    'plans/lean-cut.detail': img526,
-    'plans/mediterranean-reset.card': img527,
-    'plans/mediterranean-reset.detail': img528,
-    'plans/plant-forward.card': img529,
-    'plans/plant-forward.detail': img530,
-    'plans/strength-build.card': img531,
-    'plans/strength-build.detail': img532,
+    'meals/aioli-sauce.card': img443,
+    'meals/aioli-sauce.detail': img444,
+    'meals/asian-salad-dressing.card': img445,
+    'meals/asian-salad-dressing.detail': img446,
+    'meals/avocado-salad-dressing.card': img447,
+    'meals/avocado-salad-dressing.detail': img448,
+    'meals/balsamic-dressing.card': img449,
+    'meals/balsamic-dressing.detail': img450,
+    'meals/barbecue-dip.card': img451,
+    'meals/barbecue-dip.detail': img452,
+    'meals/beef-fajita.card': img453,
+    'meals/beef-fajita.detail': img454,
+    'meals/breaded-fish-filet.card': img455,
+    'meals/breaded-fish-filet.detail': img456,
+    'meals/breaded-shrimps.card': img457,
+    'meals/breaded-shrimps.detail': img458,
+    'meals/buffalo-dip.card': img459,
+    'meals/buffalo-dip.detail': img460,
+    'meals/burger-patty-beef.card': img461,
+    'meals/burger-patty-beef.detail': img462,
+    'meals/caesar-dressing.card': img463,
+    'meals/caesar-dressing.detail': img464,
+    'meals/caramel-sauce.card': img465,
+    'meals/caramel-sauce.detail': img466,
+    'meals/caramelised-onions.card': img467,
+    'meals/caramelised-onions.detail': img468,
+    'meals/cheese-balls.card': img469,
+    'meals/cheese-balls.detail': img470,
+    'meals/chicken-breast-marinated.card': img471,
+    'meals/chicken-breast-marinated.detail': img472,
+    'meals/chicken-burger-patty.card': img473,
+    'meals/chicken-burger-patty.detail': img474,
+    'meals/chicken-crispy.card': img475,
+    'meals/chicken-crispy.detail': img476,
+    'meals/chicken-fajita.card': img477,
+    'meals/chicken-fajita.detail': img478,
+    'meals/chicken-nuggets.card': img479,
+    'meals/chicken-nuggets.detail': img480,
+    'meals/chicken-popcorn.card': img481,
+    'meals/chicken-popcorn.detail': img482,
+    'meals/chicken-red-tawouk.card': img483,
+    'meals/chicken-red-tawouk.detail': img484,
+    'meals/chicken-strips.card': img485,
+    'meals/chicken-strips.detail': img486,
+    'meals/chicken-white-tawouk.card': img487,
+    'meals/chicken-white-tawouk.detail': img488,
+    'meals/chicken-wings-marinated.card': img489,
+    'meals/chicken-wings-marinated.detail': img490,
+    'meals/chicken-wings.card': img491,
+    'meals/chicken-wings.detail': img492,
+    'meals/chicken-zinger.card': img493,
+    'meals/chicken-zinger.detail': img494,
+    'meals/chimichurri-sauce.card': img495,
+    'meals/chimichurri-sauce.detail': img496,
+    'meals/chocolate-fondant.card': img497,
+    'meals/chocolate-fondant.detail': img498,
+    'meals/cocktail-sauce.card': img499,
+    'meals/cocktail-sauce.detail': img500,
+    'meals/coleslaw.card': img501,
+    'meals/coleslaw.detail': img502,
+    'meals/cordon-bleu.card': img503,
+    'meals/cordon-bleu.detail': img504,
+    'meals/coriander-garlic-cooking-sauce.card': img505,
+    'meals/coriander-garlic-cooking-sauce.detail': img506,
+    'meals/coriander-salad-dressing.card': img507,
+    'meals/coriander-salad-dressing.detail': img508,
+    'meals/curry-cooking-sauce.card': img509,
+    'meals/curry-cooking-sauce.detail': img510,
+    'meals/curry-salad-dressing.card': img511,
+    'meals/curry-salad-dressing.detail': img512,
+    'meals/dynamite-sauce.card': img513,
+    'meals/dynamite-sauce.detail': img514,
+    'meals/escalope-milanaise.card': img515,
+    'meals/escalope-milanaise.detail': img516,
+    'meals/escalope.card': img517,
+    'meals/escalope.detail': img518,
+    'meals/four-cheese-sauce.card': img519,
+    'meals/four-cheese-sauce.detail': img520,
+    'meals/garlic-paste-toum.card': img521,
+    'meals/garlic-paste-toum.detail': img522,
+    'meals/guacamole.card': img523,
+    'meals/guacamole.detail': img524,
+    'meals/halloumi-sticks.card': img525,
+    'meals/halloumi-sticks.detail': img526,
+    'meals/honey-mustard-sauce.card': img527,
+    'meals/honey-mustard-sauce.detail': img528,
+    'meals/honey-vinaigrette.card': img529,
+    'meals/honey-vinaigrette.detail': img530,
+    'meals/hummus-dip.card': img531,
+    'meals/hummus-dip.detail': img532,
+    'meals/indian-cooking-sauce.card': img533,
+    'meals/indian-cooking-sauce.detail': img534,
+    'meals/kebbe.card': img535,
+    'meals/kebbe.detail': img536,
+    'meals/korma-cooking-sauce.card': img537,
+    'meals/korma-cooking-sauce.detail': img538,
+    'meals/lemon-oil-dressing.card': img539,
+    'meals/lemon-oil-dressing.detail': img540,
+    'meals/makanek-lebanese-sausage.card': img541,
+    'meals/makanek-lebanese-sausage.detail': img542,
+    'meals/marinara-sauce.card': img543,
+    'meals/marinara-sauce.detail': img544,
+    'meals/mozzarella-sticks-small.card': img545,
+    'meals/mozzarella-sticks-small.detail': img546,
+    'meals/mozzarella-sticks.card': img547,
+    'meals/mozzarella-sticks.detail': img548,
+    'meals/mustard-cooking-sauce.card': img549,
+    'meals/mustard-cooking-sauce.detail': img550,
+    'meals/mustard-salad-dressing.card': img551,
+    'meals/mustard-salad-dressing.detail': img552,
+    'meals/orange-oil-dressing.card': img553,
+    'meals/orange-oil-dressing.detail': img554,
+    'meals/oregano-salad-dressing.card': img555,
+    'meals/oregano-salad-dressing.detail': img556,
+    'meals/pain-perdu.card': img557,
+    'meals/pain-perdu.detail': img558,
+    'meals/peanut-butter-sauce.card': img559,
+    'meals/peanut-butter-sauce.detail': img560,
+    'meals/pesto-oil-dressing.card': img561,
+    'meals/pesto-oil-dressing.detail': img562,
+    'meals/pico-de-gallo.card': img563,
+    'meals/pico-de-gallo.detail': img564,
+    'meals/pizza-tomato-cooking-sauce.card': img565,
+    'meals/pizza-tomato-cooking-sauce.detail': img566,
+    'meals/pomegranate-salad-dressing.card': img567,
+    'meals/pomegranate-salad-dressing.detail': img568,
+    'meals/ranch-dressing.card': img569,
+    'meals/ranch-dressing.detail': img570,
+    'meals/rkakat-cheese.card': img571,
+    'meals/rkakat-cheese.detail': img572,
+    'meals/roasted-mushroom.card': img573,
+    'meals/roasted-mushroom.detail': img574,
+    'meals/sambousek-cheese.card': img575,
+    'meals/sambousek-cheese.detail': img576,
+    'meals/smashed-burger-patty.card': img577,
+    'meals/smashed-burger-patty.detail': img578,
+    'meals/soya-sesame-cooking-sauce.card': img579,
+    'meals/soya-sesame-cooking-sauce.detail': img580,
+    'meals/steak-sauce.card': img581,
+    'meals/steak-sauce.detail': img582,
+    'meals/stuffed-vine-leaves-warak-enab.card': img583,
+    'meals/stuffed-vine-leaves-warak-enab.detail': img584,
+    'meals/tarator-salad-dressing.card': img585,
+    'meals/tarator-salad-dressing.detail': img586,
+    'meals/tartar-sauce.card': img587,
+    'meals/tartar-sauce.detail': img588,
+    'meals/tempura-batter.card': img589,
+    'meals/tempura-batter.detail': img590,
+    'meals/thousand-island-dressing.card': img591,
+    'meals/thousand-island-dressing.detail': img592,
+    'meals/tiramisu.card': img593,
+    'meals/tiramisu.detail': img594,
+    'meals/tomato-cooking-sauce.card': img595,
+    'meals/tomato-cooking-sauce.detail': img596,
+    'plans/balanced-week.card': img597,
+    'plans/balanced-week.detail': img598,
+    'plans/coastal-light.card': img599,
+    'plans/coastal-light.detail': img600,
+    'plans/desk-lunch-club.card': img601,
+    'plans/desk-lunch-club.detail': img602,
+    'plans/everyday-family-box.card': img603,
+    'plans/everyday-family-box.detail': img604,
+    'plans/lean-cut.card': img605,
+    'plans/lean-cut.detail': img606,
+    'plans/mediterranean-reset.card': img607,
+    'plans/mediterranean-reset.detail': img608,
+    'plans/plant-forward.card': img609,
+    'plans/plant-forward.detail': img610,
+    'plans/strength-build.card': img611,
+    'plans/strength-build.detail': img612,
 };
 
 /** How many families and files the manifest was generated from — used by the drift test. */
-export const IMAGE_ASSET_COUNT = 533;
+export const IMAGE_ASSET_COUNT = 613;
 
 /** A credit a licence obliges us to display, as {@link PhotoCredit} renders it. */
 export interface ImageCredit {
@@ -1269,10 +1429,18 @@ export const IMAGE_CREDITS: Record<string, ImageCredit> = {
     "ingredients/yeast": { creator: "Didiervberghe", licence: "CC BY 3.0", licenceUrl: "https://creativecommons.org/licenses/by/3.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Levain.JPG", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "ingredients/zaatar": { creator: "Sjschen", licence: "CC BY 3.0", licenceUrl: "https://creativecommons.org/licenses/by/3.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:ZaatarbyGassan.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "ingredients/zucchini": { creator: "Maksym Kozlenko", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:2016-08-28_Zucchini.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/aioli-sauce": { creator: "CNEcija12345", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Aioli_sauce.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/asian-salad-dressing": { creator: "Flickr user yoppy", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Tenderstem_broccoli_dressed_with_sesame_sauce_001.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/avocado-salad-dressing": { creator: "Vegan Feast Catering", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Dinner_Salad_with_Avocado_Dressing_and_Chili_Chips_(3494243212).jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/balsamic-dressing": { creator: "Leon Brocard from London, UK", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Olive_oil_with_Balsamic_Vinegar.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/barbecue-dip": { creator: "Number55", licence: "CC BY 3.0", licenceUrl: "https://creativecommons.org/licenses/by/3.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Barbecue_sauce.JPG", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "meals/beef-fajita": { creator: "Eric T Gunther", licence: "CC BY-SA 3.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/3.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Beef_Fajitas_Costa_Rica.JPG", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "meals/breaded-fish-filet": { creator: "Aerous", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Fish_fillet_in_aluminum_tray.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "meals/breaded-shrimps": { creator: "jeffreyw", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Breaded_shrimp_(13020170974).jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/buffalo-dip": { creator: "Roy Zuo", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:(20240728)_Rotterdam_V11_Salmon_%26_Crab_Cakes_with_buffalo_sauce.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "meals/burger-patty-beef": { creator: "oatsy40", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Beefburgers_and_roasted_veg_(49426470326).jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/caesar-dressing": { creator: "Prayitno / Thank you for (12 millions +) view from Los Angeles, USA", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Chicken_Caesar_Salad_(15950600202).jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/caramel-sauce": { creator: "SKopp", licence: "CC BY-SA 3.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/3.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Bavarian_cream_with_strawberries_and_caramel_sauce.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "meals/caramelised-onions": { creator: "HaJunkiyada", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Liat_Portal_for_Foodie_Disorder_-_Sausage_Sandwich_with_Caramelized_Onions_and_Fresh_Salad.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "meals/cheese-balls": { creator: "Tamilselvi v", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Chessse_balls.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "meals/chicken-breast-marinated": { creator: "HarshLight", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Citrus-marinated_Chicken_Breast.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
@@ -1281,16 +1449,44 @@ export const IMAGE_CREDITS: Record<string, ImageCredit> = {
     "meals/chicken-wings-marinated": { creator: "Amin", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Skewer_with_marinated_chicken_wings_bbq_barbeque.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "meals/chicken-zinger": { creator: "RightCowLeftCoast", licence: "CC BY 4.0", licenceUrl: "https://creativecommons.org/licenses/by/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:McDonald%27s_Chicken_Big_Mac_2024.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "meals/chocolate-fondant": { creator: "Sergio Boscaino from Busseto, Italy", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:At_the_heart_of_chocolate_-Explored_May_9th_2016-_(26303540003).jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/cocktail-sauce": { creator: "donireewalker", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://www.flickr.com/photos/39042961@N03/6815563941", modifications: "cropped and resized; re-encoded as WebP", provider: "flickr" },
     "meals/cordon-bleu": { creator: "Biswarup Ganguly", licence: "CC BY 3.0", licenceUrl: "https://creativecommons.org/licenses/by/3.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Fish_Cordon_Bleu_-_Rajarhat_-_North_24_Parganas_2013-06-15_0621.JPG", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/coriander-garlic-cooking-sauce": { creator: "ImpromptuKitchen", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Avocado_lime_sauce.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/coriander-salad-dressing": { creator: "AmanAgrahari01", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Cuisine_(268)_42.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/curry-cooking-sauce": { creator: "Rex Roof", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://www.flickr.com/photos/18199354@N00/3243825631", modifications: "cropped and resized; re-encoded as WebP", provider: "flickr" },
+    "meals/curry-salad-dressing": { creator: "Dana Moos", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://www.flickr.com/photos/32870650@N08/22878113193", modifications: "cropped and resized; re-encoded as WebP", provider: "flickr" },
+    "meals/dynamite-sauce": { creator: "Vegan Feast Catering", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://www.flickr.com/photos/25128194@N02/4126524575", modifications: "cropped and resized; re-encoded as WebP", provider: "flickr" },
     "meals/escalope-milanaise": { creator: "Arnaud 25", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Escalope_%C3%A0_la_milanaise.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/four-cheese-sauce": { creator: "HaJunkiyada", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Liat_Portal_for_Foodie_Disorder_-_Four_cheese_ravioli_with_cream_sauce.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/honey-mustard-sauce": { creator: "Famartin", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:2020-02-25_19_33_41_A_sample_of_Frecon_Farms_Honey_Mustard_Dipping_Sauce_in_the_Dulles_section_of_Sterling,_Loudoun_County,_Virginia.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/honey-vinaigrette": { creator: "Famartin", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:2020-04-01_17_53_37_McDonald%27s_Honey_Mustard_dipping_sauce_in_the_Franklin_Farm_section_of_Oak_Hill,_Fairfax_County,_Virginia.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/indian-cooking-sauce": { creator: "Geoffreyrabbit", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Lamb_leg_with_curry_sauce.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/korma-cooking-sauce": { creator: "Vis M", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Veg_Korma_02.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/lemon-oil-dressing": { creator: "Personal Creations", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Lentil_salad_ingredients_lemon_slices_red_onion_cheese_crumbles_olive_oil_dressing_beans_(28151563564).jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "meals/makanek-lebanese-sausage": { creator: "Bapak Alex", licence: "CC BY 4.0", licenceUrl: "https://creativecommons.org/licenses/by/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Makanek.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/marinara-sauce": { creator: "Famartin", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:2019-02-07_20_07_26_An_open_cup_of_marinara_sauce_from_Domino%27s_in_the_Franklin_Farm_section_of_Oak_Hill,_Fairfax_County,_Virginia.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "meals/mozzarella-sticks-small": { creator: "Sdkb", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Mozzarella_Sticks_at_Mobtown_Ballroom.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/mustard-cooking-sauce": { creator: "Dana Moos", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://www.flickr.com/photos/32870650@N08/22730472904", modifications: "cropped and resized; re-encoded as WebP", provider: "flickr" },
+    "meals/mustard-salad-dressing": { creator: "SaucyGlo", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Salad_with_roasted_garlic,_mustard_herb_vinaigrette.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/orange-oil-dressing": { creator: "YoAmes", licence: "CC BY-SA 2.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/2.0/", sourceUrl: "https://www.flickr.com/photos/24013072@N05/3863869144", modifications: "cropped and resized; re-encoded as WebP", provider: "flickr" },
+    "meals/oregano-salad-dressing": { creator: "Thriving Vegetarian", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://www.flickr.com/photos/90155432@N02/12153363863", modifications: "cropped and resized; re-encoded as WebP", provider: "flickr" },
+    "meals/peanut-butter-sauce": { creator: "grongar", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://www.flickr.com/photos/70757891@N00/13198250723", modifications: "cropped and resized; re-encoded as WebP", provider: "flickr" },
+    "meals/pizza-tomato-cooking-sauce": { creator: "Nenad Stojkovic", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Woman_topping_with_tomato_sauce_a_homemade_pizza_dough._(51630382202).jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/pomegranate-salad-dressing": { creator: "cajsa.lilliehook", licence: "CC BY-SA 2.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/2.0/", sourceUrl: "https://www.flickr.com/photos/14514578@N08/34648542561", modifications: "cropped and resized; re-encoded as WebP", provider: "flickr" },
+    "meals/ranch-dressing": { creator: "City Foodsters", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Fried_Green_Tomatoes_with_ranch_dressing_-_Hominy_Grill,_Charleston_SC_2014.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "meals/rkakat-cheese": { creator: "Ewan-M", licence: "CC BY-SA 2.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/2.0/", sourceUrl: "https://www.flickr.com/photos/55935853@N00/3639284871", modifications: "cropped and resized; re-encoded as WebP", provider: "flickr" },
     "meals/roasted-mushroom": { creator: "Lalithya Dwivedula", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Thyme_roasted_mushrooms.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "meals/sambousek-cheese": { creator: "Charles Haynes from Hobart, Australia", licence: "CC BY-SA 2.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Sambousek_(4009290205).jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "meals/smashed-burger-patty": { creator: "Bahnfrend", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Deluxe_Cheeseburger,_Hoodburger_Applecross,_2026_(02).jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/soya-sesame-cooking-sauce": { creator: "Hyeon-Jeong Suk", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Soy_sauce_3.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/steak-sauce": { creator: "CharmaineZoe's Marvelous Melange from England", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Steak_and_Chips_with_onion_rings,_mushrooms_and_broccoli_in_a_peppercorn_sauce_(35444415743).jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
     "meals/stuffed-vine-leaves-warak-enab": { creator: "EgorovaSvetlana", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Lebanese_Stuffed_Grapevine_Leaves_Waraq_%27Inab_Dolma_Newton_Massachusetts.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/tarator-salad-dressing": { creator: "pelican", licence: "CC BY-SA 2.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Falafels_with_tarator.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/tartar-sauce": { creator: "Shreveport-Bossier Convention and Tourist Bureau", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Divinely-inspired_tartar_sauce_at_Big_O%27s,_Bossier_City_(5755954932).jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/tempura-batter": { creator: "Jeremy Keith from Brighton & Hove, United Kingdom", licence: "CC BY 2.0", licenceUrl: "https://creativecommons.org/licenses/by/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Tempura_batter_(5442182582).jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/thousand-island-dressing": { creator: "Oliver DelaCruz", licence: "CC BY-SA 2.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/2.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Thousand_Island_dressing_on_salad.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
+    "meals/tomato-cooking-sauce": { creator: "Fallaner", licence: "CC BY-SA 4.0", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/", sourceUrl: "https://commons.wikimedia.org/wiki/File:Tomato_sauce_2021_P02.jpg", modifications: "cropped and resized; re-encoded as WebP", provider: "wikimedia" },
 };
 
 /** How many images oblige a visible credit — used by the drift test. */
-export const IMAGE_CREDIT_COUNT = 190;
+export const IMAGE_CREDIT_COUNT = 226;

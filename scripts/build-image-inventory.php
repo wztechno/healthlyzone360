@@ -134,18 +134,28 @@ foreach ($recipes['sheets'] as $sheet) {
     ];
 }
 
-/* ---- Meals: the catalogue rows that currently borrow a photograph -------- */
+/* ---- Meals, sauces and dressings: the cooked catalogue rows -------------- */
 
+// Sauces and dressings joined once the recipe book listed them beside meals: a
+// recipe's photo is its seller's (`product-<slug>` → `meals/<slug>`). A row whose
+// recipe already has a dish photograph is left out — the app falls back to it.
+$recipeSlugs = array_column(array_filter($records, static fn (array $r): bool => $r['kind'] === 'recipe'), 'slug', 'slug');
 $catalogue = readJson(__DIR__ . '/../apps/api/app-modules/kitchens/database/data/v6-catalogue.json');
 
 foreach ($catalogue['items'] as $item) {
-    if (($item['sheet_item_type'] ?? null) !== 'meal') {
+    $type = $item['sheet_item_type'] ?? null;
+
+    if (! in_array($type, ['meal', 'sauce', 'dressing'], true)) {
+        continue;
+    }
+
+    if ($type !== 'meal' && isset($recipeSlugs[$item['slug']])) {
         continue;
     }
 
     $records[] = [
         'ref' => $item['source_ref'],
-        'kind' => 'meal',
+        'kind' => $type,
         'name_en' => $item['name_en'],
         'slug' => $item['slug'],
         'scope' => 'tenant',

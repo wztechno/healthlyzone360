@@ -144,7 +144,10 @@ function manifestKey(placeholderId: string, variant: EntityImageVariant): string
             // dish photograph of the recipe that makes them — the one reuse that is honest.
             // Everything else owns its picture.
             const dish = DISH_FOR_MEAL[rest];
-            return dish ? `dishes/${dish}.${variant}` : `meals/${rest}.${variant}`;
+            if (dish) return `dishes/${dish}.${variant}`;
+            // A sauce sold under its recipe's own slug is that recipe — its dish photo is its own.
+            const own = `meals/${rest}.${variant}`;
+            return own in IMAGE_ASSETS ? own : `dishes/${rest}.${variant}`;
         }
         case 'recipe':
             return `dishes/${rest}.${variant}`;
