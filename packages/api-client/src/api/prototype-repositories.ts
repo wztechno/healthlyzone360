@@ -8,6 +8,7 @@ import type {
     MealId,
     MealPlanEntryId,
     MealPlanId,
+    OrderId,
     PriceListId,
     ProductId,
     QuotationId,
@@ -38,6 +39,7 @@ import type {
     CancelSubscriptionRequest,
     CommerceRepository,
     CreateSubscriptionRequest,
+    MyOrderFilter,
     PauseSubscriptionRequest,
     PlaceOrderRequest,
     PlacedOrder,
@@ -530,6 +532,17 @@ export const apiCommerceRepository: CommerceRepository = {
      */
     placeOrder(_request: PlaceOrderRequest): Promise<PlacedOrder> {
         return notImplemented(`POST ${BASE}/orders`);
+    },
+    /**
+     * The order history and one order of it, both served — implemented in
+     * `./order-repository.ts` and spread over this object by `createApiRepositories`, so they have
+     * no rows in `PROTOTYPE_ENDPOINTS`.
+     */
+    listMyOrders(_filter?: MyOrderFilter): Promise<CursorPage<PlacedOrder>> {
+        return notImplemented(`GET ${BASE}/me/orders`);
+    },
+    getMyOrder(_orderId: OrderId): Promise<PlacedOrder> {
+        return notImplemented(`GET ${BASE}/me/orders/{order}`);
     },
     /**
      * Subscription lifecycle (quote preview, create, reads, pause/resume/skip, address/window) is

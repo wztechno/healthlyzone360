@@ -7,6 +7,7 @@ import type {
     CheckoutPreview,
     CreateSubscriptionRequest,
     CursorPage,
+    MyOrderFilter,
     PauseSubscriptionRequest,
     PlaceOrderRequest,
     PlacedOrder,
@@ -26,9 +27,14 @@ import type {
     SubscriptionQuote,
     SubscriptionQuoteRequest,
 } from '@healthy360/api-client/contracts';
-import type { CartId, SubscriptionId } from '@healthy360/domain-types';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
+import type { CartId, OrderId, SubscriptionId } from '@healthy360/domain-types';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type {
+    InfiniteData,
+    UseInfiniteQueryResult,
+    UseMutationResult,
+    UseQueryResult,
+} from '@tanstack/react-query';
 
 import { queryKeys } from './query-keys.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
@@ -222,7 +228,62 @@ export function usePlaceOrderMutation(
         retry: 0,
         mutationFn: (request: PlaceOrderRequest) => repositories.commerce.placeOrder(request),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.commerce.cart(channelCode) });
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: queryKeys.commerce.cart(channelCode) }),
+                // The new order belongs at the top of the history.
+                queryClient.invalidateQueries({ queryKey: queryKeys.commerce.orders() }),
+            ]);
+        },
+    });
+}
+
+/* ── the customer's own orders ───────────────────────────────────────────────────────────────── */
+
+export type MyOrdersInfiniteResult = UseInfiniteQueryResult<
+    InfiniteData<CursorPage<PlacedOrder>, string | undefined>,
+    Error
+>;
+
+/**
+ * The order history, newest first, as a cursor walk with a "load more".
+ *
+ * Infinite rather than one page because the endpoint is a real keyset walk and the screen should not
+ * pretend the first page is the whole of somebody's history. `limit` is the page size; the cursor is
+ * the query's own business.
+ */
+export function useMyOrdersQuery(
+    filter?: Omit<MyOrderFilter, 'cursor'>,
+    enabled = true,
+): MyOrdersInfiniteResult {
+    const { repositories } = useRepositoryContext();
+
+    return useInfiniteQuery({
+        queryKey: queryKeys.commerce.myOrders(filter),
+        enabled: enabled && repositories !== null,
+        initialPageParam: undefined as string | undefined,
+        queryFn: ({ pageParam }) => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.commerce.listMyOrders({
+                ...filter,
+                ...(pageParam === undefined ? {} : { cursor: pageParam }),
+            });
+        },
+        getNextPageParam: (lastPage) =>
+            lastPage.hasMore ? (lastPage.nextCursor ?? undefined) : undefined,
+    });
+}
+
+/** One of the caller's orders. Nullable identifier for the routing race every detail screen has. */
+export function useMyOrderQuery(orderId: OrderId | null): UseQueryResult<PlacedOrder> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.commerce.myOrder(orderId ?? ('' as OrderId)),
+        enabled: repositories !== null && orderId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (orderId === null) throw new Error('No order identifier.');
+            return repositories.commerce.getMyOrder(orderId);
         },
     });
 }
