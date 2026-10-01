@@ -12,6 +12,8 @@ import type {
     OtpVerificationResult,
 } from '@healthy360/api-client/contracts';
 import { ApiError, conflictFailure } from '@healthy360/api-client/contracts';
+import type { CursorPage, PlacedOrder } from '@healthy360/api-client/contracts';
+import { OrderId } from '@healthy360/domain-types';
 import type { ServiceAreaId } from '@healthy360/domain-types';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
@@ -199,10 +201,51 @@ const TEST_CODE = '424242';
 
 function dietaryProfile(overrides: Partial<DietaryProfile> = {}): DietaryProfile {
     return {
-        dietCategoryCodes: [],
+        dietCategoryCode: null,
         allergens: [],
         excludedIngredientIds: [],
         updatedAt: null,
+        ...overrides,
+    };
+}
+
+const NO_ORDERS: CursorPage<PlacedOrder> = {
+    items: [],
+    nextCursor: null,
+    hasMore: false,
+    totalCount: null,
+};
+
+function placedOrder(overrides: Partial<PlacedOrder> = {}): PlacedOrder {
+    return {
+        id: OrderId.unsafe('0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e8aa1'),
+        reference: 'H360-1042',
+        state: 'confirmed',
+        lines: [
+            {
+                id: 'line-1',
+                name: 'Chicken Shawarma',
+                quantity: 2,
+                unitPrice: { amount: 3000, currency: 'AED' },
+                lineTotal: { amount: 6000, currency: 'AED' },
+            },
+        ],
+        priceLines: [
+            { code: 'subtotal', label: 'Subtotal', amount: { amount: 6000, currency: 'AED' } },
+        ],
+        total: { amount: 6000, currency: 'AED' },
+        address: {
+            label: 'Home',
+            line1: '12 Al Wasl Road',
+            line2: null,
+            area: 'Al Quoz',
+            city: 'Dubai',
+            countryCode: '',
+            instructions: null,
+        },
+        slotCode: 'morning',
+        deliveryDate: '2026-08-05',
+        placedAt: '2026-08-03T09:10:00.000Z',
         ...overrides,
     };
 }
@@ -260,7 +303,7 @@ describe('the four consent states', () => {
 
     /** "No allergies" is an answer; an empty profile that was never saved is silence. */
     it('distinguishes an unanswered allergy question from a declared absence', () => {
-        const empty = { dietCategoryCodes: [], allergens: [], excludedIngredientIds: [] };
+        const empty = { dietCategoryCode: null, allergens: [], excludedIngredientIds: [] };
         expect(initialAllergyAnswer({ ...empty, updatedAt: null })).toBeNull();
         expect(initialAllergyAnswer({ ...empty, updatedAt: '2026-08-02T10:00:00.000Z' })).toBe(
             false,
@@ -271,16 +314,47 @@ describe('the four consent states', () => {
 /* ══ the checklist ═════════════════════════════════════════════════════════════════════════════ */
 
 describe('AccountScreen', () => {
-    it('draws the server’s outstanding steps without recomputing them', async () => {
-        // Two required steps outstanding — and the screen's count is asserted against that number
-        // rather than against whatever a fixture happened to seed.
+    it('draws the design’s six sections in the design’s order', async () => {
+        await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getOverview: async () =>
+                        overview(checklist([], { lifecycle: 'active', canActivate: true })),
+                },
+                commerce: { listMyOrders: async () => NO_ORDERS },
+            },
+        });
+
+        expect(await screen.findByTestId('account-orders-states-empty')).toBeTruthy();
+        const expected = [
+            ['orders', 'Orders'],
+            ['favorites', 'Favorites'],
+            ['profile', 'Profile'],
+            ['addresses', 'Addresses'],
+            ['payments', 'Payment methods'],
+            ['notifications', 'Notifications'],
+        ] as const;
+        for (const [section, label] of expected) {
+            expect(screen.getByTestId(`account-tab-${section}`)).toHaveTextContent(label);
+        }
+        expect(screen.getByTestId('account-tab-orders').props.accessibilityState.selected).toBe(
+            true,
+        );
+        // Nothing outstanding: no setup notice anywhere.
+        expect(screen.queryByTestId('account-activation')).toBeNull();
+    });
+
+    it('folds the server’s outstanding required steps into one notice, without recomputing them', async () => {
+        // Two required steps outstanding — and the notice's count is asserted against that
+        // number rather than against whatever a fixture happened to seed.
         const setup = checklist([
             step('verify_email', true, true),
             // The server says phone verification does not block activation in this environment.
             step('verify_phone', false, false),
             step('add_address', false, true),
             step('dietary_profile', false, false),
-            step('consents', false, true),
+            step('consents', false, true, 'Waiting for the new terms'),
         ]);
 
         await renderStubScreen(<AccountScreen />, {
@@ -290,34 +364,41 @@ describe('AccountScreen', () => {
                     getOverview: async () => overview(setup),
                     listConsents: async () => [],
                 },
+                commerce: { listMyOrders: async () => NO_ORDERS },
             },
         });
 
-        expect(await screen.findByTestId('account-checklist-list')).toBeTruthy();
-        expect(screen.getByTestId('account-lifecycle')).toHaveTextContent(/Setup unfinished/);
-        expect(screen.getByTestId('account-activation')).toHaveTextContent(
-            /required steps are still outstanding/,
-        );
-        // Derived from the two required-and-incomplete steps authored above.
-        expect(screen.getByTestId('account-activation')).toHaveTextContent(
-            /2 required steps to go/,
+        const notice = await screen.findByTestId('account-activation');
+        expect(notice).toHaveTextContent(/required steps are still outstanding/);
+        expect(notice).toHaveTextContent(/2 required steps to go/);
+
+        // A button per outstanding *required* step. Optional and finished steps are not in the
+        // notice — the server's `required` is what decides, not the client.
+        expect(screen.getByTestId('account-step-add_address-open')).toBeTruthy();
+        expect(screen.queryByTestId('account-step-verify_phone-open')).toBeNull();
+        expect(screen.queryByTestId('account-step-verify_email-open')).toBeNull();
+        expect(screen.queryByTestId('account-step-dietary_profile-open')).toBeNull();
+
+        // A blocked step cannot be started, and says why in the server's words.
+        expect(
+            screen.getByTestId('account-step-consents-open').props.accessibilityState.disabled,
+        ).toBe(true);
+        expect(screen.getByTestId('account-step-consents-blocked')).toHaveTextContent(
+            /Waiting for the new terms/,
         );
 
-        expect(screen.getByTestId('account-step-verify_email-state')).toHaveTextContent(/Done/);
-        expect(screen.getByTestId('account-step-add_address-state')).toHaveTextContent(
-            /Not done yet/,
+        await fireEvent.press(screen.getByTestId('account-step-add_address-open'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/addresses');
+
+        // The notice stays above whichever section is open.
+        await fireEvent.press(screen.getByTestId('account-tab-payments'));
+        expect(await screen.findByTestId('account-payments-cash')).toHaveTextContent(
+            'Cash on delivery',
         );
-        // The screen reports the server's per-step `required` rather than assuming every step is
-        // mandatory — the one field that stops the client owning the activation rules.
-        expect(screen.getByTestId('account-step-verify_phone-requirement')).toHaveTextContent(
-            /Optional/,
-        );
-        expect(screen.getByTestId('account-step-add_address-requirement')).toHaveTextContent(
-            /Needed to activate/,
-        );
+        expect(screen.getByTestId('account-activation')).toBeTruthy();
     });
 
-    it('reports activation from the evaluator once every required step is done', async () => {
+    it('reports nothing outstanding once the evaluator says the account can activate', async () => {
         const setup = checklist(
             [
                 step('verify_email', true, true),
@@ -336,14 +417,12 @@ describe('AccountScreen', () => {
                     getOverview: async () => overview(setup),
                     listConsents: async () => [],
                 },
+                commerce: { listMyOrders: async () => NO_ORDERS },
             },
         });
 
-        expect(await screen.findByTestId('account-activation')).toHaveTextContent(
-            /Everything needed is in place/,
-        );
-        expect(screen.getByTestId('account-lifecycle')).toHaveTextContent(/Active/);
-        expect(screen.getByTestId('account-step-consents-state')).toHaveTextContent(/Done/);
+        expect(await screen.findByTestId('account-orders-states-empty')).toBeTruthy();
+        expect(screen.queryByTestId('account-activation')).toBeNull();
     });
 
     it('offers the marketing consents as switches and writes them straight through', async () => {
@@ -366,8 +445,14 @@ describe('AccountScreen', () => {
                         return written;
                     },
                 },
+                commerce: { listMyOrders: async () => NO_ORDERS },
             },
         });
+
+        await fireEvent.press(await screen.findByTestId('account-tab-notifications'));
+        expect(await screen.findByTestId('account-marketing-title')).toHaveTextContent(
+            'Notifications',
+        );
 
         // Only the optional `marketing_*` consents belong here; the required one stays on the
         // compliance screen.
@@ -388,6 +473,270 @@ describe('AccountScreen', () => {
                     .accessibilityState.checked,
             ).toBe(true);
         });
+    });
+});
+
+describe('AccountScreen — orders', () => {
+    const active = checklist([step('verify_email', true, true)], {
+        lifecycle: 'active',
+        canActivate: true,
+    });
+
+    it('lists the history with the tracking page’s status tones, and opens an order', async () => {
+        const delivered = placedOrder({
+            id: OrderId.unsafe('0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e8aa2'),
+            reference: 'H360-1043',
+            state: 'delivered',
+        });
+        const { repositories } = await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: { getOverview: async () => overview(active) },
+                commerce: {
+                    listMyOrders: async () => ({
+                        items: [delivered, placedOrder()],
+                        nextCursor: null,
+                        hasMore: false,
+                        totalCount: null,
+                    }),
+                },
+            },
+        });
+
+        const row = `account-orders-row-${String(delivered.id)}`;
+        expect(await screen.findByTestId(`${row}-items`)).toHaveTextContent('2× Chicken Shawarma');
+        expect(screen.getByTestId(`${row}-meta`)).toHaveTextContent(/#H360-1043/);
+        expect(screen.getByTestId(`${row}-state`)).toHaveTextContent(/Delivered/);
+        expect(screen.getByTestId(`${row}-total`)).toHaveTextContent(/60/);
+        expect(screen.getByTestId(`${row}-thumb`)).toBeTruthy();
+        // No "show older": the server said this was the last page.
+        expect(screen.queryByTestId('account-orders-more')).toBeNull();
+        expect(repositories.commerce.listMyOrders).toHaveBeenCalledWith({ limit: 20 });
+
+        await fireEvent.press(screen.getByTestId(`${row}-open`));
+        expect(routerMock.__push).toHaveBeenCalledWith(`/customer/orders/${String(delivered.id)}`);
+
+        // Reorder has no endpoint behind it: it says so and changes nothing.
+        await fireEvent.press(screen.getByTestId(`${row}-reorder`));
+        expect(await screen.findByTestId('prototype-notice')).toHaveTextContent(/Not built yet/);
+        expect(routerMock.__push).toHaveBeenCalledTimes(1);
+    });
+
+    it('walks to the next page by the server’s cursor', async () => {
+        const older = placedOrder({
+            id: OrderId.unsafe('0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e8aa3'),
+            reference: 'H360-1001',
+        });
+        const { repositories } = await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: { getOverview: async () => overview(active) },
+                commerce: {
+                    listMyOrders: async (filter) =>
+                        filter?.cursor === 'page-2'
+                            ? { ...NO_ORDERS, items: [older] }
+                            : {
+                                  items: [placedOrder()],
+                                  nextCursor: 'page-2',
+                                  hasMore: true,
+                                  totalCount: null,
+                              },
+                },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('account-orders-more'));
+
+        expect(
+            await screen.findByTestId(`account-orders-row-${String(older.id)}-items`),
+        ).toBeTruthy();
+        expect(repositories.commerce.listMyOrders).toHaveBeenLastCalledWith({
+            limit: 20,
+            cursor: 'page-2',
+        });
+    });
+
+    it('opens the favourites section on its honest empty state', async () => {
+        await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: { getOverview: async () => overview(active) },
+                commerce: { listMyOrders: async () => NO_ORDERS },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('account-tab-favorites'));
+        expect(await screen.findByTestId('account-favorites-empty')).toHaveTextContent(
+            /No favorites yet/,
+        );
+        await fireEvent.press(screen.getByTestId('account-favorites-browse'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/meals');
+    });
+});
+
+describe('AccountScreen — profile', () => {
+    const active = checklist([step('verify_email', true, true)], {
+        lifecycle: 'active',
+        canActivate: true,
+    });
+
+    /*
+     * Signed in without a customer record — the overview and the dietary profile both refuse. The
+     * card's details are the person's own and live in the session, so the card still shows them,
+     * and only the diet row, which needs the customer record, says it is not available.
+     */
+    it('shows the profile from the session when there is no customer record', async () => {
+        await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getOverview: async () => {
+                        throw new Error('You do not have a customer account yet.');
+                    },
+                    getDietaryProfile: async () => {
+                        throw new Error('You do not have a customer account yet.');
+                    },
+                },
+                verification: { listContactPoints: async () => [] },
+                commerce: { listMyOrders: async () => NO_ORDERS },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('account-tab-profile'));
+        const name = await screen.findByTestId('account-profile-name-input');
+        expect(name.props.value).toBe('Test Person');
+        expect(screen.getByTestId('account-profile-email-input').props.value).toBe(
+            'test.person@example.test',
+        );
+        expect(await screen.findByTestId('account-profile-dietary-unavailable')).toBeTruthy();
+    });
+
+    it('will not save a diet for somebody who has not answered the allergy question', async () => {
+        await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getOverview: async () => overview(active, [phoneContact({ verified: true })]),
+                    getDietaryProfile: async () => dietaryProfile(),
+                },
+                // The phone is read from the person's contact points, not from the overview.
+                verification: { listContactPoints: async () => [phoneContact({ verified: true })] },
+                commerce: { listMyOrders: async () => NO_ORDERS },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('account-tab-profile'));
+        expect(await screen.findByTestId('account-profile-title')).toHaveTextContent(
+            'Profile & preferences',
+        );
+        await screen.findByText('+971 50 *** 4567');
+        // The design's inputs, read-only where the contract has no way to change the value.
+        const name = await screen.findByTestId('account-profile-name-input');
+        expect(name.props.value).toBe('Test Person');
+        expect(name.props.readOnly).toBe(true);
+        const email = screen.getByTestId('account-profile-email-input');
+        expect(email.props.value).toBe('test.person@example.test');
+        expect(email.props.readOnly).toBe(true);
+        expect(screen.getByTestId('account-profile-phone-value')).toHaveTextContent(
+            '+971 50 *** 4567',
+        );
+        expect(screen.getByTestId('account-profile-phone-state')).toHaveTextContent('Change');
+        // No default window on the account: the select is there, and says where it is chosen.
+        expect(screen.getByTestId('account-profile-slot')).toHaveTextContent(
+            /Chosen at each checkout/,
+        );
+
+        // Saving a diet would stamp `updatedAt`, which reads as "no allergies". So the chips and
+        // Save are locked, and the way forward is the question itself.
+        expect(await screen.findByTestId('account-profile-diets-locked')).toBeTruthy();
+        expect(
+            screen.getByTestId('account-profile-diets-vegetarian').props.accessibilityState
+                .disabled,
+        ).toBe(true);
+        expect(screen.getByTestId('account-profile-save').props.accessibilityState.disabled).toBe(
+            true,
+        );
+
+        await fireEvent.press(screen.getByTestId('account-profile-allergies-edit'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/allergies');
+
+        await fireEvent.press(screen.getByTestId('account-profile-phone-open'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/phone');
+    });
+
+    it('saves a diet change and carries the declared allergens through untouched', async () => {
+        const allergens = [{ allergenCode: 'peanuts', severity: 'allergy', note: null }] as const;
+        let stored = dietaryProfile({
+            allergens,
+            updatedAt: '2026-08-02T10:00:00.000Z',
+        });
+
+        const { repositories } = await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getOverview: async () => overview(active),
+                    getDietaryProfile: async () => stored,
+                    saveDietaryProfile: async (request) => {
+                        stored = { ...request, updatedAt: '2026-08-11T09:00:00.000Z' };
+                        return stored;
+                    },
+                },
+                commerce: { listMyOrders: async () => NO_ORDERS },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('account-tab-profile'));
+        expect(await screen.findByTestId('account-profile-allergies')).toHaveTextContent(
+            /^Allergies: /,
+        );
+        const chip = await screen.findByTestId('account-profile-diets-vegetarian');
+        await fireEvent.press(chip);
+        expect(
+            screen.getByTestId('account-profile-diets-vegetarian').props.accessibilityState.checked,
+        ).toBe(true);
+        // One diet: choosing another replaces it rather than adding to it.
+        await fireEvent.press(screen.getByTestId('account-profile-diets-vegan'));
+        expect(
+            screen.getByTestId('account-profile-diets-vegetarian').props.accessibilityState.checked,
+        ).toBe(false);
+        await fireEvent.press(screen.getByTestId('account-profile-diets-vegetarian'));
+        await fireEvent.press(screen.getByTestId('account-profile-save'));
+
+        await waitFor(() => {
+            expect(repositories.account.saveDietaryProfile).toHaveBeenCalledWith({
+                dietCategoryCode: 'vegetarian',
+                allergens,
+                excludedIngredientIds: [],
+            });
+        });
+        expect(await screen.findByTestId('account-profile-saved')).toBeTruthy();
+    });
+
+    it('keeps the address book, permissions and closure one press away', async () => {
+        await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getOverview: async () => overview(active),
+                    listAddresses: async () => [],
+                    listConsents: async () => [],
+                },
+                commerce: { listMyOrders: async () => NO_ORDERS },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('account-tab-addresses'));
+        expect(await screen.findByTestId('account-addresses-title')).toHaveTextContent('Addresses');
+        await fireEvent.press(await screen.findByTestId('account-addresses-add'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/addresses/new');
+
+        // Privacy has no section of its own: it sits under the notification switches.
+        await fireEvent.press(screen.getByTestId('account-tab-notifications'));
+        await fireEvent.press(await screen.findByTestId('account-privacy-consents'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/consents');
+        await fireEvent.press(screen.getByTestId('account-privacy-close'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/close/reason');
     });
 });
 
@@ -567,7 +916,7 @@ describe('AllergiesScreen', () => {
 
         await waitFor(() => {
             expect(repositories.account.saveDietaryProfile).toHaveBeenCalledWith({
-                dietCategoryCodes: [],
+                dietCategoryCode: null,
                 allergens: [],
                 excludedIngredientIds: [],
             });
@@ -604,7 +953,7 @@ describe('AllergiesScreen', () => {
 
         await waitFor(() => {
             expect(repositories.account.saveDietaryProfile).toHaveBeenCalledWith({
-                dietCategoryCodes: [],
+                dietCategoryCode: null,
                 // A tick declares the strictest reading; softening it is a separate decision.
                 allergens: [{ allergenCode: 'peanut', severity: 'allergy', note: null }],
                 excludedIngredientIds: [],
