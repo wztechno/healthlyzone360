@@ -17,8 +17,21 @@
  *
  * ## Where the numbers come from
  *
- * Re-measured from the `all-dev` **api** export on 2026-09-21, after ingredient, recipe and v6
- * meal photography landed (D-131 to D-137). The total rose because the bundled WebP set grew from
+ * The entry-chunk budget was re-measured on 2026-10-01 from the CI `all-dev` api export of the
+ * HealthZone customer redesign (D-148): the customer header, home, kitchen finder, storefront, menu,
+ * meal page, plans, account, order tracking, cart, checkout and guest checkout rebuilt, with their
+ * English and Arabic copy. The chunk grew 361 294 B (4 711 728 → 5 073 022)
+ * and went 138 586 B over the budget. That is the headroom D-137 deliberately kept back for future
+ * screens, spent on the screens it was kept for. The total stayed inside its budget at 92.7 %, so
+ * it was left where it was.
+ *
+ * | measure                | actual        | ×1.15 → budget |
+ * | ---------------------- | ------------- | -------------- |
+ * | total `dist-api` bytes | 32 760 423    | 35 349 664 (not raised — 92.7 % used) |
+ * | largest JS chunk       |  5 073 022    |  5 833 975     |
+ *
+ * Before that, both numbers were re-measured from the `all-dev` **api** export on 2026-09-21, after
+ * ingredient, recipe and v6 meal photography landed (D-131 to D-137). The total rose because the bundled WebP set grew from
  * 100 files to 533 (7.9 MB → 18.6 MB): 376 newly sourced, reviewed, openly licensed photographs
  * at 256×256 for ingredients and 640×360 + 1280×720 for recipes and meals. That is the photography
  * arriving, not accumulation, and it is bounded — 40 records remain unimaged, and
@@ -35,7 +48,7 @@
  * | total `dist-api` bytes | 30 738 838    | 35 349 664     |
  * | largest JS chunk       |  4 711 728    |  4 934 436 (not raised — 95.5 % used) |
  *
- * The previous measurement, 2026-09-10, after the admin Catalogue landed:
+ * The measurement before that, 2026-09-10, after the admin Catalogue landed:
  * its control ladder, layout and overlay components, the column spec every Catalogue list is drawn
  * from, and the record editors for ingredients, packaging and pricing behind them. Against the
  * 2026-08-13 baseline (19 128 695 B / 3 789 839 B, the first `dist-api`-only measurement after the
@@ -65,13 +78,13 @@ import { join, relative, resolve, sep } from 'node:path';
 export const TOTAL_BUDGET_BYTES = 35_349_664;
 
 /** Bytes of the single largest `.js` file. */
-export const LARGEST_CHUNK_BUDGET_BYTES = 4_934_436;
+export const LARGEST_CHUNK_BUDGET_BYTES = 5_833_975;
 
 /** The measurement the budgets were derived from, kept so a report can show the drift. */
 export const BASELINE = {
-    totalBytes: 31_478_480,
-    largestChunkBytes: 4_711_728,
-    measuredOn: '2026-09-21',
+    totalBytes: 32_760_423,
+    largestChunkBytes: 5_073_022,
+    measuredOn: '2026-10-01',
     export: 'APP_MODE=all-dev EXPO_PUBLIC_API_URL=http://localhost:8080 expo export -p web --output-dir dist-api',
 };
 
