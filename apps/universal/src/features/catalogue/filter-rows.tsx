@@ -1,4 +1,3 @@
-import { Icon } from '@healthy360/design-system';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 /**
@@ -14,7 +13,7 @@ import { Pressable, Text as RNText, View } from 'react-native';
  * ragged pill edges make the column look accidental. A **long list of short labels** is the reverse:
  * ten diet names pack three to a line and read as a set.
  *
- * That is why Meal and Kitchen use this and Diet keeps `FilterBar`'s chips. Applying one treatment
+ * That is why Category and Kitchen use this and Diet keeps chips. Applying one treatment
  * to everything is what made the rail 1,700px tall.
  *
  * ## It writes through the same state as the chips
@@ -25,18 +24,28 @@ import { Pressable, Text as RNText, View } from 'react-native';
  * `accessibilityState.selected` on native — the same pair `FilterChip` sets, for the same reason:
  * neither platform sees the other's attribute.
  *
- * Selection is never carried by colour alone; a selected row gains a check glyph, as the chips do.
+ * Selection is not carried by colour alone: a chosen row gains a raised fill *and* a visible
+ * border where an unchosen one has neither — a change of shape, as the design's `sideBtn` draws it,
+ * rather than the check glyph this used to add, which the design does not have.
  */
 export interface FilterRowOption {
     readonly value: string;
     readonly label: string;
+    /**
+     * How many listings sit behind the row, already formatted for the locale — HealthZone's
+     * `CATEGORY` list prints one beside every name. Omitted when the repository cannot count, and
+     * then the row simply has no figure rather than a guessed one.
+     */
+    readonly countText?: string | undefined;
+    /** The name a screen reader hears when the row carries a figure — "Lunch, 12 meals". */
+    readonly accessibilityLabel?: string | undefined;
 }
 
 export interface FilterRowsProps {
     readonly options: readonly FilterRowOption[];
     readonly selected: readonly string[];
     readonly onToggle: (value: string, selected: boolean) => void;
-    /** Prefix for each row's handle — `meals-filter` yields `meals-filter-mealType-lunch`. */
+    /** Prefix for each row's handle — `meals-filter` yields `meals-filter-category-bowls`. */
     readonly testID: string;
     readonly groupKey: string;
 }
@@ -44,8 +53,7 @@ export interface FilterRowsProps {
 export function FilterRows({ options, selected, onToggle, testID, groupKey }: FilterRowsProps) {
     if (options.length === 0) return null;
 
-    // No group heading of its own: the accordion header above names the group, and repeating it
-    // four pixels below would be the second of two identical labels.
+    // No group heading of its own: the eyebrow above names the group.
     return (
         <View className="flex-col gap-0.5">
             {options.map((option) => {
@@ -56,7 +64,7 @@ export function FilterRows({ options, selected, onToggle, testID, groupKey }: Fi
                         testID={`${testID}-${groupKey}-${option.value}`}
                         role="button"
                         accessibilityRole="button"
-                        accessibilityLabel={option.label}
+                        accessibilityLabel={option.accessibilityLabel ?? option.label}
                         accessibilityState={{ selected: isSelected }}
                         aria-pressed={isSelected}
                         focusable
@@ -69,7 +77,7 @@ export function FilterRows({ options, selected, onToggle, testID, groupKey }: Fi
                          * state carries no border at all, which is what keeps a column of six
                          * of them from reading as a table.
                          */
-                        className={`min-h-touch flex-row items-center justify-between gap-2 rounded-lg border px-3 ${
+                        className={`min-h-touch flex-row items-center justify-between gap-2 rounded border px-3 py-2.5 ${
                             isSelected
                                 ? 'border-stroke bg-surface-raised'
                                 : 'border-transparent bg-transparent'
@@ -77,17 +85,23 @@ export function FilterRows({ options, selected, onToggle, testID, groupKey }: Fi
                     >
                         <RNText
                             numberOfLines={1}
-                            className={`flex-1 text-sm text-start ${
-                                isSelected
-                                    ? 'font-medium text-content-primary'
-                                    : 'text-content-secondary'
+                            className={`flex-1 text-sm font-medium text-start ${
+                                isSelected ? 'text-content-primary' : 'text-content-secondary'
                             }`}
                         >
                             {option.label}
                         </RNText>
-                        {isSelected ? (
-                            <Icon name="check" size="sm" className="text-content-primary" />
-                        ) : null}
+                        {option.countText === undefined ? null : (
+                            <RNText
+                                testID={`${testID}-${groupKey}-${option.value}-count`}
+                                aria-hidden
+                                accessibilityElementsHidden
+                                importantForAccessibility="no"
+                                className="text-xs tabular-nums text-content-secondary"
+                            >
+                                {option.countText}
+                            </RNText>
+                        )}
                     </Pressable>
                 );
             })}
