@@ -39958,6 +39958,16 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
+        diet_classification_code:
+          type:
+            - string
+            - 'null'
+          description: |
+            The chosen diet's vocabulary code (`vegetarian`, `halal_friendly`),
+            beside its identifier. The code is what a client sends back: the
+            public diet list publishes codes and no identifiers.
+          examples:
+            - vegetarian
         religious_requirement:
           type:
             - string
@@ -40055,6 +40065,20 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
+          description: |
+            The diet by identifier. Prefer `diet_classification_code`; sending
+            both is `validation.failed`.
+        diet_classification_code:
+          type:
+            - string
+            - 'null'
+          maxLength: 60
+          description: |
+            The diet by its code, as `GET /reference/diet-classifications` lists
+            it. Must name an active classification, else `validation.failed` on
+            this field. `null` clears the diet.
+          examples:
+            - vegetarian
         religious_requirement:
           type:
             - string

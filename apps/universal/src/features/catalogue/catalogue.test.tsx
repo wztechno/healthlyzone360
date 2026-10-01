@@ -22,7 +22,8 @@ import type {
     SubscriptionPlanId,
 } from '@healthy360/domain-types';
 import type { NutritionFacts } from '@healthy360/nutrition';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
@@ -39,6 +40,7 @@ import {
 import { MACRO_DISTRIBUTION_RANGES, macroDistributionLevel } from './macro-rings.tsx';
 import { toTargetRequest, DEFAULT_CALCULATOR_INPUTS } from './calculator-fields.tsx';
 import { toMealFilter } from './meal-filters.tsx';
+import { refineMeals } from './meal-readings.ts';
 import { NutritionFactsPanel } from './nutrition-facts-panel.tsx';
 import {
     cheapestVariant,
@@ -47,6 +49,7 @@ import {
     sortPlans,
     toPlanFilter,
 } from './plan-catalogue.ts';
+import { shelvesFrom } from './use-meal-shelves.ts';
 import { MealDetailScreen } from './screens/meal-detail-screen.tsx';
 import { MealsScreen } from './screens/meals-screen.tsx';
 import { PlanComparisonScreen } from './screens/plan-comparison-screen.tsx';
@@ -231,6 +234,8 @@ interface MealSeed {
     readonly protein?: number | undefined;
     readonly allergens?: readonly AllergenCode[] | undefined;
     readonly channels?: KitchenSalesChannels | undefined;
+    /** The shelf the kitchen filed it under — the menu's CATEGORY rows. */
+    readonly category?: { readonly code: string; readonly name: string } | undefined;
 }
 
 function testMeal(seed: MealSeed): MarketplaceMeal {
@@ -240,7 +245,7 @@ function testMeal(seed: MealSeed): MarketplaceMeal {
         kitchenId: kitchen.id,
         kitchenName: kitchen.name,
         itemType: 'meal',
-        publishedCategory: null,
+        publishedCategory: seed.category ?? null,
         name: seed.name,
         slug: seed.slug,
         description: `${seed.name}, made to order.`,
@@ -275,6 +280,10 @@ function testMeal(seed: MealSeed): MarketplaceMeal {
  */
 const CATALOGUE_SIZE = 25;
 const HIGH_PROTEIN_FROM = 21;
+/** Fifteen bowls and ten salads: two shelves, so the CATEGORY list has something to count. */
+const BOWLS = { code: 'bowls', name: 'Bowls' } as const;
+const SALADS = { code: 'salads', name: 'Salads' } as const;
+const BOWL_COUNT = 15;
 const HIGH_PROTEIN_GRAMS = 50;
 const MILK_MEAL_SLUG = 'daily-pot-halloumi-plate';
 const MILK: readonly AllergenCode[] = ['milk' as AllergenCode];
@@ -290,6 +299,7 @@ const CATALOGUE_MEALS: readonly MarketplaceMeal[] = Array.from(
             slug: ordinal === 1 ? MILK_MEAL_SLUG : `catalogue-meal-${String(ordinal)}`,
             protein: ordinal >= HIGH_PROTEIN_FROM ? HIGH_PROTEIN_GRAMS : 30,
             allergens: ordinal === 1 ? MILK : [],
+            category: ordinal <= BOWL_COUNT ? BOWLS : SALADS,
         });
     },
 );
@@ -346,6 +356,19 @@ async function listMeals(filter?: MealFilter) {
         ) {
             return false;
         }
+        if (
+            filter?.mealTypes !== undefined &&
+            filter.mealTypes.length > 0 &&
+            !meal.mealTypes.some((mealType) => filter.mealTypes?.includes(mealType))
+        ) {
+            return false;
+        }
+        if (
+            filter?.categorySlug !== undefined &&
+            meal.publishedCategory?.code !== filter.categorySlug
+        ) {
+            return false;
+        }
         if (meal.allergens.some((code) => excluded.includes(code))) return false;
         if (!inRange(proteinOf(meal), filter?.protein)) return false;
         return true;
@@ -371,6 +394,7 @@ const DETAIL_MEAL = testMeal({
     slug: 'verdant-harvest-bowl',
     allergens: SESAME,
     channels: salesChannels('b2c', 'marketplace', 'delivery', 'subscription', 'b2b'),
+    category: BOWLS,
 });
 
 /**
@@ -718,13 +742,82 @@ describe('calculator request construction', () => {
 
 /* ── /meals ──────────────────────────────────────────────────────────────────────────────────── */
 
-/** Meal cards, counted by their price line so a card's four child test ids are not counted too. */
+/** Meal cards, counted by their price line so a card's other child test ids are not counted too. */
 function mealCardCount(): number {
     return screen.queryAllByTestId(/^meal-card-.*-price$/).length;
 }
 
 /** The screen's own page size, which is what the first page of an unfiltered catalogue holds. */
 const PAGE_SIZE = 20;
+
+const NO_RANGES = {
+    energy: { min: null, max: null },
+    protein: { min: null, max: null },
+    carbohydrate: { min: null, max: null },
+    fat: { min: null, max: null },
+    price: { min: null, max: null },
+    preparationMinutes: { min: null, max: null },
+} as const;
+
+describe('menu readings', () => {
+    it('applies the ranges the server cannot, and leaves out a meal that never published the figure', () => {
+        expect(refineMeals(CATALOGUE_MEALS, NO_RANGES, 'relevance')).toHaveLength(CATALOGUE_SIZE);
+        // Every authored meal is 520 kcal, so "under 500" keeps none and "under 600" keeps all.
+        expect(
+            refineMeals(
+                CATALOGUE_MEALS,
+                { ...NO_RANGES, energy: { min: null, max: 500 } },
+                'relevance',
+            ),
+        ).toHaveLength(0);
+        expect(
+            refineMeals(
+                CATALOGUE_MEALS,
+                { ...NO_RANGES, energy: { min: null, max: 600 } },
+                'relevance',
+            ),
+        ).toHaveLength(CATALOGUE_SIZE);
+        expect(
+            refineMeals(
+                CATALOGUE_MEALS,
+                { ...NO_RANGES, protein: { min: 45, max: null } },
+                'relevance',
+            ),
+        ).toHaveLength(HIGH_PROTEIN_COUNT);
+
+        const unpublished: MarketplaceMeal = {
+            ...CATALOGUE_MEALS[0]!,
+            nutrition: { ...CATALOGUE_MEALS[0]!.nutrition, amounts: [] },
+        };
+        expect(
+            refineMeals(
+                [unpublished],
+                { ...NO_RANGES, energy: { min: null, max: 900 } },
+                'relevance',
+            ),
+        ).toHaveLength(0);
+    });
+
+    it('orders by the real fields, highest protein first', () => {
+        const ordered = refineMeals(CATALOGUE_MEALS, NO_RANGES, 'protein');
+        expect(proteinOf(ordered[0]!)).toBe(HIGH_PROTEIN_GRAMS);
+        // Stable: the relevance order survives inside a tie.
+        expect(ordered[HIGH_PROTEIN_COUNT]?.slug).toBe(MILK_MEAL_SLUG);
+    });
+
+    it('counts the shelves only when the whole menu was read', () => {
+        expect(shelvesFrom({ meals: CATALOGUE_MEALS, complete: true })).toEqual({
+            shelves: [
+                { code: 'bowls', name: 'Bowls', count: BOWL_COUNT },
+                { code: 'salads', name: 'Salads', count: CATALOGUE_SIZE - BOWL_COUNT },
+            ],
+            total: CATALOGUE_SIZE,
+        });
+        const partial = shelvesFrom({ meals: CATALOGUE_MEALS, complete: false });
+        expect(partial.total).toBeNull();
+        expect(partial.shelves.every((shelf) => shelf.count === null)).toBe(true);
+    });
+});
 
 describe('MealsScreen', () => {
     it('shows the loading skeleton, then the grid and the result count', async () => {
@@ -735,31 +828,179 @@ describe('MealsScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('meals-grid')).toBeTruthy();
         });
-        expect(screen.getByTestId('meals-count')).toBeTruthy();
         expect(mealCardCount()).toBe(PAGE_SIZE);
+        // More pages to come, so the count is the whole menu the shelf walk read.
+        await waitFor(() => {
+            expect(screen.getByTestId('meals-count')).toHaveTextContent(
+                new RegExp(`${String(CATALOGUE_SIZE)} meals available`),
+            );
+        });
     });
 
-    it('offers every range the specification asks for, behind the filter disclosure', async () => {
+    it("draws the design's card: tag, name, figures, price and Add", async () => {
         await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
 
         await waitFor(() => screen.getByTestId('meals-grid'));
-        // Two disclosures, and both are shut on a clean visit by design. The outer one is the
-        // narrow-viewport filter panel — the grid leads, the controls are one press away. The inner
-        // one is the numbers' own section: the rail is a contents page of five collapsed groups,
-        // and only the group you ask for opens.
+        const card = screen.getByTestId(`meal-card-${MILK_MEAL_SLUG}`);
+        // An omnivore dish wears its shelf, not "Omnivore".
+        expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-tag`)).toHaveTextContent(
+            'Bowls',
+        );
+        expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-figures`)).toHaveTextContent(
+            /520 cal.*30g P.*★ 4\.4/,
+        );
+        expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-open`)).toBeTruthy();
+        expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-add`)).toBeTruthy();
+    });
+
+    it('offers every range the specification asks for: calories on the panel, five more in the drawer', async () => {
+        await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
+
+        await waitFor(() => screen.getByTestId('meals-grid'));
+        // The narrow-viewport panel is shut on a clean visit by design: the grid leads.
+        expect(screen.queryByTestId('meals-ranges-energy')).toBeNull();
         await fireEvent.press(screen.getByTestId('meals-filter-toggle'));
-        await fireEvent.press(screen.getByTestId('meals-filter-group-ranges'));
         await waitFor(() => screen.getByTestId('meals-ranges-energy'));
-        for (const key of [
-            'energy',
-            'protein',
-            'carbohydrate',
-            'fat',
-            'price',
-            'preparationMinutes',
-        ]) {
+        // The rail is the design's four groups and nothing else.
+        expect(screen.queryByTestId('meals-ranges-protein')).toBeNull();
+        expect(screen.queryByTestId('meals-filter-group-kitchen')).toBeNull();
+
+        await fireEvent.press(screen.getByTestId('meals-more-filters'));
+        await waitFor(() => screen.getByTestId('meals-ranges-protein'));
+        for (const key of ['protein', 'carbohydrate', 'fat', 'price', 'preparationMinutes']) {
             expect(screen.getByTestId(`meals-ranges-${key}`)).toBeTruthy();
         }
+        expect(screen.getByTestId('meals-filter-group-kitchen')).toBeTruthy();
+        expect(screen.getByTestId('meals-filter-exclude-sesame')).toBeTruthy();
+    });
+
+    it('writes an allergen exclusion from the drawer, and counts it on the control that opens it', async () => {
+        routerState.params = { exclude: 'milk' };
+        await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
+
+        await waitFor(() => screen.getByTestId('meals-grid'));
+        // A filter the rail does not draw is never silently in force.
+        expect(screen.getByTestId('meals-more-filters')).toHaveTextContent('More filters (1)');
+
+        await fireEvent.press(screen.getByTestId('meals-more-filters'));
+        await waitFor(() => screen.getByTestId('meals-filter-exclude-sesame'));
+        expect(
+            screen.getByTestId('meals-filter-exclude-milk').props.accessibilityState,
+        ).toMatchObject({ selected: true });
+        await fireEvent.press(screen.getByTestId('meals-filter-exclude-sesame'));
+        expect(routerMock.__setParams).toHaveBeenLastCalledWith({ exclude: 'milk,sesame' });
+    });
+
+    it("draws the design's rail groups: counted shelves, diet pills and the calorie slider", async () => {
+        await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
+
+        await waitFor(() => screen.getByTestId('meals-grid'));
+        await fireEvent.press(screen.getByTestId('meals-filter-toggle'));
+
+        // The shelves are the kitchen's own, counted over the whole menu.
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('meals-filter-category-all-count', {
+                    includeHiddenElements: true,
+                }),
+            ).toHaveTextContent(String(CATALOGUE_SIZE));
+        });
+        expect(
+            screen.getByTestId('meals-filter-category-bowls-count', {
+                includeHiddenElements: true,
+            }),
+        ).toHaveTextContent(String(BOWL_COUNT));
+        expect(
+            screen.getByTestId('meals-filter-category-salads-count', {
+                includeHiddenElements: true,
+            }),
+        ).toHaveTextContent(String(CATALOGUE_SIZE - BOWL_COUNT));
+        // The figure is part of the row's name, not a stray number read out on its own.
+        expect(
+            screen.getByTestId('meals-filter-category-bowls').props.accessibilityLabel,
+        ).toContain(String(BOWL_COUNT));
+        // "All" is lit while no shelf is chosen.
+        expect(
+            screen.getByTestId('meals-filter-category-all').props.accessibilityState,
+        ).toMatchObject({ selected: true });
+
+        // The design's four dietary pills, and only those on the rail.
+        for (const diet of ['high_protein', 'vegetarian', 'vegan', 'gluten_free']) {
+            expect(screen.getByTestId(`meals-filter-diet-${diet}`)).toBeTruthy();
+        }
+        expect(screen.queryByTestId('meals-filter-diet-low_carb')).toBeNull();
+        expect(screen.getByTestId('meals-ranges-energy')).toBeTruthy();
+        expect(screen.getByTestId('meals-filter-clear-all')).toBeTruthy();
+    });
+
+    it('picks one shelf at a time, filters on it server-side, and "All" lifts it', async () => {
+        await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
+
+        await waitFor(() => screen.getByTestId('meals-grid'));
+        await fireEvent.press(screen.getByTestId('meals-filter-toggle'));
+        await waitFor(() => screen.getByTestId('meals-filter-category-bowls'));
+
+        await fireEvent.press(screen.getByTestId('meals-filter-category-bowls'));
+        expect(routerMock.__setParams).toHaveBeenLastCalledWith({ category: 'bowls' });
+
+        await fireEvent.press(screen.getByTestId('meals-filter-category-all'));
+        expect(routerMock.__setParams).toHaveBeenLastCalledWith({ category: '' });
+    });
+
+    it('opens a filtered arrival with the controls showing, and lights what is applied', async () => {
+        routerState.params = { category: 'salads', diet: 'vegan' };
+        const { repositories } = await renderStubScreen(<MealsScreen />, {
+            repositories: CATALOGUE_REPOSITORIES,
+        });
+
+        // The disclosure opened itself, because the controls are what a filtered link came for.
+        await waitFor(() => screen.getByTestId('meals-filter-category-salads'));
+        expect(
+            screen.getByTestId('meals-filter-category-salads').props.accessibilityState,
+        ).toMatchObject({ selected: true });
+        expect(
+            screen.getByTestId('meals-filter-category-all').props.accessibilityState,
+        ).toMatchObject({ selected: false });
+        expect(
+            screen.getByTestId('meals-filter-diet-vegan').props.accessibilityState,
+        ).toMatchObject({ selected: true });
+        expect(repositories.marketplace.listMeals).toHaveBeenCalledWith(
+            expect.objectContaining({ categorySlug: 'salads', limit: PAGE_SIZE }),
+        );
+
+        await fireEvent.press(screen.getByTestId('meals-filter-clear-all'));
+        expect(routerMock.__setParams).toHaveBeenCalledWith(
+            expect.objectContaining({ category: '', diet: '' }),
+        );
+    });
+
+    describe('above lg', () => {
+        const narrowWindow = Dimensions.get('window');
+        const narrowScreen = Dimensions.get('screen');
+        beforeAll(() => {
+            Dimensions.set({
+                window: { ...narrowWindow, width: 1440, height: 900 },
+                screen: { ...narrowScreen, width: 1440, height: 900 },
+            });
+        });
+        afterAll(() => {
+            Dimensions.set({ window: narrowWindow, screen: narrowScreen });
+        });
+
+        it('is a rail beside the grid, with nothing to disclose', async () => {
+            await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
+
+            await waitFor(() => screen.getByTestId('meals-grid'));
+            const rail = screen.getByTestId('meals-filter-rail');
+            // The controls are drawn outright, once, and there is no toggle to open them with.
+            expect(within(rail).getByTestId('meals-filter-category')).toBeTruthy();
+            expect(within(rail).getByTestId('meals-filter-dietary')).toBeTruthy();
+            expect(within(rail).getByTestId('meals-ranges-energy')).toBeTruthy();
+            expect(within(rail).getByTestId('meals-filter-clear-all')).toBeTruthy();
+            expect(within(rail).queryByTestId('meals-filter-group-kitchen')).toBeNull();
+            expect(screen.queryByTestId('meals-filter-toggle')).toBeNull();
+            expect(screen.getAllByTestId('meals-filter-diet-vegan')).toHaveLength(1);
+        });
     });
 
     it('narrows the catalogue from a URL range parameter', async () => {
@@ -799,7 +1040,7 @@ describe('MealsScreen', () => {
         expect(screen.getByTestId('meals-empty-clear')).toBeTruthy();
     });
 
-    it('offers another page while the cursor has one', async () => {
+    it('offers another page while the cursor has one, then simply ends', async () => {
         await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
 
         await waitFor(() => screen.getByTestId('meals-grid'));
@@ -807,7 +1048,7 @@ describe('MealsScreen', () => {
         expect(firstPage).toBe(PAGE_SIZE);
 
         // Page to the end rather than assuming how many pages there are: what is worth asserting
-        // is that every press adds meals and that the cursor eventually runs out and says so.
+        // is that every press adds meals and that the cursor eventually runs out.
         let loaded = firstPage;
         while (screen.queryByTestId('meals-load-more') !== null) {
             const previous = loaded;
@@ -819,7 +1060,10 @@ describe('MealsScreen', () => {
         }
 
         expect(loaded).toBe(CATALOGUE_SIZE);
-        expect(screen.getByTestId('meals-all-loaded')).toBeTruthy();
+        // Every page in, so the count line is the number on screen.
+        expect(screen.getByTestId('meals-count')).toHaveTextContent(
+            new RegExp(`${String(CATALOGUE_SIZE)} meals available`),
+        );
     });
 });
 
@@ -875,7 +1119,7 @@ function CartProbe() {
 }
 
 describe('MealDetailScreen', () => {
-    it('renders the record: facts, provenance, macros, allergens, availability and price', async () => {
+    it('keeps the obligations below the design: the full facts, their provenance and the disclaimer', async () => {
         await renderStubScreen(<MealDetailScreen mealId={String(DETAIL_MEAL.id)} />, {
             repositories: CATALOGUE_REPOSITORIES,
         });
@@ -884,21 +1128,75 @@ describe('MealDetailScreen', () => {
             expect(screen.getByTestId('meal-detail-name')).toBeTruthy();
         });
 
-        expect(screen.getByTestId('meal-detail-facts')).toBeTruthy();
-        expect(screen.getByTestId('meal-detail-facts-version')).toBeTruthy();
-        expect(screen.getByTestId('meal-detail-facts-calculated-at')).toBeTruthy();
-        expect(screen.getByTestId('meal-detail-facts-synthetic')).toBeTruthy();
-        expect(screen.getByTestId('meal-detail-macro-rings-protein')).toBeTruthy();
+        const record = screen.getByTestId('meal-detail-record');
+        expect(within(record).getByTestId('meal-detail-facts')).toBeTruthy();
+        expect(within(record).getByTestId('meal-detail-facts-version')).toBeTruthy();
+        expect(within(record).getByTestId('meal-detail-facts-calculated-at')).toBeTruthy();
+        expect(within(record).getByTestId('meal-detail-facts-synthetic')).toBeTruthy();
         // The per-serving half of the contrast the weighed listing below draws: this meal states a
-        // portion, so it gets a serving block and a basis control with both views on it.
-        expect(screen.getByTestId('meal-detail-serving')).toBeTruthy();
-        expect(screen.getByTestId('meal-detail-facts-basis-per-serving')).toBeTruthy();
-        expect(screen.getByTestId('meal-detail-allergen-list')).toBeTruthy();
-        expect(screen.getByTestId('meal-detail-availability')).toBeTruthy();
-        expect(screen.getByTestId('meal-detail-price')).toBeTruthy();
-        expect(screen.getByTestId('meal-detail-b2c')).toBeTruthy();
-        expect(screen.getByTestId('meal-detail-subscription')).toBeTruthy();
-        expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
+        // portion, so it gets a serving line and a basis control with both views on it.
+        expect(within(record).getByTestId('meal-detail-serving')).toBeTruthy();
+        expect(within(record).getByTestId('meal-detail-facts-basis-per-serving')).toBeTruthy();
+        expect(within(record).getByTestId('medical-disclaimer')).toBeTruthy();
+
+        // What the design does not draw and no obligation keeps is gone.
+        expect(screen.queryByTestId('meal-detail-macro-rings-protein')).toBeNull();
+        expect(screen.queryByTestId('meal-detail-availability')).toBeNull();
+        expect(screen.queryByTestId('meal-detail-b2c')).toBeNull();
+    });
+
+    it("draws the design's information column: tag, rating, name, strip, ingredients, allergens and options", async () => {
+        await renderStubScreen(<MealDetailScreen mealId={String(DETAIL_MEAL.id)} />, {
+            repositories: CATALOGUE_REPOSITORIES,
+        });
+
+        await waitFor(() => screen.getByTestId('meal-detail-name'));
+
+        // An omnivore dish wears its shelf, and the rating carries its review count.
+        expect(screen.getByTestId('meal-detail-lead-diet')).toHaveTextContent('Bowls');
+        expect(screen.getByTestId('meal-detail-rating')).toHaveTextContent('★ 4.4 (11 reviews)');
+        // All four cells, figure over name.
+        for (const nutrient of ['energy', 'protein', 'carbohydrate', 'fat']) {
+            expect(screen.getByTestId(`meal-detail-strip-${nutrient}`)).toBeTruthy();
+        }
+        expect(screen.getByTestId('meal-detail-strip-energy')).toHaveTextContent(/520/);
+        expect(screen.getByTestId('meal-detail-strip-protein')).toHaveTextContent(/32g/);
+        expect(screen.getByTestId('meal-detail-ingredients')).toBeTruthy();
+        // The declared allergen is in the warning bar beside the photograph, not below the fold.
+        expect(screen.getByTestId('meal-detail-allergen-list')).toHaveTextContent('Sesame.');
+        // No modifiers exist in the API: the design's row states that rather than inventing four.
+        expect(screen.getByTestId('meal-detail-options-none')).toBeTruthy();
+        expect(screen.getByTestId('meal-detail-instructions-input')).toBeTruthy();
+        expect(screen.getByTestId('meal-detail-quantity')).toBeTruthy();
+        expect(screen.getByTestId('meal-detail-add-to-basket')).toHaveTextContent(/Add to cart/);
+    });
+
+    it('fills the three frames with real images only, the third opening the kitchen', async () => {
+        await renderStubScreen(<MealDetailScreen mealId={String(DETAIL_MEAL.id)} />, {
+            repositories: CATALOGUE_REPOSITORIES,
+        });
+
+        await waitFor(() => screen.getByTestId('meal-detail-name'));
+
+        // One main photograph, and three frames under it.
+        expect(screen.getAllByTestId('meal-detail-image')).toHaveLength(1);
+        expect(screen.getByTestId('meal-detail-thumb-meal')).toBeTruthy();
+        expect(screen.getByTestId('meal-detail-thumb-empty')).toBeTruthy();
+        await fireEvent.press(screen.getByTestId('meal-detail-thumb-kitchen'));
+        expect(routerMock.__push).toHaveBeenCalledWith(`/kitchens/${String(VERDANT.id)}`);
+    });
+
+    it("lists the kitchen's other meals under the column, never this one", async () => {
+        await renderStubScreen(<MealDetailScreen mealId={String(DETAIL_MEAL.id)} />, {
+            repositories: CATALOGUE_REPOSITORIES,
+        });
+
+        await waitFor(() => screen.getByTestId('meal-detail-related-grid'));
+        expect(screen.queryByTestId(`meal-card-${DETAIL_MEAL.slug}`)).toBeNull();
+        expect(screen.getAllByTestId(/^meal-card-.*-price$/)).toHaveLength(4);
+
+        await fireEvent.press(screen.getByTestId(`meal-card-${MILK_MEAL_SLUG}`));
+        expect(routerMock.__push).toHaveBeenCalledWith(`/meals/${String(CATALOGUE_MEALS[0]!.id)}`);
     });
 
     it('shows the per-100 g basis when the serving mass is known', async () => {
@@ -929,6 +1227,8 @@ describe('MealDetailScreen', () => {
         // Nothing where "One serving is …" would be: the label is empty and the mass unknown, and
         // printing a sentence around that is how a phrase the kitchen never wrote reaches a page.
         expect(screen.queryByTestId('meal-detail-serving')).toBeNull();
+        // The strip says which hundred grams its four figures describe.
+        expect(screen.getByTestId('meal-detail-strip-basis')).toHaveTextContent(/Per 100 g/);
 
         // No basis control at all, so there is no "Per serving" tab to press — the facts are
         // already on the comparison basis and there is no second view to offer.
@@ -936,8 +1236,6 @@ describe('MealDetailScreen', () => {
         expect(screen.queryByTestId('meal-detail-facts-basis-per-serving')).toBeNull();
         expect(screen.getByTestId('meal-detail-facts-sold-by-weight')).toBeTruthy();
 
-        // And the table says which hundred grams these are, rather than leaving the reader to
-        // assume the amounts describe a portion.
         expect(screen.getByTestId('meal-detail-facts-table-caption')).toHaveTextContent(
             /Per 100 g/,
         );
@@ -950,10 +1248,10 @@ describe('MealDetailScreen', () => {
 
         await waitFor(() => screen.getByTestId('meal-detail-name'));
 
-        // The authored meal *is* b2b-enabled, so the branch really runs: the page may say that
-        // business supply exists, and it may not put a figure beside it.
-        expect(screen.getByTestId('meal-detail-b2b')).toBeTruthy();
-        expect(screen.getByTestId('meal-detail-b2b-no-price')).toBeTruthy();
+        // The authored meal *is* b2b-enabled, so the branch would run if there were one: the one
+        // figure on the page is the consumer price, on the button that commits it.
+        expect(screen.getByTestId('meal-detail-price')).toHaveTextContent(/45/);
+        expect(screen.queryByText(/business/i)).toBeNull();
     });
 
     // G1 changed this deliberately: an anonymous visitor at the moment of highest intent is offered
@@ -1020,21 +1318,149 @@ describe('MealDetailScreen', () => {
         await waitFor(() => {
             expect(itemCount).toBe(1);
         });
+        // No note was typed, so nothing claims one was dropped.
+        expect(screen.queryByTestId('prototype-notice')).toBeNull();
+    });
+
+    it('adds the meal and says plainly that a typed note cannot reach the kitchen yet', async () => {
+        const cartId = uuid(9, 5) as CartId;
+        const cart = (): Cart => ({
+            id: cartId,
+            items: [],
+            subtotal: { amount: 0, currency: 'AED' },
+            itemCount: 1,
+            updatedAt: '2026-08-11T09:00:00.000Z',
+        });
+
+        const { repositories } = await renderStubScreen(
+            <MealDetailScreen mealId={String(DETAIL_MEAL.id)} />,
+            {
+                session: CONSUMER_SESSION,
+                repositories: {
+                    ...CATALOGUE_REPOSITORIES,
+                    commerce: {
+                        getCart: async () => cart(),
+                        addCartItem: async () => cart(),
+                    },
+                },
+            },
+        );
+
+        await waitFor(() => screen.getByTestId('meal-detail-instructions-input'));
+        await fireEvent.changeText(
+            screen.getByTestId('meal-detail-instructions-input'),
+            'No coriander, please',
+        );
+        await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
+
+        // The meal still goes in — the request simply has no field for the note.
+        await waitFor(() => {
+            expect(repositories.commerce.addCartItem).toHaveBeenCalledWith(cartId, {
+                mealId: DETAIL_MEAL.id,
+                quantity: 1,
+            });
+        });
+        await waitFor(() => screen.getByTestId('prototype-notice'));
     });
 
     /**
      * Two adds, one `getCart`.
      *
      * `useAddCartItemMutation` used to open the basket before every add — `POST /carts` plus a
-     * lookup for every line already in it — to learn an identifier the cache already held. On a
-     * four-line basket that was five requests per press, in series, and it was most of why adding
-     * took seconds. It now reads the cart the shell is already holding and only opens one when
-     * there is genuinely nothing to read.
-     *
-     * `CartProbe` stands in for that shell: it is the observer that keeps the cart query alive,
-     * which is the arrangement every real marketplace screen renders inside. Its own mount is the
-     * one `getCart` this test expects; neither press adds another.
+     * lookup for every line already in it — to learn an identifier the cache already held. It now
+     * reads the cart the shell is already holding and only opens one when there is genuinely
+     * nothing to read.
      */
+    it('adds the chosen quantity in one request, and the button states the total', async () => {
+        let itemCount = 0;
+        const cartId = uuid(9, 3) as CartId;
+        const cart = (): Cart => ({
+            id: cartId,
+            items: [],
+            subtotal: { amount: 0, currency: 'AED' },
+            itemCount,
+            updatedAt: '2026-08-11T09:00:00.000Z',
+        });
+
+        const { repositories } = await renderStubScreen(
+            <MealDetailScreen mealId={String(DETAIL_MEAL.id)} />,
+            {
+                session: CONSUMER_SESSION,
+                repositories: {
+                    ...CATALOGUE_REPOSITORIES,
+                    commerce: {
+                        getCart: async () => cart(),
+                        addCartItem: async (_id: CartId, request: AddCartItemRequest) => {
+                            itemCount += request.quantity;
+                            return cart();
+                        },
+                    },
+                },
+            },
+        );
+
+        await waitFor(() => screen.getByTestId('meal-detail-add-to-basket'));
+        // One is the floor: there is no "add nothing".
+        expect(screen.getByTestId('meal-detail-quantity-decrement')).toBeDisabled();
+
+        await fireEvent.press(screen.getByTestId('meal-detail-quantity-increment'));
+        await fireEvent.press(screen.getByTestId('meal-detail-quantity-increment'));
+        expect(screen.getByTestId('meal-detail-quantity-value')).toHaveTextContent('3');
+        // 3 × AED 45.00, stated on the button that commits it.
+        expect(screen.getByTestId('meal-detail-add-to-basket')).toHaveTextContent(/135/);
+
+        await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
+        await waitFor(() => {
+            expect(repositories.commerce.addCartItem).toHaveBeenCalledWith(cartId, {
+                mealId: DETAIL_MEAL.id,
+                quantity: 3,
+            });
+        });
+        await waitFor(() => {
+            expect(itemCount).toBe(3);
+        });
+    });
+
+    it('carries the chosen quantity into a guest checkout', async () => {
+        const cartId = uuid(9, 4) as CartId;
+        const cart = (): Cart => ({
+            id: cartId,
+            items: [],
+            subtotal: { amount: 0, currency: 'AED' },
+            itemCount: 0,
+            updatedAt: '2026-08-11T09:00:00.000Z',
+        });
+
+        const { repositories } = await renderStubScreen(
+            <MealDetailScreen mealId={String(DETAIL_MEAL.id)} />,
+            {
+                repositories: {
+                    ...CATALOGUE_REPOSITORIES,
+                    commerce: {
+                        getCart: async () => cart(),
+                        addCartItem: async () => cart(),
+                    },
+                },
+            },
+        );
+
+        await waitFor(() => screen.getByTestId('meal-detail-quantity-increment'));
+        await fireEvent.press(screen.getByTestId('meal-detail-quantity-increment'));
+        await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
+        await waitFor(() => screen.getByTestId('meal-detail-guest-continue'));
+        await fireEvent.press(screen.getByTestId('meal-detail-guest-continue'));
+
+        await waitFor(() => {
+            expect(repositories.commerce.addCartItem).toHaveBeenCalledWith(cartId, {
+                mealId: DETAIL_MEAL.id,
+                quantity: 2,
+            });
+        });
+        await waitFor(() => {
+            expect(routerMock.__push).toHaveBeenCalledWith('/guest-checkout');
+        });
+    });
+
     it('opens the basket once and then reuses the identifier it was given', async () => {
         let itemCount = 0;
         const cartId = uuid(9, 2) as CartId;
@@ -1125,16 +1551,37 @@ describe('PlansScreen', () => {
         expect(screen.getAllByTestId(/^plan-card-.*-price$/)).toHaveLength(PLANS.length);
     });
 
-    it('narrows to a category from the URL and back again', async () => {
-        routerState.params = { category: 'high-protein' };
+    it('narrows to a kitchen from the URL, the way the kitchen finder links in', async () => {
+        routerState.params = { kitchen: String(SAFFRON.id) };
         await renderStubScreen(<PlansScreen />, { repositories: CATALOGUE_REPOSITORIES });
 
         await waitFor(() => screen.getByTestId('plans-grid'));
-        expect(screen.getByTestId('plan-card-strength-build')).toBeTruthy();
-        expect(screen.queryByTestId('plan-card-plant-forward')).toBeNull();
+        expect(screen.getByTestId('plan-card-plant-forward')).toBeTruthy();
+        expect(screen.queryByTestId('plan-card-strength-build')).toBeNull();
+        // One chip per kitchen that publishes a plan, never one twice, plus "All kitchens".
+        await waitFor(() => {
+            expect(screen.getByTestId('plans-kitchens')).toBeTruthy();
+        });
+        expect(screen.getAllByTestId(/^plans-kitchen-/)).toHaveLength(PLAN_KITCHEN_COUNT + 1);
+        expect(
+            screen.getByTestId(`plans-kitchen-${String(SAFFRON.id)}`).props.accessibilityState
+                .selected,
+        ).toBe(true);
+        expect(screen.getByTestId('plans-kitchen-all').props.accessibilityState.selected).toBe(
+            false,
+        );
+    });
+
+    it('keeps the comparison out of the way until a plan is chosen for it', async () => {
+        await renderStubScreen(<PlansScreen />, { repositories: CATALOGUE_REPOSITORIES });
+
+        await waitFor(() => screen.getByTestId('plans-grid'));
+        expect(screen.queryByTestId('plans-compare-tray')).toBeNull();
+        expect(screen.getByTestId('plan-card-strength-build-compare')).toBeTruthy();
     });
 
     it('refuses to open a comparison of fewer than two plans', async () => {
+        routerState.params = { compare: PLAN_IDS[0]! };
         await renderStubScreen(<PlansScreen />, { repositories: CATALOGUE_REPOSITORIES });
 
         await waitFor(() => screen.getByTestId('plans-grid'));

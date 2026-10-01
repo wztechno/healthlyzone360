@@ -2,7 +2,9 @@ import { OrderId, isCurrencyCode } from '@healthy360/domain-types';
 import type { Money } from '@healthy360/domain-types';
 
 import type {
+    CommerceRepository,
     DeliveryAddress,
+    MyOrderFilter,
     PlaceOrderRequest,
     PlacedOrder,
     PlacedOrderLine,
@@ -10,10 +12,14 @@ import type {
 } from '../contracts/commerce.ts';
 import { ApiError, apiFailure, validationFailure } from '../contracts/failure.ts';
 import type { OrderState } from '../contracts/commerce.ts';
+import type { CursorPage } from '../contracts/pagination.ts';
 import type {
     CustomerOrder as WireOrder,
     CustomerOrderDelivery as WireDelivery,
     CustomerOrderLine as WireOrderLine,
+    ListMyOrdersResponse,
+    PaginationMeta,
+    ShowMyOrderResponse,
 } from '../generated/types.ts';
 import { generateRequestId } from './config.ts';
 import type { Transport } from './transport.ts';
@@ -95,7 +101,9 @@ export function mapOrderAddress(wire: WireDelivery): DeliveryAddress {
         // The delivery projection names the area and the city but not the market. Guessing one from
         // the area would be inventing a fact about where somebody lives.
         countryCode: '',
-        instructions: null,
+        // The driver's directions as the order carried them at placement — the receipt's fact, not
+        // whatever the address book says today.
+        instructions: wire.directions,
     };
 }
 
@@ -183,5 +191,53 @@ export function createApiOrderPlacement(
         });
 
         return mapPlacedOrder(payload.order);
+    };
+}
+
+/** `?cursor=…&limit=…`, or nothing — the endpoint takes no other parameter. */
+function myOrdersQuery(filter?: MyOrderFilter): string {
+    const search = new URLSearchParams();
+    if (filter?.cursor !== undefined) search.set('cursor', filter.cursor);
+    if (filter?.limit !== undefined) search.set('limit', String(filter.limit));
+
+    const rendered = search.toString();
+    return rendered === '' ? '' : `?${rendered}`;
+}
+
+/**
+ * The customer's own orders — `GET /me/orders` and `GET /me/orders/{order}`.
+ *
+ * Both read the projection `POST /orders` answers, so both go through {@link mapPlacedOrder}: a
+ * history row, an order page and the confirmation that created the order are one mapping, and
+ * cannot drift apart. The list is a real cursor walk — `next_cursor` and `has_more` straight from
+ * the envelope's `meta` — and carries no `totalCount`, because the endpoint does not count.
+ */
+export function createApiMyOrderReads(
+    transport: Transport,
+): Pick<CommerceRepository, 'listMyOrders' | 'getMyOrder'> {
+    return {
+        async listMyOrders(filter?: MyOrderFilter): Promise<CursorPage<PlacedOrder>> {
+            const envelope = await transport.requestEnvelope<ListMyOrdersResponse['data']>({
+                method: 'GET',
+                path: `/me/orders${myOrdersQuery(filter)}`,
+            });
+
+            const meta = envelope.meta as PaginationMeta | null;
+            return {
+                items: envelope.data.map(mapPlacedOrder),
+                nextCursor: meta?.next_cursor ?? null,
+                hasMore: meta?.has_more ?? false,
+                totalCount: null,
+            };
+        },
+
+        async getMyOrder(orderId): Promise<PlacedOrder> {
+            // `{ data: { order } }`, the same second-level wrapper the placement peels.
+            const payload = await transport.request<ShowMyOrderResponse['data']>({
+                method: 'GET',
+                path: `/me/orders/${encodeURIComponent(String(orderId))}`,
+            });
+            return mapPlacedOrder(payload.order);
+        },
     };
 }

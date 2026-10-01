@@ -1,27 +1,31 @@
-import { Badge, Callout, Card, Heading, Inline, Stack, Text } from '@healthy360/design-system';
-import { useFormatter } from '@healthy360/i18n';
+import { Stack, Text } from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import {
     useGuestConversionPrefillQuery,
     useGuestOrderQuery,
     useGuestToken,
 } from '../../../data/guest-hooks.ts';
-import { formatAddress } from '../../commerce/address.ts';
-import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
+import { OrderTracking } from '../../orders/order-tracking.tsx';
 import { ConversionPrompt } from '../conversion-prompt.tsx';
 
 /**
- * `/orders/{order}` — the guest order confirmation.
+ * `/orders/{order}` — the guest order page: where the order is, what is in it, where it is going.
  *
- * ## The reference is the point of the page
+ * The body is the HealthZone `track` screen, shared with the signed-in order page — see
+ * `../../orders/order-tracking.tsx` for how each of the design's slots is bound and which are
+ * absent for want of an endpoint. What is the guest's own is around it.
  *
- * It is rendered first, largest, and as text rather than inside a sentence, because it is the one
- * thing a person has to keep: there is no account to find this order from later, and the URL is the
- * only bookmark they will have. The retention window is stated on the not-found path for the same
- * reason — an old reference stops working, and "we deleted it on schedule" is a better answer than
- * a blank page.
+ * ## The reference is still the point of the page
+ *
+ * There is no account to find this order from later, and the URL is the only bookmark a guest
+ * will have. The design puts the number in the eyebrow; it is kept there, as its own selectable
+ * text, and stated again in one caption line at the foot of the timeline card, under the design's
+ * three buttons, with the reason to keep it — the one line this page adds to the design. The retention
+ * window is said on the not-found path for the same reason — an old reference stops working, and
+ * "we deleted it on schedule" is a better answer than a blank page.
  *
  * ## The conversion prompt lives here and not in the checkout
  *
@@ -44,7 +48,6 @@ export interface GuestOrderScreenProps {
 
 export function GuestOrderScreen({ reference }: GuestOrderScreenProps) {
     const { t } = useTranslation();
-    const formatter = useFormatter();
 
     const order = useGuestOrderQuery(reference ?? null);
     const token = useGuestToken();
@@ -53,7 +56,8 @@ export function GuestOrderScreen({ reference }: GuestOrderScreenProps) {
     const prefill = useGuestConversionPrefillQuery(token !== null);
 
     return (
-        <Stack space="lg" testID={TEST_ID}>
+        // The design's measure: a 1000px section less its 28px gutters, centred in the shell.
+        <View testID={TEST_ID} className="w-full max-w-[944px] flex-col gap-6 self-center">
             <QueryStates
                 query={order}
                 isEmpty={reference === undefined}
@@ -64,66 +68,35 @@ export function GuestOrderScreen({ reference }: GuestOrderScreenProps) {
             >
                 {order.data === undefined ? null : (
                     <Stack space="lg">
-                        <Stack space="xs">
-                            <Heading level={1} testID={`${TEST_ID}-title`}>
-                                {t('guest:order.title')}
-                            </Heading>
-                            <Text tone="secondary">{t('guest:order.subtitle')}</Text>
-                        </Stack>
-
-                        <Card padding="md" testID={`${TEST_ID}-reference-card`}>
-                            <Stack space="sm">
-                                <Text variant="bodyStrong">{t('guest:order.reference')}</Text>
-                                <Heading level={2} testID={`${TEST_ID}-reference`}>
-                                    {order.data.reference}
-                                </Heading>
-                                <Inline space="sm" align="center">
-                                    <Badge
-                                        testID={`${TEST_ID}-state`}
-                                        tone="info"
-                                        label={t(`guest:order.states.${order.data.state}`)}
-                                    />
-                                    <Text tone="secondary" testID={`${TEST_ID}-lines`}>
-                                        {t('guest:order.lines', {
-                                            count: order.data.lines.length,
-                                        })}
+                        <OrderTracking
+                            testID={TEST_ID}
+                            order={order.data}
+                            paymentLabel={t('guest:review.cashOnDelivery')}
+                            onRefresh={() => {
+                                void order.refetch();
+                            }}
+                            refreshing={order.isRefetching}
+                            footer={
+                                <View className="flex-row flex-wrap items-baseline gap-x-2 gap-y-1">
+                                    <Text variant="caption" tone="secondary">
+                                        {t('guest:order.reference')}
                                     </Text>
-                                </Inline>
-                            </Stack>
-                        </Card>
+                                    <Text
+                                        testID={`${TEST_ID}-reference-keep`}
+                                        variant="caption"
+                                        className="font-semibold tabular-nums"
+                                        selectable
+                                    >
+                                        {order.data.reference}
+                                    </Text>
+                                    <Text variant="caption" tone="secondary">
+                                        {t('guest:order.keepReference')}
+                                    </Text>
+                                </View>
+                            }
+                        />
 
-                        <Card padding="md" testID={`${TEST_ID}-detail`}>
-                            <Stack space="sm">
-                                <Text variant="bodyStrong">{t('guest:order.deliveringTo')}</Text>
-                                <Text tone="secondary">{formatAddress(order.data.address)}</Text>
-
-                                <Text variant="bodyStrong">{t('guest:order.slot')}</Text>
-                                <Text tone="secondary">
-                                    {`${formatter.formatDate(order.data.deliveryDate)} · ${t(
-                                        `commerce:slots.${order.data.slotCode}`,
-                                    )}`}
-                                </Text>
-
-                                <Text variant="bodyStrong">{t('guest:order.payment')}</Text>
-                                <Text tone="secondary" testID={`${TEST_ID}-payment`}>
-                                    {t('guest:review.cashOnDelivery')}
-                                </Text>
-
-                                <Text variant="bodyStrong">{t('guest:order.total')}</Text>
-                                <Text testID={`${TEST_ID}-total`}>
-                                    {formatMoney(formatter, order.data.total)}
-                                </Text>
-                            </Stack>
-                        </Card>
-
-                        {prefill.data === undefined ? (
-                            <Callout
-                                testID={`${TEST_ID}-no-conversion`}
-                                role="note"
-                                tone="info"
-                                title={t('guest:order.subtitle')}
-                            />
-                        ) : (
+                        {prefill.data === undefined ? null : (
                             <ConversionPrompt
                                 testID={`${TEST_ID}-conversion`}
                                 prefill={prefill.data}
@@ -136,6 +109,6 @@ export function GuestOrderScreen({ reference }: GuestOrderScreenProps) {
                     </Stack>
                 )}
             </QueryStates>
-        </Stack>
+        </View>
     );
 }

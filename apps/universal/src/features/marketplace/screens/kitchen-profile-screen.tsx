@@ -1,71 +1,73 @@
-import {
-    Badge,
-    Breadcrumbs,
-    Button,
-    Card,
-    Stack,
-    TagRow,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
-import type { Kitchen, MarketplaceMeal } from '@healthy360/api-client/contracts';
-import { KitchenId, MEAL_TYPES } from '@healthy360/domain-types';
-import type { MealType, Money } from '@healthy360/domain-types';
+import { Breadcrumbs, useBreakpoint } from '@healthy360/design-system';
+import type { Kitchen, MarketplaceMeal, SubscriptionPlan } from '@healthy360/api-client/contracts';
+import { KitchenId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
-import type { Formatter } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Text as RNText, View } from 'react-native';
+import { View } from 'react-native';
 
-import {
-    mealsFromPages,
-    useAddCartItemMutation,
-    useMealsQuery,
-} from '../../../data/catalogue-hooks.ts';
+import { mealsFromPages, useMealsQuery, usePlansQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
-import { EntityImage } from '../../../media/entity-image.tsx';
-import { useSession } from '../../../session/session-provider.tsx';
-import { formatMoney } from '../format.ts';
+import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { QueryStates } from '../query-states.tsx';
-import { SectionHeader } from '../section-header.tsx';
-import {
-    activeBranches,
-    deliveryTerms,
-    fastestDeliveryMinutes,
-    hoursToday,
-    pickupBranches,
-} from '../storefront-facts.ts';
-import { StorefrontMenuRow } from '../storefront-menu-row.tsx';
+import { isoWeekdayToday } from '../storefront-facts.ts';
+import { StorefrontCanopy } from '../storefront/storefront-canopy.tsx';
+import { latestCutOffToday } from '../storefront/storefront-menu.ts';
+import { StorefrontMenuTab } from '../storefront/storefront-menu-tab.tsx';
+import { StorefrontOrderPanel } from '../storefront/storefront-order-panel.tsx';
+import { StorefrontPlansTab } from '../storefront/storefront-plans-tab.tsx';
+import { StorefrontReviewsTab } from '../storefront/storefront-reviews-tab.tsx';
+import { StorefrontSafetyTab } from '../storefront/storefront-safety-tab.tsx';
+import { StorefrontTabs } from '../storefront/storefront-tabs.tsx';
+import { StorefrontTodayTab } from '../storefront/storefront-today-tab.tsx';
+import { kitchenTimeZone, useKitchenClock } from '../storefront/storefront-today.ts';
 
 /**
- * One kitchen's storefront — HealthZone `§isStorefront` (`HealthZone.dc.html` lines 809–869).
+ * One kitchen's storefront — HealthZone Customer `§isStorefront`.
  *
- * ## What this replaced, and what was given up with it
+ * The breadcrumb, the canopy band (`StorefrontCanopy`), a sticky tab row, then the open tab beside
+ * the 320px order panel from `lg` up.
  *
- * The previous screen was a *record*: the kitchen's photograph, its channels and cuisines, a card
- * pointing at the menu, then an accordion of branches carrying opening hours and delivery zones in
- * full. Its argument — doc 17 (SUB-02) — was that a marketplace which only reveals at checkout that
- * it cannot reach you has wasted your time, so the zones belonged on the page.
+ * ## The design's five tabs, each from what is real
  *
- * HealthZone answers the same question in a different place. The order panel states the delivery
- * minimum, the fee and the fastest advertised estimate before anything is added to a basket, and
- * the pill states today's hours. What is genuinely gone is the *per-zone* breakdown — which named
- * area costs what — and the week's full schedule. Both are a tap away in the checkout preview,
- * which is where a real address turns them from a table into an answer.
+ * | Design tab           | Here                                                                 |
+ * | -------------------- | -------------------------------------------------------------------- |
+ * | Menu                 | The whole menu, by the kitchen's own shelves (`StorefrontMenuTab`).  |
+ * | Today in the kitchen | The day the kitchen publishes — opening, cut-off, delivery windows — |
+ * |                      | against its own clock. Production progress is not public, and its    |
+ * |                      | card says so (`StorefrontTodayTab`).                                 |
+ * | Plans                | `listPlans({ kitchenIds })`; an honest empty card for a kitchen that |
+ * |                      | sells none.                                                          |
+ * | Safety & allergens   | The menu's own allergen declarations, its diets, the disclaimer.     |
+ * | Reviews              | The kitchen's average and count; no endpoint lists a written review  |
+ * |                      | or a star distribution, so those read empty (`StorefrontReviewsTab`).|
  *
- * ## Two figures in the design have no source and are not shown
+ * The tabs are in-page rather than routes — they are views of one kitchen, and switching them must
+ * not cost a navigation — but the open one is mirrored to `?tab=` so a link can open the storefront
+ * on its plans (the kitchen directory's "Plans" control does exactly that) and a reload keeps it.
  *
- * The design's panel carries a "next slot" time and a "free over $45" clause. Nothing answers slot
- * availability ahead of checkout, and `DeliveryZone` publishes no free-delivery threshold. Both are
- * dropped rather than filled — see `storefront-facts.ts` for the full note.
+ * ## The menu is read whole
  *
- * ## The menu is on the storefront now, not only behind a link
+ * The shelf chips count dishes and the safety tab tallies allergens, and both are claims about the
+ * whole kitchen. Counted over the first page of a paged list they are claims about part of it — and
+ * "nothing here contains sesame" read off twenty-five of sixty dishes is the expensive kind of
+ * wrong. So the storefront asks for the largest page the API serves and keeps fetching until there
+ * is no next one, and neither tab renders until it has the lot.
  *
- * The design lists the kitchen's dishes in sections under the hero, so the page answers "what do
- * they cook" without a navigation. `/kitchens/{id}/menu` still exists and still owns the filtered,
- * paged, searchable view — "Start an order" goes there — but the storefront no longer opens with a
- * card whose only content is a button pointing at it.
+ * ## `/kitchens/{id}/menu` still exists
+ *
+ * It is the searchable view — the search box and the item-type and meal-type filters the Menu tab
+ * does not carry. HealthZone draws no search on the storefront, so "Start an order" is the way in:
+ * it is the one control the design gives for beginning to order, and the searchable menu is where
+ * ordering from this kitchen starts.
+ *
+ * ## The order panel's place on a phone
+ *
+ * Beside the tabs from `lg` up, sticky under them as the body scrolls. Below `lg` there is no
+ * "beside", and the panel goes between the hero and the tabs: the minimum order and the fee are what
+ * someone needs to know before they start adding dishes, not after the last one.
  */
 export interface KitchenProfileScreenProps {
     /** Raw route parameter. `undefined` on the first frame of a deep link. */
@@ -81,7 +83,7 @@ export function KitchenProfileScreen({ kitchenId }: KitchenProfileScreenProps) {
     const kitchen = query.data;
 
     return (
-        <Stack space="xl" testID="kitchen-profile-screen">
+        <View className="flex-col gap-3" testID="kitchen-profile-screen">
             <Breadcrumbs
                 testID="kitchen-breadcrumbs"
                 items={[
@@ -106,419 +108,257 @@ export function KitchenProfileScreen({ kitchenId }: KitchenProfileScreenProps) {
             >
                 {kitchen === undefined ? null : <Storefront kitchen={kitchen} />}
             </QueryStates>
-        </Stack>
+        </View>
     );
 }
 
-/** Which way an order leaves the kitchen. Drives the figures the order panel states. */
-type StorefrontMode = 'delivery' | 'pickup';
+const STOREFRONT_TABS = ['menu', 'today', 'plans', 'safety', 'reviews'] as const;
+type StorefrontTab = (typeof STOREFRONT_TABS)[number];
+
+function isStorefrontTab(value: string | undefined): value is StorefrontTab {
+    return (STOREFRONT_TABS as readonly string[]).includes(value ?? '');
+}
+
+/** The largest page the marketplace serves (`CursorPage::MAX_LIMIT`). */
+const MENU_PAGE_SIZE = 100;
 
 function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
     const { t } = useTranslation();
     const router = useRouter();
-    const formatter: Formatter = useFormatter();
-    const { me } = useSession();
-    const toast = useToast();
-    const signedIn = me !== null;
+    const formatter = useFormatter();
+    const { atLeast } = useBreakpoint();
+    const wide = atLeast('lg');
+    const params = useLocalSearchParams<{ tab?: string }>();
+    const basket = useBasketAdd({ labelKey: 'marketplace:nav.kitchens', testID: 'kitchen' });
 
-    const branches = activeBranches(kitchen);
-    const pickup = pickupBranches(kitchen);
-    const terms = deliveryTerms(kitchen);
-    const minutes = fastestDeliveryMinutes(kitchen);
-    const today = hoursToday(kitchen);
-
-    const modes: readonly StorefrontMode[] = [
-        ...(kitchen.channels.delivery ? (['delivery'] as const) : []),
-        ...(pickup.length > 0 ? (['pickup'] as const) : []),
-    ];
-    const [mode, setMode] = useState<StorefrontMode>(() => modes[0] ?? 'delivery');
-
-    /*
-     * The whole menu, unfiltered and unpaged — the storefront lists what this kitchen cooks, and
-     * `/kitchens/{id}/menu` owns the filtered view. Only the first page is read: a storefront is a
-     * shop window, and an infinite scroll of every product sheet is what the menu screen is for.
-     */
-    const menu = useMealsQuery({ kitchenIds: [kitchen.id] });
-    const meals = mealsFromPages(menu.data?.pages);
-    const addToBasket = useAddCartItemMutation();
-
-    const sections = useMemo(() => groupIntoSections(meals), [meals]);
-
-    /*
-     * Add is offered to signed-in people only, and for the reason `discover-screen.tsx` gives: an
-     * anonymous visitor has to pass the guest-entry dialog that `meal-detail-screen.tsx` owns
-     * before anything reaches a basket, and a visible Add that opened a dialog it could not finish
-     * would be worse than not offering it. Everyone else still reaches the dish one tap away.
-     */
-    const addMeal = (meal: MarketplaceMeal) => {
-        addToBasket.mutate(
-            { mealId: meal.id, quantity: 1 },
-            {
-                onSuccess: (cart) => {
-                    toast.show({
-                        testID: 'basket-added',
-                        tone: 'success',
-                        message: t('catalogue:meal.addedToBasket', { items: cart.itemCount }),
-                    });
-                },
-            },
-        );
+    // An unknown `?tab=` opens the menu.
+    const requested: StorefrontTab = isStorefrontTab(params.tab) ? params.tab : 'menu';
+    const [tab, setTab] = useState<StorefrontTab>(requested);
+    // Follow the URL when it changes underneath the page — a link to this kitchen's plans pressed
+    // while its menu is open. Adjusted during render rather than in an effect, so the page never
+    // paints one frame of the old tab.
+    const [followed, setFollowed] = useState<StorefrontTab>(requested);
+    if (followed !== requested) {
+        setFollowed(requested);
+        setTab(requested);
+    }
+    const openTab = (next: StorefrontTab) => {
+        setTab(next);
+        router.setParams({ tab: next });
     };
 
-    const fact = (key: string, label: string, value: string) => (
-        <View key={key} testID={`kitchen-fact-${key}`}>
-            <RNText className="text-xs font-semibold uppercase tracking-widest text-content-secondary text-start">
-                {label}
-            </RNText>
-            <RNText className="mt-1 text-lg leading-tight text-content-primary text-start">
-                {value}
-            </RNText>
-        </View>
+    // The kitchen's own clock and day: what "today", the cut-off and the countdown are read in.
+    const timeZone = kitchenTimeZone(kitchen);
+    const { clock, now } = useKitchenClock(timeZone);
+    const weekday = clock?.weekday ?? isoWeekdayToday(now);
+    const cutOff = latestCutOffToday(kitchen, weekday);
+    // Only with a resolved clock is the zone known to format in; otherwise the date is left out
+    // rather than stated in the viewer's zone.
+    const dateLabel =
+        clock === null || timeZone === null
+            ? null
+            : formatter.formatDate(now, {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'short',
+                  timeZone,
+              });
+
+    const menu = useMealsQuery({ kitchenIds: [kitchen.id], limit: MENU_PAGE_SIZE });
+    const meals = mealsFromPages(menu.data?.pages);
+    const { hasNextPage, isFetchingNextPage, fetchNextPage, error: menuError } = menu;
+
+    // Page through to the end — see "The menu is read whole" above. A failed page stops the loop
+    // and is reported by `QueryStates` rather than retried here forever.
+    useEffect(() => {
+        if (hasNextPage && !isFetchingNextPage && menuError === null) {
+            void fetchNextPage();
+        }
+    }, [hasNextPage, isFetchingNextPage, fetchNextPage, menuError]);
+
+    // Still paging counts as still loading, so neither tab draws a partial count.
+    const menuState = {
+        data: menu.data,
+        error: menu.error,
+        isFetching: menu.isFetching,
+        refetch: menu.refetch,
+        isPending: menu.isPending || (hasNextPage && menuError === null),
+    };
+
+    const openMeal = (meal: MarketplaceMeal) => {
+        router.push(`/meals/${String(meal.id)}` as never);
+    };
+    const openFullMenu = () => {
+        router.push(`/kitchens/${String(kitchen.id)}/menu` as never);
+    };
+
+    const orderPanel = (
+        <StorefrontOrderPanel
+            kitchen={kitchen}
+            cutOff={cutOff}
+            clock={clock}
+            onStartOrder={openFullMenu}
+            onSeePlans={() => {
+                openTab('plans');
+            }}
+        />
     );
 
-    const facts = [
-        kitchen.rating === null
-            ? null
-            : fact(
-                  'rating',
-                  t('marketplace:storefront.factRating'),
-                  formatter.formatNumber(kitchen.rating),
-              ),
-        minutes === null
-            ? null
-            : fact(
-                  'delivery',
-                  t('marketplace:storefront.factDelivery'),
-                  t('marketplace:storefront.factDeliveryValue', {
-                      minutes: formatter.formatNumber(minutes),
-                  }),
-              ),
-        kitchen.cuisines.length === 0
-            ? null
-            : fact(
-                  'cuisine',
-                  t('marketplace:storefront.factCuisine'),
-                  kitchen.cuisines.join(t('marketplace:common.listSeparator')),
-              ),
-        branches.length === 0
-            ? null
-            : fact(
-                  'branches',
-                  t('marketplace:storefront.factBranches'),
-                  formatter.formatNumber(branches.length),
-              ),
-    ].filter((node) => node !== null);
-
-    /** One label/value line in the order panel. */
-    const term = (key: string, label: string, value: string) => (
-        <View
-            key={key}
-            testID={`kitchen-order-${key}`}
-            className="flex-row items-baseline justify-between gap-3"
-        >
-            <Text tone="secondary" variant="caption">
-                {label}
-            </Text>
-            <RNText className="shrink text-sm font-semibold text-content-primary text-end">
-                {value}
-            </RNText>
-        </View>
-    );
-
-    const amount = (value: Money) =>
-        terms.varies
-            ? t('marketplace:storefront.fromAmount', {
-                  amount: formatMoney(formatter, value),
-              })
-            : formatMoney(formatter, value);
-
-    const orderTerms =
-        mode === 'pickup'
-            ? [
-                  pickup.length === 0
-                      ? null
-                      : term(
-                            'collect',
-                            t('marketplace:storefront.collectFrom'),
-                            pickup
-                                .map((branch) => branch.area)
-                                .join(t('marketplace:common.listSeparator')),
-                        ),
-              ]
-            : [
-                  minutes === null
-                      ? null
-                      : term(
-                            'eta',
-                            t('marketplace:storefront.factDelivery'),
-                            t('marketplace:storefront.factDeliveryValue', {
-                                minutes: formatter.formatNumber(minutes),
-                            }),
-                        ),
-                  terms.minimumOrder === null
-                      ? null
-                      : term(
-                            'minimum',
-                            t('marketplace:storefront.minimum'),
-                            amount(terms.minimumOrder),
-                        ),
-                  terms.deliveryFee === null
-                      ? null
-                      : term('fee', t('marketplace:storefront.fee'), amount(terms.deliveryFee)),
-              ];
+    const panels: Record<StorefrontTab, ReactNode> = {
+        menu: (
+            <QueryStates
+                query={menuState}
+                isEmpty={meals.length === 0}
+                emptyTitle={t('marketplace:storefront.menu.emptyTitle')}
+                emptyBody={t('marketplace:storefront.menu.emptyBody')}
+                testID="kitchen-menu"
+            >
+                <StorefrontMenuTab
+                    meals={meals}
+                    cutOff={cutOff}
+                    onOpen={openMeal}
+                    onAdd={basket.add}
+                />
+            </QueryStates>
+        ),
+        today: (
+            <StorefrontTodayTab
+                kitchen={kitchen}
+                clock={clock}
+                weekday={weekday}
+                dateLabel={dateLabel}
+                cutOff={cutOff}
+                onPickFromMenu={() => {
+                    openTab('menu');
+                }}
+            />
+        ),
+        plans: <KitchenPlans kitchen={kitchen} />,
+        safety: (
+            <QueryStates
+                query={menuState}
+                isEmpty={false}
+                emptyTitle={t('marketplace:storefront.menu.emptyTitle')}
+                testID="kitchen-safety"
+            >
+                <StorefrontSafetyTab kitchen={kitchen} meals={meals} />
+            </QueryStates>
+        ),
+        reviews: <StorefrontReviewsTab kitchen={kitchen} />,
+    };
 
     return (
-        <Stack space="lg">
+        <View className="flex-col">
+            <StorefrontCanopy kitchen={kitchen} />
+
+            {wide ? null : <View className="mt-5">{orderPanel}</View>}
+
             {/*
-             * The cover. A fixed band rather than an aspect box: the design pins it at 280 so the
-             * fold lands in the same place whatever shape the photograph is, and `EntityImage`'s
-             * own ratio would otherwise make a wide picture two hundred units taller than a square
-             * one on the same page.
+             * Sticky on the web, under the shell's top bar: `top-0` resolves against the shell's
+             * scroll port, not the document. The page surface behind it so the dishes scrolling
+             * underneath do not show through the row.
              */}
-            <View className="h-[280px] overflow-hidden rounded-xl">
-                <EntityImage
-                    testID="kitchen-image"
-                    assetId={kitchen.imagePlaceholderId}
-                    variant="detail"
-                    seed={kitchen.slug}
-                    label={t('marketplace:kitchens.imageLabel', { kitchen: kitchen.name })}
-                    aspect="wide"
-                    flush
-                    className="h-full"
+            <View className="z-sticky mt-5 bg-surface-base web:sticky web:top-0">
+                <StorefrontTabs<StorefrontTab>
+                    testID="kitchen-tabs"
+                    label={t('marketplace:storefront.tabs.label')}
+                    value={tab}
+                    onChange={openTab}
+                    items={STOREFRONT_TABS.map((value) => ({
+                        value,
+                        label: t(`marketplace:storefront.tabs.${value}`),
+                        testID: `kitchen-tab-${value}`,
+                    }))}
                 />
             </View>
 
-            {/*
-             * The claim and the order panel: one row from `lg` up, stacked below it. The panel is
-             * fixed at the design's 320 rather than sharing the row proportionally — it holds a
-             * column of label/value pairs, and a panel that grows with the viewport puts the label
-             * and its figure at opposite ends of a very wide line.
-             */}
-            <View className="flex-col gap-6 lg:flex-row lg:items-start">
-                <View className="min-w-0 flex-1 flex-col gap-4">
-                    <View className="flex-row flex-wrap items-center gap-3">
-                        <RNText
-                            accessibilityRole="header"
-                            aria-level={1}
-                            testID="kitchen-name"
-                            className="text-3xl leading-tight tracking-display text-content-primary text-start"
-                        >
-                            {kitchen.name}
-                        </RNText>
-                        {/*
-                         * Today's published window, not "open now" — the live claim needs the
-                         * kitchen's time zone resolved through `Intl`, which Hermes does not carry
-                         * reliably on Android. `storefront-facts.ts` has the full note.
-                         */}
-                        <Badge
-                            testID="kitchen-hours-today"
-                            tone={today === null ? 'neutral' : 'success'}
-                            label={
-                                today === null
-                                    ? t('marketplace:storefront.closedToday')
-                                    : t('marketplace:storefront.openToday', {
-                                          opensAt: today.opensAt,
-                                          closesAt: today.closesAt,
-                                      })
-                            }
-                        />
-                        {kitchen.isVerified ? (
-                            <Badge
-                                testID="kitchen-verified"
-                                tone="info"
-                                label={t('marketplace:kitchens.verified')}
-                            />
-                        ) : null}
-                    </View>
-
-                    <Text tone="secondary" testID="kitchen-description" className="max-w-[62ch]">
-                        {kitchen.description}
-                    </Text>
-
-                    {/*
-                     * Every diet the kitchen cooks for, in full and uncapped.
-                     *
-                     * The directory card shows three of them and collapses the rest into a `+8`,
-                     * which is the right trade in a grid cell but leaves the reader with a count
-                     * and no way to resolve it — the card is one press target, so the pill cannot
-                     * be its own control without becoming a `nested-interactive` failure. This is
-                     * where that press lands, so this is where the eight have to be. Uncapped
-                     * deliberately: a storefront has the width, and a second `+N` here would be
-                     * the same dead end one page further on.
-                     */}
-                    {kitchen.dietClassifications.length === 0 ? null : (
-                        <View className="flex-col gap-2" testID="kitchen-diets">
-                            <RNText className="text-xs font-semibold uppercase tracking-widest text-content-secondary text-start">
-                                {t('marketplace:storefront.dietsEyebrow')}
-                            </RNText>
-                            <TagRow
-                                testID="kitchen-diets-tags"
-                                items={kitchen.dietClassifications.map((diet) => ({
-                                    key: diet,
-                                    label: t(`marketplace:diets.${diet}`),
-                                }))}
-                            />
-                        </View>
-                    )}
-
-                    {facts.length === 0 ? null : (
-                        <View className="flex-row flex-wrap gap-x-8 gap-y-4" testID="kitchen-facts">
-                            {facts}
-                        </View>
-                    )}
+            <View className="mt-6 flex-col gap-6 lg:flex-row lg:items-start">
+                <View
+                    testID={`kitchen-panel-${tab}`}
+                    role="tabpanel"
+                    aria-label={t(`marketplace:storefront.tabs.${tab}`)}
+                    className="min-w-0 flex-1"
+                >
+                    {panels[tab]}
                 </View>
 
-                <Card
-                    testID="kitchen-order-panel"
-                    padding="md"
-                    tone="raised"
-                    className="w-full lg:w-[320px] lg:shrink-0"
-                >
-                    <Stack space="sm">
-                        <RNText className="text-xs font-semibold uppercase tracking-widest text-content-secondary text-start">
-                            {t('marketplace:storefront.orderEyebrow')}
-                        </RNText>
-
-                        {/*
-                         * The mode switch appears only when there is a choice. A kitchen that
-                         * delivers and does not collect has one option, and a segmented control
-                         * with a single segment is a label wearing a control's chrome.
-                         */}
-                        {modes.length > 1 ? (
-                            <View className="flex-row gap-2" testID="kitchen-order-modes">
-                                {modes.map((option) => (
-                                    <Button
-                                        key={option}
-                                        testID={`kitchen-order-mode-${option}`}
-                                        size="sm"
-                                        variant={option === mode ? 'primary' : 'secondary'}
-                                        label={t(`marketplace:channels.${option}`)}
-                                        onPress={() => {
-                                            setMode(option);
-                                        }}
-                                    />
-                                ))}
-                            </View>
-                        ) : null}
-
-                        {orderTerms.filter((node) => node !== null)}
-
-                        <Button
-                            testID="kitchen-view-menu"
-                            block
-                            label={t('marketplace:storefront.startOrder')}
-                            onPress={() => {
-                                router.push(`/kitchens/${String(kitchen.id)}/menu` as never);
-                            }}
-                        />
-                        {kitchen.channels.subscription ? (
-                            <Button
-                                testID="kitchen-see-plans"
-                                block
-                                variant="secondary"
-                                label={t('marketplace:storefront.seePlans')}
-                                onPress={() => {
-                                    router.push('/plans');
-                                }}
-                            />
-                        ) : null}
-                    </Stack>
-                </Card>
+                {wide ? (
+                    /*
+                     * The design's 320 rather than a share of the row: the panel is a column of
+                     * label/value pairs, and one that grows with the viewport puts each label and
+                     * its figure at opposite ends of a very wide line. Sticky below the tab row —
+                     * `top-16` clears the row's height, so the two never overlap.
+                     */
+                    <View className="w-[320px] shrink-0 self-start web:sticky web:top-16">
+                        {orderPanel}
+                    </View>
+                ) : null}
             </View>
 
-            <QueryStates
-                query={menu}
-                isEmpty={meals.length === 0}
-                emptyTitle={t('marketplace:storefront.emptyTitle')}
-                emptyBody={t('marketplace:storefront.emptyBody')}
-                testID="kitchen-menu"
-            >
-                <Stack space="lg" testID="kitchen-sections">
-                    {sections.map((section) => (
-                        <Stack
-                            key={section.key}
-                            space="sm"
-                            testID={`kitchen-section-${section.key}`}
-                        >
-                            <SectionHeader
-                                title={
-                                    section.key === 'product'
-                                        ? t('marketplace:storefront.productsTitle')
-                                        : t(`marketplace:mealTypes.${section.key}`)
-                                }
-                                meta={t('marketplace:storefront.sectionNote', {
-                                    count: section.meals.length,
-                                })}
-                                testID={`kitchen-section-${section.key}-header`}
-                            />
-                            {/*
-                             * Two across, one below. `basis-[45%]` rather than a fixed column
-                             * count: two cells plus the gap fit a row and three cannot, so the grid
-                             * folds to one column on a narrow viewport without a breakpoint.
-                             */}
-                            <View className="flex-row flex-wrap gap-3">
-                                {section.meals.map((meal) => (
-                                    <View
-                                        key={meal.id}
-                                        className="min-w-[280px] flex-1 grow basis-[45%]"
-                                    >
-                                        <StorefrontMenuRow
-                                            meal={meal}
-                                            onPress={() => {
-                                                router.push(`/meals/${String(meal.id)}` as never);
-                                            }}
-                                            onAdd={
-                                                signedIn
-                                                    ? () => {
-                                                          addMeal(meal);
-                                                      }
-                                                    : undefined
-                                            }
-                                        />
-                                    </View>
-                                ))}
-                            </View>
-                        </Stack>
-                    ))}
-                </Stack>
-            </QueryStates>
-        </Stack>
+            {basket.dialog}
+        </View>
     );
 }
 
-interface MenuSection {
-    /** A `MealType`, or `product` for the sellable-goods section. */
-    readonly key: MealType | 'product';
-    readonly meals: readonly MarketplaceMeal[];
+/**
+ * The Plans tab's body. Its own component so the plan listing is asked for only when somebody opens
+ * the tab — `usePlansQuery` has no `enabled` switch, and a storefront visit that never looks at
+ * plans should not cost a request for them. A kitchen not configured to sell plans is not asked at
+ * all: its card states there are none.
+ */
+function KitchenPlans({ kitchen }: { readonly kitchen: Kitchen }) {
+    const router = useRouter();
+    const openHowPlansWork = () => {
+        router.push('/plans/how-it-works' as never);
+    };
+    const choose = (plan: SubscriptionPlan) => {
+        router.push(`/plans/${String(plan.id)}` as never);
+    };
+
+    if (!kitchen.channels.subscription) {
+        return (
+            <StorefrontPlansTab
+                kitchenName={kitchen.name}
+                plans={[]}
+                onChoose={choose}
+                onHowPlansWork={openHowPlansWork}
+            />
+        );
+    }
+    return <SoldPlans kitchen={kitchen} onChoose={choose} onHowPlansWork={openHowPlansWork} />;
 }
 
 /**
- * The kitchen's catalogue as the design's named sections.
- *
- * A meal joins the section of the **first** meal type it declares rather than every one of them: a
- * dish listed as both lunch and dinner appearing twice on one page reads as two dishes, and the
- * storefront is a menu rather than a filtered result. Products carry no meal type at all and get a
- * section of their own at the end, which is also where a meal declaring none lands.
- *
- * Sections keep `MEAL_TYPES` order — breakfast before dinner — rather than the order the endpoint
- * happened to answer in, and an empty one is omitted.
+ * The listing for a kitchen that sells plans. The answer is filtered to this kitchen again on the
+ * way in: the filter asks the API for one kitchen, and a row for another kitchen on this kitchen's
+ * page would be the worse failure if a repository ever ignored it.
  */
-function groupIntoSections(meals: readonly MarketplaceMeal[]): readonly MenuSection[] {
-    const buckets = new Map<MealType | 'product', MarketplaceMeal[]>();
+function SoldPlans({
+    kitchen,
+    onChoose,
+    onHowPlansWork,
+}: {
+    readonly kitchen: Kitchen;
+    readonly onChoose: (plan: SubscriptionPlan) => void;
+    readonly onHowPlansWork: () => void;
+}) {
+    const { t } = useTranslation();
+    const plans = usePlansQuery({ kitchenIds: [kitchen.id] });
+    const kitchenPlans = (plans.data?.items ?? []).filter((plan) => plan.kitchenId === kitchen.id);
 
-    for (const meal of meals) {
-        const key: MealType | 'product' =
-            meal.itemType === 'product' ? 'product' : (meal.mealTypes[0] ?? 'product');
-        const bucket = buckets.get(key);
-        if (bucket === undefined) {
-            buckets.set(key, [meal]);
-        } else {
-            bucket.push(meal);
-        }
-    }
-
-    const order: readonly (MealType | 'product')[] = [...MEAL_TYPES, 'product'];
-    return order
-        .map((key) => ({ key, meals: buckets.get(key) ?? [] }))
-        .filter((section) => section.meals.length > 0);
+    return (
+        <QueryStates
+            query={plans}
+            isEmpty={false}
+            emptyTitle={t('marketplace:storefront.plans.empty')}
+            testID="kitchen-plans"
+        >
+            <StorefrontPlansTab
+                kitchenName={kitchen.name}
+                plans={kitchenPlans}
+                onChoose={onChoose}
+                onHowPlansWork={onHowPlansWork}
+            />
+        </QueryStates>
+    );
 }

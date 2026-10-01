@@ -38,7 +38,6 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CatalogueRange } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
@@ -329,7 +328,6 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
         },
         {
             key: 'quantity',
-            align: 'center',
             role: 'metric',
             label: t('kitchen:ops.ledger.columnQuantity'),
             width: 100,
@@ -341,7 +339,6 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
         },
         {
             key: 'lineTotal',
-            align: 'center',
             role: 'metric',
             label: t('kitchen:ops.ledger.columnLineTotal'),
             width: 120,
@@ -666,15 +663,8 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                                 },
                             ]}
                         />
-                        <Inline space="sm" align="center" justify="between" wrap>
-                            <CatalogueRange
-                                testID="kitchen-purchases-ledger-range"
-                                range={t('kitchen:toolbar.showing', {
-                                    shown: controls.rows.length,
-                                    total: pageRows.length,
-                                })}
-                            />
-                            {hasMore ? (
+                        {hasMore ? (
+                            <Inline space="sm" align="center" justify="center">
                                 <Button
                                     testID="kitchen-purchases-ledger-next"
                                     variant="secondary"
@@ -685,8 +675,8 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                                         setViewing(null);
                                     }}
                                 />
-                            ) : null}
-                        </Inline>
+                            </Inline>
+                        ) : null}
                     </Stack>
                 )
             ) : periods.length === 0 ? (

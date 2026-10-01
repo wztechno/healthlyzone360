@@ -21,7 +21,7 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
  * | Class      |   200 |   150 |      100 | the title; never dropped                    |
  * | Regulation |   160 |   120 |       40 | secondary; the platform's own citation      |
  * | Markets    |   160 |   120 |       50 | badges, or "no market requires it"          |
- * | Threshold  |   120 |    88 |       85 | mono, centred — the figure the row is read for |
+ * | Threshold  |   120 |    88 |       85 | mono — the figure the row is read for       |
  * | Status     |   110 |    78 |       80 | badge                                       |
  *
  * The tracks are the ingredient spec's, moved across one position at a time rather than
@@ -171,7 +171,6 @@ export function allergenColumns({
             // The row's headline figure: what a kitchen is actually looking up when it opens this
             // page is the amount at which a class becomes declarable.
             role: 'metric',
-            align: 'center',
             mono: true,
             sortable: true,
             sortType: 'number',

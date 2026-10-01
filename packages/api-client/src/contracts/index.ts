@@ -216,6 +216,7 @@ export type {
     DeliveryAddress,
     DeliverySlot,
     MealChoiceSource,
+    MyOrderFilter,
     OrderReference,
     OrderState,
     PauseSubscriptionRequest,

@@ -149,8 +149,12 @@ export interface AllergenDeclaration {
  * purpose of use.
  */
 export interface DietaryProfile {
-    /** Diet category codes (`vegetarian`, `halal`, …). */
-    readonly dietCategoryCodes: readonly string[];
+    /**
+     * The one diet the person follows, by its vocabulary code (`vegetarian`, `halal_friendly`, …),
+     * or `null` when they chose none. One, not a list: the profile stores a single classification,
+     * and a picker that let somebody choose three saved only the first.
+     */
+    readonly dietCategoryCode: string | null;
     readonly allergens: readonly AllergenDeclaration[];
     /** Ingredients this person will not eat for reasons that are not an allergen class. */
     readonly excludedIngredientIds: readonly IngredientId[];
@@ -158,7 +162,8 @@ export interface DietaryProfile {
 }
 
 export interface SaveDietaryProfileRequest {
-    readonly dietCategoryCodes: readonly string[];
+    /** The diet's code, or `null` to clear it. */
+    readonly dietCategoryCode: string | null;
     readonly allergens: readonly AllergenDeclaration[];
     readonly excludedIngredientIds: readonly IngredientId[];
 }

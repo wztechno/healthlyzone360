@@ -95,8 +95,6 @@ export function quotationLineColumns({
             label: t('kitchen:ops.quotations.lineQuantity'),
             width: 80,
             priority: 80,
-            align: 'center',
-            grow: false,
             sort: (left, right, direction) =>
                 compareNumber(Number(left.quantity), Number(right.quantity), direction),
             render: (line) => (
@@ -110,8 +108,6 @@ export function quotationLineColumns({
             label: t('kitchen:ops.quotations.lineUnitPrice'),
             width: 150,
             priority: 95,
-            align: 'center',
-            grow: false,
             sort: (left, right, direction) =>
                 compareAmount(left.unitAmountMinor, right.unitAmountMinor, direction),
             render: (line) => {
@@ -163,8 +159,6 @@ export function quotationLineColumns({
             label: t('kitchen:ops.quotations.lineTotal'),
             width: 130,
             priority: 90,
-            align: 'center',
-            grow: false,
             sort: (left, right, direction) =>
                 compareAmount(left.lineTotalMinor, right.lineTotalMinor, direction),
             render: (line) => {

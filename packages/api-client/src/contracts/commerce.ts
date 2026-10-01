@@ -209,6 +209,12 @@ export interface ChangeSlotRequest {
     readonly effectiveFrom?: string | undefined;
 }
 
+/**
+ * The order history's page request. Only the cursor and the page size: `GET /me/orders` publishes
+ * no filters, and a client-side one dressed as a parameter would page wrongly.
+ */
+export type MyOrderFilter = CursorPageRequest;
+
 export interface SubscriptionFilter extends CursorPageRequest {
     readonly states?: readonly SubscriptionState[] | undefined;
 }
@@ -453,6 +459,30 @@ export interface CommerceRepository {
      * instead of placing a second one, and no screen can forget to send it.
      */
     placeOrder(request: PlaceOrderRequest): Promise<PlacedOrder>;
+
+    /**
+     * `GET /api/v1/me/orders` — the caller's own one-off orders, newest first.
+     *
+     * **The same shape a placement answers.** The endpoint serves the customer projection
+     * `POST /orders` does, so each row is a {@link PlacedOrder}: an order history row and the
+     * confirmation that created it cannot disagree about a line name or a total. The direction is
+     * the endpoint's, not a parameter, and there are no filters — a person has tens of orders and
+     * the whole history fits in a page or two (the route's own note says why that trade was made).
+     *
+     * Subscription deliveries are not here. They are a subscription's ledger
+     * ({@link CommerceRepository.listSubscriptionDeliveries}), not orders a person placed.
+     */
+    listMyOrders(filter?: MyOrderFilter): Promise<CursorPage<PlacedOrder>>;
+
+    /**
+     * `GET /api/v1/me/orders/{order}` — one of the caller's orders, by **identifier**.
+     *
+     * Not by the order number, tempting though it is: the number is printed on a receipt that
+     * passes through a courier's hands, and a route that accepted it would turn a scrap of paper
+     * into an address. Another account's order is a 404, indistinguishable from one that does not
+     * exist.
+     */
+    getMyOrder(orderId: OrderId): Promise<PlacedOrder>;
 
     /** `POST /api/v1/subscriptions/preview`. */
     previewSubscription(configuration: SubscriptionConfiguration): Promise<SubscriptionPreview>;

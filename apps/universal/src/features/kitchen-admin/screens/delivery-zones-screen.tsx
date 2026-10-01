@@ -154,7 +154,6 @@ function DeliveryZonesList() {
         },
         {
             key: 'areas',
-            align: 'center',
             label: t('kitchen:zones.columnAreas'),
             width: 150,
             priority: 80,
@@ -213,7 +212,6 @@ function DeliveryZonesList() {
         },
         {
             key: 'windows',
-            align: 'center',
             label: t('kitchen:zones.columnWindows'),
             width: 190,
             priority: 70,
@@ -523,10 +521,6 @@ function DeliveryZonesList() {
                     />
                     <CataloguePager
                         testID="kitchen-zones-pagination"
-                        range={t('kitchen:toolbar.showing', {
-                            shown: controls.rows.length,
-                            total: total ?? controls.rows.length,
-                        })}
                         page={page}
                         totalPages={totalPages}
                         onPageChange={(next) => {

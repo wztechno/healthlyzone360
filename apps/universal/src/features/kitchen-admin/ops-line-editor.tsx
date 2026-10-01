@@ -207,7 +207,7 @@ export function StockItemLineEditor({
                     <Text
                         variant="micro"
                         tone={note?.tone ?? 'secondary'}
-                        align="end"
+                        align="start"
                         numberOfLines={1}
                         aria-hidden={note === null}
                     >
@@ -258,8 +258,6 @@ export function StockItemLineEditor({
             label: quantityLabel,
             width: 100,
             priority: 95,
-            grow: false,
-            align: 'end',
             render: (line) =>
                 cell(
                     <QuantityInput
@@ -287,7 +285,6 @@ export function StockItemLineEditor({
             label: unitLabel ?? '',
             width: 80,
             priority: 92,
-            grow: false,
             render: (line) => {
                 const unitId = line.unitId ?? defaultUnitIdForItem?.(line.stockItemId) ?? null;
                 // A delivery's row quotes in the order line's unit and nothing else.
@@ -322,8 +319,6 @@ export function StockItemLineEditor({
                 label: unitPriceLabel ?? '',
                 width: 130,
                 priority: 90,
-                grow: false,
-                align: 'end',
                 render: (line) =>
                     cell(
                         <QuantityInput
@@ -347,8 +342,6 @@ export function StockItemLineEditor({
                 label: lineTotalLabel ?? '',
                 width: 100,
                 priority: 80,
-                grow: false,
-                align: 'end',
                 render: (line) => {
                     const total = stockItemLineTotal(line);
                     return cell(
@@ -356,7 +349,7 @@ export function StockItemLineEditor({
                             testID={`${rowTestId(line)}-total`}
                             variant={total === null ? 'mono' : 'strong'}
                             tone={total === null ? 'secondary' : 'primary'}
-                            align="end"
+                            align="start"
                             className="tabular-nums"
                         >
                             {total === null ? '—' : money(total)}

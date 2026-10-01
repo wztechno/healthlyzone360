@@ -23,7 +23,6 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useGoodsReceiptsQuery, useStockItemsQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CatalogueRange } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
@@ -190,7 +189,6 @@ function Procurement() {
         },
         {
             key: 'lines',
-            align: 'center',
             role: 'metric',
             label: t('kitchen:ops.procurement.columnLines'),
             width: 70,
@@ -226,7 +224,6 @@ function Procurement() {
         },
         {
             key: 'total',
-            align: 'center',
             role: 'metric',
             label: t('kitchen:ops.procurement.columnTotal'),
             width: 120,
@@ -477,13 +474,6 @@ function Procurement() {
                         ]}
                     />
                     <Inline space="sm" align="center" wrap testID="kitchen-procurement-foot">
-                        <CatalogueRange
-                            testID="kitchen-procurement-range"
-                            range={t('kitchen:toolbar.showing', {
-                                shown: controls.rows.length,
-                                total: receiptRows.length,
-                            })}
-                        />
                         <Text variant="caption" tone="secondary">
                             {t('kitchen:ops.procurement.listFoot')}
                         </Text>

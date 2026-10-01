@@ -9898,6 +9898,13 @@ export type CustomerDietaryProfile = {
     declared_at?: string | null;
     declares_no_allergens: boolean;
     diet_classification_id?: Uuid | null;
+    /**
+     * The chosen diet's vocabulary code (`vegetarian`, `halal_friendly`),
+     * beside its identifier. The code is what a client sends back: the
+     * public diet list publishes codes and no identifiers.
+     *
+     */
+    diet_classification_code?: string | null;
     religious_requirement?: string | null;
     notes?: string | null;
     allergens: Array<CustomerAllergenDeclaration>;
@@ -9931,7 +9938,19 @@ export type ReplaceDietaryProfileRequest = {
         diet_classification_id?: Uuid | null;
         free_text?: string | null;
     }>;
+    /**
+     * The diet by identifier. Prefer `diet_classification_code`; sending
+     * both is `validation.failed`.
+     *
+     */
     diet_classification_id?: Uuid | null;
+    /**
+     * The diet by its code, as `GET /reference/diet-classifications` lists
+     * it. Must name an active classification, else `validation.failed` on
+     * this field. `null` clears the diet.
+     *
+     */
+    diet_classification_code?: string | null;
     religious_requirement?: string | null;
     notes?: string | null;
 };

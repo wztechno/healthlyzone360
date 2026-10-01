@@ -213,13 +213,18 @@ function BatchPlanner() {
             />
 
             {/*
+             * On the raised panel every other admin page draws its controls on — border, fill and
+             * the card cast, as `ToolbarPanel` — rather than a band ruled off under the cards. Not
+             * `ToolbarPanel` itself: that is one row, and this is labelled fields with the factor
+             * caption under them.
+             *
              * Raised: the recipe select opens downward out of this band and over the cards and
              * tables drawn after it. react-native-web gives every View `z-index: 0`, so without the
              * raise the list slides under the next sibling the moment it outgrows the band.
              */}
             <View
                 testID="kitchen-batch-controls"
-                className="relative z-raised gap-2 border-b border-stroke-subtle pb-3"
+                className="relative z-raised gap-2 rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
             >
                 <Inline space="md" align="end" justify="center" wrap>
                     <View className="w-field">
@@ -518,7 +523,6 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnUnit'),
             width: 64,
             priority: 60,
-            align: 'center',
             filter: unitFilter<RecipeLine>(),
             value: (line) => t(unitShortKey(line.unit)),
         },
@@ -527,7 +531,6 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnPerBatch'),
             width: 96,
             priority: 50,
-            align: 'center',
             mono: true,
             sort: (left, right, direction) =>
                 compareNumber(left.quantity, right.quantity, direction),
@@ -542,7 +545,6 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnToIssue'),
             width: 96,
             priority: 90,
-            align: 'center',
             mono: true,
             sort: (left, right, direction) =>
                 compareNumber(
@@ -591,7 +593,6 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnUnit'),
             width: 64,
             priority: 60,
-            align: 'center',
             filter: unitFilter<RecipePackagingLine>(),
             value: (row) => t(unitShortKey(row.unit)),
         },
@@ -600,7 +601,6 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnPerBatch'),
             width: 96,
             priority: 50,
-            align: 'center',
             mono: true,
             sort: (left, right, direction) =>
                 compareNumber(left.quantity, right.quantity, direction),
@@ -611,7 +611,6 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnToIssue'),
             width: 140,
             priority: 90,
-            align: 'center',
             mono: true,
             // By what is issued, the rounded-up count: the figure the cell leads with.
             sort: (left, right, direction) =>

@@ -287,7 +287,6 @@ function Stock() {
             label: t('kitchen:ops.stock.columnQuantity'),
             width: 110,
             priority: 90,
-            align: 'center',
             value: quantityText,
             sort: (left, right, direction) =>
                 compareNumber(
@@ -307,7 +306,6 @@ function Stock() {
         },
         {
             key: 'unit',
-            align: 'center',
             role: 'meta',
             label: t('kitchen:ops.stock.columnUnit'),
             width: 80,
@@ -327,7 +325,6 @@ function Stock() {
         },
         {
             key: 'reorder',
-            align: 'center',
             label: t('kitchen:ops.stock.columnReorderPar'),
             width: 130,
             priority: 50,
@@ -767,11 +764,6 @@ function Stock() {
 
                     <CataloguePager
                         testID="kitchen-stock-pagination"
-                        range={t('kitchen:catalogue.pagerRange', {
-                            from: from + 1,
-                            to: from + visible.length,
-                            total: controls.rows.length,
-                        })}
                         page={currentPage}
                         totalPages={totalPages}
                         onPageChange={(next) => {

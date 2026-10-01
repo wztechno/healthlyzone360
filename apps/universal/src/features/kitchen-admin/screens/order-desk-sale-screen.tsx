@@ -27,8 +27,7 @@ import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { LayoutChangeEvent } from 'react-native';
-import { Pressable, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -39,6 +38,7 @@ import {
 } from '../../../data/order-desk-hooks.ts';
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
+import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { ORDER_CREATE_ON_BEHALF_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
@@ -134,19 +134,29 @@ const QUOTE_DEBOUNCE_MS = 300;
 const SEARCH_DEBOUNCE_MS = 300;
 
 /**
- * The ticket's width. A style: there is no rail-width token. Wide enough for a name beside a
- * stepper pair and a line total at the compact sizes.
+ * The narrowest the ticket may be beside the menu. A style: there is no rail-width token. Wide
+ * enough for a name beside a stepper pair and a line total at the compact sizes. It is a floor, not
+ * the ticket's width: beside the menu the ticket takes whatever the tiles leave.
  */
-const TICKET_WIDTH = 320;
+const TICKET_MIN_WIDTH = 320;
 
 /**
- * The narrowest a product tile may be before the grid drops a column. The design fits four across
- * beside the ticket; below this the name no longer fits two lines.
+ * A product tile's width beside the ticket. Fixed, so the menu column is exactly as wide as the
+ * tiles in it and the toolbar above them ends where the last tile does.
+ */
+const TILE_WIDTH = 192;
+
+/**
+ * The narrowest a product tile may be before the grid drops a column, when the menu runs the full
+ * width above the ticket. Below this the name no longer fits two lines.
  */
 const TILE_MIN_WIDTH = 150;
 
 /** The gap between tiles — `gap-snug`, repeated as a number because the tile width is computed. */
 const TILE_GAP = 12;
+
+/** The gap between the menu and the ticket — `gap-base`, repeated for the same reason. */
+const BODY_GAP = 16;
 
 const EM_DASH = '—';
 
@@ -208,7 +218,14 @@ function Sale() {
     const [query, setQuery] = useState('');
     /** The counter sale just rung up, said on the ticket until the next tap starts another. */
     const [sold, setSold] = useState<KitchenOrder | null>(null);
-    const [bodyWidth, setBodyWidth] = useState(0);
+    /*
+     * The body row's width, read from the node rather than from `onLayout`: on the web `onLayout`
+     * is a `ResizeObserver` that delivered one early width and nothing after it, so the tiles were
+     * cut for a narrower row than the one on screen and a band of nothing opened between the last
+     * tile and the ticket. The port hook reads on mount, on resize and when the nav rail settles.
+     */
+    const port = useCataloguePort();
+    const bodyWidth = port.width;
 
     const place = usePlaceOrderDeskSaleMutation();
 
@@ -308,8 +325,19 @@ function Sale() {
     /*
      * Beside or under. The ticket sits beside the menu wherever two tiles still fit next to it, and
      * under it on anything narrower, where a fixed column would leave the menu one tile wide.
+     *
+     * Beside it, the menu takes as many whole tiles as fit and not a pixel more — so the toolbar
+     * above them is the tiles' width — and the ticket takes the rest. A menu that filled the row
+     * instead left the remainder after its last whole tile as a gap nobody could use.
      */
-    const sideBySide = bodyWidth >= TICKET_WIDTH + TILE_MIN_WIDTH * 2 + TILE_GAP * 2;
+    const besideColumns = Math.floor(
+        (bodyWidth - BODY_GAP - TICKET_MIN_WIDTH + TILE_GAP) / (TILE_WIDTH + TILE_GAP),
+    );
+    const sideBySide = besideColumns >= 2;
+    const grid = sideBySide
+        ? { columns: besideColumns, tileWidth: TILE_WIDTH }
+        : stackedGrid(bodyWidth);
+    const menuWidth = grid.columns * grid.tileWidth + (grid.columns - 1) * TILE_GAP;
 
     return (
         <View testID="kitchen-order-desk-sale-screen" className="z-auto flex-col gap-base">
@@ -353,17 +381,16 @@ function Sale() {
             ) : null}
 
             <View
-                onLayout={(event: LayoutChangeEvent) => {
-                    setBodyWidth(event.nativeEvent.layout.width);
-                }}
+                // Both measurement paths, each inert on the other's platform — as `CatalogueList`.
+                ref={Platform.OS === 'web' ? port.ref : undefined}
+                onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
                 className={
                     sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
                 }
             >
                 <View
-                    // eslint-disable-next-line no-restricted-syntax -- the menu is the row's filler beside the fixed ticket.
-                    className="z-auto min-w-0 flex-1 flex-col gap-snug"
-                    style={sideBySide ? undefined : { alignSelf: 'stretch' }}
+                    className="z-auto min-w-0 flex-col gap-snug"
+                    style={sideBySide ? { width: menuWidth } : { alignSelf: 'stretch' }}
                 >
                     <CatalogueToolbar<MenuSection>
                         testID="kitchen-order-desk-sale-menu-toolbar"
@@ -380,6 +407,7 @@ function Sale() {
                         onStatusChange={setSection}
                     />
                     <MenuGrid
+                        tileWidth={grid.tileWidth}
                         section={section}
                         query={query}
                         customerAccountId={state.customerAccountId}
@@ -399,7 +427,7 @@ function Sale() {
                 </View>
 
                 <Ticket
-                    width={sideBySide ? TICKET_WIDTH : null}
+                    beside={sideBySide}
                     state={state}
                     quote={quote}
                     quoteStale={quoteStale}
@@ -420,13 +448,27 @@ function Sale() {
  * The menu
  * ---------------------------------------------------------------------------------------------- */
 
+/**
+ * The grid when the menu runs the full width above the ticket: as many columns as fit at the
+ * minimum tile width, and the tiles stretched to fill the row between them. Before the first
+ * measurement there is no row to fill, so the tiles take their minimum.
+ */
+function stackedGrid(width: number): { readonly columns: number; readonly tileWidth: number } {
+    const columns = Math.max(1, Math.floor((width + TILE_GAP) / (TILE_MIN_WIDTH + TILE_GAP)));
+    const tileWidth = width === 0 ? TILE_MIN_WIDTH : (width - TILE_GAP * (columns - 1)) / columns;
+    return { columns, tileWidth };
+}
+
 function MenuGrid({
+    tileWidth,
     section,
     query,
     customerAccountId,
     lines,
     onAdd,
 }: {
+    /** Worked out by the screen, which knows the row the menu shares with the ticket. */
+    readonly tileWidth: number;
     readonly section: MenuSection;
     readonly query: string;
     readonly customerAccountId: string | null;
@@ -436,7 +478,6 @@ function MenuGrid({
     const { t } = useTranslation();
     const { locale } = useLocale();
     const formatter = useFormatter();
-    const [width, setWidth] = useState(0);
 
     const debounced = useDebouncedValue(query.trim(), SEARCH_DEBOUNCE_MS);
     /* Published only: a desk sells what is on sale. */
@@ -507,18 +548,10 @@ function MenuGrid({
     }, [lines]);
 
     const failure = toFailure(read.error);
-    const columns = Math.max(1, Math.floor((width + TILE_GAP) / (TILE_MIN_WIDTH + TILE_GAP)));
-    const tileWidth = width === 0 ? TILE_MIN_WIDTH : (width - TILE_GAP * (columns - 1)) / columns;
     const total = read.data?.totalCount ?? null;
 
     return (
-        <View
-            testID="kitchen-order-desk-sale-menu"
-            className="flex-col gap-snug"
-            onLayout={(event: LayoutChangeEvent) => {
-                setWidth(event.nativeEvent.layout.width);
-            }}
-        >
+        <View testID="kitchen-order-desk-sale-menu" className="flex-col gap-snug">
             {read.isPending ? (
                 <Skeleton testID="kitchen-order-desk-sale-menu-loading" heightClassName="h-32" />
             ) : failure !== null ? (
@@ -676,7 +709,7 @@ function MenuTileButton({
  * ---------------------------------------------------------------------------------------------- */
 
 function Ticket({
-    width,
+    beside,
     state,
     quote,
     quoteStale,
@@ -688,8 +721,8 @@ function Ticket({
     placeFailure,
     onPlace,
 }: {
-    /** A fixed column beside the menu, or `null` to run the full width under it. */
-    readonly width: number | null;
+    /** Beside the menu, taking the row the tiles leave; otherwise the full width under it. */
+    readonly beside: boolean;
     readonly state: SaleState;
     readonly quote: OrderDeskQuote | null;
     readonly quoteStale: boolean;
@@ -745,8 +778,13 @@ function Ticket({
             testID="kitchen-order-desk-sale-ticket"
             role="complementary"
             aria-label={t('kitchen:desk.sale.ticketTitle')}
-            style={width === null ? undefined : { width }}
-            className="z-auto self-start web:sticky web:top-0"
+            style={beside ? { minWidth: TICKET_MIN_WIDTH } : undefined}
+            className={
+                beside
+                    ? // eslint-disable-next-line no-restricted-syntax -- the ticket is the row's filler beside the fixed-width menu.
+                      'z-auto min-w-0 flex-1 self-start web:sticky web:top-0'
+                    : 'z-auto self-stretch web:sticky web:top-0'
+            }
         >
             <FormSection
                 variant="card"

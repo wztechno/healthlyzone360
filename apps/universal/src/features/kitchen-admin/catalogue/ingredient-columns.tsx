@@ -30,10 +30,10 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
  * | Designation|   260 |   150 |      100 | the title; never dropped              |
  * | Category   |   140 |   120 |       40 | secondary                             |
  * | Unit       |    72 |    56 |       50 | secondary, abbreviated                |
- * | Unit price |   104 |    84 |       75 | mono, centred, 2 dp                   |
+ * | Unit price |   104 |    84 |       75 | mono, 2 dp                            |
  * | Allergens  |   160 |   132 |       30 | secondary, comma run                  |
  * | Status     |   110 |    78 |       80 | badge                                 |
- * | Updated    |    96 |    72 |       20 | secondary, centred, relative          |
+ * | Updated    |    96 |    72 |       20 | secondary, relative                   |
  *
  * Past those, every other field the record carries is offered as a column too — sub-category,
  * purchase pack, items per pack, grams per unit, cost per 100 g, the B2B and B2C prices, the
@@ -138,7 +138,7 @@ export function ingredientColumns({
     const amountLabel = (amount: CostAmount | null): string | null =>
         amount === null ? null : formatter.formatNumber(amount.amount, PRICE_DIGITS);
 
-    /** A centred mono figure, or the dash. The optional numeric fields all draw like this. */
+    /** A mono figure, or the dash. The optional numeric fields all draw like this. */
     const numberColumn = (
         key: string,
         label: string,
@@ -149,7 +149,6 @@ export function ingredientColumns({
         width: 112,
         min: 84,
         priority: CATALOGUE_PRIORITY.updated,
-        align: 'center',
         role: 'meta',
         mono: true,
         value: (row) => figure(row) ?? noValue,
@@ -270,7 +269,6 @@ export function ingredientColumns({
             width: 72,
             min: 56,
             priority: CATALOGUE_PRIORITY.unit,
-            align: 'center',
             role: 'meta',
             sortable: true,
             sortType: 'text',
@@ -288,7 +286,6 @@ export function ingredientColumns({
             width: 104,
             min: 84,
             priority: CATALOGUE_PRIORITY.unitPrice,
-            align: 'center',
             // The ingredient list's headline number: no cost per kg and no yield on this entity, so
             // the price a kitchen buys at is what a row is scanned for after its name.
             role: 'metric',
@@ -393,7 +390,6 @@ export function ingredientColumns({
             width: 104,
             min: 80,
             priority: CATALOGUE_PRIORITY.updated,
-            align: 'center',
             role: 'meta',
             value: (row) => optionalText(row.purchaseUnit, (unit) => t(unitShortKey(unit))),
             render: (row) => (
@@ -444,7 +440,6 @@ export function ingredientColumns({
             width: 120,
             min: 96,
             priority: CATALOGUE_PRIORITY.updated,
-            align: 'center',
             role: 'meta',
             sortable: true,
             sortType: 'text',

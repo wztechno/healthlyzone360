@@ -443,10 +443,6 @@ function QualityCheckList({
 
                     <CataloguePager
                         testID="kitchen-qc-pagination"
-                        range={t('kitchen:toolbar.showing', {
-                            shown: pageRows.length,
-                            total: controls.rows.length,
-                        })}
                         page={currentPage}
                         totalPages={totalPages}
                         onPageChange={(next) => {

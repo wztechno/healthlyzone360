@@ -142,6 +142,13 @@ export interface ImagePlaceholderProps {
      * coin toss.
      */
     readonly flush?: boolean | undefined;
+    /**
+     * Hides the placeholder from assistive technology, for a frame whose subject is already named
+     * beside it. On the placeholder itself rather than on a wrapper: a wrapper is a box with no
+     * size of its own, so a caller's `h-full` resolved against nothing and the frame fell back to
+     * its aspect ratio — half a mosaic tile, the rest of the slot bare.
+     */
+    readonly decorative?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -159,6 +166,7 @@ export function ImagePlaceholder({
     label,
     aspect = 'wide',
     flush = false,
+    decorative = false,
     className,
     testID,
 }: ImagePlaceholderProps) {
@@ -170,9 +178,17 @@ export function ImagePlaceholder({
     return (
         <View
             testID={testID}
-            accessibilityRole="image"
-            accessibilityLabel={label}
-            aria-label={label}
+            {...(decorative
+                ? {
+                      'aria-hidden': true,
+                      accessibilityElementsHidden: true,
+                      importantForAccessibility: 'no-hide-descendants' as const,
+                  }
+                : {
+                      accessibilityRole: 'image' as const,
+                      accessibilityLabel: label,
+                      'aria-label': label,
+                  })}
             className={cx(
                 'w-full items-center justify-center overflow-hidden',
                 flush ? null : 'rounded-lg',

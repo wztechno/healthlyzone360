@@ -196,7 +196,6 @@ function UnpricedReceipts() {
             },
             {
                 key: 'toPrice',
-                align: 'center',
                 role: 'metric',
                 label: t('kitchen:ops.unpricedReceipts.columnToPrice'),
                 width: 150,

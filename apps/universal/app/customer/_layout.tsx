@@ -4,8 +4,9 @@ import { isPathAvailable } from '../../src/features/availability.ts';
 import { ConsumerShell } from '../../src/shell/consumer-shell.tsx';
 
 /**
- * The `customer` area. `ConsumerShell` applies `<Gate area="customer">` and the consumer chrome —
- * a sidebar at `lg` and above, bottom tabs below it.
+ * The `customer` area. `ConsumerShell` applies `<Gate area="customer">` and the customer header —
+ * the same chrome the public marketplace wears, so the basket and the account read as the same
+ * site as the menu.
  *
  * Screens inside the area whose feature has no backend yet (planner, grocery, recipes, nutrition,
  * onboarding, virtual dietitian) redirect to the area's home before any of that mounts. `/customer`

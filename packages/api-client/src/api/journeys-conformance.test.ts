@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { CartId } from '@healthy360/domain-types';
+import { CartId, OrderId } from '@healthy360/domain-types';
 
 import { asApiFailure } from '../contracts/failure.ts';
 import { createMemoryTokenStore } from '../contracts/session.ts';
@@ -12,7 +12,7 @@ import type {
 } from '../generated/types.ts';
 import { createApiGuestRepository, mapGuestChallenge } from './guest-repository.ts';
 import { mapErrorEnvelope } from './failures.ts';
-import { createApiOrderPlacement } from './order-repository.ts';
+import { createApiMyOrderReads, createApiOrderPlacement } from './order-repository.ts';
 import {
     createApiReferenceReads,
     mapAllergenClass,
@@ -645,6 +645,71 @@ describe('the authenticated placement', () => {
         }).then(() => null, asApiFailure);
 
         expect(failure?.code).toBe('validation.failed');
+    });
+});
+
+/**
+ * `GET /me/orders` and `GET /me/orders/{order}` — the customer's own history.
+ *
+ * Both answer the projection the placement does, so they are asserted to map through the same
+ * function: a history row and the confirmation that created it must never disagree.
+ */
+describe('the customer’s own orders', () => {
+    const FULFILLED = {
+        ...RECORDED_CUSTOMER_ORDER,
+        id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e8aa2',
+        order_number: 'H360-1043',
+        status: 'fulfilled',
+        fulfilled_at: '2026-08-05T09:40:00+00:00',
+        delivery: { ...RECORDED_CUSTOMER_ORDER.delivery, directions: 'Blue gate, ring twice' },
+    } as const;
+
+    it('walks the history by the server’s cursor, mapping each row as a placed order', async () => {
+        const calls: Call[] = [];
+        const page = await createApiMyOrderReads(
+            transportReturning(
+                {
+                    data: [FULFILLED, RECORDED_CUSTOMER_ORDER],
+                    meta: { count: 2, next_cursor: 'cursor-2', has_more: true },
+                },
+                calls,
+            ),
+        ).listMyOrders({ cursor: 'cursor-1', limit: 2 });
+
+        expect(calls[0]?.url).toBe('https://api.example/api/v1/me/orders?cursor=cursor-1&limit=2');
+        expect(page.items.map((order) => order.reference)).toEqual(['H360-1043', 'H360-1042']);
+        // `fulfilled` on the wire is `delivered` in the contract, as on a placement.
+        expect(page.items[0]?.state).toBe('delivered');
+        expect(page.items[0]?.address.instructions).toBe('Blue gate, ring twice');
+        expect(page.items[1]?.total).toEqual({ amount: 10500, currency: 'AED' });
+        expect(page).toMatchObject({ nextCursor: 'cursor-2', hasMore: true, totalCount: null });
+    });
+
+    it('asks for the first page with no parameters at all', async () => {
+        const calls: Call[] = [];
+        const page = await createApiMyOrderReads(
+            transportReturning(
+                { data: [], meta: { count: 0, next_cursor: null, has_more: false } },
+                calls,
+            ),
+        ).listMyOrders();
+
+        expect(calls[0]?.url).toBe('https://api.example/api/v1/me/orders');
+        expect(page).toEqual({ items: [], nextCursor: null, hasMore: false, totalCount: null });
+    });
+
+    it('reads one order by its identifier, out of the order wrapper', async () => {
+        const calls: Call[] = [];
+        const order = await createApiMyOrderReads(
+            transportReturning({ data: { order: RECORDED_CUSTOMER_ORDER }, meta: {} }, calls),
+        ).getMyOrder(OrderId.unsafe(RECORDED_CUSTOMER_ORDER.id));
+
+        expect(calls[0]?.url).toBe(
+            `https://api.example/api/v1/me/orders/${RECORDED_CUSTOMER_ORDER.id}`,
+        );
+        expect(order.reference).toBe('H360-1042');
+        expect(order.lines).toHaveLength(2);
+        expect(order.priceLines.map((line) => line.code)).toEqual(['subtotal', 'delivery']);
     });
 });
 

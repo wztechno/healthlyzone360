@@ -13,6 +13,7 @@ use Healthy360\Customers\Models\CustomerDietaryProfile;
 use Healthy360\Identity\Models\ContactPoint;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Healthy360\ReferenceData\Models\DietClassification;
 
 /*
 |--------------------------------------------------------------------------
@@ -150,6 +151,58 @@ it('takes a destination, an address, a dietary declaration and a consent', funct
     expect($position['consent.terms']['status'])->toBe('granted')
         ->and($position['consent.privacy']['status'])->toBe('granted')
         ->and($position['consent.marketing_email']['status'])->not->toBe('granted');
+});
+
+it('takes the diet by its code, stores the classification and answers with the code', function (): void {
+    $this->actingAs($this->user);
+    $this->postJson('/api/v1/customer-account', [], firstPartyHeaders())->assertCreated();
+
+    // The code is what a client holds: the public diet list publishes codes and
+    // no identifiers, so a client can only ever send the code back.
+    $saved = $this->putJson('/api/v1/me/dietary-profile', [
+        'allergens' => [],
+        'diet_classification_code' => 'vegetarian',
+    ], firstPartyHeaders())
+        ->assertOk()
+        ->assertJsonPath('data.dietary_profile.diet_classification_code', 'vegetarian');
+
+    $vegetarian = DietClassification::query()->where('code', 'vegetarian')->value('id');
+    expect($saved->json('data.dietary_profile.diet_classification_id'))->toBe($vegetarian);
+
+    $this->getJson('/api/v1/me/dietary-profile', firstPartyHeaders())
+        ->assertOk()
+        ->assertJsonPath('data.dietary_profile.diet_classification_code', 'vegetarian');
+
+    // A null code clears the diet, as a null identifier always has.
+    $this->putJson('/api/v1/me/dietary-profile', [
+        'allergens' => [],
+        'diet_classification_code' => null,
+    ], firstPartyHeaders())
+        ->assertOk()
+        ->assertJsonPath('data.dietary_profile.diet_classification_code', null)
+        ->assertJsonPath('data.dietary_profile.diet_classification_id', null);
+});
+
+it('refuses an unknown diet code, and the code and identifier together', function (): void {
+    $this->actingAs($this->user);
+    $this->postJson('/api/v1/customer-account', [], firstPartyHeaders())->assertCreated();
+
+    // A field error, not a 500 from the foreign key.
+    $this->putJson('/api/v1/me/dietary-profile', [
+        'allergens' => [],
+        'diet_classification_code' => 'carnivore',
+    ], firstPartyHeaders())
+        ->assertUnprocessable()
+        ->assertJsonPath('error.code', 'validation.failed');
+
+    // Two names for one choice can disagree, so only one may be sent.
+    $this->putJson('/api/v1/me/dietary-profile', [
+        'allergens' => [],
+        'diet_classification_code' => 'vegan',
+        'diet_classification_id' => (string) DietClassification::query()->where('code', 'vegan')->value('id'),
+    ], firstPartyHeaders())
+        ->assertUnprocessable()
+        ->assertJsonPath('error.code', 'validation.failed');
 });
 
 it('refuses a self-service write from somebody who has not opened an account', function (): void {

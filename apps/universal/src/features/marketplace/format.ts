@@ -1,7 +1,7 @@
 import { minorUnitExponent } from '@healthy360/domain-types';
 import type { Money } from '@healthy360/domain-types';
 import type { Formatter } from '@healthy360/i18n';
-import { amountValue } from '@healthy360/nutrition';
+import { amountValue, findAmount } from '@healthy360/nutrition';
 import type { NutritionFacts } from '@healthy360/nutrition';
 
 /**
@@ -22,6 +22,20 @@ export function formatMoney(formatter: Formatter, value: Money): string {
 /** A nutrient's value, rounded for display. `0` when the facts carry no such nutrient. */
 export function nutrientValue(facts: NutritionFacts, nutrientId: string): number {
     return Math.round(amountValue(facts, nutrientId));
+}
+
+/**
+ * Energy and protein, rounded, or `null` unless the kitchen published both.
+ *
+ * For the one-line "620 kcal · 48 g protein" a compact row carries. `nutrientValue`'s `0` is right
+ * inside a sum and wrong on a label: a dish whose kitchen published nothing read "0 kcal · 0 g
+ * protein", which states a fact that is false rather than admitting one that is missing.
+ */
+export function publishedEnergyAndProtein(
+    facts: NutritionFacts,
+): { readonly energy: number; readonly protein: number } | null {
+    if (findAmount(facts, 'energy') === null || findAmount(facts, 'protein') === null) return null;
+    return { energy: nutrientValue(facts, 'energy'), protein: nutrientValue(facts, 'protein') };
 }
 
 /** ISO weekday (1 = Monday) to the translation key for its name. */

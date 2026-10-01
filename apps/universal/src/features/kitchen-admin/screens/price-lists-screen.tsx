@@ -173,7 +173,6 @@ function PriceListsList() {
         },
         {
             key: 'currency',
-            align: 'center',
             role: 'meta',
             label: t('kitchen:priceLists.columnCurrency'),
             width: 80,
@@ -213,7 +212,6 @@ function PriceListsList() {
         },
         {
             key: 'entries',
-            align: 'center',
             role: 'metric',
             label: t('kitchen:priceLists.columnEntries'),
             width: 180,
@@ -443,10 +441,6 @@ function PriceListsList() {
 
                     <CataloguePager
                         testID="kitchen-price-lists-pagination"
-                        range={t('kitchen:toolbar.showing', {
-                            shown: controls.rows.length,
-                            total: total ?? controls.rows.length,
-                        })}
                         page={page}
                         totalPages={totalPages}
                         onPageChange={(next) => {

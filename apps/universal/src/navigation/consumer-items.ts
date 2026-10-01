@@ -118,17 +118,17 @@ export const MARKETPLACE_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         area: 'public',
     },
     {
-        key: 'kitchens',
-        labelKey: 'marketplace:nav.kitchens',
-        href: '/kitchens',
-        icon: 'organisation',
-        area: 'public',
-    },
-    {
         key: 'meals',
         labelKey: 'marketplace:nav.meals',
         href: '/meals',
         icon: 'plate',
+        area: 'public',
+    },
+    {
+        key: 'kitchens',
+        labelKey: 'marketplace:nav.kitchens',
+        href: '/kitchens',
+        icon: 'organisation',
         area: 'public',
     },
     {

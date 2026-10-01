@@ -1,22 +1,26 @@
-import { Inline, Stack, Text } from '@healthy360/design-system';
 import type { SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
-import { Text as RNText } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 import { formatMoney } from '../marketplace/format.ts';
-import { DAYS_PER_WEEK, cheapestVariant } from './plan-catalogue.ts';
+import { balanceDaysFor, balanceTotal, listDayPrice } from './plan-balance.ts';
+import { cheapestVariant } from './plan-catalogue.ts';
 
 /**
- * A plan's advertised price.
+ * A plan's advertised price, drawn as HealthZone's plan card draws it: the big figure with its unit
+ * beside it on one baseline, and one quiet line under it pricing a whole balance.
  *
- * ## Both units, always, with the weekly one primary
+ * ## Per delivery day, because that is what a plan is
  *
- * Doc 17, SUB-09 records the reference product switching units between catalogue and detail, which
- * makes the same plan look cheaper in one place than the other. Showing the weekly figure large and
- * the daily figure beneath it — everywhere the price appears — removes the possibility rather than
- * relying on care. The number is the cheapest variant's, and the "from" says so out loud: a plan has
- * three bands at three prices, and the smallest is what the headline figure is.
+ * The design says "/ meal". A plan here is a balance of delivery days (S1 semantics §1), and a day
+ * can carry two or three meals, so the true unit in the same place is "/ day" — the per-day price
+ * captured at purchase (§5), the figure a cancellation credit multiplies. The line under it is a
+ * real balance at a real total, priced with the server's rounding, so the card cannot look cheaper
+ * than checkout.
+ *
+ * The figure is the cheapest configuration's. When a plan has more than one calorie band the line
+ * under it says "From", so the headline is never a mid band dressed as a floor.
  */
 export interface PlanPriceProps {
     readonly plan: SubscriptionPlan;
@@ -30,36 +34,37 @@ export function PlanPrice({ plan, testID }: PlanPriceProps) {
     const cheapest = cheapestVariant(plan);
     if (cheapest === null) return null;
 
-    const perDay = {
-        amount: Math.round(cheapest.pricePerWeek.amount / DAYS_PER_WEEK),
-        currency: cheapest.pricePerWeek.currency,
-    };
+    // The configurator opens on the plan's first duration, so that is the balance quoted here.
+    const firstOption = plan.durations[0];
+    const balanceKey =
+        plan.variants.length > 1
+            ? 'catalogue:plans.balancePriceFrom'
+            : 'catalogue:plans.balancePrice';
 
     return (
-        <Stack space="none" testID={testID}>
-            <Text tone="secondary" variant="caption">
-                {t('catalogue:plans.priceFrom')}
-            </Text>
-            <Inline space="xs" align="baseline" wrap>
-                {/*
-                 * RNText, not the design system's `Text`. `Text` applies its variant's own
-                 * `text-base` and a caller's `text-2xl` cannot reliably outrank it — the same
-                 * trap that first rendered the page hero's 48px title at 16px. The price is the
-                 * figure this card is compared on, so it states its own size.
-                 */}
+        <View testID={testID} className="flex-col">
+            <View className="flex-row flex-wrap items-baseline gap-2">
                 <RNText
                     testID={testID === undefined ? undefined : `${testID}-amount`}
-                    className="text-2xl leading-tight text-surface-brand text-start"
+                    className="font-display text-4xl font-bold tabular-nums tracking-display text-content-primary text-start"
                 >
-                    {formatMoney(formatter, cheapest.pricePerWeek)}
+                    {formatMoney(formatter, listDayPrice(cheapest))}
                 </RNText>
-                <Text tone="secondary" variant="caption">
-                    {t('catalogue:plans.perWeekSuffix')}
-                </Text>
-            </Inline>
-            <Text tone="secondary" variant="caption">
-                {t('catalogue:plans.perDayPrice', { price: formatMoney(formatter, perDay) })}
-            </Text>
-        </Stack>
+                <RNText className="text-sm text-content-secondary">
+                    {t('catalogue:plans.perDaySuffix')}
+                </RNText>
+            </View>
+            {firstOption === undefined ? null : (
+                <RNText
+                    testID={testID === undefined ? undefined : `${testID}-balance`}
+                    className="mt-0.5 text-xs tabular-nums text-content-secondary text-start"
+                >
+                    {t(balanceKey, {
+                        price: formatMoney(formatter, balanceTotal(cheapest, firstOption)),
+                        count: balanceDaysFor(firstOption.duration),
+                    })}
+                </RNText>
+            )}
+        </View>
     );
 }

@@ -11,7 +11,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 
-import { IconButton } from '../actions/button.tsx';
+import { Button, IconButton } from '../actions/button.tsx';
 import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
@@ -57,6 +57,17 @@ export interface ToastOptions {
     readonly tone?: ToastTone | undefined;
     /** Milliseconds before the toast dismisses itself. `0` keeps it until dismissed. */
     readonly durationMs?: number | undefined;
+    readonly testID?: string | undefined;
+    /**
+     * One follow-up the confirmation leads to — "View cart" after an add. Pressing it also
+     * dismisses the toast: the person has acted on it, so it has nothing left to say.
+     */
+    readonly action?: ToastAction | undefined;
+}
+
+export interface ToastAction {
+    readonly label: string;
+    readonly onPress: () => void;
     readonly testID?: string | undefined;
 }
 
@@ -212,6 +223,18 @@ function ToastItem({
             <RNText className={cx('flex-1 text-sm text-start', TONE_TEXT_CLASS[tone])}>
                 {toast.message}
             </RNText>
+            {toast.action === undefined ? null : (
+                <Button
+                    testID={toast.action.testID ?? `${toast.testID ?? `toast-${tone}`}-action`}
+                    size="sm"
+                    variant="secondary"
+                    label={toast.action.label}
+                    onPress={() => {
+                        toast.action?.onPress();
+                        onDismiss(toast.id);
+                    }}
+                />
+            )}
             <IconButton
                 testID={`${toast.testID ?? `toast-${tone}`}-dismiss`}
                 size="sm"

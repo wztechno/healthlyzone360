@@ -161,7 +161,6 @@ function AnalyticsDashboard() {
             label: t('kitchen:analytics.table.volume'),
             width: 80,
             priority: 85,
-            align: 'center',
             sort: (left, right, direction) => compareNumber(left.volume, right.volume, direction),
             render: (row) => <Text variant="mono">{formatter.formatNumber(row.volume)}</Text>,
         },
@@ -170,7 +169,6 @@ function AnalyticsDashboard() {
             label: t('kitchen:analytics.table.completion'),
             width: 64,
             priority: 50,
-            align: 'center',
             sort: (left, right, direction) =>
                 compareNumber(left.completionPercent, right.completionPercent, direction),
             render: (row) => (
@@ -184,7 +182,6 @@ function AnalyticsDashboard() {
             label: t('kitchen:analytics.table.avgMinutes'),
             width: 76,
             priority: 45,
-            align: 'center',
             sort: (left, right, direction) =>
                 compareNumber(left.avgMinutes, right.avgMinutes, direction),
             render: (row) => <Text variant="mono">{formatter.formatNumber(row.avgMinutes)}</Text>,

@@ -1226,7 +1226,6 @@ function OrderDeskQueueList() {
             priority: 85,
             sort: (left, right, direction) =>
                 compareNumber(left.totalMinor, right.totalMinor, direction),
-            align: 'center',
             mono: true,
             render: (row) => (
                 <Text variant="mono" testID={`${orderDeskRowTestId(String(row.id))}-total`}>
@@ -2086,10 +2085,6 @@ function OrderDeskQueueList() {
 
                     <CataloguePager
                         testID="kitchen-order-desk-pagination"
-                        range={t('kitchen:toolbar.showing', {
-                            shown: pageRows.length,
-                            total: rows.length,
-                        })}
                         page={page}
                         totalPages={totalPages}
                         onPageChange={(next) => {

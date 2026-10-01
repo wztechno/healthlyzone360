@@ -1,4 +1,4 @@
-import { Breadcrumbs, Button, Heading, Stack, Text } from '@healthy360/design-system';
+import { Button, Stack, Text } from '@healthy360/design-system';
 import type { MealFilter } from '@healthy360/api-client/contracts';
 import { KitchenId } from '@healthy360/domain-types';
 import type { MealType } from '@healthy360/domain-types';
@@ -10,6 +10,7 @@ import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { mealsFromPages, useMealsQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
+import { ListingHeader } from '../../../ui/listing-header.tsx';
 import { FilterBar, useMarketplaceFilters } from '../filter-bar.tsx';
 import { CardGrid, CardGridItem } from '../section-header.tsx';
 import { MealCard } from '../meal-card.tsx';
@@ -45,6 +46,10 @@ export interface KitchenMenuScreenProps {
 
 /**
  * A kitchen's consumer menu — prepared meals and sellable products together.
+ *
+ * The searchable view of what the storefront's Menu tab lists by shelf (`kitchen-profile-screen.tsx`).
+ * HealthZone draws no page of its own for it; the tab carries no search box and no item-type or
+ * meal-type filter, so this is where the storefront's "Start an order" lands.
  *
  * Pressing a listing navigates to `/meals/{id}` (the marketplace show endpoint
  * accepts both published meals and products). Filter chips narrow by catalogue
@@ -88,9 +93,14 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
 
     return (
         <Stack space="lg" testID="kitchen-menu-screen">
-            <Breadcrumbs
-                testID="kitchen-menu-breadcrumbs"
-                items={[
+            {/*
+             * The listing opening every catalogue page shares — trail, title, one line under it —
+             * rather than a heading of its own. `testID="kitchen-menu"` keeps the handles this
+             * screen always had: `kitchen-menu-breadcrumbs` and `kitchen-menu-title`.
+             */}
+            <ListingHeader
+                testID="kitchen-menu"
+                breadcrumbs={[
                     {
                         key: 'kitchens',
                         label: t('marketplace:nav.kitchens'),
@@ -109,16 +119,13 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
                     },
                     { key: 'menu', label: t('marketplace:menu.title') },
                 ]}
-            />
-
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-menu-title">
-                    {kitchen.data === undefined
+                title={
+                    kitchen.data === undefined
                         ? t('marketplace:menu.title')
-                        : t('marketplace:menu.titleFor', { kitchen: kitchen.data.name })}
-                </Heading>
-                <Text tone="secondary">{t('marketplace:menu.subtitle')}</Text>
-            </Stack>
+                        : t('marketplace:menu.titleFor', { kitchen: kitchen.data.name })
+                }
+                meta={t('marketplace:menu.subtitle')}
+            />
 
             <FilterBar
                 testID="kitchen-menu-filter"

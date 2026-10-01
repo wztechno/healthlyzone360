@@ -239,6 +239,14 @@ export const queryKeys = {
             ['commerce', 'cart', cartId, 'item', itemId] as const,
 
         /**
+         * The customer's own one-off orders. One prefix for the history and every order page, so a
+         * placement invalidates both with one call — a new order belongs at the top of the list.
+         */
+        orders: () => ['commerce', 'orders'] as const,
+        myOrders: (filter?: QueryScope) => ['commerce', 'orders', 'list', scope(filter)] as const,
+        myOrder: (orderId: OrderId) => ['commerce', 'orders', 'order', orderId] as const,
+
+        /**
          * S1. Three entries under the existing root rather than a new one, because a balance, a
          * ledger and a quote are all facts about the same commerce surface — and every subscription
          * mutation already invalidates the whole `commerce` prefix, which is exactly what has to

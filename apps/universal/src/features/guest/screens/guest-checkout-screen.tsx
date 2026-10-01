@@ -1,20 +1,19 @@
 import {
     Button,
     Callout,
-    Card,
     Checkbox,
     DateField,
-    Heading,
-    Inline,
-    SegmentedControl,
-    Stack,
-    Stepper,
+    Icon,
+    Skeleton,
     Text,
+    TextInputField,
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
+import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Text as RNText, View } from 'react-native';
 
 import { useCartQuery, useCheckoutPreviewQuery } from '../../../data/commerce-hooks.ts';
 import {
@@ -28,76 +27,98 @@ import {
 } from '../../../data/guest-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { useValidationTranslate } from '../../../screens/form-helpers.ts';
-import { AddressForm } from '../../commerce/address-form.tsx';
+import { Eyebrow } from '../../../ui/eyebrow.tsx';
+import { EMPTY_ADDRESS, toDeliveryAddress, validateAddress } from '../../commerce/address.ts';
+import type { AddressValues } from '../../commerce/address.ts';
 import {
-    EMPTY_ADDRESS,
-    formatAddress,
-    toDeliveryAddress,
-    validateAddress,
-} from '../../commerce/address.ts';
-import type { AddressField, AddressValues } from '../../commerce/address.ts';
+    CheckoutCard,
+    CheckoutColumns,
+    CheckoutPage,
+    CheckoutTitle,
+    ChoiceChips,
+    FieldCell,
+    FieldRow,
+    NumberDot,
+    SummaryItems,
+    SummaryRow,
+    SummaryTotal,
+    TextLink,
+    priceLineLabel,
+} from '../../commerce/checkout-frame.tsx';
 import { earliestStartDate } from '../../commerce/dates.ts';
 import {
-    DEFAULT_SLOT_CODE,
-    DELIVERY_SLOTS,
+    defaultSlotCodeForKitchen,
     deliveryAreaStatus,
+    deliverySlotByCode,
+    deliverySlotsForKitchen,
     servedAreas,
 } from '../../commerce/delivery.ts';
-import { PriceSummary } from '../../commerce/price-summary.tsx';
-import type { PriceRow } from '../../commerce/price-summary.tsx';
-import { EMPTY_GUEST_CONTACT, toContactRequest, validateGuestContact } from '../contact.ts';
-import type { GuestContactField, GuestContactValues } from '../contact.ts';
+import { formatMoney } from '../../marketplace/format.ts';
+import {
+    EMPTY_GUEST_CONTACT,
+    availableChannels,
+    resolveChannel,
+    toContactRequest,
+    validateGuestContact,
+} from '../contact.ts';
+import type { GuestContactChannel, GuestContactValues } from '../contact.ts';
 import { GuestChallenge } from '../guest-challenge.tsx';
-import { GuestContactForm } from '../guest-contact-form.tsx';
 
 /**
- * `/guest-checkout` — ordering without an account.
+ * `/guest-checkout` — ordering without an account, as HealthZone's `guest` screen draws it: the
+ * title with "NO ACCOUNT NEEDED · CASH ON DELIVERY AVAILABLE" beside it, four numbered cards — who
+ * is this for, where it goes, when, how you pay — all open at once down the main column, the dashed
+ * "save this order to an account?" band under them, and a sticky order summary carrying "Place
+ * order".
  *
- * Four steps, in the order the person's own questions arrive: **who are you**, **where is it
- * going**, **prove we can reach you**, **is this right**. Each decision that could waste somebody's
- * time is taken as early as it honestly can be.
+ * ## The gates live inside the cards
  *
- * ## The out-of-zone check is a hard stop, and it happens at the address step
+ * Everything is on the page from the first frame, as the design draws it, and every gate the
+ * journey had survives in the card it belongs to:
  *
- * Doc 17 `SUB-02` records the deliberate divergence from the reference product: ask about delivery
- * *before* the price, not after. So the area is checked against the kitchen's own published
- * delivery zones the moment it is typed, and `unserved` blocks the step — there is no "continue
- * anyway", because continuing leads to a passcode, a review screen and a placed order for food that
- * cannot be delivered. `unknown` is a real third answer and is **not** treated as a refusal: a
- * kitchen that publishes no zones has told us nothing, and blocking on silence would turn a gap in
- * the catalogue into a person being turned away.
- *
- * ## Verification gates placing, not browsing
- *
- * The passcode step exists because an order is a promise that somebody will be told when it is
- * late, and a destination nobody proved is a promise made to a typo. Until the session reaches
- * `place_order`, the review step's button is disabled and says why. The client never *decides* the
- * gate — it reads `capabilities` from the session, which is the server's answer.
+ * - **The passcode** sits in card 1. "Send me a code" starts the session and sends a code to the
+ *   contact just typed; the code panel opens beneath it, and a proven contact collapses to one
+ *   confirmed line with "Change". The fields lock while a code is live, because a code proves the
+ *   contact it was sent to and not the one somebody edits afterwards.
+ * - **The out-of-zone stop** sits in card 2. The area is checked against the kitchen's own
+ *   published zones as it is typed, and `unserved` disables "Place order" — there is no "continue
+ *   anyway", because continuing leads to a placed order for food that cannot be delivered.
+ *   `unknown` is a real third answer and is **not** a refusal: a kitchen that publishes no zones
+ *   has told us nothing.
+ * - **Placement** is the server's answer. "Place order" stays disabled until the session's
+ *   `capabilities` include `place_order`; the client never decides the gate.
  *
  * ## Marketing is off, and "off" is sent
  *
- * The checkbox starts unticked and its value is sent explicitly on the draft. An opt-in that
- * arrives absent is one somebody has to interpret, and "they left it alone" must never be
- * distinguishable from "they said no".
+ * The checkbox in card 1 starts unticked and its value is sent explicitly on the draft. An opt-in
+ * that arrives absent is one somebody has to interpret.
  *
- * ## A timed-out session returns to step one with the basket intact
+ * ## A timed-out session returns to card 1 with the basket intact
  *
- * Guest sessions are deliberately short. When the token stops resolving — expired, revoked, cleared
- * by another tab — this screen does not show an error page: it goes back to the contact step,
- * says plainly what happened, and leaves the basket alone. The basket is not part of the guest
- * session; losing the session must not look like losing the order.
+ * Guest sessions are deliberately short. When the token stops resolving, the screen says so and
+ * unlocks the contact card; the basket is not part of the guest session, and losing one must not
+ * look like losing the other.
  *
- * ## No payment fields, and nowhere for one to go
+ * ## What the design draws that this does not
  *
- * There is one payment method, it is cash on delivery, and it is a one-member type in the contract
- * (`contracts/guest.ts`). A guest has nowhere for a stored instrument to live, and a checkout that
- * *could* carry a card is one somebody eventually wires to a gateway.
+ * - **Payment** is one chip. There is one method, cash on delivery, and it is a one-member type in
+ *   the contract (`contracts/guest.ts`); "Card at the door" and "Pay now by card" would be choices
+ *   a guest order cannot carry.
+ * - **Postcode** is Area, City and Country. The delivery address the order carries has no postcode
+ *   and is matched to a zone by area; the country is pre-filled from the kitchen's own. The
+ *   address's name is set for the person ("Delivery address") — a guest has no address book for a
+ *   name to tell entries apart in.
+ * - The drop-off chips are the design's, minus "Buzz 3" (somebody's buzzer, not an option), and
+ *   none is chosen until somebody chooses one — an instruction the person did not give is not sent.
+ * - The account band's button is "Sign in instead". The design's "Create account later" would do
+ *   nothing: the offer to keep the order in an account is made on the order page after placing,
+ *   where there is an order to keep.
  */
 
 const TEST_ID = 'guest-checkout';
 
-const STEPS = ['contact', 'address', 'verify', 'review'] as const;
-type Step = (typeof STEPS)[number];
+const DROP_OFF_OPTIONS = ['leave', 'hand', 'call'] as const;
+type DropOff = (typeof DROP_OFF_OPTIONS)[number];
 
 export function GuestCheckoutScreen() {
     const { t } = useTranslation();
@@ -115,64 +136,83 @@ export function GuestCheckoutScreen() {
     const cart = useCartQuery();
     const basket = cart.data;
 
-    const [step, setStep] = useState<Step>('contact');
     const [contact, setContact] = useState<GuestContactValues>(EMPTY_GUEST_CONTACT);
     const [address, setAddress] = useState<AddressValues>(EMPTY_ADDRESS);
-    const [slotCode, setSlotCode] = useState(DEFAULT_SLOT_CODE);
+    const [dropOff, setDropOff] = useState<DropOff | null>(null);
+    const [chosenSlotCode, setSlotCode] = useState<string | null>(null);
     const [deliveryDate, setDeliveryDate] = useState<string>(() => earliestStartDate());
     // Off unless turned on, and sent either way. See the header.
     const [marketingOptIn, setMarketingOptIn] = useState(false);
-    const [showErrors, setShowErrors] = useState(false);
+    const [showContactErrors, setShowContactErrors] = useState(false);
+    const [showAddressErrors, setShowAddressErrors] = useState(false);
+    const [codeSent, setCodeSent] = useState(false);
     const [challengeId, setChallengeId] = useState<string | null>(null);
+    const [contactConfirmed, setContactConfirmed] = useState(false);
 
     /**
-     * The session has died mid-checkout.
-     *
-     * Read from the *query*, not from the token: a token can still be in the store while the server
-     * has already stopped honouring it, and that is the case this recovery exists for.
+     * The session has died mid-checkout. Read from the *query*, not from the token: a token can
+     * still be in the store while the server has already stopped honouring it.
      */
     const sessionFailure = toFailure(session.error);
     const sessionExpired =
         sessionFailure !== null && sessionFailure.code === 'auth.unauthenticated';
 
+    /** The kitchen the basket is from — the only source of a real delivery-zone answer. */
+    const kitchenId = basket?.items[0]?.kitchenId ?? null;
+    const kitchen = useKitchenQuery(kitchenId);
+    const deliverySlots = deliverySlotsForKitchen(kitchen.data);
+    const chosenSlotIsOffered =
+        chosenSlotCode !== null && deliverySlots.some((slot) => slot.code === chosenSlotCode);
+    const slotCode = chosenSlotIsOffered ? chosenSlotCode : defaultSlotCodeForKitchen(kitchen.data);
+
+    const dropOffLabel = (option: DropOff) => t(`guest:address.dropOff.${option}`);
+
+    /**
+     * The address as the order carries it: what was typed, plus the two parts the person is not
+     * asked for — the country defaults to the kitchen's own (it delivers nowhere else), and the
+     * address's name is ours, because a guest has no list of addresses for a name to tell apart.
+     */
+    const orderAddress: AddressValues = {
+        ...address,
+        label: t('guest:address.defaultLabel'),
+        countryCode:
+            address.countryCode.trim() === ''
+                ? (kitchen.data?.countryCode ?? '')
+                : address.countryCode,
+        instructions: dropOff === null ? '' : dropOffLabel(dropOff),
+    };
+
     const contactErrors = useMemo(
         () => validateGuestContact(contact, validationTranslate),
         [contact, validationTranslate],
     );
-    const addressErrors = useMemo(
-        () => validateAddress(address, validationTranslate),
-        [address, validationTranslate],
-    );
+    const addressErrors = validateAddress(orderAddress, validationTranslate);
+    const shownAddressErrors = showAddressErrors ? addressErrors : {};
+    const shownContactErrors = showContactErrors ? contactErrors : {};
 
-    /** The kitchen the basket is from — the only source of a real delivery-zone answer. */
-    const kitchenId = basket?.items[0]?.kitchenId ?? null;
-    const kitchen = useKitchenQuery(kitchenId);
     const areaStatus = deliveryAreaStatus(kitchen.data, address.area);
     const outOfZone = areaStatus === 'unserved';
 
+    const basketIsEmpty = basket !== undefined && basket.items.length === 0;
     const preview = useCheckoutPreviewQuery(
         basket === undefined || basket.items.length === 0 ? null : { cartId: basket.id },
     );
 
     const capabilities = session.data?.capabilities ?? [];
     const canPlace = capabilities.includes('place_order');
+    const placeFailure = toFailure(place.error);
 
-    const rows: readonly PriceRow[] =
-        preview.data === undefined
-            ? []
-            : [
-                  ...preview.data.lines.map((line) => ({
-                      key: line.code,
-                      label: line.label,
-                      amount: line.amount,
-                  })),
-                  { key: 'total', label: t('guest:order.total'), amount: preview.data.total },
-              ];
+    const destination =
+        session.data?.contact?.maskedDestination ??
+        (contact.email.trim().length > 0 ? contact.email : contact.mobile);
 
-    /* ── step one: who are you ──────────────────────────────────────────────────────────────── */
+    const sending = updateContact.isPending || start.isPending;
+    const contactLocked = codeSent || contactConfirmed || sending;
 
-    const onContinueFromContact = () => {
-        setShowErrors(true);
+    /* ── card 1: send the code ──────────────────────────────────────────────────────────────── */
+
+    const onSendCode = () => {
+        setShowContactErrors(true);
         if (Object.keys(contactErrors).length > 0) return;
 
         const request = toContactRequest(contact);
@@ -180,39 +220,552 @@ export function GuestCheckoutScreen() {
             updateContact.mutate(request, {
                 onSuccess: (result) => {
                     setChallengeId(result.challenge?.id ?? null);
-                    setShowErrors(false);
-                    setStep('address');
+                    setCodeSent(true);
+                    setShowContactErrors(false);
                 },
             });
         };
 
         // A session is started lazily, here, rather than on mount: a person browsing the checkout
-        // and leaving should not have a credential minted for them, and a provisional account
-        // created for every page view is a purge job's problem for no benefit.
+        // and leaving should not have a credential minted for them.
         if (token === null || sessionExpired) start.mutate(undefined, { onSuccess: withSession });
         else withSession();
     };
 
-    /* ── rendering ──────────────────────────────────────────────────────────────────────────── */
+    const resetContact = () => {
+        setCodeSent(false);
+        setChallengeId(null);
+        setContactConfirmed(false);
+    };
 
-    const stepIndex = STEPS.indexOf(step) + 1;
+    const onPlace = () => {
+        if (basket === undefined) return;
+        setShowAddressErrors(true);
+        if (Object.keys(addressErrors).length > 0 || outOfZone) return;
+        place.mutate(
+            {
+                cartId: basket.id,
+                address: toDeliveryAddress(orderAddress),
+                slotCode,
+                deliveryDate,
+                paymentMethod: 'cash_on_delivery',
+                marketingOptIn,
+            },
+            {
+                onSuccess: (order) => {
+                    router.push(`/orders/${order.reference}` as never);
+                },
+            },
+        );
+    };
+
+    const setAddressField = (field: keyof AddressValues) => (next: string) => {
+        setAddress((current) => ({ ...current, [field]: next }));
+    };
+
+    const channels = availableChannels(contact);
+    const channelLabel = (channel: GuestContactChannel) =>
+        t(
+            channel === 'email'
+                ? 'guest:contact.channelEmail'
+                : channel === 'sms'
+                  ? 'guest:contact.channelSms'
+                  : 'guest:contact.channelWhatsapp',
+        );
+
+    /* ── the four cards ─────────────────────────────────────────────────────────────────────── */
+
+    const blocks = (
+        <View className="flex-col gap-3" testID={`${TEST_ID}-progress`}>
+            {/* 1 · who is this for */}
+            <Block number={1} title={t('guest:contact.title')}>
+                <View className="flex-col gap-3" testID={`${TEST_ID}-contact`}>
+                    <FieldRow>
+                        <FieldCell>
+                            <TextInputField
+                                testID={`${TEST_ID}-contact-fullName`}
+                                label={t('guest:contact.fullName')}
+                                placeholder={t('guest:contact.fullName')}
+                                value={contact.fullName}
+                                onChangeText={(next: string) => {
+                                    setContact((current) => ({ ...current, fullName: next }));
+                                }}
+                                required
+                                autoCapitalize="words"
+                                disabled={contactLocked}
+                                {...(shownContactErrors.fullName === undefined
+                                    ? {}
+                                    : { error: shownContactErrors.fullName })}
+                            />
+                        </FieldCell>
+                        <FieldCell>
+                            <TextInputField
+                                testID={`${TEST_ID}-contact-mobile`}
+                                label={t('guest:contact.mobile')}
+                                placeholder={t('guest:contact.mobilePlaceholder')}
+                                value={contact.mobile}
+                                onChangeText={(next: string) => {
+                                    setContact((current) => ({ ...current, mobile: next }));
+                                }}
+                                keyboardType="phone-pad"
+                                autoCapitalize="none"
+                                disabled={contactLocked}
+                                {...(shownContactErrors.mobile === undefined
+                                    ? {}
+                                    : { error: shownContactErrors.mobile })}
+                            />
+                        </FieldCell>
+                    </FieldRow>
+                    <FieldRow>
+                        <FieldCell>
+                            <TextInputField
+                                testID={`${TEST_ID}-contact-email`}
+                                label={t('guest:contact.email')}
+                                placeholder={t('auth:login.emailPlaceholder')}
+                                value={contact.email}
+                                onChangeText={(next: string) => {
+                                    setContact((current) => ({ ...current, email: next }));
+                                }}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                                disabled={contactLocked}
+                                {...(shownContactErrors.email === undefined
+                                    ? {}
+                                    : { error: shownContactErrors.email })}
+                            />
+                        </FieldCell>
+                    </FieldRow>
+                </View>
+
+                {channels.length === 0 ? null : (
+                    <View className="mt-3">
+                        <ChoiceChips
+                            testID={`${TEST_ID}-contact-channel`}
+                            label={t('guest:contact.channel')}
+                            value={resolveChannel(contact)}
+                            disabled={contactLocked}
+                            onChange={(next) => {
+                                setContact((current) => ({
+                                    ...current,
+                                    channel: next as GuestContactChannel,
+                                }));
+                            }}
+                            options={channels.map((channel) => ({
+                                value: channel,
+                                label: channelLabel(channel),
+                                testID: `${TEST_ID}-contact-channel-${channel}`,
+                            }))}
+                        />
+                    </View>
+                )}
+
+                <View className="mt-3">
+                    <Checkbox
+                        testID={`${TEST_ID}-marketing`}
+                        label={t('guest:review.marketingLabel')}
+                        checked={marketingOptIn}
+                        onChange={setMarketingOptIn}
+                    />
+                </View>
+
+                <View className="mt-3">
+                    {contactConfirmed ? (
+                        <View
+                            testID={`${TEST_ID}-contact-summary`}
+                            className="flex-row flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-surface-brand-subtle px-3 py-2"
+                        >
+                            <Icon name="check" size="sm" className="text-content-on-brand-subtle" />
+                            <RNText className="min-w-0 flex-1 text-sm font-medium text-content-on-brand-subtle text-start">
+                                {t('guest:verify.confirmedAs', {
+                                    name: contact.fullName.trim(),
+                                    destination:
+                                        session.data?.contact?.maskedDestination ?? destination,
+                                })}
+                            </RNText>
+                            <TextLink
+                                testID={`${TEST_ID}-block-1-change`}
+                                label={t('guest:change')}
+                                onPress={resetContact}
+                            />
+                        </View>
+                    ) : codeSent ? (
+                        <View className="flex-col gap-3" testID={`${TEST_ID}-verify-step`}>
+                            <Text tone="secondary" variant="caption">
+                                {t('guest:verify.subtitle', { destination })}
+                            </Text>
+                            {challengeId === null ? null : (
+                                <GuestChallenge
+                                    testID={`${TEST_ID}-challenge`}
+                                    challengeId={challengeId}
+                                    verifying={confirmContact.isPending}
+                                    verifyFailure={toFailure(confirmContact.error)}
+                                    onVerify={(code, liveChallengeId) => {
+                                        confirmContact.mutate(
+                                            { challengeId: liveChallengeId, code },
+                                            {
+                                                onSuccess: () => {
+                                                    setContactConfirmed(true);
+                                                },
+                                            },
+                                        );
+                                    }}
+                                />
+                            )}
+                            <View className="flex-row">
+                                <TextLink
+                                    testID={`${TEST_ID}-verify-back`}
+                                    tone="muted"
+                                    label={t('guest:verify.back')}
+                                    onPress={resetContact}
+                                />
+                            </View>
+                        </View>
+                    ) : (
+                        <View className="flex-row">
+                            <Button
+                                testID={`${TEST_ID}-contact-continue`}
+                                variant="secondary"
+                                size="sm"
+                                label={t('guest:contact.continue')}
+                                loading={sending}
+                                onPress={onSendCode}
+                            />
+                        </View>
+                    )}
+                </View>
+            </Block>
+
+            {/* 2 · where it goes */}
+            <Block number={2} title={t('guest:address.title')}>
+                <View className="flex-col gap-3" testID={`${TEST_ID}-address`}>
+                    <FieldRow>
+                        <FieldCell>
+                            <TextInputField
+                                testID={`${TEST_ID}-address-line1`}
+                                label={t('guest:address.line1')}
+                                placeholder={t('guest:address.line1')}
+                                value={address.line1}
+                                onChangeText={setAddressField('line1')}
+                                required
+                                autoCapitalize="words"
+                                {...(shownAddressErrors.line1 === undefined
+                                    ? {}
+                                    : { error: shownAddressErrors.line1 })}
+                            />
+                        </FieldCell>
+                    </FieldRow>
+                    <FieldRow>
+                        <FieldCell>
+                            <TextInputField
+                                testID={`${TEST_ID}-address-line2`}
+                                label={t('guest:address.line2')}
+                                placeholder={t('guest:address.line2')}
+                                value={address.line2}
+                                onChangeText={setAddressField('line2')}
+                                autoCapitalize="words"
+                                {...(shownAddressErrors.line2 === undefined
+                                    ? {}
+                                    : { error: shownAddressErrors.line2 })}
+                            />
+                        </FieldCell>
+                        <FieldCell>
+                            <TextInputField
+                                testID={`${TEST_ID}-address-area`}
+                                label={t('guest:address.area')}
+                                placeholder={t('guest:address.area')}
+                                value={address.area}
+                                onChangeText={setAddressField('area')}
+                                required
+                                autoCapitalize="words"
+                                {...(shownAddressErrors.area === undefined
+                                    ? {}
+                                    : { error: shownAddressErrors.area })}
+                            />
+                        </FieldCell>
+                    </FieldRow>
+                    <FieldRow>
+                        <FieldCell>
+                            <TextInputField
+                                testID={`${TEST_ID}-address-city`}
+                                label={t('guest:address.city')}
+                                placeholder={t('guest:address.city')}
+                                value={address.city}
+                                onChangeText={setAddressField('city')}
+                                required
+                                autoCapitalize="words"
+                                {...(shownAddressErrors.city === undefined
+                                    ? {}
+                                    : { error: shownAddressErrors.city })}
+                            />
+                        </FieldCell>
+                        <FieldCell>
+                            <TextInputField
+                                testID={`${TEST_ID}-address-countryCode`}
+                                label={t('guest:address.countryCode')}
+                                placeholder={t('guest:address.countryCode')}
+                                value={orderAddress.countryCode}
+                                onChangeText={setAddressField('countryCode')}
+                                required
+                                autoCapitalize="characters"
+                                {...(shownAddressErrors.countryCode === undefined
+                                    ? {}
+                                    : { error: shownAddressErrors.countryCode })}
+                            />
+                        </FieldCell>
+                    </FieldRow>
+                </View>
+
+                {outOfZone ? (
+                    <View className="mt-3">
+                        <Callout
+                            testID={`${TEST_ID}-out-of-zone`}
+                            role="alert"
+                            tone="danger"
+                            title={t('guest:address.outOfZoneTitle', { area: address.area })}
+                            body={t('guest:address.outOfZoneBody')}
+                            actions={
+                                <Button
+                                    testID={`${TEST_ID}-out-of-zone-browse`}
+                                    variant="secondary"
+                                    label={t('guest:address.outOfZoneBrowse')}
+                                    onPress={() => {
+                                        router.push('/kitchens');
+                                    }}
+                                />
+                            }
+                        >
+                            <Text tone="secondary" variant="caption">
+                                {t('guest:address.outOfZoneAreas', {
+                                    areas: servedAreas(kitchen.data).join(', '),
+                                })}
+                            </Text>
+                        </Callout>
+                    </View>
+                ) : null}
+
+                <View className="mt-3">
+                    <ChoiceChips
+                        testID={`${TEST_ID}-drop-off`}
+                        label={t('guest:address.dropOffLabel')}
+                        value={dropOff}
+                        onChange={(next) => {
+                            // Pressing the chosen instruction again takes it back: none is sent
+                            // unless somebody chose one.
+                            setDropOff((current) => (current === next ? null : (next as DropOff)));
+                        }}
+                        options={DROP_OFF_OPTIONS.map((option) => ({
+                            value: option,
+                            label: dropOffLabel(option),
+                            testID: `${TEST_ID}-drop-off-${option}`,
+                        }))}
+                    />
+                </View>
+            </Block>
+
+            {/* 3 · when */}
+            <Block number={3} title={t('guest:when.title')}>
+                <FieldRow>
+                    <FieldCell>
+                        <DateField
+                            testID={`${TEST_ID}-date`}
+                            label={t('guest:address.date')}
+                            value={deliveryDate}
+                            min={earliestStartDate()}
+                            onChange={(next: string | null) => {
+                                setDeliveryDate(next ?? earliestStartDate());
+                            }}
+                        />
+                    </FieldCell>
+                    <FieldCell>{null}</FieldCell>
+                </FieldRow>
+                <View className="mt-3">
+                    <ChoiceChips
+                        testID={`${TEST_ID}-slot`}
+                        label={t('guest:address.slot')}
+                        options={deliverySlots.map((slot) => ({
+                            value: slot.code,
+                            label: t('commerce:checkout.slotChip', {
+                                slot:
+                                    deliverySlotByCode(slot.code, kitchen.data)?.label ??
+                                    t(`commerce:slots.${slot.code}`, { defaultValue: slot.code }),
+                                from: slot.startsAt,
+                                to: slot.endsAt,
+                            }),
+                            testID: `${TEST_ID}-slot-${slot.code}`,
+                        }))}
+                        value={slotCode}
+                        onChange={setSlotCode}
+                    />
+                </View>
+            </Block>
+
+            {/* 4 · how you pay */}
+            <Block number={4} title={t('guest:pay.title')}>
+                <ChoiceChips
+                    testID={`${TEST_ID}-payment`}
+                    label={t('guest:pay.title')}
+                    // The only method there is, so there is nothing to change it to.
+                    value="cash_on_delivery"
+                    options={[
+                        {
+                            value: 'cash_on_delivery',
+                            label: t('guest:review.cashOnDelivery'),
+                            testID: `${TEST_ID}-payment-cash`,
+                        },
+                    ]}
+                />
+            </Block>
+
+            {/* The design's dashed "save this order to an account?" band. */}
+            <View
+                testID={`${TEST_ID}-account-band`}
+                className="flex-row flex-wrap items-center gap-3 rounded-lg border border-dashed border-stroke-strong bg-surface-sunken px-5 py-4"
+            >
+                <View className="min-w-[240px] flex-1 flex-col gap-1">
+                    <RNText className="font-display text-base font-bold tracking-display text-content-primary text-start">
+                        {t('guest:saveTitle')}
+                    </RNText>
+                    <RNText className="text-sm text-content-secondary text-start">
+                        {t('guest:saveBody')}
+                    </RNText>
+                </View>
+                <Button
+                    testID={`${TEST_ID}-sign-in`}
+                    variant="secondary"
+                    size="sm"
+                    label={t('guest:entry.signIn')}
+                    onPress={() => {
+                        router.push('/sign-in');
+                    }}
+                />
+            </View>
+        </View>
+    );
+
+    /* ── the rail ───────────────────────────────────────────────────────────────────────────── */
+
+    const placeReady = canPlace && basket !== undefined && !basketIsEmpty && !outOfZone;
+
+    const summary = (
+        <CheckoutCard radius="md" testID={`${TEST_ID}-rail`}>
+            <View className="flex-col gap-3">
+                <RNText
+                    accessibilityRole="header"
+                    aria-level={2}
+                    className="font-display text-lg font-bold tracking-display text-content-primary text-start"
+                >
+                    {t('commerce:checkout.summaryTitle')}
+                </RNText>
+
+                {basket === undefined ? (
+                    <View testID={`${TEST_ID}-rail-loading`} className="flex-col gap-2">
+                        <Skeleton heightClassName="h-4" />
+                        <Skeleton heightClassName="h-4" widthClassName="w-1/2" />
+                    </View>
+                ) : basketIsEmpty ? (
+                    <View testID={`${TEST_ID}-rail-empty`} className="flex-col items-start gap-3">
+                        <Text tone="secondary">{t('commerce:cart.emptyBody')}</Text>
+                        <Button
+                            testID={`${TEST_ID}-browse`}
+                            variant="secondary"
+                            label={t('commerce:cart.browse')}
+                            onPress={() => {
+                                router.push('/meals');
+                            }}
+                        />
+                    </View>
+                ) : (
+                    <View className="flex-col gap-3">
+                        <SummaryItems
+                            testID={`${TEST_ID}-items`}
+                            emphasis="strong"
+                            items={basket.items.map((item) => ({
+                                key: item.id,
+                                name: item.name,
+                                quantity: item.quantity,
+                                lineTotal: item.lineTotal,
+                            }))}
+                        />
+                        {preview.data === undefined ? (
+                            <Skeleton heightClassName="h-10" />
+                        ) : (
+                            <View
+                                testID={`${TEST_ID}-summary`}
+                                className="flex-col gap-2 border-t border-stroke-subtle pt-3"
+                            >
+                                {preview.data.lines.map((line) => (
+                                    <SummaryRow
+                                        key={line.code}
+                                        testID={`${TEST_ID}-summary-${line.code}`}
+                                        label={priceLineLabel(t, line)}
+                                        value={formatMoney(formatter, line.amount)}
+                                    />
+                                ))}
+                                <View className="mt-1">
+                                    <SummaryTotal
+                                        testID={`${TEST_ID}-summary-total`}
+                                        label={t('commerce:cart.total')}
+                                        total={preview.data.total}
+                                        labelFace="display"
+                                    />
+                                </View>
+                            </View>
+                        )}
+                    </View>
+                )}
+
+                <View className="mt-1">
+                    <Button
+                        testID={`${TEST_ID}-place`}
+                        block
+                        size="lg"
+                        label={t('guest:review.place')}
+                        loading={place.isPending}
+                        // The server's answer, not a local recomputation from the grade.
+                        disabled={!placeReady}
+                        onPress={() => {
+                            if (!placeReady) return;
+                            onPlace();
+                        }}
+                    />
+                </View>
+
+                {placeFailure === null ? null : (
+                    <Callout
+                        testID={`${TEST_ID}-place-error`}
+                        role="alert"
+                        tone="danger"
+                        title={placeFailure.message}
+                    />
+                )}
+
+                {canPlace ? (
+                    <RNText
+                        testID={`${TEST_ID}-fine-print`}
+                        className="text-xs text-content-secondary text-center"
+                    >
+                        {t('guest:review.finePrint')}
+                    </RNText>
+                ) : (
+                    <RNText
+                        testID={`${TEST_ID}-unverified`}
+                        className="text-xs text-content-secondary text-center"
+                    >
+                        {t('guest:review.unverified')}
+                    </RNText>
+                )}
+            </View>
+        </CheckoutCard>
+    );
 
     return (
-        <Stack space="lg" testID={TEST_ID}>
-            <Stack space="xs">
-                <Heading level={1} testID={`${TEST_ID}-title`}>
+        <CheckoutPage measure="wide" testID={TEST_ID}>
+            <View className="flex-row flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+                <CheckoutTitle size="md" testID={`${TEST_ID}-title`}>
                     {t('guest:title')}
-                </Heading>
-                <Text tone="secondary">{t('guest:subtitle')}</Text>
-            </Stack>
-
-            <Stepper
-                testID={`${TEST_ID}-progress`}
-                label={t('guest:title')}
-                current={stepIndex}
-                total={STEPS.length}
-                stepLabel={t(`guest:steps.${step}`)}
-            />
+                </CheckoutTitle>
+                <Eyebrow>{t('guest:eyebrow')}</Eyebrow>
+            </View>
 
             {sessionExpired ? (
                 <Callout
@@ -226,296 +779,51 @@ export function GuestCheckoutScreen() {
                             testID={`${TEST_ID}-session-restart`}
                             label={t('guest:session.restart')}
                             onPress={() => {
-                                // Back to step one, basket untouched. The basket is not part of the
+                                // Back to card 1, basket untouched. The basket is not part of the
                                 // guest session, and losing one must not look like losing the other.
-                                setStep('contact');
-                                setChallengeId(null);
+                                resetContact();
                             }}
                         />
                     }
                 />
             ) : null}
 
-            {step === 'contact' ? (
-                <Card padding="md" testID={`${TEST_ID}-contact-step`}>
-                    <Stack space="md">
-                        <Stack space="xs">
-                            <Heading level={2}>{t('guest:contact.title')}</Heading>
-                            <Text tone="secondary">{t('guest:contact.subtitle')}</Text>
-                        </Stack>
+            <CheckoutColumns
+                testID={`${TEST_ID}-layout`}
+                gap="tight"
+                main={blocks}
+                aside={summary}
+            />
+        </CheckoutPage>
+    );
+}
 
-                        <GuestContactForm
-                            testID={`${TEST_ID}-contact`}
-                            values={contact}
-                            errors={showErrors ? contactErrors : {}}
-                            onChange={(field: GuestContactField, value: string) => {
-                                setContact((current) => ({ ...current, [field]: value }));
-                            }}
-                            disabled={updateContact.isPending || start.isPending}
-                        />
+/* ── one numbered card ──────────────────────────────────────────────────────────────────────── */
 
-                        <Button
-                            testID={`${TEST_ID}-contact-continue`}
-                            label={t('guest:contact.continue')}
-                            loading={updateContact.isPending || start.isPending}
-                            onPress={onContinueFromContact}
-                        />
+interface BlockProps {
+    readonly number: number;
+    readonly title: string;
+    readonly children: ReactNode;
+}
 
-                        <Inline space="sm" align="center">
-                            <Text tone="secondary" variant="caption">
-                                {t('guest:entry.body')}
-                            </Text>
-                            <Button
-                                testID={`${TEST_ID}-sign-in`}
-                                variant="ghost"
-                                label={t('guest:entry.signIn')}
-                                onPress={() => {
-                                    router.push('/sign-in');
-                                }}
-                            />
-                        </Inline>
-                    </Stack>
-                </Card>
-            ) : null}
+/** The design's numbered card: the filled number dot and the title, then the card's own fields. */
+function Block({ number, title, children }: BlockProps) {
+    const { t } = useTranslation();
 
-            {step === 'address' ? (
-                <Card padding="md" testID={`${TEST_ID}-address-step`}>
-                    <Stack space="md">
-                        <Stack space="xs">
-                            <Heading level={2}>{t('guest:address.title')}</Heading>
-                            <Text tone="secondary">{t('guest:address.subtitle')}</Text>
-                        </Stack>
-
-                        <AddressForm
-                            testID={`${TEST_ID}-address`}
-                            values={address}
-                            errors={showErrors ? addressErrors : {}}
-                            onChange={(field: AddressField, value: string) => {
-                                setAddress((current) => ({ ...current, [field]: value }));
-                            }}
-                        />
-
-                        {outOfZone ? (
-                            <Callout
-                                testID={`${TEST_ID}-out-of-zone`}
-                                role="alert"
-                                tone="danger"
-                                title={t('guest:address.outOfZoneTitle', { area: address.area })}
-                                body={t('guest:address.outOfZoneBody')}
-                                actions={
-                                    <Button
-                                        testID={`${TEST_ID}-out-of-zone-browse`}
-                                        variant="secondary"
-                                        label={t('guest:address.outOfZoneBrowse')}
-                                        onPress={() => {
-                                            router.push('/kitchens');
-                                        }}
-                                    />
-                                }
-                            >
-                                <Text tone="secondary" variant="caption">
-                                    {t('guest:address.outOfZoneAreas', {
-                                        areas: servedAreas(kitchen.data).join(', '),
-                                    })}
-                                </Text>
-                            </Callout>
-                        ) : null}
-
-                        <SegmentedControl
-                            testID={`${TEST_ID}-slot`}
-                            label={t('guest:address.slot')}
-                            block
-                            items={DELIVERY_SLOTS.map((slot) => ({
-                                value: slot.code,
-                                label: t(`commerce:slots.${slot.code}`),
-                            }))}
-                            value={slotCode}
-                            onChange={setSlotCode}
-                        />
-
-                        <DateField
-                            testID={`${TEST_ID}-date`}
-                            label={t('guest:address.date')}
-                            value={deliveryDate}
-                            onChange={(next: string | null) => {
-                                setDeliveryDate(next ?? earliestStartDate());
-                            }}
-                        />
-
-                        <Inline space="sm">
-                            <Button
-                                testID={`${TEST_ID}-address-continue`}
-                                label={t('guest:address.continue')}
-                                // The hard stop. There is no "continue anyway" and there must not be.
-                                disabled={outOfZone}
-                                onPress={() => {
-                                    setShowErrors(true);
-                                    if (Object.keys(addressErrors).length > 0) return;
-                                    if (outOfZone) return;
-                                    setShowErrors(false);
-                                    setStep('verify');
-                                }}
-                            />
-                            <Button
-                                testID={`${TEST_ID}-address-back`}
-                                variant="ghost"
-                                label={t('guest:address.back')}
-                                onPress={() => {
-                                    setStep('contact');
-                                }}
-                            />
-                        </Inline>
-                    </Stack>
-                </Card>
-            ) : null}
-
-            {step === 'verify' ? (
-                <Card padding="md" testID={`${TEST_ID}-verify-step`}>
-                    <Stack space="md">
-                        <Stack space="xs">
-                            <Heading level={2}>{t('guest:verify.title')}</Heading>
-                            <Text tone="secondary">
-                                {t('guest:verify.subtitle', {
-                                    // The server's mask when there is one. The typed value only
-                                    // ever stands in for the first frame after a resend, and it is
-                                    // never masked here — the client does not do its own masking.
-                                    destination:
-                                        session.data?.contact?.maskedDestination ??
-                                        (contact.email.trim().length > 0
-                                            ? contact.email
-                                            : contact.mobile),
-                                })}
-                            </Text>
-                        </Stack>
-
-                        {challengeId === null ? null : (
-                            <GuestChallenge
-                                testID={`${TEST_ID}-challenge`}
-                                challengeId={challengeId}
-                                verifying={confirmContact.isPending}
-                                verifyFailure={toFailure(confirmContact.error)}
-                                onVerify={(code, liveChallengeId) => {
-                                    confirmContact.mutate(
-                                        { challengeId: liveChallengeId, code },
-                                        {
-                                            onSuccess: () => {
-                                                setStep('review');
-                                            },
-                                        },
-                                    );
-                                }}
-                            />
-                        )}
-
-                        <Button
-                            testID={`${TEST_ID}-verify-back`}
-                            variant="ghost"
-                            label={t('guest:verify.back')}
-                            onPress={() => {
-                                setStep('contact');
-                            }}
-                        />
-                    </Stack>
-                </Card>
-            ) : null}
-
-            {step === 'review' ? (
-                <Card padding="md" testID={`${TEST_ID}-review-step`}>
-                    <Stack space="md">
-                        <Stack space="xs">
-                            <Heading level={2}>{t('guest:review.title')}</Heading>
-                            <Text tone="secondary">{t('guest:review.subtitle')}</Text>
-                        </Stack>
-
-                        <Stack space="xs" testID={`${TEST_ID}-review-delivery`}>
-                            <Text variant="bodyStrong">{t('guest:review.deliveringTo')}</Text>
-                            <Text tone="secondary">
-                                {formatAddress(toDeliveryAddress(address))}
-                            </Text>
-                            <Text variant="bodyStrong">{t('guest:review.slot')}</Text>
-                            <Text tone="secondary">
-                                {`${formatter.formatDate(deliveryDate)} · ${t(`commerce:slots.${slotCode}`)}`}
-                            </Text>
-                            <Text variant="bodyStrong">{t('guest:review.contact')}</Text>
-                            <Text tone="secondary" testID={`${TEST_ID}-review-contact`}>
-                                {session.data?.contact?.maskedDestination ?? ''}
-                            </Text>
-                        </Stack>
-
-                        <PriceSummary testID={`${TEST_ID}-summary`} rows={rows} />
-
-                        <Stack space="xs" testID={`${TEST_ID}-payment`}>
-                            <Text variant="bodyStrong">{t('guest:review.payment')}</Text>
-                            <Text>{t('guest:review.cashOnDelivery')}</Text>
-                            <Text tone="secondary" variant="caption">
-                                {t('guest:review.cashOnDeliveryNote')}
-                            </Text>
-                        </Stack>
-
-                        <Checkbox
-                            testID={`${TEST_ID}-marketing`}
-                            label={t('guest:review.marketingLabel')}
-                            description={t('guest:review.marketingHint')}
-                            checked={marketingOptIn}
-                            onChange={setMarketingOptIn}
-                        />
-
-                        {canPlace ? null : (
-                            <Callout
-                                testID={`${TEST_ID}-unverified`}
-                                role="alert"
-                                tone="warning"
-                                title={t('guest:review.unverified')}
-                            />
-                        )}
-
-                        {toFailure(place.error) === null ? null : (
-                            <Callout
-                                testID={`${TEST_ID}-place-error`}
-                                role="alert"
-                                tone="danger"
-                                title={toFailure(place.error)?.message ?? ''}
-                            />
-                        )}
-
-                        <Inline space="sm">
-                            <Button
-                                testID={`${TEST_ID}-place`}
-                                label={t('guest:review.place')}
-                                loading={place.isPending}
-                                // The server's answer, not a local recomputation from the grade.
-                                disabled={!canPlace || basket === undefined}
-                                onPress={() => {
-                                    if (basket === undefined) return;
-                                    place.mutate(
-                                        {
-                                            cartId: basket.id,
-                                            address: toDeliveryAddress(address),
-                                            slotCode,
-                                            deliveryDate,
-                                            paymentMethod: 'cash_on_delivery',
-                                            marketingOptIn,
-                                        },
-                                        {
-                                            onSuccess: (order) => {
-                                                router.push(`/orders/${order.reference}` as never);
-                                            },
-                                        },
-                                    );
-                                }}
-                            />
-                            <Button
-                                testID={`${TEST_ID}-review-back`}
-                                variant="ghost"
-                                label={t('guest:review.back')}
-                                onPress={() => {
-                                    setStep('address');
-                                }}
-                            />
-                        </Inline>
-                    </Stack>
-                </Card>
-            ) : null}
-        </Stack>
+    return (
+        <CheckoutCard radius="md" testID={`${TEST_ID}-block-${String(number)}`}>
+            <View className="mb-3 flex-row items-center gap-3">
+                <NumberDot number={number} />
+                <RNText
+                    accessibilityRole="header"
+                    aria-level={2}
+                    accessibilityLabel={t('guest:blockLabel', { step: number, total: 4, title })}
+                    className="min-w-0 flex-1 font-display text-base font-bold tracking-display text-content-primary text-start"
+                >
+                    {title}
+                </RNText>
+            </View>
+            {children}
+        </CheckoutCard>
     );
 }

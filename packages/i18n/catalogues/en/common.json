@@ -5,6 +5,7 @@
     },
     "action": {
         "continue": "Continue",
+        "viewBasket": "View basket",
         "back": "Back",
         "cancel": "Cancel",
         "save": "Save",

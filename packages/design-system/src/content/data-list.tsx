@@ -84,9 +84,9 @@ export interface DataListColumn<Row> {
      */
     readonly grow?: boolean | undefined;
     /**
-     * Cell and header alignment. Defaults to `center` for a `mono` column and `start` for any
-     * other — see {@link dataListColumnAlign}. `end` is for a control column: the row's ⋯ or its
-     * one button, anchored to the edge the reader's eye finishes the row on.
+     * Cell and header alignment. Defaults to `start` for every column, figures included — see
+     * {@link dataListColumnAlign}. `end` is for a control column: the row's ⋯ or its buttons,
+     * anchored to the edge the reader's eye finishes the row on.
      */
     readonly align?: 'start' | 'end' | 'center' | undefined;
     /** Sets the cell in the mono role. Quantities, costs, references and versions (§1.2). */
@@ -299,20 +299,23 @@ const JUSTIFY_CLASS: Readonly<Record<'start' | 'end' | 'center', string>> = {
 };
 
 /**
- * Where a column's header and cells sit.
+ * Where a column's header and cells sit: the inline start, figures included.
  *
- * A column of figures — quantities, units, costs, counts, the `mono` columns — is centred under its
- * header, the way the recipe editor's line table sets its figures: the number and its unit read as
- * one block in the middle of the track, and the header above names the block rather than the empty
- * space beside it. Every other column starts at the inline start. A column that states its own
- * alignment keeps it.
+ * The tracks are equal (see {@link spreadColumns}), so a row whose every value starts at its
+ * track's leading edge sets those values on a constant pitch — the same gap from one column to the
+ * next all the way across. Centring the figure columns broke that: a short value in the middle of
+ * a wide track sat far from the column before it and close to the one after, and the row read as
+ * unevenly spaced however equal the tracks underneath were. `mono` still sets the figures in
+ * tabular numerals, so a column of them lines up digit for digit from the same edge.
+ *
+ * A column that states its own alignment keeps it — `end` for the row's control column.
  *
  * Exported so a custom header — the Catalogue's sort-and-filter header — sits where its cells do.
  */
 export function dataListColumnAlign(
     column: Pick<DataListColumn<unknown>, 'align' | 'mono'>,
 ): 'start' | 'end' | 'center' {
-    return column.align ?? (column.mono === true ? 'center' : 'start');
+    return column.align ?? 'start';
 }
 
 /** The text of a cell with no renderer — the one size and ink every cell is set in. */

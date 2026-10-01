@@ -5,10 +5,8 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
-    SegmentedControl,
     TableSkeleton,
     Text,
-    TextInputField,
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -26,6 +24,8 @@ import { useAccessState } from '../../../session/session-provider.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
+import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
@@ -246,7 +246,6 @@ function ProductionBatches() {
                 label: t('kitchen:ops.production.columnYield'),
                 width: 140,
                 priority: 75,
-                align: 'center',
                 render: (row) => (
                     <Text variant="mono" testID={`${productionBatchTestId(String(row.id))}-yield`}>
                         {yieldSummary(row) ?? noValue}
@@ -300,46 +299,47 @@ function ProductionBatches() {
                 />
             )}
 
-            <View
+            {/*
+             * The catalogue's toolbar, as every other admin list draws it: the field first and
+             * stretching, the statuses after it, the column picker at the end. The field is the
+             * scan box — Enter looks the code up and opens its batch — so it does not narrow the
+             * rows as it is typed into; a scanner's half-typed label would empty the table.
+             */}
+            <CatalogueToolbar<SettledStatus>
                 testID="kitchen-production-batches-toolbar"
-                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-snug"
+                search={scan}
+                onSearchChange={(value) => {
+                    setScan(value);
+                    setScanMessage(null);
+                }}
+                onSearchSubmit={submitScan}
+                searchLabel={t('kitchen:ops.production.scanLabel')}
+                searchPlaceholder={t('kitchen:ops.production.scanLabel')}
+                statusLabel={t('kitchen:ops.production.filterStatus')}
+                statusSegments={SETTLED_STATUSES.map((value) => ({
+                    value,
+                    label: t(productionStatusKey(value)),
+                }))}
+                status={status}
+                onStatusChange={(next) => {
+                    setStatus(next);
+                    setPage(1);
+                }}
             >
-                <SegmentedControl<SettledStatus>
-                    testID="kitchen-production-batches-filter"
-                    label={t('kitchen:ops.production.filterStatus')}
-                    value={status}
-                    onChange={(next) => {
-                        setStatus(next);
-                        setPage(1);
-                    }}
-                    items={SETTLED_STATUSES.map((value) => ({
-                        value,
-                        label: t(productionStatusKey(value)),
-                        testID: `kitchen-production-batches-filter-${value}`,
-                    }))}
-                />
-                <View className="min-w-48 flex-1 md:max-w-80">
-                    <TextInputField
-                        testID="kitchen-production-batches-scan"
-                        id="kitchen-production-batches-scan"
-                        size="sm"
-                        labelHidden
-                        label={t('kitchen:ops.production.scanLabel')}
-                        placeholder={t('kitchen:ops.production.scanLabel')}
-                        value={scan}
-                        autoCorrect={false}
-                        autoCapitalize="none"
-                        blurOnSubmit={false}
-                        returnKeyType="go"
-                        {...(scanMessage === null ? {} : { error: scanMessage })}
-                        onChangeText={(value) => {
-                            setScan(value);
-                            setScanMessage(null);
-                        }}
-                        onSubmitEditing={submitScan}
-                    />
-                </View>
-            </View>
+                <ColumnPicker {...controls.picker} />
+            </CatalogueToolbar>
+
+            {/* Under the row rather than under the field: the toolbar is one line and keeps it. */}
+            {scanMessage === null ? null : (
+                <Text
+                    testID="kitchen-production-batches-scan-message"
+                    role="alert"
+                    variant="caption"
+                    tone="danger"
+                >
+                    {scanMessage}
+                </Text>
+            )}
 
             {batches.isPending ? (
                 <TableSkeleton testID="kitchen-production-batches-loading" />
@@ -371,34 +371,29 @@ function ProductionBatches() {
                         }}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                     />
-                    <View className="flex-row flex-wrap items-center justify-between gap-snug">
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:ops.production.showingCount', { count: rows.length })}
-                        </Text>
-                        <View className="flex-row items-center gap-snug">
-                            {page > 1 ? (
-                                <Button
-                                    testID="kitchen-production-batches-previous"
-                                    variant="secondary"
-                                    size="sm"
-                                    label={t('kitchen:ops.production.previousPage')}
-                                    onPress={() => {
-                                        setPage(page - 1);
-                                    }}
-                                />
-                            ) : null}
-                            {hasMore ? (
-                                <Button
-                                    testID="kitchen-production-batches-next"
-                                    variant="secondary"
-                                    size="sm"
-                                    label={t('kitchen:ops.production.nextPage')}
-                                    onPress={() => {
-                                        setPage(page + 1);
-                                    }}
-                                />
-                            ) : null}
-                        </View>
+                    <View className="flex-row flex-wrap items-center justify-center gap-snug">
+                        {page > 1 ? (
+                            <Button
+                                testID="kitchen-production-batches-previous"
+                                variant="secondary"
+                                size="sm"
+                                label={t('kitchen:ops.production.previousPage')}
+                                onPress={() => {
+                                    setPage(page - 1);
+                                }}
+                            />
+                        ) : null}
+                        {hasMore ? (
+                            <Button
+                                testID="kitchen-production-batches-next"
+                                variant="secondary"
+                                size="sm"
+                                label={t('kitchen:ops.production.nextPage')}
+                                onPress={() => {
+                                    setPage(page + 1);
+                                }}
+                            />
+                        ) : null}
                     </View>
                 </View>
             )}
