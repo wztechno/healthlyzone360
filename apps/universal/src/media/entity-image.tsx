@@ -273,33 +273,22 @@ export function EntityImage({
         );
 
     if (resolved === null || resolved === undefined) {
-        const placeholder = (
+        // `decorative` has to hold in both branches. The placeholder is a named `image` role, so
+        // without it a decorative frame with no photograph behind it was announced anyway — the
+        // record's name read out twice, once as the title and once as a picture of it, on every
+        // Catalogue row that has no photograph. The photograph branch below already hid itself.
+        // It is the placeholder's own prop, not a wrapper: a wrapper has no size, so the caller's
+        // `h-full` stopped reaching the frame and an empty slot fell back to its aspect ratio.
+        return withOverlays(
             <ImagePlaceholder
                 testID={testID}
                 seed={seed}
                 label={label}
                 aspect={aspect}
                 flush={flush}
+                decorative={decorative}
                 className={className}
-            />
-        );
-
-        // `decorative` has to hold in both branches. The placeholder is a named `image` role, so
-        // without this a decorative frame with no photograph behind it was announced anyway — the
-        // record's name read out twice, once as the title and once as a picture of it, on every
-        // Catalogue row that has no photograph. The photograph branch below already hid itself.
-        return withOverlays(
-            decorative ? (
-                <View
-                    aria-hidden
-                    accessibilityElementsHidden
-                    importantForAccessibility="no-hide-descendants"
-                >
-                    {placeholder}
-                </View>
-            ) : (
-                placeholder
-            ),
+            />,
         );
     }
 

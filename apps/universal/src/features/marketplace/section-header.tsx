@@ -114,20 +114,20 @@ export function CardGrid({ children, testID }: CardGridProps) {
  * That last clause is the `max-w`. A wrapping row gives its free space to whatever is on the line,
  * so a collection whose count is not a multiple of the column count ended with a card blown up to
  * the whole width — a billboard with an enormous image under a tidy grid. The cap is not a taste:
- * 1152 is the shell's content width and the grid's gap is 16, so `(1152 - 3 × 16) ÷ 4` is exactly
+ * 1184 is the shell's content width and the grid's gap is 16, so `(1184 - 3 × 16) ÷ 4` is exactly
  * what a cell gets when a four-column row is full. Capping there can never change a full row — it
  * only stops a short one from stretching.
  *
  * **Four across, not three.** The cell was 260–373 wide, which fits three, and at 373 a 4:3 image
  * is 280 units tall — so each card opened with a photograph the height of a small poster and the
  * price fell below the fold of the grid. The design sets these at four across; the card narrows to
- * ~276, the same image lands at ~207, and the whole card becomes something you can compare against
+ * ~284, the same image lands at ~213, and the whole card becomes something you can compare against
  * its neighbour without scrolling. Nothing about the card had to change to fix its height: the
  * width was the problem.
  */
 export function CardGridItem({ children, testID }: CardGridProps) {
     return (
-        <View testID={testID} className="min-w-[250px] max-w-[276px] flex-1 grow basis-[250px]">
+        <View testID={testID} className="min-w-[250px] max-w-[284px] flex-1 grow basis-[250px]">
             {children}
         </View>
     );
@@ -158,13 +158,13 @@ export function TileGrid({ children, testID }: CardGridProps) {
  *
  * The cap follows the same reasoning as {@link CardGridItem}'s and is computed the same way: a
  * wrapping row hands its slack to whatever is on the line, so without one a set of five tiles ends
- * with a lone tile stretched across the full width. At 1152px content, a 12px gap and six columns,
- * `(1152 - 5 × 12) ÷ 6` is 182 — so 182 is exactly what a tile gets in a full row, and capping
+ * with a lone tile stretched across the full width. At 1184px content, a 12px gap and six columns,
+ * `(1184 - 5 × 12) ÷ 6` is 187 — so 187 is exactly what a tile gets in a full row, and capping
  * there can only ever restrain a short one.
  */
 export function TileGridItem({ children, testID }: CardGridProps) {
     return (
-        <View testID={testID} className="min-w-[170px] max-w-[182px] flex-1 grow basis-[170px]">
+        <View testID={testID} className="min-w-[170px] max-w-[187px] flex-1 grow basis-[170px]">
             {children}
         </View>
     );
