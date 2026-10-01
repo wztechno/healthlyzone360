@@ -350,6 +350,7 @@ export {
 } from './overlays/toast.tsx';
 export type {
     Toast,
+    ToastAction,
     ToastApi,
     ToastOptions,
     ToastProviderProps,

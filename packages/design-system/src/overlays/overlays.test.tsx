@@ -213,7 +213,7 @@ describe('Drawer', () => {
     });
 });
 
-function ToastHarness() {
+function ToastHarness({ onAction = () => {} }: { readonly onAction?: () => void }) {
     const { show, dismissAll, toasts } = useToast();
     return (
         <>
@@ -232,6 +232,19 @@ function ToastHarness() {
                 }}
             >
                 <RNText>show danger</RNText>
+            </Pressable>
+            <Pressable
+                testID="show-with-action"
+                onPress={() => {
+                    show({
+                        message: 'Meal added',
+                        tone: 'success',
+                        testID: 'toast-act',
+                        action: { label: 'View cart', onPress: onAction },
+                    });
+                }}
+            >
+                <RNText>show with action</RNText>
             </Pressable>
             <Pressable testID="clear" onPress={dismissAll}>
                 <RNText>clear</RNText>
@@ -289,6 +302,22 @@ describe('Toast', () => {
         await fireEvent.press(screen.getByTestId('show-success'));
         await fireEvent.press(screen.getByTestId('toast-ok-dismiss'));
         expect(screen.queryByTestId('toast-ok')).toBeNull();
+    });
+
+    it('runs its action and dismisses itself when the action is pressed', async () => {
+        const onAction = jest.fn();
+        await renderWithI18n(
+            <ToastProvider defaultDurationMs={0}>
+                <ToastHarness onAction={onAction} />
+            </ToastProvider>,
+        );
+
+        await fireEvent.press(screen.getByTestId('show-with-action'));
+        expect(screen.getByTestId('toast-act-action')).toHaveTextContent('View cart');
+
+        await fireEvent.press(screen.getByTestId('toast-act-action'));
+        expect(onAction).toHaveBeenCalledTimes(1);
+        expect(screen.queryByTestId('toast-act')).toBeNull();
     });
 
     it('dismisses everything on request', async () => {

@@ -701,6 +701,24 @@ describe('ImagePlaceholder', () => {
         expect(screen.getByTestId('wide-aspect').props.className).toContain('aspect-video');
     });
 
+    it('hides itself when decorative, and still takes the size its caller gives it', async () => {
+        await renderWithI18n(
+            <ImagePlaceholder
+                testID="deco"
+                seed="meal-01"
+                label="Meal"
+                decorative
+                className="h-full"
+            />,
+        );
+        const node = screen.getByTestId('deco');
+        expect(node.props['aria-hidden']).toBe(true);
+        expect(node.props.accessibilityRole).toBeUndefined();
+        expect(node.props.accessibilityLabel).toBeUndefined();
+        // The sizing class lands on the frame itself — there is no wrapper for it to stop at.
+        expect(node.props.className).toContain('h-full');
+    });
+
     it('drops its own radius when flush, so media meets a clipped card corner cleanly', async () => {
         await renderWithI18n(<ImagePlaceholder testID="flush" seed="meal-01" label="Meal" flush />);
         expect(screen.getByTestId('flush').props.className).not.toMatch(/rounded-lg/);

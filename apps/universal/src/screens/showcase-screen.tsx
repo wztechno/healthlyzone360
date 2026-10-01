@@ -155,6 +155,7 @@ import { BrowseCard } from '../ui/browse-card.tsx';
 import { BrowsePanel } from '../ui/browse-panel.tsx';
 import { ListingHeader } from '../ui/listing-header.tsx';
 import { PageHero } from '../ui/page-hero.tsx';
+import { PillChip } from '../ui/pill-chip.tsx';
 
 interface SectionProps {
     readonly id: string;
@@ -168,6 +169,73 @@ function Section({ id, title, children }: SectionProps) {
             <Heading level={2}>{title}</Heading>
             <Stack space="md">{children}</Stack>
         </Card>
+    );
+}
+
+/**
+ * The customer pages' `chip()` pill in its three readings. What to check: a lit pill changes fill
+ * *and* stroke; the toggles each light on their own while the radios hold exactly one; the tab
+ * shape; a disabled pill; and the delivery-window pill with no press at all.
+ */
+function PillChipDemo() {
+    const [toggles, setToggles] = useState<readonly string[]>(['Vegan']);
+    const [choice, setChoice] = useState('Delivery');
+
+    return (
+        <Stack space="sm">
+            <Inline space="xs" wrap>
+                {['Vegan', 'High protein', 'Under 30 min'].map((label) => {
+                    const on = toggles.includes(label);
+                    return (
+                        <PillChip
+                            key={label}
+                            testID={`showcase-pill-chip-${label}`}
+                            label={label}
+                            selected={on}
+                            onPress={() => {
+                                setToggles(
+                                    on
+                                        ? toggles.filter((entry) => entry !== label)
+                                        : [...toggles, label],
+                                );
+                            }}
+                        />
+                    );
+                })}
+                <PillChip
+                    testID="showcase-pill-chip-disabled"
+                    label="Halal"
+                    disabled
+                    onPress={() => undefined}
+                />
+            </Inline>
+            <View role="radiogroup" aria-label="Order mode" className="flex-row gap-2">
+                {['Delivery', 'Pickup'].map((label) => (
+                    <PillChip
+                        key={label}
+                        testID={`showcase-pill-chip-radio-${label}`}
+                        mode="radio"
+                        shape="tab"
+                        size="sm"
+                        floor="coarse"
+                        label={label}
+                        selected={choice === label}
+                        onPress={() => {
+                            setChoice(label);
+                        }}
+                    />
+                ))}
+            </View>
+            <Inline space="xs" wrap>
+                <PillChip
+                    testID="showcase-pill-chip-static"
+                    size="sm"
+                    label="11:30–13:00"
+                    selected
+                />
+                <PillChip testID="showcase-pill-chip-static-off" size="sm" label="18:00–20:00" />
+            </Inline>
+        </Stack>
     );
 }
 
@@ -3637,6 +3705,7 @@ export function ShowcaseScreen() {
                             onChange={setFilterOn}
                         />
                     </Inline>
+                    <PillChipDemo />
                     <NumberStepper
                         testID="showcase-number-stepper"
                         id="showcase-number-stepper"
@@ -4043,6 +4112,19 @@ export function ShowcaseScreen() {
                         label={t('designSystem:showcase.placeholderLabel')}
                     />
                     {/*
+                     * A decorative placeholder filling a fixed slot, as a mosaic tile or a photo
+                     * band uses one: the frame takes the slot's height, not its own aspect ratio.
+                     */}
+                    <View className="h-24 w-40">
+                        <ImagePlaceholder
+                            testID="showcase-image-placeholder-decorative"
+                            seed="showcase-meal-02"
+                            label={t('designSystem:showcase.placeholderLabel')}
+                            decorative
+                            className="h-full"
+                        />
+                    </View>
+                    {/*
                      * The three families that carry a record's own photograph, side by side, so the
                      * square ingredient thumbnail can be compared against the 4:3 dish crop rather
                      * than reviewed on its own. The third is deliberately an id with no bundled
@@ -4319,6 +4401,12 @@ export function ShowcaseScreen() {
                                     message: t('designSystem:showcase.toastMessage'),
                                     tone: 'success',
                                     testID: 'showcase-toast',
+                                    action: {
+                                        label: t('designSystem:showcase.toastAction'),
+                                        onPress: () => {
+                                            setSheetOpen(true);
+                                        },
+                                    },
                                 });
                             }}
                         />

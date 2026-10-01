@@ -720,137 +720,165 @@ function AppShellLayout({
                      * They were fixed at `px-4`, which left the bar inset by 16px against content
                      * inset by 44px, and the misalignment is visible on every wide viewport.
                      */
-                    className="flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-base px-4 py-3.5 md:gap-7 md:px-10 lg:px-11"
+                    className="border-b border-stroke-subtle bg-surface-base px-4 py-3.5 md:px-10 lg:px-11"
                 >
-                    {!wideEnoughForTopNav && navigation.length > 0 ? (
-                        <IconButton
-                            testID={testID === undefined ? undefined : `${testID}-menu`}
-                            label={t('designSystem:shell.openNavigation')}
-                            icon={<Icon name="menu" />}
-                            onPress={() => {
-                                setDrawerOpen(true);
-                            }}
-                        />
-                    ) : null}
-                    {topbarStart}
-
                     {/*
-                     * No title in this bar, unlike every other variant.
-                     *
-                     * It was rendering a tagline as `aria-level={1}` beside the wordmark — but
-                     * every screen under this shell opens with a `PageHero` that renders its own
-                     * level-1 heading, so each marketplace page shipped *two* h1s, and the first
-                     * one named the product rather than the page. A screen-reader user landing on
-                     * the meals catalogue heard the tagline before the word "Meals".
-                     *
-                     * The brand mark in `topbarStart` is a link to home and carries its own
-                     * accessible name, so nothing is lost by dropping the text: the banner
-                     * landmark is still a banner, and the page's heading is now the page's own.
+                     * The bar's contents sit on the page's measure, not on the window. HealthZone
+                     * centres its header on the same 1240px container as the content (1184px inside
+                     * its 28px gutters), so on a wide screen the brand mark lines up with the first
+                     * card rather than with the window edge — at 1440px the two used to be 84px apart.
                      */}
-
-                    {/*
-                     * `self-stretch` on the wrapper, not just on the row inside it. The top bar
-                     * centres its children, so without this the wrapper is only as tall as its
-                     * own content (28px) and every stretch below it inherits that ceiling — the
-                     * active underline then floats mid-bar instead of sitting on its edge.
-                     */}
-                    <View className="flex-1 flex-row items-stretch self-stretch">
-                        {showTopNav ? (
-                            <View
-                                testID={testID === undefined ? undefined : `${testID}-navigation`}
-                                role="navigation"
-                                aria-label={t('designSystem:shell.primaryNavigation')}
-                                // `shrink` is load-bearing: react-native-web gives every View
-                                // flex-shrink: 0, so without it the row renders at max-content
-                                // width and overflows the document at 768-1023px instead of
-                                // wrapping (flex-wrap only engages once the box can be narrowed).
-                                //
-                                // `-my-2` cancels the bar's own vertical padding for this row
-                                // only, so a stretched item's bottom edge *is* the bar's bottom
-                                // edge — which is where the active underline has to sit. The
-                                // padding comes back on each item, so the touch target is unchanged.
-                                //
-                                // `content-stretch` is the other half and is easy to miss:
-                                // react-native-web defaults `align-content` to `flex-start`, so
-                                // with `flex-wrap` on, a single line sits at its natural height and
-                                // `items-stretch` has nothing to stretch into. When the row *does*
-                                // wrap, each line stretches to its own height and the underline
-                                // tracks the active item's line, which is what it should do.
-                                className="-my-2 flex-row flex-wrap content-stretch items-stretch gap-1 shrink"
-                            >
-                                {navigation.map((item) => (
-                                    <Pressable
-                                        key={item.key}
-                                        testID={item.testID}
-                                        role="link"
-                                        accessibilityRole="link"
-                                        accessibilityLabel={item.label}
-                                        accessibilityState={{ selected: item.active === true }}
-                                        aria-current={item.active === true ? 'page' : undefined}
-                                        focusable
-                                        onPress={item.onPress}
-                                        className="relative min-h-touch flex-row items-center justify-center bg-transparent px-3 py-2"
-                                    >
-                                        {/*
-                                         * No glyph here, unlike the drawer and the sidebar.
-                                         *
-                                         * A top bar is read as a line of words, and a row of
-                                         * icons in front of them is decoration that costs about
-                                         * 140px of the space the row has least of — which is what
-                                         * pushed this nav onto a second line and the trailing
-                                         * controls into each other. The glyphs also carried no
-                                         * meaning: a diamond for Kitchens and a half-circle for
-                                         * Meals name nothing a reader could guess.
-                                         *
-                                         * The drawer keeps them (`item.icon` is still rendered
-                                         * there): a stacked vertical list is scanned down an edge,
-                                         * where a leading glyph genuinely helps.
-                                         */}
-                                        <RNText
-                                            numberOfLines={1}
-                                            className={cx(
-                                                'text-sm text-start',
-                                                item.active === true
-                                                    ? 'text-surface-brand font-bold'
-                                                    : 'text-content-primary',
-                                            )}
-                                        >
-                                            {item.label}
-                                        </RNText>
-                                        {/*
-                                         * A bar rather than a filled pill. A pill in a top bar
-                                         * reads as a button among links; an underline on the bar's
-                                         * edge reads as "you are here", which is what it means.
-                                         * brand-500 is legal here because it carries no text — it
-                                         * is a graphic, and §1.3 keeps brand-500 for exactly this.
-                                         */}
-                                        {item.active === true ? (
-                                            <View
-                                                // Named off the *shell*, not off the item. The
-                                                // responsive suite enumerates controls with
-                                                // `[data-testid^="marketplace-nav-"]` and checks
-                                                // each one is touch-sized; an item-derived name put
-                                                // this 2px decoration in that set. Exactly one item
-                                                // is ever active, so one handle is enough.
-                                                testID={
-                                                    testID === undefined
-                                                        ? undefined
-                                                        : `${testID}-nav-active-bar`
-                                                }
-                                                aria-hidden
-                                                accessibilityElementsHidden
-                                                importantForAccessibility="no-hide-descendants"
-                                                // eslint-disable-next-line no-restricted-syntax -- §1.3 keeps brand-500 for underline bars precisely: this View carries no text, so the 3.05:1 that rules it out as a text surface does not apply. The rule cannot see that, so it is waived here rather than weakened everywhere.
-                                                className="absolute bottom-0 start-0 end-0 h-0.5 bg-brand-500"
-                                            />
-                                        ) : null}
-                                    </Pressable>
-                                ))}
-                            </View>
+                    <View className="mx-auto w-full max-w-[1184px] flex-row items-center gap-3 md:gap-7">
+                        {!wideEnoughForTopNav && navigation.length > 0 ? (
+                            <IconButton
+                                testID={testID === undefined ? undefined : `${testID}-menu`}
+                                label={t('designSystem:shell.openNavigation')}
+                                icon={<Icon name="menu" />}
+                                onPress={() => {
+                                    setDrawerOpen(true);
+                                }}
+                            />
                         ) : null}
-                    </View>
+                        {topbarStart}
 
-                    {topbarEnd}
+                        {/*
+                         * No title in this bar, unlike every other variant.
+                         *
+                         * It was rendering a tagline as `aria-level={1}` beside the wordmark — but
+                         * every screen under this shell opens with a `PageHero` that renders its own
+                         * level-1 heading, so each marketplace page shipped *two* h1s, and the first
+                         * one named the product rather than the page. A screen-reader user landing on
+                         * the meals catalogue heard the tagline before the word "Meals".
+                         *
+                         * The brand mark in `topbarStart` is a link to home and carries its own
+                         * accessible name, so nothing is lost by dropping the text: the banner
+                         * landmark is still a banner, and the page's heading is now the page's own.
+                         */}
+
+                        {/*
+                         * `self-stretch` on the wrapper, not just on the row inside it. The top bar
+                         * centres its children, so without this the wrapper is only as tall as its
+                         * own content (28px) and every stretch below it inherits that ceiling — the
+                         * active underline then floats mid-bar instead of sitting on its edge.
+                         *
+                         * `web:xl:min-w-max` decides who gives way. `flex-1` alone sizes this from
+                         * zero, so the row got only what the trailing search and controls left over
+                         * and four destinations wrapped onto two lines at 1280px while the search kept
+                         * its full 340px. HealthZone draws the opposite priority — the destinations on
+                         * one line, the search as the flexible part. From `xl` the row will not shrink
+                         * below one line and the search (`min-w-0 shrink`) yields instead; below `xl`
+                         * there is not room for both, and wrapping is still what keeps the bar inside
+                         * the window.
+                         */}
+                        <View className="flex-1 flex-row items-stretch self-stretch web:xl:min-w-max">
+                            {showTopNav ? (
+                                <View
+                                    testID={
+                                        testID === undefined ? undefined : `${testID}-navigation`
+                                    }
+                                    role="navigation"
+                                    aria-label={t('designSystem:shell.primaryNavigation')}
+                                    // `shrink` is load-bearing: react-native-web gives every View
+                                    // flex-shrink: 0, so without it the row renders at max-content
+                                    // width and overflows the document at 768-1023px instead of
+                                    // wrapping (flex-wrap only engages once the box can be narrowed).
+                                    //
+                                    // `-my-2` cancels the bar's own vertical padding for this row
+                                    // only, so a stretched item's bottom edge *is* the bar's bottom
+                                    // edge — which is where the active underline has to sit. The
+                                    // padding comes back on each item, so the touch target is unchanged.
+                                    //
+                                    // `content-stretch` is the other half and is easy to miss:
+                                    // react-native-web defaults `align-content` to `flex-start`, so
+                                    // with `flex-wrap` on, a single line sits at its natural height and
+                                    // `items-stretch` has nothing to stretch into. When the row *does*
+                                    // wrap, each line stretches to its own height and the underline
+                                    // tracks the active item's line, which is what it should do.
+                                    className="-my-2 flex-row flex-wrap content-stretch items-stretch gap-0.5 shrink"
+                                >
+                                    {navigation.map((item) => (
+                                        <Pressable
+                                            key={item.key}
+                                            testID={item.testID}
+                                            role="link"
+                                            accessibilityRole="link"
+                                            accessibilityLabel={item.label}
+                                            accessibilityState={{ selected: item.active === true }}
+                                            aria-current={item.active === true ? 'page' : undefined}
+                                            focusable
+                                            onPress={item.onPress}
+                                            className="relative min-h-touch flex-row items-center justify-center bg-transparent px-2.5 py-2"
+                                        >
+                                            {/*
+                                             * No glyph here, unlike the drawer and the sidebar.
+                                             *
+                                             * A top bar is read as a line of words, and a row of
+                                             * icons in front of them is decoration that costs about
+                                             * 140px of the space the row has least of — which is what
+                                             * pushed this nav onto a second line and the trailing
+                                             * controls into each other. The glyphs also carried no
+                                             * meaning: a diamond for Kitchens and a half-circle for
+                                             * Meals name nothing a reader could guess.
+                                             *
+                                             * The drawer keeps them (`item.icon` is still rendered
+                                             * there): a stacked vertical list is scanned down an edge,
+                                             * where a leading glyph genuinely helps.
+                                             */}
+                                            {/*
+                                             * The word and its underline, as HealthZone draws them: the
+                                             * active destination in ink rather than in brand, at the
+                                             * same weight as the rest, with a 2px brand rule hugging
+                                             * the word (2px below it) rather than sitting on the bar's
+                                             * edge. Every item reserves the rule's height, so the
+                                             * words stay on one baseline whichever one is active.
+                                             *
+                                             * brand-500 is legal on the rule because it carries no
+                                             * text — it is a graphic, and §1.3 keeps brand-500 for
+                                             * exactly this.
+                                             */}
+                                            <View className="flex-col items-stretch gap-0.5">
+                                                <RNText
+                                                    numberOfLines={1}
+                                                    className={cx(
+                                                        'text-base font-medium text-start',
+                                                        item.active === true
+                                                            ? 'text-content-primary'
+                                                            : 'text-content-secondary',
+                                                    )}
+                                                >
+                                                    {item.label}
+                                                </RNText>
+                                                {item.active === true ? (
+                                                    <View
+                                                        // Named off the *shell*, not off the item. The
+                                                        // responsive suite enumerates controls with
+                                                        // `[data-testid^="marketplace-nav-"]` and checks
+                                                        // each one is touch-sized; an item-derived name
+                                                        // put this 2px decoration in that set. Exactly
+                                                        // one item is ever active, so one handle is enough.
+                                                        testID={
+                                                            testID === undefined
+                                                                ? undefined
+                                                                : `${testID}-nav-active-bar`
+                                                        }
+                                                        aria-hidden
+                                                        accessibilityElementsHidden
+                                                        importantForAccessibility="no-hide-descendants"
+                                                        // eslint-disable-next-line no-restricted-syntax -- §1.3 keeps brand-500 for underline bars precisely: this View carries no text, so the 3.05:1 that rules it out as a text surface does not apply. The rule cannot see that, so it is waived here rather than weakened everywhere.
+                                                        className="h-0.5 bg-brand-500"
+                                                    />
+                                                ) : (
+                                                    <View aria-hidden className="h-0.5" />
+                                                )}
+                                            </View>
+                                        </Pressable>
+                                    ))}
+                                </View>
+                            ) : null}
+                        </View>
+
+                        {topbarEnd}
+                    </View>
                 </View>
 
                 <ScrollView
@@ -861,7 +889,7 @@ function AppShellLayout({
                     // cards and the eye loses the start of the next line; the gutters are wider
                     // here than in a workspace because there is no sidebar taking the same space.
                     contentContainerClassName={cx(
-                        'flex-grow gap-4 p-4 md:px-10 lg:px-11',
+                        'flex-grow gap-4 p-4 md:px-10 md:pt-8 lg:px-11',
                         contentClassName,
                     )}
                 >
@@ -881,19 +909,19 @@ function AppShellLayout({
                      * `width: 100%` resolves against the parent's content box, so the box now
                      * tracks the space it is given and `max-w` still caps it on wide screens.
                      */}
-                    <View className="mx-auto w-full max-w-[1152px] flex-col gap-4 self-stretch">
+                    <View className="mx-auto w-full max-w-[1184px] flex-col gap-4 self-stretch">
                         {children}
                     </View>
                     {footer === undefined ? null : (
                         <View
                             testID={testID === undefined ? undefined : `${testID}-footer`}
                             role="contentinfo"
-                            // Bled back out through the content gutters so the band reaches both
-                            // page edges. The negative margins mirror the padding above exactly —
-                            // a footer inset by 44px reads as a misplaced card rather than as the
-                            // end of the page. No rule above it either: a hairline between the
-                            // page and a dark band draws a line on an edge that is already there.
-                            className="-mx-4 -mb-4 self-stretch md:-mx-10 lg:-mx-11"
+                            // On the page's measure under a hairline, as HealthZone ends every
+                            // customer page: a quiet line of small print, not a second band of
+                            // chrome. It used to bleed out to both window edges as a canopy band,
+                            // which made the foot of a short page (the basket, the account) heavier
+                            // than the page itself.
+                            className="mx-auto mt-6 w-full max-w-[1184px] self-stretch border-t border-stroke"
                         >
                             {footer}
                         </View>
