@@ -39,6 +39,7 @@ final class DietaryProfilePresenter
      *     declared_at: string|null,
      *     declares_no_allergens: bool,
      *     diet_classification_id: string|null,
+     *     diet_classification_code: string|null,
      *     religious_requirement: string|null,
      *     notes: string|null,
      *     allergens: list<array{allergen_code: string, severity: string, notes: string|null, declared_at: string|null}>,
@@ -58,6 +59,10 @@ final class DietaryProfilePresenter
             // top of it is noise.
             'declares_no_allergens' => $profile->declares_no_allergens ?? false,
             'diet_classification_id' => $profile?->diet_classification_id,
+            // The diet's vocabulary code beside its identifier: the code is what a
+            // client holds and sends back, and the public diet list publishes no
+            // identifiers to map one onto the other.
+            'diet_classification_code' => $profile?->dietClassification?->code,
             'religious_requirement' => $profile?->religious_requirement,
             'notes' => $profile?->notes,
             'allergens' => array_map(fn (CustomerAllergenDeclaration $row): array => $this->allergen($row), $allergens),

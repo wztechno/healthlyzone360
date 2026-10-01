@@ -6595,6 +6595,7 @@ export const zCustomerDietaryProfile = z.object({
     declared_at: z.iso.datetime({ offset: true }).nullish(),
     declares_no_allergens: z.boolean(),
     diet_classification_id: zUuid.nullish(),
+    diet_classification_code: z.string().nullish(),
     religious_requirement: z.string().nullish(),
     notes: z.string().nullish(),
     allergens: z.array(zCustomerAllergenDeclaration),
@@ -6623,6 +6624,7 @@ export const zReplaceDietaryProfileRequest = z.object({
         free_text: z.string().max(200).nullish()
     })).max(100).optional(),
     diet_classification_id: zUuid.nullish(),
+    diet_classification_code: z.string().max(60).nullish(),
     religious_requirement: z.string().max(120).nullish(),
     notes: z.string().max(2000).nullish()
 });

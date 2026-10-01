@@ -96,10 +96,11 @@ import { PASSCODE_LENGTH } from './verification-repository.ts';
  *
  * ## 5. Diet categories are an identifier, allergens have a fourth severity
  *
- * `DietaryProfile.dietCategoryCodes` is a list of codes; the wire holds one
- * `diet_classification_id`, a UUID. The identifier is passed through as the single member of the
- * list, which is honest — it *is* the classification the person chose — and a screen that resolves
- * codes to labels will show the identifier until a code is published. `AllergenSeverity` on the
+ * `DietaryProfile.dietCategoryCode` is the diet's vocabulary code, read from and written as
+ * `diet_classification_code`. The wire also carries `diet_classification_id`, a UUID, but the
+ * public diet list publishes codes and never identifiers, so a client holding the identifier could
+ * neither label it nor send one back — which is why every save carrying a diet used to be refused
+ * as invalid. The code is the one name both ends share. `AllergenSeverity` on the
  * wire has a fourth member, `anaphylaxis`, which the contract's three do not: it maps to `allergy`,
  * the hard-exclusion severity, because that is what the configurator must do with it. The
  * distinction is lost on a round trip, and that is stated rather than hidden.
@@ -197,12 +198,7 @@ export function mapAddress(wire: WireAddress, areaName: AreaNames): CustomerAddr
 
 export function mapDietaryProfile(wire: WireDietaryProfile): DietaryProfile {
     return {
-        // One classification on the wire, a list in the contract. The identifier is carried rather
-        // than dropped: it is what the person chose, and dropping it would lose their answer.
-        dietCategoryCodes:
-            wire.diet_classification_id === null || wire.diet_classification_id === undefined
-                ? []
-                : [wire.diet_classification_id],
+        dietCategoryCode: wire.diet_classification_code ?? null,
         allergens: wire.allergens.map((allergen): AllergenDeclaration => ({
             allergenCode: allergen.allergen_code,
             severity: mapSeverity(allergen.severity),
@@ -602,7 +598,7 @@ export function createApiAccountRepository(
                     })),
                     // One classification on the wire; the contract's list is sent as its first
                     // member, and an empty list clears it.
-                    diet_classification_id: request.dietCategoryCodes[0] ?? null,
+                    diet_classification_code: request.dietCategoryCode,
                 },
             });
             return mapDietaryProfile(wire.dietary_profile);

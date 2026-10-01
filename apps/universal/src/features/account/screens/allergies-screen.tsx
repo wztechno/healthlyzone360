@@ -59,7 +59,7 @@ type Answer = (typeof ANSWERS)[number];
 interface Edit {
     readonly answer: Answer | null;
     readonly allergens: readonly AllergenDeclaration[];
-    readonly diets: readonly string[];
+    readonly diet: string | null;
     /** `updatedAt` of the profile this edit was seeded from — `null` before the first save. */
     readonly from: string | null;
 }
@@ -69,7 +69,7 @@ function seed(profile: DietaryProfile): Edit {
     return {
         answer: answered === null ? null : answered ? 'yes' : 'no',
         allergens: profile.allergens,
-        diets: profile.dietCategoryCodes,
+        diet: profile.dietCategoryCode,
         from: profile.updatedAt,
     };
 }
@@ -89,7 +89,7 @@ export function AllergiesScreen() {
     const loaded = profile.data;
     const current: Edit =
         loaded === undefined
-            ? { answer: null, allergens: [], diets: [], from: null }
+            ? { answer: null, allergens: [], diet: null, from: null }
             : edit !== null && edit.from === loaded.updatedAt
               ? edit
               : seed(loaded);
@@ -186,10 +186,10 @@ export function AllergiesScreen() {
                     <Card padding="md">
                         <DietaryTagsPicker
                             testID={`${TEST_ID}-diets`}
-                            value={current.diets}
+                            value={current.diet}
                             disabled={save.isPending}
-                            onChange={(diets) => {
-                                set({ diets });
+                            onChange={(diet) => {
+                                set({ diet });
                             }}
                         />
                     </Card>
@@ -203,7 +203,7 @@ export function AllergiesScreen() {
                             onPress={() => {
                                 save.mutate(
                                     {
-                                        dietCategoryCodes: current.diets,
+                                        dietCategoryCode: current.diet,
                                         allergens: declarationsFor(
                                             current.answer === 'yes',
                                             current.allergens,
