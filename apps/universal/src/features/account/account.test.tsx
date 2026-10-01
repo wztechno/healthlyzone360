@@ -603,8 +603,13 @@ describe('AccountScreen — profile', () => {
         });
 
         await fireEvent.press(await screen.findByTestId('account-tab-profile'));
-        const name = await screen.findByTestId('account-profile-name-input');
-        expect(name.props.value).toBe('Test Person');
+        // The panel is not gated on the session: it draws at once and the fields fill when `/me`
+        // answers, so wait on the value rather than on the input.
+        await waitFor(() => {
+            expect(screen.getByTestId('account-profile-name-input').props.value).toBe(
+                'Test Person',
+            );
+        });
         expect(screen.getByTestId('account-profile-email-input').props.value).toBe(
             'test.person@example.test',
         );
@@ -631,8 +636,12 @@ describe('AccountScreen — profile', () => {
         );
         await screen.findByText('+971 50 *** 4567');
         // The design's inputs, read-only where the contract has no way to change the value.
-        const name = await screen.findByTestId('account-profile-name-input');
-        expect(name.props.value).toBe('Test Person');
+        await waitFor(() => {
+            expect(screen.getByTestId('account-profile-name-input').props.value).toBe(
+                'Test Person',
+            );
+        });
+        const name = screen.getByTestId('account-profile-name-input');
         expect(name.props.readOnly).toBe(true);
         const email = screen.getByTestId('account-profile-email-input');
         expect(email.props.value).toBe('test.person@example.test');
@@ -768,7 +777,12 @@ describe('PhoneScreen', () => {
         // An unconfirmed number is already on file, so the screen offers it rather than a form.
         await fireEvent.press(await screen.findByTestId('phone-screen-send'));
 
-        const input = await screen.findByTestId('phone-screen-challenge-code-input');
+        // The issued challenge is seeded into the cache before the panel's query observes it, and
+        // under the harness's `gcTime: 0` it can be collected in that gap — the panel is drawn, then
+        // drops back to its skeleton while it re-reads. Its own read of the challenge is issued only
+        // once it holds the live entry, so wait for that rather than for the first frame.
+        await waitFor(() => expect(repositories.verification.getChallenge).toHaveBeenCalled());
+        await screen.findByTestId('phone-screen-challenge-code-input');
         // Server-authored mask, never reconstructed by the panel.
         expect(screen.getByTestId('phone-screen-challenge-destination')).toHaveTextContent(/4567/);
         expect(repositories.verification.issueChallenge).toHaveBeenCalledWith({
@@ -776,7 +790,10 @@ describe('PhoneScreen', () => {
             contactPointId: contact.id,
         });
 
-        await fireEvent.changeText(input, TEST_CODE);
+        await fireEvent.changeText(
+            screen.getByTestId('phone-screen-challenge-code-input'),
+            TEST_CODE,
+        );
         await fireEvent.press(screen.getByTestId('phone-screen-challenge-submit'));
 
         expect(await screen.findByTestId('phone-screen-verified')).toBeTruthy();

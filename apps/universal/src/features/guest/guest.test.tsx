@@ -1,4 +1,5 @@
 import { ApiError, apiFailure } from '@healthy360/api-client';
+import type { Repositories } from '@healthy360/api-client';
 import { otpInvalidFailure } from '@healthy360/api-client/contracts';
 import type {
     Cart,
@@ -329,8 +330,17 @@ function checkoutBackdrop(areas: readonly string[] = [SERVED_AREA]) {
     };
 }
 
-/** Card 1: name and email, then "Send me a code" — the code panel opens inside the same card. */
-async function fillContactStep(): Promise<void> {
+/**
+ * Card 1: name and email, then "Send me a code" — the code panel opens inside the same card.
+ *
+ * It ends on the panel's own read of the challenge, not on the first frame that shows the input.
+ * The mutation seeds the challenge into the cache before the panel's query observes it, and under
+ * the harness's `gcTime: 0` the entry can be collected in that gap: the input is drawn, then drops
+ * back to its skeleton while the panel re-reads. Whether a wait happens to land on that first frame
+ * is timing — it did on CI. The read is issued only once the observer holds the live entry, and
+ * from then on the panel stays put.
+ */
+async function fillContactStep(repositories: Repositories): Promise<void> {
     await waitFor(() => screen.getByTestId('guest-checkout-contact'));
     await fireEvent.changeText(
         screen.getByTestId('guest-checkout-contact-fullName'),
@@ -341,7 +351,8 @@ async function fillContactStep(): Promise<void> {
         'rana@example.com',
     );
     await fireEvent.press(screen.getByTestId('guest-checkout-contact-continue'));
-    await waitFor(() => screen.getByTestId('guest-checkout-challenge-code-input'));
+    await waitFor(() => expect(repositories.guest.getChallenge).toHaveBeenCalled());
+    await screen.findByTestId('guest-checkout-challenge-code-input');
 }
 
 /**
@@ -360,8 +371,11 @@ async function fillAddressStep(area: string = SERVED_AREA): Promise<void> {
 
 /** The passcode gate, answered in card 1; a proven contact collapses to its confirmed line. */
 async function answerPasscode(): Promise<void> {
-    await fireEvent.changeText(screen.getByTestId('guest-checkout-challenge-code-input'), CODE);
-    await fireEvent.press(screen.getByTestId('guest-checkout-challenge-submit'));
+    await fireEvent.changeText(
+        await screen.findByTestId('guest-checkout-challenge-code-input'),
+        CODE,
+    );
+    await fireEvent.press(await screen.findByTestId('guest-checkout-challenge-submit'));
     await waitFor(() => screen.getByTestId('guest-checkout-contact-summary'));
 }
 
@@ -434,7 +448,7 @@ describe('the guest session', () => {
             },
         });
 
-        await fillContactStep();
+        await fillContactStep(repositories);
         await fillAddressStep();
         await answerPasscode();
 
@@ -497,7 +511,7 @@ describe('the guest checkout', () => {
 
         // A proven contact, so the only thing standing between this person and an order is the
         // area they typed.
-        await fillContactStep();
+        await fillContactStep(repositories);
         await answerPasscode();
         await fillAddressStep();
         await waitFor(() => {
@@ -537,7 +551,7 @@ describe('the guest checkout', () => {
             },
         });
 
-        await fillContactStep();
+        await fillContactStep(repositories);
         await fillAddressStep();
         await answerPasscode();
 
@@ -595,7 +609,7 @@ describe('the guest checkout', () => {
             },
         });
 
-        await fillContactStep();
+        await fillContactStep(repositories);
         await fillAddressStep();
         await answerPasscode();
 
@@ -624,7 +638,7 @@ describe('the guest checkout', () => {
      * until the server says the order may be placed.
      */
     it('draws all four cards open and keeps placing shut until the contact is proven', async () => {
-        await renderStubScreen(<GuestCheckoutScreen />, {
+        const { repositories } = await renderStubScreen(<GuestCheckoutScreen />, {
             repositories: {
                 ...checkoutBackdrop(),
                 guest: {
@@ -656,7 +670,7 @@ describe('the guest checkout', () => {
             disabled: true,
         });
 
-        await fillContactStep();
+        await fillContactStep(repositories);
 
         // A live code proves the contact it was sent to, so the contact is locked while it is.
         expect(screen.getByTestId('guest-checkout-contact-email-input').props.editable).toBe(false);

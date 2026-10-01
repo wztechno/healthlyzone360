@@ -12,8 +12,8 @@ use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerDietaryProfile;
 use Healthy360\Identity\Models\ContactPoint;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
-use Healthy360\ReferenceData\Models\DietClassification;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Healthy360\ReferenceData\Models\DietClassification;
 
 /*
 |--------------------------------------------------------------------------
