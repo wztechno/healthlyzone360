@@ -1,18 +1,12 @@
-import {
-    Button,
-    Callout,
-    Card,
-    Heading,
-    Inline,
-    NumberStepper,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
-import type { Cart, CartItem } from '@healthy360/api-client/contracts';
+import { Button, Callout, TextInputField } from '@healthy360/design-system';
+import type { Cart, CustomerAddress } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Text as RNText, View } from 'react-native';
 
+import { useAddressesQuery } from '../../../data/account-hooks.ts';
 import {
     toFailure,
     useCartQuery,
@@ -20,28 +14,51 @@ import {
     useRemoveCartItemMutation,
     useSetCartItemQuantityMutation,
 } from '../../../data/commerce-hooks.ts';
+import { usePrototypeAction } from '../../../prototype/index.ts';
+import { Eyebrow } from '../../../ui/eyebrow.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
-import { PriceSummary } from '../price-summary.tsx';
-import type { PriceRow } from '../price-summary.tsx';
+import { CartLine } from '../cart-line.tsx';
+import {
+    CheckoutCard,
+    CheckoutColumns,
+    CheckoutPage,
+    CheckoutTitle,
+    SummaryRow,
+    SummaryTotal,
+} from '../checkout-frame.tsx';
+import { earliestStartDate } from '../dates.ts';
 import { ALLERGEN_CONFLICT_WARNING } from '../warnings.ts';
 
 /**
- * `/customer/cart` — the basket.
+ * `/customer/cart` — the basket, in HealthZone's `cart` composition: "Your cart" over a line saying
+ * where and from when it would be delivered, the lines card with its "add another?" band, and the
+ * order summary as a sticky rail beside it from `lg` and after it below.
  *
- * ## Everything on this screen is real
+ * ## Everything on this screen is real, or says it is not
  *
- * The quantity stepper, the remove control and the totals all move the world. `addCartItem` and
- * `removeCartItem` exist, the prototype store holds a real basket, and `previewCheckout` prices it.
- * Nothing here is a prototype notice, because nothing here needs to be — `usePrototypeAction()` is
- * for capabilities that genuinely do not exist, and a basket is not one of them.
+ * The quantity stepper, the remove control and the totals all move the world: `addCartItem` and
+ * `removeCartItem` exist, the store holds a real basket, and `previewCheckout` prices it. The line
+ * under the title names the person's default saved address and the earliest date the checkout
+ * will offer (tomorrow — today's cooking has started). The delivery figure is the preview's for
+ * that address, and reads "At checkout" when there is no address to price it from.
+ *
+ * What the design draws and the contract cannot back is either drawn honestly or left out:
+ *
+ * - the promo-code field and **Apply** are drawn and wired to the prototype notice — there is no
+ *   promotion operation, and the press says "nothing was changed";
+ * - the **discount** row appears only when the preview carries one (the API never does yet);
+ * - there is **no tax row** — the contract has no tax figure, and a "Tax —" line would suggest a
+ *   charge still to come;
+ * - the fine print under the button states how payment works instead of a cancellation promise
+ *   nothing enforces.
  *
  * ## Why the totals come from a preview and are not added up here
  *
- * The subtotal on `Cart` is the repository's; the delivery fee and the total are `previewCheckout`'s.
- * The screen could add them — one line of arithmetic — and that is exactly why it does not. A basket
- * may one day hold two kitchens quoting two currencies, and a client-side sum of `Money.amount`
- * would produce a confident, wrong number. Pricing is a server concern and stays one.
+ * The delivery fee and the total are `previewCheckout`'s. The screen could add them — one line of
+ * arithmetic — and that is exactly why it does not. A basket may one day hold two kitchens quoting
+ * two currencies, and a client-side sum of `Money.amount` would produce a confident, wrong number.
+ * Pricing is a server concern and stays one.
  *
  * ## Doc 11, `SUB-05`
  *
@@ -51,268 +68,267 @@ import { ALLERGEN_CONFLICT_WARNING } from '../warnings.ts';
  * The subscription flow still bypasses it entirely, which is the part of `SUB-05` worth keeping.
  */
 
-/** Bounds for one line. Above ten, a household is ordering for an event and should talk to us. */
-const MIN_QUANTITY = 1;
-const MAX_QUANTITY = 10;
+/** The address a basket would go to before checkout asks: the default, else the first saved. */
+function defaultAddressOf(
+    addresses: readonly CustomerAddress[] | undefined,
+): CustomerAddress | null {
+    if (addresses === undefined) return null;
+    return addresses.find((entry) => entry.isDefault) ?? addresses[0] ?? null;
+}
 
 export function CartScreen() {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
+    const runPrototype = usePrototypeAction();
 
     const cart = useCartQuery();
     const basket: Cart | undefined = cart.data;
+    const addresses = useAddressesQuery();
+    const homeAddress = defaultAddressOf(addresses.data);
 
     const setQuantity = useSetCartItemQuantityMutation();
     const removeItem = useRemoveCartItemMutation();
+    const [promoCode, setPromoCode] = useState('');
 
-    // Priced only when there is something to price. An empty basket has a preview — the repository
-    // answers with a `checkout.empty_cart` warning — but showing a delivery fee for nothing is
-    // noise, and the empty state is a better answer than a total of zero.
-    const preview = useCheckoutPreviewQuery(
-        basket === undefined || basket.items.length === 0 ? null : { cartId: basket.id },
-    );
+    // Priced only when there is something to price, and only once the address book has answered —
+    // a preview sent before it would price delivery as unknown and then jump when the address
+    // arrived. A failed address read prices the basket without one rather than not at all.
+    const previewRequest = useMemo(() => {
+        if (basket === undefined || basket.items.length === 0) return null;
+        if (addresses.isPending) return null;
+        return {
+            cartId: basket.id,
+            ...(homeAddress === null ? {} : { addressId: homeAddress.id }),
+        };
+    }, [addresses.isPending, basket, homeAddress]);
+    const preview = useCheckoutPreviewQuery(previewRequest);
+    const quotation = preview.data;
 
     const mutationFailure = toFailure(setQuantity.error) ?? toFailure(removeItem.error);
+    const busy = setQuantity.isPending || removeItem.isPending;
+    const isEmpty = basket !== undefined && basket.items.length === 0;
 
-    const browseAction = (
-        <Button
-            testID="cart-browse"
-            label={t('commerce:cart.browse')}
-            onPress={() => {
-                router.push('/meals');
-            }}
-        />
+    const goBrowse = () => {
+        router.push('/meals');
+    };
+
+    const earliest = formatter.formatDate(earliestStartDate(), { dateStyle: 'medium' });
+    const subtitle =
+        homeAddress === null
+            ? t('commerce:cart.subtitleNoAddress', { date: earliest })
+            : t('commerce:cart.subtitle', { address: homeAddress.line1, date: earliest });
+
+    /* ── the lines card ─────────────────────────────────────────────────────────────────────── */
+
+    const lines =
+        basket === undefined ? null : (
+            <View className="flex-col gap-4">
+                <CheckoutCard padding="none" testID="cart-lines-card">
+                    <View testID="cart-lines" className="flex-col">
+                        {basket.items.map((item) => (
+                            <CartLine
+                                key={item.id}
+                                item={item}
+                                priceText={formatMoney(formatter, item.lineTotal)}
+                                busy={busy}
+                                onQuantity={(quantity) => {
+                                    setQuantity.mutate({ cartId: basket.id, item, quantity });
+                                }}
+                                onRemove={() => {
+                                    removeItem.mutate({ cartId: basket.id, itemId: item.id });
+                                }}
+                                onOpen={() => {
+                                    router.push(`/meals/${String(item.mealId)}` as never);
+                                }}
+                            />
+                        ))}
+                    </View>
+
+                    {/* The design's "Add a side or drink?" band, without the claim about sides. */}
+                    <View className="flex-row flex-wrap items-center justify-between gap-3 bg-surface-sunken px-4 py-4 sm:px-5">
+                        <RNText className="shrink text-sm text-content-secondary text-start">
+                            {t('commerce:cart.addMoreBody')}
+                        </RNText>
+                        <Button
+                            testID="cart-add-more"
+                            size="sm"
+                            variant="secondary"
+                            label={t('commerce:cart.browse')}
+                            onPress={goBrowse}
+                        />
+                    </View>
+                </CheckoutCard>
+
+                {mutationFailure === null ? null : (
+                    <Callout
+                        testID="cart-mutation-error"
+                        role="alert"
+                        tone="danger"
+                        title={t('commerce:cart.updateFailedTitle')}
+                        body={mutationFailure.message}
+                    />
+                )}
+            </View>
+        );
+
+    /* ── the order summary ──────────────────────────────────────────────────────────────────── */
+
+    const summary = (
+        <CheckoutCard testID="cart-summary">
+            <View className="flex-col">
+                <Eyebrow>{t('commerce:cart.summaryTitle')}</Eyebrow>
+                <QueryStates
+                    query={preview}
+                    isEmpty={false}
+                    emptyTitle={t('commerce:cart.summaryEmpty')}
+                    skeletonCount={1}
+                    testID="cart-preview"
+                >
+                    {quotation === undefined ? null : (
+                        <View className="flex-col">
+                            <View testID="cart-price" className="mt-4 flex-col gap-3">
+                                <SummaryRow
+                                    testID="cart-price-subtotal"
+                                    label={t('commerce:cart.subtotal')}
+                                    value={formatMoney(formatter, quotation.subtotal)}
+                                />
+                                <SummaryRow
+                                    testID="cart-price-delivery"
+                                    label={t('commerce:cart.delivery')}
+                                    value={
+                                        quotation.deliveryFee === null
+                                            ? t('commerce:cart.deliveryAtCheckout')
+                                            : formatMoney(formatter, quotation.deliveryFee)
+                                    }
+                                />
+                                {quotation.discount === null ? null : (
+                                    <SummaryRow
+                                        testID="cart-price-discount"
+                                        tone="credit"
+                                        label={t('commerce:cart.discount')}
+                                        value={t('commerce:cart.discountValue', {
+                                            amount: formatMoney(formatter, quotation.discount),
+                                        })}
+                                    />
+                                )}
+                            </View>
+
+                            <View className="mt-4 flex-row items-start gap-2">
+                                <View className="min-w-0 flex-1">
+                                    <TextInputField
+                                        testID="cart-promo"
+                                        label={t('commerce:cart.promoLabel')}
+                                        labelHidden
+                                        placeholder={t('commerce:cart.promoLabel')}
+                                        value={promoCode}
+                                        onChangeText={setPromoCode}
+                                        autoCapitalize="characters"
+                                    />
+                                </View>
+                                <Button
+                                    testID="cart-promo-apply"
+                                    variant="quiet"
+                                    label={t('commerce:cart.promoApply')}
+                                    accessibilityHint={t('marketplace:prototype.notBuilt')}
+                                    onPress={() => {
+                                        runPrototype({
+                                            contract: 'POST /api/v1/carts/{cart}/promotions',
+                                        });
+                                    }}
+                                />
+                            </View>
+
+                            <View className="mt-5">
+                                <SummaryTotal
+                                    testID="cart-price-total"
+                                    label={t('commerce:cart.total')}
+                                    total={quotation.total}
+                                    rule
+                                />
+                            </View>
+
+                            {quotation.warnings.includes(ALLERGEN_CONFLICT_WARNING) ? (
+                                <View className="mt-4">
+                                    <Callout
+                                        testID="cart-allergen-warning"
+                                        role="alert"
+                                        tone="danger"
+                                        icon="warning"
+                                        title={t('commerce:cart.allergenTitle')}
+                                        body={t('commerce:cart.allergenBody')}
+                                    />
+                                </View>
+                            ) : null}
+
+                            <View className="mt-4">
+                                <Button
+                                    testID="cart-checkout"
+                                    block
+                                    size="lg"
+                                    label={t('commerce:cart.checkout')}
+                                    onPress={() => {
+                                        router.push('/customer/checkout' as never);
+                                    }}
+                                />
+                            </View>
+                            <RNText
+                                testID="cart-fine-print"
+                                className="mt-3 text-xs text-content-secondary text-start"
+                            >
+                                {t('commerce:cart.finePrint')}
+                            </RNText>
+                        </View>
+                    )}
+                </QueryStates>
+            </View>
+        </CheckoutCard>
     );
 
-    const rows: readonly PriceRow[] =
-        preview.data === undefined
-            ? []
-            : [
-                  {
-                      key: 'subtotal',
-                      label: t('commerce:cart.subtotal'),
-                      amount: preview.data.subtotal,
-                  },
-                  ...(preview.data.deliveryFee === null
-                      ? [
-                            {
-                                key: 'delivery-free',
-                                label: t('commerce:cart.delivery'),
-                                amount: { amount: 0, currency: preview.data.total.currency },
-                                note: t('commerce:cart.deliveryFree'),
-                            },
-                        ]
-                      : [
-                            {
-                                key: 'delivery',
-                                label: t('commerce:cart.delivery'),
-                                amount: preview.data.deliveryFee,
-                            },
-                        ]),
-                  {
-                      key: 'total',
-                      label: t('commerce:cart.total'),
-                      amount: preview.data.total,
-                      emphasis: true,
-                  },
-              ];
-
     return (
-        <Stack space="lg" testID="cart-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="cart-title">
-                    {t('commerce:cart.title')}
-                </Heading>
-                <Text tone="secondary">{t('commerce:cart.body')}</Text>
-            </Stack>
+        <CheckoutPage testID="cart-screen">
+            <View className="flex-col gap-1">
+                <CheckoutTitle testID="cart-title">{t('commerce:cart.title')}</CheckoutTitle>
+                <RNText
+                    testID="cart-subtitle"
+                    className="text-base text-content-secondary text-start"
+                >
+                    {subtitle}
+                </RNText>
+            </View>
 
             <QueryStates
                 query={cart}
-                isEmpty={basket !== undefined && basket.items.length === 0}
+                isEmpty={false}
                 emptyTitle={t('commerce:cart.emptyTitle')}
-                emptyBody={t('commerce:cart.emptyBody')}
-                emptyActions={browseAction}
                 skeletonCount={2}
                 testID="cart"
             >
-                {basket === undefined ? null : (
-                    <Stack space="md">
-                        <Text testID="cart-count">
-                            {t('commerce:cart.count', {
-                                count: basket.itemCount,
-                                items: formatter.formatNumber(basket.itemCount),
-                            })}
-                        </Text>
-
-                        <Stack space="sm" testID="cart-lines">
-                            {basket.items.map((item) => (
-                                <CartLine
-                                    key={item.id}
-                                    item={item}
-                                    priceText={formatMoney(formatter, item.lineTotal)}
-                                    unitPriceText={formatMoney(formatter, item.unitPrice)}
-                                    busy={setQuantity.isPending || removeItem.isPending}
-                                    onQuantity={(quantity) => {
-                                        setQuantity.mutate({ cartId: basket.id, item, quantity });
-                                    }}
-                                    onRemove={() => {
-                                        removeItem.mutate({ cartId: basket.id, itemId: item.id });
-                                    }}
-                                    onOpen={() => {
-                                        router.push(`/meals/${String(item.mealId)}` as never);
-                                    }}
-                                />
-                            ))}
-                        </Stack>
-
-                        {mutationFailure === null ? null : (
-                            <Callout
-                                testID="cart-mutation-error"
-                                role="alert"
-                                tone="danger"
-                                title={t('commerce:cart.updateFailedTitle')}
-                                body={mutationFailure.message}
-                            />
-                        )}
-
-                        <Card
-                            testID="cart-summary"
-                            padding="md"
-                            tone="sunken"
-                            // The order summary's call to action rides the pinned footer (§2.1),
-                            // gated exactly as it was inside the preview's QueryStates: no
-                            // confirmed totals, no button.
-                            footer={
-                                preview.data === undefined ? undefined : (
-                                    <Button
-                                        testID="cart-checkout"
-                                        block
-                                        label={t('commerce:cart.checkout')}
-                                        onPress={() => {
-                                            router.push('/customer/checkout' as never);
-                                        }}
-                                    />
-                                )
-                            }
+                {isEmpty ? (
+                    <View
+                        testID="cart-empty"
+                        className="items-center rounded-xl border border-dashed border-stroke-strong bg-surface-sunken px-6 py-16"
+                    >
+                        <RNText
+                            accessibilityRole="header"
+                            aria-level={2}
+                            className="font-display text-2xl font-bold tracking-display text-content-primary text-center"
                         >
-                            <Stack space="md">
-                                <Text variant="label">{t('commerce:cart.summaryTitle')}</Text>
-                                <QueryStates
-                                    query={preview}
-                                    isEmpty={preview.data === undefined}
-                                    emptyTitle={t('commerce:cart.summaryEmpty')}
-                                    skeletonCount={1}
-                                    testID="cart-preview"
-                                >
-                                    <Stack space="md">
-                                        <PriceSummary
-                                            rows={rows}
-                                            testID="cart-price"
-                                            caption={t('commerce:cart.priceCaption')}
-                                        />
-                                        {preview.data?.warnings.includes(
-                                            ALLERGEN_CONFLICT_WARNING,
-                                        ) === true ? (
-                                            <Callout
-                                                testID="cart-allergen-warning"
-                                                role="alert"
-                                                tone="danger"
-                                                icon="warning"
-                                                title={t('commerce:cart.allergenTitle')}
-                                                body={t('commerce:cart.allergenBody')}
-                                            />
-                                        ) : null}
-                                    </Stack>
-                                </QueryStates>
-                            </Stack>
-                        </Card>
-                    </Stack>
+                            {t('commerce:cart.emptyTitle')}
+                        </RNText>
+                        <RNText className="mb-5 mt-2 text-base text-content-secondary text-center">
+                            {t('commerce:cart.emptyBody')}
+                        </RNText>
+                        <Button
+                            testID="cart-browse"
+                            label={t('commerce:cart.browseMenu')}
+                            onPress={goBrowse}
+                        />
+                    </View>
+                ) : (
+                    <CheckoutColumns testID="cart-layout" main={lines} aside={summary} />
                 )}
             </QueryStates>
-        </Stack>
-    );
-}
-
-interface CartLineProps {
-    readonly item: CartItem;
-    readonly priceText: string;
-    readonly unitPriceText: string;
-    readonly busy: boolean;
-    readonly onQuantity: (quantity: number) => void;
-    readonly onRemove: () => void;
-    readonly onOpen: () => void;
-}
-
-function CartLine({
-    item,
-    priceText,
-    unitPriceText,
-    busy,
-    onQuantity,
-    onRemove,
-    onOpen,
-}: CartLineProps) {
-    const { t } = useTranslation();
-
-    return (
-        <Card testID={`cart-line-${item.id}`} padding="md">
-            <Stack space="sm">
-                <Inline space="sm" align="center" justify="between">
-                    <Stack space="none">
-                        <Text variant="bodyStrong" testID={`cart-line-${item.id}-name`}>
-                            {item.name}
-                        </Text>
-                        <Text tone="secondary" variant="caption">
-                            {t('commerce:cart.unitPrice', { price: unitPriceText })}
-                        </Text>
-                    </Stack>
-                    <Text variant="bodyStrong" testID={`cart-line-${item.id}-total`}>
-                        {priceText}
-                    </Text>
-                </Inline>
-
-                {/*
-                 * Capped, because a stepper is a control and not a band. The basket line is a
-                 * column, so without a width this stretched to the full line — 1090 units on a
-                 * desktop for two buttons and a two-digit number, with the minus and the plus at
-                 * opposite ends of the screen. The cap is the width the control actually wants and
-                 * the phone already gave it, so nothing changes below `sm`.
-                 */}
-                <NumberStepper
-                    testID={`cart-line-${item.id}-quantity`}
-                    label={t('commerce:cart.quantityLabel', { meal: item.name })}
-                    value={item.quantity}
-                    min={MIN_QUANTITY}
-                    max={MAX_QUANTITY}
-                    step={1}
-                    disabled={busy}
-                    onChange={(next) => {
-                        if (next === null) return;
-                        onQuantity(next);
-                    }}
-                    className="max-w-[220px]"
-                />
-
-                <Inline space="sm" wrap>
-                    <Button
-                        testID={`cart-line-${item.id}-open`}
-                        size="sm"
-                        variant="ghost"
-                        label={t('commerce:cart.viewMeal')}
-                        onPress={onOpen}
-                    />
-                    <Button
-                        testID={`cart-line-${item.id}-remove`}
-                        size="sm"
-                        variant="secondary"
-                        label={t('commerce:cart.remove')}
-                        accessibilityHint={t('commerce:cart.removeHint', { meal: item.name })}
-                        disabled={busy}
-                        onPress={onRemove}
-                    />
-                </Inline>
-            </Stack>
-        </Card>
+        </CheckoutPage>
     );
 }
