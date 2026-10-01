@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7845 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8182 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -350,27 +350,24 @@ export interface NamespaceKeys {
     | 'addresses.subtitle'
     | 'addresses.title'
     | 'checklist.blocked'
-    | 'checklist.canActivate'
     | 'checklist.cannotActivate'
-    | 'checklist.done'
-    | 'checklist.optional'
     | 'checklist.outstanding'
-    | 'checklist.required'
-    | 'checklist.review'
-    | 'checklist.start'
+    | 'checklist.steps.add_address.action'
     | 'checklist.steps.add_address.body'
+    | 'checklist.steps.add_address.bodyOutsideArea'
     | 'checklist.steps.add_address.title'
+    | 'checklist.steps.consents.action'
     | 'checklist.steps.consents.body'
     | 'checklist.steps.consents.title'
+    | 'checklist.steps.dietary_profile.action'
     | 'checklist.steps.dietary_profile.body'
     | 'checklist.steps.dietary_profile.title'
+    | 'checklist.steps.verify_email.action'
     | 'checklist.steps.verify_email.body'
     | 'checklist.steps.verify_email.title'
+    | 'checklist.steps.verify_phone.action'
     | 'checklist.steps.verify_phone.body'
     | 'checklist.steps.verify_phone.title'
-    | 'checklist.subtitle'
-    | 'checklist.title'
-    | 'checklist.todo'
     | 'closure.acknowledge'
     | 'closure.back'
     | 'closure.blockedBody'
@@ -473,13 +470,10 @@ export interface NamespaceKeys {
     | 'contacts.add'
     | 'contacts.addEmail'
     | 'contacts.addPhone'
-    | 'contacts.emailLabel'
     | 'contacts.empty'
     | 'contacts.emptyBody'
-    | 'contacts.loginEmail'
     | 'contacts.loginEmailNote'
     | 'contacts.makePrimary'
-    | 'contacts.phoneLabel'
     | 'contacts.primary'
     | 'contacts.remove'
     | 'contacts.removeBody'
@@ -488,7 +482,6 @@ export interface NamespaceKeys {
     | 'contacts.title'
     | 'contacts.unverified'
     | 'contacts.verified'
-    | 'contacts.verify'
     | 'dietary.addAllergen'
     | 'dietary.allergenLabel'
     | 'dietary.allergensEmpty'
@@ -517,15 +510,32 @@ export interface NamespaceKeys {
     | 'dietary.subtitle'
     | 'dietary.title'
     | 'dietary.unanswered'
-    | 'lifecycle.active'
-    | 'lifecycle.closed'
-    | 'lifecycle.closing'
-    | 'lifecycle.provisional'
-    | 'lifecycle.suspended'
-    | 'marketing.note'
+    | 'favorites.empty'
+    | 'favorites.emptyBody'
     | 'marketing.saveFailed'
-    | 'marketing.subtitle'
     | 'marketing.title'
+    | 'nav.addresses'
+    | 'nav.favorites'
+    | 'nav.label'
+    | 'nav.notifications'
+    | 'nav.orders'
+    | 'nav.payments'
+    | 'nav.profile'
+    | 'orders.backToHistory'
+    | 'orders.browse'
+    | 'orders.empty'
+    | 'orders.emptyBody'
+    | 'orders.lineLabel'
+    | 'orders.meta'
+    | 'orders.more'
+    | 'orders.newestFirst'
+    | 'orders.notFoundBody'
+    | 'orders.notFoundTitle'
+    | 'orders.openHint'
+    | 'orders.reorder'
+    | 'orders.title'
+    | 'payments.body'
+    | 'payments.cash'
     | 'phone.addNumber'
     | 'phone.backToAccount'
     | 'phone.countries.AE'
@@ -559,7 +569,31 @@ export interface NamespaceKeys {
     | 'phone.title'
     | 'phone.verifiedBody'
     | 'phone.verifiedTitle'
-    | 'subtitle'
+    | 'privacy.closeAccount'
+    | 'privacy.reviewConsents'
+    | 'privacy.title'
+    | 'profile.allergiesDeclared'
+    | 'profile.allergiesNone'
+    | 'profile.answerAllergies'
+    | 'profile.cancel'
+    | 'profile.dietsEyebrow'
+    | 'profile.dietsLocked'
+    | 'profile.dietsUnavailable'
+    | 'profile.editAllergies'
+    | 'profile.emailLabel'
+    | 'profile.listSeparator'
+    | 'profile.manageAddresses'
+    | 'profile.mobileLabel'
+    | 'profile.nameLabel'
+    | 'profile.noPhone'
+    | 'profile.phoneAdd'
+    | 'profile.phoneChange'
+    | 'profile.phoneVerify'
+    | 'profile.save'
+    | 'profile.saved'
+    | 'profile.slotLabel'
+    | 'profile.slotUnset'
+    | 'profile.title'
     | 'title';
   readonly "auth":
     | 'aside.headline'
@@ -1289,6 +1323,13 @@ export interface NamespaceKeys {
     | 'schedule.title'
     | 'title';
   readonly "catalogue":
+    | 'card.calories'
+    | 'card.noFigure'
+    | 'card.notRated'
+    | 'card.protein'
+    | 'card.rating'
+    | 'card.soldOut'
+    | 'card.unavailable'
     | 'common.back'
     | 'common.listSeparator'
     | 'common.loading'
@@ -1357,12 +1398,16 @@ export interface NamespaceKeys {
     | 'facts.title'
     | 'facts.version'
     | 'filters.activeCount'
+    | 'filters.allMeals'
     | 'filters.anyValue'
     | 'filters.atLeast'
     | 'filters.atMost'
     | 'filters.carbohydrate'
+    | 'filters.category'
     | 'filters.clear'
+    | 'filters.clearAll'
     | 'filters.diet'
+    | 'filters.dietary'
     | 'filters.energy'
     | 'filters.excludeAllergens'
     | 'filters.excludeAllergensHint'
@@ -1370,6 +1415,8 @@ export interface NamespaceKeys {
     | 'filters.groupWithCount'
     | 'filters.kitchen'
     | 'filters.mealType'
+    | 'filters.moreDiets'
+    | 'filters.optionWithCount'
     | 'filters.preparationMinutes'
     | 'filters.price'
     | 'filters.protein'
@@ -1379,6 +1426,112 @@ export interface NamespaceKeys {
     | 'filters.unitGrams'
     | 'filters.unitKcal'
     | 'filters.unitMinutes'
+    | 'howPlans.breadcrumbCurrent'
+    | 'howPlans.breadcrumbPlans'
+    | 'howPlans.calculator.body'
+    | 'howPlans.calculator.cell.delivery'
+    | 'howPlans.calculator.cell.ended'
+    | 'howPlans.calculator.cell.none'
+    | 'howPlans.calculator.cell.skipped'
+    | 'howPlans.calculator.cellLabel'
+    | 'howPlans.calculator.credit'
+    | 'howPlans.calculator.creditNone'
+    | 'howPlans.calculator.empty'
+    | 'howPlans.calculator.eyebrow'
+    | 'howPlans.calculator.lastDelivery'
+    | 'howPlans.calculator.lastDeliveryNote'
+    | 'howPlans.calculator.lasts'
+    | 'howPlans.calculator.lastsNote'
+    | 'howPlans.calculator.lastsValue'
+    | 'howPlans.calculator.left'
+    | 'howPlans.calculator.leftValue'
+    | 'howPlans.calculator.legendDelivery'
+    | 'howPlans.calculator.legendNone'
+    | 'howPlans.calculator.legendSkipped'
+    | 'howPlans.calculator.moreWeeks'
+    | 'howPlans.calculator.none'
+    | 'howPlans.calculator.perDay'
+    | 'howPlans.calculator.perDayDiscount'
+    | 'howPlans.calculator.perDayLocked'
+    | 'howPlans.calculator.pickWeekday'
+    | 'howPlans.calculator.planLabel'
+    | 'howPlans.calculator.planOption'
+    | 'howPlans.calculator.sizeLabel'
+    | 'howPlans.calculator.sizeOption'
+    | 'howPlans.calculator.sizeOptionDiscount'
+    | 'howPlans.calculator.skipWeek'
+    | 'howPlans.calculator.skipWeekNamed'
+    | 'howPlans.calculator.skipped'
+    | 'howPlans.calculator.title'
+    | 'howPlans.calculator.total'
+    | 'howPlans.calculator.totalNote'
+    | 'howPlans.calculator.weekLabel'
+    | 'howPlans.calculator.weekdaysLabel'
+    | 'howPlans.choosePlan'
+    | 'howPlans.ctaBody'
+    | 'howPlans.ctaTitle'
+    | 'howPlans.cutoff.delivered.body'
+    | 'howPlans.cutoff.delivered.time'
+    | 'howPlans.cutoff.delivered.title'
+    | 'howPlans.cutoff.eyebrow'
+    | 'howPlans.cutoff.lock.body'
+    | 'howPlans.cutoff.lock.time'
+    | 'howPlans.cutoff.lock.title'
+    | 'howPlans.cutoff.order.body'
+    | 'howPlans.cutoff.order.time'
+    | 'howPlans.cutoff.order.title'
+    | 'howPlans.example.body'
+    | 'howPlans.example.delivered'
+    | 'howPlans.example.eyebrow'
+    | 'howPlans.example.gridLabel'
+    | 'howPlans.example.left'
+    | 'howPlans.example.priceLabel'
+    | 'howPlans.example.priceValue'
+    | 'howPlans.example.skipsLabel'
+    | 'howPlans.example.skipsValue'
+    | 'howPlans.example.stillYours'
+    | 'howPlans.eyebrow'
+    | 'howPlans.faq.address.a'
+    | 'howPlans.faq.address.q'
+    | 'howPlans.faq.chooseMeals.a'
+    | 'howPlans.faq.chooseMeals.q'
+    | 'howPlans.faq.expire.a'
+    | 'howPlans.faq.expire.q'
+    | 'howPlans.faq.priceRise.a'
+    | 'howPlans.faq.priceRise.q'
+    | 'howPlans.faq.soldOut.a'
+    | 'howPlans.faq.soldOut.q'
+    | 'howPlans.faqTitle'
+    | 'howPlans.lede'
+    | 'howPlans.rules.allergies.body'
+    | 'howPlans.rules.allergies.title'
+    | 'howPlans.rules.cancel.body'
+    | 'howPlans.rules.cancel.title'
+    | 'howPlans.rules.cutoff.body'
+    | 'howPlans.rules.cutoff.title'
+    | 'howPlans.rules.days.body'
+    | 'howPlans.rules.days.title'
+    | 'howPlans.rules.price.body'
+    | 'howPlans.rules.price.title'
+    | 'howPlans.rules.skip.body'
+    | 'howPlans.rules.skip.title'
+    | 'howPlans.rulesMeta'
+    | 'howPlans.rulesTitle'
+    | 'howPlans.states.active.body'
+    | 'howPlans.states.active.name'
+    | 'howPlans.states.active.next'
+    | 'howPlans.states.cancelled.body'
+    | 'howPlans.states.cancelled.name'
+    | 'howPlans.states.cancelled.next'
+    | 'howPlans.states.completed.body'
+    | 'howPlans.states.completed.name'
+    | 'howPlans.states.completed.next'
+    | 'howPlans.states.eyebrow'
+    | 'howPlans.states.paused.body'
+    | 'howPlans.states.paused.name'
+    | 'howPlans.states.paused.next'
+    | 'howPlans.title'
+    | 'howPlans.tryCalculator'
     | 'macros.grams'
     | 'macros.inRange'
     | 'macros.kilocalories'
@@ -1393,8 +1546,8 @@ export interface NamespaceKeys {
     | 'macros.title'
     | 'meal.actionErrorBody'
     | 'meal.actionErrorTitle'
-    | 'meal.actionsTitle'
-    | 'meal.addToBasket'
+    | 'meal.addToCart'
+    | 'meal.addToCartLabel'
     | 'meal.addToPlan'
     | 'meal.addedToBasket'
     | 'meal.addedToPlan'
@@ -1403,32 +1556,22 @@ export interface NamespaceKeys {
     | 'meal.allergenItem'
     | 'meal.allergensDeclared'
     | 'meal.allergensNone'
+    | 'meal.allergensNoneShort'
     | 'meal.allergensTitle'
-    | 'meal.availabilityNone'
-    | 'meal.availabilityTitle'
-    | 'meal.availableOn'
-    | 'meal.availableRemaining'
-    | 'meal.b2bAvailable'
-    | 'meal.b2bNoPrice'
-    | 'meal.b2cAvailable'
-    | 'meal.b2cUnavailable'
-    | 'meal.basketSignIn'
-    | 'meal.basketSignInTitle'
+    | 'meal.allergensValue'
     | 'meal.browseAll'
-    | 'meal.channelsTitle'
-    | 'meal.compositionTitle'
-    | 'meal.cookedBy'
-    | 'meal.dietTagsTitle'
+    | 'meal.factsPanelTitle'
+    | 'meal.factsTitle'
     | 'meal.imageLabel'
     | 'meal.ingredientsBody'
-    | 'meal.ingredientsContract'
-    | 'meal.ingredientsTitle'
+    | 'meal.ingredientsLabel'
+    | 'meal.instructionsLabel'
+    | 'meal.instructionsNotSent'
+    | 'meal.instructionsPlaceholder'
     | 'meal.loading'
-    | 'meal.macroEnergy'
-    | 'meal.macroRingCaption'
     | 'meal.macroValue'
-    | 'meal.macrosTitle'
-    | 'meal.macrosTitlePer100g'
+    | 'meal.makeItYours'
+    | 'meal.moreFromKitchen'
     | 'meal.noPlanBody'
     | 'meal.noPlanBrowse'
     | 'meal.noPlanHome'
@@ -1436,39 +1579,40 @@ export interface NamespaceKeys {
     | 'meal.notFoundBody'
     | 'meal.notFoundTitle'
     | 'meal.notRatedYet'
-    | 'meal.openKitchen'
-    | 'meal.orderCutOff'
+    | 'meal.optionsNone'
     | 'meal.planSignIn'
-    | 'meal.preparationMinutes'
-    | 'meal.priceEach'
-    | 'meal.priceTitle'
+    | 'meal.quantityDecrease'
+    | 'meal.quantityIncrease'
+    | 'meal.quantityLabel'
     | 'meal.quotationBody'
     | 'meal.quotationBusiness'
     | 'meal.quotationSignIn'
     | 'meal.quotationTitle'
-    | 'meal.ratingLabel'
+    | 'meal.ratingSummary'
     | 'meal.replaceBody'
     | 'meal.replaceMeal'
     | 'meal.replaceTitle'
     | 'meal.requestQuotation'
     | 'meal.servingGrams'
     | 'meal.servingLabel'
-    | 'meal.servingTitle'
-    | 'meal.subscriptionEligible'
-    | 'meal.subscriptionIneligible'
-    | 'meal.unavailableOn'
-    | 'meals.allLoaded'
+    | 'meal.strip.carbohydrate'
+    | 'meal.strip.energy'
+    | 'meal.strip.fat'
+    | 'meal.strip.protein'
+    | 'meal.stripPer100g'
+    | 'meal.thumbEmpty'
+    | 'meal.thumbKitchen'
+    | 'meals.countAvailable'
+    | 'meals.countSoFar'
     | 'meals.emptyBody'
     | 'meals.emptyTitle'
     | 'meals.filters'
     | 'meals.filtersActive'
     | 'meals.loadMore'
     | 'meals.loadingMore'
-    | 'meals.searchLabel'
-    | 'meals.showing'
-    | 'meals.showingUnknownTotal'
-    | 'meals.sort.energy'
-    | 'meals.sort.preparation_time'
+    | 'meals.moreFilters'
+    | 'meals.moreFiltersActive'
+    | 'meals.moreFiltersDone'
     | 'meals.sort.price'
     | 'meals.sort.protein'
     | 'meals.sort.rating'
@@ -1521,19 +1665,15 @@ export interface NamespaceKeys {
     | 'plan.variantLabel'
     | 'plan.variantsBody'
     | 'plan.variantsTitle'
-    | 'plans.bandsLabel'
-    | 'plans.byKitchen'
-    | 'plans.calorie.higher'
-    | 'plans.calorie.lighter'
-    | 'plans.calorie.moderate'
-    | 'plans.calorieFilter'
-    | 'plans.categoryAll'
-    | 'plans.categoryLabel'
+    | 'plans.allKitchens'
+    | 'plans.balancePrice'
+    | 'plans.balancePriceFrom'
+    | 'plans.choosePlan'
     | 'plans.compareClear'
     | 'plans.compareEmpty'
     | 'plans.compareFull'
-    | 'plans.compareHint'
     | 'plans.compareLabel'
+    | 'plans.compareNamed'
     | 'plans.compareOpen'
     | 'plans.compareRemove'
     | 'plans.compareSelected'
@@ -1543,6 +1683,7 @@ export interface NamespaceKeys {
     | 'plans.ctaPrimary'
     | 'plans.ctaSecondary'
     | 'plans.ctaTitle'
+    | 'plans.currentPlan'
     | 'plans.durationNoDiscount'
     | 'plans.durationSaves'
     | 'plans.durationShort.12w'
@@ -1550,42 +1691,61 @@ export interface NamespaceKeys {
     | 'plans.durationShort.2w'
     | 'plans.durationShort.4w'
     | 'plans.durationTotal'
-    | 'plans.durations'
     | 'plans.durationsFor'
     | 'plans.durationsLabel'
     | 'plans.emptyBody'
     | 'plans.emptyTitle'
     | 'plans.energyBand'
     | 'plans.eyebrow'
-    | 'plans.filters'
-    | 'plans.filtersActive'
-    | 'plans.fromPrice'
-    | 'plans.heroHowItWorks'
-    | 'plans.heroSpeakToDietitian'
-    | 'plans.kitchenCount'
-    | 'plans.kitchenFilter'
+    | 'plans.featureBalances'
+    | 'plans.featureBands'
+    | 'plans.featureDiscount'
+    | 'plans.featureMeals'
+    | 'plans.featureMealsRange'
+    | 'plans.howItWorksLink'
+    | 'plans.kitchenFilterLabel'
+    | 'plans.managePlan'
+    | 'plans.managePlanNamed'
     | 'plans.mealsPerDay'
     | 'plans.mealsPerDayNoSnacks'
     | 'plans.methodologyTitle'
-    | 'plans.perDayPrice'
-    | 'plans.perWeekSuffix'
-    | 'plans.priceFrom'
+    | 'plans.perDaySuffix'
     | 'plans.ratingLabel'
-    | 'plans.resultSummary'
-    | 'plans.searchLabel'
-    | 'plans.searchPlaceholder'
-    | 'plans.showing'
-    | 'plans.sort.priceLowHigh'
-    | 'plans.sort.ratingHighLow'
-    | 'plans.sort.recommended'
-    | 'plans.sortLabel'
+    | 'plans.subscriber.balance'
+    | 'plans.subscriber.balanceValue'
+    | 'plans.subscriber.cutoff'
+    | 'plans.subscriber.cutoffValue'
+    | 'plans.subscriber.day.delivery'
+    | 'plans.subscriber.day.off'
+    | 'plans.subscriber.day.skipped'
+    | 'plans.subscriber.deliveryDays'
+    | 'plans.subscriber.deliveryDaysValue'
+    | 'plans.subscriber.dietaryRules'
+    | 'plans.subscriber.eyebrowActive'
+    | 'plans.subscriber.eyebrowPaused'
+    | 'plans.subscriber.nextCharge'
+    | 'plans.subscriber.nextChargeValue'
+    | 'plans.subscriber.nextDelivery'
+    | 'plans.subscriber.noNextDelivery'
+    | 'plans.subscriber.note'
+    | 'plans.subscriber.pause'
+    | 'plans.subscriber.pausedToast'
+    | 'plans.subscriber.plan'
+    | 'plans.subscriber.planTitle'
+    | 'plans.subscriber.resume'
+    | 'plans.subscriber.resumedToast'
+    | 'plans.subscriber.shuffle'
+    | 'plans.subscriber.skipNext'
+    | 'plans.subscriber.skippedToast'
+    | 'plans.subscriber.tile.delivery'
+    | 'plans.subscriber.tile.off'
+    | 'plans.subscriber.tile.skipped'
+    | 'plans.subscriber.unknown'
+    | 'plans.subscriber.weekCount'
+    | 'plans.subscriber.weekTitle'
     | 'plans.subtitle'
+    | 'plans.taglineWithKitchen'
     | 'plans.title'
-    | 'plans.trust.flexible'
-    | 'plans.trust.kitchens'
-    | 'plans.trust.reviewed'
-    | 'plans.viewPlan'
-    | 'plans.viewPlanNamed'
     | 'title'
     | 'tools.activity.extra_active'
     | 'tools.activity.lightly_active'
@@ -1728,66 +1888,89 @@ export interface NamespaceKeys {
     | 'cancel.noRefund'
     | 'cancel.open'
     | 'cancel.title'
+    | 'cart.addMoreBody'
     | 'cart.allergenBody'
     | 'cart.allergenTitle'
-    | 'cart.body'
     | 'cart.browse'
+    | 'cart.browseMenu'
     | 'cart.checkout'
-    | 'cart.count'
+    | 'cart.decrease'
     | 'cart.delivery'
-    | 'cart.deliveryAtPlacement'
-    | 'cart.deliveryFree'
+    | 'cart.deliveryAtCheckout'
+    | 'cart.discount'
+    | 'cart.discountValue'
     | 'cart.emptyBody'
     | 'cart.emptyTitle'
-    | 'cart.priceCaption'
-    | 'cart.quantityLabel'
+    | 'cart.finePrint'
+    | 'cart.increase'
+    | 'cart.lineSummary'
+    | 'cart.noChanges'
+    | 'cart.promoApply'
+    | 'cart.promoLabel'
+    | 'cart.quantityValue'
     | 'cart.remove'
     | 'cart.removeHint'
+    | 'cart.subtitle'
+    | 'cart.subtitleNoAddress'
     | 'cart.subtotal'
     | 'cart.summaryEmpty'
     | 'cart.summaryTitle'
     | 'cart.title'
     | 'cart.total'
-    | 'cart.unitPrice'
     | 'cart.updateFailedTitle'
     | 'cart.viewMeal'
     | 'checkout.addAddress'
-    | 'checkout.addressBody'
+    | 'checkout.addressPlaceholder'
     | 'checkout.addressTitle'
-    | 'checkout.body'
+    | 'checkout.areaLabel'
+    | 'checkout.back'
+    | 'checkout.committedSeparator'
     | 'checkout.committedSlot'
-    | 'checkout.dateHint'
+    | 'checkout.confirmedBody'
+    | 'checkout.confirmedTitle'
     | 'checkout.dateLabel'
-    | 'checkout.earliest'
-    | 'checkout.edit'
+    | 'checkout.deliveringTo'
+    | 'checkout.deliveryBody'
+    | 'checkout.deliveryTitle'
     | 'checkout.emptyBody'
     | 'checkout.emptyTitle'
     | 'checkout.finishSetup'
+    | 'checkout.fromAddress'
+    | 'checkout.itemCount'
+    | 'checkout.modeDelivery'
+    | 'checkout.modeDeliveryFee'
+    | 'checkout.modeDeliverySub'
+    | 'checkout.modeLabel'
+    | 'checkout.modePickup'
+    | 'checkout.modePickupSub'
+    | 'checkout.modePickupUnavailable'
     | 'checkout.noAddressBody'
     | 'checkout.noAddressTitle'
-    | 'checkout.paymentNoticeBody'
-    | 'checkout.paymentNoticeTitle'
+    | 'checkout.noNote'
+    | 'checkout.noteLabel'
+    | 'checkout.paymentCod'
+    | 'checkout.paymentCodMeta'
+    | 'checkout.paymentTitle'
     | 'checkout.placeFailedTitle'
     | 'checkout.placeOrder'
     | 'checkout.placeOrderHint'
-    | 'checkout.priceAfterReview'
-    | 'checkout.priceBeforeReview'
+    | 'checkout.placeOrderTotal'
     | 'checkout.progressLabel'
     | 'checkout.review'
+    | 'checkout.setupBody'
+    | 'checkout.setupTitle'
+    | 'checkout.slotChip'
     | 'checkout.slotTitle'
-    | 'checkout.slotWindow'
+    | 'checkout.stepCurrent'
+    | 'checkout.stepDone'
+    | 'checkout.stepUpcoming'
     | 'checkout.steps.delivery'
+    | 'checkout.steps.payment'
     | 'checkout.steps.placed'
-    | 'checkout.steps.review'
-    | 'checkout.successBody'
-    | 'checkout.successCart'
-    | 'checkout.successCodBody'
-    | 'checkout.successCodTitle'
-    | 'checkout.successPriceCaption'
-    | 'checkout.successSubscriptions'
-    | 'checkout.successSummaryTitle'
-    | 'checkout.successTitle'
+    | 'checkout.streetLabel'
+    | 'checkout.successTrack'
     | 'checkout.summaryTitle'
+    | 'checkout.theKitchen'
     | 'checkout.title'
     | 'choices.body'
     | 'choices.bodyDated'
@@ -2089,6 +2272,7 @@ export interface NamespaceKeys {
     | 'action.signIn'
     | 'action.signOut'
     | 'action.signUp'
+    | 'action.viewBasket'
     | 'app.name'
     | 'app.tagline'
     | 'direction.ltr'
@@ -2255,6 +2439,7 @@ export interface NamespaceKeys {
     | 'showcase.tableSortableCaption'
     | 'showcase.tabsLabel'
     | 'showcase.title'
+    | 'showcase.toastAction'
     | 'showcase.toastMessage'
     | 'spike.colour.description'
     | 'spike.elevation.description'
@@ -2375,16 +2560,25 @@ export interface NamespaceKeys {
     | 'validation.password_mismatch'
     | 'validation.required';
   readonly "guest":
-    | 'address.back'
-    | 'address.continue'
+    | 'address.area'
+    | 'address.city'
+    | 'address.countryCode'
     | 'address.date'
+    | 'address.defaultLabel'
+    | 'address.dropOff.call'
+    | 'address.dropOff.hand'
+    | 'address.dropOff.leave'
+    | 'address.dropOffLabel'
+    | 'address.line1'
+    | 'address.line2'
     | 'address.outOfZoneAreas'
     | 'address.outOfZoneBody'
     | 'address.outOfZoneBrowse'
     | 'address.outOfZoneTitle'
     | 'address.slot'
-    | 'address.subtitle'
     | 'address.title'
+    | 'blockLabel'
+    | 'change'
     | 'contact.channel'
     | 'contact.channelEmail'
     | 'contact.channelSms'
@@ -2402,7 +2596,6 @@ export interface NamespaceKeys {
     | 'contact.mobile'
     | 'contact.mobileHint'
     | 'contact.mobilePlaceholder'
-    | 'contact.subtitle'
     | 'contact.title'
     | 'convert.body'
     | 'convert.declined'
@@ -2443,50 +2636,81 @@ export interface NamespaceKeys {
     | 'entry.continueAsGuest'
     | 'entry.signIn'
     | 'entry.title'
-    | 'order.deliveringTo'
-    | 'order.lines'
+    | 'eyebrow'
+    | 'order.arriving'
+    | 'order.cancelledBody'
+    | 'order.cancelledTitle'
+    | 'order.courierDetail'
+    | 'order.courierName'
+    | 'order.courierTitle'
+    | 'order.droppingAt'
+    | 'order.getHelp'
+    | 'order.headline.cancelled'
+    | 'order.headline.confirmed'
+    | 'order.headline.delivered'
+    | 'order.headline.out_for_delivery'
+    | 'order.headline.placed'
+    | 'order.headline.preparing'
+    | 'order.itemsTitle'
+    | 'order.keepReference'
+    | 'order.lead.cancelled'
+    | 'order.lead.confirmed'
+    | 'order.lead.delivered'
+    | 'order.lead.out_for_delivery'
+    | 'order.lead.placed'
+    | 'order.lead.preparing'
+    | 'order.lineLabel'
+    | 'order.messageCourier'
+    | 'order.noTime'
     | 'order.notFoundBody'
     | 'order.notFoundTitle'
-    | 'order.payment'
+    | 'order.noteOnFile'
+    | 'order.number'
+    | 'order.placedAt'
+    | 'order.position.current'
+    | 'order.position.done'
+    | 'order.position.upcoming'
     | 'order.reference'
-    | 'order.slot'
-    | 'order.state'
+    | 'order.refresh'
+    | 'order.separator'
     | 'order.states.cancelled'
     | 'order.states.confirmed'
     | 'order.states.delivered'
     | 'order.states.out_for_delivery'
     | 'order.states.placed'
     | 'order.states.preparing'
-    | 'order.subtitle'
-    | 'order.title'
+    | 'order.steps.confirmed.detail'
+    | 'order.steps.confirmed.title'
+    | 'order.steps.delivered.detail'
+    | 'order.steps.delivered.title'
+    | 'order.steps.out_for_delivery.detail'
+    | 'order.steps.out_for_delivery.title'
+    | 'order.steps.placed.detail'
+    | 'order.steps.placed.title'
+    | 'order.steps.preparing.detail'
+    | 'order.steps.preparing.title'
+    | 'order.steps.ready_for_pickup.detail'
+    | 'order.steps.ready_for_pickup.title'
+    | 'order.timeline'
     | 'order.total'
-    | 'review.back'
+    | 'order.windowPending'
+    | 'pay.title'
     | 'review.cashOnDelivery'
-    | 'review.cashOnDeliveryNote'
-    | 'review.contact'
-    | 'review.deliveringTo'
-    | 'review.marketingHint'
+    | 'review.finePrint'
     | 'review.marketingLabel'
-    | 'review.payment'
     | 'review.place'
-    | 'review.slot'
-    | 'review.subtitle'
-    | 'review.title'
     | 'review.unverified'
+    | 'saveBody'
+    | 'saveTitle'
     | 'session.expiredBody'
     | 'session.expiredTitle'
     | 'session.restart'
-    | 'steps.address'
-    | 'steps.contact'
-    | 'steps.review'
-    | 'steps.verify'
-    | 'subtitle'
     | 'title'
     | 'verify.back'
-    | 'verify.confirmed'
+    | 'verify.confirmedAs'
     | 'verify.otpFallback'
     | 'verify.subtitle'
-    | 'verify.title';
+    | 'when.title';
   readonly "invitations":
     | 'accept.action'
     | 'accept.pending'
@@ -6107,8 +6331,8 @@ export interface NamespaceKeys {
     | 'channels.pos'
     | 'channels.subscription'
     | 'common.listSeparator'
-    | 'consumer.greeting'
-    | 'consumer.greetingAnonymous'
+    | 'consumer.links.title'
+    | 'consumer.nav.account'
     | 'consumer.nav.cart'
     | 'consumer.nav.cartWithCount'
     | 'consumer.nav.discover'
@@ -6118,33 +6342,15 @@ export interface NamespaceKeys {
     | 'consumer.nav.profile'
     | 'consumer.nav.subscriptions'
     | 'consumer.nav.virtualDietitian'
-    | 'consumer.nutrition.emptyBody'
-    | 'consumer.nutrition.emptyTitle'
-    | 'consumer.nutrition.title'
-    | 'consumer.nutrition.whyThisTarget'
-    | 'consumer.onboarding.body'
-    | 'consumer.onboarding.start'
-    | 'consumer.onboarding.title'
     | 'consumer.resume.body'
     | 'consumer.resume.continue'
     | 'consumer.resume.dismiss'
     | 'consumer.resume.title'
-    | 'consumer.subscription.emptyBody'
-    | 'consumer.subscription.emptyTitle'
+    | 'consumer.subscription.eyebrow'
     | 'consumer.subscription.manage'
     | 'consumer.subscription.nextDelivery'
     | 'consumer.subscription.noNextDelivery'
-    | 'consumer.subscription.title'
     | 'consumer.subscription.weeklyPrice'
-    | 'consumer.subtitle'
-    | 'consumer.title'
-    | 'consumer.today.emptyBody'
-    | 'consumer.today.emptyTitle'
-    | 'consumer.today.forDate'
-    | 'consumer.today.forToday'
-    | 'consumer.today.locked'
-    | 'consumer.today.openPlanner'
-    | 'consumer.today.title'
     | 'dietitians.accepting'
     | 'dietitians.browseOthers'
     | 'dietitians.cardLabel'
@@ -6184,41 +6390,38 @@ export interface NamespaceKeys {
     | 'diets.pescatarian'
     | 'diets.vegan'
     | 'diets.vegetarian'
+    | 'discover.addLabel'
     | 'discover.allMeals'
+    | 'discover.allMealsCount'
+    | 'discover.becauseYouOrdered'
+    | 'discover.cardEnergy'
+    | 'discover.cardProtein'
+    | 'discover.cardRating'
+    | 'discover.cardRatingLabel'
     | 'discover.categoriesTitle'
-    | 'discover.comingBody'
-    | 'discover.comingTitle'
-    | 'discover.dietitiansBody'
-    | 'discover.dietitiansTitle'
-    | 'discover.family.diets'
-    | 'discover.family.meals'
-    | 'discover.family.plans'
-    | 'discover.family.tools'
-    | 'discover.familyBody.diets'
-    | 'discover.familyBody.meals'
-    | 'discover.familyBody.plans'
-    | 'discover.familyBody.tools'
     | 'discover.heroBody'
     | 'discover.heroBrowseMeals'
     | 'discover.heroEyebrow'
+    | 'discover.heroEyebrowKitchens'
+    | 'discover.heroEyebrowMeals'
     | 'discover.heroImageLabel'
     | 'discover.heroOverlayLabel'
     | 'discover.heroTitle'
-    | 'discover.kitchensBody'
-    | 'discover.kitchensTitle'
+    | 'discover.heroTrackOrder'
+    | 'discover.notRated'
     | 'discover.offerAction'
     | 'discover.offerBody'
     | 'discover.offerEyebrow'
+    | 'discover.offerFallbackAction'
+    | 'discover.offerFallbackBody'
+    | 'discover.offerFallbackEyebrow'
+    | 'discover.offerFallbackTitle'
     | 'discover.offerTitle'
     | 'discover.popularMeta'
     | 'discover.popularTitle'
     | 'discover.railFigures'
     | 'discover.railTitle'
-    | 'discover.searchLabel'
-    | 'discover.searchPlaceholder'
-    | 'discover.searchSubmit'
-    | 'discover.subtitle'
-    | 'discover.title'
+    | 'discover.tileCount'
     | 'filters.availability'
     | 'filters.category'
     | 'filters.clear'
@@ -6295,7 +6498,6 @@ export interface NamespaceKeys {
     | 'kitchen.zoneFee'
     | 'kitchen.zoneMinimum'
     | 'kitchen.zoneMinutes'
-    | 'kitchens.allKitchens'
     | 'kitchens.areaSeparator'
     | 'kitchens.cardLabel'
     | 'kitchens.collectionOnly'
@@ -6305,46 +6507,94 @@ export interface NamespaceKeys {
     | 'kitchens.emptyBody'
     | 'kitchens.emptyTitle'
     | 'kitchens.etaMinutes'
+    | 'kitchens.finder.addDish'
+    | 'kitchens.finder.addressAdd'
+    | 'kitchens.finder.addressChange'
+    | 'kitchens.finder.addressNone'
+    | 'kitchens.finder.addressPending'
+    | 'kitchens.finder.addressSignIn'
+    | 'kitchens.finder.addressSignedOut'
+    | 'kitchens.finder.bestFit'
+    | 'kitchens.finder.closedToday'
+    | 'kitchens.finder.count'
+    | 'kitchens.finder.deliveringTo'
+    | 'kitchens.finder.dietMatch'
+    | 'kitchens.finder.dishFigures'
+    | 'kitchens.finder.emptyBody'
+    | 'kitchens.finder.emptyTitle'
+    | 'kitchens.finder.eyebrowListed'
+    | 'kitchens.finder.eyebrowOpen'
+    | 'kitchens.finder.eyebrowPending'
+    | 'kitchens.finder.fact.delivery'
+    | 'kitchens.finder.fact.fee'
+    | 'kitchens.finder.fact.minimum'
+    | 'kitchens.finder.fact.rating'
+    | 'kitchens.finder.filtersLabel'
+    | 'kitchens.finder.free'
+    | 'kitchens.finder.from'
+    | 'kitchens.finder.goal.high_protein.body'
+    | 'kitchens.finder.goal.high_protein.title'
+    | 'kitchens.finder.goal.low_carb.body'
+    | 'kitchens.finder.goal.low_carb.title'
+    | 'kitchens.finder.goal.under500.body'
+    | 'kitchens.finder.goal.under500.title'
+    | 'kitchens.finder.goal.vegan.body'
+    | 'kitchens.finder.goal.vegan.title'
+    | 'kitchens.finder.goalAction'
+    | 'kitchens.finder.goalCount'
+    | 'kitchens.finder.goalsMeta'
+    | 'kitchens.finder.goalsTitle'
+    | 'kitchens.finder.ledeMatched'
+    | 'kitchens.finder.ledeSetPreferences'
+    | 'kitchens.finder.ledeTail'
+    | 'kitchens.finder.ledeUnmatched'
+    | 'kitchens.finder.listAll'
+    | 'kitchens.finder.listMatching'
+    | 'kitchens.finder.minutes'
+    | 'kitchens.finder.noDishes'
+    | 'kitchens.finder.noFigure'
+    | 'kitchens.finder.noPlans'
+    | 'kitchens.finder.openDish'
+    | 'kitchens.finder.openKitchen'
+    | 'kitchens.finder.openToday'
+    | 'kitchens.finder.plans'
+    | 'kitchens.finder.ratingValue'
+    | 'kitchens.finder.searchLabel'
+    | 'kitchens.finder.searchPlaceholder'
+    | 'kitchens.finder.seePlans'
+    | 'kitchens.finder.signatureDishes'
+    | 'kitchens.finder.sort.fastest'
+    | 'kitchens.finder.sort.fee'
+    | 'kitchens.finder.sort.match'
+    | 'kitchens.finder.sort.name'
+    | 'kitchens.finder.sort.rating'
+    | 'kitchens.finder.sortFieldLabel'
+    | 'kitchens.finder.sortLabel'
+    | 'kitchens.finder.term.delivery'
+    | 'kitchens.finder.term.fee'
+    | 'kitchens.finder.term.minimum'
+    | 'kitchens.finder.title'
+    | 'kitchens.finder.toggle.openToday'
+    | 'kitchens.finder.toggle.pickup'
+    | 'kitchens.finder.toggle.subscription'
+    | 'kitchens.finder.topRated'
+    | 'kitchens.finder.under30'
+    | 'kitchens.finder.viewMenu'
+    | 'kitchens.finder.whyDiets'
+    | 'kitchens.finder.whyMatch'
+    | 'kitchens.finder.whyWithSummary'
     | 'kitchens.freeDelivery'
-    | 'kitchens.goalBody.halal_friendly'
-    | 'kitchens.goalBody.high_protein'
-    | 'kitchens.goalBody.low_carb'
-    | 'kitchens.goalBody.vegan'
-    | 'kitchens.goalsTitle'
-    | 'kitchens.heroEyebrow'
-    | 'kitchens.heroEyebrowPending'
-    | 'kitchens.heroTitle'
     | 'kitchens.imageLabel'
-    | 'kitchens.matches'
     | 'kitchens.noPublishedZone'
     | 'kitchens.notRatedYet'
     | 'kitchens.ratingLabel'
-    | 'kitchens.resultsTitle'
     | 'kitchens.searchLabel'
     | 'kitchens.searchPlaceholder'
     | 'kitchens.subtitle'
     | 'kitchens.title'
     | 'kitchens.verified'
-    | 'landing.authBody'
-    | 'landing.authTitle'
     | 'landing.browseKitchens'
-    | 'landing.featuredKitchens'
-    | 'landing.featuredKitchensBody'
-    | 'landing.forBusinessTeaserBody'
-    | 'landing.forBusinessTeaserTitle'
-    | 'landing.heroBody'
-    | 'landing.heroTitle'
     | 'landing.howItWorks'
-    | 'landing.howItWorksTeaserBody'
-    | 'landing.howItWorksTeaserTitle'
-    | 'landing.seeAllKitchens'
-    | 'landing.value.kitchens.body'
-    | 'landing.value.kitchens.title'
-    | 'landing.value.plan.body'
-    | 'landing.value.plan.title'
-    | 'landing.value.review.body'
-    | 'landing.value.review.title'
-    | 'landing.valueTitle'
     | 'levels.excessive'
     | 'levels.good'
     | 'levels.high'
@@ -6383,6 +6633,7 @@ export interface NamespaceKeys {
     | 'menu.subtitle'
     | 'menu.title'
     | 'menu.titleFor'
+    | 'nav.account'
     | 'nav.accountMenu'
     | 'nav.dietitians'
     | 'nav.discover'
@@ -6422,25 +6673,111 @@ export interface NamespaceKeys {
     | 'resume.thisPage'
     | 'storefront.addLabel'
     | 'storefront.closedToday'
-    | 'storefront.collectFrom'
-    | 'storefront.dietsEyebrow'
-    | 'storefront.emptyBody'
-    | 'storefront.emptyTitle'
-    | 'storefront.factBranches'
-    | 'storefront.factCuisine'
-    | 'storefront.factDelivery'
-    | 'storefront.factDeliveryValue'
-    | 'storefront.factRating'
-    | 'storefront.fee'
-    | 'storefront.fromAmount'
-    | 'storefront.minimum'
+    | 'storefront.eyebrow'
+    | 'storefront.eyebrowArea'
+    | 'storefront.facts.branchCount'
+    | 'storefront.facts.branches'
+    | 'storefront.facts.cuisine'
+    | 'storefront.facts.delivery'
+    | 'storefront.facts.minutes'
+    | 'storefront.facts.minutesRange'
+    | 'storefront.facts.none'
+    | 'storefront.facts.notRated'
+    | 'storefront.facts.rating'
+    | 'storefront.facts.ratingValue'
+    | 'storefront.menu.all'
+    | 'storefront.menu.chip'
+    | 'storefront.menu.count'
+    | 'storefront.menu.countCutOff'
+    | 'storefront.menu.emptyBody'
+    | 'storefront.menu.emptyTitle'
+    | 'storefront.menu.other'
+    | 'storefront.menu.shelvesLabel'
     | 'storefront.openMeal'
     | 'storefront.openToday'
-    | 'storefront.orderEyebrow'
-    | 'storefront.productsTitle'
-    | 'storefront.sectionNote'
-    | 'storefront.seePlans'
-    | 'storefront.startOrder'
+    | 'storefront.order.collectFrom'
+    | 'storefront.order.cutOff'
+    | 'storefront.order.delivery'
+    | 'storefront.order.eyebrow'
+    | 'storefront.order.fee'
+    | 'storefront.order.fromAmount'
+    | 'storefront.order.hoursLeft'
+    | 'storefront.order.minimum'
+    | 'storefront.order.minutesLeft'
+    | 'storefront.order.modesLabel'
+    | 'storefront.order.passed'
+    | 'storefront.order.pickup'
+    | 'storefront.order.readyIn'
+    | 'storefront.order.seePlans'
+    | 'storefront.order.start'
+    | 'storefront.plans.choose'
+    | 'storefront.plans.chooseLabel'
+    | 'storefront.plans.empty'
+    | 'storefront.plans.howItWorks'
+    | 'storefront.plans.perWeek'
+    | 'storefront.plans.subtitle'
+    | 'storefront.plans.title'
+    | 'storefront.reviews.barLabel'
+    | 'storefront.reviews.count'
+    | 'storefront.reviews.emptyBody'
+    | 'storefront.reviews.emptyTitle'
+    | 'storefront.reviews.notRated'
+    | 'storefront.reviews.outOfFive'
+    | 'storefront.row.energy'
+    | 'storefront.row.protein'
+    | 'storefront.safety.allergenCount'
+    | 'storefront.safety.allergensBody'
+    | 'storefront.safety.allergensTitle'
+    | 'storefront.safety.dietsEyebrow'
+    | 'storefront.safety.noAllergens'
+    | 'storefront.safety.noDiets'
+    | 'storefront.safety.noteJoin'
+    | 'storefront.safety.nutritionBody'
+    | 'storefront.safety.nutritionFigure'
+    | 'storefront.safety.nutritionTitle'
+    | 'storefront.safety.unverifiedBody'
+    | 'storefront.safety.verifiedBody'
+    | 'storefront.safety.verifiedFigure'
+    | 'storefront.safety.verifiedTitle'
+    | 'storefront.separator'
+    | 'storefront.tabs.label'
+    | 'storefront.tabs.menu'
+    | 'storefront.tabs.plans'
+    | 'storefront.tabs.reviews'
+    | 'storefront.tabs.safety'
+    | 'storefront.tabs.today'
+    | 'storefront.today.clock'
+    | 'storefront.today.cutoff.body'
+    | 'storefront.today.cutoff.bodyNone'
+    | 'storefront.today.cutoff.bodyPassed'
+    | 'storefront.today.cutoff.eyebrow'
+    | 'storefront.today.cutoff.eyebrowTime'
+    | 'storefront.today.cutoff.inHours'
+    | 'storefront.today.cutoff.inMinutes'
+    | 'storefront.today.cutoff.none'
+    | 'storefront.today.cutoff.orderBy'
+    | 'storefront.today.cutoff.passed'
+    | 'storefront.today.cutoff.pick'
+    | 'storefront.today.cutoff.window'
+    | 'storefront.today.cutoff.windowsLabel'
+    | 'storefront.today.events.closes'
+    | 'storefront.today.events.closesNote'
+    | 'storefront.today.events.cutoff'
+    | 'storefront.today.events.cutoffNote'
+    | 'storefront.today.events.opens'
+    | 'storefront.today.events.opensNote'
+    | 'storefront.today.events.window'
+    | 'storefront.today.events.windowNote'
+    | 'storefront.today.eyebrow'
+    | 'storefront.today.eyebrowDate'
+    | 'storefront.today.line.empty'
+    | 'storefront.today.line.eyebrow'
+    | 'storefront.today.none'
+    | 'storefront.today.title'
+    | 'storefront.verified'
+    | 'storefront.ways.delivery'
+    | 'storefront.ways.pickup'
+    | 'storefront.ways.plans'
     | 'subscriptionStates.active'
     | 'subscriptionStates.cancelled'
     | 'subscriptionStates.draft'
@@ -8224,27 +8561,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:addresses.subtitle',
   'account:addresses.title',
   'account:checklist.blocked',
-  'account:checklist.canActivate',
   'account:checklist.cannotActivate',
-  'account:checklist.done',
-  'account:checklist.optional',
   'account:checklist.outstanding',
-  'account:checklist.required',
-  'account:checklist.review',
-  'account:checklist.start',
+  'account:checklist.steps.add_address.action',
   'account:checklist.steps.add_address.body',
+  'account:checklist.steps.add_address.bodyOutsideArea',
   'account:checklist.steps.add_address.title',
+  'account:checklist.steps.consents.action',
   'account:checklist.steps.consents.body',
   'account:checklist.steps.consents.title',
+  'account:checklist.steps.dietary_profile.action',
   'account:checklist.steps.dietary_profile.body',
   'account:checklist.steps.dietary_profile.title',
+  'account:checklist.steps.verify_email.action',
   'account:checklist.steps.verify_email.body',
   'account:checklist.steps.verify_email.title',
+  'account:checklist.steps.verify_phone.action',
   'account:checklist.steps.verify_phone.body',
   'account:checklist.steps.verify_phone.title',
-  'account:checklist.subtitle',
-  'account:checklist.title',
-  'account:checklist.todo',
   'account:closure.acknowledge',
   'account:closure.back',
   'account:closure.blockedBody',
@@ -8347,13 +8681,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:contacts.add',
   'account:contacts.addEmail',
   'account:contacts.addPhone',
-  'account:contacts.emailLabel',
   'account:contacts.empty',
   'account:contacts.emptyBody',
-  'account:contacts.loginEmail',
   'account:contacts.loginEmailNote',
   'account:contacts.makePrimary',
-  'account:contacts.phoneLabel',
   'account:contacts.primary',
   'account:contacts.remove',
   'account:contacts.removeBody',
@@ -8362,7 +8693,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:contacts.title',
   'account:contacts.unverified',
   'account:contacts.verified',
-  'account:contacts.verify',
   'account:dietary.addAllergen',
   'account:dietary.allergenLabel',
   'account:dietary.allergensEmpty',
@@ -8391,15 +8721,32 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:dietary.subtitle',
   'account:dietary.title',
   'account:dietary.unanswered',
-  'account:lifecycle.active',
-  'account:lifecycle.closed',
-  'account:lifecycle.closing',
-  'account:lifecycle.provisional',
-  'account:lifecycle.suspended',
-  'account:marketing.note',
+  'account:favorites.empty',
+  'account:favorites.emptyBody',
   'account:marketing.saveFailed',
-  'account:marketing.subtitle',
   'account:marketing.title',
+  'account:nav.addresses',
+  'account:nav.favorites',
+  'account:nav.label',
+  'account:nav.notifications',
+  'account:nav.orders',
+  'account:nav.payments',
+  'account:nav.profile',
+  'account:orders.backToHistory',
+  'account:orders.browse',
+  'account:orders.empty',
+  'account:orders.emptyBody',
+  'account:orders.lineLabel',
+  'account:orders.meta',
+  'account:orders.more',
+  'account:orders.newestFirst',
+  'account:orders.notFoundBody',
+  'account:orders.notFoundTitle',
+  'account:orders.openHint',
+  'account:orders.reorder',
+  'account:orders.title',
+  'account:payments.body',
+  'account:payments.cash',
   'account:phone.addNumber',
   'account:phone.backToAccount',
   'account:phone.countries.AE',
@@ -8433,7 +8780,31 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:phone.title',
   'account:phone.verifiedBody',
   'account:phone.verifiedTitle',
-  'account:subtitle',
+  'account:privacy.closeAccount',
+  'account:privacy.reviewConsents',
+  'account:privacy.title',
+  'account:profile.allergiesDeclared',
+  'account:profile.allergiesNone',
+  'account:profile.answerAllergies',
+  'account:profile.cancel',
+  'account:profile.dietsEyebrow',
+  'account:profile.dietsLocked',
+  'account:profile.dietsUnavailable',
+  'account:profile.editAllergies',
+  'account:profile.emailLabel',
+  'account:profile.listSeparator',
+  'account:profile.manageAddresses',
+  'account:profile.mobileLabel',
+  'account:profile.nameLabel',
+  'account:profile.noPhone',
+  'account:profile.phoneAdd',
+  'account:profile.phoneChange',
+  'account:profile.phoneVerify',
+  'account:profile.save',
+  'account:profile.saved',
+  'account:profile.slotLabel',
+  'account:profile.slotUnset',
+  'account:profile.title',
   'account:title',
   'auth:aside.headline',
   'auth:aside.points.marketplace',
@@ -9159,6 +9530,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:schedule.line',
   'business:schedule.title',
   'business:title',
+  'catalogue:card.calories',
+  'catalogue:card.noFigure',
+  'catalogue:card.notRated',
+  'catalogue:card.protein',
+  'catalogue:card.rating',
+  'catalogue:card.soldOut',
+  'catalogue:card.unavailable',
   'catalogue:common.back',
   'catalogue:common.listSeparator',
   'catalogue:common.loading',
@@ -9227,12 +9605,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:facts.title',
   'catalogue:facts.version',
   'catalogue:filters.activeCount',
+  'catalogue:filters.allMeals',
   'catalogue:filters.anyValue',
   'catalogue:filters.atLeast',
   'catalogue:filters.atMost',
   'catalogue:filters.carbohydrate',
+  'catalogue:filters.category',
   'catalogue:filters.clear',
+  'catalogue:filters.clearAll',
   'catalogue:filters.diet',
+  'catalogue:filters.dietary',
   'catalogue:filters.energy',
   'catalogue:filters.excludeAllergens',
   'catalogue:filters.excludeAllergensHint',
@@ -9240,6 +9622,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:filters.groupWithCount',
   'catalogue:filters.kitchen',
   'catalogue:filters.mealType',
+  'catalogue:filters.moreDiets',
+  'catalogue:filters.optionWithCount',
   'catalogue:filters.preparationMinutes',
   'catalogue:filters.price',
   'catalogue:filters.protein',
@@ -9249,6 +9633,112 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:filters.unitGrams',
   'catalogue:filters.unitKcal',
   'catalogue:filters.unitMinutes',
+  'catalogue:howPlans.breadcrumbCurrent',
+  'catalogue:howPlans.breadcrumbPlans',
+  'catalogue:howPlans.calculator.body',
+  'catalogue:howPlans.calculator.cell.delivery',
+  'catalogue:howPlans.calculator.cell.ended',
+  'catalogue:howPlans.calculator.cell.none',
+  'catalogue:howPlans.calculator.cell.skipped',
+  'catalogue:howPlans.calculator.cellLabel',
+  'catalogue:howPlans.calculator.credit',
+  'catalogue:howPlans.calculator.creditNone',
+  'catalogue:howPlans.calculator.empty',
+  'catalogue:howPlans.calculator.eyebrow',
+  'catalogue:howPlans.calculator.lastDelivery',
+  'catalogue:howPlans.calculator.lastDeliveryNote',
+  'catalogue:howPlans.calculator.lasts',
+  'catalogue:howPlans.calculator.lastsNote',
+  'catalogue:howPlans.calculator.lastsValue',
+  'catalogue:howPlans.calculator.left',
+  'catalogue:howPlans.calculator.leftValue',
+  'catalogue:howPlans.calculator.legendDelivery',
+  'catalogue:howPlans.calculator.legendNone',
+  'catalogue:howPlans.calculator.legendSkipped',
+  'catalogue:howPlans.calculator.moreWeeks',
+  'catalogue:howPlans.calculator.none',
+  'catalogue:howPlans.calculator.perDay',
+  'catalogue:howPlans.calculator.perDayDiscount',
+  'catalogue:howPlans.calculator.perDayLocked',
+  'catalogue:howPlans.calculator.pickWeekday',
+  'catalogue:howPlans.calculator.planLabel',
+  'catalogue:howPlans.calculator.planOption',
+  'catalogue:howPlans.calculator.sizeLabel',
+  'catalogue:howPlans.calculator.sizeOption',
+  'catalogue:howPlans.calculator.sizeOptionDiscount',
+  'catalogue:howPlans.calculator.skipWeek',
+  'catalogue:howPlans.calculator.skipWeekNamed',
+  'catalogue:howPlans.calculator.skipped',
+  'catalogue:howPlans.calculator.title',
+  'catalogue:howPlans.calculator.total',
+  'catalogue:howPlans.calculator.totalNote',
+  'catalogue:howPlans.calculator.weekLabel',
+  'catalogue:howPlans.calculator.weekdaysLabel',
+  'catalogue:howPlans.choosePlan',
+  'catalogue:howPlans.ctaBody',
+  'catalogue:howPlans.ctaTitle',
+  'catalogue:howPlans.cutoff.delivered.body',
+  'catalogue:howPlans.cutoff.delivered.time',
+  'catalogue:howPlans.cutoff.delivered.title',
+  'catalogue:howPlans.cutoff.eyebrow',
+  'catalogue:howPlans.cutoff.lock.body',
+  'catalogue:howPlans.cutoff.lock.time',
+  'catalogue:howPlans.cutoff.lock.title',
+  'catalogue:howPlans.cutoff.order.body',
+  'catalogue:howPlans.cutoff.order.time',
+  'catalogue:howPlans.cutoff.order.title',
+  'catalogue:howPlans.example.body',
+  'catalogue:howPlans.example.delivered',
+  'catalogue:howPlans.example.eyebrow',
+  'catalogue:howPlans.example.gridLabel',
+  'catalogue:howPlans.example.left',
+  'catalogue:howPlans.example.priceLabel',
+  'catalogue:howPlans.example.priceValue',
+  'catalogue:howPlans.example.skipsLabel',
+  'catalogue:howPlans.example.skipsValue',
+  'catalogue:howPlans.example.stillYours',
+  'catalogue:howPlans.eyebrow',
+  'catalogue:howPlans.faq.address.a',
+  'catalogue:howPlans.faq.address.q',
+  'catalogue:howPlans.faq.chooseMeals.a',
+  'catalogue:howPlans.faq.chooseMeals.q',
+  'catalogue:howPlans.faq.expire.a',
+  'catalogue:howPlans.faq.expire.q',
+  'catalogue:howPlans.faq.priceRise.a',
+  'catalogue:howPlans.faq.priceRise.q',
+  'catalogue:howPlans.faq.soldOut.a',
+  'catalogue:howPlans.faq.soldOut.q',
+  'catalogue:howPlans.faqTitle',
+  'catalogue:howPlans.lede',
+  'catalogue:howPlans.rules.allergies.body',
+  'catalogue:howPlans.rules.allergies.title',
+  'catalogue:howPlans.rules.cancel.body',
+  'catalogue:howPlans.rules.cancel.title',
+  'catalogue:howPlans.rules.cutoff.body',
+  'catalogue:howPlans.rules.cutoff.title',
+  'catalogue:howPlans.rules.days.body',
+  'catalogue:howPlans.rules.days.title',
+  'catalogue:howPlans.rules.price.body',
+  'catalogue:howPlans.rules.price.title',
+  'catalogue:howPlans.rules.skip.body',
+  'catalogue:howPlans.rules.skip.title',
+  'catalogue:howPlans.rulesMeta',
+  'catalogue:howPlans.rulesTitle',
+  'catalogue:howPlans.states.active.body',
+  'catalogue:howPlans.states.active.name',
+  'catalogue:howPlans.states.active.next',
+  'catalogue:howPlans.states.cancelled.body',
+  'catalogue:howPlans.states.cancelled.name',
+  'catalogue:howPlans.states.cancelled.next',
+  'catalogue:howPlans.states.completed.body',
+  'catalogue:howPlans.states.completed.name',
+  'catalogue:howPlans.states.completed.next',
+  'catalogue:howPlans.states.eyebrow',
+  'catalogue:howPlans.states.paused.body',
+  'catalogue:howPlans.states.paused.name',
+  'catalogue:howPlans.states.paused.next',
+  'catalogue:howPlans.title',
+  'catalogue:howPlans.tryCalculator',
   'catalogue:macros.grams',
   'catalogue:macros.inRange',
   'catalogue:macros.kilocalories',
@@ -9263,8 +9753,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:macros.title',
   'catalogue:meal.actionErrorBody',
   'catalogue:meal.actionErrorTitle',
-  'catalogue:meal.actionsTitle',
-  'catalogue:meal.addToBasket',
+  'catalogue:meal.addToCart',
+  'catalogue:meal.addToCartLabel',
   'catalogue:meal.addToPlan',
   'catalogue:meal.addedToBasket',
   'catalogue:meal.addedToPlan',
@@ -9273,32 +9763,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meal.allergenItem',
   'catalogue:meal.allergensDeclared',
   'catalogue:meal.allergensNone',
+  'catalogue:meal.allergensNoneShort',
   'catalogue:meal.allergensTitle',
-  'catalogue:meal.availabilityNone',
-  'catalogue:meal.availabilityTitle',
-  'catalogue:meal.availableOn',
-  'catalogue:meal.availableRemaining',
-  'catalogue:meal.b2bAvailable',
-  'catalogue:meal.b2bNoPrice',
-  'catalogue:meal.b2cAvailable',
-  'catalogue:meal.b2cUnavailable',
-  'catalogue:meal.basketSignIn',
-  'catalogue:meal.basketSignInTitle',
+  'catalogue:meal.allergensValue',
   'catalogue:meal.browseAll',
-  'catalogue:meal.channelsTitle',
-  'catalogue:meal.compositionTitle',
-  'catalogue:meal.cookedBy',
-  'catalogue:meal.dietTagsTitle',
+  'catalogue:meal.factsPanelTitle',
+  'catalogue:meal.factsTitle',
   'catalogue:meal.imageLabel',
   'catalogue:meal.ingredientsBody',
-  'catalogue:meal.ingredientsContract',
-  'catalogue:meal.ingredientsTitle',
+  'catalogue:meal.ingredientsLabel',
+  'catalogue:meal.instructionsLabel',
+  'catalogue:meal.instructionsNotSent',
+  'catalogue:meal.instructionsPlaceholder',
   'catalogue:meal.loading',
-  'catalogue:meal.macroEnergy',
-  'catalogue:meal.macroRingCaption',
   'catalogue:meal.macroValue',
-  'catalogue:meal.macrosTitle',
-  'catalogue:meal.macrosTitlePer100g',
+  'catalogue:meal.makeItYours',
+  'catalogue:meal.moreFromKitchen',
   'catalogue:meal.noPlanBody',
   'catalogue:meal.noPlanBrowse',
   'catalogue:meal.noPlanHome',
@@ -9306,39 +9786,40 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meal.notFoundBody',
   'catalogue:meal.notFoundTitle',
   'catalogue:meal.notRatedYet',
-  'catalogue:meal.openKitchen',
-  'catalogue:meal.orderCutOff',
+  'catalogue:meal.optionsNone',
   'catalogue:meal.planSignIn',
-  'catalogue:meal.preparationMinutes',
-  'catalogue:meal.priceEach',
-  'catalogue:meal.priceTitle',
+  'catalogue:meal.quantityDecrease',
+  'catalogue:meal.quantityIncrease',
+  'catalogue:meal.quantityLabel',
   'catalogue:meal.quotationBody',
   'catalogue:meal.quotationBusiness',
   'catalogue:meal.quotationSignIn',
   'catalogue:meal.quotationTitle',
-  'catalogue:meal.ratingLabel',
+  'catalogue:meal.ratingSummary',
   'catalogue:meal.replaceBody',
   'catalogue:meal.replaceMeal',
   'catalogue:meal.replaceTitle',
   'catalogue:meal.requestQuotation',
   'catalogue:meal.servingGrams',
   'catalogue:meal.servingLabel',
-  'catalogue:meal.servingTitle',
-  'catalogue:meal.subscriptionEligible',
-  'catalogue:meal.subscriptionIneligible',
-  'catalogue:meal.unavailableOn',
-  'catalogue:meals.allLoaded',
+  'catalogue:meal.strip.carbohydrate',
+  'catalogue:meal.strip.energy',
+  'catalogue:meal.strip.fat',
+  'catalogue:meal.strip.protein',
+  'catalogue:meal.stripPer100g',
+  'catalogue:meal.thumbEmpty',
+  'catalogue:meal.thumbKitchen',
+  'catalogue:meals.countAvailable',
+  'catalogue:meals.countSoFar',
   'catalogue:meals.emptyBody',
   'catalogue:meals.emptyTitle',
   'catalogue:meals.filters',
   'catalogue:meals.filtersActive',
   'catalogue:meals.loadMore',
   'catalogue:meals.loadingMore',
-  'catalogue:meals.searchLabel',
-  'catalogue:meals.showing',
-  'catalogue:meals.showingUnknownTotal',
-  'catalogue:meals.sort.energy',
-  'catalogue:meals.sort.preparation_time',
+  'catalogue:meals.moreFilters',
+  'catalogue:meals.moreFiltersActive',
+  'catalogue:meals.moreFiltersDone',
   'catalogue:meals.sort.price',
   'catalogue:meals.sort.protein',
   'catalogue:meals.sort.rating',
@@ -9391,19 +9872,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plan.variantLabel',
   'catalogue:plan.variantsBody',
   'catalogue:plan.variantsTitle',
-  'catalogue:plans.bandsLabel',
-  'catalogue:plans.byKitchen',
-  'catalogue:plans.calorie.higher',
-  'catalogue:plans.calorie.lighter',
-  'catalogue:plans.calorie.moderate',
-  'catalogue:plans.calorieFilter',
-  'catalogue:plans.categoryAll',
-  'catalogue:plans.categoryLabel',
+  'catalogue:plans.allKitchens',
+  'catalogue:plans.balancePrice',
+  'catalogue:plans.balancePriceFrom',
+  'catalogue:plans.choosePlan',
   'catalogue:plans.compareClear',
   'catalogue:plans.compareEmpty',
   'catalogue:plans.compareFull',
-  'catalogue:plans.compareHint',
   'catalogue:plans.compareLabel',
+  'catalogue:plans.compareNamed',
   'catalogue:plans.compareOpen',
   'catalogue:plans.compareRemove',
   'catalogue:plans.compareSelected',
@@ -9413,6 +9890,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.ctaPrimary',
   'catalogue:plans.ctaSecondary',
   'catalogue:plans.ctaTitle',
+  'catalogue:plans.currentPlan',
   'catalogue:plans.durationNoDiscount',
   'catalogue:plans.durationSaves',
   'catalogue:plans.durationShort.12w',
@@ -9420,42 +9898,61 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.durationShort.2w',
   'catalogue:plans.durationShort.4w',
   'catalogue:plans.durationTotal',
-  'catalogue:plans.durations',
   'catalogue:plans.durationsFor',
   'catalogue:plans.durationsLabel',
   'catalogue:plans.emptyBody',
   'catalogue:plans.emptyTitle',
   'catalogue:plans.energyBand',
   'catalogue:plans.eyebrow',
-  'catalogue:plans.filters',
-  'catalogue:plans.filtersActive',
-  'catalogue:plans.fromPrice',
-  'catalogue:plans.heroHowItWorks',
-  'catalogue:plans.heroSpeakToDietitian',
-  'catalogue:plans.kitchenCount',
-  'catalogue:plans.kitchenFilter',
+  'catalogue:plans.featureBalances',
+  'catalogue:plans.featureBands',
+  'catalogue:plans.featureDiscount',
+  'catalogue:plans.featureMeals',
+  'catalogue:plans.featureMealsRange',
+  'catalogue:plans.howItWorksLink',
+  'catalogue:plans.kitchenFilterLabel',
+  'catalogue:plans.managePlan',
+  'catalogue:plans.managePlanNamed',
   'catalogue:plans.mealsPerDay',
   'catalogue:plans.mealsPerDayNoSnacks',
   'catalogue:plans.methodologyTitle',
-  'catalogue:plans.perDayPrice',
-  'catalogue:plans.perWeekSuffix',
-  'catalogue:plans.priceFrom',
+  'catalogue:plans.perDaySuffix',
   'catalogue:plans.ratingLabel',
-  'catalogue:plans.resultSummary',
-  'catalogue:plans.searchLabel',
-  'catalogue:plans.searchPlaceholder',
-  'catalogue:plans.showing',
-  'catalogue:plans.sort.priceLowHigh',
-  'catalogue:plans.sort.ratingHighLow',
-  'catalogue:plans.sort.recommended',
-  'catalogue:plans.sortLabel',
+  'catalogue:plans.subscriber.balance',
+  'catalogue:plans.subscriber.balanceValue',
+  'catalogue:plans.subscriber.cutoff',
+  'catalogue:plans.subscriber.cutoffValue',
+  'catalogue:plans.subscriber.day.delivery',
+  'catalogue:plans.subscriber.day.off',
+  'catalogue:plans.subscriber.day.skipped',
+  'catalogue:plans.subscriber.deliveryDays',
+  'catalogue:plans.subscriber.deliveryDaysValue',
+  'catalogue:plans.subscriber.dietaryRules',
+  'catalogue:plans.subscriber.eyebrowActive',
+  'catalogue:plans.subscriber.eyebrowPaused',
+  'catalogue:plans.subscriber.nextCharge',
+  'catalogue:plans.subscriber.nextChargeValue',
+  'catalogue:plans.subscriber.nextDelivery',
+  'catalogue:plans.subscriber.noNextDelivery',
+  'catalogue:plans.subscriber.note',
+  'catalogue:plans.subscriber.pause',
+  'catalogue:plans.subscriber.pausedToast',
+  'catalogue:plans.subscriber.plan',
+  'catalogue:plans.subscriber.planTitle',
+  'catalogue:plans.subscriber.resume',
+  'catalogue:plans.subscriber.resumedToast',
+  'catalogue:plans.subscriber.shuffle',
+  'catalogue:plans.subscriber.skipNext',
+  'catalogue:plans.subscriber.skippedToast',
+  'catalogue:plans.subscriber.tile.delivery',
+  'catalogue:plans.subscriber.tile.off',
+  'catalogue:plans.subscriber.tile.skipped',
+  'catalogue:plans.subscriber.unknown',
+  'catalogue:plans.subscriber.weekCount',
+  'catalogue:plans.subscriber.weekTitle',
   'catalogue:plans.subtitle',
+  'catalogue:plans.taglineWithKitchen',
   'catalogue:plans.title',
-  'catalogue:plans.trust.flexible',
-  'catalogue:plans.trust.kitchens',
-  'catalogue:plans.trust.reviewed',
-  'catalogue:plans.viewPlan',
-  'catalogue:plans.viewPlanNamed',
   'catalogue:title',
   'catalogue:tools.activity.extra_active',
   'catalogue:tools.activity.lightly_active',
@@ -9597,66 +10094,89 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:cancel.noRefund',
   'commerce:cancel.open',
   'commerce:cancel.title',
+  'commerce:cart.addMoreBody',
   'commerce:cart.allergenBody',
   'commerce:cart.allergenTitle',
-  'commerce:cart.body',
   'commerce:cart.browse',
+  'commerce:cart.browseMenu',
   'commerce:cart.checkout',
-  'commerce:cart.count',
+  'commerce:cart.decrease',
   'commerce:cart.delivery',
-  'commerce:cart.deliveryAtPlacement',
-  'commerce:cart.deliveryFree',
+  'commerce:cart.deliveryAtCheckout',
+  'commerce:cart.discount',
+  'commerce:cart.discountValue',
   'commerce:cart.emptyBody',
   'commerce:cart.emptyTitle',
-  'commerce:cart.priceCaption',
-  'commerce:cart.quantityLabel',
+  'commerce:cart.finePrint',
+  'commerce:cart.increase',
+  'commerce:cart.lineSummary',
+  'commerce:cart.noChanges',
+  'commerce:cart.promoApply',
+  'commerce:cart.promoLabel',
+  'commerce:cart.quantityValue',
   'commerce:cart.remove',
   'commerce:cart.removeHint',
+  'commerce:cart.subtitle',
+  'commerce:cart.subtitleNoAddress',
   'commerce:cart.subtotal',
   'commerce:cart.summaryEmpty',
   'commerce:cart.summaryTitle',
   'commerce:cart.title',
   'commerce:cart.total',
-  'commerce:cart.unitPrice',
   'commerce:cart.updateFailedTitle',
   'commerce:cart.viewMeal',
   'commerce:checkout.addAddress',
-  'commerce:checkout.addressBody',
+  'commerce:checkout.addressPlaceholder',
   'commerce:checkout.addressTitle',
-  'commerce:checkout.body',
+  'commerce:checkout.areaLabel',
+  'commerce:checkout.back',
+  'commerce:checkout.committedSeparator',
   'commerce:checkout.committedSlot',
-  'commerce:checkout.dateHint',
+  'commerce:checkout.confirmedBody',
+  'commerce:checkout.confirmedTitle',
   'commerce:checkout.dateLabel',
-  'commerce:checkout.earliest',
-  'commerce:checkout.edit',
+  'commerce:checkout.deliveringTo',
+  'commerce:checkout.deliveryBody',
+  'commerce:checkout.deliveryTitle',
   'commerce:checkout.emptyBody',
   'commerce:checkout.emptyTitle',
   'commerce:checkout.finishSetup',
+  'commerce:checkout.fromAddress',
+  'commerce:checkout.itemCount',
+  'commerce:checkout.modeDelivery',
+  'commerce:checkout.modeDeliveryFee',
+  'commerce:checkout.modeDeliverySub',
+  'commerce:checkout.modeLabel',
+  'commerce:checkout.modePickup',
+  'commerce:checkout.modePickupSub',
+  'commerce:checkout.modePickupUnavailable',
   'commerce:checkout.noAddressBody',
   'commerce:checkout.noAddressTitle',
-  'commerce:checkout.paymentNoticeBody',
-  'commerce:checkout.paymentNoticeTitle',
+  'commerce:checkout.noNote',
+  'commerce:checkout.noteLabel',
+  'commerce:checkout.paymentCod',
+  'commerce:checkout.paymentCodMeta',
+  'commerce:checkout.paymentTitle',
   'commerce:checkout.placeFailedTitle',
   'commerce:checkout.placeOrder',
   'commerce:checkout.placeOrderHint',
-  'commerce:checkout.priceAfterReview',
-  'commerce:checkout.priceBeforeReview',
+  'commerce:checkout.placeOrderTotal',
   'commerce:checkout.progressLabel',
   'commerce:checkout.review',
+  'commerce:checkout.setupBody',
+  'commerce:checkout.setupTitle',
+  'commerce:checkout.slotChip',
   'commerce:checkout.slotTitle',
-  'commerce:checkout.slotWindow',
+  'commerce:checkout.stepCurrent',
+  'commerce:checkout.stepDone',
+  'commerce:checkout.stepUpcoming',
   'commerce:checkout.steps.delivery',
+  'commerce:checkout.steps.payment',
   'commerce:checkout.steps.placed',
-  'commerce:checkout.steps.review',
-  'commerce:checkout.successBody',
-  'commerce:checkout.successCart',
-  'commerce:checkout.successCodBody',
-  'commerce:checkout.successCodTitle',
-  'commerce:checkout.successPriceCaption',
-  'commerce:checkout.successSubscriptions',
-  'commerce:checkout.successSummaryTitle',
-  'commerce:checkout.successTitle',
+  'commerce:checkout.streetLabel',
+  'commerce:checkout.successTrack',
   'commerce:checkout.summaryTitle',
+  'commerce:checkout.theKitchen',
   'commerce:checkout.title',
   'commerce:choices.body',
   'commerce:choices.bodyDated',
@@ -9957,6 +10477,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:action.signIn',
   'common:action.signOut',
   'common:action.signUp',
+  'common:action.viewBasket',
   'common:app.name',
   'common:app.tagline',
   'common:direction.ltr',
@@ -10122,6 +10643,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:showcase.tableSortableCaption',
   'designSystem:showcase.tabsLabel',
   'designSystem:showcase.title',
+  'designSystem:showcase.toastAction',
   'designSystem:showcase.toastMessage',
   'designSystem:spike.colour.description',
   'designSystem:spike.elevation.description',
@@ -10240,16 +10762,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:validation.password_min_length',
   'errors:validation.password_mismatch',
   'errors:validation.required',
-  'guest:address.back',
-  'guest:address.continue',
+  'guest:address.area',
+  'guest:address.city',
+  'guest:address.countryCode',
   'guest:address.date',
+  'guest:address.defaultLabel',
+  'guest:address.dropOff.call',
+  'guest:address.dropOff.hand',
+  'guest:address.dropOff.leave',
+  'guest:address.dropOffLabel',
+  'guest:address.line1',
+  'guest:address.line2',
   'guest:address.outOfZoneAreas',
   'guest:address.outOfZoneBody',
   'guest:address.outOfZoneBrowse',
   'guest:address.outOfZoneTitle',
   'guest:address.slot',
-  'guest:address.subtitle',
   'guest:address.title',
+  'guest:blockLabel',
+  'guest:change',
   'guest:contact.channel',
   'guest:contact.channelEmail',
   'guest:contact.channelSms',
@@ -10267,7 +10798,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:contact.mobile',
   'guest:contact.mobileHint',
   'guest:contact.mobilePlaceholder',
-  'guest:contact.subtitle',
   'guest:contact.title',
   'guest:convert.body',
   'guest:convert.declined',
@@ -10308,50 +10838,81 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:entry.continueAsGuest',
   'guest:entry.signIn',
   'guest:entry.title',
-  'guest:order.deliveringTo',
-  'guest:order.lines',
+  'guest:eyebrow',
+  'guest:order.arriving',
+  'guest:order.cancelledBody',
+  'guest:order.cancelledTitle',
+  'guest:order.courierDetail',
+  'guest:order.courierName',
+  'guest:order.courierTitle',
+  'guest:order.droppingAt',
+  'guest:order.getHelp',
+  'guest:order.headline.cancelled',
+  'guest:order.headline.confirmed',
+  'guest:order.headline.delivered',
+  'guest:order.headline.out_for_delivery',
+  'guest:order.headline.placed',
+  'guest:order.headline.preparing',
+  'guest:order.itemsTitle',
+  'guest:order.keepReference',
+  'guest:order.lead.cancelled',
+  'guest:order.lead.confirmed',
+  'guest:order.lead.delivered',
+  'guest:order.lead.out_for_delivery',
+  'guest:order.lead.placed',
+  'guest:order.lead.preparing',
+  'guest:order.lineLabel',
+  'guest:order.messageCourier',
+  'guest:order.noTime',
   'guest:order.notFoundBody',
   'guest:order.notFoundTitle',
-  'guest:order.payment',
+  'guest:order.noteOnFile',
+  'guest:order.number',
+  'guest:order.placedAt',
+  'guest:order.position.current',
+  'guest:order.position.done',
+  'guest:order.position.upcoming',
   'guest:order.reference',
-  'guest:order.slot',
-  'guest:order.state',
+  'guest:order.refresh',
+  'guest:order.separator',
   'guest:order.states.cancelled',
   'guest:order.states.confirmed',
   'guest:order.states.delivered',
   'guest:order.states.out_for_delivery',
   'guest:order.states.placed',
   'guest:order.states.preparing',
-  'guest:order.subtitle',
-  'guest:order.title',
+  'guest:order.steps.confirmed.detail',
+  'guest:order.steps.confirmed.title',
+  'guest:order.steps.delivered.detail',
+  'guest:order.steps.delivered.title',
+  'guest:order.steps.out_for_delivery.detail',
+  'guest:order.steps.out_for_delivery.title',
+  'guest:order.steps.placed.detail',
+  'guest:order.steps.placed.title',
+  'guest:order.steps.preparing.detail',
+  'guest:order.steps.preparing.title',
+  'guest:order.steps.ready_for_pickup.detail',
+  'guest:order.steps.ready_for_pickup.title',
+  'guest:order.timeline',
   'guest:order.total',
-  'guest:review.back',
+  'guest:order.windowPending',
+  'guest:pay.title',
   'guest:review.cashOnDelivery',
-  'guest:review.cashOnDeliveryNote',
-  'guest:review.contact',
-  'guest:review.deliveringTo',
-  'guest:review.marketingHint',
+  'guest:review.finePrint',
   'guest:review.marketingLabel',
-  'guest:review.payment',
   'guest:review.place',
-  'guest:review.slot',
-  'guest:review.subtitle',
-  'guest:review.title',
   'guest:review.unverified',
+  'guest:saveBody',
+  'guest:saveTitle',
   'guest:session.expiredBody',
   'guest:session.expiredTitle',
   'guest:session.restart',
-  'guest:steps.address',
-  'guest:steps.contact',
-  'guest:steps.review',
-  'guest:steps.verify',
-  'guest:subtitle',
   'guest:title',
   'guest:verify.back',
-  'guest:verify.confirmed',
+  'guest:verify.confirmedAs',
   'guest:verify.otpFallback',
   'guest:verify.subtitle',
-  'guest:verify.title',
+  'guest:when.title',
   'invitations:accept.action',
   'invitations:accept.pending',
   'invitations:accepted.alreadyBody',
@@ -13969,8 +14530,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:channels.pos',
   'marketplace:channels.subscription',
   'marketplace:common.listSeparator',
-  'marketplace:consumer.greeting',
-  'marketplace:consumer.greetingAnonymous',
+  'marketplace:consumer.links.title',
+  'marketplace:consumer.nav.account',
   'marketplace:consumer.nav.cart',
   'marketplace:consumer.nav.cartWithCount',
   'marketplace:consumer.nav.discover',
@@ -13980,33 +14541,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:consumer.nav.profile',
   'marketplace:consumer.nav.subscriptions',
   'marketplace:consumer.nav.virtualDietitian',
-  'marketplace:consumer.nutrition.emptyBody',
-  'marketplace:consumer.nutrition.emptyTitle',
-  'marketplace:consumer.nutrition.title',
-  'marketplace:consumer.nutrition.whyThisTarget',
-  'marketplace:consumer.onboarding.body',
-  'marketplace:consumer.onboarding.start',
-  'marketplace:consumer.onboarding.title',
   'marketplace:consumer.resume.body',
   'marketplace:consumer.resume.continue',
   'marketplace:consumer.resume.dismiss',
   'marketplace:consumer.resume.title',
-  'marketplace:consumer.subscription.emptyBody',
-  'marketplace:consumer.subscription.emptyTitle',
+  'marketplace:consumer.subscription.eyebrow',
   'marketplace:consumer.subscription.manage',
   'marketplace:consumer.subscription.nextDelivery',
   'marketplace:consumer.subscription.noNextDelivery',
-  'marketplace:consumer.subscription.title',
   'marketplace:consumer.subscription.weeklyPrice',
-  'marketplace:consumer.subtitle',
-  'marketplace:consumer.title',
-  'marketplace:consumer.today.emptyBody',
-  'marketplace:consumer.today.emptyTitle',
-  'marketplace:consumer.today.forDate',
-  'marketplace:consumer.today.forToday',
-  'marketplace:consumer.today.locked',
-  'marketplace:consumer.today.openPlanner',
-  'marketplace:consumer.today.title',
   'marketplace:dietitians.accepting',
   'marketplace:dietitians.browseOthers',
   'marketplace:dietitians.cardLabel',
@@ -14046,41 +14589,38 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:diets.pescatarian',
   'marketplace:diets.vegan',
   'marketplace:diets.vegetarian',
+  'marketplace:discover.addLabel',
   'marketplace:discover.allMeals',
+  'marketplace:discover.allMealsCount',
+  'marketplace:discover.becauseYouOrdered',
+  'marketplace:discover.cardEnergy',
+  'marketplace:discover.cardProtein',
+  'marketplace:discover.cardRating',
+  'marketplace:discover.cardRatingLabel',
   'marketplace:discover.categoriesTitle',
-  'marketplace:discover.comingBody',
-  'marketplace:discover.comingTitle',
-  'marketplace:discover.dietitiansBody',
-  'marketplace:discover.dietitiansTitle',
-  'marketplace:discover.family.diets',
-  'marketplace:discover.family.meals',
-  'marketplace:discover.family.plans',
-  'marketplace:discover.family.tools',
-  'marketplace:discover.familyBody.diets',
-  'marketplace:discover.familyBody.meals',
-  'marketplace:discover.familyBody.plans',
-  'marketplace:discover.familyBody.tools',
   'marketplace:discover.heroBody',
   'marketplace:discover.heroBrowseMeals',
   'marketplace:discover.heroEyebrow',
+  'marketplace:discover.heroEyebrowKitchens',
+  'marketplace:discover.heroEyebrowMeals',
   'marketplace:discover.heroImageLabel',
   'marketplace:discover.heroOverlayLabel',
   'marketplace:discover.heroTitle',
-  'marketplace:discover.kitchensBody',
-  'marketplace:discover.kitchensTitle',
+  'marketplace:discover.heroTrackOrder',
+  'marketplace:discover.notRated',
   'marketplace:discover.offerAction',
   'marketplace:discover.offerBody',
   'marketplace:discover.offerEyebrow',
+  'marketplace:discover.offerFallbackAction',
+  'marketplace:discover.offerFallbackBody',
+  'marketplace:discover.offerFallbackEyebrow',
+  'marketplace:discover.offerFallbackTitle',
   'marketplace:discover.offerTitle',
   'marketplace:discover.popularMeta',
   'marketplace:discover.popularTitle',
   'marketplace:discover.railFigures',
   'marketplace:discover.railTitle',
-  'marketplace:discover.searchLabel',
-  'marketplace:discover.searchPlaceholder',
-  'marketplace:discover.searchSubmit',
-  'marketplace:discover.subtitle',
-  'marketplace:discover.title',
+  'marketplace:discover.tileCount',
   'marketplace:filters.availability',
   'marketplace:filters.category',
   'marketplace:filters.clear',
@@ -14157,7 +14697,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:kitchen.zoneFee',
   'marketplace:kitchen.zoneMinimum',
   'marketplace:kitchen.zoneMinutes',
-  'marketplace:kitchens.allKitchens',
   'marketplace:kitchens.areaSeparator',
   'marketplace:kitchens.cardLabel',
   'marketplace:kitchens.collectionOnly',
@@ -14167,46 +14706,94 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:kitchens.emptyBody',
   'marketplace:kitchens.emptyTitle',
   'marketplace:kitchens.etaMinutes',
+  'marketplace:kitchens.finder.addDish',
+  'marketplace:kitchens.finder.addressAdd',
+  'marketplace:kitchens.finder.addressChange',
+  'marketplace:kitchens.finder.addressNone',
+  'marketplace:kitchens.finder.addressPending',
+  'marketplace:kitchens.finder.addressSignIn',
+  'marketplace:kitchens.finder.addressSignedOut',
+  'marketplace:kitchens.finder.bestFit',
+  'marketplace:kitchens.finder.closedToday',
+  'marketplace:kitchens.finder.count',
+  'marketplace:kitchens.finder.deliveringTo',
+  'marketplace:kitchens.finder.dietMatch',
+  'marketplace:kitchens.finder.dishFigures',
+  'marketplace:kitchens.finder.emptyBody',
+  'marketplace:kitchens.finder.emptyTitle',
+  'marketplace:kitchens.finder.eyebrowListed',
+  'marketplace:kitchens.finder.eyebrowOpen',
+  'marketplace:kitchens.finder.eyebrowPending',
+  'marketplace:kitchens.finder.fact.delivery',
+  'marketplace:kitchens.finder.fact.fee',
+  'marketplace:kitchens.finder.fact.minimum',
+  'marketplace:kitchens.finder.fact.rating',
+  'marketplace:kitchens.finder.filtersLabel',
+  'marketplace:kitchens.finder.free',
+  'marketplace:kitchens.finder.from',
+  'marketplace:kitchens.finder.goal.high_protein.body',
+  'marketplace:kitchens.finder.goal.high_protein.title',
+  'marketplace:kitchens.finder.goal.low_carb.body',
+  'marketplace:kitchens.finder.goal.low_carb.title',
+  'marketplace:kitchens.finder.goal.under500.body',
+  'marketplace:kitchens.finder.goal.under500.title',
+  'marketplace:kitchens.finder.goal.vegan.body',
+  'marketplace:kitchens.finder.goal.vegan.title',
+  'marketplace:kitchens.finder.goalAction',
+  'marketplace:kitchens.finder.goalCount',
+  'marketplace:kitchens.finder.goalsMeta',
+  'marketplace:kitchens.finder.goalsTitle',
+  'marketplace:kitchens.finder.ledeMatched',
+  'marketplace:kitchens.finder.ledeSetPreferences',
+  'marketplace:kitchens.finder.ledeTail',
+  'marketplace:kitchens.finder.ledeUnmatched',
+  'marketplace:kitchens.finder.listAll',
+  'marketplace:kitchens.finder.listMatching',
+  'marketplace:kitchens.finder.minutes',
+  'marketplace:kitchens.finder.noDishes',
+  'marketplace:kitchens.finder.noFigure',
+  'marketplace:kitchens.finder.noPlans',
+  'marketplace:kitchens.finder.openDish',
+  'marketplace:kitchens.finder.openKitchen',
+  'marketplace:kitchens.finder.openToday',
+  'marketplace:kitchens.finder.plans',
+  'marketplace:kitchens.finder.ratingValue',
+  'marketplace:kitchens.finder.searchLabel',
+  'marketplace:kitchens.finder.searchPlaceholder',
+  'marketplace:kitchens.finder.seePlans',
+  'marketplace:kitchens.finder.signatureDishes',
+  'marketplace:kitchens.finder.sort.fastest',
+  'marketplace:kitchens.finder.sort.fee',
+  'marketplace:kitchens.finder.sort.match',
+  'marketplace:kitchens.finder.sort.name',
+  'marketplace:kitchens.finder.sort.rating',
+  'marketplace:kitchens.finder.sortFieldLabel',
+  'marketplace:kitchens.finder.sortLabel',
+  'marketplace:kitchens.finder.term.delivery',
+  'marketplace:kitchens.finder.term.fee',
+  'marketplace:kitchens.finder.term.minimum',
+  'marketplace:kitchens.finder.title',
+  'marketplace:kitchens.finder.toggle.openToday',
+  'marketplace:kitchens.finder.toggle.pickup',
+  'marketplace:kitchens.finder.toggle.subscription',
+  'marketplace:kitchens.finder.topRated',
+  'marketplace:kitchens.finder.under30',
+  'marketplace:kitchens.finder.viewMenu',
+  'marketplace:kitchens.finder.whyDiets',
+  'marketplace:kitchens.finder.whyMatch',
+  'marketplace:kitchens.finder.whyWithSummary',
   'marketplace:kitchens.freeDelivery',
-  'marketplace:kitchens.goalBody.halal_friendly',
-  'marketplace:kitchens.goalBody.high_protein',
-  'marketplace:kitchens.goalBody.low_carb',
-  'marketplace:kitchens.goalBody.vegan',
-  'marketplace:kitchens.goalsTitle',
-  'marketplace:kitchens.heroEyebrow',
-  'marketplace:kitchens.heroEyebrowPending',
-  'marketplace:kitchens.heroTitle',
   'marketplace:kitchens.imageLabel',
-  'marketplace:kitchens.matches',
   'marketplace:kitchens.noPublishedZone',
   'marketplace:kitchens.notRatedYet',
   'marketplace:kitchens.ratingLabel',
-  'marketplace:kitchens.resultsTitle',
   'marketplace:kitchens.searchLabel',
   'marketplace:kitchens.searchPlaceholder',
   'marketplace:kitchens.subtitle',
   'marketplace:kitchens.title',
   'marketplace:kitchens.verified',
-  'marketplace:landing.authBody',
-  'marketplace:landing.authTitle',
   'marketplace:landing.browseKitchens',
-  'marketplace:landing.featuredKitchens',
-  'marketplace:landing.featuredKitchensBody',
-  'marketplace:landing.forBusinessTeaserBody',
-  'marketplace:landing.forBusinessTeaserTitle',
-  'marketplace:landing.heroBody',
-  'marketplace:landing.heroTitle',
   'marketplace:landing.howItWorks',
-  'marketplace:landing.howItWorksTeaserBody',
-  'marketplace:landing.howItWorksTeaserTitle',
-  'marketplace:landing.seeAllKitchens',
-  'marketplace:landing.value.kitchens.body',
-  'marketplace:landing.value.kitchens.title',
-  'marketplace:landing.value.plan.body',
-  'marketplace:landing.value.plan.title',
-  'marketplace:landing.value.review.body',
-  'marketplace:landing.value.review.title',
-  'marketplace:landing.valueTitle',
   'marketplace:levels.excessive',
   'marketplace:levels.good',
   'marketplace:levels.high',
@@ -14245,6 +14832,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:menu.subtitle',
   'marketplace:menu.title',
   'marketplace:menu.titleFor',
+  'marketplace:nav.account',
   'marketplace:nav.accountMenu',
   'marketplace:nav.dietitians',
   'marketplace:nav.discover',
@@ -14284,25 +14872,111 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:resume.thisPage',
   'marketplace:storefront.addLabel',
   'marketplace:storefront.closedToday',
-  'marketplace:storefront.collectFrom',
-  'marketplace:storefront.dietsEyebrow',
-  'marketplace:storefront.emptyBody',
-  'marketplace:storefront.emptyTitle',
-  'marketplace:storefront.factBranches',
-  'marketplace:storefront.factCuisine',
-  'marketplace:storefront.factDelivery',
-  'marketplace:storefront.factDeliveryValue',
-  'marketplace:storefront.factRating',
-  'marketplace:storefront.fee',
-  'marketplace:storefront.fromAmount',
-  'marketplace:storefront.minimum',
+  'marketplace:storefront.eyebrow',
+  'marketplace:storefront.eyebrowArea',
+  'marketplace:storefront.facts.branchCount',
+  'marketplace:storefront.facts.branches',
+  'marketplace:storefront.facts.cuisine',
+  'marketplace:storefront.facts.delivery',
+  'marketplace:storefront.facts.minutes',
+  'marketplace:storefront.facts.minutesRange',
+  'marketplace:storefront.facts.none',
+  'marketplace:storefront.facts.notRated',
+  'marketplace:storefront.facts.rating',
+  'marketplace:storefront.facts.ratingValue',
+  'marketplace:storefront.menu.all',
+  'marketplace:storefront.menu.chip',
+  'marketplace:storefront.menu.count',
+  'marketplace:storefront.menu.countCutOff',
+  'marketplace:storefront.menu.emptyBody',
+  'marketplace:storefront.menu.emptyTitle',
+  'marketplace:storefront.menu.other',
+  'marketplace:storefront.menu.shelvesLabel',
   'marketplace:storefront.openMeal',
   'marketplace:storefront.openToday',
-  'marketplace:storefront.orderEyebrow',
-  'marketplace:storefront.productsTitle',
-  'marketplace:storefront.sectionNote',
-  'marketplace:storefront.seePlans',
-  'marketplace:storefront.startOrder',
+  'marketplace:storefront.order.collectFrom',
+  'marketplace:storefront.order.cutOff',
+  'marketplace:storefront.order.delivery',
+  'marketplace:storefront.order.eyebrow',
+  'marketplace:storefront.order.fee',
+  'marketplace:storefront.order.fromAmount',
+  'marketplace:storefront.order.hoursLeft',
+  'marketplace:storefront.order.minimum',
+  'marketplace:storefront.order.minutesLeft',
+  'marketplace:storefront.order.modesLabel',
+  'marketplace:storefront.order.passed',
+  'marketplace:storefront.order.pickup',
+  'marketplace:storefront.order.readyIn',
+  'marketplace:storefront.order.seePlans',
+  'marketplace:storefront.order.start',
+  'marketplace:storefront.plans.choose',
+  'marketplace:storefront.plans.chooseLabel',
+  'marketplace:storefront.plans.empty',
+  'marketplace:storefront.plans.howItWorks',
+  'marketplace:storefront.plans.perWeek',
+  'marketplace:storefront.plans.subtitle',
+  'marketplace:storefront.plans.title',
+  'marketplace:storefront.reviews.barLabel',
+  'marketplace:storefront.reviews.count',
+  'marketplace:storefront.reviews.emptyBody',
+  'marketplace:storefront.reviews.emptyTitle',
+  'marketplace:storefront.reviews.notRated',
+  'marketplace:storefront.reviews.outOfFive',
+  'marketplace:storefront.row.energy',
+  'marketplace:storefront.row.protein',
+  'marketplace:storefront.safety.allergenCount',
+  'marketplace:storefront.safety.allergensBody',
+  'marketplace:storefront.safety.allergensTitle',
+  'marketplace:storefront.safety.dietsEyebrow',
+  'marketplace:storefront.safety.noAllergens',
+  'marketplace:storefront.safety.noDiets',
+  'marketplace:storefront.safety.noteJoin',
+  'marketplace:storefront.safety.nutritionBody',
+  'marketplace:storefront.safety.nutritionFigure',
+  'marketplace:storefront.safety.nutritionTitle',
+  'marketplace:storefront.safety.unverifiedBody',
+  'marketplace:storefront.safety.verifiedBody',
+  'marketplace:storefront.safety.verifiedFigure',
+  'marketplace:storefront.safety.verifiedTitle',
+  'marketplace:storefront.separator',
+  'marketplace:storefront.tabs.label',
+  'marketplace:storefront.tabs.menu',
+  'marketplace:storefront.tabs.plans',
+  'marketplace:storefront.tabs.reviews',
+  'marketplace:storefront.tabs.safety',
+  'marketplace:storefront.tabs.today',
+  'marketplace:storefront.today.clock',
+  'marketplace:storefront.today.cutoff.body',
+  'marketplace:storefront.today.cutoff.bodyNone',
+  'marketplace:storefront.today.cutoff.bodyPassed',
+  'marketplace:storefront.today.cutoff.eyebrow',
+  'marketplace:storefront.today.cutoff.eyebrowTime',
+  'marketplace:storefront.today.cutoff.inHours',
+  'marketplace:storefront.today.cutoff.inMinutes',
+  'marketplace:storefront.today.cutoff.none',
+  'marketplace:storefront.today.cutoff.orderBy',
+  'marketplace:storefront.today.cutoff.passed',
+  'marketplace:storefront.today.cutoff.pick',
+  'marketplace:storefront.today.cutoff.window',
+  'marketplace:storefront.today.cutoff.windowsLabel',
+  'marketplace:storefront.today.events.closes',
+  'marketplace:storefront.today.events.closesNote',
+  'marketplace:storefront.today.events.cutoff',
+  'marketplace:storefront.today.events.cutoffNote',
+  'marketplace:storefront.today.events.opens',
+  'marketplace:storefront.today.events.opensNote',
+  'marketplace:storefront.today.events.window',
+  'marketplace:storefront.today.events.windowNote',
+  'marketplace:storefront.today.eyebrow',
+  'marketplace:storefront.today.eyebrowDate',
+  'marketplace:storefront.today.line.empty',
+  'marketplace:storefront.today.line.eyebrow',
+  'marketplace:storefront.today.none',
+  'marketplace:storefront.today.title',
+  'marketplace:storefront.verified',
+  'marketplace:storefront.ways.delivery',
+  'marketplace:storefront.ways.pickup',
+  'marketplace:storefront.ways.plans',
   'marketplace:subscriptionStates.active',
   'marketplace:subscriptionStates.cancelled',
   'marketplace:subscriptionStates.draft',

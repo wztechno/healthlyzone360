@@ -153,6 +153,7 @@
         "dialogBody": "The device will be signed out immediately.",
         "drawerTitle": "Example drawer",
         "toastMessage": "That worked.",
+        "toastAction": "View",
         "sampleLabel": "Sample field",
         "sampleHint": "A hint that explains the field.",
         "sampleError": "Something about this value is wrong.",

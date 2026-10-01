@@ -5,6 +5,7 @@
     },
     "action": {
         "continue": "متابعة",
+        "viewBasket": "عرض السلة",
         "back": "رجوع",
         "cancel": "إلغاء",
         "save": "حفظ",
