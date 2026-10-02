@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8182 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8184 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3800,6 +3800,7 @@ export interface NamespaceKeys {
     | 'nutritionFacts.unitMilligrams'
     | 'ops.batch.awaitingTarget'
     | 'ops.batch.baseTimes'
+    | 'ops.batch.baseTimesWithWaste'
     | 'ops.batch.basis.fills_yield'
     | 'ops.batch.basis.per_batch'
     | 'ops.batch.basis.per_container'
@@ -3844,6 +3845,7 @@ export interface NamespaceKeys {
     | 'ops.batch.optionalBadge'
     | 'ops.batch.packagingHeading'
     | 'ops.batch.packagingScaledHeading'
+    | 'ops.batch.packagingWasteIncluded'
     | 'ops.batch.pickRecipeBody'
     | 'ops.batch.pickRecipeTitle'
     | 'ops.batch.portionsUnit'
@@ -3863,7 +3865,7 @@ export interface NamespaceKeys {
     | 'ops.batch.targetPortionsLabel'
     | 'ops.batch.targetQuantityLabel'
     | 'ops.batch.versionCell'
-    | 'ops.batch.wasteAppliesToCost'
+    | 'ops.batch.wasteAddedToInputs'
     | 'ops.cashReport.a11y.unnamedAgent'
     | 'ops.cashReport.caption'
     | 'ops.cashReport.columnAgent'
@@ -12000,6 +12002,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nutritionFacts.unitMilligrams',
   'kitchen:ops.batch.awaitingTarget',
   'kitchen:ops.batch.baseTimes',
+  'kitchen:ops.batch.baseTimesWithWaste',
   'kitchen:ops.batch.basis.fills_yield',
   'kitchen:ops.batch.basis.per_batch',
   'kitchen:ops.batch.basis.per_container',
@@ -12044,6 +12047,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.optionalBadge',
   'kitchen:ops.batch.packagingHeading',
   'kitchen:ops.batch.packagingScaledHeading',
+  'kitchen:ops.batch.packagingWasteIncluded',
   'kitchen:ops.batch.pickRecipeBody',
   'kitchen:ops.batch.pickRecipeTitle',
   'kitchen:ops.batch.portionsUnit',
@@ -12063,7 +12067,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.targetPortionsLabel',
   'kitchen:ops.batch.targetQuantityLabel',
   'kitchen:ops.batch.versionCell',
-  'kitchen:ops.batch.wasteAppliesToCost',
+  'kitchen:ops.batch.wasteAddedToInputs',
   'kitchen:ops.cashReport.a11y.unnamedAgent',
   'kitchen:ops.cashReport.caption',
   'kitchen:ops.cashReport.columnAgent',
