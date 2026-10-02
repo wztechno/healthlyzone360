@@ -57,6 +57,7 @@ import {
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
+import { recipePhotoId } from './catalogue/recipe-columns.tsx';
 import {
     costPerServing,
     currencySymbol,
@@ -852,6 +853,16 @@ function recordedListing(read: () => readonly RecipeAdmin[]) {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('recipe display helpers', () => {
+    it('shows the seller’s photo, else the recipe’s own dish', () => {
+        const sold = (imagePlaceholderId: string) =>
+            recipe({ ordinal: 1, name: 'Classic sauce', overrides: { soldAs: [seller({ imagePlaceholderId })] } });
+
+        // A seller with a photo keeps it; a seller nothing photographed falls back to the dish.
+        expect(recipePhotoId(sold('product-chicken-crispy'))).toBe('product-chicken-crispy');
+        expect(recipePhotoId(sold('product-no-such-photo'))).toBe('recipe-classic-sauce');
+        expect(recipePhotoId(recipe({ ordinal: 2, name: 'Tabbouleh' }))).toBe('recipe-tabbouleh');
+    });
+
     it('moves a row without losing one, and refuses an impossible move', () => {
         const rows = ['a', 'b', 'c'];
         expect(moveInList(rows, 2, 0)).toEqual(['c', 'a', 'b']);

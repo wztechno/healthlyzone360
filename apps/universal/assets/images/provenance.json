@@ -20591,6 +20591,2318 @@
         "reviewed_at": "2026-09-21T07:57:56Z",
         "note": "picked from an 18-candidate Openverse grid; licence re-checked on the source page; final crop reviewed"
       }
+    },
+    "meals/lemon-oil-dressing": {
+      "record_ref": "DRS-010",
+      "record_kind": "dressing",
+      "record_name_en": "Lemon Oil Dressing",
+      "provider": "wikimedia",
+      "source_title": "File:Lentil salad ingredients lemon slices red onion cheese crumbles olive oil dressing beans (28151563564).jpg",
+      "source_label": "File:Lentil salad ingredients lemon slices red onion cheese crumbles olive oil dressing beans (28151563564).jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Lentil_salad_ingredients_lemon_slices_red_onion_cheese_crumbles_olive_oil_dressing_beans_(28151563564).jpg",
+      "creator": "Personal Creations",
+      "credit": "lentil salad ingredients lemon slices red onion cheese crumbles olive oil dressing beans",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "Creative Commons Attribution 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "618a14f0e66a445f848bbc4e5ddbfdbbe0a01db0406ea3935e351bb26a221f38",
+      "dhash": "3931316f0f293131",
+      "outputs": {
+        "card": {
+          "file": "meals/lemon-oil-dressing.card.webp",
+          "sha256": "05f0f561bafd24d1f269dc34b6f70aef907449f7fb9a3b3024a400bff6b1cc50",
+          "bytes": 27978,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/lemon-oil-dressing.detail.webp",
+          "sha256": "12b6822147c1a15a11955a01cba71d7946e11fc932e2a0f1800773f81a3ca614",
+          "bytes": 74570,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=filetype%3Abitmap+Lemon+Oil+Dressing&gsrnamespace=6&gsrlimit=25&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:00:58Z",
+        "commons_sha1": "1227e24d1e541fc19acba18e41fa90b39a89e4c1"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:07:41Z",
+        "note": ""
+      }
+    },
+    "meals/pesto-oil-dressing": {
+      "record_ref": "DRS-015",
+      "record_kind": "dressing",
+      "record_name_en": "Pesto Oil Dressing",
+      "provider": "wikimedia",
+      "source_title": "File:Saclà pesto.jpg",
+      "source_label": "File:Saclà pesto.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Sacl%C3%A0_pesto.jpg",
+      "creator": "Mx. Granger",
+      "credit": "Own work",
+      "licence": "cc0",
+      "licence_short_name": "CC0",
+      "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "usage_terms": "Creative Commons Zero, Public Domain Dedication",
+      "attribution_required": false,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "493ee29c5598f7915f477d27810276a55229605aac4aa7ee8d7f2cb5e7c3743f",
+      "dhash": "ce8f2d6d43f3fafe",
+      "outputs": {
+        "card": {
+          "file": "meals/pesto-oil-dressing.card.webp",
+          "sha256": "a7e6993aab14d01c356710e2e41627a5dd79867f660730eafd08e160e7f77ba5",
+          "bytes": 33260,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/pesto-oil-dressing.detail.webp",
+          "sha256": "424acac94bf5dfa43175a0482717dba4dc0cee37db717a3ea52e97cf0ab1b30c",
+          "bytes": 119976,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&generator=categorymembers&gcmtitle=Category%3APesto&gcmtype=file&gcmlimit=40&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:01:35Z",
+        "commons_sha1": "7c808251ecf398c9e67b4e50ba1b54ccf83edeb5"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:07:41Z",
+        "note": ""
+      }
+    },
+    "meals/ranch-dressing": {
+      "record_ref": "DRS-017",
+      "record_kind": "dressing",
+      "record_name_en": "Ranch Dressing",
+      "provider": "wikimedia",
+      "source_title": "File:Fried Green Tomatoes with ranch dressing - Hominy Grill, Charleston SC 2014.jpg",
+      "source_label": "File:Fried Green Tomatoes with ranch dressing - Hominy Grill, Charleston SC 2014.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Fried_Green_Tomatoes_with_ranch_dressing_-_Hominy_Grill,_Charleston_SC_2014.jpg",
+      "creator": "City Foodsters",
+      "credit": "Fried Green Tomatoes with ranch dressing",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "Creative Commons Attribution 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "fb5c1bae31e562d38961a306f2b8c0b254092cc77a8aad35551bd7fe32a824c6",
+      "dhash": "e616333333370f0e",
+      "outputs": {
+        "card": {
+          "file": "meals/ranch-dressing.card.webp",
+          "sha256": "b025ac4f44f1d11eb06eb70b36aa1803dde76025511e510b053a7a0ccf29e303",
+          "bytes": 47382,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/ranch-dressing.detail.webp",
+          "sha256": "1542776f0337e233980dbfccf8bffa8ad1740a1f552371c06159f9773d4f8197",
+          "bytes": 106400,
+          "width": 1280,
+          "height": 720,
+          "quality": 78
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&generator=categorymembers&gcmtitle=Category%3ARanch+dressing&gcmtype=file&gcmlimit=40&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:01:46Z",
+        "commons_sha1": "a25ed2607ff77d13cb26b8388251ef9168a8692c"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:07:41Z",
+        "note": ""
+      }
+    },
+    "meals/aioli-sauce": {
+      "record_ref": "SAC-001",
+      "record_kind": "sauce",
+      "record_name_en": "Aioli Sauce",
+      "provider": "wikimedia",
+      "source_title": "File:Aioli sauce.jpg",
+      "source_label": "File:Aioli sauce.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Aioli_sauce.jpg",
+      "creator": "CNEcija12345",
+      "credit": "Own work",
+      "licence": "cc-by-sa-4.0",
+      "licence_short_name": "CC BY-SA 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "usage_terms": "Creative Commons Attribution-Share Alike 4.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "adfec14b4d15bff46766e01961145f01d35985077ed8e98108f1aa99d530b84e",
+      "dhash": "6874f4e86662e8fc",
+      "outputs": {
+        "card": {
+          "file": "meals/aioli-sauce.card.webp",
+          "sha256": "7a1f3c17217846451b3245365b849e9dd504e5534006f2e0dcf12754a927babd",
+          "bytes": 6966,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/aioli-sauce.detail.webp",
+          "sha256": "378d94428ef877f152e786dd23751280b0de40c10defe2c1435e7f8315879f38",
+          "bytes": 62236,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&generator=categorymembers&gcmtitle=Category%3AAioli&gcmtype=file&gcmlimit=40&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:02:04Z",
+        "commons_sha1": "038b408312bb079805b224e34246704ca1671580"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:07:41Z",
+        "note": ""
+      }
+    },
+    "meals/caramel-sauce": {
+      "record_ref": "SAC-038",
+      "record_kind": "sauce",
+      "record_name_en": "Caramel Sauce",
+      "provider": "wikimedia",
+      "source_title": "File:Bavarian cream with strawberries and caramel sauce.jpg",
+      "source_label": "File:Bavarian cream with strawberries and caramel sauce.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Bavarian_cream_with_strawberries_and_caramel_sauce.jpg",
+      "creator": "SKopp",
+      "credit": "Own work",
+      "licence": "cc-by-sa-3.0",
+      "licence_short_name": "CC BY-SA 3.0",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "usage_terms": "Creative Commons Attribution-Share Alike 3.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "2fe20a7159c171084d71bb3a394810c78d530f394a780ac158daff8d8f0e6cd2",
+      "dhash": "8049693131b86007",
+      "outputs": {
+        "card": {
+          "file": "meals/caramel-sauce.card.webp",
+          "sha256": "061645c81dc4940f05f47b5d7996236b4e86c6193b247083dbd4f9a924f6a371",
+          "bytes": 17668,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/caramel-sauce.detail.webp",
+          "sha256": "8c2f73dfa571d2a2554591f492f4b4da01e71e4a05f12314de90ae88b3a0a6d6",
+          "bytes": 47918,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&generator=categorymembers&gcmtitle=Category%3ACaramel&gcmtype=file&gcmlimit=40&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:02:51Z",
+        "commons_sha1": "95349f82f77ba4e5ba15c4b8f1aa7f7592c7c4a2"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:07:41Z",
+        "note": ""
+      }
+    },
+    "meals/chimichurri-sauce": {
+      "record_ref": "SAC-004",
+      "record_kind": "sauce",
+      "record_name_en": "Chimichurri Sauce",
+      "provider": "wikimedia",
+      "source_title": "File:Sauce Chimichurri à Nice en mars 2022.JPG",
+      "source_label": "File:Sauce Chimichurri à Nice en mars 2022.JPG",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Sauce_Chimichurri_%C3%A0_Nice_en_mars_2022.JPG",
+      "creator": "Benoît Prieur",
+      "credit": "Own work",
+      "licence": "cc0",
+      "licence_short_name": "CC0",
+      "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "usage_terms": "Creative Commons Zero, Public Domain Dedication",
+      "attribution_required": false,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "abaf56e81d7700f8cffad73942189ff2c813b98bff8f7d2a046b46d38f64675d",
+      "dhash": "000d0e16170f0f0f",
+      "outputs": {
+        "card": {
+          "file": "meals/chimichurri-sauce.card.webp",
+          "sha256": "bd96d0ea9af3f39021b535cc8f7ff24b06da8127189e9b40cd6a4e55e872c84b",
+          "bytes": 12550,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/chimichurri-sauce.detail.webp",
+          "sha256": "78e3262abd259fe5af7fd8981f361efd2a6cf1ef31f4114028e8c3ef8b94e232",
+          "bytes": 34662,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&generator=categorymembers&gcmtitle=Category%3AChimichurri&gcmtype=file&gcmlimit=40&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:02:56Z",
+        "commons_sha1": "4b16ebb3e875356b7f111d5af6ca2d1615eee7ce"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:07:41Z",
+        "note": ""
+      }
+    },
+    "meals/coriander-garlic-cooking-sauce": {
+      "record_ref": "SAC-019",
+      "record_kind": "sauce",
+      "record_name_en": "Coriander Garlic Cooking Sauce",
+      "provider": "wikimedia",
+      "source_title": "File:Avocado lime sauce.jpg",
+      "source_label": "File:Avocado lime sauce.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Avocado_lime_sauce.jpg",
+      "creator": "ImpromptuKitchen",
+      "credit": "Avocado Lime Sauce (5 of 5).jpg",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "Creative Commons Attribution 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "c53112c6cf6cab0c1bce93d8747d6499d5db3c85c5a8ea97eb42d290cecac3c0",
+      "dhash": "b76e4c302b732f0e",
+      "outputs": {
+        "card": {
+          "file": "meals/coriander-garlic-cooking-sauce.card.webp",
+          "sha256": "feb7e0d743c6bdc66e96f31bc45663eae3499b8ebfcabc04c5bab4d055675678",
+          "bytes": 30950,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/coriander-garlic-cooking-sauce.detail.webp",
+          "sha256": "cde0ae1e225e71209a05a6d39f76489cccd692118abc022e730e48c65aaae0ed",
+          "bytes": 91356,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&generator=categorymembers&gcmtitle=Category%3ASauces&gcmtype=file&gcmlimit=40&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:03:09Z",
+        "commons_sha1": "1cab305e88a277505e3937dc3b083cb4f1a996a4"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:07:41Z",
+        "note": ""
+      }
+    },
+    "meals/garlic-paste-toum": {
+      "record_ref": "SAC-010",
+      "record_kind": "sauce",
+      "record_name_en": "Garlic Paste (Toum)",
+      "provider": "wikimedia",
+      "source_title": "File:Toum (Lebanese Garlic Sauce).JPG",
+      "source_label": "File:Toum (Lebanese Garlic Sauce).JPG",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Toum_(Lebanese_Garlic_Sauce).JPG",
+      "creator": "Miansari66",
+      "credit": "Own work",
+      "licence": "cc0",
+      "licence_short_name": "CC0",
+      "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "usage_terms": "Creative Commons Zero, Public Domain Dedication",
+      "attribution_required": false,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "2c5b3b37894744d6a66a5eb9e3a746d5bb7d04d6bf33fbe200508f1ee85708b1",
+      "dhash": "b269ccd4d4cc6932",
+      "outputs": {
+        "card": {
+          "file": "meals/garlic-paste-toum.card.webp",
+          "sha256": "512ac3e35e7261959d42f025323ccd96152fdb2558f2e202e8cb38d3ecfcc428",
+          "bytes": 39152,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/garlic-paste-toum.detail.webp",
+          "sha256": "b56e9798ceee6419a6b50a8dccf261347c228e395e79c6a6e9d2a3bd5365a6f2",
+          "bytes": 105112,
+          "width": 1280,
+          "height": 720,
+          "quality": 78
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&generator=categorymembers&gcmtitle=Category%3AToum&gcmtype=file&gcmlimit=40&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:03:50Z",
+        "commons_sha1": "2e5f473ce175e8bd70d3355d983868cba670535c"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:07:41Z",
+        "note": ""
+      }
+    },
+    "meals/pico-de-gallo": {
+      "record_ref": "SAC-014",
+      "record_kind": "sauce",
+      "record_name_en": "Pico de Gallo",
+      "provider": "wikimedia",
+      "source_title": "File:PicoDeGalloDeJacobo.jpg",
+      "source_label": "File:PicoDeGalloDeJacobo.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:PicoDeGalloDeJacobo.jpg",
+      "creator": "Jakeddy",
+      "credit": "Own work",
+      "licence": "cc0",
+      "licence_short_name": "CC0",
+      "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "usage_terms": "Creative Commons Zero, Public Domain Dedication",
+      "attribution_required": false,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "4f208ecffd6c1466510444fbf584ab47ce74653c061b97d2dd1512ab9fbe1837",
+      "dhash": "b81c464a02068722",
+      "outputs": {
+        "card": {
+          "file": "meals/pico-de-gallo.card.webp",
+          "sha256": "d0fd8f7533a866f4bd484be687d1611ed3a25ad17cd9adb9b4015e9bd1d6b82f",
+          "bytes": 33396,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/pico-de-gallo.detail.webp",
+          "sha256": "943a79172fe9b4bd27226f025b03e1cd34c8787757004407c6d4a5edf9471e63",
+          "bytes": 84464,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&generator=categorymembers&gcmtitle=Category%3APico+de+gallo&gcmtype=file&gcmlimit=40&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:04:56Z",
+        "commons_sha1": "445d6a77998f2b3513bcd6c1b85758ea89117b8f"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:07:41Z",
+        "note": ""
+      }
+    },
+    "meals/tartar-sauce": {
+      "record_ref": "SAC-016",
+      "record_kind": "sauce",
+      "record_name_en": "Tartar Sauce",
+      "provider": "wikimedia",
+      "source_title": "File:Divinely-inspired tartar sauce at Big O's, Bossier City (5755954932).jpg",
+      "source_label": "File:Divinely-inspired tartar sauce at Big O's, Bossier City (5755954932).jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Divinely-inspired_tartar_sauce_at_Big_O%27s,_Bossier_City_(5755954932).jpg",
+      "creator": "Shreveport-Bossier Convention and Tourist Bureau",
+      "credit": "Divinely-inspired tartar sauce at Big O's, Bossier City",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "Creative Commons Attribution 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "d31a220a63e085955ab822ae0afef5e28c21e9c51339f60665145f18e6d02ed2",
+      "dhash": "9c7aeef6ea643616",
+      "outputs": {
+        "card": {
+          "file": "meals/tartar-sauce.card.webp",
+          "sha256": "1da40355a432d959c439c890dd7df76614157dc647ad821dd095c59f5588ff88",
+          "bytes": 15366,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/tartar-sauce.detail.webp",
+          "sha256": "c8fbe308a7e195652f925ae756f2c7108ab740007cea3c9db42003973a923043",
+          "bytes": 41544,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&generator=categorymembers&gcmtitle=Category%3ATartar+sauce&gcmtype=file&gcmlimit=40&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:06:01Z",
+        "commons_sha1": "970174f177f56853d391f0d0d1efdccc2c23fe23"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:07:41Z",
+        "note": ""
+      }
+    },
+    "meals/asian-salad-dressing": {
+      "record_ref": "DRS-001",
+      "record_kind": "dressing",
+      "record_name_en": "Asian Salad Dressing",
+      "provider": "wikimedia",
+      "source_title": "File:Tenderstem broccoli dressed with sesame sauce 001.jpg",
+      "source_label": "File:Tenderstem broccoli dressed with sesame sauce 001.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Tenderstem_broccoli_dressed_with_sesame_sauce_001.jpg",
+      "creator": "Flickr user yoppy",
+      "credit": "https://www.flickr.com/photos/spilt-milk/364405963/",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "Creative Commons Attribution 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "ee17faa499f6c576708e5b79c1a84fb3b9286b0dc37f1b4de3df7dacfd788624",
+      "dhash": "27e53d4d653dcb67",
+      "outputs": {
+        "card": {
+          "file": "meals/asian-salad-dressing.card.webp",
+          "sha256": "ca9ec52e5bd053fc42ad0be60b1ebc8ed751675811c35a79bf41dd131c29825b",
+          "bytes": 48688,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/asian-salad-dressing.detail.webp",
+          "sha256": "25280e593c65bb05aa552ce0e2d894ffc138c2bd25056b2b9038792a3a1ae0bf",
+          "bytes": 108870,
+          "width": 1280,
+          "height": 720,
+          "quality": 78
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3ATenderstem+broccoli+dressed+with+sesame+sauce+001.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:34:25Z",
+        "commons_sha1": "b7aa7ff5781d4e148106ad8e8123094b15669d8a"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/avocado-salad-dressing": {
+      "record_ref": "DRS-003",
+      "record_kind": "dressing",
+      "record_name_en": "Avocado Salad Dressing",
+      "provider": "wikimedia",
+      "source_title": "File:Dinner Salad with Avocado Dressing and Chili Chips (3494243212).jpg",
+      "source_label": "File:Dinner Salad with Avocado Dressing and Chili Chips (3494243212).jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Dinner_Salad_with_Avocado_Dressing_and_Chili_Chips_(3494243212).jpg",
+      "creator": "Vegan Feast Catering",
+      "credit": "Dinner Salad with Avocado Dressing & Chili Chips",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "Creative Commons Attribution 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "3cf5cfef8363fd82f8d03cb119ed667ca27a282f69b0f1e4c81236c3b06dc065",
+      "dhash": "60c0c09137160407",
+      "outputs": {
+        "card": {
+          "file": "meals/avocado-salad-dressing.card.webp",
+          "sha256": "8905832c9aba4e200ff66d095e27101387c5a7567b193312b0514280ca8b5539",
+          "bytes": 25610,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/avocado-salad-dressing.detail.webp",
+          "sha256": "532504136be67b1be90f827fdd7ae3ad45b93444ef8304ea37617185b6d5813e",
+          "bytes": 85926,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3ADinner+Salad+with+Avocado+Dressing+and+Chili+Chips+%283494243212%29.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:34:30Z",
+        "commons_sha1": "4c6cd1cb6e744cf0aad33fab096ce397fdd7e2a0"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/balsamic-dressing": {
+      "record_ref": "DRS-004",
+      "record_kind": "dressing",
+      "record_name_en": "Balsamic Dressing",
+      "provider": "wikimedia",
+      "source_title": "File:Olive oil with Balsamic Vinegar.jpg",
+      "source_label": "File:Olive oil with Balsamic Vinegar.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Olive_oil_with_Balsamic_Vinegar.jpg",
+      "creator": "Leon Brocard from London, UK",
+      "credit": "DSC02505",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "Creative Commons Attribution 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "3568f9afb8f7e9bbea39b12839e94fa3fca36b87449a5902af37c658cfb7a466",
+      "dhash": "f19c16a7978bc6f0",
+      "outputs": {
+        "card": {
+          "file": "meals/balsamic-dressing.card.webp",
+          "sha256": "e433e96e921b457a16dd57685c38777bf7a00be5b16e20df3db581cdc7c759c7",
+          "bytes": 12472,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/balsamic-dressing.detail.webp",
+          "sha256": "1470b171e744c4c8585c7e8d2aa6c2ecdc7c2ea5068e05c16a2156c97c6aa931",
+          "bytes": 29200,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3AOlive+oil+with+Balsamic+Vinegar.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:34:32Z",
+        "commons_sha1": "7faad0a96347857cbcc2327e4a35e62f2a70df7b"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/caesar-dressing": {
+      "record_ref": "DRS-005",
+      "record_kind": "dressing",
+      "record_name_en": "Caesar Dressing",
+      "provider": "wikimedia",
+      "source_title": "File:Chicken Caesar Salad (15950600202).jpg",
+      "source_label": "File:Chicken Caesar Salad (15950600202).jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Chicken_Caesar_Salad_(15950600202).jpg",
+      "creator": "Prayitno / Thank you for (12 millions +) view from Los Angeles, USA",
+      "credit": "Chicken Caesar Salad",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "Creative Commons Attribution 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "f2aaa9fd787da4c0bdcba3a536a72ead99dc59b41816a38d8698a401a059f126",
+      "dhash": "f4a48f0d31015b33",
+      "outputs": {
+        "card": {
+          "file": "meals/caesar-dressing.card.webp",
+          "sha256": "d3a705ffba25e3864349858b15ba227aa92e8149c076b26666e336d37a993a5c",
+          "bytes": 23434,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/caesar-dressing.detail.webp",
+          "sha256": "bb279829f61facea4f6652c1b99aeb466c22df3153c7f08ee51c7b3f5b94115e",
+          "bytes": 63774,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3AChicken+Caesar+Salad+%2815950600202%29.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:34:35Z",
+        "commons_sha1": "7b116a588b4924b71e530f9436c85b9584eede58"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/coriander-salad-dressing": {
+      "record_ref": "DRS-006",
+      "record_kind": "dressing",
+      "record_name_en": "Coriander Salad Dressing",
+      "provider": "wikimedia",
+      "source_title": "File:Cuisine (268) 42.jpg",
+      "source_label": "File:Cuisine (268) 42.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Cuisine_(268)_42.jpg",
+      "creator": "AmanAgrahari01",
+      "credit": "Own work",
+      "licence": "cc-by-sa-4.0",
+      "licence_short_name": "CC BY-SA 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "usage_terms": "Creative Commons Attribution-Share Alike 4.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "557c37b1b72ddc4a68ac6de7cc77d9dd3d15f52d941fc6782555d4645e6d8658",
+      "dhash": "f2ce871b1383076c",
+      "outputs": {
+        "card": {
+          "file": "meals/coriander-salad-dressing.card.webp",
+          "sha256": "505f8e325a29e8c852cca5d86d89f0842c9993358b77e29459eb1cd8e8b0dac3",
+          "bytes": 43574,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/coriander-salad-dressing.detail.webp",
+          "sha256": "f8acb20a84a978bdab7a29550771931e989ea7fa648c21cbc7b88c9491a20653",
+          "bytes": 117506,
+          "width": 1280,
+          "height": 720,
+          "quality": 62
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3ACuisine+%28268%29+42.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:34:42Z",
+        "commons_sha1": "278c9573be5aa49fb62947737f7cc646e33642fe"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/honey-vinaigrette": {
+      "record_ref": "DRS-008",
+      "record_kind": "dressing",
+      "record_name_en": "Honey Vinaigrette",
+      "provider": "wikimedia",
+      "source_title": "File:2020-04-01 17 53 37 McDonald's Honey Mustard dipping sauce in the Franklin Farm section of Oak Hill, Fairfax County, Virginia.jpg",
+      "source_label": "File:2020-04-01 17 53 37 McDonald's Honey Mustard dipping sauce in the Franklin Farm section of Oak Hill, Fairfax County, Virginia.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:2020-04-01_17_53_37_McDonald%27s_Honey_Mustard_dipping_sauce_in_the_Franklin_Farm_section_of_Oak_Hill,_Fairfax_County,_Virginia.jpg",
+      "creator": "Famartin",
+      "credit": "Own work",
+      "licence": "cc-by-sa-4.0",
+      "licence_short_name": "CC BY-SA 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "usage_terms": "Creative Commons Attribution-Share Alike 4.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "718b227ad3764de193838853d4600801a1a28caab504dc18b921eb592a55a16c",
+      "dhash": "c017233b33272507",
+      "outputs": {
+        "card": {
+          "file": "meals/honey-vinaigrette.card.webp",
+          "sha256": "41de8d856d6ea813736c7a713d6ce0493dfd636a96b564b59b9aa1c20b2be6fa",
+          "bytes": 15114,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/honey-vinaigrette.detail.webp",
+          "sha256": "45d9722797162648339918ead42cf578478f0293d7868a5b80c277934dde9134",
+          "bytes": 44998,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3A2020-04-01+17+53+37+McDonald%27s+Honey+Mustard+dipping+sauce+in+the+Franklin+Farm+section+of+Oak+Hill%2C+Fairfax+County%2C+Virginia.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:34:45Z",
+        "commons_sha1": "b250466817a484b20dbb308623749a680f7b4c3a"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/mustard-salad-dressing": {
+      "record_ref": "DRS-011",
+      "record_kind": "dressing",
+      "record_name_en": "Mustard Salad Dressing",
+      "provider": "wikimedia",
+      "source_title": "File:Salad with roasted garlic, mustard herb vinaigrette.jpg",
+      "source_label": "File:Salad with roasted garlic, mustard herb vinaigrette.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Salad_with_roasted_garlic,_mustard_herb_vinaigrette.jpg",
+      "creator": "SaucyGlo",
+      "credit": "https://www.flickr.com/photos/67238971@N04/7846431390/",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "Creative Commons Attribution 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "4bf5463b1e67b1c16fbdd2b3708dc3acf59b80f32e41a47387439581275a7a5d",
+      "dhash": "f98d61735337361c",
+      "outputs": {
+        "card": {
+          "file": "meals/mustard-salad-dressing.card.webp",
+          "sha256": "35a6327e32741e2b92515342d2af75fd299f3abf672d2aae64b4c26475343e9a",
+          "bytes": 31218,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/mustard-salad-dressing.detail.webp",
+          "sha256": "549176af79975f8d396a35f521d582d6bbff33f6066eef1233478474bc8bb372",
+          "bytes": 96558,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3ASalad+with+roasted+garlic%2C+mustard+herb+vinaigrette.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:34:49Z",
+        "commons_sha1": "02a3992891a459f781863379a87677d90019cd82"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/tarator-salad-dressing": {
+      "record_ref": "DRS-018",
+      "record_kind": "dressing",
+      "record_name_en": "Tarator Salad Dressing",
+      "provider": "wikimedia",
+      "source_title": "File:Falafels with tarator.jpg",
+      "source_label": "File:Falafels with tarator.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Falafels_with_tarator.jpg",
+      "creator": "pelican",
+      "credit": "https://www.flickr.com/photos/pelican/4424230789/",
+      "licence": "cc-by-sa-2.0",
+      "licence_short_name": "CC BY-SA 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "usage_terms": "Creative Commons Attribution-Share Alike 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "217536def57dadb4e2a77bd05418c4476ab000a63d0de328c15d2071d16c68a0",
+      "dhash": "0ff36160d4963f7b",
+      "outputs": {
+        "card": {
+          "file": "meals/tarator-salad-dressing.card.webp",
+          "sha256": "a35e34328b83909992c7752671324912cc6c59db185831614d789cfa19ed1bb6",
+          "bytes": 45686,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/tarator-salad-dressing.detail.webp",
+          "sha256": "4af5a1cf48c00fa75d817fac83ddef9f4bb6626dbef974d8f83605144b43e761",
+          "bytes": 117694,
+          "width": 1280,
+          "height": 720,
+          "quality": 74
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3AFalafels+with+tarator.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:34:54Z",
+        "commons_sha1": "4c060d6bead1cf2524172c577869bc2145f9f04f"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/thousand-island-dressing": {
+      "record_ref": "DRS-019",
+      "record_kind": "dressing",
+      "record_name_en": "Thousand Island Dressing",
+      "provider": "wikimedia",
+      "source_title": "File:Thousand Island dressing on salad.jpg",
+      "source_label": "File:Thousand Island dressing on salad.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Thousand_Island_dressing_on_salad.jpg",
+      "creator": "Oliver DelaCruz",
+      "credit": "Originally posted to Flickr as i heart thousand island dressing",
+      "licence": "cc-by-sa-2.0",
+      "licence_short_name": "CC BY-SA 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "usage_terms": "Creative Commons Attribution-Share Alike 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "0bf3317b85a7a94e6421010937aff083d18472101934b8ea32588c05441f4425",
+      "dhash": "e0d8b8ece0f2c4c4",
+      "outputs": {
+        "card": {
+          "file": "meals/thousand-island-dressing.card.webp",
+          "sha256": "f835ba34cbe1547bd04bc7ebf3f44062c89b9cf10a6b924c3fee17d6df6a676e",
+          "bytes": 48044,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/thousand-island-dressing.detail.webp",
+          "sha256": "11f1d340f9eb7595f2a0b1e1be173d1b7f76a92b192ff19d93c5164aa50c9e34",
+          "bytes": 108856,
+          "width": 1280,
+          "height": 720,
+          "quality": 78
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3AThousand+Island+dressing+on+salad.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:34:57Z",
+        "commons_sha1": "18abfd5760d112fe3a2d84c84d22eaab2d1de2fa"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/barbecue-dip": {
+      "record_ref": "SAC-002",
+      "record_kind": "sauce",
+      "record_name_en": "Barbecue Dip",
+      "provider": "wikimedia",
+      "source_title": "File:Barbecue sauce.JPG",
+      "source_label": "File:Barbecue sauce.JPG",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Barbecue_sauce.JPG",
+      "creator": "Number55",
+      "credit": "Own work",
+      "licence": "cc-by-3.0",
+      "licence_short_name": "CC BY 3.0",
+      "licence_url": "https://creativecommons.org/licenses/by/3.0/",
+      "usage_terms": "Creative Commons Attribution 3.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "044e43817aa2b797d338cddf81a57275a758b7e906d3d0b656b41fcb3b3f021f",
+      "dhash": "fc86131b1b96961e",
+      "outputs": {
+        "card": {
+          "file": "meals/barbecue-dip.card.webp",
+          "sha256": "092c7ac216a63e67104eda94e68e99cf4fcb2677c169e1b1d6bac451cecff93e",
+          "bytes": 17678,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/barbecue-dip.detail.webp",
+          "sha256": "127bbeddaf2497b6c88e36ebb31125b835fe3dcea128e0d6d37e31e576319712",
+          "bytes": 47656,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3ABarbecue+sauce.JPG&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:35:04Z",
+        "commons_sha1": "949440c8c782a1f36e38821a4e1c77bbdddbacdd"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/buffalo-dip": {
+      "record_ref": "SAC-003",
+      "record_kind": "sauce",
+      "record_name_en": "Buffalo Dip",
+      "provider": "wikimedia",
+      "source_title": "File:(20240728) Rotterdam V11 Salmon & Crab Cakes with buffalo sauce.jpg",
+      "source_label": "File:(20240728) Rotterdam V11 Salmon & Crab Cakes with buffalo sauce.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:(20240728)_Rotterdam_V11_Salmon_%26_Crab_Cakes_with_buffalo_sauce.jpg",
+      "creator": "Roy Zuo",
+      "credit": "Own work",
+      "licence": "cc-by-sa-4.0",
+      "licence_short_name": "CC BY-SA 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "usage_terms": "Creative Commons Attribution-Share Alike 4.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "88a66dfc7949a80d1ea9c96e0f8c484ef6f9e6e4d0e7137b3a2bcdd4ca2699e2",
+      "dhash": "cc8e86c668687800",
+      "outputs": {
+        "card": {
+          "file": "meals/buffalo-dip.card.webp",
+          "sha256": "3887a41488d807cb762d6a1f68c81086ab9630f7ab16c8570a0c67a44e5ac4d0",
+          "bytes": 55672,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/buffalo-dip.detail.webp",
+          "sha256": "50728fc34d0784ef7971b9bbe7037f970c9acf6943a343cbc20e1c881458b71d",
+          "bytes": 114592,
+          "width": 1280,
+          "height": 720,
+          "quality": 46
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3A%2820240728%29+Rotterdam+V11+Salmon+%26+Crab+Cakes+with+buffalo+sauce.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:35:12Z",
+        "commons_sha1": "947b90b9154d7155115d73d9d5f8882310dfbbce"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/four-cheese-sauce": {
+      "record_ref": "SAC-021",
+      "record_kind": "sauce",
+      "record_name_en": "Four Cheese Sauce",
+      "provider": "wikimedia",
+      "source_title": "File:Liat Portal for Foodie Disorder - Four cheese ravioli with cream sauce.jpg",
+      "source_label": "File:Liat Portal for Foodie Disorder - Four cheese ravioli with cream sauce.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Liat_Portal_for_Foodie_Disorder_-_Four_cheese_ravioli_with_cream_sauce.jpg",
+      "creator": "HaJunkiyada",
+      "credit": "Own work",
+      "licence": "cc-by-sa-4.0",
+      "licence_short_name": "CC BY-SA 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "usage_terms": "Creative Commons Attribution-Share Alike 4.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "87935de0d13ede5bbd1c48c63a2810fe8b1e0982726dadbd27c308479c53e814",
+      "dhash": "d4b69b1b1f1786f0",
+      "outputs": {
+        "card": {
+          "file": "meals/four-cheese-sauce.card.webp",
+          "sha256": "f22480be780fc4afb67fd06f824832b3a9cd4029df19256550d9ff6d7252c522",
+          "bytes": 28870,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/four-cheese-sauce.detail.webp",
+          "sha256": "6d7931d326eb99a0eec1410c07f63b7f9bf3a735a6902f830be0f02604d8853a",
+          "bytes": 109528,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3ALiat+Portal+for+Foodie+Disorder+-+Four+cheese+ravioli+with+cream+sauce.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:35:26Z",
+        "commons_sha1": "d597f8067fbb8b8ac19b58ed98e23ab2d20f070b"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/honey-mustard-sauce": {
+      "record_ref": "SAC-011",
+      "record_kind": "sauce",
+      "record_name_en": "Honey Mustard Sauce",
+      "provider": "wikimedia",
+      "source_title": "File:2020-02-25 19 33 41 A sample of Frecon Farms Honey Mustard Dipping Sauce in the Dulles section of Sterling, Loudoun County, Virginia.jpg",
+      "source_label": "File:2020-02-25 19 33 41 A sample of Frecon Farms Honey Mustard Dipping Sauce in the Dulles section of Sterling, Loudoun County, Virginia.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:2020-02-25_19_33_41_A_sample_of_Frecon_Farms_Honey_Mustard_Dipping_Sauce_in_the_Dulles_section_of_Sterling,_Loudoun_County,_Virginia.jpg",
+      "creator": "Famartin",
+      "credit": "Own work",
+      "licence": "cc-by-sa-4.0",
+      "licence_short_name": "CC BY-SA 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "usage_terms": "Creative Commons Attribution-Share Alike 4.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "94adb5ccadef41c3994f137b5fe984ae3cd63bf1e61aff2139e4d9392a9cdc5e",
+      "dhash": "c6162349255933a6",
+      "outputs": {
+        "card": {
+          "file": "meals/honey-mustard-sauce.card.webp",
+          "sha256": "3cbca0410f1f72aa364bf4e735dd95c7cd17c5a5b8d782d1df88df324d074687",
+          "bytes": 17786,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/honey-mustard-sauce.detail.webp",
+          "sha256": "ef265e891bddf707d95d4aed4fedc272d4ee27e3d33b59896276832e15235bc5",
+          "bytes": 50294,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3A2020-02-25+19+33+41+A+sample+of+Frecon+Farms+Honey+Mustard+Dipping+Sauce+in+the+Dulles+section+of+Sterling%2C+Loudoun+County%2C+Virginia.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:35:28Z",
+        "commons_sha1": "a7cd7868aca209b1d0363c536dbbc1a2fd137c8e"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/indian-cooking-sauce": {
+      "record_ref": "SAC-022",
+      "record_kind": "sauce",
+      "record_name_en": "Indian Cooking Sauce",
+      "provider": "wikimedia",
+      "source_title": "File:Lamb leg with curry sauce.jpg",
+      "source_label": "File:Lamb leg with curry sauce.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Lamb_leg_with_curry_sauce.jpg",
+      "creator": "Geoffreyrabbit",
+      "credit": "Own work",
+      "licence": "cc-by-sa-4.0",
+      "licence_short_name": "CC BY-SA 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "usage_terms": "Creative Commons Attribution-Share Alike 4.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "67c2f61b0111e9925dc054bd9cf39e4a640ce876607b318a6aab91bc830c56c6",
+      "dhash": "b171c88c9e96cd33",
+      "outputs": {
+        "card": {
+          "file": "meals/indian-cooking-sauce.card.webp",
+          "sha256": "d82f5e392f5567c6c83899a664117e27606b7f6a5f821406b5db836157cf8c38",
+          "bytes": 30184,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/indian-cooking-sauce.detail.webp",
+          "sha256": "ce03433b0f069eb21fd09911214f0e0f3d8a1ce7a50a035743ce47f24db004b4",
+          "bytes": 83598,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3ALamb+leg+with+curry+sauce.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:35:31Z",
+        "commons_sha1": "4ae73ec06f7205c4a0caff4c60c43fa4e9b90d97"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/korma-cooking-sauce": {
+      "record_ref": "SAC-023",
+      "record_kind": "sauce",
+      "record_name_en": "Korma Cooking Sauce",
+      "provider": "wikimedia",
+      "source_title": "File:Veg Korma 02.jpg",
+      "source_label": "File:Veg Korma 02.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Veg_Korma_02.jpg",
+      "creator": "Vis M",
+      "credit": "Own work",
+      "licence": "cc-by-sa-4.0",
+      "licence_short_name": "CC BY-SA 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "usage_terms": "Creative Commons Attribution-Share Alike 4.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "555ce57672f245dc9c608791bfc5e5aaf26ffcc52ef4a4625954f74c48851854",
+      "dhash": "1fe8ec90dc8ee073",
+      "outputs": {
+        "card": {
+          "file": "meals/korma-cooking-sauce.card.webp",
+          "sha256": "403693d544a8ee502699220329c1e162ec1507eb6944494c0f93d703e77ce58b",
+          "bytes": 37660,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/korma-cooking-sauce.detail.webp",
+          "sha256": "5e428d453a42a07738e2310063fafad9e673a009c5b72e63f4f1c86be6989eca",
+          "bytes": 108974,
+          "width": 1280,
+          "height": 720,
+          "quality": 78
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3AVeg+Korma+02.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:35:36Z",
+        "commons_sha1": "a79134a45655dca32f433260f670ff79d9ffa512"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/marinara-sauce": {
+      "record_ref": "SAC-024",
+      "record_kind": "sauce",
+      "record_name_en": "Marinara Sauce",
+      "provider": "wikimedia",
+      "source_title": "File:2019-02-07 20 07 26 An open cup of marinara sauce from Domino's in the Franklin Farm section of Oak Hill, Fairfax County, Virginia.jpg",
+      "source_label": "File:2019-02-07 20 07 26 An open cup of marinara sauce from Domino's in the Franklin Farm section of Oak Hill, Fairfax County, Virginia.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:2019-02-07_20_07_26_An_open_cup_of_marinara_sauce_from_Domino%27s_in_the_Franklin_Farm_section_of_Oak_Hill,_Fairfax_County,_Virginia.jpg",
+      "creator": "Famartin",
+      "credit": "Own work",
+      "licence": "cc-by-sa-4.0",
+      "licence_short_name": "CC BY-SA 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "usage_terms": "Creative Commons Attribution-Share Alike 4.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "79a332261611ec857bb87345ae73a64d0dd3cd2d4633ab3c7fb7e232cadcc166",
+      "dhash": "698c9696a6964d31",
+      "outputs": {
+        "card": {
+          "file": "meals/marinara-sauce.card.webp",
+          "sha256": "b1bf0edcb30fc0a351f4ad9bff2f8c0dd6cd1fe2f3d315902adb215b85704b09",
+          "bytes": 29226,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/marinara-sauce.detail.webp",
+          "sha256": "5900b9e109dc8ac0b6550819e3823b43879d3bb83a75e351689860fbbf499fbf",
+          "bytes": 80282,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3A2019-02-07+20+07+26+An+open+cup+of+marinara+sauce+from+Domino%27s+in+the+Franklin+Farm+section+of+Oak+Hill%2C+Fairfax+County%2C+Virginia.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:35:39Z",
+        "commons_sha1": "473d79958dad740c171d1c4163b668958e09d0c3"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/pizza-tomato-cooking-sauce": {
+      "record_ref": "SAC-030",
+      "record_kind": "sauce",
+      "record_name_en": "Pizza Tomato Cooking Sauce",
+      "provider": "wikimedia",
+      "source_title": "File:Woman topping with tomato sauce a homemade pizza dough. (51630382202).jpg",
+      "source_label": "File:Woman topping with tomato sauce a homemade pizza dough. (51630382202).jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Woman_topping_with_tomato_sauce_a_homemade_pizza_dough._(51630382202).jpg",
+      "creator": "Nenad Stojkovic",
+      "credit": "Woman topping with tomato sauce a homemade pizza dough.",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "Creative Commons Attribution 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "31c62a3974f835a0a4b7db8c0915d4a94b5977e5396d7b22945bdfb108aff6cb",
+      "dhash": "b0f8c8ccd6e088b4",
+      "outputs": {
+        "card": {
+          "file": "meals/pizza-tomato-cooking-sauce.card.webp",
+          "sha256": "bf7ab2147120e77e884bb5d651285ca48c15f634629b86af65d0ce07f02ad385",
+          "bytes": 23230,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/pizza-tomato-cooking-sauce.detail.webp",
+          "sha256": "6114e93782a7b60da4789aa2b2db71e4f649764563490fff31d4bfd2d006239b",
+          "bytes": 53394,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3AWoman+topping+with+tomato+sauce+a+homemade+pizza+dough.+%2851630382202%29.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:35:56Z",
+        "commons_sha1": "c8f5391ea2f54851a5c974e7e4e23082121d52ea"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/soya-sesame-cooking-sauce": {
+      "record_ref": "SAC-033",
+      "record_kind": "sauce",
+      "record_name_en": "Soya Sesame Cooking Sauce",
+      "provider": "wikimedia",
+      "source_title": "File:Soy sauce 3.jpg",
+      "source_label": "File:Soy sauce 3.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Soy_sauce_3.jpg",
+      "creator": "Hyeon-Jeong Suk",
+      "credit": "https://www.flickr.com/photos/127584241@N02/15149665834/",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "Creative Commons Attribution 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "47208955c872dc19bceb5314a6b367fb8d2670177506a5c9a8b4a2f3b1b47c10",
+      "dhash": "8c31cc4d0fa75154",
+      "outputs": {
+        "card": {
+          "file": "meals/soya-sesame-cooking-sauce.card.webp",
+          "sha256": "4efe4f261bdcbe03dbd81cd5ea8c713a7e0cb4ff5bd886fabf57e8d00fa58d32",
+          "bytes": 24130,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/soya-sesame-cooking-sauce.detail.webp",
+          "sha256": "6b940b5ce162f25b8b7d0b0160593f6708a50908bf136809e6c6692f2c778773",
+          "bytes": 59220,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3ASoy+sauce+3.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:36:00Z",
+        "commons_sha1": "3f2ffd87d5c0c32141808e227941109c75aa92d0"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/steak-sauce": {
+      "record_ref": "SAC-034",
+      "record_kind": "sauce",
+      "record_name_en": "Steak Sauce",
+      "provider": "wikimedia",
+      "source_title": "File:Steak and Chips with onion rings, mushrooms and broccoli in a peppercorn sauce (35444415743).jpg",
+      "source_label": "File:Steak and Chips with onion rings, mushrooms and broccoli in a peppercorn sauce (35444415743).jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Steak_and_Chips_with_onion_rings,_mushrooms_and_broccoli_in_a_peppercorn_sauce_(35444415743).jpg",
+      "creator": "CharmaineZoe's Marvelous Melange from England",
+      "credit": "Steak and Chips with onion rings, mushrooms and broccoli in a peppercorn sauce",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "Creative Commons Attribution 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "44cd501d4e4416f5025f665b7e75bb95df5dcb94de0654684b23638141f80125",
+      "dhash": "44c6c6a581a1e2ec",
+      "outputs": {
+        "card": {
+          "file": "meals/steak-sauce.card.webp",
+          "sha256": "456d834f910371a7a29ab973c272a9f2bb228bd727042909a7191e7f050f6024",
+          "bytes": 43068,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/steak-sauce.detail.webp",
+          "sha256": "a2c4fe3bfea5d23b0891cb9c6f29ee44c267d0d15d4d6a948a06bcd143dd5e89",
+          "bytes": 99554,
+          "width": 1280,
+          "height": 720,
+          "quality": 78
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3ASteak+and+Chips+with+onion+rings%2C+mushrooms+and+broccoli+in+a+peppercorn+sauce+%2835444415743%29.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:36:01Z",
+        "commons_sha1": "0a90596df85753730e5b284c2024191186e3dd5d"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/tempura-batter": {
+      "record_ref": "SAC-043",
+      "record_kind": "sauce",
+      "record_name_en": "Tempura Batter",
+      "provider": "wikimedia",
+      "source_title": "File:Tempura batter (5442182582).jpg",
+      "source_label": "File:Tempura batter (5442182582).jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Tempura_batter_(5442182582).jpg",
+      "creator": "Jeremy Keith from Brighton & Hove, United Kingdom",
+      "credit": "Tempura batter Uploaded by Fæ",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "Creative Commons Attribution 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "6a3999cbaea2816ae0dce576627a56c9f226442a769a763a14bbe8241b303339",
+      "dhash": "f4f5b4faf1c1d9a9",
+      "outputs": {
+        "card": {
+          "file": "meals/tempura-batter.card.webp",
+          "sha256": "4493135fb9f56cc6b5724814fb9e9a96e65ffe9c7eb2e8e60a2190e1a45b142b",
+          "bytes": 33612,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/tempura-batter.detail.webp",
+          "sha256": "5163257f966ebaa33c47e76784873ae52bd23c63fa5ac0842d9a0eccce9ad633",
+          "bytes": 100744,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3ATempura+batter+%285442182582%29.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:36:05Z",
+        "commons_sha1": "ae5b8823dd8ad12743303661b353917cb80c85db"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/tomato-cooking-sauce": {
+      "record_ref": "SAC-036",
+      "record_kind": "sauce",
+      "record_name_en": "Tomato Cooking Sauce",
+      "provider": "wikimedia",
+      "source_title": "File:Tomato sauce 2021 P02.jpg",
+      "source_label": "File:Tomato sauce 2021 P02.jpg",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Tomato_sauce_2021_P02.jpg",
+      "creator": "Fallaner",
+      "credit": "Own work",
+      "licence": "cc-by-sa-4.0",
+      "licence_short_name": "CC BY-SA 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "usage_terms": "Creative Commons Attribution-Share Alike 4.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "5a55a2d3e9d06bd2fee991c280851a685b00ce04ad08605eafb2369d5fe9adfc",
+      "dhash": "660fa3d496d471d1",
+      "outputs": {
+        "card": {
+          "file": "meals/tomato-cooking-sauce.card.webp",
+          "sha256": "f67cfbca23314067b631c87b23521beb1b42b5c19ccede7e7d22f039a3c75006",
+          "bytes": 34754,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/tomato-cooking-sauce.detail.webp",
+          "sha256": "50d3e2c3675b2ba4817206d8b11a5a711b81ba9a3bdbe3fdcda912dcf922801c",
+          "bytes": 102296,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://commons.wikimedia.org/w/api.php?action=query&titles=File%3ATomato+sauce+2021+P02.jpg&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata%7Csha1&iiurlwidth=1600&format=json&formatversion=2",
+        "fetched_at": "2026-10-01T21:36:08Z",
+        "commons_sha1": "a882d31a8878beeeac21611668482f2a15c42f24"
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:36:29Z",
+        "note": ""
+      }
+    },
+    "meals/curry-salad-dressing": {
+      "record_ref": "DRS-007",
+      "record_kind": "dressing",
+      "record_name_en": "Curry Salad Dressing",
+      "provider": "flickr",
+      "source_title": "openverse:e0ab16a3-d992-41c8-a450-d0c7dabadc80",
+      "source_label": "Grilled chicken salad with creamy curry dressing! #nomnom #foodstagram #igersmaine #itswhatsfordinner",
+      "source_url": "https://www.flickr.com/photos/32870650@N08/22878113193",
+      "creator": "Dana Moos",
+      "credit": "Flickr",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "CC BY 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "1c65624c844c97c63e38fd74c1a3bbba8caa5b8e27f01e2559d0c13bc71cf3b3",
+      "dhash": "c1c0d4a62b6b666e",
+      "outputs": {
+        "card": {
+          "file": "meals/curry-salad-dressing.card.webp",
+          "sha256": "8deb1483ac54226ce3a77423a72303d5b171cbe5f01e6ffbbc1860f71dad8d49",
+          "bytes": 20204,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/curry-salad-dressing.detail.webp",
+          "sha256": "7785336d9b4d85148ec0801eb4990d40c15b2f785c81e6d6e519bfc3421e09ba",
+          "bytes": 48040,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://api.openverse.org/v1/images/e0ab16a3-d992-41c8-a450-d0c7dabadc80/",
+        "fetched_at": "2026-10-01T21:45:19Z",
+        "commons_sha1": "",
+        "at_source": {
+          "url": "https://www.flickr.com/photos/32870650@N08/22878113193",
+          "checked_at": "2026-10-01T21:45:18Z",
+          "evidence": "creativecommons.org/licenses/by/2.0",
+          "deeds_on_page": [
+            "creativecommons.org/licenses/by/2.0"
+          ]
+        }
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:46:12Z",
+        "note": ""
+      }
+    },
+    "meals/orange-oil-dressing": {
+      "record_ref": "DRS-012",
+      "record_kind": "dressing",
+      "record_name_en": "Orange Oil Dressing",
+      "provider": "flickr",
+      "source_title": "openverse:2aead99f-f10d-4503-a5cd-f59cf571a3b8",
+      "source_label": "OrangePepperDressing",
+      "source_url": "https://www.flickr.com/photos/24013072@N05/3863869144",
+      "creator": "YoAmes",
+      "credit": "Flickr",
+      "licence": "cc-by-sa-2.0",
+      "licence_short_name": "CC BY-SA 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "usage_terms": "CC BY-SA 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "eeddc7e30a9930adf0295e89544cacaf7a13a47adaec857b30d76dcbd4e98d82",
+      "dhash": "e35490902031d366",
+      "outputs": {
+        "card": {
+          "file": "meals/orange-oil-dressing.card.webp",
+          "sha256": "514dacfc3f6b2b0cb00c860537ac77ddf643d0477b31f2019e703fd6a67dab72",
+          "bytes": 35190,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/orange-oil-dressing.detail.webp",
+          "sha256": "209684ff0aeaf4ee351eeaad88fce131616d6e151f945ce44f24b769d83afb30",
+          "bytes": 105804,
+          "width": 1280,
+          "height": 720,
+          "quality": 74
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://api.openverse.org/v1/images/2aead99f-f10d-4503-a5cd-f59cf571a3b8/",
+        "fetched_at": "2026-10-01T21:45:24Z",
+        "commons_sha1": "",
+        "at_source": {
+          "url": "https://www.flickr.com/photos/24013072@N05/3863869144",
+          "checked_at": "2026-10-01T21:45:21Z",
+          "evidence": "creativecommons.org/licenses/by-sa/2.0",
+          "deeds_on_page": [
+            "creativecommons.org/licenses/by-sa/2.0"
+          ]
+        }
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:46:12Z",
+        "note": ""
+      }
+    },
+    "meals/oregano-salad-dressing": {
+      "record_ref": "DRS-013",
+      "record_kind": "dressing",
+      "record_name_en": "Oregano Salad Dressing",
+      "provider": "flickr",
+      "source_title": "openverse:4e14a0db-d59a-4fd6-894e-24f2a5e81941",
+      "source_label": "Oregano Vinaigrette",
+      "source_url": "https://www.flickr.com/photos/90155432@N02/12153363863",
+      "creator": "Thriving Vegetarian",
+      "credit": "Flickr",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "CC BY 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "98e317f9f233e0e60ce6bf01f8dbc1d6c5ffeb82a9136f99a57cb3d48685044d",
+      "dhash": "6acc84b6b68c6316",
+      "outputs": {
+        "card": {
+          "file": "meals/oregano-salad-dressing.card.webp",
+          "sha256": "cfcf24a070bd72b72f153f9eba861dc1029af3ae0b2cf77737cd769d67c80786",
+          "bytes": 40070,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/oregano-salad-dressing.detail.webp",
+          "sha256": "ac23e4b37e4847bbf3606860d2178c1b7a5538402cc0b724ad7d7f8a4b5e19d5",
+          "bytes": 95052,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://api.openverse.org/v1/images/4e14a0db-d59a-4fd6-894e-24f2a5e81941/",
+        "fetched_at": "2026-10-01T21:45:28Z",
+        "commons_sha1": "",
+        "at_source": {
+          "url": "https://www.flickr.com/photos/90155432@N02/12153363863",
+          "checked_at": "2026-10-01T21:45:27Z",
+          "evidence": "creativecommons.org/licenses/by/2.0",
+          "deeds_on_page": [
+            "creativecommons.org/licenses/by/2.0"
+          ]
+        }
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:46:12Z",
+        "note": ""
+      }
+    },
+    "meals/pomegranate-salad-dressing": {
+      "record_ref": "DRS-016",
+      "record_kind": "dressing",
+      "record_name_en": "Pomegranate Salad Dressing",
+      "provider": "flickr",
+      "source_title": "openverse:6fb77383-3743-46e6-b57e-93e38ee01b2c",
+      "source_label": "Pomegranate Dressing/Relish",
+      "source_url": "https://www.flickr.com/photos/14514578@N08/34648542561",
+      "creator": "cajsa.lilliehook",
+      "credit": "Flickr",
+      "licence": "cc-by-sa-2.0",
+      "licence_short_name": "CC BY-SA 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "usage_terms": "CC BY-SA 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "49a10e546927feaf2ef867c7e92054c99673e5beaccda9da7c7586ef56ba4f1a",
+      "dhash": "f8962a23318ae4f1",
+      "outputs": {
+        "card": {
+          "file": "meals/pomegranate-salad-dressing.card.webp",
+          "sha256": "788c09a6d43bc6b91de02202fa2dca654500f5d006f45585156bcfc07bc9666c",
+          "bytes": 57440,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/pomegranate-salad-dressing.detail.webp",
+          "sha256": "355c94846ad5725af3d262bb869714839b302a49ff86f9e77f421dfd64569a6c",
+          "bytes": 119242,
+          "width": 1280,
+          "height": 720,
+          "quality": 74
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://api.openverse.org/v1/images/6fb77383-3743-46e6-b57e-93e38ee01b2c/",
+        "fetched_at": "2026-10-01T21:45:34Z",
+        "commons_sha1": "",
+        "at_source": {
+          "url": "https://www.flickr.com/photos/14514578@N08/34648542561",
+          "checked_at": "2026-10-01T21:45:31Z",
+          "evidence": "creativecommons.org/licenses/by-sa/2.0",
+          "deeds_on_page": [
+            "creativecommons.org/licenses/by-sa/2.0"
+          ]
+        }
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:46:12Z",
+        "note": ""
+      }
+    },
+    "meals/cocktail-sauce": {
+      "record_ref": "SAC-006",
+      "record_kind": "sauce",
+      "record_name_en": "Cocktail Sauce",
+      "provider": "flickr",
+      "source_title": "openverse:68adf98e-0903-4ab9-8ed8-79db9bf5c5ec",
+      "source_label": "Make Your Own Cocktail Sauce",
+      "source_url": "https://www.flickr.com/photos/39042961@N03/6815563941",
+      "creator": "donireewalker",
+      "credit": "Flickr",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "CC BY 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "30631f0fae17fdc8e3bc5e08d4fb1096c1aa884b11aa15e97219c807e389146f",
+      "dhash": "d3e0cc17070626d0",
+      "outputs": {
+        "card": {
+          "file": "meals/cocktail-sauce.card.webp",
+          "sha256": "60db403e9fccb027588aba0f8d1fce549dc71612e1d5788878803ce3e8a5f57c",
+          "bytes": 11172,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/cocktail-sauce.detail.webp",
+          "sha256": "08895bc844304ae8dfba4df700ae8e2ace4524476685e28878c9ccadba5c90b0",
+          "bytes": 28626,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://api.openverse.org/v1/images/68adf98e-0903-4ab9-8ed8-79db9bf5c5ec/",
+        "fetched_at": "2026-10-01T21:45:37Z",
+        "commons_sha1": "",
+        "at_source": {
+          "url": "https://www.flickr.com/photos/39042961@N03/6815563941",
+          "checked_at": "2026-10-01T21:45:36Z",
+          "evidence": "creativecommons.org/licenses/by/2.0",
+          "deeds_on_page": [
+            "creativecommons.org/licenses/by/2.0"
+          ]
+        }
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:46:12Z",
+        "note": ""
+      }
+    },
+    "meals/curry-cooking-sauce": {
+      "record_ref": "SAC-020",
+      "record_kind": "sauce",
+      "record_name_en": "Curry Cooking Sauce",
+      "provider": "flickr",
+      "source_title": "openverse:c3d6761c-d25a-4bc6-a375-2cce3223b550",
+      "source_label": "Yogurt Curry Sauce",
+      "source_url": "https://www.flickr.com/photos/18199354@N00/3243825631",
+      "creator": "Rex Roof",
+      "credit": "Flickr",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "CC BY 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "1b0392cda9277e42fb14b41e31a36ae0f9f4447d607ccc61dfa516c70df078f3",
+      "dhash": "0c4d6062e0e1e172",
+      "outputs": {
+        "card": {
+          "file": "meals/curry-cooking-sauce.card.webp",
+          "sha256": "15ebabc8a51ce16419e521c9ea7048f4382840c4d6053000ca5aa4dc57183c24",
+          "bytes": 19172,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/curry-cooking-sauce.detail.webp",
+          "sha256": "6d8461bcd47a76d302b292600c947ab05033bfba098cbfb15bfe15228284dab1",
+          "bytes": 57236,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://api.openverse.org/v1/images/c3d6761c-d25a-4bc6-a375-2cce3223b550/",
+        "fetched_at": "2026-10-01T21:45:41Z",
+        "commons_sha1": "",
+        "at_source": {
+          "url": "https://www.flickr.com/photos/18199354@N00/3243825631",
+          "checked_at": "2026-10-01T21:45:40Z",
+          "evidence": "creativecommons.org/licenses/by/2.0",
+          "deeds_on_page": [
+            "creativecommons.org/licenses/by/2.0"
+          ]
+        }
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:46:12Z",
+        "note": ""
+      }
+    },
+    "meals/dynamite-sauce": {
+      "record_ref": "SAC-008",
+      "record_kind": "sauce",
+      "record_name_en": "Dynamite Sauce",
+      "provider": "flickr",
+      "source_title": "openverse:7d933ed9-6a1f-4f0e-bc47-78cb0cbb6627",
+      "source_label": "Eggplant Fritters with Spicy 'Mayo'",
+      "source_url": "https://www.flickr.com/photos/25128194@N02/4126524575",
+      "creator": "Vegan Feast Catering",
+      "credit": "Flickr",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "CC BY 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "fc42418367a788168035fa7ed12a770c7d8d63e47e8598d6807fb4722caa26b5",
+      "dhash": "e1cdb28297f6c681",
+      "outputs": {
+        "card": {
+          "file": "meals/dynamite-sauce.card.webp",
+          "sha256": "0d5d9fe20a09a936ef5951087ce6cdfcdd3dc80cdf94c0e080a8728506cbf4eb",
+          "bytes": 31542,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/dynamite-sauce.detail.webp",
+          "sha256": "979338778579b8c1b92064fdfd73b7550808c207240e81e00d9c470ca1439c1d",
+          "bytes": 78804,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://api.openverse.org/v1/images/7d933ed9-6a1f-4f0e-bc47-78cb0cbb6627/",
+        "fetched_at": "2026-10-01T21:45:46Z",
+        "commons_sha1": "",
+        "at_source": {
+          "url": "https://www.flickr.com/photos/25128194@N02/4126524575",
+          "checked_at": "2026-10-01T21:45:44Z",
+          "evidence": "creativecommons.org/licenses/by/2.0",
+          "deeds_on_page": [
+            "creativecommons.org/licenses/by/2.0"
+          ]
+        }
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:46:12Z",
+        "note": ""
+      }
+    },
+    "meals/mustard-cooking-sauce": {
+      "record_ref": "SAC-027",
+      "record_kind": "sauce",
+      "record_name_en": "Mustard Cooking Sauce",
+      "provider": "flickr",
+      "source_title": "openverse:27528b29-bec5-4feb-99b5-9c1890fe5a82",
+      "source_label": "Panko pork cutlets with bacon, shallot leek mustard cream sauce. #foodstagram #igersmaine #itswhatsfordinner #nomnom",
+      "source_url": "https://www.flickr.com/photos/32870650@N08/22730472904",
+      "creator": "Dana Moos",
+      "credit": "Flickr",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "CC BY 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "dbdac726e61d398f2fc984d8500249e0bcc2f10294deca13e3c4b525961e8142",
+      "dhash": "389bdf5d72b1b153",
+      "outputs": {
+        "card": {
+          "file": "meals/mustard-cooking-sauce.card.webp",
+          "sha256": "3ea3c8a864459a92f8f09f9acd55743202fdd7e257489518911a73d74fe2533e",
+          "bytes": 33382,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/mustard-cooking-sauce.detail.webp",
+          "sha256": "15a30feca165fa9a9f9898b0ab80210dd6198be2b2281ae408d69aca5a79f9bd",
+          "bytes": 75406,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://api.openverse.org/v1/images/27528b29-bec5-4feb-99b5-9c1890fe5a82/",
+        "fetched_at": "2026-10-01T21:45:53Z",
+        "commons_sha1": "",
+        "at_source": {
+          "url": "https://www.flickr.com/photos/32870650@N08/22730472904",
+          "checked_at": "2026-10-01T21:45:51Z",
+          "evidence": "creativecommons.org/licenses/by/2.0",
+          "deeds_on_page": [
+            "creativecommons.org/licenses/by/2.0"
+          ]
+        }
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:46:12Z",
+        "note": ""
+      }
+    },
+    "meals/peanut-butter-sauce": {
+      "record_ref": "SAC-028",
+      "record_kind": "sauce",
+      "record_name_en": "Peanut Butter Sauce",
+      "provider": "flickr",
+      "source_title": "openverse:5f221ed4-9d85-4e89-a1d0-ed5ed6f6a8c1",
+      "source_label": "Thai peanut sauce",
+      "source_url": "https://www.flickr.com/photos/70757891@N00/13198250723",
+      "creator": "grongar",
+      "credit": "Flickr",
+      "licence": "cc-by-2.0",
+      "licence_short_name": "CC BY 2.0",
+      "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+      "usage_terms": "CC BY 2.0",
+      "attribution_required": true,
+      "modifications": "cropped and resized; re-encoded as WebP",
+      "content_sha256": "a98be112f5d1feeabafb3c00f2a8b1daf09b358261148ac0aae0492fc6991336",
+      "dhash": "cc929233238286c0",
+      "outputs": {
+        "card": {
+          "file": "meals/peanut-butter-sauce.card.webp",
+          "sha256": "23648619b086bf8a46de8739ba3d2fdb38386f37253f495d2279aef1663053fc",
+          "bytes": 39280,
+          "width": 640,
+          "height": 360,
+          "quality": 82
+        },
+        "detail": {
+          "file": "meals/peanut-butter-sauce.detail.webp",
+          "sha256": "843b66f0272844184b6264889ea434f4baece0ff82d15df03f33d17c45ddbfd8",
+          "bytes": 104870,
+          "width": 1280,
+          "height": 720,
+          "quality": 82
+        }
+      },
+      "transform": {
+        "fit": "cover",
+        "centering": [
+          0.5,
+          0.42
+        ],
+        "resample": "LANCZOS",
+        "encoder": "Pillow 12.0.0 WEBP method=6"
+      },
+      "verified": {
+        "api_url": "https://api.openverse.org/v1/images/5f221ed4-9d85-4e89-a1d0-ed5ed6f6a8c1/",
+        "fetched_at": "2026-10-01T21:45:57Z",
+        "commons_sha1": "",
+        "at_source": {
+          "url": "https://www.flickr.com/photos/70757891@N00/13198250723",
+          "checked_at": "2026-10-01T21:45:55Z",
+          "evidence": "creativecommons.org/licenses/by/2.0",
+          "deeds_on_page": [
+            "creativecommons.org/licenses/by/2.0"
+          ]
+        }
+      },
+      "review": {
+        "verdict": "accepted",
+        "reviewed_at": "2026-10-01T21:46:12Z",
+        "note": ""
+      }
     }
   },
   "blocked": [
@@ -20993,6 +23305,166 @@
       "reason": "no_correct_candidate",
       "queries_tried": [],
       "note": "Commons and Openverse grids both reviewed; the only plausible candidate failed at final-crop review (brand labels legible, wrong subject, or subject cropped out)."
+    },
+    {
+      "record_ref": "DRS-009",
+      "kind": "dressing",
+      "name_en": "Lemon Mustard Dressing",
+      "slug": "lemon-mustard-dressing",
+      "reason": "all_candidates_claimed",
+      "queries_tried": [
+        "category:Lemon",
+        "category:Lemons",
+        "category:Dressing",
+        "Lemon Mustard Dressing"
+      ],
+      "note": "51 seen, 4 usable, 2 already taken, 2 off-subject"
+    },
+    {
+      "record_ref": "SAC-039",
+      "kind": "sauce",
+      "name_en": "Beef Grilled Marination",
+      "slug": "beef-grilled-marination",
+      "reason": "no_honest_photograph",
+      "queries_tried": [],
+      "note": "A marinade is a preparation on raw meat; no photograph shows the marinade itself rather than a substitute."
+    },
+    {
+      "record_ref": "SAC-041",
+      "kind": "sauce",
+      "name_en": "Philadelphia Marination",
+      "slug": "philadelphia-marination",
+      "reason": "no_honest_photograph",
+      "queries_tried": [],
+      "note": "A marinade is a preparation on raw meat; no photograph shows the marinade itself rather than a substitute."
+    },
+    {
+      "record_ref": "SAC-009",
+      "kind": "sauce",
+      "name_en": "Garlic Mayo Sauce",
+      "slug": "garlic-mayo-sauce",
+      "reason": "licence_unverified_at_source",
+      "queries_tried": [
+        "pin:openverse:397448be-7dee-4d19-9e49-d3109da084e2"
+      ],
+      "note": "https://www.flickr.com/photos/55768440@N00/4551863947: source page could not be read (HTTP Error 403: Forbidden), so the licence Openverse reports is unconfirmed"
+    },
+    {
+      "record_ref": "SAC-040",
+      "kind": "sauce",
+      "name_en": "Fajita Sizzling Mix",
+      "slug": "fajita-sizzling-mix",
+      "reason": "no_honest_photograph",
+      "queries_tried": [],
+      "note": "A sizzling-fajita marinade mix: every photograph shows finished fajitas, not the mix."
+    },
+    {
+      "record_ref": "DRS-002",
+      "kind": "dressing",
+      "name_en": "Avocado Mint Salad Dressing",
+      "slug": "avocado-mint-salad-dressing",
+      "reason": "no_correct_candidate",
+      "queries_tried": [],
+      "note": "Reviewed 2026-10-02: the Commons pass, a curated 12-candidate Commons grid and an 18-candidate Openverse grid showed no photograph of this preparation itself."
+    },
+    {
+      "record_ref": "DRS-014",
+      "kind": "dressing",
+      "name_en": "Paprika Salad Dressing",
+      "slug": "paprika-salad-dressing",
+      "reason": "no_correct_candidate",
+      "queries_tried": [],
+      "note": "Reviewed 2026-10-02: the Commons pass, a curated 12-candidate Commons grid and an 18-candidate Openverse grid showed no photograph of this preparation itself."
+    },
+    {
+      "record_ref": "SAC-005",
+      "kind": "sauce",
+      "name_en": "Classic Burger Sauce",
+      "slug": "classic-burger-sauce",
+      "reason": "no_correct_candidate",
+      "queries_tried": [],
+      "note": "Reviewed 2026-10-02: the Commons pass, a curated 12-candidate Commons grid and an 18-candidate Openverse grid showed no photograph of this preparation itself."
+    },
+    {
+      "record_ref": "SAC-007",
+      "kind": "sauce",
+      "name_en": "Crab Sauce",
+      "slug": "crab-sauce",
+      "reason": "no_correct_candidate",
+      "queries_tried": [],
+      "note": "Reviewed 2026-10-02: the Commons pass, a curated 12-candidate Commons grid and an 18-candidate Openverse grid showed no photograph of this preparation itself."
+    },
+    {
+      "record_ref": "SAC-025",
+      "kind": "sauce",
+      "name_en": "Moghrabieh Cooking Sauce",
+      "slug": "moghrabieh-cooking-sauce",
+      "reason": "no_correct_candidate",
+      "queries_tried": [],
+      "note": "Reviewed 2026-10-02: the Commons pass, a curated 12-candidate Commons grid and an 18-candidate Openverse grid showed no photograph of this preparation itself."
+    },
+    {
+      "record_ref": "SAC-012",
+      "kind": "sauce",
+      "name_en": "Pepper Mayo",
+      "slug": "pepper-mayo",
+      "reason": "no_correct_candidate",
+      "queries_tried": [],
+      "note": "Reviewed 2026-10-02: the Commons pass, a curated 12-candidate Commons grid and an 18-candidate Openverse grid showed no photograph of this preparation itself."
+    },
+    {
+      "record_ref": "SAC-031",
+      "kind": "sauce",
+      "name_en": "Shawarma Cooking Sauce",
+      "slug": "shawarma-cooking-sauce",
+      "reason": "no_correct_candidate",
+      "queries_tried": [],
+      "note": "Reviewed 2026-10-02: the Commons pass, a curated 12-candidate Commons grid and an 18-candidate Openverse grid showed no photograph of this preparation itself."
+    },
+    {
+      "record_ref": "SAC-032",
+      "kind": "sauce",
+      "name_en": "Siyadieh Cooking Sauce",
+      "slug": "siyadieh-cooking-sauce",
+      "reason": "no_correct_candidate",
+      "queries_tried": [],
+      "note": "Reviewed 2026-10-02: the Commons pass, a curated 12-candidate Commons grid and an 18-candidate Openverse grid showed no photograph of this preparation itself."
+    },
+    {
+      "record_ref": "SAC-015",
+      "kind": "sauce",
+      "name_en": "Sweet Chilli Mayo",
+      "slug": "sweet-chilli-mayo",
+      "reason": "no_correct_candidate",
+      "queries_tried": [],
+      "note": "Reviewed 2026-10-02: the Commons pass, a curated 12-candidate Commons grid and an 18-candidate Openverse grid showed no photograph of this preparation itself."
+    },
+    {
+      "record_ref": "SAC-037",
+      "kind": "sauce",
+      "name_en": "Truffle Creamy Sauce",
+      "slug": "truffle-creamy-sauce",
+      "reason": "no_correct_candidate",
+      "queries_tried": [],
+      "note": "Reviewed 2026-10-02: the Commons pass, a curated 12-candidate Commons grid and an 18-candidate Openverse grid showed no photograph of this preparation itself."
+    },
+    {
+      "record_ref": "SAC-017",
+      "kind": "sauce",
+      "name_en": "Truffle Mayo Sauce",
+      "slug": "truffle-mayo-sauce",
+      "reason": "no_correct_candidate",
+      "queries_tried": [],
+      "note": "Reviewed 2026-10-02: the Commons pass, a curated 12-candidate Commons grid and an 18-candidate Openverse grid showed no photograph of this preparation itself."
+    },
+    {
+      "record_ref": "SAC-018",
+      "kind": "sauce",
+      "name_en": "Alfredo Sauce",
+      "slug": "alfredo-sauce",
+      "reason": "no_correct_candidate",
+      "queries_tried": [],
+      "note": "Reviewed 2026-10-02: the Commons pass, a curated 12-candidate Commons grid and an 18-candidate Openverse grid showed no photograph of this preparation itself."
     }
   ],
   "refused": {
@@ -21528,6 +24000,146 @@
     "ING-162": [
       "File:Steak sandwich on rye bread with caraway seeds, and potato salad - Massachusetts.jpg",
       "File:Caraway seed under a microscope.jpg"
+    ],
+    "DRS-001": [
+      "File:Engenni people dressing code.jpg"
+    ],
+    "DRS-002": [
+      "File:0376jfAvocado Santa Maria Bulacanfvf 02.jpg"
+    ],
+    "DRS-003": [
+      "File:0376jfAvocado Santa Maria Bulacanfvf 05.jpg"
+    ],
+    "DRS-004": [
+      "File:Easter Sunday dress.jpg"
+    ],
+    "DRS-005": [
+      "File:Salad with caesar dressing, Horizon Bay Reataurant, Tokyo Disney Sea 2023-04-17.jpg"
+    ],
+    "DRS-006": [
+      "File:TERIYAKI SALMON SALAD - Jonny's 2025-05-27.jpg"
+    ],
+    "DRS-007": [
+      "File:Currys, Treliske Retail Park, Truro, Cornwall - July 2024.jpg"
+    ],
+    "DRS-008": [
+      "File:JP 日本 Japan 沖繩 OKINAWA Naha Route 221 AEON Mall Okinawa Prefecture shop Honeys Clothing January 2025 R12S 01.jpg"
+    ],
+    "DRS-011": [
+      "File:Salad of mixed greens, herring, avocado, and plum and cherry tomatoes, with mustard dressing, cheddar cheese, and black pepper - Massachusetts.jpg"
+    ],
+    "DRS-012": [
+      "File:A group of ripe bananas sits next to several oranges.jpg"
+    ],
+    "DRS-013": [
+      "File:Parma Salad - Pizzaface 2026-04-07.jpg"
+    ],
+    "DRS-014": [
+      "File:Tomatensalt mit Schalotten, Paprika, Basilikum, Essig-Öl-Dressing.jpg"
+    ],
+    "DRS-016": [
+      "File:Ancient pomegranates and dates.jpg"
+    ],
+    "DRS-019": [
+      "File:Heinz Thousand Island Dressing.jpg"
+    ],
+    "SAC-018": [
+      "File:Armenian walnut paprika sauce.jpg",
+      "File:The Only Original Alfredo Sauce with Butter and Parmesano-Reggiano Cheese.png"
+    ],
+    "SAC-002": [
+      "File:Barbecue côtes de porc.jpg"
+    ],
+    "SAC-039": [
+      "File:2022-03-12 19 16 45 One of the beef patties of a heated Hungry-Man Grilled Beef Patty meal in the Franklin Farm section of Oak Hill, Fairfax County, Virginia.jpg"
+    ],
+    "SAC-003": [
+      "File:City of Buffalo Landmarks & Historic Districts 10-2-2025.jpg"
+    ],
+    "SAC-005": [
+      "File:Chili sauce.jpg"
+    ],
+    "SAC-006": [
+      "File:Alcohol-bar-party-cocktail-1 (23698684204).jpg",
+      "File:Cocktailsauce.jpg"
+    ],
+    "SAC-007": [
+      "File:Brown crab.jpg"
+    ],
+    "SAC-020": [
+      "File:Currys Digital.jpg",
+      "File:Battered Sausages & Chips (regular size) with Curry Sauce - No Catch 2024-08-21.jpg"
+    ],
+    "SAC-008": [
+      "File:GRANITE BOULDER BESIDE HIGH-WAY 30 ON THE SOUTH END OF TUPPER LAKE. STRIATIONS ARE DYNAMITE HOLE MARKS - NARA - 554410.jpg"
+    ],
+    "SAC-040": [
+      "File:Black Bean Fajitas (32205626058).jpg"
+    ],
+    "SAC-021": [
+      "File:Blackberry-and-green-grape-sauce-copy.jpg"
+    ],
+    "SAC-009": [
+      "File:-365 garlic harvest (28151809812).jpg"
+    ],
+    "SAC-011": [
+      "File:A some kind of hotpot sauces table at Chinese restautant.jpg"
+    ],
+    "SAC-022": [
+      "File:Aliter Ius in Avibus (Poultry with Hazelnuts Sauce), Apicius, De Re Coquinaria 6,5,2 (23241931753).jpg"
+    ],
+    "SAC-023": [
+      "File:Chicken Korma.JPG"
+    ],
+    "SAC-024": [
+      "File:Marinara sauce at Roy Rogers.jpg"
+    ],
+    "SAC-025": [
+      "File:Aliter Ius in Avibus (Poultry with Hazelnuts Sauce), Apicius, De Re Coquinaria 6,5,2 & Cucurbitas more Alexandrino (Alexandrine Squash), Apicius, De Re Coquinaria 3,4,3 (23852992435).jpg"
+    ],
+    "SAC-027": [
+      "File:2020-06-13 19 53 29 Chick-fil-A Sauce in the Franklin Farm section of Oak Hill, Fairfax County, Virginia.jpg",
+      "File:-2020-02-24 Dijon Chicken, Cream of Mushroom, Nutmeg, Spinach Sauce, Bay Scented Smashed Roast Potatoes, Trimingham.JPG"
+    ],
+    "SAC-028": [
+      "File:A 3 bucket of Dried Peanuts in the food shop at Yau Ma Tei.jpg",
+      "File:Deukhine - sauce with peanut butter and tamarind, served in communal platter.jpg"
+    ],
+    "SAC-012": [
+      "File:Hengdong Sanzhang yellow pepper.jpg"
+    ],
+    "SAC-041": [
+      "File:ALPR Camera Philadelphia PA Aramingo and Lehigh.jpg"
+    ],
+    "SAC-030": [
+      "File:Argentine pizza with ham and mozzarella cheese, green bell peppers, tomatoes, onions, green olives from Mendoza and oregano (gourmet).jpg"
+    ],
+    "SAC-031": [
+      "File:Chicken & Lamb Shawarma.jpg"
+    ],
+    "SAC-032": [
+      "File:Black sauce in Nowa Ruda (mine).jpg"
+    ],
+    "SAC-033": [
+      "File:Addictionsauces gift boxes1.jpg"
+    ],
+    "SAC-034": [
+      "File:Beef steak slices on a platter with sauce.JPG"
+    ],
+    "SAC-015": [
+      "File:Sweetcorn Fritter Balls - Banana Tree 2024-12-20.jpg"
+    ],
+    "SAC-043": [
+      "File:2018-03-25 loin of cod with tempura batterd vegetables, Cap Finistère Brittany Ferry.JPG"
+    ],
+    "SAC-036": [
+      "File:Aliter Ius in Avibus (Poultry with Hazelnuts Sauce), Apicius, De Re Coquinaria 6,5,2 & Cucurbitas more Alexandrino (Alexandrine Squash), Apicius, De Re Coquinaria 3,4,3 (23826940766).jpg"
+    ],
+    "SAC-037": [
+      "File:Ravioli with truffle cream sauce and cheese from flower years bar.jpg"
+    ],
+    "SAC-017": [
+      "File:Mini Truffle Cups (43134406005).jpg"
     ]
   }
 }
