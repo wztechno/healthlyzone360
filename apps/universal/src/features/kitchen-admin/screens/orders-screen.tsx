@@ -598,12 +598,14 @@ function OrderLinesTable({
         },
         {
             key: 'quantity',
+            width: 104,
             header: t('kitchen:ops.orders.lineQuantity'),
             numeric: true,
             render: (line) => <Text>{formatter.formatNumber(Number(line.quantity))}</Text>,
         },
         {
             key: 'unitPrice',
+            width: 104,
             header: t('kitchen:ops.orders.lineUnitPrice'),
             numeric: true,
             render: (line) => (
@@ -614,6 +616,7 @@ function OrderLinesTable({
         },
         {
             key: 'lineTotal',
+            width: 104,
             header: t('kitchen:ops.orders.lineTotal'),
             numeric: true,
             render: (line) => (

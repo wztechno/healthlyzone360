@@ -160,7 +160,13 @@ export function CatalogueList<Row>({
         );
     }
 
-    const drawn = withTableThumbnail(columns, rowKey, testID);
+    /*
+     * The title is the column of long text, so it takes the row's slack and the short columns keep
+     * the widths their content needs (see `DataList`'s `fill`). A spec may still say otherwise.
+     */
+    const drawn = withTableThumbnail(columns, rowKey, testID).map((column) =>
+        column.role === 'title' && column.fill === undefined ? { ...column, fill: true } : column,
+    );
     const withActions =
         rowActions === undefined
             ? drawn
@@ -253,10 +259,10 @@ function withTableThumbnail<Row>(
             );
 
         /*
-         * Held to the cell's width, with the title beside the picture rather than under it: the
-         * title's track is an equal share of the row like every other column's, so a long name
-         * has to wrap inside it. Left to its content width, the pair ran past the track and wrote
-         * the name over the next column.
+         * Held to the cell's width, with the title beside the picture rather than under it. The
+         * title's track is the one that fills, but a name can still be longer than whatever is
+         * left: then it ends in an ellipsis, readable on hover. Left to its content width, the pair
+         * ran past the track and wrote the name over the next column.
          */
         return {
             ...column,

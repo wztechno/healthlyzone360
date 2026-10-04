@@ -206,6 +206,7 @@ export {
     DataList,
     UNDROPPABLE_PRIORITY,
     dataListColumnAlign,
+    fillingColumns,
     fitColumns,
     spreadColumns,
 } from './content/data-list.tsx';

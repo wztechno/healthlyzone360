@@ -91,12 +91,14 @@ export function BatchPlanPanel({
         },
         {
             key: 'required',
+            width: 104,
             header: t('kitchen:ops.production.planRequired'),
             numeric: true,
             render: (line) => <Text variant="mono">{figure(line.required, line.unitCode)}</Text>,
         },
         {
             key: 'onHand',
+            width: 104,
             header: t('kitchen:ops.production.planOnHand'),
             numeric: true,
             render: (line) => (
@@ -107,6 +109,7 @@ export function BatchPlanPanel({
         },
         {
             key: 'reserved',
+            width: 104,
             header: t('kitchen:ops.production.planReserved'),
             numeric: true,
             render: (line) => (
@@ -117,6 +120,7 @@ export function BatchPlanPanel({
         },
         {
             key: 'available',
+            width: 104,
             header: t('kitchen:ops.production.planAvailable'),
             numeric: true,
             render: (line) => (
@@ -127,6 +131,7 @@ export function BatchPlanPanel({
         },
         {
             key: 'missing',
+            width: 104,
             header: t('kitchen:ops.production.planMissing'),
             numeric: true,
             primary: true,
@@ -140,6 +145,7 @@ export function BatchPlanPanel({
             ? ([
                   {
                       key: 'lineCost',
+                      width: 104,
                       header: t('kitchen:ops.production.columnUnitCost'),
                       numeric: true,
                       render: (line: ProductionPlanLine) =>

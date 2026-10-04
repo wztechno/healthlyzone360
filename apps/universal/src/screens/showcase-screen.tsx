@@ -369,6 +369,18 @@ const CATALOGUE_ROWS: readonly CatalogueRow[] = [
         statusLabel: 'Review',
         updated: '28 Aug',
     },
+    // Longer than any column it can get: one line, an ellipsis, the whole name on hover.
+    {
+        key: 'pomegranate',
+        designation:
+            'Pomegranate molasses, cold-pressed, unsweetened — from the Beqaa co-operative, 5 L tin',
+        reference: 'ING-0311',
+        kind: 'condiment',
+        cost: '11.8000',
+        status: 'live',
+        statusLabel: 'Live',
+        updated: '27 Aug',
+    },
 ];
 
 const CATALOGUE_KINDS = ['paste', 'spice', 'dairy'] as const;
@@ -3784,6 +3796,18 @@ export function ShowcaseScreen() {
                         max="2027-12-31"
                         onChange={setStartDate}
                     />
+                    {/* The kitchen desk's field: the `sm` control rung its inputs and selects use. */}
+                    <DensityProvider value="compact">
+                        <DateField
+                            testID="showcase-date-compact"
+                            id="showcase-date-compact"
+                            label={t('designSystem:showcase.dateLabel')}
+                            value={startDate}
+                            min="2026-01-01"
+                            max="2027-12-31"
+                            onChange={setStartDate}
+                        />
+                    </DensityProvider>
                     <DatePickerButton
                         testID="showcase-date-picker"
                         label={t('designSystem:showcase.dateLabel')}

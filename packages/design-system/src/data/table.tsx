@@ -75,8 +75,14 @@ export interface TableColumn<Row> {
      * the card's leading line in the stacked presentation. At most one column should set this.
      */
     readonly rowHeader?: boolean | undefined;
-    /** Relative width inside the row. Defaults to 1. */
+    /** Relative share of the row's width once the fixed columns have theirs. Defaults to 1. */
     readonly flex?: number | undefined;
+    /**
+     * A fixed track in dp, for a column whose content is short and known — a unit, a count, a
+     * status. It does not take a share of the row, so the space a short value does not need goes to
+     * the columns of long text instead of sitting empty beside it. Wins over `flex`.
+     */
+    readonly width?: number | undefined;
     /**
      * Makes the column's header pressable and gives it an `aria-sort`. Only the wide presentation
      * has column headers, so this has no effect below `md`.
@@ -172,6 +178,18 @@ export interface TableProps<Row> {
  * `columnheader` — and a footer inside each card below it, where a fourth column of buttons would
  * be the squeeze the stacked branch exists to avoid.
  */
+/**
+ * One column's track. A fixed column is exactly its `width`; every other column shares what is left
+ * by its `flex`, and may shrink below its content — `minWidth: 0` — so a long value ends in an
+ * ellipsis (see `TableCellTextContext`) instead of pushing the row wider than the table.
+ */
+function trackStyle<Row>(column: TableColumn<Row>) {
+    if (column.width !== undefined) {
+        return { flexBasis: column.width, flexGrow: 0, flexShrink: 0, minWidth: 0 } as const;
+    }
+    return { flexGrow: column.flex ?? 1, flexShrink: 1, flexBasis: 0, minWidth: 0 } as const;
+}
+
 export function Table<Row>({
     caption,
     columns,
@@ -396,7 +414,7 @@ export function Table<Row>({
                                             HEADER_CELL_CLASS,
                                             column.numeric === true ? figureText : 'text-start',
                                         )}
-                                        style={{ flex: column.flex ?? 1 }}
+                                        style={trackStyle(column)}
                                     >
                                         {column.header}
                                     </RNText>
@@ -416,7 +434,7 @@ export function Table<Row>({
                                     aria-sort={
                                         !active ? 'none' : ascending ? 'ascending' : 'descending'
                                     }
-                                    style={{ flex: column.flex ?? 1 }}
+                                    style={trackStyle(column)}
                                 >
                                     <Pressable
                                         testID={`${base}-sort-${column.key}`}
@@ -525,7 +543,7 @@ export function Table<Row>({
                                               ? 'text-role-strong text-content-primary'
                                               : 'text-base font-semibold text-content-primary',
                                     )}
-                                    style={{ flex: column.flex ?? 1 }}
+                                    style={trackStyle(column)}
                                 >
                                     {/*
                                      * One size and one ink down every column — see

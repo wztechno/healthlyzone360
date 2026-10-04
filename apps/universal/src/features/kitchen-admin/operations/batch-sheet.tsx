@@ -154,6 +154,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         },
         {
             key: 'quantity',
+            width: 104,
             header: t('kitchen:ops.batch.columnRequired'),
             numeric: true,
             primary: true,
@@ -168,6 +169,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         },
         {
             key: 'unit',
+            width: 64,
             numeric: true,
             header: t('kitchen:ops.batch.columnUnit'),
             // The unit the required figure is read in — grams under a kilogram. See `displayQuantity`.
@@ -183,6 +185,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         },
         {
             key: 'available',
+            width: 104,
             header: t('kitchen:ops.batch.columnAvailable'),
             numeric: true,
             render: (line) => {
@@ -202,6 +205,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         },
         {
             key: 'short',
+            width: 104,
             header: t('kitchen:ops.batch.columnShort'),
             numeric: true,
             render: (line) => {
@@ -259,6 +263,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         },
         {
             key: 'quantity',
+            width: 104,
             header: t('kitchen:ops.batch.columnQuantity'),
             numeric: true,
             primary: true,
@@ -290,6 +295,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         },
         {
             key: 'unit',
+            width: 64,
             numeric: true,
             header: t('kitchen:ops.batch.columnUnit'),
             render: (row) => (

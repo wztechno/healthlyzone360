@@ -1,10 +1,12 @@
 import { View } from 'react-native';
 
+import { useDensity } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
 import { clampIso, isIsoDate, withinBounds } from './date-field-shared.ts';
 import type { DateFieldProps } from './date-field-shared.ts';
 import { FormField } from './form-field.tsx';
 import type { FieldControlProps } from './form-field.tsx';
+import { inputControlClass, inputFrameClassName } from './text-input.tsx';
 
 export type { DateFieldProps } from './date-field-shared.ts';
 
@@ -35,6 +37,13 @@ export function DateField({
     className,
     testID,
 }: DateFieldProps) {
+    const density = useDensity();
+    // Under `DensityProvider value="compact"` — the kitchen desk — the frame is the `sm` rung of the
+    // control ladder its text inputs and selects already sit on; a 44px customer box among them was
+    // the one field in a row that would not line up. Comfortable keeps the touch frame it shipped
+    // with, because the customer surfaces are phones.
+    const compact = density === 'compact';
+
     return (
         <FormField
             label={label}
@@ -49,13 +58,23 @@ export function DateField({
         >
             {(control: FieldControlProps) => (
                 <View
-                    className={cx(
-                        'flex-row items-center gap-2 rounded-lg border bg-surface-base px-3 min-h-touch',
-                        error === undefined ? 'border-stroke' : 'border-danger-border',
-                        // Not an opacity — see `inputFrameClassName`: dimming the frame dims
-                        // the date along with it, below the contrast floor.
-                        disabled ? 'bg-surface-sunken border-stroke-subtle' : null,
-                    )}
+                    className={
+                        compact
+                            ? inputFrameClassName({
+                                  invalid: error !== undefined,
+                                  focused: false,
+                                  disabled,
+                                  density,
+                                  size: 'sm',
+                              })
+                            : cx(
+                                  'flex-row items-center gap-2 rounded-lg border bg-surface-base px-3 min-h-touch',
+                                  error === undefined ? 'border-stroke' : 'border-danger-border',
+                                  // Not an opacity — see `inputFrameClassName`: dimming the frame
+                                  // dims the date along with it, below the contrast floor.
+                                  disabled ? 'bg-surface-sunken border-stroke-subtle' : null,
+                              )
+                    }
                 >
                     <input
                         type="date"
@@ -80,7 +99,11 @@ export function DateField({
                                 withinBounds(next, min, max) ? next : clampIso(next, min, max),
                             );
                         }}
-                        className="h-11 flex-1 border-0 bg-transparent text-base text-content-primary outline-none"
+                        className={
+                            compact
+                                ? cx(inputControlClass(density), 'h-full')
+                                : 'h-11 flex-1 border-0 bg-transparent text-base text-content-primary outline-none'
+                        }
                     />
                 </View>
             )}
