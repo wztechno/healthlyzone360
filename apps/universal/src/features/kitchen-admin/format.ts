@@ -925,7 +925,9 @@ export function summarisePlanPrices(
     plan: { readonly id: string; readonly variants: readonly PlanVariantAdmin[] },
     priceLists: readonly { readonly entries: readonly PriceListEntry[] }[],
 ): PlanPriceCoverage {
-    const references: string[] = ['', ...plan.variants.map((variant) => String(variant.id))];
+    // One reference per configuration and none for the plan as a whole: the server's publish gate
+    // and its quote both price a configuration from its own row, and ignore a whole-plan row.
+    const references: string[] = plan.variants.map((variant) => String(variant.id));
     const found = new Map<string, Set<PriceStatus>>(
         references.map((reference) => [reference, new Set<PriceStatus>()]),
     );

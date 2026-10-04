@@ -1404,6 +1404,15 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             const id = String(planId);
             const body: Record<string, unknown> = {};
 
+            /*
+             * Up to three writes against one row's version, so each carries the version the one
+             * before it left behind. Every one of them advances it: sending the version read at the
+             * start to all three made the profile write refuse as a conflict the moment the item
+             * patch had landed — every edit of a saved plan's name, summary or cut-off failed with
+             * "this resource changed", having half-applied.
+             */
+            let version = request.lockVersion;
+
             if (request.name !== undefined) {
                 body.name_en = request.name.en;
                 body.name_ar = request.name.ar;
@@ -1412,7 +1421,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 Object.assign(body, descriptionWire(request.description));
 
             if (Object.keys(body).length > 0) {
-                await patchCatalogueItem(id, request.lockVersion, body);
+                version = await patchCatalogueItem(id, version, body);
             }
 
             const profile: Record<string, unknown> = {};
@@ -1425,20 +1434,19 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             }
 
             if (Object.keys(profile).length > 0) {
-                await transport.request({
+                const written = await transport.request<{
+                    readonly item?: AdminCatalogueItem | undefined;
+                }>({
                     method: 'PUT',
                     path: `/catalogue/plans/${encodeURIComponent(id)}/profile`,
-                    headers: ifMatch(request.lockVersion),
+                    headers: ifMatch(version),
                     body: profile,
                 });
+                version = written?.item?.lock_version ?? version + 1;
             }
 
             if (request.dietClassifications !== undefined) {
-                await replaceDietClassifications(
-                    id,
-                    request.lockVersion,
-                    request.dietClassifications,
-                );
+                await replaceDietClassifications(id, version, request.dietClassifications);
             }
 
             return reads.getPlan(planId);
@@ -1467,14 +1475,55 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             request: SetPlanVariantsRequest,
         ): Promise<PlanAdmin> {
             const id = String(planId);
-            const combinations = await transport.request<MealCombinationOption[]>({
+            let combinations = await transport.request<MealCombinationOption[]>({
                 method: 'GET',
                 path: '/catalogue/plan-vocabulary/combinations',
             });
-            const bands = await transport.request<EnergyBand[]>({
+            let bands = await transport.request<EnergyBand[]>({
                 method: 'GET',
                 path: '/catalogue/plan-vocabulary/energy-bands',
             });
+
+            /*
+             * A configuration's meals a day and energy band are its coordinates, and the server keys
+             * them by the kitchen's vocabulary rows. The editor no longer has a section that writes
+             * that vocabulary, so a coordinate the kitchen has never used is created here, as
+             * `setPlanDurations` creates a duration — rather than dropping the configuration, which
+             * sent an empty `cells` list, came back 200, and saved a plan with nothing in it.
+             */
+            for (const variant of request.variants) {
+                if (combinations.some((row) => row.meals_per_day === variant.mealsPerDay)) continue;
+                const created = await transport.requestEnvelope<{
+                    readonly combination: MealCombinationOption;
+                }>({
+                    method: 'POST',
+                    path: '/catalogue/plan-vocabulary/combinations',
+                    body: {
+                        code: slugifyCode(`${String(variant.mealsPerDay)}-meals`),
+                        name_en: `${String(variant.mealsPerDay)} meals a day`,
+                        meals_per_day: variant.mealsPerDay,
+                        ...sittingsForMealsPerDay(variant.mealsPerDay),
+                    },
+                });
+                combinations = [...combinations, created.data.combination];
+            }
+            for (const variant of request.variants) {
+                const { min, max } = variant.energyBand;
+                if (bands.some((row) => row.min_kcal === min && row.max_kcal === max)) continue;
+                const created = await transport.requestEnvelope<{
+                    readonly energy_band: EnergyBand;
+                }>({
+                    method: 'POST',
+                    path: '/catalogue/plan-vocabulary/energy-bands',
+                    body: {
+                        code: slugifyCode(`${String(min)}-${String(max)}-kcal`),
+                        name_en: `${String(min)}–${String(max)} kcal`,
+                        min_kcal: min,
+                        max_kcal: max,
+                    },
+                });
+                bands = [...bands, created.data.energy_band];
+            }
 
             const cells = request.variants.flatMap((variant) => {
                 const combination = combinations.find(

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8182 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8185 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -5302,17 +5302,19 @@ export interface NamespaceKeys {
     | 'plans.menuAddedAnnouncement'
     | 'plans.menuAnchorLabel'
     | 'plans.menuAnchorMalformed'
+    | 'plans.menuAnchorPlaceholder'
     | 'plans.menuAnchorRequired'
     | 'plans.menuBeyondCycle'
     | 'plans.menuBlockedTitle'
     | 'plans.menuCutoverBody'
     | 'plans.menuCutoverTitle'
     | 'plans.menuCycleDaysLabel'
+    | 'plans.menuCycleNotWeekly'
     | 'plans.menuCycleOutOfRange'
     | 'plans.menuCycleRequired'
     | 'plans.menuDayBeyond'
     | 'plans.menuDayEmptyHint'
-    | 'plans.menuDayFalls'
+    | 'plans.menuDayLabel'
     | 'plans.menuDayNumber'
     | 'plans.menuDuplicateCoordinate'
     | 'plans.menuEmpty'
@@ -5321,17 +5323,18 @@ export interface NamespaceKeys {
     | 'plans.menuEntryCount'
     | 'plans.menuEntryNumber'
     | 'plans.menuEntryRemoved'
+    | 'plans.menuExplainer'
     | 'plans.menuLoadErrorTitle'
-    | 'plans.menuMealHint'
     | 'plans.menuMealLabel'
+    | 'plans.menuMealPlaceholder'
     | 'plans.menuMealRequired'
     | 'plans.menuMealUnavailable'
     | 'plans.menuMealsPending'
     | 'plans.menuSaveError'
     | 'plans.menuSavedToast'
-    | 'plans.menuSequenceHint'
     | 'plans.menuSequenceLabel'
     | 'plans.menuSequenceRequired'
+    | 'plans.menuSequenceShort'
     | 'plans.menuSlotBreakfast'
     | 'plans.menuSlotDinner'
     | 'plans.menuSlotLabel'
@@ -5380,7 +5383,9 @@ export interface NamespaceKeys {
     | 'plans.sectionDurations'
     | 'plans.sectionMenu'
     | 'plans.sectionPrices'
+    | 'plans.servingsMeals'
     | 'plans.servingsRequired'
+    | 'plans.servingsSnacks'
     | 'plans.servingsSummary'
     | 'plans.snacksPerDayLabel'
     | 'plans.snacksPerDayPlaceholder'
@@ -5413,7 +5418,6 @@ export interface NamespaceKeys {
     | 'plans.viewCombinations'
     | 'plans.viewKind'
     | 'plans.viewPublic'
-    | 'plans.weekdaysLabel'
     | 'priceLists.addEntry'
     | 'priceLists.agreementBadge'
     | 'priceLists.amountFieldLabel'
@@ -5521,7 +5525,6 @@ export interface NamespaceKeys {
     | 'priceLists.offlineTitle'
     | 'priceLists.openEnded'
     | 'priceLists.packLabel'
-    | 'priceLists.packPlan'
     | 'priceLists.placeholderCount'
     | 'priceLists.problemAmountNotAllowed'
     | 'priceLists.problemBadAmount'
@@ -13502,17 +13505,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.menuAddedAnnouncement',
   'kitchen:plans.menuAnchorLabel',
   'kitchen:plans.menuAnchorMalformed',
+  'kitchen:plans.menuAnchorPlaceholder',
   'kitchen:plans.menuAnchorRequired',
   'kitchen:plans.menuBeyondCycle',
   'kitchen:plans.menuBlockedTitle',
   'kitchen:plans.menuCutoverBody',
   'kitchen:plans.menuCutoverTitle',
   'kitchen:plans.menuCycleDaysLabel',
+  'kitchen:plans.menuCycleNotWeekly',
   'kitchen:plans.menuCycleOutOfRange',
   'kitchen:plans.menuCycleRequired',
   'kitchen:plans.menuDayBeyond',
   'kitchen:plans.menuDayEmptyHint',
-  'kitchen:plans.menuDayFalls',
+  'kitchen:plans.menuDayLabel',
   'kitchen:plans.menuDayNumber',
   'kitchen:plans.menuDuplicateCoordinate',
   'kitchen:plans.menuEmpty',
@@ -13521,17 +13526,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.menuEntryCount',
   'kitchen:plans.menuEntryNumber',
   'kitchen:plans.menuEntryRemoved',
+  'kitchen:plans.menuExplainer',
   'kitchen:plans.menuLoadErrorTitle',
-  'kitchen:plans.menuMealHint',
   'kitchen:plans.menuMealLabel',
+  'kitchen:plans.menuMealPlaceholder',
   'kitchen:plans.menuMealRequired',
   'kitchen:plans.menuMealUnavailable',
   'kitchen:plans.menuMealsPending',
   'kitchen:plans.menuSaveError',
   'kitchen:plans.menuSavedToast',
-  'kitchen:plans.menuSequenceHint',
   'kitchen:plans.menuSequenceLabel',
   'kitchen:plans.menuSequenceRequired',
+  'kitchen:plans.menuSequenceShort',
   'kitchen:plans.menuSlotBreakfast',
   'kitchen:plans.menuSlotDinner',
   'kitchen:plans.menuSlotLabel',
@@ -13580,7 +13586,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.sectionDurations',
   'kitchen:plans.sectionMenu',
   'kitchen:plans.sectionPrices',
+  'kitchen:plans.servingsMeals',
   'kitchen:plans.servingsRequired',
+  'kitchen:plans.servingsSnacks',
   'kitchen:plans.servingsSummary',
   'kitchen:plans.snacksPerDayLabel',
   'kitchen:plans.snacksPerDayPlaceholder',
@@ -13613,7 +13621,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.viewCombinations',
   'kitchen:plans.viewKind',
   'kitchen:plans.viewPublic',
-  'kitchen:plans.weekdaysLabel',
   'kitchen:priceLists.addEntry',
   'kitchen:priceLists.agreementBadge',
   'kitchen:priceLists.amountFieldLabel',
@@ -13721,7 +13728,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:priceLists.offlineTitle',
   'kitchen:priceLists.openEnded',
   'kitchen:priceLists.packLabel',
-  'kitchen:priceLists.packPlan',
   'kitchen:priceLists.placeholderCount',
   'kitchen:priceLists.problemAmountNotAllowed',
   'kitchen:priceLists.problemBadAmount',

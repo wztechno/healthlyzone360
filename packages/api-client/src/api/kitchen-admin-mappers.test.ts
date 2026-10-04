@@ -6,6 +6,7 @@ import {
     mapMealAdminFromItem,
     mapPlanVariantsFromCells,
     mapProductAdminFromItem,
+    planDurationsFromAssignments,
 } from './kitchen-admin-mappers.ts';
 
 describe('mapIngredientPublishableStatus', () => {
@@ -224,5 +225,44 @@ describe('the admin image id for a catalogue item', () => {
         const meal = wire({ item_type: 'meal', slug: 'freekeh-bowl', image_placeholder_id: null });
 
         expect(mapMealAdminFromItem(meal).imagePlaceholderId).toBe('meal-freekeh-bowl');
+    });
+});
+
+describe('planDurationsFromAssignments', () => {
+    const vocabulary = [
+        { id: 'd-20', duration_kind: 'fixed_days', duration_days: 20 },
+        { id: 'd-28', duration_kind: 'fixed_days', duration_days: 28 },
+        { id: 'd-once', duration_kind: 'one_off', duration_days: null },
+    ] as unknown as Parameters<typeof planDurationsFromAssignments>[1];
+
+    const assignment = (planDurationId: string, discount: string | null, variant = 'v-1') =>
+        ({
+            id: `${variant}-${planDurationId}`,
+            catalogue_item_variant_id: variant,
+            plan_duration_id: planDurationId,
+            discount_percent: discount,
+            is_available: true,
+        }) as Parameters<typeof planDurationsFromAssignments>[0][number];
+
+    it('lists only what the plan offers, once each, with its stated discount', () => {
+        // The kitchen also has a 20-day length another plan uses; this plan does not offer it.
+        expect(
+            planDurationsFromAssignments(
+                [assignment('d-28', '5.00'), assignment('d-28', '5.00', 'v-2')],
+                vocabulary,
+            ),
+        ).toEqual([{ kind: 'fixed_days', days: 28, discountPercent: 5 }]);
+    });
+
+    it('keeps an unstated discount unstated, and orders the one-off first', () => {
+        expect(
+            planDurationsFromAssignments(
+                [assignment('d-28', null), assignment('d-once', '0.00')],
+                vocabulary,
+            ),
+        ).toEqual([
+            { kind: 'one_off', days: null, discountPercent: 0 },
+            { kind: 'fixed_days', days: 28, discountPercent: null },
+        ]);
     });
 });
