@@ -39,22 +39,17 @@ export interface RecordSummaryAsideProps {
         readonly testID: string;
         readonly emptyTestID: string;
     };
-    /** A callout between the list and the action — what still needs saying before the commit. */
+    /** A callout under the list — what still needs saying before the commit. */
     readonly note?: ReactNode;
-    /**
-     * The commit, repeated beside what it does. Omit it on a record whose actions already sit in
-     * the opening and would only be drawn twice — the aside then ends at its list.
-     */
-    readonly action?: ReactNode;
-    /** One line under the action: what pressing it does, in plain words. */
-    readonly foot?: string | undefined;
 }
 
 /**
- * The record form's aside: the record in a few facts, what committing it will do, and the commit.
+ * The record form's aside: the record in a few facts and what committing it will do.
  *
- * Drawn first for Post receipt and shared with the supply-order builder, which asks the same thing
- * of its reader — *this is what you are about to create, this is its effect, create it*.
+ * Drawn first for Post receipt and shared with the supply-order builder and the supply order page,
+ * which ask the same thing of their reader — *this is what you are about to create, this is its
+ * effect*. The commit itself is not here: it sits in the page's opening, and a second copy at the
+ * aside's foot was one button drawn twice.
  *
  * ```
  * ┌ THIS RECEIPT ────────────┐
@@ -65,13 +60,11 @@ export interface RecordSummaryAsideProps {
  * │ Stock at Beirut rises by  │
  * │ Chicken breast   +24 kg   │
  * │ ⚠ 1 line has no price…    │
- * │ ───────────────────────── │
- * │ [      Post receipt     ] │
  * └───────────────────────────┘
  * ```
  *
  * One card rather than three, its parts divided by hairlines, because it is read top to bottom as
- * one statement. Sticky on the web, so the commit stays beside a long form; the offset resolves
+ * one statement. Sticky on the web, so the summary stays beside a long form; the offset resolves
  * against the shell's scroll port, which pins it just under the top bar.
  */
 export function RecordSummaryAside({
@@ -82,8 +75,6 @@ export function RecordSummaryAside({
     total,
     list,
     note,
-    action,
-    foot,
 }: RecordSummaryAsideProps) {
     return (
         <View
@@ -164,17 +155,6 @@ export function RecordSummaryAside({
                     </View>
 
                     {note}
-
-                    {action === undefined ? null : (
-                        <View className="flex-col gap-tight border-t border-stroke-subtle pt-base">
-                            {action}
-                            {foot === undefined ? null : (
-                                <Text variant="micro" tone="secondary">
-                                    {foot}
-                                </Text>
-                            )}
-                        </View>
-                    )}
                 </View>
             </FormSection>
         </View>

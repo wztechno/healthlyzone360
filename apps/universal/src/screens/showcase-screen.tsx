@@ -4647,7 +4647,10 @@ export function ShowcaseScreen() {
                             }
                         />
                     </View>
-                    {/* The record form's aside — Post receipt's, shared with the supply-order builder. */}
+                    {/*
+                     * The record form's aside — Post receipt's, shared with the supply-order builder
+                     * and the supply order page. No commit inside it: that lives in the opening.
+                     */}
                     <RecordSummaryAside
                         testID="showcase-kitchen-summary"
                         title="Ready to order"
@@ -4673,14 +4676,6 @@ export function ShowcaseScreen() {
                             ],
                         }}
                         note={<Callout tone="warning" title="1 item won't be ordered" />}
-                        action={
-                            <Button
-                                testID="showcase-kitchen-summary-action"
-                                label="Create 2 draft orders"
-                                block
-                            />
-                        }
-                        foot="Nothing is sent to anyone yet."
                     />
                 </Section>
             </Stack>

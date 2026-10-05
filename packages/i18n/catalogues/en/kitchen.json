@@ -532,8 +532,7 @@
             "outCount_one": "{{count}} out of stock",
             "outCount_other": "{{count}} out of stock",
             "groupCount_one": "{{count}} item",
-            "groupCount_other": "{{count}} items",
-            "commitNote": "One draft order per supplier. Nothing is sent to anyone yet — you can review, edit and issue each order afterwards."
+            "groupCount_other": "{{count}} items"
         },
         "suppliers": {
             "title": "Suppliers",
@@ -766,7 +765,6 @@
             "unpricedNote_one": "{{count}} line has no price. It posts now and waits in Prices to finish until the invoice is in — until then this month’s spend reads low.",
             "unpricedNote_other": "{{count}} lines have no price. They post now and wait in Prices to finish until the invoice is in — until then this month’s spend reads low.",
             "quantitiesOnlyNote": "You post quantities. Whoever holds cost access adds the prices from the invoice — the receipt waits for them in Prices to finish.",
-            "postFoot": "Stock rises the moment a receipt is posted; prices can be added afterwards. A posted receipt is not edited — a mistake is corrected with a stock movement.",
             "postDelivery": "Post delivery",
             "postedToast_one": "Receipt posted. Stock has gone up on {{count}} item.",
             "postedToast_other": "Receipt posted. Stock has gone up on {{count}} items.",

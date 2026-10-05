@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8186 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8184 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4220,7 +4220,6 @@ export interface NamespaceKeys {
     | 'ops.procurement.pendingFxCount'
     | 'ops.procurement.postDelivery'
     | 'ops.procurement.postFailed'
-    | 'ops.procurement.postFoot'
     | 'ops.procurement.postReceipt'
     | 'ops.procurement.postTitle'
     | 'ops.procurement.postedToast'
@@ -4996,7 +4995,6 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.columnReorderAt'
     | 'ops.supplyOrders.columnStatus'
     | 'ops.supplyOrders.columnSupplier'
-    | 'ops.supplyOrders.commitNote'
     | 'ops.supplyOrders.createCancel'
     | 'ops.supplyOrders.createConfirm'
     | 'ops.supplyOrders.createConfirmBody'
@@ -12424,7 +12422,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.pendingFxCount',
   'kitchen:ops.procurement.postDelivery',
   'kitchen:ops.procurement.postFailed',
-  'kitchen:ops.procurement.postFoot',
   'kitchen:ops.procurement.postReceipt',
   'kitchen:ops.procurement.postTitle',
   'kitchen:ops.procurement.postedToast',
@@ -13200,7 +13197,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.columnReorderAt',
   'kitchen:ops.supplyOrders.columnStatus',
   'kitchen:ops.supplyOrders.columnSupplier',
-  'kitchen:ops.supplyOrders.commitNote',
   'kitchen:ops.supplyOrders.createCancel',
   'kitchen:ops.supplyOrders.createConfirm',
   'kitchen:ops.supplyOrders.createConfirmBody',

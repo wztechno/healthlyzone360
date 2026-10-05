@@ -742,7 +742,7 @@ describe('supply order builder', () => {
         );
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-supply-order-create'));
+            fireEvent.press(screen.getByTestId('kitchen-supply-order-builder-create'));
         });
         await untilVisible('kitchen-supply-order-create-confirm');
 
@@ -792,11 +792,11 @@ describe('supply order builder', () => {
         });
 
         await openBuilderStep('review');
-        await untilVisible('kitchen-supply-order-create');
+        await untilVisible('kitchen-supply-order-builder-create');
 
         // Create is at the foot of Ready to order, under what it creates.
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-supply-order-create'));
+            fireEvent.press(screen.getByTestId('kitchen-supply-order-builder-create'));
         });
         await untilVisible('kitchen-supply-order-create-confirm');
         await act(async () => {

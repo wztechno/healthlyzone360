@@ -219,7 +219,7 @@ describe('post a goods receipt — a market purchase', () => {
         expect(screen.getByTestId('kitchen-post-receipt-rises-empty')).toBeTruthy();
 
         // Pressed with an empty line: the banner names it, and nothing is sent.
-        await press('kitchen-procurement-post-submit');
+        await press('kitchen-procurement-post-confirm');
         await untilVisible('kitchen-post-receipt-screen-issues-errors');
         expect(screen.getByText('2 things to fix before this can post')).toBeTruthy();
         expect(screen.getByText('Line 1 — stock item')).toBeTruthy();
@@ -237,7 +237,7 @@ describe('post a goods receipt — a market purchase', () => {
             expect(screen.queryByTestId('kitchen-post-receipt-screen-issues-errors')).toBeNull();
         });
 
-        await press('kitchen-procurement-post-submit');
+        await press('kitchen-procurement-post-confirm');
         await waitFor(() => {
             expect(posted).toHaveLength(1);
         });
@@ -306,7 +306,7 @@ describe('post a goods receipt — a delivery against an order', () => {
         await type(`${chickenRow}-quantity-input`, '30');
         await untilVisible('kitchen-procurement-post-variance');
 
-        await press('kitchen-procurement-post-submit');
+        await press('kitchen-procurement-post-confirm');
         await untilVisible('kitchen-post-receipt-screen-issues-errors');
         expect(screen.getByText('Over-receipt — confirm it')).toBeTruthy();
         expect(screen.getByText('Why this delivery differs — say why')).toBeTruthy();
@@ -315,7 +315,7 @@ describe('post a goods receipt — a delivery against an order', () => {
         await press('kitchen-procurement-post-over-confirm-control');
         await type('kitchen-procurement-post-variance-note-input', 'Supplier sent a full case.');
 
-        await press('kitchen-procurement-post-submit');
+        await press('kitchen-procurement-post-confirm');
         await waitFor(() => {
             expect(posted).toHaveLength(1);
         });
