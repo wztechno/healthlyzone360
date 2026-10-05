@@ -1,18 +1,20 @@
 import {
+    Badge,
     Button,
     Callout,
+    Cascade,
     EmptyState,
     ErrorState,
+    FormSection,
     FormSkeleton,
-    Stack,
     Text,
     useToast,
 } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
-import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -25,20 +27,36 @@ import { weekdayKey } from '../../marketplace/format.ts';
 import {
     copyDayToOpenDays,
     operatingDraftsFrom,
-    operatingErrors,
+    operatingIssues,
     operatingRequest,
     summariseOperating,
 } from '../delivery-model.ts';
 import type { OperatingDayDraft } from '../delivery-model.ts';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import { OperatingWeekRows } from '../delivery-row-editors.tsx';
-import { EditorFrame } from '../editor-frame.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
+import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
  * `/kitchen/branch-operating` — when this branch trades, and when it stops taking today's orders.
+ *
+ * Laid out as the other record forms are: the opening with the week's one Save, the week in a card,
+ * and beside it a sticky summary of the week — the facts and each day in words.
+ *
+ * ```
+ * Opening hours and cut-offs  ONE RECORD PER BRANCH  ⚠ Unsaved               [ Save the week ]
+ * ┌ TRADING WEEK ─────────────────────────────────────────────────┐  ┌ THIS WEEK ───────────────┐
+ * │ Day        Trading    Opens      Closes     Last same-day order │  │ Branch       Main Kitchen │
+ * │ Monday     [Open ▾]   [08:00 ◷]  [23:00 ◷]  [20:30 ◷]   Copy…  │  │ Closed              1 day │
+ * │ Sunday ⦸   [Closed ▾] [--:-- ◷]  [--:-- ◷]  [--:-- ◷]          │  │ Order cut-off      0 days │
+ * └───────────────────────────────────────────────────────────────┘  │ Trading  6 days a week    │
+ *                                                                    │ Day by day                │
+ *                                                                    │ Monday        08:00–23:00 │
+ *                                                                    └───────────────────────────┘
+ * ```
  *
  * The gap the architectural review exposed (plan §K1.7): the v1 schema had kitchen branches with no
  * opening hours and no order cut-offs at all, and a cut-off is exactly the kind of rule that must
@@ -81,6 +99,17 @@ function kitchenBranchOf(branchId: string): KitchenBranchId {
     return KitchenBranchId.unsafe(branchId);
 }
 
+const EM_DASH = '—';
+
+/**
+ * The summary's fixed track, and the least the week beside it keeps before the summary drops under
+ * it — the week's 796px of tracks plus the card's padding, so Copy is never the column that pays
+ * for the aside.
+ */
+const ASIDE_WIDTH = 300;
+const FORM_MIN_WIDTH = 830;
+const COLUMN_GAP = 16;
+
 export function BranchOperatingScreen() {
     return (
         <Gate
@@ -95,7 +124,6 @@ export function BranchOperatingScreen() {
 
 function BranchOperatingEditor() {
     const { t } = useTranslation();
-    const router = useRouter();
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
     const access = useAccessState();
@@ -130,6 +158,10 @@ function BranchOperatingEditor() {
     const [daysKey, setDaysKey] = useState<string | null>(null);
     const [dirty, setDirty] = useState(false);
     const [announcement, setAnnouncement] = useState('');
+    const [bodyWidth, setBodyWidth] = useState(0);
+
+    const title = t('kitchen:branchHours.title');
+    useKitchenTrailLeaf(title);
 
     const data = record.data;
     const serverKey =
@@ -155,9 +187,9 @@ function BranchOperatingEditor() {
 
     const concurrency = useOptimisticConcurrency({ onReload: reload });
 
-    const dayErrors = useMemo(
+    const dayIssues = useMemo(
         () =>
-            operatingErrors(days, {
+            operatingIssues(days, {
                 opensInvalid: t('kitchen:branchHours.opensInvalid'),
                 closesInvalid: t('kitchen:branchHours.closesInvalid'),
                 closesBeforeOpens: t('kitchen:branchHours.closesBeforeOpens'),
@@ -170,7 +202,7 @@ function BranchOperatingEditor() {
     const summary = summariseOperating(days);
 
     const saveWeek = () => {
-        if (data === undefined || branchId === null || dayErrors.size > 0) return;
+        if (data === undefined || branchId === null || dayIssues.size > 0) return;
         save.mutate(
             {
                 branchId,
@@ -203,13 +235,13 @@ function BranchOperatingEditor() {
 
     if (branchId === null) {
         return (
-            <Stack space="lg" testID="kitchen-branch-hours-screen">
+            <Cascade space="md" testID="kitchen-branch-hours-screen">
                 <EmptyState
                     testID="kitchen-branch-hours-no-branch"
                     title={t('kitchen:branchHours.noBranchTitle')}
                     body={t('kitchen:branchHours.noBranchBody')}
                 />
-            </Stack>
+            </Cascade>
         );
     }
 
@@ -218,7 +250,8 @@ function BranchOperatingEditor() {
             <FormSkeleton
                 testID="kitchen-branch-hours-loading"
                 partTestID="kitchen-branch-hours"
-                sections={2}
+                heading={false}
+                sections={1}
                 tabs={0}
             />
         );
@@ -227,7 +260,7 @@ function BranchOperatingEditor() {
     const loadFailure = toFailure(record.error);
     if (loadFailure !== null) {
         return (
-            <Stack space="lg" testID="kitchen-branch-hours-screen">
+            <Cascade space="md" testID="kitchen-branch-hours-screen">
                 <ErrorState
                     testID="kitchen-branch-hours-load-error"
                     failure={loadFailure}
@@ -237,144 +270,191 @@ function BranchOperatingEditor() {
                     }}
                     retrying={record.isFetching}
                 />
-            </Stack>
+            </Cascade>
         );
     }
 
     const saveFailure = toFailure(save.error);
     const everyDayClosed = summary.openDays === 0;
+    const sideBySide = bodyWidth >= ASIDE_WIDTH + FORM_MIN_WIDTH + COLUMN_GAP;
+    const dayCount = (count: number) =>
+        `${String(count)} ${t('kitchen:branchHours.cardDayUnit', { count })}`;
 
     return (
-        <EditorFrame
-            testID="kitchen-branch-hours-screen"
-            title={t('kitchen:branchHours.title')}
-            titleChip={{ label: t('kitchen:branchHours.chip'), tone: 'neutral' }}
-            summary={
-                <CatalogueStatCards
-                    testID="kitchen-branch-hours-cards"
-                    cards={[
+        <Cascade space="md" testID="kitchen-branch-hours-screen">
+            {/*
+             * The opening the record forms share: the title, what kind of record it is, the unsaved
+             * marker and the week's one Save. No Back — the trail already leads to the workspace,
+             * and the unsaved guard stands on every exit.
+             */}
+            <RecordFormOpening
+                testID="kitchen-branch-hours-screen"
+                title={title}
+                dirty={guard.isDirty}
+                badges={
+                    <Badge
+                        variant="label"
+                        testID="kitchen-branch-hours-screen-chip"
+                        tone="neutral"
+                        icon={null}
+                        label={t('kitchen:branchHours.chip')}
+                    />
+                }
+                actions={
+                    canManage ? (
+                        <Button
+                            testID="kitchen-branch-hours-screen-save"
+                            label={t('kitchen:branchHours.save')}
+                            loading={save.isPending}
+                            disabled={!dirty || dayIssues.size > 0 || save.isPending}
+                            onPress={saveWeek}
+                        />
+                    ) : undefined
+                }
+            />
+
+            {saveFailure === null ? null : (
+                <Callout
+                    testID="kitchen-branch-hours-save-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('kitchen:branchHours.saveError')}
+                    body={saveFailure.message}
+                />
+            )}
+
+            {everyDayClosed ? (
+                <Callout
+                    testID="kitchen-branch-hours-all-closed"
+                    role="alert"
+                    tone="warning"
+                    title={t('kitchen:branchHours.allClosedTitle')}
+                    body={t('kitchen:branchHours.allClosedBody')}
+                />
+            ) : null}
+
+            <View
+                onLayout={(event: LayoutChangeEvent) => {
+                    setBodyWidth(event.nativeEvent.layout.width);
+                }}
+                className={
+                    sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
+                }
+            >
+                {/* The week is the row's filler beside the fixed summary. */}
+                <View className="z-auto min-w-0 flex-1 flex-col gap-base">
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-branch-hours-week"
+                        title={t('kitchen:branchHours.weekTitle')}
+                        aside={
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:branchHours.cutOffHint')}
+                            </Text>
+                        }
+                    >
+                        <OperatingWeekRows
+                            testID="kitchen-branch-hours-rows"
+                            rows={days}
+                            issues={dayIssues}
+                            canManage={canManage}
+                            announcement={announcement}
+                            onChange={(next) => {
+                                markDirty(() => {
+                                    setDays(next);
+                                });
+                            }}
+                            onCopyToOpenDays={(weekday) => {
+                                markDirty(() => {
+                                    const next = copyDayToOpenDays(days, weekday);
+                                    setDays(next);
+                                    setAnnouncement(
+                                        t('kitchen:branchHours.copiedAnnouncement', {
+                                            day: t(weekdayKey(weekday)),
+                                            count: summariseOperating(next).openDays - 1,
+                                        }),
+                                    );
+                                });
+                            }}
+                        />
+                    </FormSection>
+                </View>
+
+                {/*
+                 * The week in a few facts and in words, day by day — what the stat cards and each
+                 * row's sentence used to say, read top to bottom in one place.
+                 */}
+                <RecordSummaryAside
+                    testID="kitchen-branch-hours-summary"
+                    title={t('kitchen:branchHours.summaryTitle')}
+                    width={sideBySide ? ASIDE_WIDTH : null}
+                    rows={[
+                        /*
+                         * Named only when the session knows the name: an organisation-wide
+                         * membership lists no branches, and a row that always read "—" for an
+                         * owner would be a fact the page does not have.
+                         */
+                        ...(branch === null
+                            ? []
+                            : [
+                                  {
+                                      key: 'branch',
+                                      label: t('kitchen:branchHours.summaryBranch'),
+                                      value: branch.name,
+                                  },
+                              ]),
+                        // The zone every time on the page is read in — stated, because it is not
+                        // edited here (see the note on the screen).
                         {
-                            key: 'trading',
-                            label: t('kitchen:branchHours.cardTrading'),
-                            value: String(summary.openDays),
-                            unit: t('kitchen:branchHours.cardTradingUnit', {
-                                count: summary.openDays,
-                            }),
-                            caption: branch?.name ?? '',
-                            mark: 'calendar',
-                            tone: summary.openDays === 0 ? 'warning' : 'default',
+                            key: 'time-zone',
+                            label: t('kitchen:branchHours.summaryTimeZone'),
+                            value: data?.timeZone ?? EM_DASH,
                         },
                         {
                             key: 'closed',
                             label: t('kitchen:branchHours.closedLabel'),
-                            value: String(7 - summary.openDays),
-                            unit: t('kitchen:branchHours.cardDayUnit', {
-                                count: 7 - summary.openDays,
-                            }),
-                            caption: t('kitchen:branchHours.cardClosedCaption'),
-                            mark: 'ban',
+                            value: dayCount(summary.closedDays),
                         },
                         {
                             key: 'cut-off',
                             label: t('kitchen:branchHours.cardCutOff'),
-                            value: String(summary.withCutOff),
-                            unit: t('kitchen:branchHours.cardDayUnit', {
-                                count: summary.withCutOff,
-                            }),
-                            caption: t('kitchen:branchHours.cardCutOffCaption'),
-                            mark: 'clock',
+                            value: dayCount(summary.withCutOff),
                         },
                     ]}
-                />
-            }
-            meta={data?.meta ?? null}
-            guard={guard}
-            concurrency={concurrency}
-            onSaveDraft={saveWeek}
-            saveLabel={t('kitchen:branchHours.save')}
-            saving={save.isPending}
-            saveDisabled={!canManage || !dirty || dayErrors.size > 0}
-            /*
-             * No Back and no Save in the header. The trail already leads back to the workspace, and
-             * the week's one Save sits under the week, beside the rule a reader most often breaks —
-             * two Saves for one form was one too many. The unsaved guard still stands on every exit.
-             */
-            hideSave
-            hideBack
-            backLabel={t('kitchen:branchHours.backToHub')}
-            onBack={() => {
-                router.push('/kitchen' as never);
-            }}
-            banner={
-                <Stack space="sm">
-                    {saveFailure === null ? null : (
-                        <Callout
-                            testID="kitchen-branch-hours-save-error"
-                            role="alert"
-                            tone="danger"
-                            title={t('kitchen:branchHours.saveError')}
-                            body={saveFailure.message}
-                        />
-                    )}
-
-                    {everyDayClosed ? (
-                        <Callout
-                            testID="kitchen-branch-hours-all-closed"
-                            role="alert"
-                            tone="warning"
-                            title={t('kitchen:branchHours.allClosedTitle')}
-                            body={t('kitchen:branchHours.allClosedBody')}
-                        />
-                    ) : null}
-                </Stack>
-            }
-        >
-            {/*
-             * The week, with no heading over it: the page title already says what it is, and the
-             * rows say the rest.
-             */}
-            <View testID="kitchen-branch-hours-week" className="z-auto flex-col">
-                <OperatingWeekRows
-                    testID="kitchen-branch-hours-rows"
-                    rows={days}
-                    errors={dayErrors}
-                    canManage={canManage}
-                    announcement={announcement}
-                    onChange={(next) => {
-                        markDirty(() => {
-                            setDays(next);
-                        });
+                    total={{
+                        label: t('kitchen:branchHours.cardTrading'),
+                        value: `${String(summary.openDays)} ${t(
+                            'kitchen:branchHours.cardTradingUnit',
+                            { count: summary.openDays },
+                        )}`,
                     }}
-                    onCopyToOpenDays={(weekday) => {
-                        markDirty(() => {
-                            const next = copyDayToOpenDays(days, weekday);
-                            setDays(next);
-                            setAnnouncement(
-                                t('kitchen:branchHours.copiedAnnouncement', {
-                                    day: t(weekdayKey(weekday)),
-                                    count: summariseOperating(next).openDays - 1,
-                                }),
-                            );
-                        });
+                    list={{
+                        title: t('kitchen:branchHours.summaryDays'),
+                        // Never drawn: the week always has its seven days.
+                        empty: '',
+                        testID: 'kitchen-branch-hours-summary-days',
+                        emptyTestID: 'kitchen-branch-hours-summary-days-empty',
+                        items: days.map((day) => ({
+                            key: String(day.weekday),
+                            testID: `kitchen-branch-hours-summary-day-${String(day.weekday)}`,
+                            name: t(weekdayKey(day.weekday)),
+                            value: day.isClosed
+                                ? t('kitchen:branchHours.closedLabel')
+                                : t('kitchen:branchHours.dayHours', {
+                                      opens: day.opensAt === '' ? EM_DASH : day.opensAt,
+                                      closes: day.closesAt === '' ? EM_DASH : day.closesAt,
+                                  }),
+                        })),
                     }}
                 />
-
-                {/* The page's only Save, under the week, beside the rule a reader most often breaks. */}
-                {canManage ? (
-                    <View className="flex-row flex-wrap items-center gap-tight px-tight pt-snug">
-                        <Button
-                            testID="kitchen-branch-hours-save-bottom"
-                            label={t('kitchen:branchHours.save')}
-                            loading={save.isPending}
-                            disabled={!dirty || dayErrors.size > 0 || save.isPending}
-                            onPress={saveWeek}
-                        />
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:branchHours.cutOffAfterCloses')}
-                        </Text>
-                    </View>
-                ) : null}
             </View>
-        </EditorFrame>
+
+            <EditorGuardDialogs
+                guard={guard}
+                concurrency={concurrency}
+                testID="kitchen-branch-hours-screen"
+            />
+        </Cascade>
     );
 }

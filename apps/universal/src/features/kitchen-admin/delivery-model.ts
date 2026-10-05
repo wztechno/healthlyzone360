@@ -358,8 +358,16 @@ export interface OperatingDayMessages {
     readonly cutOffAfterCloses: string;
 }
 
+/** The time field a day's problem belongs to — the one its message is drawn under. */
+export type OperatingField = 'opens' | 'closes' | 'cutOff';
+
+export interface OperatingIssue {
+    readonly field: OperatingField;
+    readonly message: string;
+}
+
 /**
- * What is wrong with each day, keyed by weekday.
+ * What is wrong with each day, keyed by weekday, and which field it is wrong in.
  *
  * Two rules, and deliberately not a third. A branch must close after it opens, and a same-day order
  * cut-off must not fall after closing time — an order accepted after the doors shut is an order
@@ -368,41 +376,56 @@ export interface OperatingDayMessages {
  * not have. A blank cut-off is legal and means "no same-day cut-off recorded"; blank opening or
  * closing times on an open day are not, because an open day with no hours is the ambiguity the
  * closed toggle exists to remove.
+ *
+ * One problem per day, the first in field order, so the day's row carries one message under the
+ * field a person has to change rather than a sentence under the whole row.
  */
-export function operatingErrors(
+export function operatingIssues(
     rows: readonly OperatingDayDraft[],
     messages: OperatingDayMessages,
-): ReadonlyMap<number, string> {
-    const errors = new Map<number, string>();
+): ReadonlyMap<number, OperatingIssue> {
+    const issues = new Map<number, OperatingIssue>();
 
     for (const row of rows) {
         if (row.isClosed) continue;
 
         const opensAt = parseClockTime(row.opensAt);
         if (opensAt === null) {
-            errors.set(row.weekday, messages.opensInvalid);
+            issues.set(row.weekday, { field: 'opens', message: messages.opensInvalid });
             continue;
         }
         const closesAt = parseClockTime(row.closesAt);
         if (closesAt === null) {
-            errors.set(row.weekday, messages.closesInvalid);
+            issues.set(row.weekday, { field: 'closes', message: messages.closesInvalid });
             continue;
         }
         if (closesAt <= opensAt) {
-            errors.set(row.weekday, messages.closesBeforeOpens);
+            issues.set(row.weekday, { field: 'closes', message: messages.closesBeforeOpens });
             continue;
         }
 
         if (row.orderCutOffAt.trim() === '') continue;
         const cutOffAt = parseClockTime(row.orderCutOffAt);
         if (cutOffAt === null) {
-            errors.set(row.weekday, messages.cutOffInvalid);
+            issues.set(row.weekday, { field: 'cutOff', message: messages.cutOffInvalid });
             continue;
         }
-        if (cutOffAt > closesAt) errors.set(row.weekday, messages.cutOffAfterCloses);
+        if (cutOffAt > closesAt) {
+            issues.set(row.weekday, { field: 'cutOff', message: messages.cutOffAfterCloses });
+        }
     }
 
-    return errors;
+    return issues;
+}
+
+/** {@link operatingIssues} as messages alone, keyed by weekday. */
+export function operatingErrors(
+    rows: readonly OperatingDayDraft[],
+    messages: OperatingDayMessages,
+): ReadonlyMap<number, string> {
+    return new Map(
+        [...operatingIssues(rows, messages)].map(([weekday, issue]) => [weekday, issue.message]),
+    );
 }
 
 /** The week as `setBranchOperating` takes it: seven rows, in order, closed days carrying nulls. */

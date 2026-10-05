@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8184 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8183 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2922,22 +2922,17 @@ export interface NamespaceKeys {
     | 'bilingual.missingArabicHint'
     | 'branchHours.allClosedBody'
     | 'branchHours.allClosedTitle'
-    | 'branchHours.backToHub'
-    | 'branchHours.cardClosedCaption'
     | 'branchHours.cardCutOff'
-    | 'branchHours.cardCutOffCaption'
     | 'branchHours.cardDayUnit'
     | 'branchHours.cardTrading'
     | 'branchHours.cardTradingUnit'
     | 'branchHours.chip'
     | 'branchHours.closedBadge'
     | 'branchHours.closedLabel'
-    | 'branchHours.closedNote'
     | 'branchHours.closesBeforeOpens'
     | 'branchHours.closesInvalid'
     | 'branchHours.closesLabel'
     | 'branchHours.columnDay'
-    | 'branchHours.columnSays'
     | 'branchHours.columnTrading'
     | 'branchHours.copiedAnnouncement'
     | 'branchHours.copyShort'
@@ -2947,8 +2942,7 @@ export interface NamespaceKeys {
     | 'branchHours.cutOffHint'
     | 'branchHours.cutOffInvalid'
     | 'branchHours.cutOffLabel'
-    | 'branchHours.cutOffNone'
-    | 'branchHours.dayOpenNote'
+    | 'branchHours.dayHours'
     | 'branchHours.loadErrorTitle'
     | 'branchHours.noBranchBody'
     | 'branchHours.noBranchTitle'
@@ -2958,10 +2952,15 @@ export interface NamespaceKeys {
     | 'branchHours.save'
     | 'branchHours.saveError'
     | 'branchHours.savedToast'
+    | 'branchHours.summaryBranch'
+    | 'branchHours.summaryDays'
+    | 'branchHours.summaryTimeZone'
+    | 'branchHours.summaryTitle'
     | 'branchHours.title'
     | 'branchHours.titleFor'
     | 'branchHours.tradingLabel'
     | 'branchHours.tradingOpen'
+    | 'branchHours.weekTitle'
     | 'calendar.a11y.nothing'
     | 'calendar.a11y.projected'
     | 'calendar.a11y.showing'
@@ -11124,22 +11123,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:bilingual.missingArabicHint',
   'kitchen:branchHours.allClosedBody',
   'kitchen:branchHours.allClosedTitle',
-  'kitchen:branchHours.backToHub',
-  'kitchen:branchHours.cardClosedCaption',
   'kitchen:branchHours.cardCutOff',
-  'kitchen:branchHours.cardCutOffCaption',
   'kitchen:branchHours.cardDayUnit',
   'kitchen:branchHours.cardTrading',
   'kitchen:branchHours.cardTradingUnit',
   'kitchen:branchHours.chip',
   'kitchen:branchHours.closedBadge',
   'kitchen:branchHours.closedLabel',
-  'kitchen:branchHours.closedNote',
   'kitchen:branchHours.closesBeforeOpens',
   'kitchen:branchHours.closesInvalid',
   'kitchen:branchHours.closesLabel',
   'kitchen:branchHours.columnDay',
-  'kitchen:branchHours.columnSays',
   'kitchen:branchHours.columnTrading',
   'kitchen:branchHours.copiedAnnouncement',
   'kitchen:branchHours.copyShort',
@@ -11149,8 +11143,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:branchHours.cutOffHint',
   'kitchen:branchHours.cutOffInvalid',
   'kitchen:branchHours.cutOffLabel',
-  'kitchen:branchHours.cutOffNone',
-  'kitchen:branchHours.dayOpenNote',
+  'kitchen:branchHours.dayHours',
   'kitchen:branchHours.loadErrorTitle',
   'kitchen:branchHours.noBranchBody',
   'kitchen:branchHours.noBranchTitle',
@@ -11160,10 +11153,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:branchHours.save',
   'kitchen:branchHours.saveError',
   'kitchen:branchHours.savedToast',
+  'kitchen:branchHours.summaryBranch',
+  'kitchen:branchHours.summaryDays',
+  'kitchen:branchHours.summaryTimeZone',
+  'kitchen:branchHours.summaryTitle',
   'kitchen:branchHours.title',
   'kitchen:branchHours.titleFor',
   'kitchen:branchHours.tradingLabel',
   'kitchen:branchHours.tradingOpen',
+  'kitchen:branchHours.weekTitle',
   'kitchen:calendar.a11y.nothing',
   'kitchen:calendar.a11y.projected',
   'kitchen:calendar.a11y.showing',
