@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { useCan } from '../../../access/gate.tsx';
 import { useIngredientsByIds } from '../../../data/kitchen-admin-hooks.ts';
 import { useStockItemsQuery, useStockLevelsQuery } from '../../../data/kitchen-ops-hooks.ts';
-import { displayQuantity, scaleLine, scalePackaging } from '../batch-scaling.ts';
+import { displayQuantity, scaleLine, scalePackaging, withWaste } from '../batch-scaling.ts';
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, unitShortKey } from '../format.ts';
 
@@ -115,6 +115,10 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
     const dash = t('kitchen:list.noValue');
     const number = (value: number): string => formatter.formatNumber(value, BATCH_QUANTITY_FORMAT);
 
+    // The batch planner's rule: each half carries its own waste rate (see `withWaste`).
+    const ingredientFactor = withWaste(factor, version.wastePercent);
+    const packagingFactor = withWaste(factor, version.packagingWastePercent);
+
     const nameOf = (ingredientId: IngredientId): string => {
         const found = ingredients[String(ingredientId)];
         return found === undefined ? dash : displayName(found.name, locale).value;
@@ -123,7 +127,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
     const shortOf = (line: RecipeLine): { available: number | null; short: number | null } => {
         const available = availability(line.ingredientId, line.unit);
         if (available === null) return { available: null, short: null };
-        const required = scaleLine(line.quantity, factor);
+        const required = scaleLine(line.quantity, ingredientFactor);
         return { available, short: Math.max(0, required - available) };
     };
 
@@ -163,7 +167,10 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
                     variant="mono"
                     testID={`kitchen-batch-row-${String(line.ingredientId)}-quantity`}
                 >
-                    {number(displayQuantity(scaleLine(line.quantity, factor), line.unit).quantity)}
+                    {number(
+                        displayQuantity(scaleLine(line.quantity, ingredientFactor), line.unit)
+                            .quantity,
+                    )}
                 </Text>
             ),
         },
@@ -177,7 +184,8 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
                 <Text tone="secondary">
                     {t(
                         unitShortKey(
-                            displayQuantity(scaleLine(line.quantity, factor), line.unit).unit,
+                            displayQuantity(scaleLine(line.quantity, ingredientFactor), line.unit)
+                                .unit,
                         ),
                     )}
                 </Text>
@@ -268,8 +276,8 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
             numeric: true,
             primary: true,
             render: (row) => {
-                const applied = scalePackaging(row.quantity, factor, row.unit);
-                const exact = scaleLine(row.quantity, factor);
+                const applied = scalePackaging(row.quantity, packagingFactor, row.unit);
+                const exact = scaleLine(row.quantity, packagingFactor);
                 return (
                     <Inline space="xs" align="center" wrap>
                         <Text
@@ -303,7 +311,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
                     {t(
                         unitShortKey(
                             displayQuantity(
-                                scalePackaging(row.quantity, factor, row.unit),
+                                scalePackaging(row.quantity, packagingFactor, row.unit),
                                 row.unit,
                             ).unit,
                         ),

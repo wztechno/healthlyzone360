@@ -1795,6 +1795,7 @@
             "lineCount_other": "{{count}} سطر",
             "noneRecorded": "لا شيء مسجّل",
             "roundingFoot": "كل ما يُعدّ أو يُعبّأ يُقرّب للأعلى — نصف علبة ليس شيئًا يمكن أخذه عن الرف. سطر التغليف المسجّل بالكتلة أو الحجم يبقى دقيقًا لأنه قابل للقسمة فعلًا.",
+            "packagingWasteIncluded": "تشمل هدر تغليف بنسبة {{percent}} ٪، يُضاف قبل أي تقريب للأعلى.",
             "roundedFrom": "من {{exact}}",
             "printSheet": "طباعة الورقة",
             "basisLabel": "أساس الهدف",
@@ -1811,6 +1812,7 @@
             "factPortionsProduced": "الحصص المنتَجة",
             "rawMaterialsHeading": "المواد الخام بعد التحجيم",
             "baseTimes": "الكميات الأساسية × {{factor}}",
+            "baseTimesWithWaste": "الكميات الأساسية × {{factor}}، مضافًا إليها هدر إنتاج بنسبة {{percent}} ٪",
             "columnRef": "المرجع",
             "columnDesignation": "الصنف",
             "columnPerBatch": "لكل دفعة",
@@ -1824,7 +1826,7 @@
             "factPortionsPerBatch_few": "{{count}} حصص في الدفعة",
             "factPortionsPerBatch_many": "{{count}} حصة في الدفعة",
             "factPortionsPerBatch_other": "{{count}} حصة في الدفعة",
-            "wasteAppliesToCost": "هدر الإنتاج {{percent}} ٪ يُحتسب على التكلفة لا على المردود"
+            "wasteAddedToInputs": "يُضاف هدر الإنتاج {{percent}} ٪ إلى المواد الخام"
         }
     },
     "kds": {

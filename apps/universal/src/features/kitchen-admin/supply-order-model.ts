@@ -137,10 +137,16 @@ export type SupplyOrderChoices = Readonly<Record<string, SupplyOrderRowChoice>>;
  * A row with no suggestion opens **empty**, never zero. Zero is a decision; empty is the absence of
  * one, and prefilling a zero would make "not ordering" the default for exactly the rows that most
  * need a human number.
+ *
+ * The server's four-place padding is dropped — `8.0000` opens as `8` — because forty boxes of
+ * trailing zeros is noise, and the trimmed string is the same number.
  */
 export function initialChoice(row: OrderProposalItem): SupplyOrderRowChoice {
+    const suggested = row.suggestedQuantity ?? '';
     return {
-        quantity: row.suggestedQuantity ?? '',
+        quantity: suggested.includes('.')
+            ? suggested.replace(/0+$/, '').replace(/\.$/, '')
+            : suggested,
         supplierId: row.suggestedSupplierId,
         ordering: true,
     };

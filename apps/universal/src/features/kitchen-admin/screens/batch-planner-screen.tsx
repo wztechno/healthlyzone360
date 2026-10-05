@@ -35,7 +35,7 @@ import {
     useRecipeQuery,
     useRecipesQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
-import { batchFactor, scaleLine, scalePackaging } from '../batch-scaling.ts';
+import { batchFactor, scaleLine, scalePackaging, withWaste } from '../batch-scaling.ts';
 import type { BatchMode } from '../batch-scaling.ts';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
@@ -70,7 +70,9 @@ import { WithColumnPicker } from '../catalogue/column-picker.tsx';
  * ## Every figure is arithmetic on one version
  *
  * There is no scaling endpoint. The current version states what it makes, so the factor is a
- * division and every row a multiplication — see `batch-scaling.ts`. Names come from the catalogue by
+ * division and every row a multiplication, with the version's waste rate on top — the same rule a
+ * production batch reserves by, so the two screens agree for the same yield (`batch-scaling.ts`,
+ * `withWaste`). Names come from the catalogue by
  * id (`RecipeLine.ingredientName` is the sheet's blank designation), which is why the `<Gate>`
  * demands `catalogue.view_organisation` beside `recipe.view_organisation`.
  *
@@ -414,7 +416,7 @@ function facts(
             caption:
                 version === null
                     ? t('kitchen:ops.batch.awaitingTarget')
-                    : t('kitchen:ops.batch.wasteAppliesToCost', {
+                    : t('kitchen:ops.batch.wasteAddedToInputs', {
                           percent: number(version.wastePercent),
                       }),
             mark: 'utensils',
@@ -441,6 +443,11 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
     const dash = t('kitchen:list.noValue');
     const number = (value: number): string => formatter.formatNumber(value, BATCH_QUANTITY_FORMAT);
     const rowId = (id: { toString(): string }) => `kitchen-batch-row-${String(id)}`;
+
+    // What a production batch for the same yield reserves: the production waste rate on every
+    // ingredient, the packaging rate on every packaging line (see `withWaste`).
+    const ingredientFactor = withWaste(factor, version.wastePercent);
+    const packagingFactor = withWaste(factor, version.packagingWastePercent);
 
     const found = (id: RecipeLine['ingredientId']) => ingredients[String(id)];
     const nameOf = (id: RecipeLine['ingredientId']): string => {
@@ -548,13 +555,13 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             mono: true,
             sort: (left, right, direction) =>
                 compareNumber(
-                    scaleLine(left.quantity, factor),
-                    scaleLine(right.quantity, factor),
+                    scaleLine(left.quantity, ingredientFactor),
+                    scaleLine(right.quantity, ingredientFactor),
                     direction,
                 ),
             render: (line) => (
                 <Text variant="mono" testID={`${rowId(line.ingredientId)}-quantity`}>
-                    {number(scaleLine(line.quantity, factor))}
+                    {number(scaleLine(line.quantity, ingredientFactor))}
                 </Text>
             ),
         },
@@ -615,13 +622,13 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             // By what is issued, the rounded-up count: the figure the cell leads with.
             sort: (left, right, direction) =>
                 compareNumber(
-                    scalePackaging(left.quantity, factor, left.unit),
-                    scalePackaging(right.quantity, factor, right.unit),
+                    scalePackaging(left.quantity, packagingFactor, left.unit),
+                    scalePackaging(right.quantity, packagingFactor, right.unit),
                     direction,
                 ),
             render: (row) => {
-                const applied = scalePackaging(row.quantity, factor, row.unit);
-                const exact = scaleLine(row.quantity, factor);
+                const applied = scalePackaging(row.quantity, packagingFactor, row.unit);
+                const exact = scaleLine(row.quantity, packagingFactor);
                 return (
                     <Inline space="xs" align="center">
                         <Text variant="mono" testID={`${rowId(row.ingredientId)}-quantity`}>
@@ -657,7 +664,12 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
                 title={t('kitchen:ops.batch.rawMaterialsHeading')}
                 aside={
                     <Text variant="caption" tone="secondary" testID="kitchen-batch-base-times">
-                        {t('kitchen:ops.batch.baseTimes', { factor: number(factor) })}
+                        {version.wastePercent > 0
+                            ? t('kitchen:ops.batch.baseTimesWithWaste', {
+                                  factor: number(factor),
+                                  percent: number(version.wastePercent),
+                              })
+                            : t('kitchen:ops.batch.baseTimes', { factor: number(factor) })}
                     </Text>
                 }
             >
@@ -711,6 +723,17 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
                         <Text variant="caption" tone="secondary">
                             {t('kitchen:ops.batch.roundingFoot')}
                         </Text>
+                        {version.packagingWastePercent > 0 ? (
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                testID="kitchen-batch-packaging-waste"
+                            >
+                                {t('kitchen:ops.batch.packagingWasteIncluded', {
+                                    percent: number(version.packagingWastePercent),
+                                })}
+                            </Text>
+                        ) : null}
                     </Stack>
                 )}
             </FormSection>

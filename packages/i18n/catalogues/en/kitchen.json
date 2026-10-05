@@ -1568,6 +1568,7 @@
             "lineCount_other": "{{count}} lines",
             "noneRecorded": "none recorded",
             "roundingFoot": "Anything counted or packed rounds up — half a box is not something anybody can take off a shelf. A packaging line recorded by mass or volume stays exact, because those genuinely divide.",
+            "packagingWasteIncluded": "Includes {{percent}} % packaging waste, added before anything rounds up.",
             "roundedFrom": "from {{exact}}",
             "printSheet": "Print sheet",
             "basisLabel": "Target basis",
@@ -1584,6 +1585,7 @@
             "factPortionsProduced": "Portions produced",
             "rawMaterialsHeading": "Scaled raw materials",
             "baseTimes": "Base quantities × {{factor}}",
+            "baseTimesWithWaste": "Base quantities × {{factor}}, plus {{percent}} % production waste",
             "columnRef": "Ref.",
             "columnDesignation": "Item",
             "columnPerBatch": "Per batch",
@@ -1593,7 +1595,7 @@
             "factorNone": "Enter a target to scale the sheet",
             "factPortionsPerBatch_one": "{{count}} portion per batch",
             "factPortionsPerBatch_other": "{{count}} portions per batch",
-            "wasteAppliesToCost": "Production waste {{percent}} % applies to cost, not yield"
+            "wasteAddedToInputs": "Production waste {{percent}} % is added to the raw materials"
         }
     },
     "kds": {

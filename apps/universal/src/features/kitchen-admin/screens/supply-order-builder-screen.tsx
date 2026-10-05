@@ -356,7 +356,7 @@ function SupplyOrderBuilder() {
                 render: (row) => {
                     const testID = supplyOrderRowTestId(String(row.stockItemId));
                     return (
-                        <View className="min-w-0 flex-col py-1">
+                        <View className="min-w-0 flex-1 flex-col py-1">
                             <View className="min-w-0 flex-row items-center gap-hair">
                                 <Text variant="strong" numberOfLines={1} testID={`${testID}-name`}>
                                     {row.itemNameEn}
@@ -395,8 +395,9 @@ function SupplyOrderBuilder() {
                 // One column for both numbers: they are read together — "reorder at 5, fill to 20" —
                 // and two columns of mostly em dashes would be two columns of nothing.
                 label: t('kitchen:ops.supplyOrders.columnLevels'),
-                width: 104,
+                width: 136,
                 priority: 60,
+                grow: false,
                 render: (row) => (
                     <Text
                         variant="mono"
@@ -414,8 +415,9 @@ function SupplyOrderBuilder() {
             {
                 key: 'quantity',
                 label: t('kitchen:ops.supplyOrders.columnQuantity'),
-                width: 128,
+                width: 136,
                 priority: 95,
+                grow: false,
                 render: (row) => {
                     const key = String(row.stockItemId);
                     const testID = supplyOrderRowTestId(key);
@@ -472,7 +474,7 @@ function SupplyOrderBuilder() {
         return {
             key: 'ordering',
             label: t('kitchen:ops.supplyOrders.columnOrdering'),
-            width: 104,
+            width: 128,
             priority: 80,
             grow: false,
             render: (row) => {
@@ -525,7 +527,7 @@ function SupplyOrderBuilder() {
                 );
 
                 return (
-                    <View className="min-w-0 flex-row items-center gap-hair py-hair">
+                    <View className="min-w-0 flex-1 flex-row items-center gap-hair py-hair">
                         <View className="min-w-0 flex-1">
                             <Select
                                 testID={`${testID}-supplier-select`}
@@ -586,7 +588,7 @@ function SupplyOrderBuilder() {
                 );
 
                 return (
-                    <View className="min-w-0 flex-col gap-hair py-1">
+                    <View className="min-w-0 flex-1 flex-col gap-hair py-1">
                         {/*
                          * The two reasons get different words because they have different fixes: a
                          * shelf nobody was ever linked to needs a supplier; a shelf whose suppliers
