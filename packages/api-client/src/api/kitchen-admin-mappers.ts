@@ -91,6 +91,7 @@ import type {
     IngredientStatus,
     IngredientVerificationStatus,
     MealCombinationOption,
+    PlanDurationAssignment,
     PlanDurationOption,
     PlanMenuCycle as WirePlanMenuCycle,
     PlanMenuEntry as WirePlanMenuEntry,
@@ -1406,6 +1407,38 @@ export function mapPlanCombination(option: MealCombinationOption): PlanCombinati
         snacksPerDay: 0,
         isAvailable: option.is_active,
     };
+}
+
+/**
+ * The durations one plan offers, from its configurations' assignments.
+ *
+ * One row per duration however many configurations carry it — the editor writes a duration to every
+ * configuration at once — with the discount the first assignment states. Ordered as the editor lists
+ * them: the one-off first, then by length.
+ */
+export function planDurationsFromAssignments(
+    assignments: readonly PlanDurationAssignment[],
+    vocabulary: readonly PlanDurationOption[],
+): readonly PlanDurationAdmin[] {
+    const options = new Map(vocabulary.map((option) => [option.id, option]));
+    const seen = new Set<string>();
+    const rows: PlanDurationAdmin[] = [];
+    for (const assignment of assignments) {
+        if (seen.has(assignment.plan_duration_id)) continue;
+        const option = options.get(assignment.plan_duration_id);
+        if (option === undefined) continue;
+        seen.add(assignment.plan_duration_id);
+        const discount =
+            assignment.discount_percent === null
+                ? null
+                : Number.parseFloat(assignment.discount_percent);
+        rows.push({
+            ...mapPlanDuration(option),
+            discountPercent:
+                discount === null || Number.isNaN(discount) ? null : Math.round(discount),
+        });
+    }
+    return rows.sort((left, right) => (left.days ?? -1) - (right.days ?? -1));
 }
 
 export function mapPlanDuration(option: PlanDurationOption): PlanDurationAdmin {

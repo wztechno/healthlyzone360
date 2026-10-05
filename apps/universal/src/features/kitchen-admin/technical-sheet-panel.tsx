@@ -212,11 +212,13 @@ export function TechnicalSheetPanel({
         },
         {
             key: 'unit',
+            width: 64,
             header: t('kitchen:recipes.sheetColUnit'),
             render: (row: Row) => <Text variant="caption">{row.unit}</Text>,
         },
         {
             key: 'quantity',
+            width: 104,
             header: t('kitchen:recipes.sheetColQuantity'),
             numeric: true,
             render: (row: Row) => <Text>{formatter.formatNumber(row.quantity)}</Text>,
@@ -225,12 +227,14 @@ export function TechnicalSheetPanel({
             ? [
                   {
                       key: 'unitCost',
+                      width: 104,
                       header: t('kitchen:recipes.sheetColUnitPrice'),
                       numeric: true,
                       render: (row: Row) => <Text>{cost(row.unitCost)}</Text>,
                   },
                   {
                       key: 'lineCost',
+                      width: 104,
                       header: t('kitchen:recipes.sheetColLineTotal'),
                       numeric: true,
                       render: (row: Row) => <Text>{cost(row.lineCost)}</Text>,

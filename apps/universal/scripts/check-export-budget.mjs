@@ -17,6 +17,18 @@
  *
  * ## Where the numbers come from
  *
+ * The total budget was re-measured on 2026-10-05 from the CI `all-dev` api export of PR #38 merged
+ * with `dev`. `dev` had gained 80 photographs of the sauces and dressings the recipe book lists
+ * (`665cf13d`, 4.49 MB of WebP), which took the total from 32 760 423 B to 37 325 838 B and 1 976 174 B
+ * over its budget. That is the photography arriving, not accumulation, and it is the same cause the
+ * 2026-09-21 re-measurement below records. The entry chunk is 5 110 756 B, 87.6 % of its
+ * **unchanged** budget, so only the total was raised.
+ *
+ * | measure                | actual        | ×1.15 → budget |
+ * | ---------------------- | ------------- | -------------- |
+ * | total `dist-api` bytes | 37 325 838    | 42 924 715     |
+ * | largest JS chunk       |  5 110 756    |  5 833 975 (not raised — 87.6 % used) |
+ *
  * The entry-chunk budget was re-measured on 2026-10-01 from the CI `all-dev` api export of the
  * HealthZone customer redesign (D-148): the customer header, home, kitchen finder, storefront, menu,
  * meal page, plans, account, order tracking, cart, checkout and guest checkout rebuilt, with their
@@ -75,16 +87,16 @@ import { readdir, stat } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 
 /** Total bytes of the exported directory. */
-export const TOTAL_BUDGET_BYTES = 35_349_664;
+export const TOTAL_BUDGET_BYTES = 42_924_715;
 
 /** Bytes of the single largest `.js` file. */
 export const LARGEST_CHUNK_BUDGET_BYTES = 5_833_975;
 
 /** The measurement the budgets were derived from, kept so a report can show the drift. */
 export const BASELINE = {
-    totalBytes: 32_760_423,
-    largestChunkBytes: 5_073_022,
-    measuredOn: '2026-10-01',
+    totalBytes: 37_325_838,
+    largestChunkBytes: 5_110_756,
+    measuredOn: '2026-10-05',
     export: 'APP_MODE=all-dev EXPO_PUBLIC_API_URL=http://localhost:8080 expo export -p web --output-dir dist-api',
 };
 

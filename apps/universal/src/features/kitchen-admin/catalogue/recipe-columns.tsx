@@ -196,7 +196,9 @@ export function recipeHandle(row: RecipeAdminSummary): string {
  */
 export function recipePhotoId(row: RecipeAdminSummary): string {
     const seller = row.soldAs?.[0]?.imagePlaceholderId;
-    return seller !== undefined && resolveEntityImage(seller, 'card') !== null ? seller : `recipe-${row.slug}`;
+    return seller !== undefined && resolveEntityImage(seller, 'card') !== null
+        ? seller
+        : `recipe-${row.slug}`;
 }
 
 /**

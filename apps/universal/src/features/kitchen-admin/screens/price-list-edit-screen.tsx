@@ -29,6 +29,7 @@ import {
     plansFromPages,
     productsFromPages,
     useAdminMealsQuery,
+    useAdminPlansByIds,
     useAdminPlansQuery,
     usePriceListQuery,
     useProductsQuery,
@@ -170,6 +171,10 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
     const frozenMeals = useProductsQuery({ limit: 100, itemType: 'frozen_meal' }, catalogueWanted);
     const meals = useAdminMealsQuery({ limit: 100 }, catalogueWanted);
     const plans = useAdminPlansQuery({ limit: 100 }, catalogueWanted);
+    // The listing has no configurations, and a plan is priced per configuration — see below.
+    const planRecords = useAdminPlansByIds(
+        useMemo(() => plansFromPages(plans.data?.pages).map((row) => row.id), [plans.data]),
+    );
     const catalogueReads = [products, sauces, dressings, frozenMeals, meals, plans];
     const catalogueResolving = catalogueReads.some((read) => read.isPending);
 
@@ -243,6 +248,11 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
      * *On sale* is what the missing-items bar counts: published, and available on one of the
      * list's own channels. A plan carries no channel availability in this contract, so a published
      * plan counts as on sale wherever its kitchen's list is.
+     *
+     * A plan is offered **per configuration**, never as a whole. The server prices a subscription
+     * from its configuration's own row and refuses to publish a plan any configuration of which has
+     * none — a row for the plan as a whole is read by neither, so offering one put a price on screen
+     * that no shopper would ever be quoted and left the plan unpublishable.
      */
     const itemOptions: readonly PriceItemOption[] = useMemo(() => {
         if (data === undefined) return [];
@@ -307,6 +317,7 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
             .filter((row) => row.kitchenId === kitchenId)
             .map<PriceItemOption>((row) => {
                 const whole = { kind: 'plan' as const, planId: row.id, variantId: null };
+                const configurations = (planRecords[String(row.id)] ?? row).variants;
                 return {
                     key: priceItemBaseKey(whole),
                     kind: 'plan',
@@ -315,13 +326,7 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
                     code: null,
                     defaultItem: whole,
                     variants: [
-                        {
-                            key: priceItemKey(whole),
-                            label: t('kitchen:priceLists.packPlan'),
-                            item: whole,
-                            whole: true,
-                        },
-                        ...row.variants.map((variant) => {
+                        ...configurations.map((variant) => {
                             const item = {
                                 kind: 'plan' as const,
                                 planId: row.id,
@@ -347,8 +352,8 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
         frozenMeals.data,
         meals.data,
         plans.data,
+        planRecords,
         locale,
-        t,
     ]);
 
     const byKey = useMemo(

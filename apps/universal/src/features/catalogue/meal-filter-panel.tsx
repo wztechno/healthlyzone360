@@ -12,6 +12,7 @@ import { FilterRows } from './filter-rows.tsx';
 import type { FilterRowOption } from './filter-rows.tsx';
 import { MealRangeFilters } from './meal-filters.tsx';
 import type { MealRangeKey, MealRangeState } from './meal-filters.tsx';
+import { isShownShelf } from './shown-shelves.ts';
 import type { MealShelves } from './use-meal-shelves.ts';
 
 /**
@@ -154,7 +155,8 @@ export function MealFilterPanel({
     const { t } = useTranslation();
     const formatter = useFormatter();
 
-    const selectedShelves = filters.selected['category'] ?? [];
+    // A hidden shelf (`shown-shelves.ts`) is not drawn even when a link selected it.
+    const selectedShelves = (filters.selected['category'] ?? []).filter(isShownShelf);
     const selectedDiets = filters.selected['diet'] ?? [];
 
     /** A category row, with its count when the whole menu was read. */

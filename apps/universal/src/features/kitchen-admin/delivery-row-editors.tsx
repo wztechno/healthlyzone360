@@ -1,9 +1,11 @@
 import type { ServiceArea } from '@healthy360/api-client/contracts';
 import {
+    Badge,
     Button,
     Callout,
     Checkbox,
     cx,
+    DataList,
     fieldWidth,
     Icon,
     Inline,
@@ -15,6 +17,7 @@ import {
     TextInputField,
     useBreakpoint,
 } from '@healthy360/design-system';
+import type { DataListColumn } from '@healthy360/design-system';
 import type { ServiceAreaId } from '@healthy360/domain-types';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -23,10 +26,20 @@ import { Pressable, View } from 'react-native';
 
 import { weekdayKey } from '../marketplace/format.ts';
 import { BilingualField } from './bilingual-field.tsx';
-import { areaMatches, groupServiceAreas, normaliseWeekdays, toggleArea } from './delivery-model.ts';
-import type { DeliveryWindowDraft, OperatingDayDraft } from './delivery-model.ts';
+import {
+    areaMatches,
+    groupServiceAreas,
+    normaliseWeekdays,
+    toggleArea,
+    withDayClosed,
+} from './delivery-model.ts';
+import type {
+    DeliveryWindowDraft,
+    OperatingDayDraft,
+    OperatingField,
+    OperatingIssue,
+} from './delivery-model.ts';
 import { ISO_WEEKDAYS, displayName } from './format.ts';
-import { TRADING_TRACKS, TradingDayRow } from './commercial/trading-day-row.tsx';
 import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
 
 /**
@@ -428,10 +441,15 @@ export function DayToggle({
  * Branch operating week
  * ---------------------------------------------------------------------------------------------- */
 
+/** The time tracks: wide enough for a 12-hour value with its clock glyph. */
+const TIME_TRACK = 120;
+const CUT_OFF_TRACK = 148;
+
 export interface OperatingWeekRowsProps {
     readonly rows: readonly OperatingDayDraft[];
     readonly onChange: (rows: readonly OperatingDayDraft[]) => void;
-    readonly errors: ReadonlyMap<number, string>;
+    /** One problem per day, drawn under the field it belongs to. */
+    readonly issues: ReadonlyMap<number, OperatingIssue>;
     readonly canManage: boolean;
     /** Copies this day's three times onto every other open day. */
     readonly onCopyToOpenDays: (weekday: number) => void;
@@ -439,15 +457,33 @@ export interface OperatingWeekRowsProps {
     readonly testID: string;
 }
 
+type Trading = 'open' | 'closed';
+
 /**
- * A branch's trading week: seven rows, always, one per ISO weekday.
+ * A branch's trading week: seven rows, always, one per ISO weekday, as a `DataList` at the desk's
+ * small density — the supply-order rows' shape, with `sm` controls rather than full-height fields.
  *
- * ## Closed removes the fields; it does not disable them
+ * ```
+ * Day             Trading     Opens        Closes       Last same-day order
+ * Monday          [Open ▾]    [08:00 ◷]    [22:00 ◷]    [20:30 ◷]             Copy to every open day
+ * Sunday CLOSED   [Closed ▾]  [--:-- ◷]    [--:-- ◷]    [--:-- ◷]
+ * ```
  *
- * The same rule the price editor's amount follows, and for a sharper reason here. A closed day is
- * three nulls on the wire, so a disabled field still holding `08:00` would show a time that is not
- * being saved — and an order cut-off is the last rule in this application that should be readable
- * one way and stored another. Closing therefore clears and hides; re-opening starts empty.
+ * Each day's id is `${testID}-day-${weekday}`, on its name cell, and its fields hang off that.
+ *
+ * ## Closed clears the fields and leaves them drawn
+ *
+ * A closed day is three nulls on the wire, so a field still holding `08:00` would show a time that is
+ * not being saved — and an order cut-off is the last rule here that should be readable one way and
+ * stored another. Choosing **Closed** therefore clears all three times in one action
+ * (`withDayClosed`) and the fields stay where they are, empty and disabled: the column is still
+ * there, it has nothing in it. Re-opening starts empty.
+ *
+ * ## A problem sits under the field it is about
+ *
+ * The rules are checked in field order and stop at the first, so each day has at most one problem
+ * and it names one field. It is drawn as that field's own error rather than as a sentence under the
+ * whole row, so the box to change is the box that turned red.
  *
  * ## Copy-to-every-open-day, not copy-to-all
  *
@@ -460,59 +496,177 @@ export interface OperatingWeekRowsProps {
 export function OperatingWeekRows({
     rows,
     onChange,
-    errors,
+    issues,
     canManage,
     onCopyToOpenDays,
     announcement,
     testID,
 }: OperatingWeekRowsProps) {
     const { t } = useTranslation();
-    const head = (label: string, width?: number) =>
-        width === undefined ? (
-            <View className="min-w-0 flex-1">
-                <Text variant="micro" tone="secondary">
-                    {label}
-                </Text>
-            </View>
-        ) : (
-            <View style={{ width }}>
-                <Text variant="micro" tone="secondary">
-                    {label}
-                </Text>
-            </View>
-        );
+
+    const update = (next: OperatingDayDraft) => {
+        onChange(rows.map((row) => (row.weekday === next.weekday ? next : row)));
+    };
+
+    /*
+     * One time column. Padded off the row's hairlines, as the supply order's quantity box is: a
+     * DataList cell has no vertical padding, so a 28px box in a 28px row sat on both edges.
+     */
+    const timeColumn = (
+        key: string,
+        field: OperatingField,
+        label: string,
+        width: number,
+        priority: number,
+        read: (day: OperatingDayDraft) => string,
+        write: (day: OperatingDayDraft, value: string) => OperatingDayDraft,
+    ): DataListColumn<OperatingDayDraft> => ({
+        key,
+        label,
+        width,
+        priority,
+        render: (day) => {
+            const issue = issues.get(day.weekday);
+            return (
+                <View className="py-tight">
+                    <PickerField
+                        kind="time"
+                        testID={`${testID}-day-${String(day.weekday)}-${key}`}
+                        label={`${t(weekdayKey(day.weekday))} — ${label}`}
+                        labelHidden
+                        value={read(day)}
+                        disabled={!canManage || day.isClosed}
+                        error={issue?.field === field ? issue.message : undefined}
+                        onChange={(next) => {
+                            update(write(day, next));
+                        }}
+                    />
+                </View>
+            );
+        },
+    });
+
+    const columns: readonly DataListColumn<OperatingDayDraft>[] = [
+        {
+            key: 'day',
+            label: t('kitchen:branchHours.columnDay'),
+            width: 128,
+            priority: 100,
+            render: (day) => {
+                const dayID = `${testID}-day-${String(day.weekday)}`;
+                return (
+                    <View testID={dayID} className="min-w-0 flex-row items-center gap-hair">
+                        <Text variant="strong" numberOfLines={1} testID={`${dayID}-name`}>
+                            {t(weekdayKey(day.weekday))}
+                        </Text>
+                        {day.isClosed ? (
+                            <Badge
+                                testID={`${dayID}-closed-badge`}
+                                tone="neutral"
+                                label={t('kitchen:branchHours.closedBadge')}
+                            />
+                        ) : null}
+                    </View>
+                );
+            },
+        },
+        {
+            key: 'trading',
+            label: t('kitchen:branchHours.columnTrading'),
+            width: 112,
+            priority: 95,
+            render: (day) => {
+                const dayID = `${testID}-day-${String(day.weekday)}`;
+                return (
+                    <View className="z-auto min-w-0 flex-1">
+                        <Select<Trading>
+                            testID={`${dayID}-trading`}
+                            id={`${dayID}-trading`}
+                            label={t('kitchen:branchHours.tradingLabel', {
+                                day: t(weekdayKey(day.weekday)),
+                            })}
+                            labelHidden
+                            size="sm"
+                            disabled={!canManage}
+                            value={day.isClosed ? 'closed' : 'open'}
+                            options={[
+                                { value: 'open', label: t('kitchen:branchHours.tradingOpen') },
+                                { value: 'closed', label: t('kitchen:branchHours.closedLabel') },
+                            ]}
+                            onChange={(next) => {
+                                update(withDayClosed(day, next === 'closed'));
+                            }}
+                        />
+                    </View>
+                );
+            },
+        },
+        timeColumn(
+            'opens',
+            'opens',
+            t('kitchen:branchHours.opensLabel'),
+            TIME_TRACK,
+            90,
+            (day) => day.opensAt,
+            (day, value) => ({ ...day, opensAt: value }),
+        ),
+        timeColumn(
+            'closes',
+            'closes',
+            t('kitchen:branchHours.closesLabel'),
+            TIME_TRACK,
+            90,
+            (day) => day.closesAt,
+            (day, value) => ({ ...day, closesAt: value }),
+        ),
+        timeColumn(
+            'cut-off',
+            'cutOff',
+            t('kitchen:branchHours.cutOffLabel'),
+            CUT_OFF_TRACK,
+            85,
+            (day) => day.orderCutOffAt,
+            (day, value) => ({ ...day, orderCutOffAt: value }),
+        ),
+        ...(canManage
+            ? [
+                  {
+                      key: 'copy',
+                      label: t('kitchen:list.actionHeader'),
+                      width: 168,
+                      priority: 80,
+                      grow: false,
+                      align: 'end',
+                      sortable: false,
+                      filterable: false,
+                      // Only on an open day: a closed day has no times to copy.
+                      render: (day) =>
+                          day.isClosed ? null : (
+                              <Button
+                                  testID={`${testID}-day-${String(day.weekday)}-copy`}
+                                  size="sm"
+                                  variant="ghost"
+                                  label={t('kitchen:branchHours.copyShort')}
+                                  onPress={() => {
+                                      onCopyToOpenDays(day.weekday);
+                                  }}
+                              />
+                          ),
+                  } satisfies DataListColumn<OperatingDayDraft>,
+              ]
+            : []),
+    ];
 
     return (
-        <Stack space="none" testID={testID}>
-            {/* The column labels, on the same tracks as every day below them. */}
-            <View className="h-6 flex-row items-center gap-3.5 border-b border-stroke px-tight">
-                {head(t('kitchen:branchHours.columnDay'), TRADING_TRACKS.day)}
-                {head(t('kitchen:branchHours.columnTrading'), TRADING_TRACKS.trading)}
-                {head(t('kitchen:branchHours.opensLabel'), TRADING_TRACKS.opens)}
-                {head(t('kitchen:branchHours.closesLabel'), TRADING_TRACKS.closes)}
-                {head(t('kitchen:branchHours.cutOffLabel'), TRADING_TRACKS.cutOff)}
-                {head(t('kitchen:branchHours.columnSays'))}
-            </View>
-            {rows.map((row) => (
-                <TradingDayRow
-                    key={row.weekday}
-                    testID={`${testID}-day-${String(row.weekday)}`}
-                    day={row}
-                    canManage={canManage}
-                    error={errors.get(row.weekday)}
-                    onChange={(next) => {
-                        onChange(
-                            rows.map((candidate) =>
-                                candidate.weekday === row.weekday ? next : candidate,
-                            ),
-                        );
-                    }}
-                    onCopyToOpenDays={() => {
-                        onCopyToOpenDays(row.weekday);
-                    }}
-                />
-            ))}
-
+        <Stack space="none">
+            <DataList<OperatingDayDraft>
+                testID={testID}
+                label={t('kitchen:branchHours.weekTitle')}
+                columns={columns}
+                rows={rows}
+                rowKey={(day) => `day-${String(day.weekday)}`}
+                density="sm"
+            />
             <RowAnnouncer testID={`${testID}-announcer`} message={announcement} />
         </Stack>
     );

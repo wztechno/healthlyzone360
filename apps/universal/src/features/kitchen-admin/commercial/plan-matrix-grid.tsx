@@ -51,8 +51,12 @@ export function PlanMatrixGrid({ rows, bands, variants, testID }: PlanMatrixGrid
             min: formatter.formatNumber(band.min),
             max: formatter.formatNumber(band.max),
         });
+    // Each count pluralised on its own — "1 snack", not "1 snacks" — then joined.
     const servings = (row: MatrixRow): string =>
-        t('kitchen:plans.servingsSummary', { meals: row.mealsPerDay, snacks: row.snacksPerDay });
+        t('kitchen:plans.servingsSummary', {
+            meals: t('kitchen:plans.servingsMeals', { count: row.mealsPerDay }),
+            snacks: t('kitchen:plans.servingsSnacks', { count: row.snacksPerDay }),
+        });
 
     if (rows.length === 0) {
         return (

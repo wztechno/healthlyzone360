@@ -5,6 +5,7 @@ import { Platform, Pressable, Text as RNText, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 
 import { cx } from '../internal/class-names.ts';
+import { truncationHoverProps } from '../internal/truncation-hover.ts';
 import { CascadeItem } from '../motion/cascade.tsx';
 import { GRID_CONTENT_ATTR } from '../overlays/anchored-surface.ts';
 import { TableCellTextContext } from '../primitives/text.tsx';
@@ -41,16 +42,24 @@ import type { TableCellText } from '../primitives/text.tsx';
  * scrolls hides its overflow menu — the one control that must always be reachable. Designation
  * (100) and the action column (95) are pinned above the drop threshold and never leave.
  *
- * ## And the tracks are equal, and fill the port they fit in
+ * ## Each column starts at its content, and the slack is shared in proportion
  *
- * Dropping answers the narrow case. The wide one is the opposite problem: eight fixed tracks add up
- * to about 1050px and the shell's content area on a laptop is nearer 1450, so the list drew itself
- * against the leading edge with 400px of nothing after the last column — while the cells inside
- * those tracks clipped their values to one line.
+ * Dropping answers the narrow case. The wide one is the opposite problem: six tracks add up to
+ * about 950px and the shell's content area on a laptop is nearer 1450, so something has to take the
+ * other 500px.
  *
- * Every column that has not opted out is drawn at the same width, so the row ends where the page
- * ends and the boundaries between columns land on a constant pitch. {@link spreadColumns} states
- * the arithmetic and why it is an equal *total* rather than an equal share of the leftover.
+ * Not one column, and not every column equally. Handing it all to the long-text column parked a
+ * 300px hole after every name; an equal share gave a three-letter `Unit` the same extra as the
+ * name. So a column is drawn at the width it declares, measured from its content, and the slack is
+ * shared in proportion to those widths — what a browser's automatic table layout does — which keeps
+ * the gap after each value a similar fraction of its track. A caller that really wants one column
+ * to take the lot marks it `fill`. {@link spreadColumns} states the arithmetic.
+ *
+ * ## A value longer than its column ends in an ellipsis
+ *
+ * Every cell is one line. A value that does not fit its track is clipped with an ellipsis instead of
+ * wrapping the row or running into the next column, and on the web hovering it shows the whole value
+ * — see `TableCellTextContext`, which carries the same rule into a renderer's own text.
  */
 
 export const UNDROPPABLE_PRIORITY = 95;
@@ -60,12 +69,10 @@ export interface DataListColumn<Row> {
     /** Column label, translated. Rendered on the `label` step — 12px, sentence case. */
     readonly label: string;
     /**
-     * The track's floor in dp — what {@link fitColumns} charges against the port when it decides
-     * which columns are worth drawing, and what the whole row's minimum width is summed from.
-     *
-     * It is **not** the drawn width. A column that grows is drawn at the same width as every
-     * other column that grows; see {@link spreadColumns}. Declare what the content needs, not
-     * what the column should get.
+     * The track's width in dp: what {@link fitColumns} charges against the port when it decides
+     * which columns are worth drawing, what the whole row's minimum width is summed from, and —
+     * for every column but the one that fills — the width it is drawn at. Declare what the content
+     * needs: a unit's three letters, a status badge, a name's usual length.
      */
     readonly width: number;
     /**
@@ -75,14 +82,20 @@ export interface DataListColumn<Row> {
      */
     readonly priority: number;
     /**
-     * Whether the column takes an equal share of the row. Defaults to `true`.
+     * Whether the column may take the row's slack at all. Defaults to `true`.
      *
      * `false` is for a track whose width is its content and nothing else — the row-action column,
-     * which is sized to the buttons in it. It is paid its declared width and the rest of the row
-     * is divided over the columns that do grow. Giving it an equal share would only push the
-     * buttons away from the edge they are anchored to.
+     * which is sized to the buttons in it. It is never chosen to fill, even as the widest column,
+     * because widening it would only push the buttons away from the edge they are anchored to.
      */
     readonly grow?: boolean | undefined;
+    /**
+     * Takes all of the width the row has left once every other column has its own — for a list
+     * that wants one column of long text to absorb it. More than one may fill; they share the slack
+     * equally. With none marked, every growable column shares it in proportion to its `width`, so
+     * every list still ends where the page does (see {@link growWeights}).
+     */
+    readonly fill?: boolean | undefined;
     /**
      * Cell and header alignment. Defaults to `start` for every column, figures included — see
      * {@link dataListColumnAlign}. `end` is for a control column: the row's ⋯ or its buttons,
@@ -146,43 +159,32 @@ export function fitColumns<Row>(
  * The drawn width of each column.
  *
  * `fitColumns` answers "which columns"; this answers "how wide". They are separate because the
- * first is charged against a floor — the narrowest a column is worth drawing at — and the widths
- * that come out of it almost never add up to the port. On a 1440px window with the nav open that
- * is roughly 400px of nothing after the last column, and every text cell clipped to one line
- * *inside* its track while the space it needed sat unused beside it.
+ * first is charged against the port and the widths it keeps almost never add up to it: on a 1440px
+ * window with the nav open that is roughly 400px still to place.
  *
- * ## Every growable column gets the same track
+ * ## The slack goes to the long text, not to every column
  *
- * Two earlier answers, both wrong for the same reason. Sharing the slack *in proportion to the
- * declared width* compounded the widest track: `Designation` was already the biggest gap on the
- * row and took the biggest share of the remainder as well. Sharing the slack *equally* — an equal
- * share of the leftover on top of unequal declared widths — was better and still unequal: a 72px
- * `Unit` beside a 200px `Designation` stayed 128px narrower however the port grew, so the run of
- * whitespace between one column's value and the next changed at every boundary on the row.
+ * Every column is drawn at its declared width — what its content needs — and what the row has left
+ * goes to the column that fills: the ones marked `fill`, sharing equally, or the widest growable
+ * column when none is marked. A `Unit` stays as narrow as `kg`, a status as wide as its badge, and a
+ * name gets the room it was being denied.
  *
- * An equal *total* is the answer to the question actually being asked, which is "why are the gaps
- * between my columns all different sizes". The boundaries land on a constant pitch, so the eye
- * reads the row as a grid rather than as six differently-sized boxes.
- *
- * The declared `width` keeps its other job. It is still what `fitColumns` charges and ranks and
- * drops on — "this column needs 96px to be worth drawing at all" — and still the floor the whole
- * row is held to. It has simply stopped being a claim on how much of the page the column gets
- * once it is drawn.
+ * Earlier answers gave every growable column an equal share (and before that, an equal total), on
+ * the reasoning that boundaries on a constant pitch read as a grid. They did, and the grid was mostly
+ * empty: the short columns carried a run of blank space after every value while the names that
+ * needed the width wrapped inside a share no bigger than theirs.
  *
  * ## A port narrower than the tracks is not a narrower row
  *
  * The row carries `min-width: <track sum>`, so a port below that sum does not squeeze the
- * columns — the box stays at the sum and scrolls. This mirrors that: the share is computed
- * against the port *or* the track sum, whichever is larger, so the numbers it returns are the
- * numbers on screen.
- *
- * A column that opted out of growing (`grow: false` — the row-action track, sized to its buttons)
- * is paid its declared width first and the rest is split over what remains.
+ * columns — the box stays at the sum and scrolls. This mirrors that: the slack is computed against
+ * the port *or* the track sum, whichever is larger, so the numbers it returns are the numbers on
+ * screen.
  *
  * Exported and pure for the same reason as `fitColumns`: "nine columns in a 1213px port" is
  * arithmetic, and arithmetic is worth a test rather than a screenshot.
  *
- * Integer widths throughout, with the division's remainder given to the first growable column, so
+ * Integer widths throughout, with the division's remainder given to the first filling column, so
  * the tracks sum to the port exactly and no sub-pixel seam opens between the header and its rows.
  */
 export function spreadColumns<Row>(
@@ -193,39 +195,59 @@ export function spreadColumns<Row>(
     const floor = widths.reduce((sum, width) => sum + width, 0);
     const port = Math.max(Math.floor(available), floor);
 
-    const growable = columns.map((column) => column.grow !== false);
-    const count = growable.filter((grows) => grows).length;
-    if (count === 0) return widths;
+    const weights = growWeights(columns);
+    const totalWeight = [...weights.values()].reduce((sum, weight) => sum + weight, 0);
+    if (totalWeight === 0) return widths;
 
-    const fixed = widths.reduce(
-        (sum, width, index) => (growable[index] === true ? sum : sum + width),
-        0,
-    );
-    const spare = port - fixed;
-    const share = Math.floor(spare / count);
-    const remainder = spare - share * count;
-    const first = growable.indexOf(true);
-
-    return widths.map((width, index) => {
-        if (growable[index] !== true) return width;
-        return share + (index === first ? remainder : 0);
+    const spare = port - floor;
+    const shares = widths.map((_, index) => {
+        const column = columns[index];
+        const weight = column === undefined ? 0 : (weights.get(column.key) ?? 0);
+        return Math.floor((spare * weight) / totalWeight);
     });
+    const remainder = spare - shares.reduce((sum, share) => sum + share, 0);
+    const first = columns.findIndex((column) => weights.has(column.key));
+
+    return widths.map(
+        (width, index) => width + (shares[index] ?? 0) + (index === first ? remainder : 0),
+    );
 }
 
 /**
- * One column's track, as flex: a growable column has no basis of its own and an equal share of
- * the row, which is `spreadColumns` done by the layout engine. A column that opted out keeps its
- * declared width. The header and every row use the same style on the same content width, so the
- * tracks line up without a number ever being passed between them.
+ * How the row's slack is shared: key → weight, for every column that takes any of it.
+ *
+ * Columns marked `fill` take all of it, equally. With none marked — the usual case — every
+ * growable column takes a share in proportion to its declared width. That is what a browser's
+ * automatic table layout does, and it is the answer that leaves no hole: the one-column answer
+ * parked 300px of nothing after every name, and the equal one gave a three-letter unit the same
+ * extra as a designation. Proportional keeps the ratios the specs measured from content and spreads
+ * the leftover evenly over them, so the gap after each value is a similar fraction of its track.
+ *
+ * Empty only when no column may grow at all.
  */
-function trackStyle<Row>(column: DataListColumn<Row>) {
-    if (column.grow === false) {
-        return { flexBasis: column.width, flexGrow: 0, flexShrink: 0, minWidth: 0 } as const;
-    }
+export function growWeights<Row>(
+    columns: readonly DataListColumn<Row>[],
+): ReadonlyMap<string, number> {
+    const growable = columns.filter((column) => column.grow !== false);
+    const marked = growable.filter((column) => column.fill === true);
+    if (marked.length > 0) return new Map(marked.map((column) => [column.key, 1]));
 
-    // `flexBasis: 0` is what makes the shares equal rather than equal-on-top-of-unequal: with a
-    // basis the engine hands out the *leftover* evenly and the declared difference survives.
-    return { flexBasis: 0, flexGrow: 1, flexShrink: 0, minWidth: 0 } as const;
+    return new Map(growable.map((column) => [column.key, column.width]));
+}
+
+/**
+ * One column's track, as flex — `spreadColumns` done by the layout engine. Every column is based on
+ * its declared width and grows from there by its weight (see {@link growWeights}); the ones that
+ * may not grow stay put. The header and every row use the same style on the same content width,
+ * so the tracks line up without a number ever being passed between them.
+ */
+function trackStyle<Row>(column: DataListColumn<Row>, weights: ReadonlyMap<string, number>) {
+    return {
+        flexBasis: column.width,
+        flexGrow: weights.get(column.key) ?? 0,
+        flexShrink: 0,
+        minWidth: 0,
+    } as const;
 }
 
 export interface DataListProps<Row> {
@@ -274,11 +296,9 @@ const ROW_DURATION = 'normal';
 /**
  * The density ladder, as a *floor* rather than a fixed height.
  *
- * `h-row-md` clipped: a cell whose value does not fit its track was cut mid-word — `Condiments and
- * sweet…` — and there was nothing a reader could do about it short of opening the row. Every track
- * now grows to fill the port (see {@link spreadColumns}), which is enough for almost every value,
- * and `min-h-` is what covers the rest: the outliers wrap to a second line and take the row with
- * them instead of losing their tail. A page of ordinary rows is the same 28 / 32 / 36px it was.
+ * A floor because a cell's content is not always text: a stacked name-and-code, or a badge taller
+ * than the line, still has to fit. Text itself is one line with an ellipsis (see
+ * `TableCellTextContext`), so a page of ordinary rows is the same 28 / 32 / 36px whatever its values.
  */
 const ROW_HEIGHT_CLASS: Readonly<Record<RowDensity, string>> = {
     sm: 'min-h-row-sm',
@@ -301,12 +321,10 @@ const JUSTIFY_CLASS: Readonly<Record<'start' | 'end' | 'center', string>> = {
 /**
  * Where a column's header and cells sit: the inline start, figures included.
  *
- * The tracks are equal (see {@link spreadColumns}), so a row whose every value starts at its
- * track's leading edge sets those values on a constant pitch — the same gap from one column to the
- * next all the way across. Centring the figure columns broke that: a short value in the middle of
- * a wide track sat far from the column before it and close to the one after, and the row read as
- * unevenly spaced however equal the tracks underneath were. `mono` still sets the figures in
- * tabular numerals, so a column of them lines up digit for digit from the same edge.
+ * A row whose every value starts at its track's leading edge reads from one edge to the next: the
+ * gap between a value and the column after it is that track's spare room and nothing else. Centring
+ * the figure columns split that room either side and the row read as unevenly spaced. `mono` still
+ * sets the figures in tabular numerals, so a column of them lines up digit for digit.
  *
  * A column that states its own alignment keeps it — `end` for the row's control column.
  *
@@ -349,12 +367,14 @@ export function DataList<Row>({
     const [available, setAvailable] = useState(0);
     const visible = fitColumns(columns, available);
     const trackSum = visible.reduce((sum, column) => sum + column.width, 0);
+    // Chosen from what is drawn, so a dropped column hands its share to the ones that remain.
+    const fills = growWeights(visible);
 
     /*
      * The port is measured only to decide *which* columns fit. *How wide* each one is drawn is the
-     * browser's job: every track is `flex-basis: width` and grows by an equal share of the leftover
-     * (see `trackStyle`) — the same arithmetic as `spreadColumns`, run by the layout engine instead
-     * of by React.
+     * browser's job: every track is `flex-basis: width` and the filling ones grow by an equal share of
+     * the leftover (see `trackStyle`) — the same arithmetic as `spreadColumns`, run by the layout
+     * engine instead of by React.
      *
      * That split is what keeps a width change smooth. When the shell's page panel slides open or
      * shut, the port changes width on every frame. Pixel tracks computed here were either stale for
@@ -484,7 +504,7 @@ export function DataList<Row>({
                                     ? undefined
                                     : `${testID}-columnheader-${column.key}`
                             }
-                            style={trackStyle(column)}
+                            style={trackStyle(column, fills)}
                             className="px-control-sm"
                         >
                             {column.renderHeader === undefined ? (
@@ -495,6 +515,8 @@ export function DataList<Row>({
                                  * §4.3 calls this out by name, and the action column is exactly it.
                                  */
                                 <RNText
+                                    numberOfLines={1}
+                                    {...truncationHoverProps}
                                     className={cx(
                                         // `strong`: a step larger and heavier than the 12px cells
                                         // under it, so the header reads as the column's name — the
@@ -522,11 +544,12 @@ export function DataList<Row>({
                               <View
                                   key={column.key}
                                   role="cell"
-                                  style={trackStyle(column)}
+                                  style={trackStyle(column, fills)}
                                   className={cx(
                                       // No vertical padding: `min-h-row-*` is what sets the row's
                                       // floor, and a padded cell would raise every row above the
-                                      // density it was asked for.
+                                      // density it was asked for. No `overflow-hidden`: a cell
+                                      // can hold a select whose panel has to escape it.
                                       'flex-row items-center px-control-sm',
                                       JUSTIFY_CLASS[
                                           dataListColumnAlign(column as DataListColumn<unknown>)
@@ -534,12 +557,15 @@ export function DataList<Row>({
                                   )}
                               >
                                   {column.render === undefined ? (
-                                      // No `numberOfLines`. A track wide enough for its value is
-                                      // the fix for a long one; the clamp was the fix for a track
-                                      // that was not, and all it ever did was hide the problem
-                                      // behind an ellipsis.
+                                      // One line, ellipsis, the whole value on hover — the rule
+                                      // `TableCellTextContext` gives a renderer's own text.
                                       <RNText
-                                          className={cellClass(column as DataListColumn<unknown>)}
+                                          numberOfLines={1}
+                                          {...truncationHoverProps}
+                                          className={cx(
+                                              cellClass(column as DataListColumn<unknown>),
+                                              'min-w-0 shrink',
+                                          )}
                                       >
                                           {column.value?.(row) ?? ''}
                                       </RNText>

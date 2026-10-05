@@ -160,6 +160,11 @@ export function CatalogueList<Row>({
         );
     }
 
+    /*
+     * No column is told to take the slack: `DataList` shares it across every column in proportion
+     * to its declared width, so the table ends where the page does without a hole after the names.
+     * A spec that wants one column to absorb it can still say `fill`.
+     */
     const drawn = withTableThumbnail(columns, rowKey, testID);
     const withActions =
         rowActions === undefined
@@ -253,10 +258,10 @@ function withTableThumbnail<Row>(
             );
 
         /*
-         * Held to the cell's width, with the title beside the picture rather than under it: the
-         * title's track is an equal share of the row like every other column's, so a long name
-         * has to wrap inside it. Left to its content width, the pair ran past the track and wrote
-         * the name over the next column.
+         * Held to the cell's width, with the title beside the picture rather than under it. The
+         * title's track is the one that fills, but a name can still be longer than whatever is
+         * left: then it ends in an ellipsis, readable on hover. Left to its content width, the pair
+         * ran past the track and wrote the name over the next column.
          */
         return {
             ...column,

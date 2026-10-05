@@ -5,6 +5,7 @@ import type { TextProps as RNTextProps } from 'react-native';
 import { useDensity } from '../hooks/use-density.tsx';
 import type { Density } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
+import { truncationHoverProps } from '../internal/truncation-hover.ts';
 
 /**
  * Typography.
@@ -158,6 +159,10 @@ export function densityFontClass(_density: Density, _variant: TextVariant = 'bod
  *   value's meaning — a negative margin, a shelf below its par — and a table that painted them
  *   black would be saying something false.
  *
+ * - **Lines**: one. A value longer than its column ends in an ellipsis rather than wrapping the
+ *   row onto a second line or running into the next column, and on the web hovering it shows the
+ *   whole value (`truncationHoverProps`). A renderer that passes its own `numberOfLines` keeps it.
+ *
  * Badges, tags, buttons and inputs draw their own text and are untouched: their colour is what
  * they are. `strong` is the table's `primary` column — the one figure a reader compares — which
  * keeps its weight, not a larger size.
@@ -167,6 +172,13 @@ export interface TableCellText {
 }
 
 export const TableCellTextContext = createContext<TableCellText | null>(null);
+
+/**
+ * Whether this text sits inside another `Text`. A nested text is a run inside its parent's line —
+ * a `<span>` on the web — so the one-line clamp and the hover belong to the outer text, and applying
+ * them to the inner one would break the line it is part of.
+ */
+const NestedTextContext = createContext(false);
 
 /** The tones a cell keeps, because each of them is part of the value rather than its styling. */
 const CELL_TONES: ReadonlySet<TextTone> = new Set(['danger', 'warning', 'success']);
@@ -213,9 +225,15 @@ export function Text({
     // Inside a table cell the column decides the size and the ink, not the renderer — see
     // `TableCellTextContext`.
     const cell = useContext(TableCellTextContext);
+    const nested = useContext(NestedTextContext);
+    // One line in a cell, clipped with an ellipsis and readable on hover — unless the renderer
+    // asked for its own clamp. `min-w-0 shrink` is what lets the text get narrower than its value
+    // inside the cell's row at all; without it the flex item keeps its content width and overruns.
+    const clip = cell !== null && !nested;
 
-    return (
+    const text = (
         <RNText
+            {...(clip ? { numberOfLines: 1, ...truncationHoverProps } : {})}
             {...rest}
             // Only `display` names a family — Space Grotesk, the mood board's face for KPIs and
             // numeric emphasis. Every other variant takes the body family `global.css` sets per
@@ -226,11 +244,19 @@ export function Text({
                     : cellVariantClass(density, variant, cell.strong === true),
                 TONE_CLASS[cell === null || CELL_TONES.has(tone) ? tone : 'primary'],
                 ALIGN_CLASS[align],
+                clip ? 'min-w-0 shrink' : null,
                 className,
             )}
         >
             {children}
         </RNText>
+    );
+
+    // The provider only where it can matter: outside a table nothing reads it.
+    return cell === null || nested ? (
+        text
+    ) : (
+        <NestedTextContext.Provider value>{text}</NestedTextContext.Provider>
     );
 }
 

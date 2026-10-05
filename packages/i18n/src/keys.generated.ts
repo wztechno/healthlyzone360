@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8184 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8185 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2922,22 +2922,17 @@ export interface NamespaceKeys {
     | 'bilingual.missingArabicHint'
     | 'branchHours.allClosedBody'
     | 'branchHours.allClosedTitle'
-    | 'branchHours.backToHub'
-    | 'branchHours.cardClosedCaption'
     | 'branchHours.cardCutOff'
-    | 'branchHours.cardCutOffCaption'
     | 'branchHours.cardDayUnit'
     | 'branchHours.cardTrading'
     | 'branchHours.cardTradingUnit'
     | 'branchHours.chip'
     | 'branchHours.closedBadge'
     | 'branchHours.closedLabel'
-    | 'branchHours.closedNote'
     | 'branchHours.closesBeforeOpens'
     | 'branchHours.closesInvalid'
     | 'branchHours.closesLabel'
     | 'branchHours.columnDay'
-    | 'branchHours.columnSays'
     | 'branchHours.columnTrading'
     | 'branchHours.copiedAnnouncement'
     | 'branchHours.copyShort'
@@ -2947,8 +2942,7 @@ export interface NamespaceKeys {
     | 'branchHours.cutOffHint'
     | 'branchHours.cutOffInvalid'
     | 'branchHours.cutOffLabel'
-    | 'branchHours.cutOffNone'
-    | 'branchHours.dayOpenNote'
+    | 'branchHours.dayHours'
     | 'branchHours.loadErrorTitle'
     | 'branchHours.noBranchBody'
     | 'branchHours.noBranchTitle'
@@ -2958,10 +2952,15 @@ export interface NamespaceKeys {
     | 'branchHours.save'
     | 'branchHours.saveError'
     | 'branchHours.savedToast'
+    | 'branchHours.summaryBranch'
+    | 'branchHours.summaryDays'
+    | 'branchHours.summaryTimeZone'
+    | 'branchHours.summaryTitle'
     | 'branchHours.title'
     | 'branchHours.titleFor'
     | 'branchHours.tradingLabel'
     | 'branchHours.tradingOpen'
+    | 'branchHours.weekTitle'
     | 'calendar.a11y.nothing'
     | 'calendar.a11y.projected'
     | 'calendar.a11y.showing'
@@ -4222,7 +4221,6 @@ export interface NamespaceKeys {
     | 'ops.procurement.pendingFxCount'
     | 'ops.procurement.postDelivery'
     | 'ops.procurement.postFailed'
-    | 'ops.procurement.postFoot'
     | 'ops.procurement.postReceipt'
     | 'ops.procurement.postTitle'
     | 'ops.procurement.postedToast'
@@ -4998,7 +4996,6 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.columnReorderAt'
     | 'ops.supplyOrders.columnStatus'
     | 'ops.supplyOrders.columnSupplier'
-    | 'ops.supplyOrders.commitNote'
     | 'ops.supplyOrders.createCancel'
     | 'ops.supplyOrders.createConfirm'
     | 'ops.supplyOrders.createConfirmBody'
@@ -5008,6 +5005,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.createFailed'
     | 'ops.supplyOrders.createdToast'
     | 'ops.supplyOrders.detailSubtitle'
+    | 'ops.supplyOrders.detailSummaryTitle'
     | 'ops.supplyOrders.detailTitle'
     | 'ops.supplyOrders.excludedCount'
     | 'ops.supplyOrders.groupCount'
@@ -5109,6 +5107,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.reasonNoSupplier'
     | 'ops.supplyOrders.receiptLineCount'
     | 'ops.supplyOrders.receiptNoDocumentRef'
+    | 'ops.supplyOrders.receiptsEmpty'
     | 'ops.supplyOrders.receiptsNote'
     | 'ops.supplyOrders.receiptsTitle'
     | 'ops.supplyOrders.receiveDelivery'
@@ -5138,15 +5137,14 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.subtitle'
     | 'ops.supplyOrders.summaryBySupplier'
     | 'ops.supplyOrders.summaryDrafts'
+    | 'ops.supplyOrders.summaryIssuedOn'
     | 'ops.supplyOrders.summaryLeftBehind'
+    | 'ops.supplyOrders.summaryLineTotal'
     | 'ops.supplyOrders.summaryLines'
     | 'ops.supplyOrders.supplierArchivedBody'
     | 'ops.supplyOrders.supplierArchivedTitle'
     | 'ops.supplyOrders.supplierLabel'
-    | 'ops.supplyOrders.supplierLiveNote'
     | 'ops.supplyOrders.supplierPlaceholder'
-    | 'ops.supplyOrders.supplierSectionTitle'
-    | 'ops.supplyOrders.supplierSnapshotNote'
     | 'ops.supplyOrders.title'
     | 'ops.supplyOrders.unassignedCount'
     | 'ops.supplyOrders.unlinkedCaption'
@@ -5304,17 +5302,19 @@ export interface NamespaceKeys {
     | 'plans.menuAddedAnnouncement'
     | 'plans.menuAnchorLabel'
     | 'plans.menuAnchorMalformed'
+    | 'plans.menuAnchorPlaceholder'
     | 'plans.menuAnchorRequired'
     | 'plans.menuBeyondCycle'
     | 'plans.menuBlockedTitle'
     | 'plans.menuCutoverBody'
     | 'plans.menuCutoverTitle'
     | 'plans.menuCycleDaysLabel'
+    | 'plans.menuCycleNotWeekly'
     | 'plans.menuCycleOutOfRange'
     | 'plans.menuCycleRequired'
     | 'plans.menuDayBeyond'
     | 'plans.menuDayEmptyHint'
-    | 'plans.menuDayFalls'
+    | 'plans.menuDayLabel'
     | 'plans.menuDayNumber'
     | 'plans.menuDuplicateCoordinate'
     | 'plans.menuEmpty'
@@ -5323,17 +5323,18 @@ export interface NamespaceKeys {
     | 'plans.menuEntryCount'
     | 'plans.menuEntryNumber'
     | 'plans.menuEntryRemoved'
+    | 'plans.menuExplainer'
     | 'plans.menuLoadErrorTitle'
-    | 'plans.menuMealHint'
     | 'plans.menuMealLabel'
+    | 'plans.menuMealPlaceholder'
     | 'plans.menuMealRequired'
     | 'plans.menuMealUnavailable'
     | 'plans.menuMealsPending'
     | 'plans.menuSaveError'
     | 'plans.menuSavedToast'
-    | 'plans.menuSequenceHint'
     | 'plans.menuSequenceLabel'
     | 'plans.menuSequenceRequired'
+    | 'plans.menuSequenceShort'
     | 'plans.menuSlotBreakfast'
     | 'plans.menuSlotDinner'
     | 'plans.menuSlotLabel'
@@ -5382,7 +5383,9 @@ export interface NamespaceKeys {
     | 'plans.sectionDurations'
     | 'plans.sectionMenu'
     | 'plans.sectionPrices'
+    | 'plans.servingsMeals'
     | 'plans.servingsRequired'
+    | 'plans.servingsSnacks'
     | 'plans.servingsSummary'
     | 'plans.snacksPerDayLabel'
     | 'plans.snacksPerDayPlaceholder'
@@ -5415,7 +5418,6 @@ export interface NamespaceKeys {
     | 'plans.viewCombinations'
     | 'plans.viewKind'
     | 'plans.viewPublic'
-    | 'plans.weekdaysLabel'
     | 'priceLists.addEntry'
     | 'priceLists.agreementBadge'
     | 'priceLists.amountFieldLabel'
@@ -5523,7 +5525,6 @@ export interface NamespaceKeys {
     | 'priceLists.offlineTitle'
     | 'priceLists.openEnded'
     | 'priceLists.packLabel'
-    | 'priceLists.packPlan'
     | 'priceLists.placeholderCount'
     | 'priceLists.problemAmountNotAllowed'
     | 'priceLists.problemBadAmount'
@@ -11124,22 +11125,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:bilingual.missingArabicHint',
   'kitchen:branchHours.allClosedBody',
   'kitchen:branchHours.allClosedTitle',
-  'kitchen:branchHours.backToHub',
-  'kitchen:branchHours.cardClosedCaption',
   'kitchen:branchHours.cardCutOff',
-  'kitchen:branchHours.cardCutOffCaption',
   'kitchen:branchHours.cardDayUnit',
   'kitchen:branchHours.cardTrading',
   'kitchen:branchHours.cardTradingUnit',
   'kitchen:branchHours.chip',
   'kitchen:branchHours.closedBadge',
   'kitchen:branchHours.closedLabel',
-  'kitchen:branchHours.closedNote',
   'kitchen:branchHours.closesBeforeOpens',
   'kitchen:branchHours.closesInvalid',
   'kitchen:branchHours.closesLabel',
   'kitchen:branchHours.columnDay',
-  'kitchen:branchHours.columnSays',
   'kitchen:branchHours.columnTrading',
   'kitchen:branchHours.copiedAnnouncement',
   'kitchen:branchHours.copyShort',
@@ -11149,8 +11145,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:branchHours.cutOffHint',
   'kitchen:branchHours.cutOffInvalid',
   'kitchen:branchHours.cutOffLabel',
-  'kitchen:branchHours.cutOffNone',
-  'kitchen:branchHours.dayOpenNote',
+  'kitchen:branchHours.dayHours',
   'kitchen:branchHours.loadErrorTitle',
   'kitchen:branchHours.noBranchBody',
   'kitchen:branchHours.noBranchTitle',
@@ -11160,10 +11155,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:branchHours.save',
   'kitchen:branchHours.saveError',
   'kitchen:branchHours.savedToast',
+  'kitchen:branchHours.summaryBranch',
+  'kitchen:branchHours.summaryDays',
+  'kitchen:branchHours.summaryTimeZone',
+  'kitchen:branchHours.summaryTitle',
   'kitchen:branchHours.title',
   'kitchen:branchHours.titleFor',
   'kitchen:branchHours.tradingLabel',
   'kitchen:branchHours.tradingOpen',
+  'kitchen:branchHours.weekTitle',
   'kitchen:calendar.a11y.nothing',
   'kitchen:calendar.a11y.projected',
   'kitchen:calendar.a11y.showing',
@@ -12424,7 +12424,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.pendingFxCount',
   'kitchen:ops.procurement.postDelivery',
   'kitchen:ops.procurement.postFailed',
-  'kitchen:ops.procurement.postFoot',
   'kitchen:ops.procurement.postReceipt',
   'kitchen:ops.procurement.postTitle',
   'kitchen:ops.procurement.postedToast',
@@ -13200,7 +13199,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.columnReorderAt',
   'kitchen:ops.supplyOrders.columnStatus',
   'kitchen:ops.supplyOrders.columnSupplier',
-  'kitchen:ops.supplyOrders.commitNote',
   'kitchen:ops.supplyOrders.createCancel',
   'kitchen:ops.supplyOrders.createConfirm',
   'kitchen:ops.supplyOrders.createConfirmBody',
@@ -13210,6 +13208,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.createFailed',
   'kitchen:ops.supplyOrders.createdToast',
   'kitchen:ops.supplyOrders.detailSubtitle',
+  'kitchen:ops.supplyOrders.detailSummaryTitle',
   'kitchen:ops.supplyOrders.detailTitle',
   'kitchen:ops.supplyOrders.excludedCount',
   'kitchen:ops.supplyOrders.groupCount',
@@ -13311,6 +13310,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.reasonNoSupplier',
   'kitchen:ops.supplyOrders.receiptLineCount',
   'kitchen:ops.supplyOrders.receiptNoDocumentRef',
+  'kitchen:ops.supplyOrders.receiptsEmpty',
   'kitchen:ops.supplyOrders.receiptsNote',
   'kitchen:ops.supplyOrders.receiptsTitle',
   'kitchen:ops.supplyOrders.receiveDelivery',
@@ -13340,15 +13340,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.subtitle',
   'kitchen:ops.supplyOrders.summaryBySupplier',
   'kitchen:ops.supplyOrders.summaryDrafts',
+  'kitchen:ops.supplyOrders.summaryIssuedOn',
   'kitchen:ops.supplyOrders.summaryLeftBehind',
+  'kitchen:ops.supplyOrders.summaryLineTotal',
   'kitchen:ops.supplyOrders.summaryLines',
   'kitchen:ops.supplyOrders.supplierArchivedBody',
   'kitchen:ops.supplyOrders.supplierArchivedTitle',
   'kitchen:ops.supplyOrders.supplierLabel',
-  'kitchen:ops.supplyOrders.supplierLiveNote',
   'kitchen:ops.supplyOrders.supplierPlaceholder',
-  'kitchen:ops.supplyOrders.supplierSectionTitle',
-  'kitchen:ops.supplyOrders.supplierSnapshotNote',
   'kitchen:ops.supplyOrders.title',
   'kitchen:ops.supplyOrders.unassignedCount',
   'kitchen:ops.supplyOrders.unlinkedCaption',
@@ -13506,17 +13505,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.menuAddedAnnouncement',
   'kitchen:plans.menuAnchorLabel',
   'kitchen:plans.menuAnchorMalformed',
+  'kitchen:plans.menuAnchorPlaceholder',
   'kitchen:plans.menuAnchorRequired',
   'kitchen:plans.menuBeyondCycle',
   'kitchen:plans.menuBlockedTitle',
   'kitchen:plans.menuCutoverBody',
   'kitchen:plans.menuCutoverTitle',
   'kitchen:plans.menuCycleDaysLabel',
+  'kitchen:plans.menuCycleNotWeekly',
   'kitchen:plans.menuCycleOutOfRange',
   'kitchen:plans.menuCycleRequired',
   'kitchen:plans.menuDayBeyond',
   'kitchen:plans.menuDayEmptyHint',
-  'kitchen:plans.menuDayFalls',
+  'kitchen:plans.menuDayLabel',
   'kitchen:plans.menuDayNumber',
   'kitchen:plans.menuDuplicateCoordinate',
   'kitchen:plans.menuEmpty',
@@ -13525,17 +13526,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.menuEntryCount',
   'kitchen:plans.menuEntryNumber',
   'kitchen:plans.menuEntryRemoved',
+  'kitchen:plans.menuExplainer',
   'kitchen:plans.menuLoadErrorTitle',
-  'kitchen:plans.menuMealHint',
   'kitchen:plans.menuMealLabel',
+  'kitchen:plans.menuMealPlaceholder',
   'kitchen:plans.menuMealRequired',
   'kitchen:plans.menuMealUnavailable',
   'kitchen:plans.menuMealsPending',
   'kitchen:plans.menuSaveError',
   'kitchen:plans.menuSavedToast',
-  'kitchen:plans.menuSequenceHint',
   'kitchen:plans.menuSequenceLabel',
   'kitchen:plans.menuSequenceRequired',
+  'kitchen:plans.menuSequenceShort',
   'kitchen:plans.menuSlotBreakfast',
   'kitchen:plans.menuSlotDinner',
   'kitchen:plans.menuSlotLabel',
@@ -13584,7 +13586,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.sectionDurations',
   'kitchen:plans.sectionMenu',
   'kitchen:plans.sectionPrices',
+  'kitchen:plans.servingsMeals',
   'kitchen:plans.servingsRequired',
+  'kitchen:plans.servingsSnacks',
   'kitchen:plans.servingsSummary',
   'kitchen:plans.snacksPerDayLabel',
   'kitchen:plans.snacksPerDayPlaceholder',
@@ -13617,7 +13621,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.viewCombinations',
   'kitchen:plans.viewKind',
   'kitchen:plans.viewPublic',
-  'kitchen:plans.weekdaysLabel',
   'kitchen:priceLists.addEntry',
   'kitchen:priceLists.agreementBadge',
   'kitchen:priceLists.amountFieldLabel',
@@ -13725,7 +13728,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:priceLists.offlineTitle',
   'kitchen:priceLists.openEnded',
   'kitchen:priceLists.packLabel',
-  'kitchen:priceLists.packPlan',
   'kitchen:priceLists.placeholderCount',
   'kitchen:priceLists.problemAmountNotAllowed',
   'kitchen:priceLists.problemBadAmount',

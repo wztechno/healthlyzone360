@@ -285,7 +285,7 @@ function RowHeading({
     );
 }
 
-function RemoveButton({
+export function RemoveButton({
     testID,
     onRemove,
 }: {
@@ -310,7 +310,7 @@ function RemoveButton({
  * A whole-number field whose empty state is `null`, never `0`. Drawn as the design's plain mono
  * input: a desk surface types the number rather than stepping to it.
  */
-function CountField({
+export function CountField({
     testID,
     label,
     labelHidden,

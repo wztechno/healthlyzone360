@@ -1,4 +1,4 @@
-import { RecipeId } from '@healthy360/domain-types';
+import { RecipeId, SubscriptionPlanId } from '@healthy360/domain-types';
 import { describe, expect, it } from 'vitest';
 
 import { createMemoryTokenStore } from '../contracts/session.ts';
@@ -163,5 +163,92 @@ describe('updateRecipe', () => {
         expect(calls.filter((call) => call.method === 'PATCH')).toHaveLength(1);
 
         expect(recipe.shelfLifeDays).toBe(7);
+    });
+});
+
+const PLAN_ID = SubscriptionPlanId.unsafe('0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4001');
+
+describe('setPlanVariants', () => {
+    it('creates the meals-a-day and energy-band rows a configuration needs, then writes the cell', async () => {
+        const { writes, calls } = harness([
+            // The kitchen's vocabulary is empty — every plan written from the editor starts here.
+            { status: 200, body: { data: [] } },
+            { status: 200, body: { data: [] } },
+            {
+                status: 201,
+                body: { data: { combination: { id: 'combination-3', meals_per_day: 3 } } },
+            },
+            {
+                status: 201,
+                body: { data: { energy_band: { id: 'band-1', min_kcal: 1400, max_kcal: 1700 } } },
+            },
+            { status: 200, body: { data: { cells: [] } } },
+        ]);
+
+        // The read-back afterwards is not this test's concern; its first request finds no answer.
+        await writes
+            .setPlanVariants(PLAN_ID, {
+                lockVersion: 2,
+                variants: [
+                    {
+                        id: null,
+                        name: { en: 'Standard', ar: '' },
+                        mealsPerDay: 3,
+                        snacksPerDay: 1,
+                        energyBand: { min: 1400, max: 1700 },
+                    },
+                ],
+            })
+            .catch(() => undefined);
+
+        expect(calls[2]).toMatchObject({
+            method: 'POST',
+            path: '/catalogue/plan-vocabulary/combinations',
+            body: { meals_per_day: 3, includes_breakfast: true },
+        });
+        expect(calls[3]).toMatchObject({
+            method: 'POST',
+            path: '/catalogue/plan-vocabulary/energy-bands',
+            body: { min_kcal: 1400, max_kcal: 1700 },
+        });
+        // The configuration is sent, not dropped — the defect was an empty `cells` that came back 200.
+        expect(calls[4]).toMatchObject({
+            method: 'PUT',
+            path: `/catalogue/plans/${String(PLAN_ID)}/variants`,
+            body: {
+                cells: [
+                    expect.objectContaining({
+                        meal_combination_option_id: 'combination-3',
+                        energy_band_id: 'band-1',
+                    }),
+                ],
+            },
+        });
+    });
+});
+
+describe('updatePlan', () => {
+    it('carries each write’s new version into the next, so the profile is not a conflict', async () => {
+        const { writes, calls } = harness([
+            { status: 200, body: { data: { item: { lock_version: 5 } } } },
+            { status: 200, body: { data: { item: { lock_version: 6 }, profile: {} } } },
+            { status: 200, body: { data: {} } },
+        ]);
+
+        await writes
+            .updatePlan(PLAN_ID, {
+                lockVersion: 4,
+                name: { en: 'Weekday Fit', ar: 'خطة' },
+                summary: { en: 'Edited', ar: 'معدّل' },
+                dietClassifications: [],
+            })
+            .catch(() => undefined);
+
+        const ifMatch = calls.slice(0, 3).map((call) => [call.method, call.headers['if-match']]);
+        expect(ifMatch).toEqual([
+            ['PATCH', '"4"'],
+            ['PUT', '"5"'],
+            ['PUT', '"6"'],
+        ]);
     });
 });

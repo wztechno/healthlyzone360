@@ -29,6 +29,17 @@ export interface FloatingLabel {
     readonly hide: () => void;
 }
 
+export interface FloatingLabelOptions {
+    /**
+     * Lets a long text break over lines at a reading width instead of running off the window — a
+     * table cell's whole value, where an icon's name is never more than a few words.
+     */
+    readonly wrap?: boolean | undefined;
+}
+
+/** The widest a wrapped label grows before it breaks: a comfortable line of a sentence. */
+const WRAP_WIDTH = 320;
+
 interface Measurable {
     readonly getBoundingClientRect?: () => {
         readonly top: number;
@@ -45,6 +56,7 @@ export function showFloatingLabel(
     text: string,
     testID?: string | undefined,
     placement: 'below' | 'end' = 'below',
+    options: FloatingLabelOptions = {},
 ): FloatingLabel | null {
     if (typeof document === 'undefined' || typeof window === 'undefined') return null;
     const rect = (target as Measurable | null)?.getBoundingClientRect?.();
@@ -63,7 +75,8 @@ export function showFloatingLabel(
         left: '0px',
         zIndex: '2147483000',
         pointerEvents: 'none',
-        whiteSpace: 'nowrap',
+        whiteSpace: options.wrap === true ? 'normal' : 'nowrap',
+        maxWidth: options.wrap === true ? `${String(WRAP_WIDTH)}px` : 'none',
         padding: '4px 8px',
         borderRadius: '4px',
         fontFamily: font,
