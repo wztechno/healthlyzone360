@@ -17,7 +17,7 @@ describe('shelfNarrowing', () => {
         expect(shownCategory()).toBe('frozen');
         expect(shownCategory('meal')).toBe('frozen');
         expect(shownCategory('frozen')).toBe('frozen');
-        expect(shownItemTypes(['meal'])).toEqual(['meal', 'product']);
+        expect(shownItemTypes(['meal'])).toEqual(['meal', 'product', 'frozen_meal']);
     });
 
     it('leaves the shelf to the caller when more than one is shown', () => {
