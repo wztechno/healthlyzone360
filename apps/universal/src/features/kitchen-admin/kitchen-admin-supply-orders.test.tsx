@@ -490,7 +490,7 @@ describe('supply order builder', () => {
         const suggested = screen.getByTestId(
             `${supplyOrderRowTestId(String(LOW_ONLY.stockItemId))}-quantity-input`,
         );
-        expect(suggested.props.value).toBe('15.0000');
+        expect(suggested.props.value).toBe('15');
 
         // Blank, never "0". Zero is a decision; empty is the absence of one, and prefilling zero
         // would make "not ordering" the default for the rows that most need a human number.
@@ -761,7 +761,7 @@ describe('supply order builder', () => {
                     {
                         supplierId: supplierId(1),
                         branchId: BRANCH,
-                        lines: [{ stockItemId: LOW_ONLY.stockItemId, quantity: '15.0000' }],
+                        lines: [{ stockItemId: LOW_ONLY.stockItemId, quantity: '15' }],
                     },
                 ],
             });

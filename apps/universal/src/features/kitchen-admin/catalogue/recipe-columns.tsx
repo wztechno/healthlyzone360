@@ -20,6 +20,7 @@ import {
     statusTone,
     unitShortKey,
 } from '../format.ts';
+import { resolveEntityImage } from '../../../media/entity-image.tsx';
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
@@ -188,9 +189,14 @@ export function recipeHandle(row: RecipeAdminSummary): string {
     return identifierFragment(row.soldAs?.[0]?.reference ?? row.reference ?? row.slug);
 }
 
-/** The photograph a row, a card and the View panel all show — the seller's, else the recipe's. */
+/**
+ * The photograph a row, a card and the View panel all show — the seller's, else the recipe's. A
+ * seller with no photo of its own still shows the recipe's dish (`classic-burger-sauce` is sold
+ * from the `classic-sauce` recipe).
+ */
 export function recipePhotoId(row: RecipeAdminSummary): string {
-    return row.soldAs?.[0]?.imagePlaceholderId ?? `recipe-${row.slug}`;
+    const seller = row.soldAs?.[0]?.imagePlaceholderId;
+    return seller !== undefined && resolveEntityImage(seller, 'card') !== null ? seller : `recipe-${row.slug}`;
 }
 
 /**

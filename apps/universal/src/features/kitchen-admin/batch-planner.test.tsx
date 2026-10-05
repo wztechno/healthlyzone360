@@ -22,7 +22,13 @@ import {
 } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
-import { batchFactor, displayQuantity, scaleLine, scalePackaging } from './batch-scaling.ts';
+import {
+    batchFactor,
+    displayQuantity,
+    scaleLine,
+    scalePackaging,
+    withWaste,
+} from './batch-scaling.ts';
 import { RECIPE_VIEW_PERMISSION } from './entity-registry.ts';
 import { BatchPlannerScreen } from './screens/batch-planner-screen.tsx';
 
@@ -79,6 +85,13 @@ describe('batch scaling', () => {
         expect(scaleLine(0.2, 2.5)).toBe(0.5);
         // Countable and still fractional: the recipe's proportions are the point.
         expect(scaleLine(1, 0.4)).toBe(0.4);
+    });
+
+    it('puts the waste rate on top of the batch factor, as a production batch does', () => {
+        expect(withWaste(2.5, 3)).toBeCloseTo(2.575, 10);
+        expect(withWaste(2.5, 0)).toBe(2.5);
+        // On before packaging rounds up, never after: 9.9 boxes with 2 % is 10.098, so eleven.
+        expect(scalePackaging(9.9, withWaste(1, 2), 'piece')).toBe(11);
     });
 
     it('rounds packaging up on anything counted, and leaves the divisible alone', () => {
@@ -359,15 +372,20 @@ describe('the batch planner', () => {
             },
             { timeout: 10_000 },
         );
-        // 0.2 kg × 2.5 is half a kilogram — stated in kilograms, the one unit the row has.
+        // 0.2 kg × 2.5, plus the version's 3 % production waste — what a production batch for the
+        // same 10 kg reserves — stated in kilograms, the one unit the row has.
         expect(
             screen.getByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-quantity`),
-        ).toHaveTextContent('0.5');
+        ).toHaveTextContent('0.515');
+        expect(screen.getByTestId('kitchen-batch-base-times')).toHaveTextContent(
+            'Base quantities × 2.5, plus 3 % production waste',
+        );
 
         // The planner is a sheet, not a stock check: no shelf column is drawn.
         expect(screen.queryByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-on-hand`)).toBeNull();
 
-        // 3 trays × 2.5 is 7.5, and half a tray is not a thing anybody can take off a shelf.
+        // 3 trays × 2.5 is 7.5, and half a tray is not a thing anybody can take off a shelf. The
+        // production rate never reaches packaging, which has its own — 0 here, so nothing is said.
         expect(
             screen.getByTestId(`kitchen-batch-row-${String(TRAY_ID)}-quantity`),
         ).toHaveTextContent('8');
@@ -377,6 +395,44 @@ describe('the batch planner', () => {
         expect(screen.getByTestId(`kitchen-batch-row-${String(TRAY_ID)}-name`)).toHaveTextContent(
             'Gastronorm tray',
         );
+        expect(screen.queryByTestId('kitchen-batch-packaging-waste')).toBeNull();
+    });
+
+    it('adds the packaging rate to packaging before it rounds up, and says so', async () => {
+        const record = recipe({ currentVersion: version({ packagingWastePercent: 10 }) });
+        await renderStubScreen(<BatchPlannerScreen />, {
+            session: kitchenManagerSession(),
+            repositories: batchRepositories(record),
+        });
+
+        await untilVisible('kitchen-batch-recipe-trigger');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-recipe-trigger'));
+        });
+        await untilVisible(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`));
+        });
+        await untilVisible('kitchen-batch-target-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-batch-target-input'), '10');
+        });
+        await untilVisible('kitchen-batch-packaging');
+
+        // 3 trays × 2.5 × 1.10 is 8.25, so nine — where the bare 7.5 would have asked for eight.
+        expect(
+            screen.getByTestId(`kitchen-batch-row-${String(TRAY_ID)}-quantity`),
+        ).toHaveTextContent('9');
+        expect(screen.getByTestId(`kitchen-batch-row-${String(TRAY_ID)}-exact`)).toHaveTextContent(
+            /from 8.25/,
+        );
+        expect(screen.getByTestId('kitchen-batch-packaging-waste')).toHaveTextContent(
+            'Includes 10 % packaging waste, added before anything rounds up.',
+        );
+        // The ingredients keep their own rate, untouched by the packaging one.
+        expect(
+            screen.getByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-quantity`),
+        ).toHaveTextContent('0.515');
     });
 
     it('sorts the scaled sheet from its headers and filters it by unit', async () => {

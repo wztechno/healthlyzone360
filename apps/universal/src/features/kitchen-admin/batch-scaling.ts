@@ -9,7 +9,8 @@ import { normaliseQuantity, unitDimension } from './format.ts';
  *
  * Client-side and nothing else: there is no scaling endpoint, and there does not need to be. A
  * version already states what it makes (`yieldQuantity` in `yieldUnit`, and `yieldPieces` when it
- * counts), so "how much of each line for 10 kg?" is one division and one multiplication per row.
+ * counts), so "how much of each line for 10 kg?" is one division and two multiplications per row —
+ * the batch factor and the waste rate ({@link withWaste}).
  * Keeping it here rather than in the screen is what lets the interesting cases — a target of zero,
  * a recipe with no piece count, a box that cannot be bought in fifths — be asserted without
  * rendering anything.
@@ -48,6 +49,23 @@ export function batchFactor(
 }
 
 /**
+ * The batch factor with a waste rate on top — what a line is actually issued at.
+ *
+ * The production batch's own rule (`MealExplosion::explodeBatch()` on the server), so the planner
+ * shows what a batch planned for the same yield reserves: every ingredient line carries the
+ * version's production waste rate and every packaging line its packaging waste rate. Ingredients go
+ * through `withWaste(factor, version.wastePercent)`, packaging through
+ * `withWaste(factor, version.packagingWastePercent)` *before* {@link scalePackaging} rounds anything
+ * up — the server's order, so a 2 % allowance on 9.9 boxes asks for 11, not 10.
+ *
+ * The yield is untouched: waste is extra input, not less output, so the batches and portions
+ * figures stay on the bare factor.
+ */
+export function withWaste(factor: number, wastePercent: number): number {
+    return factor * (1 + wastePercent / 100);
+}
+
+/**
  * An ingredient quantity at this factor. Exact, never rounded.
  *
  * A fraction of a countable ingredient is a real instruction: one egg at 0.4 of a batch is 0.4 of
@@ -55,10 +73,7 @@ export function batchFactor(
  * it up would silently change the recipe's proportions, which are the only thing this page exists
  * to preserve.
  *
- * ponytail: no waste uplift. `wastePercent` is shown beside the figures as information and is not
- * multiplied in — the kitchens' sheets state process loss on the *output*, not on each input. If
- * the kitchen decides a batch should be over-weighed to land on its yield, the flip is one factor:
- * `factor * (1 + version.wastePercent / 100)` applied here.
+ * The factor arrives with its waste already on it — see {@link withWaste}.
  */
 export function scaleLine(quantity: number, factor: number): number {
     return quantity * factor;

@@ -104,6 +104,13 @@ describe('resolveEntityImage', () => {
         );
     });
 
+    it('sends a sauce sold under its recipe slug to that recipe dish photo', () => {
+        expect(IMAGE_ASSETS['meals/pesto-mayo.card']).toBeUndefined();
+        expect(resolveEntityImage('product-pesto-mayo', 'card')).toBe(
+            IMAGE_ASSETS['dishes/pesto-mayo.card'],
+        );
+    });
+
     it('falls back to null for unknown ids and undefined', () => {
         expect(resolveEntityImage('meal-does-not-exist', 'card')).toBeNull();
         expect(resolveEntityImage('gibberish', 'card')).toBeNull();
