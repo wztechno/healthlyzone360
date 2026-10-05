@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react-native';
 
-import { DataList, fillingColumns, fitColumns, spreadColumns } from './data-list.tsx';
+import { DataList, fitColumns, growWeights, spreadColumns } from './data-list.tsx';
 import type { DataListColumn } from './data-list.tsx';
 import { StatusBadge } from './status-badge.tsx';
 import { DensityProvider } from '../hooks/use-density.tsx';
@@ -74,11 +74,12 @@ describe('spreadColumns', () => {
     /** `COLUMNS` without the action track, which may never take the slack. */
     const GROWING = COLUMNS.filter((column) => column.key !== 'actions');
 
-    it('keeps every short column at its own width and gives the slack to the long one', () => {
-        // The complaint this answers: an equal share gave `Cost` and `Status` the same 204px as the
-        // designation, a run of empty space after every short value. With nothing marked, the
-        // widest declared column — the designation — is the one that fills.
-        expect(spreadColumns(GROWING, 1020)).toEqual([580, 100, 100, 120, 120]);
+    it('shares the slack in proportion to the declared widths', () => {
+        // Two complaints bound this. Giving it all to the designation left a hole after every
+        // name; an equal share gave `Cost` and `Status` the same extra as the designation. With
+        // nothing marked, each column grows by its own width's share: 340 spare over 680 declared
+        // is exactly half again of every track.
+        expect(spreadColumns(GROWING, 1020)).toEqual([360, 150, 150, 180, 180]);
     });
 
     it('fills the port exactly, leaving no dead space after the last column', () => {
@@ -131,18 +132,24 @@ describe('isClipped', () => {
     });
 });
 
-describe('fillingColumns', () => {
-    it('prefers the marked columns, then the widest one that may grow', () => {
-        expect([...fillingColumns(COLUMNS)]).toEqual(['name']);
+describe('growWeights', () => {
+    it('weights every growable column by its width, unless some are marked to fill', () => {
+        expect([...growWeights(COLUMNS)]).toEqual([
+            ['name', 240],
+            ['actions', 40],
+            ['cost', 100],
+            ['status', 100],
+            ['reference', 120],
+            ['updated', 120],
+        ]);
         expect([
-            ...fillingColumns([
+            ...growWeights([
                 { key: 'code', label: 'Code', width: 300, priority: 70 },
                 { key: 'notes', label: 'Notes', width: 120, priority: 20, fill: true },
             ]),
-        ]).toEqual(['notes']);
+        ]).toEqual([['notes', 1]]);
         expect(
-            fillingColumns([{ key: 'actions', label: '', width: 40, priority: 95, grow: false }])
-                .size,
+            growWeights([{ key: 'actions', label: '', width: 40, priority: 95, grow: false }]).size,
         ).toBe(0);
     });
 });
@@ -264,7 +271,7 @@ describe('DataList', () => {
         expect(screen.getByTestId('inner').props.numberOfLines).toBeUndefined();
     });
 
-    it('draws a short column at its own width and lets the long one take the rest', async () => {
+    it('bases each track on its width and grows it by that width, so the slack is shared in proportion', async () => {
         await renderWithI18n(
             compact(
                 <DataList
@@ -279,11 +286,11 @@ describe('DataList', () => {
 
         expect(screen.getByTestId('list-columnheader-name').props.style).toMatchObject({
             flexBasis: 240,
-            flexGrow: 1,
+            flexGrow: 240,
         });
         expect(screen.getByTestId('list-columnheader-cost').props.style).toMatchObject({
             flexBasis: 100,
-            flexGrow: 0,
+            flexGrow: 100,
         });
     });
 });

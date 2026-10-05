@@ -161,12 +161,11 @@ export function CatalogueList<Row>({
     }
 
     /*
-     * The title is the column of long text, so it takes the row's slack and the short columns keep
-     * the widths their content needs (see `DataList`'s `fill`). A spec may still say otherwise.
+     * No column is told to take the slack: `DataList` shares it across every column in proportion
+     * to its declared width, so the table ends where the page does without a hole after the names.
+     * A spec that wants one column to absorb it can still say `fill`.
      */
-    const drawn = withTableThumbnail(columns, rowKey, testID).map((column) =>
-        column.role === 'title' && column.fill === undefined ? { ...column, fill: true } : column,
-    );
+    const drawn = withTableThumbnail(columns, rowKey, testID);
     const withActions =
         rowActions === undefined
             ? drawn

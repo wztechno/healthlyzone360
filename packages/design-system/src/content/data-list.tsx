@@ -42,17 +42,18 @@ import type { TableCellText } from '../primitives/text.tsx';
  * scrolls hides its overflow menu — the one control that must always be reachable. Designation
  * (100) and the action column (95) are pinned above the drop threshold and never leave.
  *
- * ## Each column is as wide as its content, and the long one takes the rest
+ * ## Each column starts at its content, and the slack is shared in proportion
  *
- * Dropping answers the narrow case. The wide one is the opposite problem: eight tracks add up to
- * about 1050px and the shell's content area on a laptop is nearer 1450, so something has to take the
- * other 400px.
+ * Dropping answers the narrow case. The wide one is the opposite problem: six tracks add up to
+ * about 950px and the shell's content area on a laptop is nearer 1450, so something has to take the
+ * other 500px.
  *
- * Not every column equally. That was tried, and it gave a three-letter `Unit` the same 180px as an
- * ingredient's name: a run of empty space after every short value, and the long names — the one
- * column that needed room — still squeezed. So a column is drawn at the width it declares, which is
- * measured from its content, and the slack goes to the column that holds long text: the one marked
- * `fill`, or the widest declared one when none is. {@link spreadColumns} states the arithmetic.
+ * Not one column, and not every column equally. Handing it all to the long-text column parked a
+ * 300px hole after every name; an equal share gave a three-letter `Unit` the same extra as the
+ * name. So a column is drawn at the width it declares, measured from its content, and the slack is
+ * shared in proportion to those widths — what a browser's automatic table layout does — which keeps
+ * the gap after each value a similar fraction of its track. A caller that really wants one column
+ * to take the lot marks it `fill`. {@link spreadColumns} states the arithmetic.
  *
  * ## A value longer than its column ends in an ellipsis
  *
@@ -89,9 +90,10 @@ export interface DataListColumn<Row> {
      */
     readonly grow?: boolean | undefined;
     /**
-     * Takes the width the row has left once every other column has its own — the column of long
-     * text, a name or a description. More than one may fill; they share the slack equally. With
-     * none marked, the widest growable column fills, so every list still ends where the page does.
+     * Takes all of the width the row has left once every other column has its own — for a list
+     * that wants one column of long text to absorb it. More than one may fill; they share the slack
+     * equally. With none marked, every growable column shares it in proportion to its `width`, so
+     * every list still ends where the page does (see {@link growWeights}).
      */
     readonly fill?: boolean | undefined;
     /**
@@ -193,47 +195,56 @@ export function spreadColumns<Row>(
     const floor = widths.reduce((sum, width) => sum + width, 0);
     const port = Math.max(Math.floor(available), floor);
 
-    const fills = fillingColumns(columns);
-    if (fills.size === 0) return widths;
+    const weights = growWeights(columns);
+    const totalWeight = [...weights.values()].reduce((sum, weight) => sum + weight, 0);
+    if (totalWeight === 0) return widths;
 
     const spare = port - floor;
-    const share = Math.floor(spare / fills.size);
-    const remainder = spare - share * fills.size;
-    const first = columns.findIndex((column) => fills.has(column.key));
-
-    return widths.map((width, index) => {
+    const shares = widths.map((_, index) => {
         const column = columns[index];
-        if (column === undefined || !fills.has(column.key)) return width;
-        return width + share + (index === first ? remainder : 0);
+        const weight = column === undefined ? 0 : (weights.get(column.key) ?? 0);
+        return Math.floor((spare * weight) / totalWeight);
     });
+    const remainder = spare - shares.reduce((sum, share) => sum + share, 0);
+    const first = columns.findIndex((column) => weights.has(column.key));
+
+    return widths.map(
+        (width, index) => width + (shares[index] ?? 0) + (index === first ? remainder : 0),
+    );
 }
 
 /**
- * The keys of the columns that take the row's slack: those marked `fill`, or else the widest
- * growable one (the first, on a tie). Empty only when no column may grow at all.
+ * How the row's slack is shared: key → weight, for every column that takes any of it.
+ *
+ * Columns marked `fill` take all of it, equally. With none marked — the usual case — every
+ * growable column takes a share in proportion to its declared width. That is what a browser's
+ * automatic table layout does, and it is the answer that leaves no hole: the one-column answer
+ * parked 300px of nothing after every name, and the equal one gave a three-letter unit the same
+ * extra as a designation. Proportional keeps the ratios the specs measured from content and spreads
+ * the leftover evenly over them, so the gap after each value is a similar fraction of its track.
+ *
+ * Empty only when no column may grow at all.
  */
-export function fillingColumns<Row>(columns: readonly DataListColumn<Row>[]): ReadonlySet<string> {
-    const marked = columns.filter((column) => column.fill === true && column.grow !== false);
-    if (marked.length > 0) return new Set(marked.map((column) => column.key));
+export function growWeights<Row>(
+    columns: readonly DataListColumn<Row>[],
+): ReadonlyMap<string, number> {
+    const growable = columns.filter((column) => column.grow !== false);
+    const marked = growable.filter((column) => column.fill === true);
+    if (marked.length > 0) return new Map(marked.map((column) => [column.key, 1]));
 
-    let widest: DataListColumn<Row> | undefined;
-    for (const column of columns) {
-        if (column.grow === false) continue;
-        if (widest === undefined || column.width > widest.width) widest = column;
-    }
-    return widest === undefined ? new Set() : new Set([widest.key]);
+    return new Map(growable.map((column) => [column.key, column.width]));
 }
 
 /**
  * One column's track, as flex — `spreadColumns` done by the layout engine. Every column is based on
- * its declared width; the filling ones grow from there by an equal share of the leftover, and the
- * rest do not grow at all. The header and every row use the same style on the same content width,
+ * its declared width and grows from there by its weight (see {@link growWeights}); the ones that
+ * may not grow stay put. The header and every row use the same style on the same content width,
  * so the tracks line up without a number ever being passed between them.
  */
-function trackStyle<Row>(column: DataListColumn<Row>, fills: ReadonlySet<string>) {
+function trackStyle<Row>(column: DataListColumn<Row>, weights: ReadonlyMap<string, number>) {
     return {
         flexBasis: column.width,
-        flexGrow: fills.has(column.key) ? 1 : 0,
+        flexGrow: weights.get(column.key) ?? 0,
         flexShrink: 0,
         minWidth: 0,
     } as const;
@@ -356,8 +367,8 @@ export function DataList<Row>({
     const [available, setAvailable] = useState(0);
     const visible = fitColumns(columns, available);
     const trackSum = visible.reduce((sum, column) => sum + column.width, 0);
-    // Chosen from what is drawn: when the column marked to fill is dropped, the widest left fills.
-    const fills = fillingColumns(visible);
+    // Chosen from what is drawn, so a dropped column hands its share to the ones that remain.
+    const fills = growWeights(visible);
 
     /*
      * The port is measured only to decide *which* columns fit. *How wide* each one is drawn is the
