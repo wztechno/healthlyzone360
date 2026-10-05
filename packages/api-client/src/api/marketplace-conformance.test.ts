@@ -296,6 +296,15 @@ describe('the api marketplace repository', () => {
         expect(page.nextCursor).toBe('eyJpIjoyfQ');
     });
 
+    it('keeps a frozen meal a frozen meal rather than folding it into the meals', async () => {
+        const frozen = { ...RECORDED_MEALS.data[1], item_type: 'frozen_meal' };
+        expect(wire.zMarketplaceMeal.parse(frozen)).toBeTruthy();
+
+        const page = await repositoryReturning({ ...RECORDED_MEALS, data: [frozen] }).listMeals();
+
+        expect(page.items[0]?.itemType).toBe('frozen_meal');
+    });
+
     it('sends the filters the endpoints publish, and nothing else', async () => {
         const calls: Call[] = [];
         await repositoryReturning(RECORDED_MEALS, calls).listMeals({

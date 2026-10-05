@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8184 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8185 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -6479,6 +6479,7 @@ export interface NamespaceKeys {
     | 'imageCredits.synthetic'
     | 'imageCredits.title'
     | 'itemTypes.dressing'
+    | 'itemTypes.frozen_meal'
     | 'itemTypes.meal'
     | 'itemTypes.product'
     | 'itemTypes.sauce'
@@ -14680,6 +14681,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:imageCredits.synthetic',
   'marketplace:imageCredits.title',
   'marketplace:itemTypes.dressing',
+  'marketplace:itemTypes.frozen_meal',
   'marketplace:itemTypes.meal',
   'marketplace:itemTypes.product',
   'marketplace:itemTypes.sauce',

@@ -2610,7 +2610,8 @@ export const zMarketplaceMeal = z.object({
         'meal',
         'product',
         'sauce',
-        'dressing'
+        'dressing',
+        'frozen_meal'
     ]),
     published_category: z.object({
         code: z.string(),

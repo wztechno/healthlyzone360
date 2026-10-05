@@ -3905,12 +3905,13 @@ export type MarketplaceMeal = {
     kitchen_name: string;
     /**
      * Whether this listing is a prepared meal, a resold product
-     * (frozen pack, drink, bread and so on), a kitchen-made sauce or a
-     * dressing. All appear on the kitchen menu; clients filter with
+     * (frozen pack, drink, bread and so on), a kitchen-made sauce, a
+     * dressing, or a frozen meal the kitchen makes and sells from its
+     * freezer. All appear on the kitchen menu; clients filter with
      * `item_types`.
      *
      */
-    item_type: 'meal' | 'product' | 'sauce' | 'dressing';
+    item_type: 'meal' | 'product' | 'sauce' | 'dressing' | 'frozen_meal';
     /**
      * The customer-facing shelf this listing is published under, from
      * the platform product taxonomy. Null when the kitchen has not
@@ -23313,7 +23314,7 @@ export type ListMarketplaceMealsData = {
         category_slug?: string;
         /**
          * Comma-separated catalogue item types to include. Allowed values:
-         * `meal`, `product`, `sauce`, `dressing`. Omit to receive all.
+         * `meal`, `product`, `sauce`, `dressing`, `frozen_meal`. Omit to receive all.
          * Unknown values are `400`.
          *
          */

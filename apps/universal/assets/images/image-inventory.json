@@ -3,8 +3,9 @@
     "generated_by": "scripts/build-image-inventory.php",
     "counts": {
         "dressing": 19,
+        "frozen_meal": 17,
         "ingredient": 349,
-        "meal": 38,
+        "meal": 21,
         "recipe": 29,
         "sauce": 38
     },
@@ -271,6 +272,244 @@
             "scope": "tenant",
             "category": "Dressings",
             "subcategory": "Salad dressing",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-001",
+            "kind": "frozen_meal",
+            "name_en": "Beef Fajita",
+            "slug": "beef-fajita",
+            "scope": "tenant",
+            "category": "Meat & Egg",
+            "subcategory": "Beef",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-002",
+            "kind": "frozen_meal",
+            "name_en": "Breaded Fish Filet",
+            "slug": "breaded-fish-filet",
+            "scope": "tenant",
+            "category": "Fish & Seafood",
+            "subcategory": "Shelfish & Squid",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-003",
+            "kind": "frozen_meal",
+            "name_en": "Breaded Shrimps",
+            "slug": "breaded-shrimps",
+            "scope": "tenant",
+            "category": "Fish & Seafood",
+            "subcategory": "Shelfish & Squid",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-006",
+            "kind": "frozen_meal",
+            "name_en": "Cheese Balls",
+            "slug": "cheese-balls",
+            "scope": "tenant",
+            "category": "Dairy",
+            "subcategory": "Cheese",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-009",
+            "kind": "frozen_meal",
+            "name_en": "Chicken Crispy",
+            "slug": "chicken-crispy",
+            "scope": "tenant",
+            "category": "Meat & Egg",
+            "subcategory": "Poultry",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-011",
+            "kind": "frozen_meal",
+            "name_en": "Chicken Nuggets",
+            "slug": "chicken-nuggets",
+            "scope": "tenant",
+            "category": "Meat & Egg",
+            "subcategory": "Poultry",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-012",
+            "kind": "frozen_meal",
+            "name_en": "Chicken Popcorn",
+            "slug": "chicken-popcorn",
+            "scope": "tenant",
+            "category": "Meat & Egg",
+            "subcategory": "Poultry",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-014",
+            "kind": "frozen_meal",
+            "name_en": "Chicken Strips",
+            "slug": "chicken-strips",
+            "scope": "tenant",
+            "category": "Meat & Egg",
+            "subcategory": "Poultry",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-017",
+            "kind": "frozen_meal",
+            "name_en": "Chicken Wings (marinated)",
+            "slug": "chicken-wings-marinated",
+            "scope": "tenant",
+            "category": "Meat & Egg",
+            "subcategory": "Poultry",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-018",
+            "kind": "frozen_meal",
+            "name_en": "Chicken Zinger",
+            "slug": "chicken-zinger",
+            "scope": "tenant",
+            "category": "Meat & Egg",
+            "subcategory": "Poultry",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-020",
+            "kind": "frozen_meal",
+            "name_en": "Cordon Bleu",
+            "slug": "cordon-bleu",
+            "scope": "tenant",
+            "category": "Meat & Egg",
+            "subcategory": "Beef",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-024",
+            "kind": "frozen_meal",
+            "name_en": "Kebbe",
+            "slug": "kebbe",
+            "scope": "tenant",
+            "category": "Meat & Egg",
+            "subcategory": "Beef",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-025",
+            "kind": "frozen_meal",
+            "name_en": "Makanek (Lebanese sausage)",
+            "slug": "makanek-lebanese-sausage",
+            "scope": "tenant",
+            "category": "Meat & Egg",
+            "subcategory": "Beef",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-026",
+            "kind": "frozen_meal",
+            "name_en": "Mozzarella Sticks",
+            "slug": "mozzarella-sticks",
+            "scope": "tenant",
+            "category": "Dairy",
+            "subcategory": "Cheese",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-027",
+            "kind": "frozen_meal",
+            "name_en": "Mozzarella Sticks, small",
+            "slug": "mozzarella-sticks-small",
+            "scope": "tenant",
+            "category": "Dairy",
+            "subcategory": "Cheese",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-029",
+            "kind": "frozen_meal",
+            "name_en": "Rkakat Cheese",
+            "slug": "rkakat-cheese",
+            "scope": "tenant",
+            "category": "Dairy",
+            "subcategory": "Cheese",
+            "family": "meals",
+            "variants": [
+                "card",
+                "detail"
+            ]
+        },
+        {
+            "ref": "PRD-031",
+            "kind": "frozen_meal",
+            "name_en": "Sambousek Cheese",
+            "slug": "sambousek-cheese",
+            "scope": "tenant",
+            "category": "Dairy",
+            "subcategory": "Cheese",
             "family": "meals",
             "variants": [
                 "card",
@@ -4815,48 +5054,6 @@
             ]
         },
         {
-            "ref": "PRD-001",
-            "kind": "meal",
-            "name_en": "Beef Fajita",
-            "slug": "beef-fajita",
-            "scope": "tenant",
-            "category": "Meat & Egg",
-            "subcategory": "Beef",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
-            "ref": "PRD-002",
-            "kind": "meal",
-            "name_en": "Breaded Fish Filet",
-            "slug": "breaded-fish-filet",
-            "scope": "tenant",
-            "category": "Fish & Seafood",
-            "subcategory": "Shelfish & Squid",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
-            "ref": "PRD-003",
-            "kind": "meal",
-            "name_en": "Breaded Shrimps",
-            "slug": "breaded-shrimps",
-            "scope": "tenant",
-            "category": "Fish & Seafood",
-            "subcategory": "Shelfish & Squid",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
             "ref": "PRD-004",
             "kind": "meal",
             "name_en": "Burger Patty (beef)",
@@ -4878,20 +5075,6 @@
             "scope": "tenant",
             "category": "Vegetables",
             "subcategory": "Onions & Garlic",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
-            "ref": "PRD-006",
-            "kind": "meal",
-            "name_en": "Cheese Balls",
-            "slug": "cheese-balls",
-            "scope": "tenant",
-            "category": "Dairy",
-            "subcategory": "Cheese",
             "family": "meals",
             "variants": [
                 "card",
@@ -4927,20 +5110,6 @@
             ]
         },
         {
-            "ref": "PRD-009",
-            "kind": "meal",
-            "name_en": "Chicken Crispy",
-            "slug": "chicken-crispy",
-            "scope": "tenant",
-            "category": "Meat & Egg",
-            "subcategory": "Poultry",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
             "ref": "PRD-010",
             "kind": "meal",
             "name_en": "Chicken Fajita",
@@ -4955,52 +5124,10 @@
             ]
         },
         {
-            "ref": "PRD-011",
-            "kind": "meal",
-            "name_en": "Chicken Nuggets",
-            "slug": "chicken-nuggets",
-            "scope": "tenant",
-            "category": "Meat & Egg",
-            "subcategory": "Poultry",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
-            "ref": "PRD-012",
-            "kind": "meal",
-            "name_en": "Chicken Popcorn",
-            "slug": "chicken-popcorn",
-            "scope": "tenant",
-            "category": "Meat & Egg",
-            "subcategory": "Poultry",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
             "ref": "PRD-013",
             "kind": "meal",
             "name_en": "Chicken Red Tawouk",
             "slug": "chicken-red-tawouk",
-            "scope": "tenant",
-            "category": "Meat & Egg",
-            "subcategory": "Poultry",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
-            "ref": "PRD-014",
-            "kind": "meal",
-            "name_en": "Chicken Strips",
-            "slug": "chicken-strips",
             "scope": "tenant",
             "category": "Meat & Egg",
             "subcategory": "Poultry",
@@ -5039,34 +5166,6 @@
             ]
         },
         {
-            "ref": "PRD-017",
-            "kind": "meal",
-            "name_en": "Chicken Wings (marinated)",
-            "slug": "chicken-wings-marinated",
-            "scope": "tenant",
-            "category": "Meat & Egg",
-            "subcategory": "Poultry",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
-            "ref": "PRD-018",
-            "kind": "meal",
-            "name_en": "Chicken Zinger",
-            "slug": "chicken-zinger",
-            "scope": "tenant",
-            "category": "Meat & Egg",
-            "subcategory": "Poultry",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
             "ref": "PRD-019",
             "kind": "meal",
             "name_en": "Chocolate Fondant",
@@ -5088,20 +5187,6 @@
             "scope": "tenant",
             "category": "Vegetables",
             "subcategory": "Leafy Green",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
-            "ref": "PRD-020",
-            "kind": "meal",
-            "name_en": "Cordon Bleu",
-            "slug": "cordon-bleu",
-            "scope": "tenant",
-            "category": "Meat & Egg",
-            "subcategory": "Beef",
             "family": "meals",
             "variants": [
                 "card",
@@ -5179,62 +5264,6 @@
             ]
         },
         {
-            "ref": "PRD-024",
-            "kind": "meal",
-            "name_en": "Kebbe",
-            "slug": "kebbe",
-            "scope": "tenant",
-            "category": "Meat & Egg",
-            "subcategory": "Beef",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
-            "ref": "PRD-025",
-            "kind": "meal",
-            "name_en": "Makanek (Lebanese sausage)",
-            "slug": "makanek-lebanese-sausage",
-            "scope": "tenant",
-            "category": "Meat & Egg",
-            "subcategory": "Beef",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
-            "ref": "PRD-026",
-            "kind": "meal",
-            "name_en": "Mozzarella Sticks",
-            "slug": "mozzarella-sticks",
-            "scope": "tenant",
-            "category": "Dairy",
-            "subcategory": "Cheese",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
-            "ref": "PRD-027",
-            "kind": "meal",
-            "name_en": "Mozzarella Sticks, small",
-            "slug": "mozzarella-sticks-small",
-            "scope": "tenant",
-            "category": "Dairy",
-            "subcategory": "Cheese",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
             "ref": "PRD-028",
             "kind": "meal",
             "name_en": "Pain Perdu",
@@ -5249,20 +5278,6 @@
             ]
         },
         {
-            "ref": "PRD-029",
-            "kind": "meal",
-            "name_en": "Rkakat Cheese",
-            "slug": "rkakat-cheese",
-            "scope": "tenant",
-            "category": "Dairy",
-            "subcategory": "Cheese",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
             "ref": "PRD-030",
             "kind": "meal",
             "name_en": "Roasted Mushroom",
@@ -5270,20 +5285,6 @@
             "scope": "tenant",
             "category": "Vegetables",
             "subcategory": "Mushroom",
-            "family": "meals",
-            "variants": [
-                "card",
-                "detail"
-            ]
-        },
-        {
-            "ref": "PRD-031",
-            "kind": "meal",
-            "name_en": "Sambousek Cheese",
-            "slug": "sambousek-cheese",
-            "scope": "tenant",
-            "category": "Dairy",
-            "subcategory": "Cheese",
             "family": "meals",
             "variants": [
                 "card",
