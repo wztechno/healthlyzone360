@@ -41,6 +41,7 @@ import {
     normaliseWeekdays,
     operatingDraftsFrom,
     operatingErrors,
+    operatingIssues,
     operatingRequest,
     summariseOperating,
     summariseWindows,
@@ -658,6 +659,24 @@ describe('the delivery model', () => {
                 DAY_MESSAGES,
             ).size,
         ).toBe(0);
+    });
+
+    it('names the one field each day is wrong in, so the problem is drawn under it', () => {
+        const issues = operatingIssues(
+            [
+                openDay(1, { opensAt: '8am' }),
+                openDay(2, { opensAt: '22:00', closesAt: '08:00' }),
+                openDay(3, { orderCutOffAt: '23:00' }),
+                openDay(4),
+            ],
+            DAY_MESSAGES,
+        );
+
+        expect(issues.get(1)?.field).toBe('opens');
+        // Closing before opening is the closing time's fault: that is the box a person changes.
+        expect(issues.get(2)).toEqual({ field: 'closes', message: 'order' });
+        expect(issues.get(3)).toEqual({ field: 'cutOff', message: 'late' });
+        expect(issues.has(4)).toBe(false);
     });
 
     it('sends a closed day as three nulls and the week in weekday order', () => {
@@ -1475,6 +1494,14 @@ describe('the branch operating week', () => {
         // No context band and no week heading: the title and the rows carry the page.
         expect(screen.queryByTestId('kitchen-branch-hours-context')).toBeNull();
         expect(screen.queryByTestId('kitchen-branch-hours-week-summary')).toBeNull();
+
+        // The summary beside the week says each day in words: a closed day as closed.
+        const closed = BRANCH_OPERATING.days.find((day) => day.opensAt === null);
+        if (closed !== undefined) {
+            expect(
+                screen.getByTestId(`kitchen-branch-hours-summary-day-${String(closed.weekday)}`),
+            ).toHaveTextContent(/Closed/);
+        }
     });
 
     it('clears and disables the time fields when a day is closed, and restores them empty', async () => {
@@ -1497,7 +1524,7 @@ describe('the branch operating week', () => {
         expect(screen.getByTestId(`${row}-opens-input`).props.value).toBe('');
         expect(screen.getByTestId(`${row}-cut-off-input`).props.value).toBe('');
         expect(screen.getByTestId(`${row}-opens-input`).props.editable).toBe(false);
-        expect(screen.getByTestId(`${row}-closed-note`)).toBeTruthy();
+        expect(screen.getByTestId(`${row}-closed-badge`)).toBeTruthy();
 
         await setTrading(row, 'open');
         expect(screen.getByTestId(`${row}-opens-input`).props.value).toBe('');
@@ -1522,9 +1549,11 @@ describe('the branch operating week', () => {
             fireEvent.changeText(screen.getByTestId(`${row}-closes-input`), '08:00');
         });
 
-        expect(screen.getByTestId(`${row}-error`)).toBeTruthy();
+        // Drawn under the field to change — closing before opening is the closing time's fault.
+        expect(screen.getByTestId(`${row}-closes-error`)).toBeTruthy();
+        expect(screen.queryByTestId(`${row}-opens-error`)).toBeNull();
         expect(
-            screen.getByTestId('kitchen-branch-hours-save-bottom').props.accessibilityState,
+            screen.getByTestId('kitchen-branch-hours-screen-save').props.accessibilityState,
         ).toEqual(expect.objectContaining({ disabled: true }));
 
         // A cut-off after closing is the second rule, and it is reported on its own day.
@@ -1537,7 +1566,8 @@ describe('the branch operating week', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId(`${row}-cut-off-input`), '19:00');
         });
-        expect(screen.getByTestId(`${row}-error`)).toHaveTextContent(/cut-off/i);
+        expect(screen.getByTestId(`${row}-cut-off-error`)).toHaveTextContent(/cut-off/i);
+        expect(screen.queryByTestId(`${row}-closes-error`)).toBeNull();
     });
 
     it('copies one day onto every open day, announces it, and saves the week', async () => {
@@ -1588,7 +1618,7 @@ describe('the branch operating week', () => {
         );
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-branch-hours-save-bottom'));
+            fireEvent.press(screen.getByTestId('kitchen-branch-hours-screen-save'));
         });
 
         await waitFor(() => {
@@ -1628,7 +1658,7 @@ describe('the branch operating week', () => {
 
         for (const weekday of [1, 2, 3, 4, 5, 6, 7]) {
             const row = `kitchen-branch-hours-rows-day-${String(weekday)}`;
-            const alreadyClosed = screen.queryByTestId(`${row}-closed-note`) !== null;
+            const alreadyClosed = screen.queryByTestId(`${row}-closed-badge`) !== null;
             if (!alreadyClosed) {
                 // Sequential on purpose: each choice is applied against the state the previous one
                 // produced, and firing all seven at once would make the last write win.

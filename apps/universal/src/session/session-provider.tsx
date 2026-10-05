@@ -44,8 +44,14 @@ export function SessionProvider({ children }: SessionProviderProps) {
     const meQuery = useMeQuery();
     const hasToken = useSessionToken() !== null;
 
-    const me = meQuery.data ?? null;
-    const failure = toFailure(meQuery.error);
+    /*
+     * No token, no session. Sign-out forgets the token first and clears the cache after, but a
+     * mounted `me()` observer keeps answering with the data it last saw until something rebuilds
+     * it — so read off the cache alone, the header kept the person's name after they signed out
+     * and only a reload dropped it.
+     */
+    const me = hasToken ? (meQuery.data ?? null) : null;
+    const failure = hasToken ? toFailure(meQuery.error) : null;
 
     const phase = resolveSessionPhase({
         repositoriesReady: repositories !== null,

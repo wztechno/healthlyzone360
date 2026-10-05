@@ -24,6 +24,7 @@ import { MEAL_RANGE_KEYS, toMealFilter, useMealRanges } from '../meal-filters.ts
 import { MENU_SORTS, isMenuSort, refineMeals } from '../meal-readings.ts';
 import { MenuGrid } from '../menu-grid.tsx';
 import { MenuMealCard } from '../menu-meal-card.tsx';
+import { isShownShelf, shownCategory, shownItemTypes } from '../shown-shelves.ts';
 import { useMealShelves } from '../use-meal-shelves.ts';
 
 /**
@@ -108,7 +109,9 @@ export function MealsScreen() {
 
     const rawSort = selected['sort']?.[0];
     const sort = isMenuSort(rawSort) ? rawSort : 'relevance';
-    const category = selected['category']?.[0];
+    // Only the shown shelves are reachable for now (`shown-shelves.ts`): a picked shelf that is
+    // hidden falls back to the shown one rather than listing what the rail no longer offers.
+    const category = shownCategory(selected['category']?.[0]);
 
     const chipCount = CHIP_GROUP_KEYS.reduce(
         (total, key) => total + (selected[key]?.length ?? 0),
@@ -140,8 +143,9 @@ export function MealsScreen() {
             }),
             ...(category === undefined ? {} : { categorySlug: category }),
             // The customer menu is prepared meals, not a kitchen's mixed shelf of sauces and
-            // resold products, so every card here is a dish.
-            itemTypes: ['meal'] as const,
+            // resold products, so every card here is a dish — except while the menu is narrowed
+            // to the frozen shelf, whose items are products.
+            itemTypes: shownItemTypes(['meal']),
         }),
         [searchTerm, selected, rangeValues, sort, category],
     );
@@ -195,16 +199,18 @@ export function MealsScreen() {
             }
         };
         return CHIP_GROUP_KEYS.flatMap((groupKey) =>
-            (selected[groupKey] ?? []).map((value) => ({
-                key: `${groupKey}-${value}`,
-                label: labelOf(groupKey, value),
-                removeLabel: t('catalogue:filters.removeFilter', {
-                    filter: labelOf(groupKey, value),
-                }),
-                onRemove: () => {
-                    filters.toggle(groupKey, value, false);
-                },
-            })),
+            (selected[groupKey] ?? [])
+                .filter((value) => groupKey !== 'category' || isShownShelf(value))
+                .map((value) => ({
+                    key: `${groupKey}-${value}`,
+                    label: labelOf(groupKey, value),
+                    removeLabel: t('catalogue:filters.removeFilter', {
+                        filter: labelOf(groupKey, value),
+                    }),
+                    onRemove: () => {
+                        filters.toggle(groupKey, value, false);
+                    },
+                })),
         );
     }, [selected, kitchenItems, shelves.shelves, filters, t]);
 

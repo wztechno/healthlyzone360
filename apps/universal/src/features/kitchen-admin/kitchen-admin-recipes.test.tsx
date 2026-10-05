@@ -855,7 +855,11 @@ function recordedListing(read: () => readonly RecipeAdmin[]) {
 describe('recipe display helpers', () => {
     it('shows the seller’s photo, else the recipe’s own dish', () => {
         const sold = (imagePlaceholderId: string) =>
-            recipe({ ordinal: 1, name: 'Classic sauce', overrides: { soldAs: [seller({ imagePlaceholderId })] } });
+            recipe({
+                ordinal: 1,
+                name: 'Classic sauce',
+                overrides: { soldAs: [seller({ imagePlaceholderId })] },
+            });
 
         // A seller with a photo keeps it; a seller nothing photographed falls back to the dish.
         expect(recipePhotoId(sold('product-chicken-crispy'))).toBe('product-chicken-crispy');

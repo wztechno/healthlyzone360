@@ -135,6 +135,12 @@ describe('resolveSessionPhase', () => {
         expect(resolveSessionPhase({ ...base, hasToken: false })).toBe('anonymous');
     });
 
+    it('is anonymous once the token is gone, even if a cached session lingers', () => {
+        expect(resolveSessionPhase({ ...base, hasToken: false, me: testMeResponse() })).toBe(
+            'anonymous',
+        );
+    });
+
     it('is restoring while a persisted token is being exchanged', () => {
         expect(resolveSessionPhase(base)).toBe('restoring');
     });

@@ -1,7 +1,9 @@
+import { useContext } from 'react';
 import { View } from 'react-native';
 import type { ViewProps } from 'react-native';
 
 import { cx } from '../internal/class-names.ts';
+import { TableCellTextContext } from './text.tsx';
 
 /**
  * Layout primitives.
@@ -73,6 +75,15 @@ export interface StackProps extends Omit<ViewProps, 'className' | 'style'> {
  */
 const LAYER_CLASS = 'z-auto';
 
+/*
+ * Inside a table cell, a row or column may be narrower than its content, and a row stays on one
+ * line. A cell is one line with an ellipsis (see `TableCellTextContext`), and the ellipsis can only
+ * appear if every box between the cell and the text is allowed to shrink: a flex item keeps its
+ * content width by default, so a name-and-badge `Inline` would otherwise run straight into the next
+ * column. Wrapping is off for the same reason — a badge that wrapped would make the row two lines.
+ */
+const CELL_CLASS = 'min-w-0 shrink';
+
 export function Stack({
     space = 'md',
     align,
@@ -82,12 +93,14 @@ export function Stack({
     children,
     ...rest
 }: StackProps) {
+    const cell = useContext(TableCellTextContext) !== null;
     return (
         <View
             {...rest}
             className={cx(
                 LAYER_CLASS,
                 'flex-col',
+                cell ? CELL_CLASS : null,
                 GAP_CLASS[space],
                 align === undefined ? null : ALIGN_ITEMS_CLASS[align],
                 justify === undefined ? null : JUSTIFY_CLASS[justify],
@@ -115,13 +128,15 @@ export function Inline({
     children,
     ...rest
 }: InlineProps) {
+    const cell = useContext(TableCellTextContext) !== null;
     return (
         <View
             {...rest}
             className={cx(
                 LAYER_CLASS,
                 'flex-row',
-                wrap ? 'flex-wrap' : 'flex-nowrap',
+                wrap && !cell ? 'flex-wrap' : 'flex-nowrap',
+                cell ? CELL_CLASS : null,
                 GAP_CLASS[space],
                 ALIGN_ITEMS_CLASS[align],
                 justify === undefined ? null : JUSTIFY_CLASS[justify],

@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 
 import { queryKeys } from '../../data/query-keys.ts';
 import { useRepositoryContext } from '../../data/repository-provider.tsx';
+import { shownCategory, shownItemTypes } from './shown-shelves.ts';
 
 /**
  * The menu's shelves, with how many prepared meals sit on each — HealthZone's `CATEGORY` list.
@@ -41,7 +42,16 @@ export interface MealShelves {
     readonly total: number | null;
 }
 
-const WALK: Omit<MealFilter, 'cursor'> = { itemTypes: ['meal'], limit: 100 };
+/**
+ * While the menu is narrowed (`shown-shelves.ts`) the walk reads only the shown shelf, so the rail's
+ * rows and its "all" count are that shelf's alone.
+ */
+const WALK_SHELF = shownCategory();
+const WALK: Omit<MealFilter, 'cursor'> = {
+    itemTypes: shownItemTypes(['meal']),
+    ...(WALK_SHELF === undefined ? {} : { categorySlug: WALK_SHELF }),
+    limit: 100,
+};
 
 /** Ten pages of a hundred. A marketplace past that wants a facets endpoint, not a longer walk. */
 const MAX_PAGES = 10;

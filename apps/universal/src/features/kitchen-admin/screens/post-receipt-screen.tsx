@@ -85,8 +85,8 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * │ Invoice number [ Not arrived yet ]  Date received [ ] │ Chicken breast   +24 kg  │
  * └────────────────────────────────────────────────────┘  │ ⚠ 1 line has no price…   │
  * ┌ LINES  3 lines · 1 without a price ─────────────────┐  │ ─────────────────────────  │
- * │ Stock item   Quantity  Unit  Unit price  Line total │  │ [      Post receipt     ] │
- * └────────────────────────────────────────────────────┘  └──────────────────────────┘
+ * │ Stock item   Quantity  Unit  Unit price  Line total │  └──────────────────────────┘
+ * └────────────────────────────────────────────────────┘
  * ```
  *
  * ## One page for both ways goods arrive
@@ -1119,17 +1119,6 @@ function PostReceipt() {
                                 />
                             )
                         }
-                        action={
-                            <Button
-                                testID="kitchen-procurement-post-submit"
-                                label={postLabel}
-                                block
-                                loading={postReceipt.isPending}
-                                disabled={postReceipt.isPending}
-                                onPress={attemptPost}
-                            />
-                        }
-                        foot={t('kitchen:ops.procurement.postFoot')}
                     />
                 </View>
             )}

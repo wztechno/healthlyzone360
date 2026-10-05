@@ -58,6 +58,7 @@ import type {
     MealCombinationOption,
     NumberedPaginationMeta,
     PaginatedOrNumberedMeta,
+    PlanDurationAssignment,
     PlanDurationOption,
     PlanMenuCycle as WirePlanMenuCycle,
     PlanMenuEntry as WirePlanMenuEntry,
@@ -86,7 +87,6 @@ import {
     mapMealAdminFromItem,
     mapPlanAdminFromItem,
     mapPlanCombination,
-    mapPlanDuration,
     mapPlanMenu,
     mapPlanVariantsFromCells,
     mapPriceListAdmin,
@@ -99,6 +99,7 @@ import {
     mapRecipeVersionAdmin,
     mapServiceAreaFromDeliveryArea,
     pickCurrentRecipeVersion,
+    planDurationsFromAssignments,
     priceListChannelsFromAssignments,
     type CategoryLookup,
     type SalesChannelLookup,
@@ -380,7 +381,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         return mapAdminCursorPage(envelope.data, meta, (wire) => wire);
     }
 
-    return {
+    const reads: ApiKitchenAdminReads = {
         async nextReference(prefix: ReferenceSeries): Promise<string> {
             const envelope = await transport.requestEnvelope<{ readonly reference: string }>({
                 method: 'GET',
@@ -849,6 +850,21 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 })
                 .catch((): PlanDurationOption[] => []);
 
+            /*
+             * What this plan actually offers — its configurations' duration assignments — rather
+             * than the kitchen's whole duration vocabulary, which is shared by every plan. Reading
+             * the vocabulary made each plan show every length any plan had ever used, so replacing
+             * 20 days with 28 read back as both; and it carried no discount, so a stated one read
+             * back as "not set".
+             */
+            const assignments = await transport
+                .requestEnvelope<{ assignments: PlanDurationAssignment[] }>({
+                    method: 'GET',
+                    path: `/catalogue/plans/${encodeURIComponent(id)}/variant-durations`,
+                })
+                .then((envelope) => envelope.data.assignments)
+                .catch((): PlanDurationAssignment[] => []);
+
             const combinations = await transport
                 .request<MealCombinationOption[]>({
                     method: 'GET',
@@ -868,7 +884,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             return mapPlanAdminFromItem(profileEnvelope.data.item, {
                 profile: profileEnvelope.data.profile,
                 variants: mapPlanVariantsFromCells(cells, bandMap),
-                durations: durations.map(mapPlanDuration),
+                durations: planDurationsFromAssignments(assignments, durations),
                 combinations: combinations.map(mapPlanCombination),
             });
         },
@@ -901,7 +917,17 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             });
 
             const meta = envelope.meta as PaginatedOrNumberedMeta;
-            return mapAdminCursorPage(envelope.data, meta, (wire) => mapPriceListAdmin(wire));
+            const page = mapAdminCursorPage(envelope.data, meta, (wire) => mapPriceListAdmin(wire));
+
+            /*
+             * Whole records, entries and channels included — the contract every caller reads this
+             * with. The plan editor's publish gate counts a plan's confirmed prices from it, and the
+             * price-list screen its entry counts; the index endpoint carries neither, and mapping
+             * it alone drew every list as "Nothing priced yet" and refused to publish any plan.
+             * One full read per list, in parallel: a kitchen has a handful of lists, not hundreds.
+             */
+            const items = await Promise.all(page.items.map((list) => reads.getPriceList(list.id)));
+            return { ...page, items };
         },
 
         async getPriceList(priceListId: PriceListId): Promise<PriceListAdmin> {
@@ -1021,4 +1047,6 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             return mapBranchOperating(branchId, daysWire);
         },
     };
+
+    return reads;
 }

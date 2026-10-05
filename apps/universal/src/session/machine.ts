@@ -44,7 +44,8 @@ export interface SessionMachineInput {
  */
 export function resolveSessionPhase(input: SessionMachineInput): SessionPhase {
     if (!input.repositoriesReady) return 'restoring';
-    if (!input.hasToken && input.me === null) return 'anonymous';
+    // Without a token there is no session to keep, whatever `me` a cache still remembers.
+    if (!input.hasToken) return 'anonymous';
 
     if (input.me === null) {
         return input.failure?.code === 'auth.unauthenticated' ? 'anonymous' : 'restoring';

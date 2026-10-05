@@ -88,6 +88,7 @@ export function BatchLinesPanel({
         },
         {
             key: 'required',
+            width: 104,
             header: t('kitchen:ops.production.planRequired'),
             numeric: true,
             render: (line) => (
@@ -96,6 +97,7 @@ export function BatchLinesPanel({
         },
         {
             key: 'claimed',
+            width: 104,
             header: t('kitchen:ops.production.columnClaimed'),
             numeric: true,
             render: (line) => (
@@ -113,6 +115,7 @@ export function BatchLinesPanel({
             ? ([
                   {
                       key: 'used',
+                      width: 104,
                       header: t('kitchen:ops.production.columnUsed'),
                       numeric: true,
                       primary: true,
@@ -124,6 +127,7 @@ export function BatchLinesPanel({
                   },
                   {
                       key: 'wasted',
+                      width: 104,
                       header: t('kitchen:ops.production.columnWasted'),
                       numeric: true,
                       render: (line: ProductionOrderLine) => (
@@ -141,6 +145,7 @@ export function BatchLinesPanel({
             ? ([
                   {
                       key: 'unitCost',
+                      width: 104,
                       header: t('kitchen:ops.production.columnUnitCost'),
                       numeric: true,
                       render: (line: ProductionOrderLine) => {

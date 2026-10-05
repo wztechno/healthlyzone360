@@ -1571,6 +1571,38 @@ export function useAdminPlanQuery(planId: SubscriptionPlanId | null): UseQueryRe
 }
 
 /**
+ * Whole plan records for a set of identifiers, keyed by identifier — configurations included.
+ *
+ * The plan listing carries no configurations, and a price is only ever charged against one: the
+ * server's publish gate and its quote both read a configuration's own row and ignore a row for the
+ * plan as a whole. So a screen that prices plans reads each one in full. Every read is the same cache
+ * entry the plan editor opens, so a plan that was just saved is not read twice.
+ */
+export function useAdminPlansByIds(
+    planIds: readonly SubscriptionPlanId[],
+): Readonly<Record<string, PlanAdmin>> {
+    const { repositories } = useRepositoryContext();
+
+    return useQueries({
+        queries: planIds.map((planId) => ({
+            queryKey: queryKeys.kitchenAdmin.plan(planId),
+            enabled: repositories !== null,
+            queryFn: () => {
+                if (repositories === null) throw new Error('Repositories are not ready.');
+                return repositories.kitchenAdmin.getPlan(planId);
+            },
+        })),
+        combine: (results): Readonly<Record<string, PlanAdmin>> => {
+            const byId: Record<string, PlanAdmin> = {};
+            for (const result of results) {
+                if (result.data !== undefined) byId[String(result.data.id)] = result.data;
+            }
+            return byId;
+        },
+    });
+}
+
+/**
  * The plan's fixed menu.
  *
  * Its own query rather than a field of {@link useAdminPlanQuery}, because the plan record does not

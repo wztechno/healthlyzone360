@@ -201,8 +201,7 @@ export function ingredientColumns({
             // sets at 142px, so a 260px track left roughly 110px of nothing between a name and the
             // category beside it on every row of the page. 200 holds the same value with room to
             // spare and hands the rest back to the columns that were short of it. A designation
-            // longer than the track still wraps rather than clipping — `DataList` floors the row
-            // height instead of fixing it.
+            // longer than its track ends in an ellipsis and shows in full on hover.
             key: 'name',
             // Its own key, not the shared `list.columnName`: both read "Item" today, but that one
             // also names the recipe line table's title column, a surface free to word it otherwise.
@@ -218,7 +217,7 @@ export function ingredientColumns({
             render: (row) => {
                 const name = displayName(row.name, locale);
                 return (
-                    <Inline space="xs" align="center">
+                    <Inline space="xs" align="center" wrap={false}>
                         <Text variant="label" testID={`${ingredientRowTestId(row.id)}-name`}>
                             {name.value}
                         </Text>

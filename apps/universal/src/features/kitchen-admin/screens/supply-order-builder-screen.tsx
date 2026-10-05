@@ -66,7 +66,7 @@ import type {
  * `/kitchen/supply-orders/new` — the supply-order builder (SUP3).
  *
  * Laid out as Post receipt is: the tables down the page, and beside them a sticky summary of what
- * is about to be created, with the create at its foot and again in the opening. The Operations
+ * is about to be created; the create sits in the opening only. The Operations
  * design's `edSupply` still sets the rows — the read-at notice with Refresh, *Needs ordering* with a
  * picker under it for anything else, and the shelves nobody can supply when there are any.
  *
@@ -82,7 +82,6 @@ import type {
  * ┌ NOT LINKED TO A SUPPLIER YET ─ only when a row has nobody ┐ │ One draft per supplier   │
  * └────────────────────────────────────────────────────────┘  │ Beqaa Fresh     3 items  │
  *                                                             │ ⚠ 1 item won't be ordered│
- *                                                             │ [ Create 1 draft order ] │
  *                                                             └──────────────────────────┘
  * ```
  *
@@ -141,10 +140,10 @@ import type {
  * with the time of the last read beside it, and it asks first **only when edits exist** — a
  * confirmation on an untouched screen is a dialog that teaches people to dismiss dialogs.
  *
- * ## The commit bar, and why the thing confirmed is the thing sent
+ * ## The commit, and why the thing confirmed is the thing sent
  *
- * At the foot of *Ready to order*: a person reads what they are about to ask for and then presses
- * the create under it. The payload is `toBatchPayload(plan)` — the same pure function that built the
+ * In the opening: a person reads *Ready to order* beside the rows, then presses the create at the
+ * top of the page. The payload is `toBatchPayload(plan)` — the same pure function that built the
  * supplier rows above it — so the grouping somebody looked at and the request that leaves the device
  * are provably one object rather than two views that agree by inspection.
  *
@@ -657,7 +656,7 @@ function SupplyOrderBuilder() {
         <Cascade space="md" testID="kitchen-supply-order-builder-screen">
             {/*
              * The opening the record forms share, as Post receipt draws it: the title, Cancel, and the
-             * commit at the inline end — repeated at the foot of the summary, beside what it creates.
+             * commit at the inline end. It is drawn once: the summary states what it creates.
              */}
             <RecordFormOpening
                 testID="kitchen-supply-order-builder-screen"
@@ -959,19 +958,6 @@ function SupplyOrderBuilder() {
                                     </Stack>
                                 )
                             }
-                            action={
-                                <Button
-                                    testID="kitchen-supply-order-create"
-                                    label={t('kitchen:ops.supplyOrders.createDrafts', {
-                                        count: plan.groups.length,
-                                    })}
-                                    block
-                                    loading={createOrders.isPending}
-                                    disabled={plan.groups.length === 0 || createOrders.isPending}
-                                    onPress={openCreate}
-                                />
-                            }
-                            foot={t('kitchen:ops.supplyOrders.commitNote')}
                         />
                     ) : null}
                 </View>

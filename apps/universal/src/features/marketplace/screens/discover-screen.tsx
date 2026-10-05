@@ -33,7 +33,8 @@ export function DiscoverScreen() {
     const { t } = useTranslation();
     const router = useRouter();
     const basket = useBasketAdd({ labelKey: 'marketplace:nav.discover', testID: 'discover' });
-    const meals = useHomeMeals();
+    // Frozen only, for now — see `catalogue/shown-shelves.ts`.
+    const meals = useHomeMeals({ shownShelvesOnly: true });
 
     return (
         <View testID="discover-screen" className="flex-col pb-11">

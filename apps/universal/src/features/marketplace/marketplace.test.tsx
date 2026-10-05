@@ -48,6 +48,7 @@ import { KitchenMenuScreen } from './screens/kitchen-menu-screen.tsx';
 import { KitchenProfileScreen } from './screens/kitchen-profile-screen.tsx';
 import { KitchensScreen } from './screens/kitchens-screen.tsx';
 import { PublicLandingScreen } from './screens/public-landing-screen.tsx';
+import type * as ShownShelves from '../catalogue/shown-shelves.ts';
 
 /**
  * Route parameters are the one thing these screens cannot reach through a repository, so the router
@@ -71,6 +72,16 @@ jest.mock('expo-router', () => {
         Stack: () => null,
         __push: push,
     };
+});
+
+/**
+ * The menu un-narrowed. Discover and `/meals` show only the Frozen shelf for now
+ * (`catalogue/shown-shelves.ts`, tested there); these tests describe the whole menu, which is what
+ * comes back when that narrowing is lifted.
+ */
+jest.mock('../catalogue/shown-shelves.ts', () => {
+    const actual = jest.requireActual<typeof ShownShelves>('../catalogue/shown-shelves.ts');
+    return { ...actual, ...actual.shelfNarrowing([]) };
 });
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports

@@ -12,6 +12,7 @@ import {
     Stack,
     TagRow,
     Text,
+    useBreakpoint,
 } from '@healthy360/design-system';
 
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
@@ -22,6 +23,7 @@ import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { mealsFromPages, useMealsQuery, usePlanQuery } from '../../../data/catalogue-hooks.ts';
 import { discountedTotalMinorUnits, weeksFor } from '../../commerce/configurator.ts';
@@ -36,6 +38,14 @@ import { MealCard } from '../../marketplace/meal-card.tsx';
 
 /**
  * `/plans/{plan}` — one subscription plan.
+ *
+ * ## Cards at a reading width, the price beside them
+ *
+ * The page is held to {@link PAGE_MAX_WIDTH} and centred, and each part of the plan is its own card:
+ * the overview (a small picture beside the name rather than a full-width banner), the band, what
+ * arrives each day, the macros when the band publishes any, the durations, the sample week and the
+ * delivery note. From `lg` the price and the call to action sit in a card beside them that stays in
+ * view; below it, that card follows the content.
  *
  * ## Marketing above, transaction below, and never interleaved
  *
@@ -68,6 +78,13 @@ export interface PlanDetailScreenProps {
 
 const DAYS_PER_WEEK = 7;
 
+/** The page's reading width: the content column and the price card beside it, and no wider. */
+const PAGE_MAX_WIDTH = 1080;
+/** The price card beside the content from `lg`. */
+const ASIDE_WIDTH = 320;
+/** The plan's picture in the overview card, beside its name rather than above the page. */
+const IMAGE_WIDTH = 200;
+
 /** The three macro ranges of a variant, in label order, with their translation keys. */
 function macroRanges(variant: PlanVariant) {
     return [
@@ -84,6 +101,7 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
     const formatter = useFormatter();
     const { me } = useSession();
     const signedIn = me !== null;
+    const wide = useBreakpoint().atLeast('lg');
 
     const parsed = planId === undefined ? null : SubscriptionPlanId.safeParse(planId);
     const plan = usePlanQuery(parsed);
@@ -127,8 +145,29 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
             ? 1
             : Math.max(1, ...macroRanges(selected).map((entry) => entry.range?.max ?? 0));
 
+    const durationTotal = (option: SubscriptionPlan['durations'][number]) =>
+        formatMoney(
+            formatter,
+            // The server states one figure only when every configuration agrees; otherwise the
+            // total is the selected variant's, derived from numbers the kitchen did quote.
+            option.totalPrice ?? {
+                amount: discountedTotalMinorUnits(
+                    selected?.pricePerWeek.amount ?? 0,
+                    weeksFor(option.duration),
+                    option.discountPercent,
+                ),
+                currency: selected?.pricePerWeek.currency ?? 'USD',
+            },
+        );
+
     return (
-        <Stack space="lg" testID="plan-detail-screen">
+        // Held to a reading width and centred, breadcrumbs included, so the page does not run the
+        // full width of a desktop window: a plan is read top to bottom, and a 1,400px line is not.
+        <View
+            testID="plan-detail-screen"
+            className="w-full flex-col gap-6 self-center"
+            style={{ maxWidth: PAGE_MAX_WIDTH }}
+        >
             <Breadcrumbs
                 testID="plan-detail-breadcrumbs"
                 items={[
@@ -171,298 +210,392 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                     testID="plan-detail"
                 >
                     {item === undefined || selected === undefined ? null : (
-                        <Stack space="lg">
-                            <EntityImage
-                                testID="plan-detail-image"
-                                assetId={item.imagePlaceholderId}
-                                variant="detail"
-                                seed={item.slug}
-                                label={t('catalogue:plan.imageLabel', { plan: item.name })}
-                                aspect="wide"
-                            />
+                        /*
+                         * The plan in cards on the left, the price and the one way forward in a
+                         * card beside them that stays in view while the reader scrolls. Below `lg`
+                         * the price card follows the content, where the scroll ends.
+                         */
+                        <View className="flex-col gap-6 lg:flex-row lg:items-start">
+                            <View className="min-w-0 flex-1 flex-col gap-4">
+                                <Card testID="plan-detail-overview" tone="raised" padding="md">
+                                    <View className="flex-col gap-4 sm:flex-row">
+                                        <View
+                                            className="overflow-hidden rounded-lg"
+                                            style={wide ? { width: IMAGE_WIDTH } : undefined}
+                                        >
+                                            <EntityImage
+                                                testID="plan-detail-image"
+                                                assetId={item.imagePlaceholderId}
+                                                variant="card"
+                                                seed={item.slug}
+                                                label={t('catalogue:plan.imageLabel', {
+                                                    plan: item.name,
+                                                })}
+                                                aspect="card"
+                                            />
+                                        </View>
 
-                            <Stack space="xs">
-                                <Heading level={1} testID="plan-detail-name">
-                                    {item.name}
-                                </Heading>
-                                <Text tone="secondary">{item.summary}</Text>
-                                <Text>{item.description}</Text>
-                            </Stack>
+                                        <Stack space="sm" className="min-w-0 flex-1">
+                                            <Heading level={1} testID="plan-detail-name">
+                                                {item.name}
+                                            </Heading>
+                                            {item.summary === '' ? null : (
+                                                <Text tone="secondary">{item.summary}</Text>
+                                            )}
+                                            {item.description === '' ? null : (
+                                                <Text>{item.description}</Text>
+                                            )}
+                                            <Inline space="sm" align="center" wrap>
+                                                {kitchen.data === undefined ? null : (
+                                                    <Button
+                                                        testID="plan-detail-kitchen"
+                                                        size="sm"
+                                                        variant="secondary"
+                                                        label={t('catalogue:plan.byKitchen', {
+                                                            kitchen: kitchen.data.name,
+                                                        })}
+                                                        onPress={() => {
+                                                            router.push(
+                                                                `/kitchens/${String(item.kitchenId)}` as never,
+                                                            );
+                                                        }}
+                                                    />
+                                                )}
+                                                {item.rating === null ? null : (
+                                                    <Rating
+                                                        testID="plan-detail-rating"
+                                                        label={t('catalogue:plans.ratingLabel', {
+                                                            plan: item.name,
+                                                        })}
+                                                        value={item.rating}
+                                                        count={item.ratingCount}
+                                                        size="sm"
+                                                    />
+                                                )}
+                                            </Inline>
+                                            {/* Labels, not links — `/diets/{diet}` has no backend yet. */}
+                                            {item.dietClassifications.length === 0 ? null : (
+                                                <TagRow
+                                                    testID="plan-detail-diets"
+                                                    items={item.dietClassifications.map((diet) => ({
+                                                        key: diet,
+                                                        label: t(`marketplace:diets.${diet}`),
+                                                        tone: 'brand' as const,
+                                                    }))}
+                                                />
+                                            )}
+                                        </Stack>
+                                    </View>
+                                </Card>
 
-                            <Inline space="sm" align="center" wrap>
-                                {kitchen.data === undefined ? null : (
-                                    <Button
-                                        testID="plan-detail-kitchen"
-                                        size="sm"
-                                        variant="ghost"
-                                        label={t('catalogue:plan.byKitchen', {
-                                            kitchen: kitchen.data.name,
-                                        })}
-                                        onPress={() => {
-                                            router.push(
-                                                `/kitchens/${String(item.kitchenId)}` as never,
-                                            );
-                                        }}
-                                    />
-                                )}
-                                {item.rating === null ? null : (
-                                    <Rating
-                                        testID="plan-detail-rating"
-                                        label={t('catalogue:plans.ratingLabel', {
-                                            plan: item.name,
-                                        })}
-                                        value={item.rating}
-                                        count={item.ratingCount}
-                                        size="sm"
-                                    />
-                                )}
-                                {/* Labels, not links — `/diets/{diet}` has no backend yet. */}
-                                <TagRow
-                                    testID="plan-detail-diets"
-                                    items={item.dietClassifications.map((diet) => ({
-                                        key: diet,
-                                        label: t(`marketplace:diets.${diet}`),
-                                        tone: 'brand' as const,
-                                    }))}
-                                />
-                            </Inline>
-
-                            <Stack space="sm" testID="plan-detail-variants">
-                                <Text variant="label">{t('catalogue:plan.variantsTitle')}</Text>
-                                <Text tone="secondary" variant="caption">
-                                    {t('catalogue:plan.variantsBody')}
-                                </Text>
-                                <SegmentedControl
-                                    testID="plan-detail-variant-picker"
-                                    label={t('catalogue:plan.variantsTitle')}
-                                    block
-                                    value={String(selected.id)}
-                                    onChange={setVariantId}
-                                    items={item.variants.map((variant) => ({
-                                        value: String(variant.id),
-                                        label: variant.name,
-                                        testID: `plan-detail-variant-${String(variant.id)}`,
-                                    }))}
-                                />
-                                <Text testID="plan-detail-variant-band">
-                                    {t('catalogue:plan.variantLabel', {
-                                        name: selected.name,
-                                        min: formatter.formatNumber(selected.energyRange.min),
-                                        max: formatter.formatNumber(selected.energyRange.max),
-                                    })}
-                                </Text>
-                            </Stack>
-
-                            <Stack space="sm" testID="plan-detail-macros">
-                                <Text variant="label">{t('catalogue:plan.macrosTitle')}</Text>
-                                <Text tone="secondary" variant="caption">
-                                    {t('catalogue:plan.macrosBody')}
-                                </Text>
-                                {macroRanges(selected).map((entry) =>
-                                    entry.range === null ? null : (
-                                        <MeterBar
-                                            key={entry.nutrientId}
-                                            testID={`plan-detail-macro-${entry.nutrientId}`}
-                                            label={t('catalogue:plan.macroBandLabel', {
-                                                nutrient: t(
-                                                    `marketplace:nutrients.${entry.nutrientId}`,
+                                <Card
+                                    testID="plan-detail-variants"
+                                    tone="raised"
+                                    padding="md"
+                                    title={t('catalogue:plan.variantsTitle')}
+                                    subtitle={t('catalogue:plan.variantsBody')}
+                                >
+                                    <Stack space="sm">
+                                        <SegmentedControl
+                                            testID="plan-detail-variant-picker"
+                                            label={t('catalogue:plan.variantsTitle')}
+                                            block
+                                            value={String(selected.id)}
+                                            onChange={setVariantId}
+                                            items={item.variants.map((variant) => ({
+                                                value: String(variant.id),
+                                                label: variant.name,
+                                                testID: `plan-detail-variant-${String(variant.id)}`,
+                                            }))}
+                                        />
+                                        <Text testID="plan-detail-variant-band">
+                                            {t('catalogue:plan.variantLabel', {
+                                                name: selected.name,
+                                                min: formatter.formatNumber(
+                                                    selected.energyRange.min,
                                                 ),
-                                                variant: selected.name,
+                                                max: formatter.formatNumber(
+                                                    selected.energyRange.max,
+                                                ),
                                             })}
-                                            value={(entry.range.min + entry.range.max) / 2}
-                                            target={macroScale}
-                                            valueText={t('catalogue:plan.macroRange', {
-                                                min: formatter.formatNumber(entry.range.min),
-                                                max: formatter.formatNumber(entry.range.max),
+                                        </Text>
+                                    </Stack>
+                                </Card>
+
+                                <Card
+                                    testID="plan-detail-combination"
+                                    tone="raised"
+                                    padding="md"
+                                    title={t('catalogue:plan.combinationTitle')}
+                                >
+                                    <Inline space="xs" wrap>
+                                        <Badge
+                                            tone="neutral"
+                                            label={t('catalogue:plan.combinationMeals', {
+                                                count: selected.mealsPerDay,
                                             })}
                                         />
-                                    ),
-                                )}
-                                <Text tone="secondary" variant="caption">
-                                    {t('catalogue:compare.macroCaveat')}
-                                </Text>
-                            </Stack>
-
-                            <Stack space="xs" testID="plan-detail-combination">
-                                <Text variant="label">{t('catalogue:plan.combinationTitle')}</Text>
-                                <Inline space="xs" wrap>
-                                    <Badge
-                                        tone="neutral"
-                                        label={t('catalogue:plan.combinationMeals', {
-                                            meals: formatter.formatNumber(selected.mealsPerDay),
-                                        })}
-                                    />
-                                    <Badge
-                                        testID="plan-detail-snacks"
-                                        tone="neutral"
-                                        label={
-                                            selected.snacksPerDay === 0
-                                                ? t('catalogue:plan.combinationNoSnacks')
-                                                : t('catalogue:plan.combinationSnacks', {
-                                                      snacks: formatter.formatNumber(
-                                                          selected.snacksPerDay,
-                                                      ),
-                                                  })
-                                        }
-                                    />
-                                </Inline>
-                            </Stack>
-
-                            <Stack space="sm" testID="plan-detail-durations">
-                                <Text variant="label">{t('catalogue:plan.durationsTitle')}</Text>
-                                <Text tone="secondary" variant="caption">
-                                    {t('catalogue:plan.durationsBody')}
-                                </Text>
-                                {item.durations.map((option) => (
-                                    <Inline
-                                        key={option.duration}
-                                        testID={`plan-detail-duration-${option.duration}`}
-                                        space="sm"
-                                        align="center"
-                                        wrap
-                                    >
-                                        <Text variant="bodyStrong">
-                                            {t(`catalogue:compare.duration.${option.duration}`)}
-                                        </Text>
-                                        <Text>
-                                            {t('catalogue:plan.durationTotal', {
-                                                // The server states one figure only when every
-                                                // configuration agrees; otherwise the total is the
-                                                // selected variant's, derived from numbers the
-                                                // kitchen did quote.
-                                                total: formatMoney(
-                                                    formatter,
-                                                    option.totalPrice ?? {
-                                                        amount: discountedTotalMinorUnits(
-                                                            selected.pricePerWeek.amount,
-                                                            weeksFor(option.duration),
-                                                            option.discountPercent,
-                                                        ),
-                                                        currency: selected.pricePerWeek.currency,
-                                                    },
-                                                ),
-                                            })}
-                                        </Text>
                                         <Badge
-                                            tone={
-                                                option.discountPercent > 0 ? 'success' : 'neutral'
-                                            }
+                                            testID="plan-detail-snacks"
+                                            tone="neutral"
                                             label={
-                                                option.discountPercent > 0
-                                                    ? t('catalogue:plan.durationDiscount', {
-                                                          discount: formatter.formatNumber(
-                                                              option.discountPercent,
-                                                          ),
+                                                selected.snacksPerDay === 0
+                                                    ? t('catalogue:plan.combinationNoSnacks')
+                                                    : t('catalogue:plan.combinationSnacks', {
+                                                          count: selected.snacksPerDay,
                                                       })
-                                                    : t('catalogue:plan.durationNoDiscount')
                                             }
                                         />
                                     </Inline>
-                                ))}
-                            </Stack>
+                                </Card>
 
-                            <Stack space="sm" testID="plan-detail-sample-menu">
-                                <Text variant="label">{t('catalogue:plan.sampleMenuTitle')}</Text>
-                                <Text tone="secondary" variant="caption">
-                                    {t('catalogue:plan.sampleMenuBody')}
-                                </Text>
-                                <QueryStates
-                                    query={kitchenMeals}
-                                    isEmpty={sampleMeals.length === 0}
-                                    emptyTitle={t('catalogue:plan.sampleMenuEmpty')}
-                                    skeletonCount={2}
-                                    testID="plan-detail-sample"
-                                >
-                                    <CardGrid testID="plan-detail-sample-grid">
-                                        {sampleMeals.map((meal) => (
-                                            <CardGridItem key={meal.id}>
-                                                <MealCard
-                                                    meal={meal}
-                                                    onPress={() => {
-                                                        router.push(
-                                                            `/meals/${String(meal.id)}` as never,
-                                                        );
-                                                    }}
-                                                    onAdd={() => {
-                                                        basket.add(meal);
-                                                    }}
-                                                />
-                                            </CardGridItem>
-                                        ))}
-                                    </CardGrid>
-                                </QueryStates>
-                            </Stack>
-
-                            <Stack space="xs" testID="plan-detail-delivery">
-                                <Text variant="label">{t('catalogue:plan.deliveryTitle')}</Text>
-                                <Text>{t('catalogue:plan.deliveryBody')}</Text>
-                                <Text tone="secondary" variant="caption">
-                                    {t('catalogue:plan.deliveryUnpublished')}
-                                </Text>
-                            </Stack>
-
-                            <Card testID="plan-detail-commerce" padding="md" tone="sunken">
-                                <Stack space="md">
-                                    <Stack space="xs">
-                                        <Text variant="label">
-                                            {t('catalogue:plan.priceTitle')}
-                                        </Text>
-                                        <Text testID="plan-detail-price" variant="bodyStrong">
-                                            {t('catalogue:plan.pricePerWeek', {
-                                                price: formatMoney(
-                                                    formatter,
-                                                    selected.pricePerWeek,
+                                {/* Only when the band publishes a figure: a card of nothing but its
+                                    own caveat says less than leaving it out. */}
+                                {macroRanges(selected).every(
+                                    (entry) => entry.range === null,
+                                ) ? null : (
+                                    <Card
+                                        testID="plan-detail-macros"
+                                        tone="raised"
+                                        padding="md"
+                                        title={t('catalogue:plan.macrosTitle')}
+                                        subtitle={t('catalogue:plan.macrosBody')}
+                                    >
+                                        <Stack space="sm">
+                                            {macroRanges(selected).map((entry) =>
+                                                entry.range === null ? null : (
+                                                    <MeterBar
+                                                        key={entry.nutrientId}
+                                                        testID={`plan-detail-macro-${entry.nutrientId}`}
+                                                        label={t('catalogue:plan.macroBandLabel', {
+                                                            nutrient: t(
+                                                                `marketplace:nutrients.${entry.nutrientId}`,
+                                                            ),
+                                                            variant: selected.name,
+                                                        })}
+                                                        value={
+                                                            (entry.range.min + entry.range.max) / 2
+                                                        }
+                                                        target={macroScale}
+                                                        valueText={t('catalogue:plan.macroRange', {
+                                                            min: formatter.formatNumber(
+                                                                entry.range.min,
+                                                            ),
+                                                            max: formatter.formatNumber(
+                                                                entry.range.max,
+                                                            ),
+                                                        })}
+                                                    />
                                                 ),
-                                            })}
+                                            )}
+                                            <Text tone="secondary" variant="caption">
+                                                {t('catalogue:compare.macroCaveat')}
+                                            </Text>
+                                        </Stack>
+                                    </Card>
+                                )}
+
+                                <Card
+                                    testID="plan-detail-durations"
+                                    tone="raised"
+                                    padding="md"
+                                    title={t('catalogue:plan.durationsTitle')}
+                                    subtitle={t('catalogue:plan.durationsBody')}
+                                >
+                                    {/* One hairline row per length: the length, its total, and
+                                        what the commitment earns, read across like a price list. */}
+                                    <View className="flex-col">
+                                        {item.durations.map((option, index) => (
+                                            <View
+                                                key={option.duration}
+                                                testID={`plan-detail-duration-${option.duration}`}
+                                                className={
+                                                    index === 0
+                                                        ? 'min-h-touch flex-row flex-wrap items-center gap-3 py-2'
+                                                        : 'min-h-touch flex-row flex-wrap items-center gap-3 border-t border-stroke-subtle py-2'
+                                                }
+                                            >
+                                                <Text
+                                                    variant="bodyStrong"
+                                                    className="min-w-0 flex-1"
+                                                >
+                                                    {t(
+                                                        `catalogue:compare.duration.${option.duration}`,
+                                                    )}
+                                                </Text>
+                                                <Text className="tabular-nums">
+                                                    {t('catalogue:plan.durationTotal', {
+                                                        total: durationTotal(option),
+                                                    })}
+                                                </Text>
+                                                <Badge
+                                                    tone={
+                                                        option.discountPercent > 0
+                                                            ? 'success'
+                                                            : 'neutral'
+                                                    }
+                                                    label={
+                                                        option.discountPercent > 0
+                                                            ? t('catalogue:plan.durationDiscount', {
+                                                                  discount: formatter.formatNumber(
+                                                                      option.discountPercent,
+                                                                  ),
+                                                              })
+                                                            : t('catalogue:plan.durationNoDiscount')
+                                                    }
+                                                />
+                                            </View>
+                                        ))}
+                                    </View>
+                                </Card>
+
+                                <Card
+                                    testID="plan-detail-sample-menu"
+                                    tone="raised"
+                                    padding="md"
+                                    title={t('catalogue:plan.sampleMenuTitle')}
+                                    subtitle={t('catalogue:plan.sampleMenuBody')}
+                                >
+                                    {/* A settled read with nothing to show is one quiet line in
+                                        the card, not a full empty state inside it. */}
+                                    {kitchenMeals.isSuccess && sampleMeals.length === 0 ? (
+                                        <Text
+                                            testID="plan-detail-sample-none"
+                                            tone="secondary"
+                                            variant="caption"
+                                        >
+                                            {t('catalogue:plan.sampleMenuEmpty')}
                                         </Text>
-                                        <Text tone="secondary">
-                                            {t('catalogue:plan.pricePerDay', {
-                                                price: formatMoney(formatter, {
-                                                    amount: Math.round(
-                                                        selected.pricePerWeek.amount /
-                                                            DAYS_PER_WEEK,
+                                    ) : (
+                                        <QueryStates
+                                            query={kitchenMeals}
+                                            isEmpty={sampleMeals.length === 0}
+                                            emptyTitle={t('catalogue:plan.sampleMenuEmpty')}
+                                            skeletonCount={2}
+                                            testID="plan-detail-sample"
+                                        >
+                                            <CardGrid testID="plan-detail-sample-grid">
+                                                {sampleMeals.map((meal) => (
+                                                    <CardGridItem key={meal.id}>
+                                                        <MealCard
+                                                            meal={meal}
+                                                            onPress={() => {
+                                                                router.push(
+                                                                    `/meals/${String(meal.id)}` as never,
+                                                                );
+                                                            }}
+                                                            onAdd={() => {
+                                                                basket.add(meal);
+                                                            }}
+                                                        />
+                                                    </CardGridItem>
+                                                ))}
+                                            </CardGrid>
+                                        </QueryStates>
+                                    )}
+                                </Card>
+
+                                <Card
+                                    testID="plan-detail-delivery"
+                                    tone="raised"
+                                    padding="md"
+                                    title={t('catalogue:plan.deliveryTitle')}
+                                >
+                                    <Stack space="xs">
+                                        <Text>{t('catalogue:plan.deliveryBody')}</Text>
+                                        <Text tone="secondary" variant="caption">
+                                            {t('catalogue:plan.deliveryUnpublished')}
+                                        </Text>
+                                    </Stack>
+                                </Card>
+
+                                <MedicalDisclaimer />
+                            </View>
+
+                            <View
+                                className="flex-col gap-4 web:sticky web:top-0"
+                                style={wide ? { width: ASIDE_WIDTH } : undefined}
+                            >
+                                <Card
+                                    testID="plan-detail-commerce"
+                                    padding="md"
+                                    tone="raised"
+                                    title={t('catalogue:plan.priceTitle')}
+                                >
+                                    <Stack space="md">
+                                        <Stack space="xs">
+                                            <Text
+                                                testID="plan-detail-price"
+                                                variant="display"
+                                                className="tabular-nums"
+                                            >
+                                                {t('catalogue:plan.pricePerWeek', {
+                                                    price: formatMoney(
+                                                        formatter,
+                                                        selected.pricePerWeek,
                                                     ),
-                                                    currency: selected.pricePerWeek.currency,
-                                                }),
-                                            })}
-                                        </Text>
+                                                })}
+                                            </Text>
+                                            <Text tone="secondary">
+                                                {t('catalogue:plan.pricePerDay', {
+                                                    price: formatMoney(formatter, {
+                                                        amount: Math.round(
+                                                            selected.pricePerWeek.amount /
+                                                                DAYS_PER_WEEK,
+                                                        ),
+                                                        currency: selected.pricePerWeek.currency,
+                                                    }),
+                                                })}
+                                            </Text>
+                                            <Text tone="secondary" variant="caption">
+                                                {t('catalogue:plan.variantLabel', {
+                                                    name: selected.name,
+                                                    min: formatter.formatNumber(
+                                                        selected.energyRange.min,
+                                                    ),
+                                                    max: formatter.formatNumber(
+                                                        selected.energyRange.max,
+                                                    ),
+                                                })}
+                                            </Text>
+                                        </Stack>
+
+                                        <Button
+                                            testID="plan-detail-configure"
+                                            block
+                                            label={
+                                                signedIn
+                                                    ? t('catalogue:plan.configure')
+                                                    : t('catalogue:plan.configureSignIn')
+                                            }
+                                            onPress={() => {
+                                                if (signedIn) {
+                                                    router.push(
+                                                        `/customer/subscriptions/new?plan=${String(item.id)}&variant=${String(selected.id)}` as never,
+                                                    );
+                                                    return;
+                                                }
+                                                recordResumeIntent({
+                                                    href: `/plans/${String(item.id)}`,
+                                                    labelKey: 'catalogue:nav.plans',
+                                                    name: item.name,
+                                                });
+                                                router.push('/sign-in');
+                                            }}
+                                        />
+
                                         <Text tone="secondary" variant="caption">
                                             {t('catalogue:plan.priceBothUnits')}
                                         </Text>
                                     </Stack>
-
-                                    <Button
-                                        testID="plan-detail-configure"
-                                        label={
-                                            signedIn
-                                                ? t('catalogue:plan.configure')
-                                                : t('catalogue:plan.configureSignIn')
-                                        }
-                                        onPress={() => {
-                                            if (signedIn) {
-                                                router.push(
-                                                    `/customer/subscriptions/new?plan=${String(item.id)}&variant=${String(selected.id)}` as never,
-                                                );
-                                                return;
-                                            }
-                                            recordResumeIntent({
-                                                href: `/plans/${String(item.id)}`,
-                                                labelKey: 'catalogue:nav.plans',
-                                                name: item.name,
-                                            });
-                                            router.push('/sign-in');
-                                        }}
-                                    />
-                                </Stack>
-                            </Card>
-
-                            <MedicalDisclaimer />
-                        </Stack>
+                                </Card>
+                            </View>
+                        </View>
                     )}
                 </QueryStates>
             )}
 
             {basket.dialog}
-        </Stack>
+        </View>
     );
 }
