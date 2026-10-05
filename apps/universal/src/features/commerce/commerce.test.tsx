@@ -1702,19 +1702,38 @@ interface CheckoutOptions {
     readonly commerce?: Partial<CommerceRepository> | undefined;
 }
 
+/**
+ * Settles once the checkout's kitchen query has been answered. Review records the kitchen's name
+ * as it reads at that moment, so committing before the answer lands leaves the confirmation saying
+ * "The kitchen" — a race a slow CI runner loses.
+ */
+let kitchenServed: Promise<void> = Promise.resolve();
+
 function renderCheckout(basket: Basket, options: CheckoutOptions = {}) {
+    let served = () => {};
+    kitchenServed = new Promise((resolve) => {
+        served = resolve;
+    });
     return renderStubScreen(<CheckoutScreen />, {
         session: testMeResponse(),
         repositories: {
             commerce: { ...basketRepository(basket), ...options.commerce },
             account: { listAddresses: async () => options.addresses ?? [] },
-            marketplace: { getKitchen: async () => KITCHEN },
+            marketplace: {
+                getKitchen: async () => {
+                    served();
+                    return KITCHEN;
+                },
+            },
         },
     });
 }
 
 /** Choose the one saved address and commit the delivery details, which reveals "place order". */
 async function reviewCheckout(addressId: string): Promise<void> {
+    await act(async () => {
+        await kitchenServed;
+    });
     await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
     await fireEvent.press(await screen.findByTestId(`checkout-address-picker-option-${addressId}`));
     await waitFor(() => {
