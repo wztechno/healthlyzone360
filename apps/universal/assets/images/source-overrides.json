@@ -6,9 +6,7 @@
         {
             "ref": "DRS-001",
             "designation": "Asian Salad Dressing",
-            "category": [
-                "Goma-ae"
-            ],
+            "category": ["Goma-ae"],
             "query": "sesame ginger salad dressing",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:Tenderstem broccoli dressed with sesame sauce 001.jpg"
@@ -29,9 +27,7 @@
         {
             "ref": "DRS-004",
             "designation": "Balsamic Dressing",
-            "category": [
-                "Balsamic vinegar"
-            ],
+            "category": ["Balsamic vinegar"],
             "query": "balsamic vinaigrette dressing",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:Olive oil with Balsamic Vinegar.jpg"
@@ -46,10 +42,7 @@
         {
             "ref": "DRS-006",
             "designation": "Coriander Salad Dressing",
-            "category": [
-                "Coriander chutney",
-                "Green chutney"
-            ],
+            "category": ["Coriander chutney", "Green chutney"],
             "query": "coriander dressing",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:Cuisine (268) 42.jpg"
@@ -64,10 +57,7 @@
         {
             "ref": "DRS-008",
             "designation": "Honey Vinaigrette",
-            "category": [
-                "Vinaigrettes",
-                "Honey mustard"
-            ],
+            "category": ["Vinaigrettes", "Honey mustard"],
             "query": "honey vinaigrette",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:2020-04-01 17 53 37 McDonald's Honey Mustard dipping sauce in the Franklin Farm section of Oak Hill, Fairfax County, Virginia.jpg"
@@ -75,18 +65,14 @@
         {
             "ref": "DRS-009",
             "designation": "Lemon Mustard Dressing",
-            "category": [
-                "Vinaigrettes"
-            ],
+            "category": ["Vinaigrettes"],
             "query": "lemon mustard vinaigrette",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection."
         },
         {
             "ref": "DRS-011",
             "designation": "Mustard Salad Dressing",
-            "category": [
-                "Vinaigrettes"
-            ],
+            "category": ["Vinaigrettes"],
             "query": "mustard salad dressing",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:Salad with roasted garlic, mustard herb vinaigrette.jpg"
@@ -94,9 +80,7 @@
         {
             "ref": "DRS-012",
             "designation": "Orange Oil Dressing",
-            "category": [
-                "Vinaigrettes"
-            ],
+            "category": ["Vinaigrettes"],
             "query": "orange vinaigrette",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "openverse:2aead99f-f10d-4503-a5cd-f59cf571a3b8"
@@ -104,9 +88,7 @@
         {
             "ref": "DRS-013",
             "designation": "Oregano Salad Dressing",
-            "category": [
-                "Vinaigrettes"
-            ],
+            "category": ["Vinaigrettes"],
             "query": "oregano vinaigrette",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "openverse:4e14a0db-d59a-4fd6-894e-24f2a5e81941"
@@ -114,18 +96,14 @@
         {
             "ref": "DRS-014",
             "designation": "Paprika Salad Dressing",
-            "category": [
-                "Vinaigrettes"
-            ],
+            "category": ["Vinaigrettes"],
             "query": "paprika dressing",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection."
         },
         {
             "ref": "DRS-016",
             "designation": "Pomegranate Salad Dressing",
-            "category": [
-                "Pomegranate molasses"
-            ],
+            "category": ["Pomegranate molasses"],
             "query": "pomegranate dressing",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "openverse:6fb77383-3743-46e6-b57e-93e38ee01b2c"
@@ -133,9 +111,7 @@
         {
             "ref": "DRS-018",
             "designation": "Tarator Salad Dressing",
-            "category": [
-                "Tarator"
-            ],
+            "category": ["Tarator"],
             "query": "tahini sauce tarator",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:Falafels with tarator.jpg"
@@ -150,29 +126,21 @@
         {
             "ref": "ING-002",
             "designation": "Bicarbonate of soda",
-            "category": [
-                "Sodium bicarbonate",
-                "Baking soda"
-            ],
+            "category": ["Sodium bicarbonate", "Baking soda"],
             "query": "baking soda powder white",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-003",
             "designation": "Citric acid",
-            "category": [
-                "Citric acid"
-            ],
+            "category": ["Citric acid"],
             "query": "citric acid crystals",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-005",
             "designation": "Corn starch (cornflour)",
-            "category": [
-                "Corn starch",
-                "Cornstarch"
-            ],
+            "category": ["Corn starch", "Cornstarch"],
             "query": "cornflour powder white",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -185,19 +153,14 @@
         {
             "ref": "ING-014",
             "designation": "Chilli paste",
-            "category": [
-                "Chili paste",
-                "Harissa"
-            ],
+            "category": ["Chili paste", "Harissa"],
             "query": "red chili paste jar",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-017",
             "designation": "Mayonnaise",
-            "category": [
-                "Mayonnaise"
-            ],
+            "category": ["Mayonnaise"],
             "query": "mayonnaise bowl",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -213,9 +176,7 @@
             "designation": "Mustard, Dijon",
             "query": "dijon mustard spoon",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Dijon mustard"
-            ]
+            "exhausted_categories": ["Dijon mustard"]
         },
         {
             "ref": "ING-021",
@@ -233,9 +194,7 @@
         {
             "ref": "ING-023",
             "designation": "Orange blossom water",
-            "category": [
-                "Orange flower water"
-            ],
+            "category": ["Orange flower water"],
             "query": "orange blossom water bottle",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -244,16 +203,12 @@
             "designation": "Rose water",
             "query": "rose water bottle",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Rose water"
-            ]
+            "exhausted_categories": ["Rose water"]
         },
         {
             "ref": "ING-026",
             "designation": "Soya sauce",
-            "category": [
-                "Soy sauce"
-            ],
+            "category": ["Soy sauce"],
             "query": "soy sauce dish",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -262,10 +217,7 @@
             "designation": "Tomato paste",
             "query": "tomato paste",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Tomato paste",
-                "Tomato purée"
-            ],
+            "exhausted_categories": ["Tomato paste", "Tomato purée"],
             "pin": "File:Production of tomato paste with processing industries 22 (2025) Tasnim.jpg"
         },
         {
@@ -277,9 +229,7 @@
         {
             "ref": "ING-029",
             "designation": "Vanilla",
-            "category": [
-                "Vanilla beans"
-            ],
+            "category": ["Vanilla beans"],
             "query": "vanilla pods",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -295,9 +245,7 @@
             "designation": "Vinegar",
             "query": "vinegar bottle",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Vinegar"
-            ],
+            "exhausted_categories": ["Vinegar"],
             "pin": "File:SpicedVinegar special.jpg"
         },
         {
@@ -317,9 +265,7 @@
         {
             "ref": "ING-035",
             "designation": "Yeast",
-            "category": [
-                "Baker's yeast"
-            ],
+            "category": ["Baker's yeast"],
             "query": "baker's yeast",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -328,10 +274,7 @@
             "designation": "Chocolate",
             "query": "chocolate bar pieces",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Chocolate bars",
-                "Chocolate"
-            ],
+            "exhausted_categories": ["Chocolate bars", "Chocolate"],
             "pin": "File:Bar of Guittard chocolate.jpg"
         },
         {
@@ -339,9 +282,7 @@
             "designation": "Chocolate chips",
             "query": "chocolate chips",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Chocolate chips"
-            ],
+            "exhausted_categories": ["Chocolate chips"],
             "pin": "File:Bowl of chocolate chips.jpg"
         },
         {
@@ -349,9 +290,7 @@
             "designation": "Chocolate hazelnut spread",
             "query": "chocolate hazelnut spread jar",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Chocolate spreads"
-            ],
+            "exhausted_categories": ["Chocolate spreads"],
             "pin": "File:Cream Chocolate Jam.jpg"
         },
         {
@@ -359,35 +298,26 @@
             "designation": "Chocolate, dark",
             "query": "dark chocolate pieces",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Dark chocolate"
-            ]
+            "exhausted_categories": ["Dark chocolate"]
         },
         {
             "ref": "ING-040",
             "designation": "Coconut Sugar",
             "query": "coconut sugar",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Coconut sugar",
-                "Palm sugar"
-            ]
+            "exhausted_categories": ["Coconut sugar", "Palm sugar"]
         },
         {
             "ref": "ING-041",
             "designation": "Honey",
-            "category": [
-                "Honey"
-            ],
+            "category": ["Honey"],
             "query": "honey jar",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-042",
             "designation": "Jam",
-            "category": [
-                "Jam"
-            ],
+            "category": ["Jam"],
             "query": "jam jar",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -402,54 +332,41 @@
             "designation": "Sugar, powdered (icing)",
             "query": "powdered sugar",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Powdered sugar"
-            ],
+            "exhausted_categories": ["Powdered sugar"],
             "pin": "File:PowderedSugar.png"
         },
         {
             "ref": "ING-047",
             "designation": "Sugar, white",
-            "category": [
-                "Granulated sugar"
-            ],
+            "category": ["Granulated sugar"],
             "query": "white sugar crystals",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-048",
             "designation": "Akkawi cheese",
-            "category": [
-                "Akkawi"
-            ],
+            "category": ["Akkawi"],
             "query": "akkawi cheese",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-050",
             "designation": "Cheddar, melted (canned)",
-            "category": [
-                "Cheese sauce",
-                "Processed cheese"
-            ],
+            "category": ["Cheese sauce", "Processed cheese"],
             "query": "cheddar cheese sauce",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-051",
             "designation": "Cream cheese",
-            "category": [
-                "Cream cheese"
-            ],
+            "category": ["Cream cheese"],
             "query": "cream cheese",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-053",
             "designation": "Feta cheese",
-            "category": [
-                "Feta"
-            ],
+            "category": ["Feta"],
             "query": "feta cheese block",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -458,25 +375,19 @@
             "designation": "Halloumi cheese",
             "query": "halloumi cheese",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Halloumi"
-            ]
+            "exhausted_categories": ["Halloumi"]
         },
         {
             "ref": "ING-056",
             "designation": "Kashkaval cheese",
-            "category": [
-                "Kashkaval"
-            ],
+            "category": ["Kashkaval"],
             "query": "kashkaval cheese",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-061",
             "designation": "Cream, fresh (animal)",
-            "category": [
-                "Whipped cream"
-            ],
+            "category": ["Whipped cream"],
             "query": "fresh cream dairy",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -485,9 +396,7 @@
             "designation": "Condensed milk",
             "query": "condensed milk",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Condensed milk"
-            ],
+            "exhausted_categories": ["Condensed milk"],
             "pin": "openverse:42a440d2-3280-4982-a045-df55ba1060b5"
         },
         {
@@ -495,9 +404,7 @@
             "designation": "Ice cream, vanilla",
             "query": "vanilla ice cream scoop",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Vanilla ice cream"
-            ],
+            "exhausted_categories": ["Vanilla ice cream"],
             "pin": "File:Vanilla ice cream cone (3796415185).jpg"
         },
         {
@@ -511,18 +418,13 @@
             "designation": "Milk powder",
             "query": "milk powder",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Powdered milk",
-                "Milk powder"
-            ],
+            "exhausted_categories": ["Powdered milk", "Milk powder"],
             "pin": "File:Milk powder.jpg"
         },
         {
             "ref": "ING-067",
             "designation": "Milk, liquid (full fat)",
-            "category": [
-                "Glasses of milk"
-            ],
+            "category": ["Glasses of milk"],
             "query": "glass of milk",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -531,9 +433,7 @@
             "designation": "Yogurt",
             "query": "yogurt bowl",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Yogurt"
-            ],
+            "exhausted_categories": ["Yogurt"],
             "pin": "File:USDA 2026 Yogurt.png"
         },
         {
@@ -545,9 +445,7 @@
         {
             "ref": "ING-070",
             "designation": "Lady Finger Biscuits",
-            "category": [
-                "Savoiardi"
-            ],
+            "category": ["Savoiardi"],
             "query": "ladyfinger biscuits",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -556,9 +454,7 @@
             "designation": "Fish",
             "query": "fresh fish raw",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Fish as food"
-            ],
+            "exhausted_categories": ["Fish as food"],
             "pin": "File:Fish hyd2.jpg"
         },
         {
@@ -566,28 +462,20 @@
             "designation": "Fish Filet",
             "query": "fish fillet raw",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Fish fillets"
-            ],
+            "exhausted_categories": ["Fish fillets"],
             "pin": "openverse:9b55cc8d-92d7-41e8-ac95-505b5af13af6"
         },
         {
             "ref": "ING-073",
             "designation": "Salmon",
-            "category": [
-                "Salmon as food",
-                "Salmon fillets"
-            ],
+            "category": ["Salmon as food", "Salmon fillets"],
             "query": "salmon fillet raw",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-076",
             "designation": "Tuna",
-            "category": [
-                "Tuna as food",
-                "Tuna steaks"
-            ],
+            "category": ["Tuna as food", "Tuna steaks"],
             "query": "tuna steak raw",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -596,29 +484,19 @@
             "designation": "Calamari",
             "query": "calamari rings",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Calamari",
-                "Squid as food",
-                "Fried calamari"
-            ]
+            "exhausted_categories": ["Calamari", "Squid as food", "Fried calamari"]
         },
         {
             "ref": "ING-078",
             "designation": "Crab",
-            "category": [
-                "Crabs as food",
-                "Crab meat"
-            ],
+            "category": ["Crabs as food", "Crab meat"],
             "query": "cooked crab",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-079",
             "designation": "Crab sticks (surimi)",
-            "category": [
-                "Surimi",
-                "Crab sticks"
-            ],
+            "category": ["Surimi", "Crab sticks"],
             "query": "crab sticks surimi",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -631,9 +509,7 @@
         {
             "ref": "ING-085",
             "designation": "Gogi berries",
-            "category": [
-                "Goji berries"
-            ],
+            "category": ["Goji berries"],
             "query": "goji berries",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -649,25 +525,19 @@
             "designation": "Grapefruit",
             "query": "grapefruit halved",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Grapefruits"
-            ]
+            "exhausted_categories": ["Grapefruits"]
         },
         {
             "ref": "ING-091",
             "designation": "Lemon",
-            "category": [
-                "Lemons"
-            ],
+            "category": ["Lemons"],
             "query": "lemons fruit",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-094",
             "designation": "Pomelo",
-            "category": [
-                "Pomelos"
-            ],
+            "category": ["Pomelos"],
             "query": "pomelo fruit",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -681,9 +551,7 @@
         {
             "ref": "ING-096",
             "designation": "Dates",
-            "category": [
-                "Dried dates"
-            ],
+            "category": ["Dried dates"],
             "query": "dates fruit",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -692,9 +560,7 @@
             "designation": "Dried fruits",
             "query": "dried fruit mix",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Dried fruit"
-            ],
+            "exhausted_categories": ["Dried fruit"],
             "pin": "File:Nut and-fruit mixes DEN LILLE NOTTEFABRIKKEN Norway Naturblanding rosiner torket frukt naturlige notterr (paranotter mandler valnotter) og torrostede cashewnotter 2017.jpg"
         },
         {
@@ -702,9 +568,7 @@
             "designation": "Prune",
             "query": "prunes dried plums",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Prunes"
-            ],
+            "exhausted_categories": ["Prunes"],
             "pin": "File:Prune A.jpg"
         },
         {
@@ -712,53 +576,40 @@
             "designation": "Raisins",
             "query": "raisins",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Raisins"
-            ]
+            "exhausted_categories": ["Raisins"]
         },
         {
             "ref": "ING-101",
             "designation": "Melon",
             "query": "melon fruit cut",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Cantaloupes"
-            ]
+            "exhausted_categories": ["Cantaloupes"]
         },
         {
             "ref": "ING-103",
             "designation": "Apple Green",
-            "category": [
-                "Green apples",
-                "Granny Smith"
-            ],
+            "category": ["Green apples", "Granny Smith"],
             "query": "green apple",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-108",
             "designation": "Green Plums",
-            "category": [
-                "Greengages"
-            ],
+            "category": ["Greengages"],
             "query": "green plums",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-109",
             "designation": "Peach",
-            "category": [
-                "Peaches"
-            ],
+            "category": ["Peaches"],
             "query": "peaches fruit",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-110",
             "designation": "Plum",
-            "category": [
-                "Plums"
-            ],
+            "category": ["Plums"],
             "query": "plums fruit",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -777,9 +628,7 @@
         {
             "ref": "ING-122",
             "designation": "Granola",
-            "category": [
-                "Granola"
-            ],
+            "category": ["Granola"],
             "query": "granola bowl",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -798,20 +647,14 @@
         {
             "ref": "ING-127",
             "designation": "Rice Cake",
-            "category": [
-                "Rice cakes",
-                "Puffed rice cakes"
-            ],
+            "category": ["Rice cakes", "Puffed rice cakes"],
             "query": "puffed rice cakes",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-128",
             "designation": "Rice noodles",
-            "category": [
-                "Rice noodles",
-                "Rice vermicelli"
-            ],
+            "category": ["Rice noodles", "Rice vermicelli"],
             "query": "rice noodles dried",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -832,26 +675,19 @@
             "designation": "Rice Powder",
             "query": "rice flour",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Rice flour"
-            ]
+            "exhausted_categories": ["Rice flour"]
         },
         {
             "ref": "ING-133",
             "designation": "Couscous",
-            "category": [
-                "Couscous"
-            ],
+            "category": ["Couscous"],
             "query": "couscous",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-134",
             "designation": "Crumb",
-            "category": [
-                "Breadcrumbs",
-                "Bread crumbs"
-            ],
+            "category": ["Breadcrumbs", "Bread crumbs"],
             "query": "breadcrumbs",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -865,27 +701,21 @@
         {
             "ref": "ING-137",
             "designation": "Moughrabiyeh",
-            "category": [
-                "Israeli couscous"
-            ],
+            "category": ["Israeli couscous"],
             "query": "pearl couscous",
             "note": "Lebanese giant couscous; the workbook's transliteration matches nothing on Commons."
         },
         {
             "ref": "ING-138",
             "designation": "Noodles",
-            "category": [
-                "Noodles"
-            ],
+            "category": ["Noodles"],
             "query": "dried noodles",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-143",
             "designation": "Roll",
-            "category": [
-                "Bread rolls"
-            ],
+            "category": ["Bread rolls"],
             "query": "bread rolls",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -911,9 +741,7 @@
         {
             "ref": "ING-149",
             "designation": "Cardamom",
-            "category": [
-                "Cardamom pods"
-            ],
+            "category": ["Cardamom pods"],
             "query": "cardamom pods",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -932,9 +760,7 @@
         {
             "ref": "ING-153",
             "designation": "Edible flowers (viola)",
-            "category": [
-                "Edible flowers"
-            ],
+            "category": ["Edible flowers"],
             "query": "edible viola flowers",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -966,9 +792,7 @@
         {
             "ref": "ING-159",
             "designation": "Zaatar",
-            "category": [
-                "Za'atar"
-            ],
+            "category": ["Za'atar"],
             "query": "zaatar spice mix",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -982,17 +806,13 @@
             "designation": "Carroway",
             "query": "caraway seeds",
             "note": "Workbook misspelling of caraway. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Caraway seeds"
-            ],
+            "exhausted_categories": ["Caraway seeds"],
             "pin": "File:CarawaySeeds.jpg"
         },
         {
             "ref": "ING-165",
             "designation": "Cinnamon",
-            "category": [
-                "Cinnamon sticks"
-            ],
+            "category": ["Cinnamon sticks"],
             "query": "cinnamon sticks",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1007,9 +827,7 @@
             "designation": "Curry",
             "query": "curry powder",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Curry powder"
-            ],
+            "exhausted_categories": ["Curry powder"],
             "pin": "File:Curry powder in the spice-bazaar in Istanbul.jpg"
         },
         {
@@ -1030,9 +848,7 @@
             "designation": "Garlic powder",
             "query": "garlic powder",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Garlic powder"
-            ],
+            "exhausted_categories": ["Garlic powder"],
             "pin": "File:Garlic Powder, Penzeys Spices, Arlington Heights MA.jpg"
         },
         {
@@ -1045,27 +861,21 @@
         {
             "ref": "ING-176",
             "designation": "Loomi (dried lime)",
-            "category": [
-                "Black lime"
-            ],
+            "category": ["Black lime"],
             "query": "dried black limes",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-177",
             "designation": "Masala Spices",
-            "category": [
-                "Garam masala"
-            ],
+            "category": ["Garam masala"],
             "query": "masala spice powder",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-178",
             "designation": "Nutmeg",
-            "category": [
-                "Nutmegs"
-            ],
+            "category": ["Nutmegs"],
             "query": "whole nutmeg",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1078,18 +888,14 @@
         {
             "ref": "ING-182",
             "designation": "Pepper",
-            "category": [
-                "Peppercorns"
-            ],
+            "category": ["Peppercorns"],
             "query": "peppercorns",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-183",
             "designation": "Salt",
-            "category": [
-                "Sea salt"
-            ],
+            "category": ["Sea salt"],
             "query": "salt crystals",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1098,16 +904,12 @@
             "designation": "Seven spices (sabaa baharat)",
             "query": "baharat seven spices",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Baharat"
-            ]
+            "exhausted_categories": ["Baharat"]
         },
         {
             "ref": "ING-185",
             "designation": "Sumac",
-            "category": [
-                "Sumac (spice)"
-            ],
+            "category": ["Sumac (spice)"],
             "query": "sumac spice",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1120,19 +922,14 @@
         {
             "ref": "ING-187",
             "designation": "Turmeric",
-            "category": [
-                "Turmeric powder"
-            ],
+            "category": ["Turmeric powder"],
             "query": "turmeric powder",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-189",
             "designation": "Beans",
-            "category": [
-                "Dried beans",
-                "Kidney beans"
-            ],
+            "category": ["Dried beans", "Kidney beans"],
             "query": "dried beans",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1147,9 +944,7 @@
             "designation": "Edamame",
             "query": "edamame pods",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Edamame"
-            ]
+            "exhausted_categories": ["Edamame"]
         },
         {
             "ref": "ING-193",
@@ -1160,20 +955,14 @@
         {
             "ref": "ING-194",
             "designation": "Foul (canned fava beans)",
-            "category": [
-                "Ful medames"
-            ],
+            "category": ["Ful medames"],
             "query": "ful medames",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-197",
             "designation": "Lentil",
-            "category": [
-                "Lentils",
-                "Red lentils",
-                "Green lentils"
-            ],
+            "category": ["Lentils", "Red lentils", "Green lentils"],
             "query": "lentils",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1195,17 +984,13 @@
             "designation": "Beef chuck roll",
             "query": "raw beef chuck",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Beef chuck"
-            ],
+            "exhausted_categories": ["Beef chuck"],
             "pin": "File:Vacuum Packaging Machine sous vide chuck roll.jpg"
         },
         {
             "ref": "ING-201",
             "designation": "Beef fat",
-            "category": [
-                "Suet"
-            ],
+            "category": ["Suet"],
             "query": "beef suet",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1224,29 +1009,21 @@
         {
             "ref": "ING-206",
             "designation": "Beef, minced",
-            "category": [
-                "Ground beef",
-                "Minced meat"
-            ],
+            "category": ["Ground beef", "Minced meat"],
             "query": "raw minced beef",
             "note": "Category:Beef is mostly cooked dishes and archival photography; minced beef lives under ground meat."
         },
         {
             "ref": "ING-207",
             "designation": "Eggs",
-            "category": [
-                "Chicken eggs",
-                "Eggs (food)"
-            ],
+            "category": ["Chicken eggs", "Eggs (food)"],
             "query": "chicken eggs",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-208",
             "designation": "Quail Egg",
-            "category": [
-                "Quail eggs"
-            ],
+            "category": ["Quail eggs"],
             "query": "quail eggs",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1255,26 +1032,19 @@
             "designation": "Soya meat",
             "query": "textured soy protein",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Textured vegetable protein"
-            ]
+            "exhausted_categories": ["Textured vegetable protein"]
         },
         {
             "ref": "ING-210",
             "designation": "Chicken",
-            "category": [
-                "Chicken meat",
-                "Chicken as food"
-            ],
+            "category": ["Chicken meat", "Chicken as food"],
             "query": "raw chicken meat",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-211",
             "designation": "Chicken Liver",
-            "category": [
-                "Chicken livers"
-            ],
+            "category": ["Chicken livers"],
             "query": "raw chicken liver",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1283,11 +1053,7 @@
             "designation": "Turkey",
             "query": "turkey meat",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Turkey meat",
-                "Turkey as food",
-                "Roast turkey"
-            ],
+            "exhausted_categories": ["Turkey meat", "Turkey as food", "Roast turkey"],
             "pin": "File:2020-12-25 18 10 54 Turkey meat from Whole Foods in the Parkway Village section of Ewing Township, Mercer County, New Jersey.jpg"
         },
         {
@@ -1295,9 +1061,7 @@
             "designation": "Turkey bacon",
             "query": "turkey bacon",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Turkey bacon"
-            ],
+            "exhausted_categories": ["Turkey bacon"],
             "pin": "File:Turkey bacon cooking in skillet.jpg"
         },
         {
@@ -1305,17 +1069,13 @@
             "designation": "Peanut Butter",
             "query": "peanut butter",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Peanut butter"
-            ],
+            "exhausted_categories": ["Peanut butter"],
             "pin": "File:Peanut butter glass.jpg"
         },
         {
             "ref": "ING-218",
             "designation": "Pumpkin seeds",
-            "category": [
-                "Pumpkin seeds"
-            ],
+            "category": ["Pumpkin seeds"],
             "query": "pumpkin seeds",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1331,25 +1091,19 @@
             "designation": "Sunflower seeds",
             "query": "sunflower seeds",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Sunflower seeds"
-            ]
+            "exhausted_categories": ["Sunflower seeds"]
         },
         {
             "ref": "ING-221",
             "designation": "Tahini",
             "query": "tahini",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Tahini"
-            ]
+            "exhausted_categories": ["Tahini"]
         },
         {
             "ref": "ING-224",
             "designation": "Chestnuts",
-            "category": [
-                "Roasted chestnuts"
-            ],
+            "category": ["Roasted chestnuts"],
             "query": "chestnuts",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1358,16 +1112,12 @@
             "designation": "Coconuts",
             "query": "coconut halved",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Coconuts"
-            ]
+            "exhausted_categories": ["Coconuts"]
         },
         {
             "ref": "ING-227",
             "designation": "Nuts",
-            "category": [
-                "Mixed nuts"
-            ],
+            "category": ["Mixed nuts"],
             "query": "mixed nuts",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1376,26 +1126,19 @@
             "designation": "Pine Nuts",
             "query": "pine nuts",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Pine nuts",
-                "Pine seeds"
-            ]
+            "exhausted_categories": ["Pine nuts", "Pine seeds"]
         },
         {
             "ref": "ING-232",
             "designation": "Gelatine, food grade",
-            "category": [
-                "Gelatin"
-            ],
+            "category": ["Gelatin"],
             "query": "gelatin sheets",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-233",
             "designation": "Margarine",
-            "category": [
-                "Margarine"
-            ],
+            "category": ["Margarine"],
             "query": "margarine",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1408,9 +1151,7 @@
         {
             "ref": "ING-236",
             "designation": "Oil",
-            "category": [
-                "Cooking oil"
-            ],
+            "category": ["Cooking oil"],
             "query": "vegetable cooking oil",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1419,17 +1160,13 @@
             "designation": "Sesame oil",
             "query": "sesame oil",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Sesame oil"
-            ],
+            "exhausted_categories": ["Sesame oil"],
             "pin": "File:Sesame oil photo.jpg"
         },
         {
             "ref": "ING-240",
             "designation": "Truffle oil",
-            "category": [
-                "Truffle oil"
-            ],
+            "category": ["Truffle oil"],
             "query": "truffle oil",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1451,35 +1188,26 @@
             "designation": "Demi-glace powder",
             "query": "demi-glace",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Demi-glace"
-            ]
+            "exhausted_categories": ["Demi-glace"]
         },
         {
             "ref": "ING-244",
             "designation": "Fish stock powder",
             "query": "fish stock powder",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Fish stock",
-                "Dashi"
-            ]
+            "exhausted_categories": ["Fish stock", "Dashi"]
         },
         {
             "ref": "ING-245",
             "designation": "Vegetable stock powder",
             "query": "vegetable bouillon",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Vegetable stock"
-            ]
+            "exhausted_categories": ["Vegetable stock"]
         },
         {
             "ref": "ING-251",
             "designation": "Pumpkin",
-            "category": [
-                "Pumpkins"
-            ],
+            "category": ["Pumpkins"],
             "query": "pumpkin cut",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1501,9 +1229,7 @@
             "designation": "Iceberg",
             "query": "iceberg lettuce",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Iceberg lettuce"
-            ]
+            "exhausted_categories": ["Iceberg lettuce"]
         },
         {
             "ref": "ING-260",
@@ -1514,18 +1240,14 @@
         {
             "ref": "ING-261",
             "designation": "Mesclun (mixed leaf salad)",
-            "category": [
-                "Mesclun"
-            ],
+            "category": ["Mesclun"],
             "query": "mesclun salad leaves",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-262",
             "designation": "Mixed greens",
-            "category": [
-                "Leaf vegetables"
-            ],
+            "category": ["Leaf vegetables"],
             "query": "mixed salad greens",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1534,9 +1256,7 @@
             "designation": "Mloukhiyeh",
             "query": "molokhia leaves",
             "note": "Levantine transliteration of molokhia (jute mallow); Commons files it under the binomial. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Corchorus olitorius"
-            ],
+            "exhausted_categories": ["Corchorus olitorius"],
             "pin": "File:\"Arya\" molokhia Corchorus olitorius Pilangsari 2019 0.jpg"
         },
         {
@@ -1555,18 +1275,14 @@
         {
             "ref": "ING-266",
             "designation": "Rocca",
-            "category": [
-                "Arugula"
-            ],
+            "category": ["Arugula"],
             "query": "rocket leaves arugula",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-267",
             "designation": "Spinach",
-            "category": [
-                "Spinach leaves"
-            ],
+            "category": ["Spinach leaves"],
             "query": "fresh spinach leaves",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1579,9 +1295,7 @@
         {
             "ref": "ING-270",
             "designation": "Mushroom, canned",
-            "category": [
-                "Canned mushrooms"
-            ],
+            "category": ["Canned mushrooms"],
             "query": "canned sliced mushrooms",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1602,9 +1316,7 @@
         {
             "ref": "ING-273",
             "designation": "Olives",
-            "category": [
-                "Green olives"
-            ],
+            "category": ["Green olives"],
             "query": "olives bowl",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1613,17 +1325,12 @@
             "designation": "Pickles",
             "query": "pickled cucumbers jar",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Pickled cucumbers",
-                "Pickles"
-            ]
+            "exhausted_categories": ["Pickled cucumbers", "Pickles"]
         },
         {
             "ref": "ING-275",
             "designation": "Pickles, dill",
-            "category": [
-                "Dill pickles"
-            ],
+            "category": ["Dill pickles"],
             "query": "dill pickles",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1637,10 +1344,7 @@
         {
             "ref": "ING-277",
             "designation": "Pickles, Lebanese (mixed)",
-            "category": [
-                "Torshi",
-                "Pickled vegetables"
-            ],
+            "category": ["Torshi", "Pickled vegetables"],
             "query": "lebanese pickled vegetables",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1662,18 +1366,13 @@
             "designation": "Artichoke",
             "query": "globe artichoke",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Artichokes as food"
-            ],
+            "exhausted_categories": ["Artichokes as food"],
             "pin": "File:Globe Artichoke in Barnsley - geograph.org.uk - 4102530.jpg"
         },
         {
             "ref": "ING-283",
             "designation": "Asparagus",
-            "category": [
-                "Green asparagus",
-                "White asparagus"
-            ],
+            "category": ["Green asparagus", "White asparagus"],
             "query": "asparagus spears",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1688,18 +1387,14 @@
             "designation": "Palmito",
             "query": "hearts of palm",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Heart of palm"
-            ]
+            "exhausted_categories": ["Heart of palm"]
         },
         {
             "ref": "ING-290",
             "designation": "Sushi nori",
             "query": "nori seaweed sheets",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Nori"
-            ],
+            "exhausted_categories": ["Nori"],
             "pin": "File:Sushi seaweed in box.JPG"
         },
         {
@@ -1707,19 +1402,14 @@
             "designation": "Tofu",
             "query": "tofu block",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Tofu"
-            ]
+            "exhausted_categories": ["Tofu"]
         },
         {
             "ref": "ING-295",
             "designation": "Purple Potato",
             "query": "purple potatoes",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Purple potatoes",
-                "Vitelotte"
-            ],
+            "exhausted_categories": ["Purple potatoes", "Vitelotte"],
             "pin": "File:Purple sweet potato bought in Yoshiwara.jpg"
         },
         {
@@ -1731,28 +1421,21 @@
         {
             "ref": "ING-300",
             "designation": "Bell Pepper",
-            "category": [
-                "Bell peppers",
-                "Red bell peppers"
-            ],
+            "category": ["Bell peppers", "Red bell peppers"],
             "query": "bell peppers",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-303",
             "designation": "Green hot pepper (chilli)",
-            "category": [
-                "Green chili peppers"
-            ],
+            "category": ["Green chili peppers"],
             "query": "green chili peppers",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "ING-305",
             "designation": "Tomato",
-            "category": [
-                "Tomatoes"
-            ],
+            "category": ["Tomatoes"],
             "query": "fresh tomatoes",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1761,18 +1444,13 @@
             "designation": "Nylon take-away bags",
             "query": "plastic carrier bag",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Plastic shopping bags",
-                "Plastic bags"
-            ],
+            "exhausted_categories": ["Plastic shopping bags", "Plastic bags"],
             "pin": "File:2016 366 250 Still Life with a Plastic Bag (29477430536).jpg"
         },
         {
             "ref": "PKG-002",
             "designation": "Paper bag, small burger",
-            "category": [
-                "Paper bags"
-            ],
+            "category": ["Paper bags"],
             "query": "small paper bag food",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1786,9 +1464,7 @@
         {
             "ref": "PKG-004",
             "designation": "Paper bags, small",
-            "category": [
-                "Paper bags"
-            ],
+            "category": ["Paper bags"],
             "query": "small white paper bag",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1797,9 +1473,7 @@
             "designation": "Portion bags",
             "query": "plastic zipper storage bag",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Zipper storage bags"
-            ]
+            "exhausted_categories": ["Zipper storage bags"]
         },
         {
             "ref": "PKG-006",
@@ -1813,9 +1487,7 @@
             "designation": "Craft box / container",
             "query": "kraft paper food container",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Paper food containers"
-            ]
+            "exhausted_categories": ["Paper food containers"]
         },
         {
             "ref": "PKG-008",
@@ -1826,10 +1498,7 @@
         {
             "ref": "PKG-009",
             "designation": "Juice bottle 300cc",
-            "category": [
-                "Plastic bottles",
-                "PET bottles"
-            ],
+            "category": ["Plastic bottles", "PET bottles"],
             "query": "small plastic juice bottle",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1844,9 +1513,7 @@
             "designation": "Lid, sauce cup 150cc",
             "query": "clear plastic lid",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Plastic lids"
-            ]
+            "exhausted_categories": ["Plastic lids"]
         },
         {
             "ref": "PKG-012",
@@ -1859,9 +1526,7 @@
             "designation": "Sauce cup 120cc, black",
             "query": "black plastic portion cup",
             "note": "Pinned from the 150cc grid: the one dark portion cup Commons holds, which is what distinguishes this record.",
-            "exhausted_categories": [
-                "Plastic cups"
-            ],
+            "exhausted_categories": ["Plastic cups"],
             "pin": "File:Yum Yum Sauce Cup (Great Value brand Yum Yum sauce).png"
         },
         {
@@ -1893,10 +1558,7 @@
         {
             "ref": "PKG-018",
             "designation": "Cutlery set pack",
-            "category": [
-                "Plastic cutlery",
-                "Disposable cutlery"
-            ],
+            "category": ["Plastic cutlery", "Disposable cutlery"],
             "query": "disposable plastic cutlery",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1905,9 +1567,7 @@
             "designation": "Forks, black plastic",
             "query": "black plastic fork",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Plastic forks"
-            ],
+            "exhausted_categories": ["Plastic forks"],
             "pin": "openverse:a4e6168f-7957-4c49-bd78-bf7067ec4336"
         },
         {
@@ -1921,10 +1581,7 @@
             "designation": "Straws, wrapped",
             "query": "paper drinking straws",
             "note": "Packaging. Individually wrapped straws are rarely photographed; paper straws are the same object. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Drinking straws",
-                "Paper straws"
-            ]
+            "exhausted_categories": ["Drinking straws", "Paper straws"]
         },
         {
             "ref": "PKG-022",
@@ -1936,10 +1593,7 @@
             "designation": "Wooden sticks, burger",
             "query": "wooden cocktail sticks",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Cocktail sticks",
-                "Toothpicks"
-            ],
+            "exhausted_categories": ["Cocktail sticks", "Toothpicks"],
             "pin": "File:Cocktail Sticks (3943002132).jpg"
         },
         {
@@ -1950,9 +1604,7 @@
         {
             "ref": "PKG-025",
             "designation": "Printer roll (packaging)",
-            "category": [
-                "Thermal paper"
-            ],
+            "category": ["Thermal paper"],
             "query": "thermal paper roll",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -1968,10 +1620,7 @@
             "designation": "Butter paper",
             "query": "greaseproof paper",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Baking paper",
-                "Parchment paper"
-            ],
+            "exhausted_categories": ["Baking paper", "Parchment paper"],
             "pin": "openverse:62d1d83d-0aa0-43b3-9575-50da8c89af62"
         },
         {
@@ -1982,28 +1631,21 @@
         {
             "ref": "PKG-029",
             "designation": "Cling film 45 cm",
-            "category": [
-                "Cling film"
-            ],
+            "category": ["Cling film"],
             "query": "plastic wrap roll",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "PKG-030",
             "designation": "Poppy paper",
-            "category": [
-                "Baking paper",
-                "Parchment paper"
-            ],
+            "category": ["Baking paper", "Parchment paper"],
             "query": "baking parchment",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "PKG-031",
             "designation": "Sandwich / burger wrapping paper",
-            "category": [
-                "Food wrapping paper"
-            ],
+            "category": ["Food wrapping paper"],
             "query": "sandwich wrapping paper",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -2012,9 +1654,7 @@
             "designation": "Breaded Fish Filet",
             "query": "breaded fish fillet",
             "note": "Workbook spelling 'Filet'. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Fried fish"
-            ]
+            "exhausted_categories": ["Fried fish"]
         },
         {
             "ref": "PRD-005",
@@ -2027,9 +1667,7 @@
             "designation": "Cheese Balls",
             "query": "fried cheese balls",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Cheese balls"
-            ]
+            "exhausted_categories": ["Cheese balls"]
         },
         {
             "ref": "PRD-007",
@@ -2040,38 +1678,28 @@
         {
             "ref": "PRD-008",
             "designation": "Chicken Burger Patty",
-            "category": [
-                "Chicken burgers"
-            ],
+            "category": ["Chicken burgers"],
             "query": "chicken burger patty",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "PRD-009",
             "designation": "Chicken Crispy",
-            "category": [
-                "Fried chicken",
-                "Crispy fried chicken"
-            ],
+            "category": ["Fried chicken", "Crispy fried chicken"],
             "query": "crispy fried chicken",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "PRD-013",
             "designation": "Chicken Red Tawouk",
-            "category": [
-                "Shish taouk"
-            ],
+            "category": ["Shish taouk"],
             "query": "shish taouk red",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "PRD-015",
             "designation": "Chicken White Tawouk",
-            "category": [
-                "Shish taouk",
-                "Chicken skewers"
-            ],
+            "category": ["Shish taouk", "Chicken skewers"],
             "query": "chicken tawook skewers",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -2080,63 +1708,47 @@
             "designation": "Chicken wings",
             "query": "chicken wings",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Buffalo wings"
-            ]
+            "exhausted_categories": ["Buffalo wings"]
         },
         {
             "ref": "PRD-017",
             "designation": "Chicken Wings (marinated)",
-            "category": [
-                "Grilled chicken wings"
-            ],
+            "category": ["Grilled chicken wings"],
             "query": "marinated chicken wings",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "PRD-018",
             "designation": "Chicken Zinger",
-            "category": [
-                "Chicken burgers",
-                "Fried chicken sandwiches"
-            ],
+            "category": ["Chicken burgers", "Fried chicken sandwiches"],
             "query": "fried chicken burger",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "PRD-022",
             "designation": "Escalope Milanaise",
-            "category": [
-                "Cotoletta alla milanese",
-                "Milanesa"
-            ],
+            "category": ["Cotoletta alla milanese", "Milanesa"],
             "query": "breaded veal milanese",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "PRD-023",
             "designation": "Halloumi Sticks",
-            "category": [
-                "Halloumi"
-            ],
+            "category": ["Halloumi"],
             "query": "halloumi sticks fried",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "PRD-027",
             "designation": "Mozzarella Sticks, small",
-            "category": [
-                "Mozzarella sticks"
-            ],
+            "category": ["Mozzarella sticks"],
             "query": "small mozzarella sticks",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "PRD-028",
             "designation": "Pain Perdu",
-            "category": [
-                "French toast"
-            ],
+            "category": ["French toast"],
             "query": "french toast",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -2157,9 +1769,7 @@
         {
             "ref": "PRD-031",
             "designation": "Sambousek Cheese",
-            "category": [
-                "Samosas"
-            ],
+            "category": ["Samosas"],
             "query": "cheese sambousek",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -2172,9 +1782,7 @@
         {
             "ref": "PRD-037",
             "designation": "Guacamole",
-            "category": [
-                "Guacamole"
-            ],
+            "category": ["Guacamole"],
             "query": "guacamole",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -2188,9 +1796,7 @@
         {
             "ref": "RCP-bbq-sauce-dip",
             "designation": "Bbq Sauce Dip",
-            "category": [
-                "Barbecue sauce"
-            ],
+            "category": ["Barbecue sauce"],
             "query": "barbecue sauce",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -2211,9 +1817,7 @@
         {
             "ref": "RCP-cheese-balls-25-30g",
             "designation": "Cheese Balls (25 - 30g)",
-            "category": [
-                "Cheese balls"
-            ],
+            "category": ["Cheese balls"],
             "query": "fried cheese balls",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -2228,16 +1832,12 @@
             "designation": "Coleslow Sauce",
             "query": "coleslaw dressing",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Coleslaw"
-            ]
+            "exhausted_categories": ["Coleslaw"]
         },
         {
             "ref": "RCP-cordon-bleu-piece",
             "designation": "Cordon Bleu Piece",
-            "category": [
-                "Cordon bleu"
-            ],
+            "category": ["Cordon bleu"],
             "query": "cordon bleu",
             "note": "The formed, breaded piece; the finished dish is what this sheet produces."
         },
@@ -2246,19 +1846,12 @@
             "designation": "Escalope Preparation",
             "query": "breaded escalope raw",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Schnitzel",
-                "Breaded cutlets"
-            ]
+            "exhausted_categories": ["Schnitzel", "Breaded cutlets"]
         },
         {
             "ref": "RCP-garlic-mayo",
             "designation": "Garlic Mayo",
-            "category": [
-                "Aioli",
-                "Toum",
-                "Garlic sauce"
-            ],
+            "category": ["Aioli", "Toum", "Garlic sauce"],
             "query": "garlic mayonnaise",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -2267,25 +1860,19 @@
             "designation": "Guacamole",
             "query": "guacamole bowl",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Guacamole"
-            ]
+            "exhausted_categories": ["Guacamole"]
         },
         {
             "ref": "RCP-lebanese-burger-patty",
             "designation": "Lebanese Burger Patty",
             "query": "kafta patty",
             "note": "A Lebanese burger patty is a kafta mix (minced meat with parsley and onion) shaped as a patty — that is the thing itself, not a stand-in. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Kofta"
-            ]
+            "exhausted_categories": ["Kofta"]
         },
         {
             "ref": "RCP-marinated-chicken-breast",
             "designation": "Marinated Chicken Breast",
-            "category": [
-                "Marinated chicken"
-            ],
+            "category": ["Marinated chicken"],
             "query": "marinated raw chicken breast",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -2307,35 +1894,27 @@
             "designation": "Ranch Sauce",
             "query": "ranch dressing",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Ranch dressing"
-            ],
+            "exhausted_categories": ["Ranch dressing"],
             "pin": "File:2020-02-14 04 42 19 A sample of Giant Ranch Dressing and Dip in the Dulles section of Sterling, Loudoun County, Virginia.jpg"
         },
         {
             "ref": "RCP-smash-burger",
             "designation": "Smash Burger",
-            "category": [
-                "Hamburgers"
-            ],
+            "category": ["Hamburgers"],
             "query": "smash burger",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "RCP-sour-cream",
             "designation": "Sour Cream",
-            "category": [
-                "Sour cream"
-            ],
+            "category": ["Sour cream"],
             "query": "sour cream",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "RCP-sweet-sour-sauce",
             "designation": "Sweet & Sour Sauce",
-            "category": [
-                "Sweet and sour sauce"
-            ],
+            "category": ["Sweet and sour sauce"],
             "query": "sweet and sour sauce",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -2344,9 +1923,7 @@
             "designation": "Taouk Preparation",
             "query": "shish taouk marinated chicken",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Shish taouk"
-            ]
+            "exhausted_categories": ["Shish taouk"]
         },
         {
             "ref": "RCP-thousand-islands",
@@ -2364,9 +1941,7 @@
         {
             "ref": "SAC-002",
             "designation": "Barbecue Dip",
-            "category": [
-                "Barbecue sauce"
-            ],
+            "category": ["Barbecue sauce"],
             "query": "barbecue sauce dip",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:Barbecue sauce.JPG"
@@ -2374,9 +1949,7 @@
         {
             "ref": "SAC-003",
             "designation": "Buffalo Dip",
-            "category": [
-                "Buffalo sauce"
-            ],
+            "category": ["Buffalo sauce"],
             "query": "buffalo sauce dip",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:(20240728) Rotterdam V11 Salmon & Crab Cakes with buffalo sauce.jpg"
@@ -2390,9 +1963,7 @@
         {
             "ref": "SAC-006",
             "designation": "Cocktail Sauce",
-            "category": [
-                "Cocktail sauce"
-            ],
+            "category": ["Cocktail sauce"],
             "query": "cocktail sauce shrimp",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "openverse:68adf98e-0903-4ab9-8ed8-79db9bf5c5ec"
@@ -2413,11 +1984,7 @@
         {
             "ref": "SAC-009",
             "designation": "Garlic Mayo Sauce",
-            "category": [
-                "Garlic sauce",
-                "Garlic mayonnaise",
-                "Toum"
-            ],
+            "category": ["Garlic sauce", "Garlic mayonnaise", "Toum"],
             "query": "garlic mayonnaise",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "openverse:397448be-7dee-4d19-9e49-d3109da084e2"
@@ -2425,9 +1992,7 @@
         {
             "ref": "SAC-011",
             "designation": "Honey Mustard Sauce",
-            "category": [
-                "Honey mustard"
-            ],
+            "category": ["Honey mustard"],
             "query": "honey mustard sauce",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:2020-02-25 19 33 41 A sample of Frecon Farms Honey Mustard Dipping Sauce in the Dulles section of Sterling, Loudoun County, Virginia.jpg"
@@ -2435,18 +2000,14 @@
         {
             "ref": "SAC-012",
             "designation": "Pepper Mayo",
-            "category": [
-                "Peppercorn sauce"
-            ],
+            "category": ["Peppercorn sauce"],
             "query": "pepper mayonnaise",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection."
         },
         {
             "ref": "SAC-015",
             "designation": "Sweet Chilli Mayo",
-            "category": [
-                "Sweet chili sauce"
-            ],
+            "category": ["Sweet chili sauce"],
             "query": "sweet chili mayo",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection."
         },
@@ -2459,9 +2020,7 @@
         {
             "ref": "SAC-018",
             "designation": "Alfredo Sauce",
-            "category": [
-                "Fettuccine Alfredo"
-            ],
+            "category": ["Fettuccine Alfredo"],
             "query": "alfredo sauce",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:The Only Original Alfredo Sauce with Butter and Parmesano-Reggiano Cheese.png"
@@ -2476,10 +2035,7 @@
         {
             "ref": "SAC-021",
             "designation": "Four Cheese Sauce",
-            "category": [
-                "Cheese sauce",
-                "Mornay sauce"
-            ],
+            "category": ["Cheese sauce", "Mornay sauce"],
             "query": "cheese sauce",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:Liat Portal for Foodie Disorder - Four cheese ravioli with cream sauce.jpg"
@@ -2494,9 +2050,7 @@
         {
             "ref": "SAC-023",
             "designation": "Korma Cooking Sauce",
-            "category": [
-                "Korma"
-            ],
+            "category": ["Korma"],
             "query": "korma sauce",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:Veg Korma 02.jpg"
@@ -2504,9 +2058,7 @@
         {
             "ref": "SAC-024",
             "designation": "Marinara Sauce",
-            "category": [
-                "Marinara sauce"
-            ],
+            "category": ["Marinara sauce"],
             "query": "marinara sauce",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:2019-02-07 20 07 26 An open cup of marinara sauce from Domino's in the Franklin Farm section of Oak Hill, Fairfax County, Virginia.jpg"
@@ -2520,9 +2072,7 @@
         {
             "ref": "SAC-027",
             "designation": "Mustard Cooking Sauce",
-            "category": [
-                "Mustard sauce"
-            ],
+            "category": ["Mustard sauce"],
             "query": "mustard cream sauce",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "openverse:27528b29-bec5-4feb-99b5-9c1890fe5a82"
@@ -2530,10 +2080,7 @@
         {
             "ref": "SAC-028",
             "designation": "Peanut Butter Sauce",
-            "category": [
-                "Peanut sauce",
-                "Satay sauce"
-            ],
+            "category": ["Peanut sauce", "Satay sauce"],
             "query": "peanut sauce",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "openverse:5f221ed4-9d85-4e89-a1d0-ed5ed6f6a8c1"
@@ -2548,28 +2095,21 @@
         {
             "ref": "SAC-031",
             "designation": "Shawarma Cooking Sauce",
-            "category": [
-                "Shawarma",
-                "Garlic sauce"
-            ],
+            "category": ["Shawarma", "Garlic sauce"],
             "query": "shawarma sauce",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection."
         },
         {
             "ref": "SAC-032",
             "designation": "Siyadieh Cooking Sauce",
-            "category": [
-                "Sayadieh"
-            ],
+            "category": ["Sayadieh"],
             "query": "sayadieh",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection."
         },
         {
             "ref": "SAC-033",
             "designation": "Soya Sesame Cooking Sauce",
-            "category": [
-                "Sesame sauce"
-            ],
+            "category": ["Sesame sauce"],
             "query": "soy sesame sauce",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:Soy sauce 3.jpg"
@@ -2577,12 +2117,7 @@
         {
             "ref": "SAC-034",
             "designation": "Steak Sauce",
-            "category": [
-                "Steak sauces",
-                "Steak sauce",
-                "Béarnaise sauce",
-                "Peppercorn sauce"
-            ],
+            "category": ["Steak sauces", "Steak sauce", "Béarnaise sauce", "Peppercorn sauce"],
             "query": "steak sauce",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:Steak and Chips with onion rings, mushrooms and broccoli in a peppercorn sauce (35444415743).jpg"
@@ -2590,9 +2125,7 @@
         {
             "ref": "SAC-036",
             "designation": "Tomato Cooking Sauce",
-            "category": [
-                "Tomato sauce"
-            ],
+            "category": ["Tomato sauce"],
             "query": "tomato sauce pan",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:Tomato sauce 2021 P02.jpg"
@@ -2600,27 +2133,21 @@
         {
             "ref": "SAC-037",
             "designation": "Truffle Creamy Sauce",
-            "category": [
-                "Cream sauces"
-            ],
+            "category": ["Cream sauces"],
             "query": "truffle cream sauce",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection."
         },
         {
             "ref": "SAC-040",
             "designation": "Fajita Sizzling Mix",
-            "category": [
-                "Fajitas"
-            ],
+            "category": ["Fajitas"],
             "query": "fajita seasoning mix",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection."
         },
         {
             "ref": "SAC-043",
             "designation": "Tempura Batter",
-            "category": [
-                "Batter (cooking)"
-            ],
+            "category": ["Batter (cooking)"],
             "query": "tempura batter bowl",
             "note": "Curated after the 2026-10-02 review rejected the automatic selection. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
             "pin": "File:Tempura batter (5442182582).jpg"
@@ -2630,9 +2157,7 @@
             "designation": "Sriracha",
             "query": "sriracha hot sauce",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query.",
-            "exhausted_categories": [
-                "Sriracha sauce"
-            ]
+            "exhausted_categories": ["Sriracha sauce"]
         },
         {
             "ref": "TIN-003",
@@ -2645,9 +2170,7 @@
             "designation": "Worcestershire Sauce",
             "query": "worcestershire sauce",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Worcestershire sauce"
-            ],
+            "exhausted_categories": ["Worcestershire sauce"],
             "pin": "openverse:b3cde8d4-55f9-48fc-afd5-5738b208114b"
         },
         {
@@ -2655,36 +2178,27 @@
             "designation": "Demi Glace",
             "query": "demi-glace sauce",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Demi-glace"
-            ],
+            "exhausted_categories": ["Demi-glace"],
             "pin": "openverse:a1a587c4-89b9-42c7-977c-f5785d039981"
         },
         {
             "ref": "TIN-006",
             "designation": "Filet",
-            "category": [
-                "Filet mignon"
-            ],
+            "category": ["Filet mignon"],
             "query": "raw beef fillet",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "TIN-007",
             "designation": "Water",
-            "category": [
-                "Drinking water",
-                "Glasses of water"
-            ],
+            "category": ["Drinking water", "Glasses of water"],
             "query": "glass of water",
             "note": "Curated after review rejected the automatic selection."
         },
         {
             "ref": "TIN-008",
             "designation": "Butter Mix",
-            "category": [
-                "Butter"
-            ],
+            "category": ["Butter"],
             "query": "butter blend",
             "note": "Curated after review rejected the automatic selection."
         },
@@ -2693,10 +2207,7 @@
             "designation": "Mix Cheese Preparation",
             "query": "mixed grated cheese",
             "note": "Curated after review rejected the automatic selection. Categories exhausted after three reviewed passes; switched to the human query. Pinned from the candidate grid after the ranked passes had only ever shown one photograph per round.",
-            "exhausted_categories": [
-                "Grated cheese",
-                "Shredded cheese"
-            ],
+            "exhausted_categories": ["Grated cheese", "Shredded cheese"],
             "pin": "File:Grated cheese Annie Mole.jpg"
         },
         {
