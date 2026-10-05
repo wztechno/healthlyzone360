@@ -6,6 +6,7 @@ import { mealsFromPages, useMealsQuery } from '../../../data/catalogue-hooks.ts'
 import type { MealsInfiniteResult } from '../../../data/catalogue-hooks.ts';
 import { useMyOrdersQuery } from '../../../data/commerce-hooks.ts';
 import { useSession } from '../../../session/session-provider.tsx';
+import { narrowed, shownCategory, shownItemTypes } from '../../catalogue/shown-shelves.ts';
 
 /** How many of the collection the front door shows before handing off to the screen that owns it. */
 export const POPULAR_COUNT = 4;
@@ -159,8 +160,27 @@ function similarTo(
  * design's "because you ordered …" — the meals most like it. Otherwise it continues the ranking
  * where the grid stops, and says so.
  */
-export function useHomeMeals(): HomeMeals {
-    const query = useMealsQuery(HOME_MEALS_FILTER);
+export interface HomeMealsOptions {
+    /**
+     * Narrow everything — hero, grid, rail and tiles — to the shown shelves (`shown-shelves.ts`),
+     * and hide the diet tiles, which are not shelves. Discover asks for this; `/` and `/customer`
+     * do not.
+     */
+    readonly shownShelvesOnly?: boolean;
+}
+
+const SHOWN_SHELF = shownCategory();
+
+/** {@link HOME_MEALS_FILTER} narrowed to the shown shelves. */
+const SHOWN_HOME_MEALS_FILTER: Omit<MealFilter, 'cursor'> = {
+    ...HOME_MEALS_FILTER,
+    itemTypes: shownItemTypes(['meal']),
+    ...(SHOWN_SHELF === undefined ? {} : { categorySlug: SHOWN_SHELF }),
+};
+
+export function useHomeMeals({ shownShelvesOnly = false }: HomeMealsOptions = {}): HomeMeals {
+    const query = useMealsQuery(shownShelvesOnly ? SHOWN_HOME_MEALS_FILTER : HOME_MEALS_FILTER);
+    const hideDietTiles = shownShelvesOnly && narrowed;
     const latestOrder = useLatestOrder();
 
     const pageCount = query.data?.pages.length ?? 0;
@@ -216,7 +236,7 @@ export function useHomeMeals(): HomeMeals {
         diet,
         n: countOf((meal) => meal.dietClassifications.includes(diet)),
     }))
-        .filter(({ n }) => n > 0)
+        .filter(({ n }) => n > 0 && !hideDietTiles)
         .sort((a, b) => b.n - a.n)
         .slice(0, Math.max(0, CATEGORY_COUNT - shelfTiles.length))
         .map(({ diet, n }) => ({
