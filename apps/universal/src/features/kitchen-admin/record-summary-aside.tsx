@@ -41,9 +41,13 @@ export interface RecordSummaryAsideProps {
     };
     /** A callout between the list and the action — what still needs saying before the commit. */
     readonly note?: ReactNode;
-    readonly action: ReactNode;
+    /**
+     * The commit, repeated beside what it does. Omit it on a record whose actions already sit in
+     * the opening and would only be drawn twice — the aside then ends at its list.
+     */
+    readonly action?: ReactNode;
     /** One line under the action: what pressing it does, in plain words. */
-    readonly foot: string;
+    readonly foot?: string | undefined;
 }
 
 /**
@@ -161,12 +165,16 @@ export function RecordSummaryAside({
 
                     {note}
 
-                    <View className="flex-col gap-tight border-t border-stroke-subtle pt-base">
-                        {action}
-                        <Text variant="micro" tone="secondary">
-                            {foot}
-                        </Text>
-                    </View>
+                    {action === undefined ? null : (
+                        <View className="flex-col gap-tight border-t border-stroke-subtle pt-base">
+                            {action}
+                            {foot === undefined ? null : (
+                                <Text variant="micro" tone="secondary">
+                                    {foot}
+                                </Text>
+                            )}
+                        </View>
+                    )}
                 </View>
             </FormSection>
         </View>

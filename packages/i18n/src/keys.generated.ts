@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8185 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8186 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -5006,6 +5006,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.createFailed'
     | 'ops.supplyOrders.createdToast'
     | 'ops.supplyOrders.detailSubtitle'
+    | 'ops.supplyOrders.detailSummaryTitle'
     | 'ops.supplyOrders.detailTitle'
     | 'ops.supplyOrders.excludedCount'
     | 'ops.supplyOrders.groupCount'
@@ -5107,6 +5108,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.reasonNoSupplier'
     | 'ops.supplyOrders.receiptLineCount'
     | 'ops.supplyOrders.receiptNoDocumentRef'
+    | 'ops.supplyOrders.receiptsEmpty'
     | 'ops.supplyOrders.receiptsNote'
     | 'ops.supplyOrders.receiptsTitle'
     | 'ops.supplyOrders.receiveDelivery'
@@ -5136,15 +5138,14 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.subtitle'
     | 'ops.supplyOrders.summaryBySupplier'
     | 'ops.supplyOrders.summaryDrafts'
+    | 'ops.supplyOrders.summaryIssuedOn'
     | 'ops.supplyOrders.summaryLeftBehind'
+    | 'ops.supplyOrders.summaryLineTotal'
     | 'ops.supplyOrders.summaryLines'
     | 'ops.supplyOrders.supplierArchivedBody'
     | 'ops.supplyOrders.supplierArchivedTitle'
     | 'ops.supplyOrders.supplierLabel'
-    | 'ops.supplyOrders.supplierLiveNote'
     | 'ops.supplyOrders.supplierPlaceholder'
-    | 'ops.supplyOrders.supplierSectionTitle'
-    | 'ops.supplyOrders.supplierSnapshotNote'
     | 'ops.supplyOrders.title'
     | 'ops.supplyOrders.unassignedCount'
     | 'ops.supplyOrders.unlinkedCaption'
@@ -13209,6 +13210,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.createFailed',
   'kitchen:ops.supplyOrders.createdToast',
   'kitchen:ops.supplyOrders.detailSubtitle',
+  'kitchen:ops.supplyOrders.detailSummaryTitle',
   'kitchen:ops.supplyOrders.detailTitle',
   'kitchen:ops.supplyOrders.excludedCount',
   'kitchen:ops.supplyOrders.groupCount',
@@ -13310,6 +13312,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.reasonNoSupplier',
   'kitchen:ops.supplyOrders.receiptLineCount',
   'kitchen:ops.supplyOrders.receiptNoDocumentRef',
+  'kitchen:ops.supplyOrders.receiptsEmpty',
   'kitchen:ops.supplyOrders.receiptsNote',
   'kitchen:ops.supplyOrders.receiptsTitle',
   'kitchen:ops.supplyOrders.receiveDelivery',
@@ -13339,15 +13342,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.subtitle',
   'kitchen:ops.supplyOrders.summaryBySupplier',
   'kitchen:ops.supplyOrders.summaryDrafts',
+  'kitchen:ops.supplyOrders.summaryIssuedOn',
   'kitchen:ops.supplyOrders.summaryLeftBehind',
+  'kitchen:ops.supplyOrders.summaryLineTotal',
   'kitchen:ops.supplyOrders.summaryLines',
   'kitchen:ops.supplyOrders.supplierArchivedBody',
   'kitchen:ops.supplyOrders.supplierArchivedTitle',
   'kitchen:ops.supplyOrders.supplierLabel',
-  'kitchen:ops.supplyOrders.supplierLiveNote',
   'kitchen:ops.supplyOrders.supplierPlaceholder',
-  'kitchen:ops.supplyOrders.supplierSectionTitle',
-  'kitchen:ops.supplyOrders.supplierSnapshotNote',
   'kitchen:ops.supplyOrders.title',
   'kitchen:ops.supplyOrders.unassignedCount',
   'kitchen:ops.supplyOrders.unlinkedCaption',

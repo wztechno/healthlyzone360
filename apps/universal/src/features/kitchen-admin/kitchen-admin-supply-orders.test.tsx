@@ -954,17 +954,29 @@ describe('purchase order detail', () => {
 
         await untilVisible('kitchen-supply-order-detail-lines-table');
 
-        // A draft reads the live supplier, and says so: the order is still being addressed.
-        expect(screen.getByTestId('kitchen-supply-order-detail-supplier-name')).toHaveTextContent(
-            'Supplier 1',
+        // A draft names the live supplier: the order is still being addressed.
+        expect(
+            screen.getByTestId('kitchen-supply-order-detail-summary-supplier'),
+        ).toHaveTextContent(/Supplier 1$/);
+
+        // The summary states the order; its buttons live in the opening only.
+        expect(screen.queryByTestId('kitchen-supply-order-detail-summary-issue')).toBeNull();
+
+        // The summary beside the form counts the lines being edited, not the ones last saved.
+        expect(screen.getByTestId('kitchen-supply-order-detail-summary-total')).toHaveTextContent(
+            '2',
         );
-        expect(screen.getByTestId('kitchen-supply-order-detail-supplier-live')).toBeTruthy();
 
         await act(async () => {
             fireEvent.press(
                 screen.getByTestId(`${purchaseOrderLineTestId(String(itemId(2)))}-remove`),
             );
         });
+
+        expect(screen.getByTestId('kitchen-supply-order-detail-summary-total')).toHaveTextContent(
+            '1',
+        );
+        expect(screen.getByTestId('kitchen-supply-order-detail-screen-dirty')).toBeTruthy();
 
         await act(async () => {
             fireEvent.changeText(
@@ -1003,13 +1015,12 @@ describe('purchase order detail', () => {
 
         // The document, not the live record (§3.5). A supplier that has since been renamed must not
         // rewrite the copy they are holding.
-        expect(screen.getByTestId('kitchen-supply-order-detail-supplier-name')).toHaveTextContent(
-            'Supplier 1 as it was',
-        );
         expect(
-            screen.getByTestId('kitchen-supply-order-detail-supplier-address'),
-        ).toHaveTextContent(/Gate 4/);
-        expect(screen.getByTestId('kitchen-supply-order-detail-contact-Samir')).toBeTruthy();
+            screen.getByTestId('kitchen-supply-order-detail-summary-supplier'),
+        ).toHaveTextContent(/Supplier 1 as it was$/);
+        expect(screen.getByTestId('kitchen-supply-order-detail-subtitle')).toHaveTextContent(
+            /Supplier 1 as it was/,
+        );
 
         // Frozen: no save, no quantity box, no add picker, no issue — and cancel survives, because
         // an issued order can still be called off.
