@@ -30,9 +30,10 @@ use Illuminate\Database\Eloquent\Builder;
  * Four conditions, and every one of them is somebody's decision rather than an
  * inference:
  *
- * 1. **`item_type` is `meal` or `product`.** Subscription plans share the table
- *    and have their own surface. Kitchens sell dishes *and* packaged goods
- *    (sauces, frozen packs, oils); both must be discoverable here when published.
+ * 1. **`item_type` is anything but a plan** — meal, product, sauce, dressing or
+ *    frozen meal. Subscription plans share the table and have their own surface.
+ *    Kitchens sell dishes *and* packaged goods (sauces, frozen packs, oils); all
+ *    must be discoverable here when published.
  * 2. **`status = published`.** `CatalogueItemStatus::isConsumerVisible()` is the
  *    predicate, called rather than re-spelled, so a draft, a quarantined item
  *    (`review_required`) and a retired one are all invisible for the same
@@ -71,7 +72,7 @@ use Illuminate\Database\Eloquent\Builder;
 final readonly class MarketplaceMeals
 {
     /** @var list<string> */
-    public const array LISTING_ITEM_TYPES = ['meal', 'product', 'sauce', 'dressing'];
+    public const array LISTING_ITEM_TYPES = ['meal', 'product', 'sauce', 'dressing', 'frozen_meal'];
 
     public function __construct(
         private PriceResolver $prices,

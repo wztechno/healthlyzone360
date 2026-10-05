@@ -406,7 +406,8 @@
         "meal": "Meal",
         "product": "Product",
         "sauce": "Sauce",
-        "dressing": "Dressing"
+        "dressing": "Dressing",
+        "frozen_meal": "Frozen meal"
     },
     "diets": {
         "omnivore": "Omnivore",

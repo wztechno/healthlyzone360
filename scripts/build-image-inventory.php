@@ -145,11 +145,11 @@ $catalogue = readJson(__DIR__ . '/../apps/api/app-modules/kitchens/database/data
 foreach ($catalogue['items'] as $item) {
     $type = $item['sheet_item_type'] ?? null;
 
-    if (! in_array($type, ['meal', 'sauce', 'dressing'], true)) {
+    if (! in_array($type, ['meal', 'frozen_meal', 'sauce', 'dressing'], true)) {
         continue;
     }
 
-    if ($type !== 'meal' && isset($recipeSlugs[$item['slug']])) {
+    if (in_array($type, ['sauce', 'dressing'], true) && isset($recipeSlugs[$item['slug']])) {
         continue;
     }
 

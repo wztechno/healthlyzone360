@@ -64,7 +64,7 @@ final class V6CatalogueData
                 }
             }
 
-            if (! in_array($item['sheet_item_type'], ['sauce', 'dressing', 'meal', 'product'], true)) {
+            if (! in_array($item['sheet_item_type'], ['sauce', 'dressing', 'meal', 'frozen_meal', 'product'], true)) {
                 throw new RuntimeException(sprintf(
                     'Item [%s] carries the unknown type [%s].',
                     $item['source_ref'],

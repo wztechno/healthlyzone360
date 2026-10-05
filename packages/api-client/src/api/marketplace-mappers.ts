@@ -307,12 +307,13 @@ export function mapMarketplaceMeal(wire: WireMeal): MarketplaceMeal | null {
         id: MealId.unsafe(wire.id),
         kitchenId: KitchenId.unsafe(wire.kitchen_id),
         kitchenName: wire.kitchen_name,
-        // Faithful for the four known kinds; an unknown future kind renders
+        // Faithful for the five known kinds; an unknown future kind renders
         // as a meal rather than crashing a listing page.
         itemType:
             wire.item_type === 'product' ||
             wire.item_type === 'sauce' ||
-            wire.item_type === 'dressing'
+            wire.item_type === 'dressing' ||
+            wire.item_type === 'frozen_meal'
                 ? wire.item_type
                 : 'meal',
         publishedCategory: wire.published_category

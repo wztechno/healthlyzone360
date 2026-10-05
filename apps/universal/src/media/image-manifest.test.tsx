@@ -104,6 +104,12 @@ describe('resolveEntityImage', () => {
         );
     });
 
+    it('keeps a dish its photograph when it moves to the freezer', () => {
+        expect(resolveEntityImage('frozen_meal-chicken-crispy', 'card')).toBe(
+            IMAGE_ASSETS['meals/chicken-crispy.card'],
+        );
+    });
+
     it('sends a sauce sold under its recipe slug to that recipe dish photo', () => {
         expect(IMAGE_ASSETS['meals/pesto-mayo.card']).toBeUndefined();
         expect(resolveEntityImage('product-pesto-mayo', 'card')).toBe(

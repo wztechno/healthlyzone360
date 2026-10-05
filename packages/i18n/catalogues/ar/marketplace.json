@@ -418,7 +418,8 @@
         "meal": "وجبة",
         "product": "منتج",
         "sauce": "صلصة",
-        "dressing": "صلصة سلطة"
+        "dressing": "صلصة سلطة",
+        "frozen_meal": "وجبة مجمدة"
     },
     "diets": {
         "omnivore": "نظام مختلط",
