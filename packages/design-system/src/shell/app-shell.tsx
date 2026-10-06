@@ -7,6 +7,7 @@ import { IconButton } from '../actions/button.tsx';
 import { showFloatingLabel } from '../actions/floating-label.ts';
 import type { FloatingLabel } from '../actions/floating-label.ts';
 import { Icon } from '../icons/icon.tsx';
+import { CascadeItem } from '../motion/cascade.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
 import { cx } from '../internal/class-names.ts';
@@ -232,6 +233,21 @@ function AppShellLayout({
             ? chosenGroup
             : (activeGroup ?? (activeUngrouped === undefined ? groups[0] : undefined));
 
+    /*
+     * Arriving on a page the panel does not list — from the page search, a link in the content, the
+     * browser's back button — drops the module the reader last picked, so the panel follows the page
+     * to its own module, sliding open if it was shut. Keyed on the page, not on the module, so
+     * moving between two pages of the module already listed changes nothing.
+     */
+    const activeKey = navigation.find((item) => item.active === true)?.key;
+    const lastActiveKey = useRef(activeKey);
+    useEffect(() => {
+        if (lastActiveKey.current === activeKey) return;
+        lastActiveKey.current = activeKey;
+        setChosenGroup(null);
+        if (twoPane && sidebarCollapsed && activeGroup !== undefined) setCollapsed(false);
+    }, [activeKey, activeGroup, twoPane, sidebarCollapsed, setCollapsed]);
+
     const toggleSidebar = () => {
         setCollapsed(!sidebarCollapsed);
     };
@@ -452,16 +468,22 @@ function AppShellLayout({
                 ? navigation
                 : navigation.filter((item) => item.group === onlyGroup);
 
-        const renderItem = (item: NavigationItem) =>
+        const renderItem = (item: NavigationItem, index: number) =>
             panel ? (
-                <PanelNavLink
-                    key={item.key}
-                    item={item}
-                    onPress={() => {
-                        setDrawerOpen(false);
-                        item.onPress();
-                    }}
-                />
+                /*
+                 * The module's pages rise in one after another when its icon is pressed. The list
+                 * is keyed by module (below), so choosing another module mounts a fresh cascade;
+                 * a page change inside the module keeps the items, which have already arrived.
+                 */
+                <CascadeItem key={item.key} index={index}>
+                    <PanelNavLink
+                        item={item}
+                        onPress={() => {
+                            setDrawerOpen(false);
+                            item.onPress();
+                        }}
+                    />
+                </CascadeItem>
             ) : (
                 <Pressable
                     key={item.key}
@@ -538,6 +560,7 @@ function AppShellLayout({
 
         return (
             <View
+                key={onlyGroup}
                 testID={testID === undefined ? undefined : `${testID}-navigation`}
                 role="navigation"
                 aria-label={t('designSystem:shell.primaryNavigation')}

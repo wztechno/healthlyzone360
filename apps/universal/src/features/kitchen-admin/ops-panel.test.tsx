@@ -107,7 +107,7 @@ describe('ops panels', () => {
         });
 
         // Live counts over the rows in hand, not fabricated KPIs.
-        expect(screen.getByTestId('kitchen-stock-stats')).toHaveTextContent(/Total/);
+        expect(screen.getByTestId('kitchen-stock-stats')).toHaveTextContent(/Shown/);
         const rowFor = (ordinal: number) => stockItemRowTestId(String(stockItem(ordinal).id));
         expect(screen.getByTestId(`${rowFor(1)}-status`)).toHaveTextContent(/In stock/);
         expect(screen.getByTestId(`${rowFor(2)}-status`)).toHaveTextContent(/Low/);

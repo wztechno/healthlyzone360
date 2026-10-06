@@ -4,7 +4,7 @@ import { useWindowDimensions } from 'react-native';
 import { FormNavigation } from '../forms/form-navigation.tsx';
 import { Text } from '../primitives/text.tsx';
 import { OfflineIndicator } from '../status/offline-indicator.tsx';
-import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
+import { assertSubtreeIsLogical, renderWithI18n, withI18n } from '../testing/render.tsx';
 import { APP_SHELL_VARIANTS, AppShell } from './app-shell.tsx';
 import type { NavigationItem } from './app-shell.tsx';
 
@@ -206,6 +206,61 @@ describe('AppShell — workspace', () => {
         await fireEvent.press(screen.getByTestId('shell-rail-group-Operations'));
         expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 0 });
         await fireEvent.press(screen.getByTestId('shell-rail-group-Catalogue'));
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+        expect(screen.getByTestId('nav-meals')).toBeTruthy();
+    });
+
+    it('follows the page to its module when it is reached from outside the panel', async () => {
+        setViewport(1280);
+        const items = (active: string): readonly NavigationItem[] => [
+            {
+                key: 'meals',
+                label: 'Meals',
+                group: 'Catalogue',
+                groupIcon: 'leaf',
+                active: active === 'meals',
+                onPress: jest.fn(),
+                testID: 'nav-meals',
+            },
+            {
+                key: 'orders',
+                label: 'Orders',
+                group: 'Operations',
+                active: active === 'orders',
+                onPress: jest.fn(),
+                testID: 'nav-orders',
+            },
+            {
+                key: 'stock',
+                label: 'Stock',
+                group: 'Inventory',
+                active: active === 'stock',
+                onPress: jest.fn(),
+                testID: 'nav-stock',
+            },
+        ];
+        const shell = (active: string) => (
+            <AppShell testID="shell" variant="workspace" navigation={items(active)}>
+                <Text>Body</Text>
+            </AppShell>
+        );
+        const { rerender } = await renderWithI18n(shell('meals'));
+
+        // The reader browses Operations in the panel, then the page search opens Stock.
+        await fireEvent.press(screen.getByTestId('shell-rail-group-Operations'));
+        expect(screen.getByTestId('nav-orders')).toBeTruthy();
+        await rerender(withI18n(shell('stock')));
+
+        expect(screen.getByTestId('nav-stock')).toBeTruthy();
+        expect(screen.queryByTestId('nav-orders')).toBeNull();
+        expect(
+            screen.getByTestId('shell-rail-group-Inventory').props.accessibilityState,
+        ).toMatchObject({ selected: true });
+
+        // And from a shut panel it slides open on the page's module.
+        await fireEvent.press(screen.getByTestId('shell-rail-group-Inventory'));
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 0 });
+        await rerender(withI18n(shell('meals')));
         expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
         expect(screen.getByTestId('nav-meals')).toBeTruthy();
     });
