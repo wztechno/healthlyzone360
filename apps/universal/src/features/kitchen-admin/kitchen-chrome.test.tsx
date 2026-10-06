@@ -37,7 +37,7 @@ function Probe() {
 }
 
 describe('useKitchenNavigation', () => {
-    it('leads with Overview, groups the families, and keeps the workspace trio reachable', async () => {
+    it('leads with Workspace, then Overview, then the families', async () => {
         await renderStubScreen(<Probe />, { session: kitchenManagerSession() });
 
         // The families appear once the stubbed session has hydrated the access state.
@@ -45,17 +45,23 @@ describe('useKitchenNavigation', () => {
             expect(screen.getByTestId('probe-stock')).toBeTruthy();
         });
 
-        // Overview first and unheaded — AppShell renders ungrouped items before any group.
-        expect(screen.getByTestId('probe-overview')).toHaveTextContent(/^0\|\(ungrouped\)\|/);
+        // Workspace first — the rail follows this order, so it sits above Overview — then Overview,
+        // unheaded, before the kitchen's own modules.
+        expect(screen.getByTestId('probe-profile')).toHaveTextContent(/\|Workspace\|/);
+        const index = (key: string) =>
+            Number(String(screen.getByTestId(`probe-${key}`).props.children).split('|')[0]);
+        expect(index('profile')).toBeLessThan(index('overview'));
+        expect(index('overview')).toBeLessThan(index('stock'));
+        expect(screen.getByTestId('probe-overview')).toHaveTextContent(/\|\(ungrouped\)\|/);
 
         // A family destination sits under its registry group and lights up for the pathname.
         expect(screen.getByTestId('probe-stock')).toHaveTextContent(/\|Operations\|/);
         expect(screen.getByTestId('probe-stock')).toHaveTextContent(/\|active$/);
 
-        // The trio the sidebar carried before the rail existed, under its own heading, with the
-        // same keys (their nav-* test ids derive from these).
-        expect(screen.getByTestId('probe-workspace')).toHaveTextContent(/\|Workspace\|/);
-        expect(screen.getByTestId('probe-profile')).toHaveTextContent(/\|Workspace\|/);
+        // The Workspace panel goes straight to the areas, so the tile page's own link is gone,
+        // and the area being drawn is the kitchen, which is listed but never lit.
+        expect(screen.queryByTestId('probe-workspace')).toBeNull();
+        expect(screen.getByTestId('probe-area-kitchen')).toHaveTextContent(/\|Workspace\|.*\|$/);
     });
 
     it('offers no destination the session is not permitted to open', async () => {

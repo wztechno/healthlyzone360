@@ -47,6 +47,11 @@ export interface NavigationItem {
      */
     readonly groupIcon?: IconName | undefined;
     /**
+     * A sub-heading inside the module's panel — "Workspaces", "Account". A label is drawn wherever
+     * an item's section differs from the one before it; items without one draw no label.
+     */
+    readonly section?: string | undefined;
+    /**
      * Trailing slot on the item row — a count badge for a queue destination. Honoured by the
      * sidebar and the drawer; the rail and the bottom tabs have no room for one.
      */
@@ -595,7 +600,34 @@ function AppShellLayout({
                               >
                                   {group}
                               </RNText>
-                              {source.filter((item) => item.group === group).map(renderItem)}
+                              {source
+                                  .filter((item) => item.group === group)
+                                  .flatMap((item, index, members) => {
+                                      const opensSection =
+                                          item.section !== undefined &&
+                                          item.section !== members[index - 1]?.section;
+                                      return opensSection
+                                          ? [
+                                                <RNText
+                                                    key={`section-${item.section ?? ''}`}
+                                                    accessibilityRole="header"
+                                                    aria-level={3}
+                                                    className={cx(
+                                                        // A step under the module heading: the
+                                                        // module names the panel, this names a
+                                                        // run of pages inside it.
+                                                        'px-3 pb-1 pt-2 text-xs font-semibold text-start',
+                                                        onSidebar
+                                                            ? 'text-content-on-sidebar-muted'
+                                                            : 'text-content-secondary',
+                                                    )}
+                                                >
+                                                    {item.section}
+                                                </RNText>,
+                                                renderItem(item, index),
+                                            ]
+                                          : [renderItem(item, index)];
+                                  })}
                           </View>
                       ))}
             </View>
@@ -623,10 +655,19 @@ function AppShellLayout({
                   : activeGroup === undefined
                     ? undefined
                     : `group-${activeGroup}`;
-        const entries = [
-            ...navigation
-                .filter((item) => item.group === undefined)
-                .map((item) => ({
+        /*
+         * In the order the caller lists them: a destination where it appears, a module where its
+         * first page appears. So a module listed before Overview sits above it on the rail.
+         */
+        const railOrder: (NavigationItem | string)[] = [];
+        for (const item of navigation) {
+            if (item.group === undefined) railOrder.push(item);
+            else if (!railOrder.includes(item.group)) railOrder.push(item.group);
+        }
+        const entries = railOrder.map((slot) => {
+            if (typeof slot !== 'string') {
+                const item = slot;
+                return {
                     key: item.key,
                     label: item.label,
                     icon: item.icon ?? ('dot' as const),
@@ -636,25 +677,25 @@ function AppShellLayout({
                     onPress: () => {
                         chooseUngrouped(item);
                     },
-                })),
-            ...groups.map((group) => {
-                const members = navigation.filter((item) => item.group === group);
-                return {
-                    key: `group-${group}`,
-                    label: group,
-                    icon:
-                        members.find((item) => item.groupIcon !== undefined)?.groupIcon ??
-                        members[0]?.icon ??
-                        ('dot' as const),
-                    active: litKey === `group-${group}`,
-                    expanded: !sidebarCollapsed && shownGroup === group,
-                    testID: testID === undefined ? undefined : `${testID}-rail-group-${group}`,
-                    onPress: () => {
-                        chooseGroup(group);
-                    },
                 };
-            }),
-        ];
+            }
+            const group = slot;
+            const members = navigation.filter((item) => item.group === group);
+            return {
+                key: `group-${group}`,
+                label: group,
+                icon:
+                    members.find((item) => item.groupIcon !== undefined)?.groupIcon ??
+                    members[0]?.icon ??
+                    ('dot' as const),
+                active: litKey === `group-${group}`,
+                expanded: !sidebarCollapsed && shownGroup === group,
+                testID: testID === undefined ? undefined : `${testID}-rail-group-${group}`,
+                onPress: () => {
+                    chooseGroup(group);
+                },
+            };
+        });
 
         return (
             <View

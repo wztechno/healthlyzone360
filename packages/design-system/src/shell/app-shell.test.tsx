@@ -210,6 +210,66 @@ describe('AppShell — workspace', () => {
         expect(screen.getByTestId('nav-meals')).toBeTruthy();
     });
 
+    it('orders the rail as the caller lists it, and labels runs inside a module panel', async () => {
+        setViewport(1280);
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="workspace"
+                navigation={[
+                    {
+                        key: 'kitchen',
+                        label: 'Kitchen',
+                        group: 'Workspace',
+                        section: 'Workspaces',
+                        onPress: jest.fn(),
+                        testID: 'nav-kitchen',
+                    },
+                    {
+                        key: 'kds',
+                        label: 'Kitchen display',
+                        group: 'Workspace',
+                        section: 'Workspaces',
+                        onPress: jest.fn(),
+                        testID: 'nav-kds',
+                    },
+                    {
+                        key: 'profile',
+                        label: 'Profile',
+                        group: 'Workspace',
+                        section: 'Account',
+                        active: true,
+                        onPress: jest.fn(),
+                        testID: 'nav-profile',
+                    },
+                    {
+                        key: 'overview',
+                        label: 'Overview',
+                        icon: 'dashboard',
+                        onPress: jest.fn(),
+                        testID: 'nav-overview',
+                    },
+                ]}
+            >
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        // Workspace is listed before Overview, so it sits above it on the rail.
+        const order = within(screen.getByTestId('shell-rail'))
+            .getAllByTestId(/^(shell-rail-group-|nav-.*-rail$)/)
+            .map((entry) => entry.props.testID as string);
+        expect(order.indexOf('shell-rail-group-Workspace')).toBeGreaterThanOrEqual(0);
+        expect(order.indexOf('shell-rail-group-Workspace')).toBeLessThan(
+            order.indexOf('nav-overview-rail'),
+        );
+
+        // One label per run, not one per item.
+        expect(screen.getAllByText('Workspaces')).toHaveLength(1);
+        expect(screen.getAllByText('Account')).toHaveLength(1);
+        expect(screen.getByTestId('nav-kds')).toBeTruthy();
+    });
+
     it('follows the page to its module when it is reached from outside the panel', async () => {
         setViewport(1280);
         const items = (active: string): readonly NavigationItem[] => [

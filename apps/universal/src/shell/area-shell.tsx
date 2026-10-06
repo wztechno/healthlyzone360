@@ -19,7 +19,7 @@ import { Pressable, Text as RNText, View } from 'react-native';
 import { Gate } from '../access/gate.tsx';
 import { useLogoutMutation } from '../data/hooks.ts';
 import { isAreaAvailable } from '../features/availability.ts';
-import { permittedNavigation } from '../navigation/items.ts';
+import { workspaceGroup } from '../navigation/workspace-group.tsx';
 import { useOnlineStatus } from '../online/online-status.tsx';
 import { useAccessState } from '../session/session-provider.tsx';
 import { ThemeToggle } from './theme-toggle.tsx';
@@ -134,17 +134,16 @@ function GuardedAreaShell({
     const navigation = useMemo<readonly NavigationItem[]>(() => {
         if (resolvedVariant === 'auth' || resolvedVariant === 'kiosk') return [];
         if (navigationOverride !== undefined) return navigationOverride;
-        return permittedNavigation(accessState).map((item) => ({
-            key: item.key,
-            label: t(item.labelKey),
-            icon: item.icon,
-            active: pathname === item.href,
-            testID: `nav-${item.key}`,
-            onPress: () => {
-                router.push(item.href as never);
+        return workspaceGroup({
+            state: accessState,
+            t,
+            pathname,
+            currentArea: area,
+            navigate: (href) => {
+                router.push(href as never);
             },
-        }));
-    }, [accessState, navigationOverride, pathname, resolvedVariant, router, t]);
+        });
+    }, [accessState, area, navigationOverride, pathname, resolvedVariant, router, t]);
 
     const signOut = () => {
         logout.mutate(undefined, {

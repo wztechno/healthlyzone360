@@ -2415,6 +2415,31 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         variant="workspace"
                         title="Kitchen workspace"
                         navigation={[
+                            // Listed first, so it sits above Overview; its panel runs in sections.
+                            {
+                                key: 'area-customer',
+                                label: 'Home',
+                                group: 'Workspace',
+                                groupIcon: 'layers',
+                                section: 'Workspaces',
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'area-kds',
+                                label: 'Kitchen display',
+                                group: 'Workspace',
+                                groupIcon: 'layers',
+                                section: 'Workspaces',
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'profile',
+                                label: 'Profile',
+                                group: 'Workspace',
+                                groupIcon: 'layers',
+                                section: 'Account',
+                                onPress: () => undefined,
+                            },
                             {
                                 key: 'home',
                                 label: 'Overview',
@@ -2469,13 +2494,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 label: 'Team',
                                 group: 'Access',
                                 groupIcon: 'shield',
-                                onPress: () => undefined,
-                            },
-                            {
-                                key: 'profile',
-                                label: 'Profile',
-                                group: 'Workspace',
-                                groupIcon: 'userCircle',
                                 onPress: () => undefined,
                             },
                         ]}
