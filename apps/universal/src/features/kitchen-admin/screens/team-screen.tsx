@@ -26,6 +26,7 @@ import {
     useRevokeInvitationMutation,
     useStaffInvitationsQuery,
     useTeamQuery,
+    useTeamWholeSetQuery,
 } from '../../../data/access-admin-hooks.ts';
 import { toFailure } from '../../../data/hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
@@ -114,7 +115,7 @@ export function memberDisplayName(
     return member.email ?? unnamed;
 }
 
-const TEAM_PAGE_SIZE = 25;
+const TEAM_PAGE_SIZE = 18;
 
 type TeamSegment = 'working' | 'everyone';
 
@@ -257,7 +258,8 @@ function TeamList() {
     );
 
     const [page, setPage] = useListPage(filter);
-    const team = useTeamQuery({ ...filter, page });
+    const team = useTeamQuery({ ...filter, page, perPage: TEAM_PAGE_SIZE });
+    const wholeTeam = useTeamWholeSetQuery(filter);
     const invitations = useStaffInvitationsQuery('live');
 
     const pageRows = useMemo(() => team.data?.items ?? [], [team.data]);
@@ -467,8 +469,12 @@ function TeamList() {
                 <CatalogueStatCards
                     testID="kitchen-team-stats"
                     cards={statCards({
-                        rows: pageRows,
-                        shown: controls.rows.length,
+                        rows: wholeTeam.data ?? [],
+                        // Rows up to the end of this page (18 of 61, then 36); a search narrows the
+                        // page in hand, so then it is the matches on it.
+                        shown: unfiltered
+                            ? Math.min(page * TEAM_PAGE_SIZE, totalCount ?? pageRows.length)
+                            : controls.rows.length,
                         total: totalCount ?? pageRows.length,
                         invitations: invitations.isPending ? null : liveInvitations.length,
                         unfiltered,
@@ -480,6 +486,7 @@ function TeamList() {
                         },
                     })}
                     pending={team.isPending}
+                    countsPending={wholeTeam.isPending}
                 />
             )}
 
@@ -574,8 +581,8 @@ function TeamList() {
 }
 
 /**
- * Shown follows the search; Working and Without roles are counted over the page in hand, which is
- * the only set this screen has — Shown's "of 61" is what says the page is not the whole team.
+ * Shown is the rows up to this page, or the search's matches; Working and Without roles count every
+ * member the segment matches, across all pages.
  * Invitations is the invitation list's own length: that endpoint is unpaged.
  */
 function statCards({

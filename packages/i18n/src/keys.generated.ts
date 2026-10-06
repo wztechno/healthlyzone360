@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8185 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8180 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3893,7 +3893,6 @@ export interface NamespaceKeys {
     | 'ops.cashReport.summaryRows'
     | 'ops.cashReport.title'
     | 'ops.cashReport.totalsHeading'
-    | 'ops.cashReport.totalsNote'
     | 'ops.costReport.caption'
     | 'ops.costReport.chartCogs'
     | 'ops.costReport.chartCogsMix'
@@ -3981,7 +3980,6 @@ export interface NamespaceKeys {
     | 'ops.exceptions.resolvedBadge'
     | 'ops.exceptions.resolvedToast'
     | 'ops.exceptions.retry'
-    | 'ops.exceptions.showingCount'
     | 'ops.exceptions.statResolvedCaption'
     | 'ops.exceptions.statShownCaption'
     | 'ops.exceptions.statUnit'
@@ -4059,7 +4057,6 @@ export interface NamespaceKeys {
     | 'ops.ledger.viewUnpricedNote'
     | 'ops.metricUnavailable'
     | 'ops.orders.actionsHeading'
-    | 'ops.orders.allLoaded'
     | 'ops.orders.backToOrders'
     | 'ops.orders.cancel'
     | 'ops.orders.cancelBody'
@@ -4103,7 +4100,6 @@ export interface NamespaceKeys {
     | 'ops.orders.filterAll'
     | 'ops.orders.filteredEmptyBody'
     | 'ops.orders.filteredEmptyTitle'
-    | 'ops.orders.foot'
     | 'ops.orders.fulfil'
     | 'ops.orders.fulfilledAt'
     | 'ops.orders.fulfilledToast'
@@ -4790,7 +4786,6 @@ export interface NamespaceKeys {
     | 'ops.stock.fieldThreshold'
     | 'ops.stock.fieldThresholdHint'
     | 'ops.stock.filteredEmptyBody'
-    | 'ops.stock.foot'
     | 'ops.stock.history'
     | 'ops.stock.inStockBadge'
     | 'ops.stock.ingredientsEmptyBody'
@@ -12096,7 +12091,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.cashReport.summaryRows',
   'kitchen:ops.cashReport.title',
   'kitchen:ops.cashReport.totalsHeading',
-  'kitchen:ops.cashReport.totalsNote',
   'kitchen:ops.costReport.caption',
   'kitchen:ops.costReport.chartCogs',
   'kitchen:ops.costReport.chartCogsMix',
@@ -12184,7 +12178,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.resolvedBadge',
   'kitchen:ops.exceptions.resolvedToast',
   'kitchen:ops.exceptions.retry',
-  'kitchen:ops.exceptions.showingCount',
   'kitchen:ops.exceptions.statResolvedCaption',
   'kitchen:ops.exceptions.statShownCaption',
   'kitchen:ops.exceptions.statUnit',
@@ -12262,7 +12255,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.viewUnpricedNote',
   'kitchen:ops.metricUnavailable',
   'kitchen:ops.orders.actionsHeading',
-  'kitchen:ops.orders.allLoaded',
   'kitchen:ops.orders.backToOrders',
   'kitchen:ops.orders.cancel',
   'kitchen:ops.orders.cancelBody',
@@ -12306,7 +12298,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.filterAll',
   'kitchen:ops.orders.filteredEmptyBody',
   'kitchen:ops.orders.filteredEmptyTitle',
-  'kitchen:ops.orders.foot',
   'kitchen:ops.orders.fulfil',
   'kitchen:ops.orders.fulfilledAt',
   'kitchen:ops.orders.fulfilledToast',
@@ -12993,7 +12984,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.fieldThreshold',
   'kitchen:ops.stock.fieldThresholdHint',
   'kitchen:ops.stock.filteredEmptyBody',
-  'kitchen:ops.stock.foot',
   'kitchen:ops.stock.history',
   'kitchen:ops.stock.inStockBadge',
   'kitchen:ops.stock.ingredientsEmptyBody',

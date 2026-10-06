@@ -253,6 +253,7 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                     testID="kitchen-products-stats"
                     cards={statCards(list, t)}
                     pending={list.isPending}
+                    countsPending={list.countsPending}
                 />
             </Stack>
 

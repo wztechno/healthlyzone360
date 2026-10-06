@@ -78,7 +78,7 @@ export function QualityControlScreen() {
     );
 }
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 18;
 const SEGMENT_STATUSES: readonly QualityCheckStatus[] = ['pending', 'hold', 'released'];
 type StatusSegmentValue = QualityCheckStatus | 'all';
 

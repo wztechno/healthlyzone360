@@ -127,7 +127,7 @@ export function StockScreen() {
 }
 
 /** Client-side pages over a book the stock read answers whole. Capped for the `414` reason above. */
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 18;
 
 type Kind = 'ingredients' | 'products';
 type LevelSegment = 'all' | 'low' | 'out' | 'ok';
@@ -667,7 +667,7 @@ function Stock() {
             {failure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-stock-stats"
-                    cards={statCards(controls.rows, bookRows.length, unfiltered, t, clearFilters)}
+                    cards={statCards(controls.rows, currentPage, unfiltered, t, clearFilters)}
                     pending={pending}
                 />
             )}
@@ -772,10 +772,6 @@ function Stock() {
                         }}
                         label={t('kitchen:catalogue.pagerLabel')}
                     />
-
-                    <Text variant="caption" tone="secondary" testID="kitchen-stock-foot">
-                        {t('kitchen:ops.stock.foot')}
-                    </Text>
                 </Stack>
             )}
         </Cascade>
@@ -785,7 +781,7 @@ function Stock() {
 /** Counted over the rows in hand, so the strip never contradicts the pager beneath it. */
 function statCards(
     rows: readonly StockRow[],
-    total: number,
+    page: number,
     unfiltered: boolean,
     t: TFunction,
     clear: () => void,
@@ -797,8 +793,9 @@ function statCards(
         {
             key: 'shown',
             label: t('kitchen:list.statShown'),
-            value: String(rows.length),
-            unit: t('kitchen:list.statShownUnit', { total }),
+            // Rows up to the end of this page: 18 of 447 on the first, 36 on the second.
+            value: String(Math.min(page * PAGE_SIZE, rows.length)),
+            unit: t('kitchen:list.statShownUnit', { total: rows.length }),
             caption: unfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),

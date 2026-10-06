@@ -5,7 +5,6 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
-    Inline,
     Stack,
     TableSkeleton,
     Text,
@@ -473,11 +472,6 @@ function Procurement() {
                             },
                         ]}
                     />
-                    <Inline space="sm" align="center" wrap testID="kitchen-procurement-foot">
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:ops.procurement.listFoot')}
-                        </Text>
-                    </Inline>
                 </Stack>
             )}
         </Cascade>

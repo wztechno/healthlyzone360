@@ -21,7 +21,9 @@ import { toFailure } from '../../../data/hooks.ts';
 import {
     pagesInResult,
     priceListsFromPages,
+    KITCHEN_PAGE_SIZE,
     useAdminPlanPageQuery,
+    useAdminPlanWholeSetQuery,
     usePriceListsQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
@@ -108,6 +110,7 @@ function PlansList() {
     );
     const [page, setPage] = useListPage(filter);
     const plans = useAdminPlanPageQuery(filter, page);
+    const wholeSet = useAdminPlanWholeSetQuery(filter);
     const priceLists = usePriceListsQuery({ limit: 100 });
 
     const rows = useMemo(() => plans.data?.items ?? [], [plans.data]);
@@ -325,16 +328,19 @@ function PlansList() {
         ...SEGMENT_STATUSES.map((value) => ({ value, label: t(statusShortKey(value)) })),
     ];
 
-    // The design's three: Shown, Published ("on sale"), Draft ("half-built") — counted over the
-    // rows in hand, so a status segment moves them with the list (§3z).
-    const published = controls.rows.filter((row) => row.meta.status === 'published').length;
-    const drafts = controls.rows.filter((row) => row.meta.status === 'draft').length;
+    // The design's three: Shown, Published ("on sale"), Draft ("half-built"). Published and Draft
+    // count every page the filters match, so a status segment still moves them with the list (§3z).
+    const everyPlan = wholeSet.data ?? [];
+    const published = everyPlan.filter((row) => row.meta.status === 'published').length;
+    const drafts = everyPlan.filter((row) => row.meta.status === 'draft').length;
+    // Rows up to the end of this page: 18 of 40 on the first, 36 on the second.
+    const shownSoFar = Math.min(page * KITCHEN_PAGE_SIZE, total ?? controls.rows.length);
     const cards: readonly CatalogueStatCard[] = [
         {
             key: 'shown',
             label: t('kitchen:list.statShown'),
-            value: String(controls.rows.length),
-            unit: t('kitchen:list.statShownUnit', { total: total ?? controls.rows.length }),
+            value: String(shownSoFar),
+            unit: t('kitchen:list.statShownUnit', { total: total ?? shownSoFar }),
             caption: unfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),
@@ -433,6 +439,7 @@ function PlansList() {
                     testID="kitchen-plans-stats"
                     cards={cards}
                     pending={plans.isPending}
+                    countsPending={wholeSet.isPending}
                 />
             )}
 

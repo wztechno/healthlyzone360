@@ -16,11 +16,13 @@ import { useMemo, useState } from 'react';
 import { useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
+    KITCHEN_PAGE_SIZE,
     pagesInResult,
     useAllergenClassesQuery,
     useArchiveProductMutation,
     useOpenRecipeDraftMutation,
     useRecipePageQuery,
+    useRecipeWholeSetQuery,
     useRetireMealMutation,
     useRetireRecipeMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
@@ -140,6 +142,8 @@ export interface RecipeListState {
     /** The server's count for the whole filtered set, or `null` before the first answer. */
     readonly total: number | null;
     readonly shown: number;
+    /** The whole-set read behind the other cards has not landed yet. */
+    readonly countsPending: boolean;
     readonly draftCount: number;
     /** Rows the store quarantined — a published allergen label a change has since contradicted. */
     readonly reviewCount: number;
@@ -232,6 +236,9 @@ export function useRecipeList(): RecipeListState {
 
     const [page, setPage] = useListPage(filter);
     const recipes = useRecipePageQuery(filter, page);
+    // The cards count every page the filters match, not the eighteen rows on this one.
+    const wholeSet = useRecipeWholeSetQuery(filter);
+    const everyRow = wholeSet.data ?? [];
     const allergenClasses = useAllergenClassesQuery();
     const retire = useDestructiveRow(useRetireRecipeMutation(), (row: RecipeAdminSummary) => ({
         recipeId: row.id,
@@ -288,10 +295,10 @@ export function useRecipeList(): RecipeListState {
         });
     }, [rows, sortKey, sortDirection, locale]);
 
-    const draftCount = sorted.filter((row) => row.meta.status === 'draft').length;
-    const reviewCount = sorted.filter((row) => row.meta.status === 'review_required').length;
-    const onSaleCount = sorted.filter((row) => onSaleStatus(row) === 'published').length;
-    const noPackCount = sorted.filter((row) => (row.soldAs ?? []).some(missingPack)).length;
+    const draftCount = everyRow.filter((row) => row.meta.status === 'draft').length;
+    const reviewCount = everyRow.filter((row) => row.meta.status === 'review_required').length;
+    const onSaleCount = everyRow.filter((row) => onSaleStatus(row) === 'published').length;
+    const noPackCount = everyRow.filter((row) => (row.soldAs ?? []).some(missingPack)).length;
 
     const openEditor = (recipeId: string) => {
         router.push(`/kitchen/recipes/${recipeId}` as never);
@@ -351,7 +358,9 @@ export function useRecipeList(): RecipeListState {
         setPage,
         totalPages,
         total,
-        shown: sorted.length,
+        countsPending: wholeSet.isPending,
+        // Rows up to the end of this page: 18 of 306 on the first, 36 on the second.
+        shown: Math.min(page * KITCHEN_PAGE_SIZE, total ?? sorted.length),
         draftCount,
         reviewCount,
         onSaleCount,

@@ -369,6 +369,7 @@ function RecipesList() {
                 testID="kitchen-recipes-stats"
                 cards={statCards(list, t)}
                 pending={list.isPending}
+                countsPending={list.countsPending}
             />
 
             {/*

@@ -90,7 +90,6 @@
             "columnActions": "Actions",
             "loadMore": "Load more",
             "loadingMore": "Loading…",
-            "allLoaded": "Every matching order is loaded.",
             "loadErrorTitle": "Orders could not be loaded",
             "detailTitle": "Order {{number}}",
             "detailLoadErrorTitle": "This order could not be read",
@@ -145,7 +144,6 @@
                 "cancelled": "Cancelled"
             },
             "chip": "Confirming deducts stock",
-            "foot": "Newest first. Cancelling is final and needs a reason.",
             "viewKind": "Order",
             "viewOpen": "Open the order",
             "viewPlacedNote": "This order is placed but not confirmed. Nothing has been deducted from stock and the kitchen has not been told to cook it.",
@@ -292,7 +290,6 @@
             "columnReorderPar": "Reorder at / Par",
             "reorderPar": "{{threshold}} / {{par}}",
             "filteredEmptyBody": "Try a shorter search, or another level.",
-            "foot": "Counted per branch. Every movement is a ledger entry — there is no editing a level directly.",
             "ledgerNote": "Every movement is a ledger entry — there is no editing a level directly.",
             "viewKind": "Stock item",
             "viewNoteLow": "On hand is at or below this item’s reorder point, so it shows on the supply-order builder as needing ordering.",
@@ -1409,8 +1406,6 @@
             "statUnresolvedCaption": "nothing deducted",
             "statResolvedCaption": "the gap was accepted",
             "fromInvalid": "Use a date as YYYY-MM-DD.",
-            "showingCount_one": "Showing {{count}} exception",
-            "showingCount_other": "Showing {{count}} exceptions",
             "resolvedToast": "The exception on order {{order}} is resolved.",
             "resolveTitle": "Resolve this exception?",
             "resolveBody": "Resolving accepts the stock gap for good: nothing is deducted for this line, and stock stays as it is. Retry instead if the cause has been fixed.",
@@ -1513,7 +1508,6 @@
             "columnCount": "Receipts",
             "columnAmount": "Amount",
             "totalsHeading": "Totals",
-            "totalsNote": "One total for each way money arrived, in each currency. There is no overall figure, because adding two currencies together would give a number in neither.",
             "a11y": {
                 "unnamedAgent": "This member has no name on their profile."
             },

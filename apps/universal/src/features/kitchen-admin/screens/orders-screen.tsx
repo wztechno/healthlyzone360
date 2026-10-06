@@ -489,11 +489,8 @@ function Orders() {
                         ]}
                     />
 
-                    <View className="flex-row flex-wrap items-center justify-between gap-tight">
-                        <Text variant="caption" tone="secondary" testID="kitchen-orders-foot">
-                            {t('kitchen:ops.orders.foot')}
-                        </Text>
-                        {page?.hasMore === true ? (
+                    {page?.hasMore === true ? (
+                        <View className="flex-row justify-end">
                             <Button
                                 testID="kitchen-orders-load-more"
                                 variant="secondary"
@@ -510,16 +507,8 @@ function Orders() {
                                     setCursor(page.nextCursor);
                                 }}
                             />
-                        ) : (
-                            <Text
-                                testID="kitchen-orders-all-loaded"
-                                tone="secondary"
-                                variant="caption"
-                            >
-                                {t('kitchen:ops.orders.allLoaded')}
-                            </Text>
-                        )}
-                    </View>
+                        </View>
+                    ) : null}
                 </Stack>
             )}
         </Cascade>

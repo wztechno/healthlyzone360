@@ -10,10 +10,12 @@ import { useMemo, useState } from 'react';
 
 import { toFailure } from '../../../data/hooks.ts';
 import {
+    KITCHEN_PAGE_SIZE,
     pagesInResult,
     useArchiveIngredientMutation,
     usePackagingCategoriesQuery,
     usePackagingPageQuery,
+    usePackagingWholeSetQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
 import { missingLast } from './catalogue-column-spec.ts';
@@ -129,6 +131,8 @@ export interface PackagingListState {
     /** The server's count for the whole filtered set, or `null` before the first answer. */
     readonly total: number | null;
     readonly shown: number;
+    /** The whole-set read behind the other cards has not landed yet. */
+    readonly countsPending: boolean;
     /** How many rows on this page still have no price — the figure this page exists to chase. */
     readonly unpricedCount: number;
     readonly inactiveCount: number;
@@ -180,6 +184,9 @@ export function usePackagingList(): PackagingListState {
 
     const [page, setPage] = useListPage(filter);
     const packaging = usePackagingPageQuery(filter, page);
+    // The cards count every page the filters match, not the eighteen rows on this one.
+    const wholeSet = usePackagingWholeSetQuery(filter);
+    const everyRow = wholeSet.data ?? [];
     const categories = usePackagingCategoriesQuery();
     const archive = useDestructiveRow(useArchiveIngredientMutation(), (row: IngredientAdmin) => ({
         ingredientId: row.id,
@@ -299,11 +306,14 @@ export function usePackagingList(): PackagingListState {
         setPage,
         totalPages: pagesInResult(packaging.data) ?? 0,
         total: packaging.data?.totalCount ?? null,
-        shown: sorted.length,
-        unpricedCount: sorted.filter((row) => row.purchasePrice === null).length,
+        countsPending: wholeSet.isPending,
+        // Rows up to the end of this page: 18 of 306 on the first, 36 on the second.
+        shown: Math.min(page * KITCHEN_PAGE_SIZE, packaging.data?.totalCount ?? sorted.length),
+        unpricedCount: everyRow.filter((row) => row.purchasePrice === null).length,
         // `draft` is what the packaging table called `inactive` — a row recorded but not in use.
-        inactiveCount: sorted.filter((row) => row.meta.status === 'draft').length,
-        missingArabicCount: sorted.filter((row) => displayName(row.name, locale).isFallback).length,
+        inactiveCount: everyRow.filter((row) => row.meta.status === 'draft').length,
+        missingArabicCount: everyRow.filter((row) => displayName(row.name, locale).isFallback)
+            .length,
 
         /*
          * `/kitchen/packaging/{item}`, which now exists.

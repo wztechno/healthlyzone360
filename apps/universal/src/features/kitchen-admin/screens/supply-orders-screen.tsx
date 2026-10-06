@@ -682,9 +682,6 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                             },
                         ]}
                     />
-                    <Text variant="caption" tone="secondary" testID="kitchen-supply-orders-foot">
-                        {t('kitchen:ops.supplyOrders.ordersFoot')}
-                    </Text>
                 </Stack>
             )}
 

@@ -21,7 +21,12 @@ import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import { pagesInResult, usePriceListPageQuery } from '../../../data/kitchen-admin-hooks.ts';
+import {
+    KITCHEN_PAGE_SIZE,
+    pagesInResult,
+    usePriceListPageQuery,
+    usePriceListWholeSetQuery,
+} from '../../../data/kitchen-admin-hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -119,6 +124,7 @@ function PriceListsList() {
     );
     const [page, setPage] = useListPage(filter);
     const priceLists = usePriceListPageQuery(filter, page);
+    const wholeSet = usePriceListWholeSetQuery(filter);
     const rows = useMemo(() => priceLists.data?.items ?? [], [priceLists.data]);
     const total = priceLists.data?.totalCount ?? null;
     const totalPages = pagesInResult(priceLists.data) ?? 0;
@@ -337,12 +343,13 @@ function PriceListsList() {
             {failure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-price-lists-stats"
-                    cards={statCards(controls.rows, total, unfiltered, t, () => {
+                    cards={statCards(wholeSet.data ?? [], page, total, unfiltered, t, () => {
                         setQuery('');
                         setStatus('all');
                         setChannel(null);
                     })}
                     pending={priceLists.isPending}
+                    countsPending={wholeSet.isPending}
                 />
             )}
 
@@ -509,9 +516,11 @@ function viewFields(row: PriceListAdmin, t: TFunction, formatter: ReturnType<typ
     ];
 }
 
-/** Counted over the page in hand (§3z): shown, lists that price nothing, lists under an agreement. */
+/** Counted over every page the filters match: shown so far, lists that price nothing, under an agreement. */
 function statCards(
+    /** Every price list the filters match, across all pages. */
     rows: readonly PriceListAdmin[],
+    page: number,
     total: number | null,
     unfiltered: boolean,
     t: TFunction,
@@ -525,7 +534,7 @@ function statCards(
         {
             key: 'shown',
             label: t('kitchen:list.statShown'),
-            value: String(rows.length),
+            value: String(Math.min(page * KITCHEN_PAGE_SIZE, total ?? rows.length)),
             unit: t('kitchen:list.statShownUnit', { total: total ?? rows.length }),
             caption: unfiltered
                 ? t('kitchen:list.statShownUnfiltered')

@@ -21,6 +21,9 @@ import { View } from 'react-native';
  *
  * A list that fits on one page draws nothing: there is nowhere to go.
  */
+/** Rows on one page of any admin table — the server's `perPage` and every client-side slice. */
+export const CATALOGUE_PAGE_SIZE = 18;
+
 export interface CataloguePagerProps {
     readonly page: number;
     readonly totalPages: number;

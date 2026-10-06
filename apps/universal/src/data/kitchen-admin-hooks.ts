@@ -82,6 +82,7 @@ import type {
     UseQueryResult,
 } from '@tanstack/react-query';
 
+import type { Repositories } from '@healthy360/api-client';
 import { queryKeys } from './query-keys.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 
@@ -3070,4 +3071,157 @@ export function useDeliveryZonePageQuery(
             });
         },
     });
+}
+
+/**
+ * The server's largest page, used only to read a whole filtered set for the summary cards.
+ *
+ * A list screen shows eighteen rows a page, but the cards above it count the set the filters
+ * match — every page of it — and most of what they count (missing Arabic, uncosted, no pack) is not
+ * a filter the server can count by. So the set is read whole, in as few pages as the server allows.
+ */
+const WHOLE_SET_PAGE_SIZE = 100;
+/** A ceiling on the walk, so a runaway catalogue costs fifty requests rather than a frozen tab. */
+const WHOLE_SET_MAX_PAGES = 50;
+
+/** Sorting changes the order, never the set, so it is left out of the key and the request. */
+type WholeSetFilter<F> = Omit<ListFilter<F>, 'sort' | 'sortDirection' | 'sortLanguage'>;
+
+function withoutSort<F extends object>(filter: F | undefined): WholeSetFilter<F> | undefined {
+    if (filter === undefined) return undefined;
+    const {
+        sort: _sort,
+        sortDirection: _direction,
+        sortLanguage: _language,
+        ...rest
+    } = filter as F & { sort?: unknown; sortDirection?: unknown; sortLanguage?: unknown };
+    return rest as WholeSetFilter<F>;
+}
+
+export async function readEveryPage<T>(
+    load: (page: number, perPage: number) => Promise<CursorPage<T>>,
+): Promise<readonly T[]> {
+    const first = await load(1, WHOLE_SET_PAGE_SIZE);
+    const pages = Math.min(
+        pageCount(first.totalCount, WHOLE_SET_PAGE_SIZE) ?? 1,
+        WHOLE_SET_MAX_PAGES,
+    );
+    const rest = await Promise.all(
+        Array.from({ length: Math.max(0, pages - 1) }, (_, index) =>
+            load(index + 2, WHOLE_SET_PAGE_SIZE),
+        ),
+    );
+    return [first, ...rest].flatMap((page) => page.items);
+}
+
+/**
+ * Every row a list's filters match, across all its pages — what the summary cards count.
+ *
+ * Keyed under the same prefix as the list's pages (page `0`, which no pager asks for), so every
+ * write that refreshes the list refreshes its cards too.
+ */
+function useWholeSetQuery<T>(
+    key: readonly unknown[],
+    load: (repositories: Repositories, page: number, perPage: number) => Promise<CursorPage<T>>,
+    enabled: boolean,
+): UseQueryResult<readonly T[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: key,
+        enabled: enabled && repositories !== null,
+        placeholderData: keepPreviousData,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return readEveryPage((page, perPage) => load(repositories, page, perPage));
+        },
+    });
+}
+
+export function useIngredientWholeSetQuery(
+    filter: ListFilter<IngredientAdminFilter> | undefined,
+    enabled = true,
+): UseQueryResult<readonly IngredientAdmin[]> {
+    const scoped = withoutSort(filter);
+    return useWholeSetQuery(
+        queryKeys.kitchenAdmin.ingredientsPage(scoped, 0),
+        (repositories, page, perPage) =>
+            repositories.kitchenAdmin.listIngredients({ ...scoped, page, perPage }),
+        enabled,
+    );
+}
+
+export function usePackagingWholeSetQuery(
+    filter: ListFilter<IngredientAdminFilter> | undefined,
+    enabled = true,
+): UseQueryResult<readonly IngredientAdmin[]> {
+    return useIngredientWholeSetQuery(
+        { ...filter, categoryCode: filter?.categoryCode ?? PACKAGING_CATEGORY_CODE },
+        enabled,
+    );
+}
+
+export function useRecipeWholeSetQuery(
+    filter: ListFilter<RecipeAdminFilter> | undefined,
+    enabled = true,
+): UseQueryResult<readonly RecipeAdminSummary[]> {
+    const scoped = withoutSort(filter);
+    return useWholeSetQuery(
+        queryKeys.kitchenAdmin.recipesPage(scoped, 0),
+        (repositories, page, perPage) =>
+            repositories.kitchenAdmin.listRecipes({ ...scoped, page, perPage }),
+        enabled,
+    );
+}
+
+export function useProductWholeSetQuery(
+    filter: ListFilter<ProductAdminFilter> | undefined,
+    enabled = true,
+): UseQueryResult<readonly ProductAdmin[]> {
+    const scoped = withoutSort(filter);
+    return useWholeSetQuery(
+        queryKeys.kitchenAdmin.productsPage(scoped, 0),
+        (repositories, page, perPage) =>
+            repositories.kitchenAdmin.listProducts({ ...scoped, page, perPage }),
+        enabled,
+    );
+}
+
+export function useAdminPlanWholeSetQuery(
+    filter: ListFilter<PlanAdminFilter> | undefined,
+    enabled = true,
+): UseQueryResult<readonly PlanAdmin[]> {
+    const scoped = withoutSort(filter);
+    return useWholeSetQuery(
+        queryKeys.kitchenAdmin.plansPage(scoped, 0),
+        (repositories, page, perPage) =>
+            repositories.kitchenAdmin.listPlans({ ...scoped, page, perPage }),
+        enabled,
+    );
+}
+
+export function usePriceListWholeSetQuery(
+    filter: ListFilter<PriceListAdminFilter> | undefined,
+    enabled = true,
+): UseQueryResult<readonly PriceListAdmin[]> {
+    const scoped = withoutSort(filter);
+    return useWholeSetQuery(
+        queryKeys.kitchenAdmin.priceListsPage(scoped, 0),
+        (repositories, page, perPage) =>
+            repositories.kitchenAdmin.listPriceLists({ ...scoped, page, perPage }),
+        enabled,
+    );
+}
+
+export function useDeliveryZoneWholeSetQuery(
+    filter: ListFilter<DeliveryZoneAdminFilter> | undefined,
+    enabled = true,
+): UseQueryResult<readonly DeliveryZoneAdmin[]> {
+    const scoped = withoutSort(filter);
+    return useWholeSetQuery(
+        queryKeys.kitchenAdmin.zonesPage(scoped, 0),
+        (repositories, page, perPage) =>
+            repositories.kitchenAdmin.listZones({ ...scoped, page, perPage }),
+        enabled,
+    );
 }

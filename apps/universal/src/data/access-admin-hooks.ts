@@ -24,6 +24,7 @@ import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
 import { useSession } from '../session/session-provider.tsx';
+import { readEveryPage } from './kitchen-admin-hooks.ts';
 import { queryKeys } from './query-keys.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 
@@ -438,5 +439,31 @@ export function useRevokeInvitationMutation(): UseMutationResult<void, unknown, 
         mutationFn: (invitation: string) =>
             repositories.accessAdmin.revokeInvitation(organisation(), invitation),
         onSuccess: onWritten,
+    });
+}
+
+/**
+ * Every member the filter matches, across all pages — what the team screen's cards count, so
+ * Working and Without roles describe the team rather than the eighteen rows on screen.
+ */
+export function useTeamWholeSetQuery(
+    filter?: TeamFilter,
+    enabled = true,
+): UseQueryResult<readonly TeamMemberSummary[], unknown> {
+    const { repositories } = useRepositoryContext();
+    const organisation = useConsoleOrganisation();
+
+    return useQuery({
+        // Page `0`, which no pager asks for, under the team prefix: a team write refreshes it too.
+        queryKey: queryKeys.accessAdmin.team({ ...filter, page: 0 }),
+        enabled: enabled && repositories !== null && organisation !== undefined,
+        placeholderData: keepPreviousData,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (organisation === undefined) throw new Error('No organisation selected.');
+            return readEveryPage((page, perPage) =>
+                repositories.accessAdmin.listTeam(organisation, { ...filter, page, perPage }),
+            );
+        },
     });
 }

@@ -215,6 +215,7 @@ function IngredientsList() {
                     testID="kitchen-ingredients-stats"
                     cards={statCards(list, t)}
                     pending={list.isPending}
+                    countsPending={list.countsPending}
                 />
             </Stack>
 

@@ -251,8 +251,6 @@ describe('order desk cash report — rows, totals and the em dash', () => {
             screen.getByTestId('kitchen-order-desk-cash-report-total-cash_at_counter-USD'),
         ).toBeTruthy();
         expect(screen.getByTestId('kitchen-order-desk-cash-report-total-wish-USD')).toBeTruthy();
-        // The note that says why there is no line under them.
-        expect(screen.getByTestId('kitchen-order-desk-cash-report-totals-note')).toBeTruthy();
     });
 
     it('renders a nameless agent as an em dash that says in words what it stands for', async () => {

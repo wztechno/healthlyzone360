@@ -10,12 +10,15 @@ import {
 import type { MenuItem } from '@healthy360/design-system';
 import type { RowDensity } from '@healthy360/design-tokens';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
 import { CatalogueListItem } from './catalogue-list-item.tsx';
 import { CATALOGUE_PRIORITY, columnFloor, columnForRole } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 import { useCataloguePort } from './catalogue-nav.tsx';
+import { CATALOGUE_PAGE_SIZE, CataloguePager } from './catalogue-pager.tsx';
 import { RowThumbnail } from './row-thumbnail.tsx';
 
 /**
@@ -108,7 +111,41 @@ export interface CatalogueListProps<Row> {
     readonly testID: string;
 }
 
-export function CatalogueList<Row>({
+/**
+ * Every admin table shows {@link CATALOGUE_PAGE_SIZE} rows a page, whoever fetched them.
+ *
+ * A screen that pages on the server hands over one page, which never exceeds the size, so nothing
+ * is drawn here and its own pager stays in charge. A screen that hands over the whole set is cut
+ * into pages here, with the same pager under it — so no table runs on past eighteen rows just
+ * because its screen never wrote a pager of its own.
+ */
+export function CatalogueList<Row>(props: CatalogueListProps<Row>) {
+    const { t } = useTranslation();
+    const { rows, testID } = props;
+    const [requested, setPage] = useState(1);
+
+    const totalPages = Math.max(1, Math.ceil(rows.length / CATALOGUE_PAGE_SIZE));
+    if (totalPages === 1) return <CatalogueTable {...props} />;
+
+    // Clamped rather than reset: a filter that shrinks the set lands on its last page, not past it.
+    const page = Math.min(requested, totalPages);
+    const from = (page - 1) * CATALOGUE_PAGE_SIZE;
+
+    return (
+        <View className="flex-col gap-3">
+            <CatalogueTable {...props} rows={rows.slice(from, from + CATALOGUE_PAGE_SIZE)} />
+            <CataloguePager
+                testID={`${testID}-pagination`}
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                label={t('kitchen:catalogue.pagerLabel')}
+            />
+        </View>
+    );
+}
+
+function CatalogueTable<Row>({
     columns,
     rows,
     rowKey,

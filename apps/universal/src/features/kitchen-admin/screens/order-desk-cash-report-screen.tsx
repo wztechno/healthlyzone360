@@ -383,15 +383,6 @@ function OrderDeskCashReport() {
                                 </Text>
                             </View>
                         ))}
-                        <View className="border-t border-stroke-subtle px-snug py-tight">
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                testID="kitchen-order-desk-cash-report-totals-note"
-                            >
-                                {t('kitchen:ops.cashReport.totalsNote')}
-                            </Text>
-                        </View>
                     </View>
                 </View>
             )}

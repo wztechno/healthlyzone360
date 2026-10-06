@@ -107,7 +107,7 @@ describe('ops panels', () => {
         });
 
         // Live counts over the rows in hand, not fabricated KPIs.
-        expect(screen.getByTestId('kitchen-stock-stats')).toHaveTextContent(/Shown/);
+        expect(screen.getByTestId('kitchen-stock-stats')).toHaveTextContent(/Total/);
         const rowFor = (ordinal: number) => stockItemRowTestId(String(stockItem(ordinal).id));
         expect(screen.getByTestId(`${rowFor(1)}-status`)).toHaveTextContent(/In stock/);
         expect(screen.getByTestId(`${rowFor(2)}-status`)).toHaveTextContent(/Low/);
@@ -134,7 +134,7 @@ describe('ops panels', () => {
         expect(screen.queryByTestId(`${rowFor(3)}-name`)).toBeNull();
     });
 
-    it('shows twenty-five shelves a page, and asks only about the prices on that page', async () => {
+    it('shows eighteen shelves a page, and asks only about the prices on that page', async () => {
         const { repositories } = await renderStubScreen(<StockScreen />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -156,8 +156,8 @@ describe('ops panels', () => {
         });
 
         expect(screen.getByTestId(rowFor(1))).toBeTruthy();
-        expect(screen.getByTestId(rowFor(25))).toBeTruthy();
-        expect(screen.queryByTestId(rowFor(26))).toBeNull();
+        expect(screen.getByTestId(rowFor(18))).toBeTruthy();
+        expect(screen.queryByTestId(rowFor(19))).toBeNull();
         // Each shelf shows what is on it: the backing ingredient's photograph, addressed by the
         // stock code, which is that ingredient's slug.
         expect(
@@ -169,20 +169,19 @@ describe('ops panels', () => {
         // The point of the page: the price read asks about what is on screen. Asking about the
         // whole library is what made this request a `414` at the edge.
         expect(repositories.kitchenOps.listItemLatestPurchases).toHaveBeenCalledWith(
-            Array.from({ length: 25 }, (_, index) => stockItem(index + 1).id),
+            Array.from({ length: 18 }, (_, index) => stockItem(index + 1).id),
         );
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-stock-pagination-pages-page-2'));
         });
 
-        expect(screen.getByTestId(rowFor(26))).toBeTruthy();
+        expect(screen.getByTestId(rowFor(19))).toBeTruthy();
         expect(screen.queryByTestId(rowFor(1))).toBeNull();
         await waitFor(() => {
-            expect(repositories.kitchenOps.listItemLatestPurchases).toHaveBeenCalledWith([
-                stockItem(26).id,
-                stockItem(27).id,
-            ]);
+            expect(repositories.kitchenOps.listItemLatestPurchases).toHaveBeenCalledWith(
+                Array.from({ length: 9 }, (_, index) => stockItem(index + 19).id),
+            );
         });
     });
 
