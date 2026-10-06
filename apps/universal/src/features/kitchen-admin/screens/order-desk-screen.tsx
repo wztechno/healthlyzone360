@@ -2018,25 +2018,15 @@ function OrderDeskQueueList() {
                     )}
                     body={t(filtered ? 'kitchen:desk.filteredEmptyBody' : 'kitchen:desk.emptyBody')}
                     actions={
-                        <Inline space="xs" wrap>
-                            {filtered ? (
-                                <Button
-                                    testID="kitchen-order-desk-clear"
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('kitchen:desk.clearFilters')}
-                                    onPress={clearFilters}
-                                />
-                            ) : null}
+                        filtered ? (
                             <Button
-                                testID="kitchen-order-desk-empty-new-sale"
+                                testID="kitchen-order-desk-clear"
                                 size="sm"
-                                label={t('kitchen:desk.newSale')}
-                                onPress={() => {
-                                    router.push('/kitchen/order-desk/sale');
-                                }}
+                                variant="secondary"
+                                label={t('kitchen:desk.clearFilters')}
+                                onPress={clearFilters}
                             />
-                        </Inline>
+                        ) : undefined
                     }
                 />
             ) : (

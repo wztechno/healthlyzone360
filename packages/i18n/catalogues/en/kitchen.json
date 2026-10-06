@@ -41,7 +41,7 @@
             "publishedMeals": "Published meals",
             "deliveryZones": "Delivery zones",
             "lowStock": "Low stock",
-            "consumptionExceptions": "Consumption exceptions",
+            "consumptionExceptions": "Stock gaps",
             "requirementShortfalls": "Short for the week",
             "lowStockReadyToOrder_one": "{{count}} item ready to order",
             "lowStockReadyToOrder_other": "{{count}} items ready to order"
@@ -1349,7 +1349,7 @@
             "spendIncompleteBody_other": "{{count}} receipt lines in {{months}} have no usable price yet, so those months' purchasing spend is understated. The purchases ledger's weekly and monthly view lists them.",
             "chip": "Costs",
             "monthInvalid": "Use a month as YYYY-MM.",
-            "openExceptions": "Open consumption exceptions",
+            "openExceptions": "Open stock gaps",
             "chartRevenueCogs": "Revenue and COGS by month",
             "chartRevenueMixTitle": "Revenue by line of business",
             "window": {
@@ -1364,7 +1364,7 @@
             "columnEstimatedMargin": "Est. margin"
         },
         "exceptions": {
-            "title": "Consumption exceptions",
+            "title": "Stock gaps",
             "subtitle": "Sales a confirmed order could not deduct from stock honestly. Fix the cause and retry, or resolve one you have accepted.",
             "emptyTitle": "Nothing to review",
             "emptyBody": "When a confirmed order cannot deduct a line — no recipe, no stock item, not enough stock — it appears here instead of guessing a quantity.",
@@ -1781,9 +1781,9 @@
             "noCustomerName": "No customer name on this order.",
             "noDeliveryRun": "A {{type}} order. Nothing is driven anywhere."
         },
-        "newSale": "New sale",
+        "newSale": "New order",
         "sale": {
-            "title": "New sale",
+            "title": "New order",
             "placedToast": "Order {{number}} placed.",
             "typeLabel": "What kind of sale is this?",
             "type": {
@@ -1847,10 +1847,10 @@
             "method": {
                 "cashOnDelivery": "Cash on delivery",
                 "cashAtCounter": "Cash at the counter",
-                "wish": "WISH transfer"
+                "wish": "Whish transfer"
             },
             "wishNoteTitle": "You are confirming this yourself",
-            "wishNoteBody": "Nothing checks a WISH transfer for us. Only record it once you have seen the money arrive, and write down the transfer reference so it can be found again.",
+            "wishNoteBody": "Nothing checks a Whish transfer for us. Only record it once you have seen the money arrive, and write down the transfer reference so it can be found again.",
             "referenceLabel": "Transfer reference",
             "referenceHint": "The identifier on the transfer. Required, because a confirmation nobody can check afterwards is worth nothing.",
             "referencePlaceholder": "For example TRX-104829",
@@ -1889,7 +1889,7 @@
             "shortfall": {
                 "customer": "Choose the customer to place this order.",
                 "address": "Save the delivery address to place this order.",
-                "reference": "Write down the transfer reference to take a WISH payment."
+                "reference": "Write down the transfer reference to take a Whish payment."
             }
         },
         "refusal": {
@@ -2073,7 +2073,7 @@
             "description": "Monthly spend and cost of goods sold beside selling revenue — the margin, at a glance."
         },
         "consumptionExceptions": {
-            "name": "Consumption exceptions",
+            "name": "Stock gaps",
             "description": "Sales a confirmed order could not deduct from stock honestly — review, retry, or resolve each one."
         },
         "orderDesk": {

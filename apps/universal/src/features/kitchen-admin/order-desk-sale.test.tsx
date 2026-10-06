@@ -477,7 +477,7 @@ describe('sale — a counter sale', () => {
         });
         expect(screen.getByTestId(SUBMIT)).toBeDisabled();
         expect(screen.getByTestId('kitchen-order-desk-sale-shortfall')).toHaveTextContent(
-            'Write down the transfer reference to take a WISH payment.',
+            'Write down the transfer reference to take a Whish payment.',
         );
 
         await act(async () => {
