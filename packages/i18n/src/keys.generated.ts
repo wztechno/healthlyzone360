@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8183 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8181 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3550,12 +3550,13 @@ export interface NamespaceKeys {
     | 'frozenMeals.create'
     | 'frozenMeals.title'
     | 'frozenMeals.viewKind'
+    | 'hub.attentionClear'
+    | 'hub.attentionTitle'
     | 'hub.countUnavailable'
     | 'hub.draftCount'
     | 'hub.emptyBody'
     | 'hub.emptyTitle'
     | 'hub.errorTitle'
-    | 'hub.insightTag'
     | 'hub.itemCount'
     | 'hub.kpi.consumptionExceptions'
     | 'hub.kpi.deliveryZones'
@@ -3565,12 +3566,9 @@ export interface NamespaceKeys {
     | 'hub.kpi.needsReview'
     | 'hub.kpi.publishedMeals'
     | 'hub.kpi.requirementShortfalls'
-    | 'hub.open'
-    | 'hub.openReview'
     | 'hub.publishedCount'
     | 'hub.quarantineCount'
     | 'hub.referenceOnly'
-    | 'hub.subtitle'
     | 'hub.title'
     | 'ingredientDetail.allergensDietsTitle'
     | 'ingredientDetail.fieldCapacity'
@@ -11751,12 +11749,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:frozenMeals.create',
   'kitchen:frozenMeals.title',
   'kitchen:frozenMeals.viewKind',
+  'kitchen:hub.attentionClear',
+  'kitchen:hub.attentionTitle',
   'kitchen:hub.countUnavailable',
   'kitchen:hub.draftCount',
   'kitchen:hub.emptyBody',
   'kitchen:hub.emptyTitle',
   'kitchen:hub.errorTitle',
-  'kitchen:hub.insightTag',
   'kitchen:hub.itemCount',
   'kitchen:hub.kpi.consumptionExceptions',
   'kitchen:hub.kpi.deliveryZones',
@@ -11766,12 +11765,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.kpi.needsReview',
   'kitchen:hub.kpi.publishedMeals',
   'kitchen:hub.kpi.requirementShortfalls',
-  'kitchen:hub.open',
-  'kitchen:hub.openReview',
   'kitchen:hub.publishedCount',
   'kitchen:hub.quarantineCount',
   'kitchen:hub.referenceOnly',
-  'kitchen:hub.subtitle',
   'kitchen:hub.title',
   'kitchen:ingredientDetail.allergensDietsTitle',
   'kitchen:ingredientDetail.fieldCapacity',

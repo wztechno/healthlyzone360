@@ -560,7 +560,7 @@ describe('the kitchen hub', () => {
         expect(screen.queryByTestId('kitchen-family-allergen-classes-drafts')).toBeNull();
     });
 
-    it('lists what a kitchen cooks as one recipe book, and still counts its meals on sale', async () => {
+    it('lists what a kitchen cooks as one recipe book, and still counts its meals among the drafts', async () => {
         await renderStubScreen(<KitchenHomeScreen />, {
             session: kitchenManagerSession(),
             repositories: hubRepositories([]),
@@ -572,9 +572,13 @@ describe('the kitchen hub', () => {
             expect(screen.queryByTestId(`kitchen-family-${departed}`)).toBeNull();
         }
 
-        // The tile is keyed on the catalogue code now, not on a family that left, so it loads.
-        await untilVisible('kitchen-kpi-meals-value');
-        expect(screen.getByTestId('kitchen-kpi-meals-value')).toHaveTextContent('0');
+        // The meal read is keyed on the catalogue code now, not on a family that left, so the
+        // Drafts figure that sums it loads rather than waiting for ever.
+        await untilVisible('kitchen-kpi-drafts-value');
+        expect(screen.getByTestId('kitchen-kpi-drafts-value')).toHaveTextContent('0');
+        // The overview carries no module descriptions and no "Open …" buttons any more.
+        expect(screen.queryByTestId('kitchen-family-recipes-description')).toBeNull();
+        expect(screen.getByTestId('kitchen-family-recipes-open')).toBeTruthy();
     });
 
     it('counts the recipe book’s published recipes as the ones on sale', async () => {

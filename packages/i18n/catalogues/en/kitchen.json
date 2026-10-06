@@ -18,10 +18,6 @@
     },
     "hub": {
         "title": "Kitchen workspace",
-        "subtitle": "Mission control for this kitchen — catalogue health, commercial readiness, and what needs attention now.",
-        "open": "Open {{family}}",
-        "openReview": "Open the review queue",
-        "insightTag": "Needs attention",
         "itemCount_one": "{{count}} record",
         "itemCount_other": "{{count}} records",
         "draftCount_one": "{{count}} draft",
@@ -45,7 +41,9 @@
             "requirementShortfalls": "Short for the week",
             "lowStockReadyToOrder_one": "{{count}} item ready to order",
             "lowStockReadyToOrder_other": "{{count}} items ready to order"
-        }
+        },
+        "attentionTitle": "Needs attention",
+        "attentionClear": "Nothing is waiting on you right now."
     },
     "nav": {
         "railTitle": "Kitchen",
