@@ -143,7 +143,6 @@
             },
             "chip": "Confirming deducts stock",
             "viewKind": "Order",
-            "viewOpen": "Open the order",
             "viewPlacedNote": "This order is placed but not confirmed. Nothing has been deducted from stock and the kitchen has not been told to cook it.",
             "cancelFinal": "Cancelling is final and needs a reason.",
             "backToOrders": "Back to orders",

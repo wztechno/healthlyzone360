@@ -498,12 +498,7 @@ describe('kitchen orders', () => {
         expect(screen.getByTestId('kitchen-orders-detail-subtotal')).toHaveTextContent(
             'AED 145.00',
         );
-
-        // Back returns to the list the record was opened from, without re-reading it from scratch.
-        fireEvent.press(screen.getByTestId('kitchen-orders-detail-back'));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
-        });
+        // The way back is the shell's trail, which `kitchen-chrome.test.tsx` covers.
     });
 
     it('confirms a placed order and leaves the record on the fresh record', async () => {
