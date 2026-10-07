@@ -5,6 +5,7 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
+    Inline,
     Stack,
     TableSkeleton,
     Text,
@@ -17,7 +18,6 @@ import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -152,10 +152,10 @@ function PriceListsList() {
                 const testID = priceListRowTestId(String(row.id));
                 const name = displayName(row.name, locale);
                 return (
-                    <View
-                        testID={testID}
-                        className="min-w-0 flex-row flex-wrap items-center gap-1.5"
-                    >
+                    // `Inline`, as every other list's name cell: in a table cell it stays on one
+                    // line and lets the name give way to an ellipsis (whole on hover), so a badge
+                    // never runs into the next column.
+                    <Inline testID={testID} space="xs" align="center">
                         <Text variant="strong" numberOfLines={1} testID={`${testID}-name`}>
                             {name.value}
                         </Text>
@@ -173,7 +173,7 @@ function PriceListsList() {
                                 label={t('kitchen:priceLists.agreementBadge')}
                             />
                         ) : null}
-                    </View>
+                    </Inline>
                 );
             },
         },
@@ -241,7 +241,7 @@ function PriceListsList() {
                         {t('kitchen:priceLists.noEntries')}
                     </Text>
                 ) : (
-                    <View className="flex-row flex-wrap items-center gap-1.5">
+                    <Inline space="xs" align="center">
                         <Text testID={`${testID}-entries`}>{entriesText(row, t)}</Text>
                         {summary.inconsistent === 0 ? null : (
                             <Badge
@@ -252,7 +252,7 @@ function PriceListsList() {
                                 })}
                             />
                         )}
-                    </View>
+                    </Inline>
                 );
             },
         },
