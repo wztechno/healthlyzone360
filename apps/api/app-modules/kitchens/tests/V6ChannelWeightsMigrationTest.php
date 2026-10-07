@@ -122,3 +122,44 @@ it('prices the kitchen ingredient per kilogram and never overwrites a typed pric
         ->and($barbecue->b2b_price_amount)->toBe('4.500000')
         ->and($barbecue->b2c_price_amount)->toBeNull();
 });
+
+it('moves item-level importer prices onto packs a meal already had', function (): void {
+    $organisation = $this->kitchen->organisation;
+
+    // PRD-037 Guacamole as an older import left it: both packs sized, both prices on the item.
+    $guacamole = CatalogueItem::factory()->create([
+        'catalogue_id' => $this->kitchen->catalogue->getKey(),
+        'organisation_id' => $organisation->getKey(),
+        'item_type' => CatalogueItemType::Meal,
+        'slug' => 'guacamole',
+        'source_system' => 'healthy360_workbook_v6',
+        'source_ref' => 'PRD-037',
+    ]);
+
+    $packs = [];
+
+    foreach (['b2c' => '0.3000', 'b2b' => '1.0000'] as $code => $size) {
+        $packs[$code] = CatalogueItemVariant::factory()->create(['catalogue_item_id' => $guacamole->getKey(), 'code' => $code]);
+        CatalogueItemPackVariant::factory()->create(['catalogue_item_variant_id' => $packs[$code]->getKey(), 'pack_quantity' => $size]);
+    }
+
+    $retail = PricingWorld::priceList($organisation, 'v6-b2c');
+    $kitchenPriced = PricingWorld::priceList($organisation, 'kitchen-b2c');
+
+    $imported = PricingWorld::price($retail, $guacamole, null, 300);
+    $imported->source_ref = 'PRD-037/b2c';
+    $imported->save();
+
+    // A row the kitchen wrote itself stays exactly where it is.
+    $own = PricingWorld::price($kitchenPriced, $guacamole, null, 350);
+
+    runV6WeightsMigration();
+    $follow = require dirname(__DIR__).'/database/migrations/2026_10_07_000002_move_v6_meal_prices_onto_their_packs.php';
+    $follow->up();
+    $follow->up();
+
+    expect(PriceListItem::withoutTenancy()->whereKey($imported->getKey())->sole()->catalogue_item_variant_id)
+        ->toBe((string) $packs['b2c']->getKey())
+        ->and(PriceListItem::withoutTenancy()->whereKey($own->getKey())->sole()->catalogue_item_variant_id)->toBeNull()
+        ->and(CatalogueItemVariant::withoutTenancy()->where('catalogue_item_id', $guacamole->getKey())->count())->toBe(2);
+});
