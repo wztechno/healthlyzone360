@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { TextInput as RNTextInput, View } from 'react-native';
+import { Platform, TextInput as RNTextInput, View } from 'react-native';
 import type { TextInputProps as RNTextInputProps } from 'react-native';
 
 import { neutral } from '@healthy360/design-tokens';
@@ -254,7 +254,12 @@ export function TextInputField({
                         placeholderTextColor={neutral[600]}
                         // `textAlignVertical` only matters once the box is taller than one line,
                         // and without it Android centres a paragraph inside its own frame.
+                        // `width: 0` on the web: a DOM <input> otherwise brings its default
+                        // ~20-character width as a floor, so a field in a narrow table cell (the
+                        // opening-hours times) grew past its cell over its neighbour. It flexes to
+                        // the frame instead, which takes its width from the layout around it.
                         style={{
+                            ...(Platform.OS === 'web' ? { width: 0, minWidth: 0 } : {}),
                             textAlign: 'auto',
                             ...(rest.multiline === true
                                 ? { textAlignVertical: 'top' as const }

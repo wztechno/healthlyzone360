@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8181 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8188 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2474,7 +2474,14 @@ export interface NamespaceKeys {
     | 'table.sortedDescending'
     | 'tag.join'
     | 'tag.more'
-    | 'tag.overflow';
+    | 'tag.overflow'
+    | 'timeField.clear'
+    | 'timeField.done'
+    | 'timeField.hour'
+    | 'timeField.invalid'
+    | 'timeField.minute'
+    | 'timeField.open'
+    | 'timeField.placeholder';
   readonly "errors":
     | 'failure.access_self_lockout'
     | 'failure.account_verification_required'
@@ -10678,6 +10685,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:tag.join',
   'designSystem:tag.more',
   'designSystem:tag.overflow',
+  'designSystem:timeField.clear',
+  'designSystem:timeField.done',
+  'designSystem:timeField.hour',
+  'designSystem:timeField.invalid',
+  'designSystem:timeField.minute',
+  'designSystem:timeField.open',
+  'designSystem:timeField.placeholder',
   'errors:failure.access_self_lockout',
   'errors:failure.account_verification_required',
   'errors:failure.address_area_not_served',

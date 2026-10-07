@@ -233,5 +233,14 @@
         "overflow_other": "+{{count}}",
         "overflow_two": "+{{count}}",
         "overflow_zero": "+{{count}}"
+    },
+    "timeField": {
+        "hour": "الساعة",
+        "minute": "الدقيقة",
+        "open": "اختر وقتًا لـ {{label}}",
+        "clear": "مسح",
+        "done": "تم",
+        "placeholder": "--:--",
+        "invalid": "أدخل الوقت بالصيغة HH:mm، مثل 09:30."
     }
 }

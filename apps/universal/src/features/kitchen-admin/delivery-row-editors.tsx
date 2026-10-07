@@ -9,7 +9,7 @@ import {
     fieldWidth,
     Icon,
     Inline,
-    PickerField,
+    TimeField,
     Select,
     Stack,
     Tag,
@@ -49,18 +49,11 @@ import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
  * place* that has no design-system control behind it, and each therefore has to compose one out of
  * the primitives without inventing a widget.
  *
- * ## There is no time field in the design system, and this slice does not add one
+ * ## Every time is the design system's `TimeField`
  *
- * `@healthy360/design-system` exports `DateField` (platform-split, web and native halves) and no
- * time equivalent. Adding one is a design-system change with its own platform split, its own
- * keyboard model and its own accessibility surface — not something a feature slice should land as a
- * side effect. So every time here is a constrained text field: `inputMode="numeric"`, a stated
- * `HH:mm` format in the hint, `parseClockTime` as the only accepted spelling, and a per-row error
- * that names the field rather than the row. That is the same shape the meal availability editor's
- * order cut-off already uses (`./catalogue-row-editors.tsx`), so the workspace has one way of
- * typing a time rather than two. **The gap is recorded, not papered over**: a real `TimeField`
- * belongs in the design system, and when it lands these three call sites change and nothing else
- * does.
+ * Typed (`930` reads as `09:30`) or picked from its panel, always stored as ISO `HH:mm`. A time that
+ * must follow another — a window's end, a day's closing — passes the earlier one as `min`, so the
+ * panel does not offer the wrong answer; the per-row errors below still catch a typed one.
  *
  * ## Weekday toggles are in ISO order and are not mirrored by hand
  *
@@ -236,8 +229,8 @@ export function DeliveryWindowRows({
                                 </View>
 
                                 <View style={{ width: WINDOW_TRACKS.starts }}>
-                                    <PickerField
-                                        kind="time"
+                                    <TimeField
+                                        fullWidth
                                         testID={`${rowTestId}-starts`}
                                         label={`${rowName} — ${t('kitchen:windows.startsLabel')}`}
                                         labelHidden
@@ -249,12 +242,13 @@ export function DeliveryWindowRows({
                                     />
                                 </View>
                                 <View style={{ width: WINDOW_TRACKS.ends }}>
-                                    <PickerField
-                                        kind="time"
+                                    <TimeField
+                                        fullWidth
                                         testID={`${rowTestId}-ends`}
                                         label={`${rowName} — ${t('kitchen:windows.endsLabel')}`}
                                         labelHidden
                                         value={row.endsAt}
+                                        min={row.startsAt === '' ? undefined : row.startsAt}
                                         disabled={!canManage}
                                         onChange={(next) => {
                                             patch(index, { endsAt: next });
@@ -520,6 +514,8 @@ export function OperatingWeekRows({
         priority: number,
         read: (day: OperatingDayDraft) => string,
         write: (day: OperatingDayDraft, value: string) => OperatingDayDraft,
+        /** The earliest time the panel offers for this day — closing after opening. */
+        earliest?: (day: OperatingDayDraft) => string,
     ): DataListColumn<OperatingDayDraft> => ({
         key,
         label,
@@ -528,9 +524,14 @@ export function OperatingWeekRows({
         render: (day) => {
             const issue = issues.get(day.weekday);
             return (
-                <View className="py-tight">
-                    <PickerField
-                        kind="time"
+                <View className="w-full py-tight">
+                    <TimeField
+                        fullWidth
+                        min={
+                            earliest === undefined || earliest(day) === ''
+                                ? undefined
+                                : earliest(day)
+                        }
                         testID={`${testID}-day-${String(day.weekday)}-${key}`}
                         label={`${t(weekdayKey(day.weekday))} — ${label}`}
                         labelHidden
@@ -618,6 +619,7 @@ export function OperatingWeekRows({
             90,
             (day) => day.closesAt,
             (day, value) => ({ ...day, closesAt: value }),
+            (day) => day.opensAt,
         ),
         timeColumn(
             'cut-off',

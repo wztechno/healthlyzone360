@@ -9,6 +9,7 @@ import {
     Switch,
     Text,
     TextInputField,
+    TimeField,
     cx,
 } from '@healthy360/design-system';
 import type { SelectOption } from '@healthy360/design-system';
@@ -689,16 +690,14 @@ export function MealAvailabilityEditor({
                               </View>
 
                               <View className={cx('z-auto', COL.answer)}>
-                                  <TextInputField
+                                  <TimeField
+                                      fullWidth
                                       testID={`${rowTestId}-cutoff`}
-                                      id={`${rowTestId}-cutoff`}
                                       label={t('kitchen:availability.cutOffLabel')}
                                       labelHidden
-                                      placeholder="18:00"
                                       value={row.orderCutOffAt}
-                                      autoCorrect={false}
                                       disabled={!canManage}
-                                      onChangeText={(next) => {
+                                      onChange={(next) => {
                                           patch({ orderCutOffAt: next });
                                       }}
                                   />

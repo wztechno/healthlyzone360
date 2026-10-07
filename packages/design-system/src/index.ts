@@ -189,6 +189,9 @@ export { PICKER_FORMAT, PICKER_KINDS, PICKER_WIDTH } from './forms/picker-field-
 export type { PickerKind } from './forms/picker-field-shared.ts';
 export { DatePickerButton } from './forms/date-picker-button.tsx';
 export type { DatePickerButtonProps } from './forms/date-picker-button.tsx';
+export { TIME_FIELD_WIDTH, TimeField } from './forms/time-field.tsx';
+export type { TimeFieldProps } from './forms/time-field.tsx';
+export { parseTypedTime } from './forms/time-field-shared.ts';
 
 export { CARD_PADDINGS, CARD_TONES, Card } from './content/card.tsx';
 export type { CardPadding, CardProps, CardTone } from './content/card.tsx';
