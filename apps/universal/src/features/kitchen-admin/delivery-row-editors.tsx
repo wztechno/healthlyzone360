@@ -64,17 +64,20 @@ import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
  */
 
 /**
- * The window table's fixed tracks (Commercial §3.4): name takes the rest. The times are 116 rather
- * than the design's 108 so they match the trading week's time tracks and hold a 12-hour value.
- * Exported so the header row lines up with every window beneath it.
+ * The window table's tracks (Commercial §3.4), each including the `DataList` cell's own 8px inline
+ * padding either side. Name takes the rest. The weekday track keeps the 260px the seven toggles were
+ * drawn at; the time and offered tracks are the trading week's time and trading tracks, so the two
+ * tables of the delivery slice size a time and a select alike. The control track is wide enough for
+ * its "Actions" header to read whole.
  */
-export const WINDOW_TRACKS = {
-    days: 260,
-    starts: 116,
-    ends: 116,
+const WINDOW_TRACKS = {
+    name: 220,
+    days: 276,
+    starts: 120,
+    ends: 120,
     capacity: 104,
     offered: 112,
-    remove: 28,
+    remove: 72,
 } as const;
 
 /* ------------------------------------------------------------------------------------------------
@@ -95,7 +98,9 @@ export interface DeliveryWindowRowsProps {
 type Offered = 'yes' | 'no';
 
 /**
- * The delivery windows of one zone, as one ruled table.
+ * The delivery windows of one zone, as a `DataList` at the desk's small density — the trading
+ * week's shape, so the header is the table's green band and every column is an editable control.
+ * Each row's id is `${testID}-row-${key}`, and its fields hang off that.
  *
  * No move controls, unlike the recipe-line and pack editors. A window's array position carries no
  * meaning anywhere — the consumer `DeliveryZone` has no window list at all, so nothing downstream
@@ -105,8 +110,13 @@ type Offered = 'yes' | 'no';
  * models and what a person maintains: "Morning, 08:00–11:00, Monday to Friday" is one rule, and five
  * rows of it is five chances for an inconsistent Wednesday.
  *
- * Each row carries at most one note under it, in order of what a person must act on first: the
- * row's error, then "not offered", then "uncapped" — empty capacity is a sentence, never `0`.
+ * Every column is undroppable: each is a field of the rule, and a narrow port scrolls the table
+ * rather than hiding one.
+ *
+ * Each row carries at most one note, in order of what a person must act on first: the row's error,
+ * then "not offered", then "uncapped" — empty capacity is a sentence, never `0`. It sits in the name
+ * cell, under the name: the error can be about any field of the window, the name track is the one
+ * wide enough for a sentence, and a `DataList` row has no line of its own beneath it.
  */
 export function DeliveryWindowRows({
     rows,
@@ -127,230 +137,281 @@ export function DeliveryWindowRows({
         onChange(rows.map((row, position) => (position === index ? { ...row, ...next } : row)));
     };
 
-    /*
-     * Every header at the start of its column, over the start of the field under it. Capacity used
-     * to sit at the end, over the empty half of its box and away from the number it names. Sentence
-     * case, as the catalogue writes it — an all-caps header row shouted over the fields it names.
-     */
-    const head = (label: string, width?: number) => (
-        <View {...(width === undefined ? { className: 'min-w-0 flex-1' } : { style: { width } })}>
-            <Text variant="micro" tone="secondary">
-                {label}
-            </Text>
-        </View>
-    );
+    /** A row's position, id and spoken name — what every cell of it needs. */
+    const describe = (row: DeliveryWindowDraft) => {
+        const index = rows.findIndex((entry) => entry.key === row.key);
+        return {
+            index,
+            rowTestId: `${testID}-row-${row.key}`,
+            rowName: t('kitchen:windows.rowTitle', { position: index + 1 }),
+        };
+    };
+
+    const columns: readonly DataListColumn<DeliveryWindowDraft>[] = [
+        {
+            key: 'name',
+            label: t('kitchen:windows.labelField'),
+            width: WINDOW_TRACKS.name,
+            priority: 100,
+            fill: true,
+            render: (row) => {
+                const { index, rowTestId, rowName } = describe(row);
+                const error = errors.get(row.key);
+                return (
+                    <View className="z-auto w-full flex-col gap-hair py-tight">
+                        <BilingualField
+                            testID={`${rowTestId}-label`}
+                            fieldLabel={`${rowName} — ${t('kitchen:windows.labelField')}`}
+                            value={row.label}
+                            requiredEnglish
+                            labelHidden
+                            layout="fill"
+                            // What a window is called, by example: the name a customer picks a
+                            // delivery slot by — "Morning", not "Window 1".
+                            placeholder={{
+                                en: t('kitchen:windows.labelPlaceholderEn'),
+                                ar: t('kitchen:windows.labelPlaceholderAr'),
+                            }}
+                            disabled={!canManage}
+                            onChange={(next) => {
+                                patch(index, { label: next });
+                            }}
+                        />
+                        {/* Two lines rather than the cell's one: a note is a sentence. */}
+                        {error !== undefined ? (
+                            <Text
+                                testID={`${rowTestId}-error`}
+                                tone="danger"
+                                variant="caption"
+                                numberOfLines={2}
+                            >
+                                {error}
+                            </Text>
+                        ) : !row.isActive ? (
+                            <Text
+                                testID={`${rowTestId}-active-state`}
+                                tone="secondary"
+                                variant="caption"
+                                numberOfLines={2}
+                            >
+                                {t('kitchen:windows.activeHint')}
+                            </Text>
+                        ) : row.capacity.trim() === '' ? (
+                            <Text
+                                testID={`${rowTestId}-capacity-state`}
+                                tone="secondary"
+                                variant="caption"
+                                numberOfLines={2}
+                            >
+                                {t('kitchen:windows.capacityUncapped')}
+                            </Text>
+                        ) : null}
+                    </View>
+                );
+            },
+        },
+        {
+            key: 'weekdays',
+            label: t('kitchen:windows.weekdaysLabel'),
+            width: WINDOW_TRACKS.days,
+            priority: 99,
+            grow: false,
+            render: (row) => {
+                const { index, rowTestId, rowName } = describe(row);
+                const weekdays = normaliseWeekdays(row.weekdays);
+                return (
+                    <View className="w-full py-tight">
+                        <View
+                            className="w-full flex-row gap-hair"
+                            role="group"
+                            aria-label={`${rowName} — ${t('kitchen:windows.weekdaysLabel')}`}
+                            testID={`${rowTestId}-weekdays`}
+                        >
+                            {ISO_WEEKDAYS.map((weekday) => (
+                                <DayToggle
+                                    key={weekday}
+                                    testID={`${rowTestId}-weekday-${String(weekday)}`}
+                                    initial={t(`kitchen:windows.dayInitial.${String(weekday)}`)}
+                                    name={t(weekdayKey(weekday))}
+                                    selected={weekdays.includes(weekday)}
+                                    disabled={!canManage}
+                                    onChange={(selected) => {
+                                        patch(index, {
+                                            weekdays: selected
+                                                ? normaliseWeekdays([...row.weekdays, weekday])
+                                                : row.weekdays.filter((entry) => entry !== weekday),
+                                        });
+                                    }}
+                                />
+                            ))}
+                        </View>
+                    </View>
+                );
+            },
+        },
+        {
+            key: 'starts',
+            label: t('kitchen:windows.startsLabel'),
+            width: WINDOW_TRACKS.starts,
+            priority: 98,
+            grow: false,
+            render: (row) => {
+                const { index, rowTestId, rowName } = describe(row);
+                return (
+                    <View className="w-full py-tight">
+                        <TimeField
+                            fullWidth
+                            testID={`${rowTestId}-starts`}
+                            label={`${rowName} — ${t('kitchen:windows.startsLabel')}`}
+                            labelHidden
+                            value={row.startsAt}
+                            disabled={!canManage}
+                            onChange={(next) => {
+                                patch(index, { startsAt: next });
+                            }}
+                        />
+                    </View>
+                );
+            },
+        },
+        {
+            key: 'ends',
+            label: t('kitchen:windows.endsLabel'),
+            width: WINDOW_TRACKS.ends,
+            priority: 98,
+            grow: false,
+            render: (row) => {
+                const { index, rowTestId, rowName } = describe(row);
+                return (
+                    <View className="w-full py-tight">
+                        <TimeField
+                            fullWidth
+                            testID={`${rowTestId}-ends`}
+                            label={`${rowName} — ${t('kitchen:windows.endsLabel')}`}
+                            labelHidden
+                            value={row.endsAt}
+                            min={row.startsAt === '' ? undefined : row.startsAt}
+                            disabled={!canManage}
+                            onChange={(next) => {
+                                patch(index, { endsAt: next });
+                            }}
+                        />
+                    </View>
+                );
+            },
+        },
+        {
+            key: 'capacity',
+            label: t('kitchen:windows.capacityColumn'),
+            width: WINDOW_TRACKS.capacity,
+            priority: 97,
+            grow: false,
+            render: (row) => {
+                const { index, rowTestId, rowName } = describe(row);
+                return (
+                    <View className="w-full py-tight">
+                        <TextInputField
+                            testID={`${rowTestId}-capacity`}
+                            id={`${rowTestId}-capacity`}
+                            label={`${rowName} — ${t('kitchen:windows.capacityLabel')}`}
+                            labelHidden
+                            size="sm"
+                            placeholder={t('kitchen:windows.capacityPlaceholder')}
+                            value={row.capacity}
+                            inputMode="numeric"
+                            autoCorrect={false}
+                            disabled={!canManage}
+                            onChangeText={(next) => {
+                                patch(index, { capacity: next });
+                            }}
+                        />
+                    </View>
+                );
+            },
+        },
+        {
+            key: 'offered',
+            label: t('kitchen:windows.offeredColumn'),
+            width: WINDOW_TRACKS.offered,
+            priority: 97,
+            grow: false,
+            render: (row) => {
+                const { index, rowTestId, rowName } = describe(row);
+                return (
+                    <View className="z-auto w-full py-tight">
+                        <Select<Offered>
+                            testID={`${rowTestId}-active`}
+                            id={`${rowTestId}-active`}
+                            label={`${rowName} — ${t('kitchen:windows.activeLabel')}`}
+                            labelHidden
+                            size="sm"
+                            disabled={!canManage}
+                            value={row.isActive ? 'yes' : 'no'}
+                            options={[
+                                { value: 'yes', label: t('kitchen:windows.offeredYes') },
+                                { value: 'no', label: t('kitchen:windows.inactiveBadge') },
+                            ]}
+                            onChange={(next) => {
+                                patch(index, { isActive: next === 'yes' });
+                            }}
+                        />
+                    </View>
+                );
+            },
+        },
+        ...(canManage
+            ? [
+                  {
+                      key: 'remove',
+                      label: t('kitchen:list.actionHeader'),
+                      width: WINDOW_TRACKS.remove,
+                      priority: 96,
+                      grow: false,
+                      align: 'end',
+                      sortable: false,
+                      filterable: false,
+                      render: (row) => {
+                          const { index, rowTestId, rowName } = describe(row);
+                          const name = `${t('kitchen:rows.remove')} — ${rowName}`;
+                          return (
+                              <Pressable
+                                  testID={`${rowTestId}-remove`}
+                                  role="button"
+                                  accessibilityRole="button"
+                                  accessibilityLabel={name}
+                                  aria-label={name}
+                                  onPress={() => {
+                                      setRemoved({ row, index });
+                                      onChange(rows.filter((_, position) => position !== index));
+                                  }}
+                                  className="h-6 w-6 items-center justify-center rounded-sm border border-stroke bg-surface-raised hover:bg-surface-sunken"
+                              >
+                                  <Icon name="close" size="sm" className="text-content-secondary" />
+                              </Pressable>
+                          );
+                      },
+                  } satisfies DataListColumn<DeliveryWindowDraft>,
+              ]
+            : []),
+    ];
 
     return (
-        <Stack space="sm" testID={testID}>
-            <View className="z-auto flex-col">
-                <View className="h-6 flex-row items-center gap-3 border-b border-stroke px-tight">
-                    {head(t('kitchen:windows.labelField'))}
-                    {head(t('kitchen:windows.weekdaysLabel'), WINDOW_TRACKS.days)}
-                    {head(t('kitchen:windows.startsLabel'), WINDOW_TRACKS.starts)}
-                    {head(t('kitchen:windows.endsLabel'), WINDOW_TRACKS.ends)}
-                    {head(t('kitchen:windows.capacityColumn'), WINDOW_TRACKS.capacity)}
-                    {head(t('kitchen:windows.offeredColumn'), WINDOW_TRACKS.offered)}
-                    <View style={{ width: WINDOW_TRACKS.remove }} />
-                </View>
-
-                {rows.length === 0 ? (
-                    <View className="border-b border-stroke-subtle px-tight py-2">
+        <Stack space="sm">
+            <DataList<DeliveryWindowDraft>
+                testID={testID}
+                label={t('kitchen:zones.sectionWindows')}
+                columns={columns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                density="sm"
+                emptyState={
+                    <View className="px-control-sm py-2">
                         <Text testID={`${testID}-empty`} tone="secondary" variant="caption">
                             {t('kitchen:windows.none')}
                         </Text>
                     </View>
-                ) : null}
-
-                {rows.map((row, index) => {
-                    const rowTestId = `${testID}-row-${row.key}`;
-                    const error = errors.get(row.key);
-                    const weekdays = normaliseWeekdays(row.weekdays);
-                    const rowName = t('kitchen:windows.rowTitle', { position: index + 1 });
-
-                    return (
-                        <View
-                            key={row.key}
-                            testID={rowTestId}
-                            className="z-auto flex-col gap-hair border-b border-stroke-subtle px-tight py-tight"
-                        >
-                            <View className="z-auto flex-row items-center gap-3">
-                                <View className="z-auto min-w-0 flex-1">
-                                    <BilingualField
-                                        testID={`${rowTestId}-label`}
-                                        fieldLabel={`${rowName} — ${t('kitchen:windows.labelField')}`}
-                                        value={row.label}
-                                        requiredEnglish
-                                        labelHidden
-                                        layout="fill"
-                                        // What a window is called, by example: the name a customer
-                                        // picks a delivery slot by — "Morning", not "Window 1".
-                                        placeholder={{
-                                            en: t('kitchen:windows.labelPlaceholderEn'),
-                                            ar: t('kitchen:windows.labelPlaceholderAr'),
-                                        }}
-                                        disabled={!canManage}
-                                        onChange={(next) => {
-                                            patch(index, { label: next });
-                                        }}
-                                    />
-                                </View>
-
-                                <View
-                                    style={{ width: WINDOW_TRACKS.days }}
-                                    className="flex-row gap-hair"
-                                    role="group"
-                                    aria-label={`${rowName} — ${t('kitchen:windows.weekdaysLabel')}`}
-                                    testID={`${rowTestId}-weekdays`}
-                                >
-                                    {ISO_WEEKDAYS.map((weekday) => (
-                                        <DayToggle
-                                            key={weekday}
-                                            testID={`${rowTestId}-weekday-${String(weekday)}`}
-                                            initial={t(
-                                                `kitchen:windows.dayInitial.${String(weekday)}`,
-                                            )}
-                                            name={t(weekdayKey(weekday))}
-                                            selected={weekdays.includes(weekday)}
-                                            disabled={!canManage}
-                                            onChange={(selected) => {
-                                                patch(index, {
-                                                    weekdays: selected
-                                                        ? normaliseWeekdays([
-                                                              ...row.weekdays,
-                                                              weekday,
-                                                          ])
-                                                        : row.weekdays.filter(
-                                                              (entry) => entry !== weekday,
-                                                          ),
-                                                });
-                                            }}
-                                        />
-                                    ))}
-                                </View>
-
-                                <View style={{ width: WINDOW_TRACKS.starts }}>
-                                    <TimeField
-                                        fullWidth
-                                        testID={`${rowTestId}-starts`}
-                                        label={`${rowName} — ${t('kitchen:windows.startsLabel')}`}
-                                        labelHidden
-                                        value={row.startsAt}
-                                        disabled={!canManage}
-                                        onChange={(next) => {
-                                            patch(index, { startsAt: next });
-                                        }}
-                                    />
-                                </View>
-                                <View style={{ width: WINDOW_TRACKS.ends }}>
-                                    <TimeField
-                                        fullWidth
-                                        testID={`${rowTestId}-ends`}
-                                        label={`${rowName} — ${t('kitchen:windows.endsLabel')}`}
-                                        labelHidden
-                                        value={row.endsAt}
-                                        min={row.startsAt === '' ? undefined : row.startsAt}
-                                        disabled={!canManage}
-                                        onChange={(next) => {
-                                            patch(index, { endsAt: next });
-                                        }}
-                                    />
-                                </View>
-                                <View style={{ width: WINDOW_TRACKS.capacity }}>
-                                    <TextInputField
-                                        testID={`${rowTestId}-capacity`}
-                                        id={`${rowTestId}-capacity`}
-                                        label={`${rowName} — ${t('kitchen:windows.capacityLabel')}`}
-                                        labelHidden
-                                        size="sm"
-                                        placeholder={t('kitchen:windows.capacityPlaceholder')}
-                                        value={row.capacity}
-                                        inputMode="numeric"
-                                        autoCorrect={false}
-                                        disabled={!canManage}
-                                        onChangeText={(next) => {
-                                            patch(index, { capacity: next });
-                                        }}
-                                    />
-                                </View>
-                                <View style={{ width: WINDOW_TRACKS.offered }} className="z-auto">
-                                    <Select<Offered>
-                                        testID={`${rowTestId}-active`}
-                                        id={`${rowTestId}-active`}
-                                        label={`${rowName} — ${t('kitchen:windows.activeLabel')}`}
-                                        labelHidden
-                                        disabled={!canManage}
-                                        value={row.isActive ? 'yes' : 'no'}
-                                        options={[
-                                            {
-                                                value: 'yes',
-                                                label: t('kitchen:windows.offeredYes'),
-                                            },
-                                            {
-                                                value: 'no',
-                                                label: t('kitchen:windows.inactiveBadge'),
-                                            },
-                                        ]}
-                                        onChange={(next) => {
-                                            patch(index, { isActive: next === 'yes' });
-                                        }}
-                                    />
-                                </View>
-                                <View
-                                    style={{ width: WINDOW_TRACKS.remove }}
-                                    className="items-center"
-                                >
-                                    {canManage ? (
-                                        <Pressable
-                                            testID={`${rowTestId}-remove`}
-                                            role="button"
-                                            accessibilityRole="button"
-                                            accessibilityLabel={`${t('kitchen:rows.remove')} — ${rowName}`}
-                                            aria-label={`${t('kitchen:rows.remove')} — ${rowName}`}
-                                            onPress={() => {
-                                                setRemoved({ row, index });
-                                                onChange(
-                                                    rows.filter(
-                                                        (_, position) => position !== index,
-                                                    ),
-                                                );
-                                            }}
-                                            className="h-6 w-6 items-center justify-center rounded-sm border border-stroke bg-surface-raised hover:bg-surface-sunken"
-                                        >
-                                            <Icon
-                                                name="close"
-                                                size="sm"
-                                                className="text-content-secondary"
-                                            />
-                                        </Pressable>
-                                    ) : null}
-                                </View>
-                            </View>
-
-                            {error !== undefined ? (
-                                <Text testID={`${rowTestId}-error`} tone="danger" variant="caption">
-                                    {error}
-                                </Text>
-                            ) : !row.isActive ? (
-                                <Text
-                                    testID={`${rowTestId}-active-state`}
-                                    tone="secondary"
-                                    variant="caption"
-                                >
-                                    {t('kitchen:windows.activeHint')}
-                                </Text>
-                            ) : row.capacity.trim() === '' ? (
-                                <Text
-                                    testID={`${rowTestId}-capacity-state`}
-                                    tone="secondary"
-                                    variant="caption"
-                                >
-                                    {t('kitchen:windows.capacityUncapped')}
-                                </Text>
-                            ) : null}
-                        </View>
-                    );
-                })}
-            </View>
+                }
+            />
 
             <Inline space="sm" wrap align="center">
                 {canManage ? (

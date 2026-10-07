@@ -1,6 +1,7 @@
 import type { ChannelAvailability, LocalisedText } from '@healthy360/api-client/contracts';
 import {
     Checkbox,
+    DataList,
     DateField,
     Icon,
     IconButton,
@@ -10,14 +11,16 @@ import {
     Text,
     TextInputField,
     TimeField,
+    UNDROPPABLE_PRIORITY,
     cx,
 } from '@healthy360/design-system';
-import type { SelectOption } from '@healthy360/design-system';
+import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { SALES_CHANNELS } from '@healthy360/domain-types';
 import type { SalesChannel } from '@healthy360/domain-types';
 import { MEASURE_UNITS } from '@healthy360/nutrition';
 import type { MeasureUnit } from '@healthy360/nutrition';
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -41,6 +44,30 @@ import { UndoBar } from './row-editor-shell.tsx';
  * one is *allowed to express* comes straight off `KitchenAdminRepository` and nowhere else — a field
  * the contract has no column for is not rendered here, however useful it might be.
  */
+
+/** The remove column's track: the 32px ✕ plus the cell's `px-control-sm` either side. */
+const REMOVE_TRACK = 48;
+
+/**
+ * The row's ✕, as the last column of a row-editor table. Drawn only for somebody who may edit.
+ *
+ * No visible header: the ✕ says what it does, and the words would not fit the track. The column
+ * is still named for a screen reader. Pinned, held at its width and anchored to the row's end.
+ */
+function removeColumn<Row>(label: string, render: (row: Row) => ReactNode): DataListColumn<Row> {
+    return {
+        key: 'remove',
+        label,
+        width: REMOVE_TRACK,
+        priority: UNDROPPABLE_PRIORITY,
+        grow: false,
+        align: 'end',
+        sortable: false,
+        filterable: false,
+        renderHeader: () => <View accessibilityLabel={label} />,
+        render,
+    };
+}
 
 /* ------------------------------------------------------------------------------------------------
  * Pack variants
@@ -87,9 +114,17 @@ function useUnitOptions(): readonly SelectOption[] {
  * ## Order is the only ordering there is
  *
  * `ProductPackVariant` carries no `position` and no `isDefault`; `UpdateProductRequest.packVariants`
- * replaces the list wholesale and the server keeps the order it was given. So the move buttons are
- * real — moving a pack to the top is what makes it the default the list column reports — and no flag
- * is invented to say the same thing twice.
+ * replaces the list wholesale and the server keeps the order it was given. So the order the rows
+ * stand in is the statement — the first pack is the default the list column reports — and no flag is
+ * invented to say the same thing twice. Removal keeps that order: undo puts a pack back where it was.
+ *
+ * ## A `DataList`, like every other admin table
+ *
+ * Five short answers per pack repeated down a list is a table, so it is drawn as one: the design
+ * system's list, with its header band naming each column once and each control `labelHidden` under
+ * it. Every editable column is pinned (priority ≥ `UNDROPPABLE_PRIORITY`), because a dropped column
+ * here would be a field nobody can reach; a narrow port scrolls instead. The label takes the slack,
+ * since a retail name is the one answer whose length varies.
  *
  * ## The code is the identity a price points at
  *
@@ -110,191 +145,193 @@ export function PackVariantEditor({ rows, onChange, errors, canManage, testID }:
                 : row.code
             : row.label.en;
 
-    /*
-     * Column widths, stated once and shared by the header and every row — the same arrangement the
-     * service-days table uses, and for the same reason: five short answers per pack repeated down a
-     * list is a table, and a titled panel per row spent 300px of page on each of them.
-     *
-     * `code` and `label` take the leftover because a pack code and a retail name are the two that
-     * vary in length; a quantity, a unit and a count do not.
-     */
-    const COL = {
-        code: 'min-w-[112px] flex-1',
-        label: 'min-w-[160px] flex-[2]',
-        quantity: 'w-[92px]',
-        unit: 'w-[104px]',
-        perPack: 'w-[88px]',
-        remove: 'w-8',
-    } as const;
+    const remove = (row: PackDraft) => {
+        setRemoved({ row, index: rows.findIndex((entry) => entry.key === row.key) });
+        onChange(rows.filter((entry) => entry.key !== row.key));
+    };
+
+    const patch = (row: PackDraft, next: Partial<PackDraft>) => {
+        onChange(rows.map((entry) => (entry.key === row.key ? { ...entry, ...next } : entry)));
+    };
+
+    /** The id every control in a row hangs off — the same one the row itself carries. */
+    const rowId = (row: PackDraft) => `${testID}-row-${row.key}`;
 
     /*
-     * Every header at the start of its column, Net qty included: the quantity box below it is a
-     * plain text field whose figure starts at the inline start, so an end-aligned header sat over
+     * Tracks in dp, each the old column's content width plus the cell's `px-control-sm` either
+     * side. A DataList cell has no vertical padding, so every control sits in a `py-tight` box off
+     * the row's edges; `z-auto` on that box lets the unit picker's panel escape the row below.
+     *
+     * Every header sits at the start of its column, Net qty included: the quantity box is a plain
+     * text field whose figure starts at the inline start, so an end-aligned header would sit over
      * the empty half of the box, away from the number it names.
      */
-    const header = (label: string, width: string) => (
-        <Text key={label} variant="micro" tone="secondary" className={width}>
-            {label}
-        </Text>
-    );
+    const columns: readonly DataListColumn<PackDraft>[] = [
+        {
+            key: 'code',
+            label: t('kitchen:products.packCodeHeader'),
+            width: 128,
+            priority: UNDROPPABLE_PRIORITY,
+            render: (row) => {
+                const error = errors.get(row.key);
+                return (
+                    <View className="z-auto w-full py-tight">
+                        <TextInputField
+                            testID={`${rowId(row)}-code`}
+                            id={`${rowId(row)}-code`}
+                            label={t('kitchen:products.packCodeLabel')}
+                            labelHidden
+                            placeholder={t('kitchen:products.packCodePlaceholder')}
+                            value={row.code}
+                            autoCapitalize="characters"
+                            autoCorrect={false}
+                            disabled={!canManage}
+                            required
+                            {...(error === undefined ? {} : { error })}
+                            onChangeText={(next) => {
+                                patch(row, { code: next });
+                            }}
+                        />
+                    </View>
+                );
+            },
+        },
+        /*
+         * The English label only. The Arabic half is not dropped — it is simply not a column: a
+         * bilingual pair inside a five-column row doubles the row's width for a field most packs
+         * leave empty, and `BilingualField` has nowhere to put its second box. It is edited where a
+         * pack is opened on its own.
+         */
+        {
+            key: 'label',
+            label: t('kitchen:products.packLabelHeader'),
+            width: 176,
+            priority: UNDROPPABLE_PRIORITY,
+            fill: true,
+            render: (row) => (
+                <View className="z-auto w-full py-tight">
+                    <TextInputField
+                        testID={`${rowId(row)}-label`}
+                        id={`${rowId(row)}-label`}
+                        label={t('kitchen:products.packLabel')}
+                        labelHidden
+                        placeholder={t('kitchen:products.packLabelPlaceholder')}
+                        value={row.label.en}
+                        disabled={!canManage}
+                        onChangeText={(next) => {
+                            patch(row, { label: { ...row.label, en: next } });
+                        }}
+                    />
+                </View>
+            ),
+        },
+        {
+            key: 'quantity',
+            label: t('kitchen:products.packQtyHeader'),
+            width: 108,
+            priority: UNDROPPABLE_PRIORITY,
+            render: (row) => (
+                <View className="z-auto w-full py-tight">
+                    <TextInputField
+                        testID={`${rowId(row)}-quantity`}
+                        id={`${rowId(row)}-quantity`}
+                        label={t('kitchen:products.packQuantityLabel')}
+                        labelHidden
+                        placeholder={t('kitchen:fields.quantityPlaceholder')}
+                        value={row.netQuantity}
+                        inputMode="decimal"
+                        disabled={!canManage}
+                        onChangeText={(next) => {
+                            patch(row, { netQuantity: next });
+                        }}
+                    />
+                </View>
+            ),
+        },
+        {
+            key: 'unit',
+            label: t('kitchen:products.packUnitHeader'),
+            width: 120,
+            priority: UNDROPPABLE_PRIORITY,
+            render: (row) => (
+                <View className="z-auto w-full py-tight">
+                    <Select
+                        testID={`${rowId(row)}-unit`}
+                        id={`${rowId(row)}-unit`}
+                        label={t('kitchen:products.packUnitLabel')}
+                        placeholder={t('kitchen:fields.unitPlaceholder')}
+                        labelHidden
+                        searchable
+                        options={unitOptions}
+                        value={row.netUnit}
+                        disabled={!canManage}
+                        onChange={(next) => {
+                            patch(row, { netUnit: next as MeasureUnit });
+                        }}
+                    />
+                </View>
+            ),
+        },
+        {
+            key: 'units-per-pack',
+            label: t('kitchen:products.packPerPackHeader'),
+            width: 104,
+            priority: UNDROPPABLE_PRIORITY,
+            render: (row) => (
+                <View className="z-auto w-full py-tight">
+                    <TextInputField
+                        testID={`${rowId(row)}-units-per-pack`}
+                        id={`${rowId(row)}-units-per-pack`}
+                        label={t('kitchen:products.unitsPerPackLabel')}
+                        placeholder={t('kitchen:fields.quantityPlaceholder')}
+                        labelHidden
+                        value={row.unitsPerPack}
+                        inputMode="numeric"
+                        disabled={!canManage}
+                        onChangeText={(next) => {
+                            patch(row, { unitsPerPack: next });
+                        }}
+                    />
+                </View>
+            ),
+        },
+        ...(canManage
+            ? [
+                  removeColumn<PackDraft>(t('kitchen:products.removePack'), (row) => (
+                      <IconButton
+                          testID={`${rowId(row)}-remove`}
+                          variant="ghost"
+                          tone="danger"
+                          size="sm"
+                          label={t('kitchen:products.removePack')}
+                          icon={<Icon name="close" size="sm" />}
+                          onPress={() => {
+                              remove(row);
+                          }}
+                      />
+                  )),
+              ]
+            : []),
+    ];
 
     return (
-        <Stack space="sm" testID={testID}>
+        // The table carries the component's id once it is drawn; the wrapper holds it only while
+        // there is nothing to draw, so the two never share one.
+        <Stack space="sm" {...(rows.length === 0 ? { testID } : {})}>
             {rows.length === 0 ? (
                 <Text testID={`${testID}-empty`} tone="secondary">
                     {t('kitchen:products.packsEmpty')}
                 </Text>
             ) : (
                 <>
-                    {/*
-                     * The labels live here, once — see `FormField`'s `labelHidden`. Hidden below
-                     * `md`, where the row wraps and a header above a wrapped stack labels the wrong
-                     * things.
-                     */}
-                    <View className="hidden flex-row items-end gap-base md:flex" aria-hidden>
-                        {header(t('kitchen:products.packCodeHeader'), COL.code)}
-                        {header(t('kitchen:products.packLabelHeader'), COL.label)}
-                        {header(t('kitchen:products.packQtyHeader'), COL.quantity)}
-                        {header(t('kitchen:products.packUnitHeader'), COL.unit)}
-                        {header(t('kitchen:products.packPerPackHeader'), COL.perPack)}
-                        <View className={COL.remove} />
-                    </View>
-
-                    {rows.map((row) => {
-                        const rowTestId = `${testID}-row-${row.key}`;
-                        const error = errors.get(row.key);
-                        const patch = (next: Partial<PackDraft>) => {
-                            onChange(
-                                rows.map((entry) =>
-                                    entry.key === row.key ? { ...entry, ...next } : entry,
-                                ),
-                            );
-                        };
-
-                        return (
-                            <View
-                                key={row.key}
-                                testID={rowTestId}
-                                // `z-auto` for the reason `FormField` states: the unit picker's
-                                // panel would otherwise be trapped under the row below it.
-                                className="z-auto flex-row flex-wrap items-start gap-base"
-                            >
-                                <View className={cx('z-auto', COL.code)}>
-                                    <TextInputField
-                                        testID={`${rowTestId}-code`}
-                                        id={`${rowTestId}-code`}
-                                        label={t('kitchen:products.packCodeLabel')}
-                                        labelHidden
-                                        placeholder={t('kitchen:products.packCodePlaceholder')}
-                                        value={row.code}
-                                        autoCapitalize="characters"
-                                        autoCorrect={false}
-                                        disabled={!canManage}
-                                        required
-                                        {...(error === undefined ? {} : { error })}
-                                        onChangeText={(next) => {
-                                            patch({ code: next });
-                                        }}
-                                    />
-                                </View>
-
-                                {/*
-                                 * The English label only. The Arabic half is not dropped — it is
-                                 * simply not a column: a bilingual pair inside a five-column row
-                                 * doubles the row's width for a field most packs leave empty, and
-                                 * `BilingualField` has nowhere to put its second box. It is edited
-                                 * where a pack is opened on its own.
-                                 */}
-                                <View className={cx('z-auto', COL.label)}>
-                                    <TextInputField
-                                        testID={`${rowTestId}-label`}
-                                        id={`${rowTestId}-label`}
-                                        label={t('kitchen:products.packLabel')}
-                                        labelHidden
-                                        placeholder={t('kitchen:products.packLabelPlaceholder')}
-                                        value={row.label.en}
-                                        disabled={!canManage}
-                                        onChangeText={(next) => {
-                                            patch({ label: { ...row.label, en: next } });
-                                        }}
-                                    />
-                                </View>
-
-                                <View className={cx('z-auto', COL.quantity)}>
-                                    <TextInputField
-                                        testID={`${rowTestId}-quantity`}
-                                        id={`${rowTestId}-quantity`}
-                                        label={t('kitchen:products.packQuantityLabel')}
-                                        labelHidden
-                                        placeholder={t('kitchen:fields.quantityPlaceholder')}
-                                        value={row.netQuantity}
-                                        inputMode="decimal"
-                                        disabled={!canManage}
-                                        onChangeText={(next) => {
-                                            patch({ netQuantity: next });
-                                        }}
-                                    />
-                                </View>
-
-                                <View className={cx('z-auto', COL.unit)}>
-                                    <Select
-                                        testID={`${rowTestId}-unit`}
-                                        id={`${rowTestId}-unit`}
-                                        label={t('kitchen:products.packUnitLabel')}
-                                        placeholder={t('kitchen:fields.unitPlaceholder')}
-                                        labelHidden
-                                        searchable
-                                        options={unitOptions}
-                                        value={row.netUnit}
-                                        disabled={!canManage}
-                                        onChange={(next) => {
-                                            patch({ netUnit: next as MeasureUnit });
-                                        }}
-                                    />
-                                </View>
-
-                                <View className={cx('z-auto', COL.perPack)}>
-                                    <TextInputField
-                                        testID={`${rowTestId}-units-per-pack`}
-                                        id={`${rowTestId}-units-per-pack`}
-                                        label={t('kitchen:products.unitsPerPackLabel')}
-                                        placeholder={t('kitchen:fields.quantityPlaceholder')}
-                                        labelHidden
-                                        value={row.unitsPerPack}
-                                        inputMode="numeric"
-                                        disabled={!canManage}
-                                        onChangeText={(next) => {
-                                            patch({ unitsPerPack: next });
-                                        }}
-                                    />
-                                </View>
-
-                                <View className={cx(COL.remove, 'items-center')}>
-                                    {canManage ? (
-                                        <IconButton
-                                            testID={`${rowTestId}-remove`}
-                                            variant="ghost"
-                                            tone="danger"
-                                            size="sm"
-                                            label={t('kitchen:products.removePack')}
-                                            icon={<Icon name="close" size="sm" />}
-                                            onPress={() => {
-                                                setRemoved({
-                                                    row,
-                                                    index: rows.findIndex(
-                                                        (entry) => entry.key === row.key,
-                                                    ),
-                                                });
-                                                onChange(
-                                                    rows.filter((entry) => entry.key !== row.key),
-                                                );
-                                            }}
-                                        />
-                                    ) : null}
-                                </View>
-                            </View>
-                        );
-                    })}
+                    <DataList<PackDraft>
+                        testID={testID}
+                        label={t('kitchen:products.sectionPacks')}
+                        columns={columns}
+                        rows={rows}
+                        rowKey={(row) => row.key}
+                        density="sm"
+                    />
 
                     <Text testID={`${testID}-caption`} variant="caption" tone="secondary">
                         {t('kitchen:products.packsCaption')}
@@ -528,6 +565,12 @@ export interface AvailabilityEditorProps {
 }
 
 /**
+ * A date, a count and a time each start from this track — a 124px box plus the cell's
+ * `px-control-sm` either side — and share whatever the row has left equally.
+ */
+const ANSWER_TRACK = 140;
+
+/**
  * When a meal can be ordered.
  *
  * ## Calendar dates, because that is what the contract models
@@ -545,9 +588,10 @@ export interface AvailabilityEditorProps {
  * roughly 260px of page per day and put a `Date` label beside every date box; a kitchen setting a
  * fortnight of service could not see two days at once.
  *
- * The headers are what label the controls — see `FormField`'s `labelHidden`, which exists for this.
- * Below `md` the row wraps and the header hides, because a header above a wrapped stack labels the
- * wrong things.
+ * It is the design system's `DataList`, so it carries the same header band as every other admin
+ * table. The headers are what label the controls — see `FormField`'s `labelHidden`, which exists for
+ * this. Every column is pinned (priority ≥ `UNDROPPABLE_PRIORITY`): a dropped column here would be a
+ * field nobody can reach, so a narrow port scrolls rather than losing one.
  *
  * Array order carries nothing — the rows are keyed by the date they name — so there is no reorder
  * affordance, and removal keeps its {@link UndoBar} rather than a confirm.
@@ -568,172 +612,177 @@ export function MealAvailabilityEditor({
     const { t } = useTranslation();
     const [removed, setRemoved] = useState<{ row: AvailabilityDraft; index: number } | null>(null);
 
-    /*
-     * Column widths, stated once and shared by the header and every row so the two cannot drift.
-     *
-     * The three answer columns are one shared fraction rather than three fixed widths: a date, a
-     * count and a time are peers, and giving each its own measured width left the row bunched
-     * against the inline start with a third of the panel empty beside it. This is a table filling
-     * its container, which is the one shape `grid-shared.ts`'s no-stretch rule is not about — that
-     * rule governs *fields in a form*, and it is why nothing above this section stretches.
-     *
-     * `serving` and the remove control stay fixed: a knob and an icon have an intrinsic size and
-     * gain nothing from a share of the leftover space.
-     */
-    const COL = {
-        answer: 'min-w-[124px] flex-1',
-        serving: 'w-[76px]',
-        remove: 'w-8',
-    } as const;
+    const patch = (row: AvailabilityDraft, next: Partial<AvailabilityDraft>) => {
+        onChange(rows.map((entry) => (entry.key === row.key ? { ...entry, ...next } : entry)));
+    };
 
-    const header = (label: string, width: string) => (
-        <Text key={label} variant="micro" tone="secondary" className={width}>
-            {label}
-        </Text>
-    );
+    /** The id every control in a row hangs off — the same one the row itself carries. */
+    const rowId = (row: AvailabilityDraft) => `${testID}-row-${row.key}`;
+
+    /*
+     * Tracks in dp, each the old column's content width plus the cell's `px-control-sm` either
+     * side. A DataList cell has no vertical padding, so every control sits in a `py-tight` box off
+     * the row's edges; `z-auto` on that box lets the date picker's panel escape the row below.
+     *
+     * The three answer columns share the slack equally rather than holding three fixed widths: a
+     * date, a count and a time are peers, and giving each its own measured width left the row
+     * bunched against the inline start with a third of the panel empty beside it. This is a table
+     * filling its container, which is the one shape `grid-shared.ts`'s no-stretch rule is not about —
+     * that rule governs *fields in a form*, and it is why nothing above this section stretches.
+     *
+     * `serving` and the remove control hold their width: a knob and an icon have an intrinsic size
+     * and gain nothing from a share of the leftover space.
+     */
+    const columns: readonly DataListColumn<AvailabilityDraft>[] = [
+        {
+            key: 'date',
+            label: t('kitchen:availability.dateLabel'),
+            width: ANSWER_TRACK,
+            priority: UNDROPPABLE_PRIORITY,
+            fill: true,
+            render: (row) => {
+                const error = errors.get(row.key);
+                return (
+                    <View className="z-auto w-full py-tight">
+                        <DateField
+                            testID={`${rowId(row)}-date`}
+                            id={`${rowId(row)}-date`}
+                            label={t('kitchen:availability.dateLabel')}
+                            labelHidden
+                            value={row.date}
+                            required
+                            disabled={!canManage}
+                            {...(error === undefined ? {} : { error })}
+                            onChange={(next) => {
+                                patch(row, { date: next });
+                            }}
+                        />
+                    </View>
+                );
+            },
+        },
+        /*
+         * `label` is the switch's accessible name and is never drawn; `stateLabel` is the word
+         * beside the knob. So the control reads as "Can be ordered on this day" to a screen reader
+         * while the row shows the two characters it has room for.
+         */
+        {
+            key: 'serving',
+            label: t('kitchen:availability.servingHeader'),
+            width: 92,
+            priority: UNDROPPABLE_PRIORITY,
+            grow: false,
+            render: (row) => (
+                <View className="z-auto w-full py-tight">
+                    <Switch
+                        testID={`${rowId(row)}-available`}
+                        id={`${rowId(row)}-available`}
+                        label={t('kitchen:availability.availableLabel')}
+                        labelHidden
+                        stateLabel={
+                            row.isAvailable
+                                ? t('kitchen:availability.on')
+                                : t('kitchen:availability.off')
+                        }
+                        checked={row.isAvailable}
+                        disabled={!canManage}
+                        onChange={(checked) => {
+                            patch(row, { isAvailable: checked });
+                        }}
+                    />
+                </View>
+            ),
+        },
+        {
+            key: 'remaining',
+            label: t('kitchen:availability.remainingHeader'),
+            width: ANSWER_TRACK,
+            priority: UNDROPPABLE_PRIORITY,
+            fill: true,
+            render: (row) => (
+                <View className="z-auto w-full py-tight">
+                    <TextInputField
+                        testID={`${rowId(row)}-remaining`}
+                        id={`${rowId(row)}-remaining`}
+                        label={t('kitchen:availability.remainingLabel')}
+                        labelHidden
+                        // The empty box means "not counted", which is exactly what this glyph
+                        // says — and it says it without becoming a value.
+                        placeholder="∞"
+                        value={row.remaining}
+                        inputMode="numeric"
+                        disabled={!canManage}
+                        onChangeText={(next) => {
+                            patch(row, { remaining: next });
+                        }}
+                    />
+                </View>
+            ),
+        },
+        {
+            key: 'cutoff',
+            label: t('kitchen:availability.cutOffHeader'),
+            width: ANSWER_TRACK,
+            priority: UNDROPPABLE_PRIORITY,
+            fill: true,
+            render: (row) => (
+                <View className="z-auto w-full py-tight">
+                    <TimeField
+                        fullWidth
+                        testID={`${rowId(row)}-cutoff`}
+                        label={t('kitchen:availability.cutOffLabel')}
+                        labelHidden
+                        value={row.orderCutOffAt}
+                        disabled={!canManage}
+                        onChange={(next) => {
+                            patch(row, { orderCutOffAt: next });
+                        }}
+                    />
+                </View>
+            ),
+        },
+        ...(canManage
+            ? [
+                  removeColumn<AvailabilityDraft>(t('kitchen:availability.removeDay'), (row) => (
+                      <IconButton
+                          testID={`${rowId(row)}-remove`}
+                          variant="ghost"
+                          tone="danger"
+                          size="sm"
+                          label={t('kitchen:availability.removeDay')}
+                          icon={<Icon name="close" size="sm" />}
+                          onPress={() => {
+                              setRemoved({
+                                  row,
+                                  index: rows.findIndex((entry) => entry.key === row.key),
+                              });
+                              onChange(rows.filter((entry) => entry.key !== row.key));
+                          }}
+                      />
+                  )),
+              ]
+            : []),
+    ];
 
     return (
-        <Stack space="sm" testID={testID}>
+        // The table carries the component's id once it is drawn; the wrapper holds it only while
+        // there is nothing to draw, so the two never share one.
+        <Stack space="sm" {...(rows.length === 0 ? { testID } : {})}>
             {rows.length === 0 ? null : (
-                /*
-                 * The labels live here, once, instead of beside all four controls on every row —
-                 * see `FormField`'s `labelHidden`. Hidden below `md`, where the row wraps and a
-                 * header sitting above a wrapped stack would be labelling the wrong things.
-                 */
-                <View className="hidden flex-row items-end gap-base md:flex" aria-hidden>
-                    {header(t('kitchen:availability.dateLabel'), COL.answer)}
-                    {header(t('kitchen:availability.servingHeader'), COL.serving)}
-                    {header(t('kitchen:availability.remainingHeader'), COL.answer)}
-                    {header(t('kitchen:availability.cutOffHeader'), COL.answer)}
-                    <View className={COL.remove} />
-                </View>
-            )}
+                <>
+                    <DataList<AvailabilityDraft>
+                        testID={testID}
+                        label={t('kitchen:availability.sectionServiceDays')}
+                        columns={columns}
+                        rows={rows}
+                        rowKey={(row) => row.key}
+                        density="sm"
+                    />
 
-            {rows.length === 0
-                ? null
-                : rows.map((row) => {
-                      const rowTestId = `${testID}-row-${row.key}`;
-                      const error = errors.get(row.key);
-                      const patch = (next: Partial<AvailabilityDraft>) => {
-                          onChange(
-                              rows.map((entry) =>
-                                  entry.key === row.key ? { ...entry, ...next } : entry,
-                              ),
-                          );
-                      };
-
-                      return (
-                          <View
-                              key={row.key}
-                              testID={rowTestId}
-                              // `z-auto` for the reason `FormField` states: the date picker's own
-                              // panel would otherwise be trapped under the row below it.
-                              className="z-auto flex-row flex-wrap items-start gap-base"
-                          >
-                              <View className={cx('z-auto', COL.answer)}>
-                                  <DateField
-                                      testID={`${rowTestId}-date`}
-                                      id={`${rowTestId}-date`}
-                                      label={t('kitchen:availability.dateLabel')}
-                                      labelHidden
-                                      value={row.date}
-                                      required
-                                      disabled={!canManage}
-                                      {...(error === undefined ? {} : { error })}
-                                      onChange={(next) => {
-                                          patch({ date: next });
-                                      }}
-                                  />
-                              </View>
-
-                              {/*
-                               * `label` is the switch's accessible name and is never drawn;
-                               * `stateLabel` is the word beside the knob. So the control reads as
-                               * "Can be ordered on this day" to a screen reader while the row shows
-                               * the two characters it has room for.
-                               */}
-                              <View className={cx('z-auto', COL.serving)}>
-                                  <Switch
-                                      testID={`${rowTestId}-available`}
-                                      id={`${rowTestId}-available`}
-                                      label={t('kitchen:availability.availableLabel')}
-                                      labelHidden
-                                      stateLabel={
-                                          row.isAvailable
-                                              ? t('kitchen:availability.on')
-                                              : t('kitchen:availability.off')
-                                      }
-                                      checked={row.isAvailable}
-                                      disabled={!canManage}
-                                      onChange={(checked) => {
-                                          patch({ isAvailable: checked });
-                                      }}
-                                  />
-                              </View>
-
-                              <View className={cx('z-auto', COL.answer)}>
-                                  <TextInputField
-                                      testID={`${rowTestId}-remaining`}
-                                      id={`${rowTestId}-remaining`}
-                                      label={t('kitchen:availability.remainingLabel')}
-                                      labelHidden
-                                      // The empty box means "not counted", which is exactly what
-                                      // this glyph says — and it says it without becoming a value.
-                                      placeholder="∞"
-                                      value={row.remaining}
-                                      inputMode="numeric"
-                                      disabled={!canManage}
-                                      onChangeText={(next) => {
-                                          patch({ remaining: next });
-                                      }}
-                                  />
-                              </View>
-
-                              <View className={cx('z-auto', COL.answer)}>
-                                  <TimeField
-                                      fullWidth
-                                      testID={`${rowTestId}-cutoff`}
-                                      label={t('kitchen:availability.cutOffLabel')}
-                                      labelHidden
-                                      value={row.orderCutOffAt}
-                                      disabled={!canManage}
-                                      onChange={(next) => {
-                                          patch({ orderCutOffAt: next });
-                                      }}
-                                  />
-                              </View>
-
-                              <View className={cx(COL.remove, 'items-center')}>
-                                  {canManage ? (
-                                      <IconButton
-                                          testID={`${rowTestId}-remove`}
-                                          variant="ghost"
-                                          tone="danger"
-                                          size="sm"
-                                          label={t('kitchen:availability.removeDay')}
-                                          icon={<Icon name="close" size="sm" />}
-                                          onPress={() => {
-                                              setRemoved({
-                                                  row,
-                                                  index: rows.findIndex(
-                                                      (entry) => entry.key === row.key,
-                                                  ),
-                                              });
-                                              onChange(
-                                                  rows.filter((entry) => entry.key !== row.key),
-                                              );
-                                          }}
-                                      />
-                                  ) : null}
-                              </View>
-                          </View>
-                      );
-                  })}
-
-            {rows.length === 0 ? null : (
-                <Text testID={`${testID}-caption`} variant="caption" tone="secondary">
-                    {t('kitchen:availability.rowCaption')}
-                </Text>
+                    <Text testID={`${testID}-caption`} variant="caption" tone="secondary">
+                        {t('kitchen:availability.rowCaption')}
+                    </Text>
+                </>
             )}
 
             {removed === null ? null : (
