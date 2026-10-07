@@ -51,6 +51,7 @@ describe('createApiBusinessReads', () => {
                                 seller_organisation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1df0',
                                 sales_channel_id: 'channel-wholesale',
                                 price: { amount_minor: 1800, currency_code: 'USD' },
+                                pack: { size: '1', unit: 'kg' },
                             },
                         ],
                     },
@@ -67,6 +68,7 @@ describe('createApiBusinessReads', () => {
         expect(page.items[0]?.id).toBe(itemId);
         expect(page.items[0]?.programmeId).toBe(programmeId);
         expect(page.items[0]?.contractPrice).toEqual({ amount: 1800, currency: 'USD' });
+        expect(page.items[0]?.pack).toEqual({ quantity: 1, unit: 'kg' });
         expect(page.items[0]?.channels).toEqual(['b2b']);
     });
 
@@ -85,6 +87,7 @@ describe('createApiBusinessReads', () => {
                             seller_organisation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1df0',
                             sales_channel_id: 'channel-wholesale',
                             price: { amount_minor: 1800, currency_code: 'USD' },
+                            pack: null,
                         },
                     },
                     meta: {},
@@ -97,6 +100,7 @@ describe('createApiBusinessReads', () => {
         expect(calls[0]?.path).toBe(`/b2b/catalogue/items/${itemId}`);
         expect(item.name).toBe('Wholesale lunch tray');
         expect(item.contractPrice).toEqual({ amount: 1800, currency: 'USD' });
+        expect(item.pack).toBeNull();
     });
 
     it('filters listed items client-side by search query', async () => {

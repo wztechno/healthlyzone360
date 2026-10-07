@@ -44,16 +44,21 @@ enum CatalogueItemType: string
      *
      * A product is bought in packs — and so are sauces, dressings and frozen
      * meals, which sell in B2B and B2C pack sizes exactly like any other
-     * packaged good. A plan is bought in configurations. A meal has neither — it
-     * is sold as itself — which is why this returns null rather than inventing a
-     * third variant kind nobody would populate.
+     * packaged good. A plan is bought in configurations.
+     *
+     * A meal *may* have packs, and most do not. A plated dish is sold as itself
+     * and priced at item level; a meal sold by weight — caramelised onions at
+     * 1 kg to a kitchen and 200 g to a diner — carries a `b2b` and a `b2c` pack
+     * so each channel's price states the size it buys. Every reader already
+     * falls back from a pack to the item-level row (`PriceResolver`'s variant
+     * rule, `LineProbe::offeredPack()`), so a meal with no pack sells exactly
+     * as it did before. Readiness still does not demand a pack of a meal.
      */
-    public function variantType(): ?VariantType
+    public function variantType(): VariantType
     {
         return match ($this) {
-            self::Product, self::Sauce, self::Dressing, self::FrozenMeal => VariantType::Pack,
+            self::Product, self::Sauce, self::Dressing, self::FrozenMeal, self::Meal => VariantType::Pack,
             self::SubscriptionPlan => VariantType::PlanConfiguration,
-            self::Meal => null,
         };
     }
 

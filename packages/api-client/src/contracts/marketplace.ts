@@ -15,7 +15,7 @@ import type {
     SalesChannel,
     SubscriptionPlanId,
 } from '@healthy360/domain-types';
-import type { NutritionFacts, Serving } from '@healthy360/nutrition';
+import type { MeasureUnit, NutritionFacts, Serving } from '@healthy360/nutrition';
 
 import type {
     CursorPage,
@@ -124,6 +124,15 @@ export interface MealAvailability {
     readonly orderCutOffAt: IsoDateTime | null;
 }
 
+/**
+ * The size a price buys: `{ quantity: 0.3, unit: 'kg' }` is a 300 g bottle. Carried beside a price so
+ * a sauce's 3.00 is never read as a price per kilo.
+ */
+export interface PackSize {
+    readonly quantity: number;
+    readonly unit: MeasureUnit;
+}
+
 export interface MarketplaceMeal {
     readonly id: MealId;
     readonly kitchenId: KitchenId;
@@ -148,6 +157,8 @@ export interface MarketplaceMeal {
     readonly nutrition: NutritionFacts;
     /** The consumer price. B2B pricing is deliberately not representable here. */
     readonly price: Money;
+    /** What `price` buys — the B2C pack's size. `null` for a dish priced as itself. */
+    readonly pack: PackSize | null;
     readonly preparationMinutes: number | null;
     readonly imagePlaceholderId: string;
     readonly availability: readonly MealAvailability[];
@@ -260,7 +271,8 @@ export interface MealFilter extends CursorPageRequest {
     readonly query?: string | undefined;
     readonly kitchenIds?: readonly KitchenId[] | undefined;
     /** Restrict to any of `meal`, `product`, `sauce`, `dressing`. Omit for all. */
-    readonly itemTypes?: readonly ('meal' | 'product' | 'sauce' | 'dressing' | 'frozen_meal')[] | undefined;
+    readonly itemTypes?:
+        readonly ('meal' | 'product' | 'sauce' | 'dressing' | 'frozen_meal')[] | undefined;
     /** One published-category code; an unknown code matches nothing. */
     readonly categorySlug?: string | undefined;
     readonly mealTypes?: readonly MealType[] | undefined;

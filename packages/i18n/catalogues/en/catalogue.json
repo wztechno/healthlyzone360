@@ -98,6 +98,7 @@
         "availabilityNone": "This kitchen has not published an availability window for this dish.",
         "priceTitle": "Price",
         "priceEach": "{{price}} per serving",
+        "pricePerPack": "{{price}} per {{size}}",
         "channelsTitle": "How this dish is sold",
         "b2cAvailable": "Available to households",
         "b2cUnavailable": "Not sold to households",

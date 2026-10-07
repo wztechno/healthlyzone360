@@ -10,7 +10,7 @@ import { mealsFromPages, useMealsQuery } from '../../../data/catalogue-hooks.ts'
 import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
 import { StorefrontHero } from '../../../ui/storefront-hero.tsx';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
-import { formatMoney, nutrientValue } from '../format.ts';
+import { formatMoney, formatPackSize, nutrientValue } from '../format.ts';
 import { MealCard } from '../meal-card.tsx';
 import { QueryStates } from '../query-states.tsx';
 import {
@@ -289,6 +289,14 @@ export function DiscoverScreen() {
                                     </View>
                                     <RNText className="text-base text-content-primary text-end">
                                         {formatMoney(formatter, meal.price)}
+                                        {meal.pack === null ? null : (
+                                            <RNText className="text-sm text-content-secondary">
+                                                {' '}
+                                                {t('marketplace:packSize.per', {
+                                                    size: formatPackSize(t, formatter, meal.pack),
+                                                })}
+                                            </RNText>
+                                        )}
                                     </RNText>
                                 </Pressable>
                             ))}

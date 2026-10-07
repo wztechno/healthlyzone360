@@ -7,7 +7,7 @@ import { Pressable, Text as RNText, View } from 'react-native';
 
 import { EntityImage } from '../../media/entity-image.tsx';
 
-import { formatMoney } from './format.ts';
+import { formatMoney, formatPackSize } from './format.ts';
 
 /**
  * One dish on a kitchen's storefront: a square thumbnail, the name, a line of description, the
@@ -120,6 +120,17 @@ export function StorefrontMenuRow({ meal, onPress, onAdd, testID }: StorefrontMe
                             className="shrink text-base font-semibold text-content-primary text-start"
                         >
                             {formatMoney(formatter, meal.price)}
+                            {meal.pack === null ? null : (
+                                <RNText
+                                    testID={`${resolvedTestID}-pack`}
+                                    className="text-sm font-normal text-content-secondary"
+                                >
+                                    {' '}
+                                    {t('marketplace:packSize.per', {
+                                        size: formatPackSize(t, formatter, meal.pack),
+                                    })}
+                                </RNText>
+                            )}
                         </RNText>
 
                         {onAdd === undefined ? null : (

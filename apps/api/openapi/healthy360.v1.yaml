@@ -4793,8 +4793,9 @@ paths:
         revives it.
 
         `variant_type` is derived from the item's own type and is never
-        accepted: a product has packs, a subscription plan has configurations,
-        and a **meal has neither**, so a submission against one is refused.
+        accepted: a product or a meal has packs (a meal sold by weight sizes
+        its B2B and B2C packs; a plated dish has none), and a subscription plan
+        has configurations.
         A pack must state its size; a plan configuration must not carry one.
 
         Exactly one variant is the default. Two marked defaults is a stated
@@ -4843,6 +4844,97 @@ paths:
                           $ref: '#/components/schemas/AdminCatalogueItemVariant'
                   meta:
                     $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/items/{item}/channel-prices:
+    get:
+      operationId: getCatalogueItemChannelPrices
+      tags: [Sellable catalogue]
+      summary: Read an item's B2B and B2C weight and price
+      description: |
+        The pair the v6 sheet states per article: B2B weight and price, B2C
+        weight and price. The weight is the item's pack coded `b2b` or `b2c`;
+        the price is that pack's standing confirmed base price on the list the
+        kitchen's B2B (or B2C web) channel quotes to a buyer with no agreement.
+        A channel is `null` when the kitchen has no such channel with an active
+        price list. Requires `price_list.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The item's channel offer.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemChannelPricesEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      operationId: setCatalogueItemChannelPrices
+      tags: [Sellable catalogue]
+      summary: Set an item's B2B and/or B2C weight and price
+      description: |
+        A channel left out is untouched; a channel sent as `null` stops being
+        sold there (its standing price closes, the pack keeps its weight). A
+        channel sent with a weight upserts its `b2b`/`b2c` pack and sets its
+        price, or withdraws the price when `amount_minor` is null. Prices are
+        written through the price list's history rules: an unchanged amount
+        writes nothing, a change supersedes. Pricing an article on a channel
+        that has never offered it adds an item-level offer there.
+
+        **`If-Match` carries the item's `lock_version`**. Requires
+        `catalogue.manage_organisation` and `price_list.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetItemChannelPricesRequest'
+      responses:
+        '200':
+          description: The item's channel offer as it now stands.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemChannelPricesEnvelope'
         '400':
           $ref: '#/components/responses/RequestInvalid'
         '401':
@@ -26619,6 +26711,85 @@ components:
           maxLength: 200
       additionalProperties: false
 
+    ItemChannelOffer:
+      type: object
+      description: One channel's side of the pair.
+      required: [sales_channel_id, price_list_id, currency_code, pack, amount_minor]
+      properties:
+        sales_channel_id:
+          $ref: '#/components/schemas/Uuid'
+        price_list_id:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: The list the price is written to.
+        currency_code:
+          $ref: '#/components/schemas/CurrencyCode'
+        pack:
+          description: The pack's weight, or null when the item has no pack for this channel.
+          oneOf:
+            - $ref: '#/components/schemas/PackSize'
+            - type: 'null'
+        amount_minor:
+          type: ['integer', 'null']
+          minimum: 1
+          description: Whole minor units of `currency_code`, or null when the pack is not priced.
+      additionalProperties: false
+    ItemChannelPricesEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [item_id, lock_version, channels]
+          properties:
+            item_id:
+              $ref: '#/components/schemas/Uuid'
+            lock_version:
+              type: integer
+              minimum: 0
+            channels:
+              type: object
+              required: [b2b, b2c]
+              properties:
+                b2b:
+                  oneOf:
+                    - $ref: '#/components/schemas/ItemChannelOffer'
+                    - type: 'null'
+                b2c:
+                  oneOf:
+                    - $ref: '#/components/schemas/ItemChannelOffer'
+                    - type: 'null'
+              additionalProperties: false
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/Meta'
+    SetItemChannelOffer:
+      type: object
+      required: [quantity, unit]
+      properties:
+        quantity:
+          type: number
+          exclusiveMinimum: 0
+        unit:
+          type: string
+          description: A measurement unit code, such as `g`, `kg`, `ml`, `l` or `piece`.
+        amount_minor:
+          type: ['integer', 'null']
+          minimum: 1
+      additionalProperties: false
+    SetItemChannelPricesRequest:
+      type: object
+      description: Each key optional; absent is untouched, null stops selling on that channel.
+      properties:
+        b2b:
+          oneOf:
+            - $ref: '#/components/schemas/SetItemChannelOffer'
+            - type: 'null'
+        b2c:
+          oneOf:
+            - $ref: '#/components/schemas/SetItemChannelOffer'
+            - type: 'null'
+      additionalProperties: false
     ReplaceCatalogueItemVariantsRequest:
       type: object
       required: [variants]
@@ -28178,6 +28349,22 @@ components:
           type: boolean
       additionalProperties: false
 
+    PackSize:
+      type: object
+      description: |
+        The size a price is quoted for. `size` is a decimal string in
+        `unit` — `0.3` with `kg` is 300 g. Never converted server-side. Named
+        `size`, not `quantity`, because public surfaces never carry a key that
+        could be read as a recipe quantity.
+      required: [size, unit]
+      properties:
+        size:
+          type: string
+          pattern: '^[0-9]+(\.[0-9]+)?$'
+        unit:
+          type: string
+          description: A measurement unit code — `g`, `kg`, `ml`, `l`, `piece`, …
+      additionalProperties: false
     MarketplaceMoney:
       type: object
       description: |
@@ -28551,7 +28738,7 @@ components:
 
     MarketplaceMeal:
       type: object
-      required: [id, kitchen_id, kitchen_name, item_type, published_category, name, slug, description, meal_types, diet_classifications, cuisines, allergens, serving, nutrition, price, preparation_minutes, image_placeholder_id, availability, channels, rating, rating_count]
+      required: [id, kitchen_id, kitchen_name, item_type, published_category, name, slug, description, meal_types, diet_classifications, cuisines, allergens, serving, nutrition, price, pack, preparation_minutes, image_placeholder_id, availability, channels, rating, rating_count]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -28655,6 +28842,13 @@ components:
             - type: 'null'
         price:
           $ref: '#/components/schemas/MarketplaceMoney'
+        pack:
+          description: |
+            What `price` buys — a 300 g bottle, a 1 kg tray. Null when the item
+            is priced as itself (a plated dish).
+          oneOf:
+            - $ref: '#/components/schemas/PackSize'
+            - type: 'null'
         preparation_minutes:
           type: ['integer', 'null']
           description: Always null; no column records how long a dish takes to make.
@@ -38736,7 +38930,7 @@ components:
 
     B2bCatalogueItem:
       type: object
-      required: [id, name, item_type, seller_organisation_id, sales_channel_id, price]
+      required: [id, name, item_type, seller_organisation_id, sales_channel_id, price, pack]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -38776,7 +38970,14 @@ components:
             omitted from the list and is a `404` on the single read, because
             an article with no current tariff is not a cheaper article, it is
             one this buyer cannot order.
-      description: One article as a corporate buyer sees it — one name, one price, no tariff paperwork.
+        pack:
+          description: |
+            What `price` buys — the B2B pack's size, `1` `kg` for a sauce sold
+            by the kilo. Null when the price is quoted for the item itself.
+          oneOf:
+            - $ref: '#/components/schemas/PackSize'
+            - type: 'null'
+      description: One article as a corporate buyer sees it — one name, one price and the size it buys, no tariff paperwork.
 
     B2bCustomerAccount:
       type: object

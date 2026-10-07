@@ -306,6 +306,7 @@ interface MealSeed {
     readonly itemType?: 'meal' | 'product' | undefined;
     readonly mealTypes?: readonly MealType[] | undefined;
     readonly allergens?: readonly AllergenCode[] | undefined;
+    readonly pack?: MarketplaceMeal['pack'] | undefined;
 }
 
 function testMeal(seed: MealSeed): MarketplaceMeal {
@@ -334,6 +335,7 @@ function testMeal(seed: MealSeed): MarketplaceMeal {
         },
         nutrition,
         price: { amount: 4500, currency: 'AED' },
+        pack: seed.pack ?? null,
         preparationMinutes: itemType === 'meal' ? 25 : null,
         imagePlaceholderId: `meal-${seed.slug}`,
         availability: [{ date: '2026-08-20', available: true, remaining: 8, orderCutOffAt: null }],
@@ -358,6 +360,7 @@ const MEALS: readonly MarketplaceMeal[] = [
         slug: 'verdant-chilli-sauce',
         kitchen: VERDANT,
         itemType: 'product',
+        pack: { quantity: 0.3, unit: 'kg' },
     }),
 ];
 
@@ -817,6 +820,20 @@ describe('KitchenMenuScreen', () => {
         expect(screen.getByTestId('meal-card-verdant-chilli-sauce')).toBeTruthy();
         expect(screen.queryByTestId('meal-card-verdant-harvest-bowl')).toBeNull();
         expect(screen.queryAllByTestId(/^meal-card-.*-nutrition$/)).toHaveLength(0);
+    });
+
+    it('says what a packed price buys, in the unit on the label', async () => {
+        await renderStubScreen(<KitchenMenuScreen kitchenId={String(VERDANT.id)} />, {
+            repositories: { marketplace: { getKitchen, listMeals } },
+        });
+
+        await waitFor(() => screen.getByTestId('kitchen-menu-grid'));
+
+        // 0.3 kg reads as the 300 g on the bottle; a dish priced as itself states no size.
+        expect(screen.getByTestId('meal-card-verdant-chilli-sauce-pack')).toHaveTextContent(
+            '/ 300 g',
+        );
+        expect(screen.queryByTestId('meal-card-verdant-harvest-bowl-pack')).toBeNull();
     });
 });
 

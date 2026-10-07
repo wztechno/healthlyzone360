@@ -29,7 +29,7 @@ import { View } from 'react-native';
 import { useMealQuery } from '../../../data/catalogue-hooks.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { useSession } from '../../../session/session-provider.tsx';
-import { formatMoney } from '../../marketplace/format.ts';
+import { formatMoney, formatPackSize } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { AllergenList } from '../allergen-list.tsx';
@@ -499,9 +499,14 @@ function MealCommercePanel({ item, signedIn, pending, errored, onAdd }: MealComm
                 <Stack space="xs">
                     <Text variant="label">{t('catalogue:meal.priceTitle')}</Text>
                     <Text testID="meal-detail-price" variant="bodyStrong">
-                        {t('catalogue:meal.priceEach', {
-                            price: formatMoney(formatter, item.price),
-                        })}
+                        {item.pack === null
+                            ? t('catalogue:meal.priceEach', {
+                                  price: formatMoney(formatter, item.price),
+                              })
+                            : t('catalogue:meal.pricePerPack', {
+                                  price: formatMoney(formatter, item.price),
+                                  size: formatPackSize(t, formatter, item.pack),
+                              })}
                     </Text>
                 </Stack>
 

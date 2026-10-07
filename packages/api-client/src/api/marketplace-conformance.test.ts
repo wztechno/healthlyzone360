@@ -137,6 +137,7 @@ const RECORDED_MEALS = {
             serving: null,
             nutrition: null,
             price: { amount: 4200, currency: 'USD' },
+            pack: null,
             preparation_minutes: null,
             image_placeholder_id: 'meal-grilled-chicken-freekeh',
             availability: [
@@ -177,6 +178,7 @@ const RECORDED_MEALS = {
             serving: null,
             nutrition: null,
             price: { amount: 3800, currency: 'USD' },
+            pack: { size: '0.3', unit: 'kg' },
             preparation_minutes: null,
             image_placeholder_id: 'meal-mezze-plate',
             availability: [],
@@ -283,6 +285,9 @@ describe('the api marketplace repository', () => {
 
         const meal = page.items[0];
         expect(meal?.price).toEqual({ amount: 4200, currency: 'USD' });
+        // Priced as itself, so no size; the second row's price buys a 300 g pack.
+        expect(meal?.pack).toBeNull();
+        expect(page.items[1]?.pack).toEqual({ quantity: 0.3, unit: 'kg' });
         expect(meal?.allergens).toEqual(['gluten']);
         expect(meal?.availability[0]?.orderCutOffAt).toBe('2026-08-02T18:00:00+04:00');
         expect(meal?.availability[0]?.remaining).toBeNull();

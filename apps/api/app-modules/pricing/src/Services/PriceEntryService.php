@@ -174,6 +174,88 @@ final readonly class PriceEntryService
     }
 
     /**
+     * One base price on one list, set or withdrawn without restating the rest
+     * of the list — what the item editor's B2B/B2C block writes.
+     *
+     * The same history rules as {@see replace()}, applied to one pricing
+     * point (the item, the pack, no quantity tier): an unchanged amount writes
+     * nothing, a different one closes the standing row and supersedes it, and
+     * `null` closes it with no successor. The list's lock version still moves,
+     * so a merchandiser holding the whole tariff open is told it changed
+     * rather than overwriting this price with a stale copy.
+     *
+     * @throws ApiException
+     */
+    public function setBasePrice(PriceList $priceList, string $catalogueItemId, ?string $catalogueItemVariantId, ?int $amountMinor): void
+    {
+        $this->lists->assertEditable($priceList);
+
+        if ($amountMinor !== null && $amountMinor <= 0) {
+            throw $this->invalid('amount_minor', 'A confirmed price is greater than zero.');
+        }
+
+        $today = CarbonImmutable::now()->startOfDay();
+
+        $changed = DB::transaction(function () use ($priceList, $catalogueItemId, $catalogueItemVariantId, $amountMinor, $today): bool {
+            $incumbent = PriceListItem::withoutTenancy()
+                ->where('price_list_id', $priceList->getKey())
+                ->where('catalogue_item_id', $catalogueItemId)
+                ->where('catalogue_item_variant_id', $catalogueItemVariantId)
+                ->whereNull('min_quantity')
+                ->openRows()
+                ->lockForUpdate()
+                ->first();
+
+            $attributes = [
+                'catalogue_item_id' => $catalogueItemId,
+                'catalogue_item_variant_id' => $catalogueItemVariantId,
+                'min_quantity' => null,
+                'unit_amount_minor' => $amountMinor,
+                'price_status' => PriceStatus::Confirmed,
+            ];
+
+            if ($amountMinor === null ? $incumbent === null : ($incumbent !== null && $this->statesTheSamePrice($incumbent, $attributes))) {
+                return false;
+            }
+
+            $this->lists->compareAndSwap($priceList, ['updated_by' => $this->context->userId()], (int) $priceList->lock_version);
+
+            if ($incumbent !== null) {
+                $this->close($incumbent, $today);
+            }
+
+            if ($amountMinor !== null) {
+                $replacement = $this->open($priceList, $attributes, $today);
+
+                if ($incumbent !== null) {
+                    $this->link($incumbent, $replacement);
+                }
+            }
+
+            return true;
+        });
+
+        if (! $changed) {
+            return;
+        }
+
+        $this->audit->record(
+            'catalogue.price_entry_set',
+            actorUserId: $this->context->userId(),
+            subjectType: 'price_list',
+            subjectId: (string) $priceList->getKey(),
+            metadata: [
+                'changed_fields' => ['entries'],
+                'catalogue_item_id' => $catalogueItemId,
+                'catalogue_item_variant_id' => $catalogueItemVariantId,
+                'withdrawn' => $amountMinor === null,
+                'currency' => $priceList->currency_code,
+                'lock_version' => $priceList->lock_version,
+            ],
+        );
+    }
+
+    /**
      * Whether the standing row already says exactly what the submission says.
      *
      * Amount and status only. Everything else about a row — when it started,

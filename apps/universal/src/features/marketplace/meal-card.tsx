@@ -9,7 +9,7 @@ import { Text as RNText, View } from 'react-native';
 import { EntityImage, MediaChip } from '../../media/entity-image.tsx';
 import { BrowseCard } from '../../ui/browse-card.tsx';
 
-import { formatMoney, nutrientValue } from './format.ts';
+import { formatMoney, formatPackSize, nutrientValue } from './format.ts';
 
 /**
  * A meal on a kitchen's menu.
@@ -275,6 +275,17 @@ export function MealCard({ meal, onPress, onAdd, testID }: MealCardProps) {
                     className="shrink text-xl leading-tight text-content-primary text-start"
                 >
                     {formatMoney(formatter, meal.price)}
+                    {meal.pack === null ? null : (
+                        <RNText
+                            testID={`${resolvedTestID}-pack`}
+                            className="text-sm font-normal text-content-secondary"
+                        >
+                            {' '}
+                            {t('marketplace:packSize.per', {
+                                size: formatPackSize(t, formatter, meal.pack),
+                            })}
+                        </RNText>
+                    )}
                 </RNText>
 
                 {onAdd === undefined ? null : (

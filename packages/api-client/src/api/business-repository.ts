@@ -23,7 +23,7 @@ import type {
 } from '../contracts/business.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
 import { emptyPage } from '../contracts/pagination.ts';
-import { pathSegment } from './marketplace-mappers.ts';
+import { mapPackSize, pathSegment } from './marketplace-mappers.ts';
 import type { Transport } from './transport.ts';
 
 /**
@@ -89,6 +89,7 @@ interface WireB2bCatalogueItem {
     readonly seller_organisation_id: string;
     readonly sales_channel_id: string;
     readonly price: { readonly amount_minor: number; readonly currency_code: string } | null;
+    readonly pack: { readonly size: string; readonly unit: string } | null;
 }
 
 interface WireB2bCatalogueIndex {
@@ -140,6 +141,7 @@ function mapCatalogueItem(
         volumeTiers: [],
         contractPrice:
             wire.price === null ? null : money(wire.price.amount_minor, wire.price.currency_code),
+        pack: mapPackSize(wire.pack),
         leadTimeDays: 0,
         deliveryWeekdays: [],
         channels: ['b2b'],

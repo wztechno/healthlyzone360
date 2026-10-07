@@ -34,6 +34,8 @@ import type {
     ServiceArea,
     SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
+    ItemChannelPrices,
+    SetItemChannelPricesRequest,
     SetDeliveryWindowsRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
@@ -1386,6 +1388,53 @@ export function useSetProductChannelAvailabilityMutation(): UseMutationResult<
         mutationFn: ({ productId, request }: SetProductChannelAvailabilityVariables) =>
             repositories.kitchenAdmin.setProductChannelAvailability(productId, request),
         onSuccess: onWritten,
+    });
+}
+
+/* ── B2B / B2C weight and price ──────────────────────────────────────────────────────────────── */
+
+/** An article's B2B and B2C weight and price — a product, a sauce or a meal. */
+export function useItemChannelPricesQuery(
+    itemId: ProductId | MealId | null,
+): UseQueryResult<ItemChannelPrices> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.itemChannelPrices(itemId ?? ''),
+        enabled: repositories !== null && itemId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (itemId === null) throw new Error('No item identifier.');
+            return repositories.kitchenAdmin.getItemChannelPrices(itemId);
+        },
+    });
+}
+
+export interface SetItemChannelPricesVariables {
+    readonly itemId: ProductId | MealId;
+    readonly request: SetItemChannelPricesRequest;
+}
+
+/**
+ * Writes the B2B/B2C packs and their prices together. The packs are the item's, so the item's lock
+ * version moves: everything under `kitchenAdmin` is refetched so the product or meal form on the
+ * same page picks up the new version instead of being refused on its next save.
+ */
+export function useSetItemChannelPricesMutation(): UseMutationResult<
+    ItemChannelPrices,
+    unknown,
+    SetItemChannelPricesVariables
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ itemId, request }: SetItemChannelPricesVariables) =>
+            repositories.kitchenAdmin.setItemChannelPrices(itemId, request),
+        onSuccess: (prices, { itemId }) => {
+            queryClient.setQueryData(queryKeys.kitchenAdmin.itemChannelPrices(itemId), prices);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+        },
     });
 }
 

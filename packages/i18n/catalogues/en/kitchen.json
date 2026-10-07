@@ -3786,5 +3786,22 @@
         "price": "Price",
         "marginLow": "Below {{percent}}%",
         "marginBelowCost": "Below cost"
+    },
+    "channelPrices": {
+        "title": "B2B and B2C",
+        "hint": "The weight each channel sells and its price. Customers see the B2C pair; corporate buyers see the B2B pair. Leave a price empty to keep the weight without selling on that channel.",
+        "b2b": "B2B",
+        "b2c": "B2C",
+        "weight": "{{channel}} weight",
+        "unit": "{{channel}} unit",
+        "price": "{{channel}} price",
+        "save": "Save prices",
+        "saved": "B2B and B2C prices saved.",
+        "failed": "The prices could not be saved. Nothing was changed.",
+        "conflict": "Someone changed this item while you were editing. The latest weights and prices are shown; check them and save again.",
+        "noPriceList": "This kitchen has no {{channel}} price list yet, so there is nowhere to put a {{channel}} price. Set one up under Price lists.",
+        "weightInvalid": "A weight is a number greater than zero.",
+        "priceInvalid": "A price is a number greater than zero.",
+        "priceNeedsWeight": "Say how much this price buys: add a weight."
     }
 }

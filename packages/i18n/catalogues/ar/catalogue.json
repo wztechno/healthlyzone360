@@ -98,6 +98,7 @@
         "availabilityNone": "لم ينشر هذا المطبخ نافذة توفّر لهذا الطبق.",
         "priceTitle": "السعر",
         "priceEach": "{{price}} للحصة",
+        "pricePerPack": "{{price}} لكل {{size}}",
         "channelsTitle": "كيف يُباع هذا الطبق",
         "b2cAvailable": "متاح للأفراد والمنازل",
         "b2cUnavailable": "غير مُباع للمنازل",

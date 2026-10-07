@@ -1563,6 +1563,20 @@ export const zRetireCatalogueItemRequest = z.object({
     reason: z.string().max(200).nullish()
 });
 
+export const zSetItemChannelOffer = z.object({
+    quantity: z.number().gt(0),
+    unit: z.string(),
+    amount_minor: z.int().gte(1).nullish()
+});
+
+/**
+ * Each key optional; absent is untouched, null stops selling on that channel.
+ */
+export const zSetItemChannelPricesRequest = z.object({
+    b2b: zSetItemChannelOffer.nullish(),
+    b2c: zSetItemChannelOffer.nullish()
+});
+
 export const zReplaceCatalogueItemVariantsRequest = z.object({
     variants: z.array(z.object({
         id: zUuid.nullish(),
@@ -2381,6 +2395,41 @@ export const zAdminDeliveryArea = z.object({
 });
 
 /**
+ * The size a price is quoted for. `size` is a decimal string in
+ * `unit` — `0.3` with `kg` is 300 g. Never converted server-side. Named
+ * `size`, not `quantity`, because public surfaces never carry a key that
+ * could be read as a recipe quantity.
+ *
+ */
+export const zPackSize = z.object({
+    size: z.string().regex(/^[0-9]+(\.[0-9]+)?$/),
+    unit: z.string()
+});
+
+/**
+ * One channel's side of the pair.
+ */
+export const zItemChannelOffer = z.object({
+    sales_channel_id: zUuid,
+    price_list_id: zUuid,
+    currency_code: zCurrencyCode,
+    pack: zPackSize.nullable(),
+    amount_minor: z.int().gte(1).nullable()
+});
+
+export const zItemChannelPricesEnvelope = z.object({
+    data: z.object({
+        item_id: zUuid,
+        lock_version: z.int().gte(0),
+        channels: z.object({
+            b2b: zItemChannelOffer.nullable(),
+            b2c: zItemChannelOffer.nullable()
+        })
+    }),
+    meta: zMeta
+});
+
+/**
  * An integer number of minor units and its currency code. `4200` with
  * `AED` is 42.00 AED. Amounts are never formatted server-side and never
  * travel without their currency (master plan v2 §4.4).
@@ -2625,6 +2674,7 @@ export const zMarketplaceMeal = z.object({
     serving: zMarketplaceServing.nullable(),
     nutrition: zMarketplaceNutritionFacts.nullable(),
     price: zMarketplaceMoney,
+    pack: zPackSize.nullable(),
     preparation_minutes: z.int().nullable(),
     image_placeholder_id: z.string(),
     availability: z.array(zMarketplaceAvailability),
@@ -7553,7 +7603,7 @@ export const zQuoteQuotationRequest = z.object({
 });
 
 /**
- * One article as a corporate buyer sees it — one name, one price, no tariff paperwork.
+ * One article as a corporate buyer sees it — one name, one price and the size it buys, no tariff paperwork.
  */
 export const zB2bCatalogueItem = z.object({
     id: zUuid,
@@ -7564,7 +7614,8 @@ export const zB2bCatalogueItem = z.object({
     price: z.object({
         amount_minor: z.int(),
         currency_code: zCurrencyCode
-    }).nullable()
+    }).nullable(),
+    pack: zPackSize.nullable()
 });
 
 /**
@@ -11135,6 +11186,43 @@ export const zReplaceCatalogueItemVariantsResponse = z.object({
     }),
     meta: zMeta
 });
+
+export const zGetCatalogueItemChannelPricesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetCatalogueItemChannelPricesPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item's channel offer.
+ */
+export const zGetCatalogueItemChannelPricesResponse = zItemChannelPricesEnvelope;
+
+export const zSetCatalogueItemChannelPricesBody = zSetItemChannelPricesRequest;
+
+export const zSetCatalogueItemChannelPricesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSetCatalogueItemChannelPricesPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item's channel offer as it now stands.
+ */
+export const zSetCatalogueItemChannelPricesResponse = zItemChannelPricesEnvelope;
 
 export const zReplaceCatalogueItemIngredientsBody = zReplaceCatalogueItemIngredientsRequest;
 
