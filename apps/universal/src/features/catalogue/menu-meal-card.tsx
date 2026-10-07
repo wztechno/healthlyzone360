@@ -7,6 +7,7 @@ import { Pressable, Text as RNText, View } from 'react-native';
 import { EntityImage } from '../../media/entity-image.tsx';
 import { formatMoney } from '../marketplace/format.ts';
 import { isSoldOut, leadTag, publishedFigure, unavailableReason } from './meal-readings.ts';
+import { PackSuffix } from '../marketplace/pack-suffix.tsx';
 
 /**
  * HealthZone's meal card, as the menu grid draws it (`customer.dc.html`, `§isCatalog`).
@@ -148,6 +149,7 @@ export function MenuMealCard({ meal, onOpen, onAdd, testID }: MenuMealCardProps)
                         className="shrink font-display text-lg font-bold tabular-nums text-content-primary text-start"
                     >
                         {formatMoney(formatter, meal.price)}
+                        <PackSuffix pack={meal.pack} testID={`${id}-pack`} />
                     </RNText>
                     <View className="shrink-0">
                         <Button
@@ -237,6 +239,7 @@ export function RelatedMealCard({ meal, onOpen, testID }: RelatedMealCardProps) 
                     className="shrink-0 font-display text-lg font-bold tabular-nums text-content-primary"
                 >
                     {formatMoney(formatter, meal.price)}
+                    <PackSuffix pack={meal.pack} testID={`${id}-pack`} />
                 </RNText>
             </View>
         </Pressable>

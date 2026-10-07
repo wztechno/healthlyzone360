@@ -268,6 +268,7 @@ function meal(ordinal: number, name: string, slug: string, owner: Kitchen): Mark
         },
         nutrition: facts(),
         price: { amount: 4500, currency: 'AED' },
+        pack: null,
         preparationMinutes: 20,
         imagePlaceholderId: `meal-${slug}`,
         availability: [],

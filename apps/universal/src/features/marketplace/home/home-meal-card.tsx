@@ -8,6 +8,7 @@ import { Pressable, Text as RNText, View } from 'react-native';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { formatMoney, nutrientValue } from '../format.ts';
+import { PackSuffix } from '../pack-suffix.tsx';
 
 export interface HomeMealCardProps {
     readonly meal: MarketplaceMeal;
@@ -184,6 +185,7 @@ export function HomeMealCard({ meal, tag, onOpen, onAdd, testID }: HomeMealCardP
                         className="shrink font-display text-xl font-bold tabular-nums text-content-primary text-start"
                     >
                         {formatMoney(formatter, meal.price)}
+                        <PackSuffix pack={meal.pack} testID={`${id}-pack`} />
                     </RNText>
                     <View className="shrink-0">
                         <Button

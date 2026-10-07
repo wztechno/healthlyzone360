@@ -22,6 +22,7 @@ import type {
 } from '@healthy360/domain-types';
 import type { MeasureUnit, NutritionFacts, Serving } from '@healthy360/nutrition';
 
+import type { PackSize } from './marketplace.ts';
 import type { CursorPage, CursorPageRequest, OffsetPageRequest } from './pagination.ts';
 
 /**
@@ -1487,6 +1488,52 @@ export interface SetChannelAvailabilityRequest extends LockedRequest {
 }
 
 /* ------------------------------------------------------------------------------------------------
+ * B2B / B2C weight and price
+ * ---------------------------------------------------------------------------------------------- */
+
+/** The two channels an article is priced on, as the v6 sheet states them. */
+export type TradeChannel = 'b2b' | 'b2c';
+
+/**
+ * One channel's side of an article's offer: the pack it sells (its `b2b` or `b2c` pack variant) and
+ * that pack's standing price on the list the channel quotes from. `amountMinor` is `null` while the
+ * pack is not priced.
+ */
+export interface ItemChannelOffer {
+    readonly salesChannelId: string;
+    readonly priceListId: PriceListId;
+    readonly currency: CurrencyCode;
+    readonly pack: PackSize | null;
+    readonly amountMinor: number | null;
+}
+
+/**
+ * An article's B2B and B2C weight and price. A channel is `null` when the kitchen has no such
+ * channel with an active price list, so there is nowhere to write the price.
+ */
+export interface ItemChannelPrices {
+    readonly lockVersion: number;
+    readonly b2b: ItemChannelOffer | null;
+    readonly b2c: ItemChannelOffer | null;
+}
+
+export interface SetItemChannelOffer {
+    readonly quantity: number;
+    readonly unit: MeasureUnit;
+    /** `null` keeps the pack and withdraws its price. */
+    readonly amountMinor: number | null;
+}
+
+/**
+ * Only the channels being changed. Absent is untouched; `null` stops selling on that channel (its
+ * price closes, the pack keeps its weight). `lockVersion` is the **item's**.
+ */
+export interface SetItemChannelPricesRequest extends LockedRequest {
+    readonly b2b?: SetItemChannelOffer | null | undefined;
+    readonly b2c?: SetItemChannelOffer | null | undefined;
+}
+
+/* ------------------------------------------------------------------------------------------------
  * Price lists
  * ---------------------------------------------------------------------------------------------- */
 
@@ -2167,6 +2214,12 @@ export interface KitchenAdminRepository {
         productId: ProductId,
         request: SetChannelAvailabilityRequest,
     ): Promise<ProductAdmin>;
+    /** The B2B and B2C weight and price of any sold article — a product, a sauce or a meal. */
+    getItemChannelPrices(itemId: ProductId | MealId): Promise<ItemChannelPrices>;
+    setItemChannelPrices(
+        itemId: ProductId | MealId,
+        request: SetItemChannelPricesRequest,
+    ): Promise<ItemChannelPrices>;
 
     /* ── price lists ────────────────────────────────────────────────────────────────────────── */
 

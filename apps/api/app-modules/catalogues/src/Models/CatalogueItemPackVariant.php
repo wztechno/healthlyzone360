@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $net_weight_grams
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
+ * @property-read MeasurementUnit|null $unit
  */
 #[Classified(DataClassification::Public, 'pack_quantity', 'pack_piece_count', 'pack_format', 'net_weight_grams')]
 class CatalogueItemPackVariant extends BaseModel implements OrganisationScoped
@@ -69,5 +70,36 @@ class CatalogueItemPackVariant extends BaseModel implements OrganisationScoped
     public function unit(): BelongsTo
     {
         return $this->belongsTo(MeasurementUnit::class, 'pack_unit_id');
+    }
+
+    /**
+     * The size a buyer is paying for when a price quotes this variant — `0.3`
+     * `kg` for a 300 g bottle — or null for an item-level price or a variant
+     * with no pack row. Public by classification, so safe for any surface that
+     * already shows the price.
+     *
+     * The size is the pack quantity's decimal without trailing zeros, a string so
+     * no float rounding happens on the way to the wire.
+     *
+     * @return array{size: string, unit: string}|null
+     */
+    public static function sizeOf(?string $variantId): ?array
+    {
+        if ($variantId === null) {
+            return null;
+        }
+
+        $pack = self::withoutTenancy()->with('unit')->whereKey($variantId)->first();
+
+        if (! $pack instanceof self || ! $pack->unit instanceof MeasurementUnit) {
+            return null;
+        }
+
+        $quantity = (string) $pack->pack_quantity;
+
+        return [
+            'size' => str_contains($quantity, '.') ? rtrim(rtrim($quantity, '0'), '.') : $quantity,
+            'unit' => $pack->unit->code,
+        ];
     }
 }

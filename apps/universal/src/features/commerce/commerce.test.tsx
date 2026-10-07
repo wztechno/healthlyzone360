@@ -342,6 +342,7 @@ function testMeal(seed: MealSeed): MarketplaceMeal {
             },
         },
         price: { amount: seed.priceMinorUnits, currency: AED },
+        pack: null,
         preparationMinutes: 25,
         imagePlaceholderId: `meal-${String(seed.ordinal)}`,
         availability: [{ date: '2026-08-20', available: true, remaining: 8, orderCutOffAt: null }],

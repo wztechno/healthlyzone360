@@ -76,6 +76,7 @@
         "emptyBody": "لا يوجد بند متفق عليه يطابق ما طلبته.",
         "clearFilters": "امسح عوامل التصفية",
         "contractPrice": "سعر العقد {{price}}",
+        "contractPricePerPack": "سعر العقد {{price}} لكل {{size}}",
         "unpriced": "لم يُتفق على سعر عقد لهذا البند بعد.",
         "minimum": "الحد الأدنى للطلب: {{count}}",
         "leadTime": "مهلة التجهيز بالأيام: {{count}}",

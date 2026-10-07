@@ -31,6 +31,8 @@ import type {
     IngredientAdmin,
     IngredientAllergenMapping,
     IngredientCategoryAdmin,
+    ItemChannelOffer,
+    ItemChannelPrices,
     PackagingBasis,
     RecipePackagingLine,
     MealAdmin,
@@ -67,7 +69,7 @@ import type {
 } from '../contracts/kitchen-admin.ts';
 import { ALLERGEN_CONTAINMENTS, isRecipeKind } from '../contracts/kitchen-admin.ts';
 import { UNKNOWN_ISO_DATE_TIME } from './mappers.ts';
-import { mapNutritionFacts } from './marketplace-mappers.ts';
+import { mapNutritionFacts, mapPackSize } from './marketplace-mappers.ts';
 import type {
     AdminCatalogueItem,
     AdminCatalogueItemVariant,
@@ -109,6 +111,7 @@ import type {
     BranchOperatingDay as WireBranchOperatingDay,
     CatalogueItemStatus,
     DeliveryZoneStatus,
+    ItemChannelPricesEnvelope,
     PriceStatus,
     TechnicalSheet as WireTechnicalSheet,
     WeeklyCost as WireWeeklyCost,
@@ -1582,4 +1585,32 @@ export function priceListChannelsFromAssignments(
         if (!channels.includes(mapped)) channels.push(mapped);
     }
     return channels;
+}
+
+/* ── B2B / B2C weight and price ──────────────────────────────────────────────────────────────── */
+
+export type WireItemChannelPrices = ItemChannelPricesEnvelope['data'];
+type WireItemChannelOffer = NonNullable<WireItemChannelPrices['channels']['b2b']>;
+
+/**
+ * Wire → `ItemChannelPrices`. A channel whose currency this build cannot format is read as absent
+ * rather than shown as a bare number, the rule every money mapper here follows.
+ */
+export function mapItemChannelPrices(wire: WireItemChannelPrices): ItemChannelPrices {
+    const offer = (row: WireItemChannelOffer | null): ItemChannelOffer | null =>
+        row === null || !isCurrencyCode(row.currency_code)
+            ? null
+            : {
+                  salesChannelId: row.sales_channel_id,
+                  priceListId: PriceListId.unsafe(row.price_list_id),
+                  currency: row.currency_code,
+                  pack: mapPackSize(row.pack),
+                  amountMinor: row.amount_minor,
+              };
+
+    return {
+        lockVersion: wire.lock_version,
+        b2b: offer(wire.channels.b2b),
+        b2c: offer(wire.channels.b2c),
+    };
 }

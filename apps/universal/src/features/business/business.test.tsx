@@ -159,6 +159,7 @@ const STAFF_LUNCH_BOX: CatalogueItem = {
         volumeTier(3, 250, null, usd(2200), 4),
     ],
     contractPrice: usd(2600),
+    pack: null,
     leadTimeDays: 2,
     deliveryWeekdays: [1, 2, 3, 4, 5],
     channels: ['b2b', 'corporate', 'delivery'],
@@ -179,6 +180,7 @@ const WHOLESALE_PALLET: CatalogueItem = {
     minimumOrderQuantity: 200,
     volumeTiers: [volumeTier(4, 200, 499, sar(1150), 10), volumeTier(5, 500, null, sar(1050), 14)],
     contractPrice: sar(1150),
+    pack: { quantity: 12, unit: 'kg' },
     leadTimeDays: 10,
     deliveryWeekdays: [2, 4],
     channels: ['b2b', 'delivery'],
@@ -639,6 +641,11 @@ describe('corporate catalogue', () => {
             expect(screen.getByTestId(contractPriceTestId(WHOLESALE_PALLET.id))).toBeTruthy();
         });
         expect(screen.getAllByText(/SAR/).length).toBeGreaterThan(0);
+
+        // The B2B price says what it buys; the staff line, priced as itself, does not.
+        expect(screen.getByTestId(contractPriceTestId(WHOLESALE_PALLET.id))).toHaveTextContent(
+            /per 12 kg$/,
+        );
     });
 
     it('filters to a kind, then offers a way back out of an empty result', async () => {

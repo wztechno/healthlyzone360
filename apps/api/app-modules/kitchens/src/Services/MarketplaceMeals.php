@@ -10,6 +10,7 @@ use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Enums\VariantType;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemDietClassification;
+use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Services\DerivedAllergenService;
@@ -220,9 +221,11 @@ final readonly class MarketplaceMeals
     /**
      * What one meal or product costs, or null when nothing prices it.
      *
-     * Meals are priced at item level. Products from the workbook are priced on
-     * pack variants; {@see PriceResolver} deliberately refuses to invent an
-     * article price from a pack row, so the pack choice happens here.
+     * Most meals are priced at item level; products, sauces and meals sold by
+     * weight are priced on pack variants. {@see PriceResolver} deliberately
+     * refuses to invent an article price from a pack row, so the pack choice
+     * happens here — and an item with no pack falls through to its item-level
+     * row.
      *
      * Dual-pack rows (retail gram pack on B2C, kilo pack on B2B) often mark the
      * wholesale pack as `is_default` because it is first on the sheet. The
@@ -259,6 +262,26 @@ final readonly class MarketplaceMeals
 
             return null;
         });
+    }
+
+    /**
+     * The size the resolved price buys — `0.3 kg` for a sauce's B2C bottle —
+     * or null when the price is an item-level row.
+     *
+     * Read from the price itself rather than re-chosen, so the size shown can
+     * never belong to a different pack than the number beside it. Inside the
+     * kitchen's tenant context for the same reason as {@see priceOf()}.
+     *
+     * @return array{size: string, unit: string}|null
+     */
+    public function packSizeOf(CatalogueItem $item, ResolvedPrice $price): ?array
+    {
+        return $this->tenantContext->during(
+            null,
+            $item->organisation_id,
+            null,
+            static fn (): ?array => CatalogueItemPackVariant::sizeOf($price->catalogueItemVariantId),
+        );
     }
 
     /**

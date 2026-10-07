@@ -231,6 +231,8 @@ use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenReactivate
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenShowController;
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenStoreController;
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenSuspendController;
+use Healthy360\Pricing\Http\Controllers\ItemChannelPricesSetController;
+use Healthy360\Pricing\Http\Controllers\ItemChannelPricesShowController;
 use Healthy360\Pricing\Http\Controllers\PriceListArchiveController;
 use Healthy360\Pricing\Http\Controllers\PriceListChannelReplaceController;
 use Healthy360\Pricing\Http\Controllers\PriceListEntryIndexController;
@@ -1266,6 +1268,9 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/price-lists', PriceListIndexController::class)->name('catalogue.price-lists.index');
                 Route::get('/price-lists/{priceList}', PriceListShowController::class)->name('catalogue.price-lists.show');
                 Route::get('/price-lists/{priceList}/entries', PriceListEntryIndexController::class)->name('catalogue.price-lists.entries.index');
+
+                // An article's B2B and B2C weight and price, read as one pair.
+                Route::get('/items/{item}/channel-prices', ItemChannelPricesShowController::class)->name('catalogue.items.channel-prices.show');
             });
 
             Route::middleware(['org.trading', 'permission:price_list.manage_organisation'])->group(function (): void {
@@ -1282,6 +1287,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::put('/price-lists/{priceList}/channels', PriceListChannelReplaceController::class)
                     ->middleware('precondition')
                     ->name('catalogue.price-lists.channels.replace');
+
+                // The packs are the item's and the prices are the lists', so
+                // this write needs both permissions.
+                Route::put('/items/{item}/channel-prices', ItemChannelPricesSetController::class)
+                    ->middleware(['precondition', 'permission:catalogue.manage_organisation'])
+                    ->name('catalogue.items.channel-prices.set');
             });
 
             Route::middleware(['org.trading', 'permission:catalogue.publish_organisation'])->group(function (): void {

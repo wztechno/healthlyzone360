@@ -33,10 +33,16 @@ final readonly class ResolvedPrice
         public string $priceListItemId,
         /** The tier this price came from; null when it is the base price. */
         public ?string $minQuantity = null,
+        /**
+         * The pack this price quotes, or null for an item-level row. A pack
+         * price is a price for that pack's size, so a caller showing the
+         * number needs to know which pack said it.
+         */
+        public ?string $catalogueItemVariantId = null,
     ) {}
 
     /**
-     * @return array{amount_minor: int, currency_code: string, price_list_id: string, price_list_item_id: string, min_quantity: string|null}
+     * @return array{amount_minor: int, currency_code: string, price_list_id: string, price_list_item_id: string, min_quantity: string|null, catalogue_item_variant_id: string|null}
      */
     public function toArray(): array
     {
@@ -46,6 +52,7 @@ final readonly class ResolvedPrice
             'price_list_id' => $this->priceListId,
             'price_list_item_id' => $this->priceListItemId,
             'min_quantity' => $this->minQuantity,
+            'catalogue_item_variant_id' => $this->catalogueItemVariantId,
         ];
     }
 }

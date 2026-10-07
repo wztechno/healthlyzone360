@@ -17,6 +17,7 @@ import { HomeMealCard } from './home-meal-card.tsx';
 import { CATEGORY_COUNT, POPULAR_COUNT } from './use-home-meals.ts';
 import type { HomeCategory, HomeMeals } from './use-home-meals.ts';
 import { usePlanOffer } from './use-plan-offer.ts';
+import { PackSuffix } from '../pack-suffix.tsx';
 
 /**
  * The sections of the storefront home — HealthZone's `home` screen — as parts a screen composes.
@@ -556,6 +557,7 @@ export function HomeClosing({ testID, meals, offer }: HomeClosingProps) {
                                     </View>
                                     <RNText className="shrink-0 font-display text-base font-bold tabular-nums text-content-primary text-end">
                                         {formatMoney(formatter, meal.price)}
+                                        <PackSuffix pack={meal.pack} />
                                     </RNText>
                                 </Pressable>
                             );

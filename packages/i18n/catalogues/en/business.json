@@ -76,6 +76,7 @@
         "emptyBody": "No negotiated line matches what you asked for.",
         "clearFilters": "Clear the filters",
         "contractPrice": "Contract price {{price}}",
+        "contractPricePerPack": "Contract price {{price}} per {{size}}",
         "unpriced": "No contract price is agreed on this line yet.",
         "minimum": "Minimum order: {{count}}",
         "leadTime": "Lead time in days: {{count}}",

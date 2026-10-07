@@ -75,7 +75,8 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
         }
 
         const mealTypes = (selectedFilters['mealType'] ?? []) as readonly MealType[];
-        const itemTypes = (selectedFilters['itemType'] ?? []) as readonly (typeof ITEM_TYPES)[number][];
+        const itemTypes = (selectedFilters['itemType'] ??
+            []) as readonly (typeof ITEM_TYPES)[number][];
         const categorySlug = selectedFilters['category']?.[0];
         return {
             kitchenIds: [parsed],

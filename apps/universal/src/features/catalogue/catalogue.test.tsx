@@ -274,6 +274,7 @@ function testMeal(seed: MealSeed): MarketplaceMeal {
         },
         nutrition: testFacts(seed.protein === undefined ? {} : { protein: seed.protein }),
         price: { amount: 4500, currency: 'AED' },
+        pack: null,
         preparationMinutes: 25,
         imagePlaceholderId: `meal-${seed.slug}`,
         availability: [{ date: '2026-08-20', available: true, remaining: 8, orderCutOffAt: null }],
