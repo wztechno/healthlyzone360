@@ -2484,7 +2484,8 @@ export const zMarketplaceDeliveryZone = z.object({
     country_code: z.string().max(2),
     delivery_fee: zMarketplaceMoney.nullable(),
     minimum_order: zMarketplaceMoney.nullable(),
-    estimated_minutes: z.int().gte(0).nullable()
+    estimated_minutes: z.int().gte(0).nullable(),
+    window_codes: z.array(z.string())
 });
 
 /**

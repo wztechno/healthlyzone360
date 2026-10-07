@@ -210,6 +210,7 @@ export function mapDeliveryZone(wire: WireZone): DeliveryZone {
         deliveryFee: mapMoney(wire.delivery_fee),
         minimumOrder: mapMoney(wire.minimum_order),
         estimatedMinutes: wire.estimated_minutes,
+        windowCodes: wire.window_codes,
     };
 }
 

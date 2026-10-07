@@ -140,6 +140,7 @@ function kitchen(seed: Seed): Kitchen {
                         deliveryFee: { amount: seed.feeMinor, currency: 'AED' },
                         minimumOrder: { amount: 5000, currency: 'AED' },
                         estimatedMinutes: seed.minutes,
+                        windowCodes: [],
                     },
                 ],
                 openingHours: [...seed.hours],

@@ -1,6 +1,6 @@
 import { ApiError, apiFailure } from '@healthy360/api-client';
 import type { Repositories } from '@healthy360/api-client';
-import { otpInvalidFailure } from '@healthy360/api-client/contracts';
+import { orderPlacementRefusedFailure, otpInvalidFailure } from '@healthy360/api-client/contracts';
 import type {
     Cart,
     CartItem,
@@ -20,6 +20,7 @@ import type { ReactNode } from 'react';
 
 import { appGuestTokenStore } from '../../session/guest-storage.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { zoneWindowCodes } from '../commerce/delivery.ts';
 import { validateGuestContact } from './contact.ts';
 import { GuestCheckoutScreen } from './screens/guest-checkout-screen.tsx';
 import { GuestDeletionScreen } from './screens/guest-deletion-screen.tsx';
@@ -134,8 +135,17 @@ function testPreview(overrides: Partial<CheckoutPreview> = {}): CheckoutPreview 
     };
 }
 
-/** A kitchen whose one active branch publishes exactly the areas the caller names. */
-function testKitchen(areas: readonly string[] = [SERVED_AREA]): Kitchen {
+/** Every fallback slot, so a zone that names them all filters nothing. */
+const ALL_SLOTS = ['morning', 'midday', 'evening'] as const;
+
+/**
+ * A kitchen whose one active branch publishes exactly the areas the caller names, every zone
+ * offering the slots named.
+ */
+function testKitchen(
+    areas: readonly string[] = [SERVED_AREA],
+    windowCodes: readonly string[] = ALL_SLOTS,
+): Kitchen {
     const branch: KitchenBranch = {
         id: 'kitchen-branch-0001' as KitchenBranch['id'],
         kitchenId: 'kitchen-0001' as KitchenBranch['kitchenId'],
@@ -151,6 +161,7 @@ function testKitchen(areas: readonly string[] = [SERVED_AREA]): Kitchen {
             deliveryFee: money(800),
             minimumOrder: null,
             estimatedMinutes: 45,
+            windowCodes,
         })),
         openingHours: [],
         supportsPickup: false,
@@ -321,13 +332,16 @@ function testDeletionOutcome(overrides: Partial<GuestDeletionOutcome> = {}): Gue
 }
 
 /** The three reads every checkout render makes before a person touches anything. */
-function checkoutBackdrop(areas: readonly string[] = [SERVED_AREA]) {
+function checkoutBackdrop(
+    areas: readonly string[] = [SERVED_AREA],
+    windowCodes: readonly string[] = ALL_SLOTS,
+) {
     return {
         commerce: {
             getCart: async () => testCart(),
             previewCheckout: async () => testPreview(),
         },
-        marketplace: { getKitchen: async () => testKitchen(areas) },
+        marketplace: { getKitchen: async () => testKitchen(areas, windowCodes) },
     };
 }
 
@@ -693,6 +707,151 @@ describe('the guest checkout', () => {
         await fireEvent.press(screen.getByTestId('guest-checkout-block-1-change'));
         await waitFor(() => screen.getByTestId('guest-checkout-contact-continue'));
         expect(screen.getByTestId('guest-checkout-contact-email-input').props.editable).toBe(true);
+    });
+
+    /**
+     * Slots follow the zone the typed area falls in: placement refuses any other
+     * (`window_not_offered`), so the chips never offer one. An unmatched area filters nothing.
+     */
+    it('offers only the matched zone’s slots and falls back to the first when midday is not one', async () => {
+        const { repositories } = await renderStubScreen(<GuestCheckoutScreen />, {
+            repositories: {
+                ...checkoutBackdrop([SERVED_AREA], ['morning', 'evening']),
+                guest: {
+                    startSession: async () => draftSession(),
+                    updateContact: async () => ({
+                        contact: testGuestContact(),
+                        challenge: testChallenge(),
+                    }),
+                    getChallenge: async () => testChallenge(),
+                    confirmContact: async () => promotedSession(),
+                    placeOrder: async () => testOrder(),
+                },
+            },
+        });
+
+        await fillContactStep(repositories);
+        await answerPasscode();
+
+        // An area no zone covers filters nothing: every slot, the house default chosen.
+        await fillAddressStep(UNSERVED_AREA);
+        await waitFor(() => screen.getByTestId('guest-checkout-slot-evening'));
+        for (const code of ALL_SLOTS) {
+            expect(screen.getByTestId(`guest-checkout-slot-${code}`)).toBeTruthy();
+        }
+        expect(
+            screen.getByTestId('guest-checkout-slot-midday').props.accessibilityState,
+        ).toMatchObject({ checked: true });
+
+        // The zone's area: only its slots, and midday - which it does not run - gives way to the first.
+        await fireEvent.changeText(screen.getByTestId('guest-checkout-address-area'), SERVED_AREA);
+        await waitFor(() => {
+            expect(screen.queryByTestId('guest-checkout-slot-midday')).toBeNull();
+        });
+        expect(screen.getByTestId('guest-checkout-slot-evening')).toBeTruthy();
+        expect(
+            screen.getByTestId('guest-checkout-slot-morning').props.accessibilityState,
+        ).toMatchObject({ checked: true });
+
+        await fireEvent.press(screen.getByTestId('guest-checkout-place'));
+        await waitFor(() => {
+            expect(repositories.guest.placeOrder).toHaveBeenCalledWith(
+                expect.objectContaining({ slotCode: 'morning' }),
+            );
+        });
+    });
+
+    it('says so and will not place when the matched zone offers no slot', async () => {
+        const { repositories } = await renderStubScreen(<GuestCheckoutScreen />, {
+            repositories: {
+                ...checkoutBackdrop([SERVED_AREA], []),
+                guest: {
+                    startSession: async () => draftSession(),
+                    updateContact: async () => ({
+                        contact: testGuestContact(),
+                        challenge: testChallenge(),
+                    }),
+                    getChallenge: async () => testChallenge(),
+                    confirmContact: async () => promotedSession(),
+                },
+            },
+        });
+
+        await fillContactStep(repositories);
+        await answerPasscode();
+        await fillAddressStep();
+
+        await waitFor(() => screen.getByTestId('guest-checkout-slot-none'));
+        expect(screen.getByTestId('guest-checkout-slot-none')).toHaveTextContent(/Business Bay/);
+        expect(screen.queryByTestId('guest-checkout-slot')).toBeNull();
+        expect(screen.getByTestId('guest-checkout-place').props.accessibilityState).toMatchObject({
+            disabled: true,
+        });
+        await fireEvent.press(screen.getByTestId('guest-checkout-place'));
+        expect(repositories.guest.placeOrder).not.toHaveBeenCalled();
+    });
+
+    it('offers the union when the area matches more than one zone', () => {
+        const kitchen = testKitchen([SERVED_AREA, SERVED_AREA]);
+        const [branch] = kitchen.branches;
+        if (branch === undefined) throw new Error('the test kitchen has a branch');
+        const [first, second] = branch.deliveryZones;
+        if (first === undefined || second === undefined) throw new Error('two zones');
+        const twoZones: Kitchen = {
+            ...kitchen,
+            branches: [
+                {
+                    ...branch,
+                    deliveryZones: [
+                        { ...first, windowCodes: ['morning'] },
+                        { ...second, windowCodes: ['evening'] },
+                    ],
+                },
+            ],
+        };
+
+        expect(zoneWindowCodes(twoZones, ' business bay ')).toEqual(['morning', 'evening']);
+        expect(zoneWindowCodes(twoZones, UNSERVED_AREA)).toBeNull();
+        expect(zoneWindowCodes(twoZones, '')).toBeNull();
+    });
+
+    it('names a window_not_offered refusal in words', async () => {
+        const { repositories } = await renderStubScreen(<GuestCheckoutScreen />, {
+            repositories: {
+                ...checkoutBackdrop(),
+                guest: {
+                    startSession: async () => draftSession(),
+                    updateContact: async () => ({
+                        contact: testGuestContact(),
+                        challenge: testChallenge(),
+                    }),
+                    getChallenge: async () => testChallenge(),
+                    confirmContact: async () => promotedSession(),
+                    placeOrder: () =>
+                        Promise.reject(
+                            new ApiError(
+                                orderPlacementRefusedFailure([
+                                    {
+                                        reason: 'window_not_offered',
+                                        context: { delivery_window_code: 'midday' },
+                                    },
+                                ]),
+                            ),
+                        ),
+                },
+            },
+        });
+
+        await fillContactStep(repositories);
+        await fillAddressStep();
+        await answerPasscode();
+        await fireEvent.press(screen.getByTestId('guest-checkout-place'));
+
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('guest-checkout-place-error-reason-window_not_offered'),
+            ).toHaveTextContent(/does not offer that delivery slot/);
+        });
     });
 
     it('recovers a timed-out session to the first step instead of showing an error page', async () => {

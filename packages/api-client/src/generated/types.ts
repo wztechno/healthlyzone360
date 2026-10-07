@@ -3775,6 +3775,14 @@ export type MarketplaceDeliveryZone = {
     delivery_fee: MarketplaceMoney | null;
     minimum_order: MarketplaceMoney | null;
     estimated_minutes: number | null;
+    /**
+     * The codes of the kitchen's `delivery_windows` this zone offers —
+     * assigned to the zone and active — in display order. Guest checkout
+     * offers only these slots once the guest's area falls in the zone;
+     * placement refuses any other with `window_not_offered`.
+     *
+     */
+    window_codes: Array<string>;
 };
 
 /**

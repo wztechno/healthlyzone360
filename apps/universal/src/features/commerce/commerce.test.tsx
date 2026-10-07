@@ -245,6 +245,7 @@ const KITCHEN_BRANCH: KitchenBranch = {
         deliveryFee: { amount: 1500, currency: AED },
         minimumOrder: null,
         estimatedMinutes: 45,
+        windowCodes: [],
     })),
     openingHours: [],
     supportsPickup: false,

@@ -8,6 +8,7 @@ use Healthy360\Delivery\Enums\DeliveryZoneStatus;
 use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Models\DeliveryZoneArea;
+use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Organisations\Enums\BranchStatus;
 use Healthy360\Organisations\Enums\OrganisationStatus;
@@ -54,7 +55,10 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final readonly class MarketplaceKitchens
 {
-    public function __construct(private DatabaseTenantContext $tenantContext) {}
+    public function __construct(
+        private DatabaseTenantContext $tenantContext,
+        private ZoneWindowService $zoneWindows,
+    ) {}
 
     /**
      * The base query: every kitchen a customer may see, unordered.
@@ -214,8 +218,12 @@ final readonly class MarketplaceKitchens
      * kitchen's page is entitled to see the whole map, not the winner of a
      * lookup they have not made yet.
      *
+     * Each zone also carries the window codes it offers (assigned and active,
+     * `ZoneWindowService`'s rule), so guest checkout — which has no preview —
+     * can offer only the slots the guest's zone runs.
+     *
      * @param  list<OrganisationBranch>  $branches
-     * @return array<string, list<array{zone: DeliveryZone, areas: list<DeliveryArea>}>>
+     * @return array<string, list<array{zone: DeliveryZone, areas: list<DeliveryArea>, window_codes: list<string>}>>
      */
     public function deliveryZonesOf(Organisation $kitchen, array $branches): array
     {
@@ -258,6 +266,8 @@ final readonly class MarketplaceKitchens
             }
         }
 
+        $windowCodesByZone = $this->zoneWindows->offeredCodesByZone(array_map('strval', $zones->modelKeys()));
+
         $byBranch = [];
 
         foreach ($branches as $branch) {
@@ -272,6 +282,7 @@ final readonly class MarketplaceKitchens
                 $byBranch[$branchId][] = [
                     'zone' => $zone,
                     'areas' => $areasByZone[(string) $zone->getKey()] ?? [],
+                    'window_codes' => $windowCodesByZone[(string) $zone->getKey()] ?? [],
                 ];
             }
         }

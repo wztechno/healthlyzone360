@@ -115,7 +115,7 @@ final class MarketplaceKitchenPresenter
     }
 
     /**
-     * @param  list<array{zone: DeliveryZone, areas: list<DeliveryArea>}>  $zones
+     * @param  list<array{zone: DeliveryZone, areas: list<DeliveryArea>, window_codes: list<string>}>  $zones
      * @param  list<BranchOpeningHour>  $hours
      * @return array<string, mixed>
      */
@@ -139,7 +139,7 @@ final class MarketplaceKitchenPresenter
             'country_code' => $branch->country_code,
             'time_zone' => $branch->timezone,
             'delivery_zones' => array_map(
-                fn (array $zone): array => $this->zone($zone['zone'], $zone['areas'], $locale),
+                fn (array $zone): array => $this->zone($zone['zone'], $zone['areas'], $locale, $zone['window_codes']),
                 $zones,
             ),
             'opening_hours' => array_map($this->openingHours(...), $hours),
@@ -163,10 +163,14 @@ final class MarketplaceKitchenPresenter
      * and dropping the rest — would tell a customer in Deira that a zone
      * covering four places covers Al Quoz.
      *
+     * `window_codes` are the slots the zone offers — guest checkout filters
+     * the kitchen's `delivery_windows` by them once the guest's area matches.
+     *
      * @param  list<DeliveryArea>  $areas
+     * @param  list<string>  $windowCodes
      * @return array<string, mixed>
      */
-    public function zone(DeliveryZone $zone, array $areas, string $locale): array
+    public function zone(DeliveryZone $zone, array $areas, string $locale, array $windowCodes): array
     {
         $names = array_map(
             static fn (DeliveryArea $area): string => $locale === 'ar' ? $area->name_ar : $area->name_en,
@@ -181,6 +185,7 @@ final class MarketplaceKitchenPresenter
             'delivery_fee' => self::money($zone->delivery_fee_minor, $zone->currency_code),
             'minimum_order' => self::money($zone->minimum_order_minor, $zone->currency_code),
             'estimated_minutes' => $zone->estimated_minutes,
+            'window_codes' => $windowCodes,
         ];
     }
 

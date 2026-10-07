@@ -1,5 +1,6 @@
 import type {
     DeliverySlot,
+    DeliveryZone,
     Kitchen,
     KitchenDeliveryWindow,
 } from '@healthy360/api-client/contracts';
@@ -70,10 +71,6 @@ export function deliverySlotsForKitchen(
     return windows.map(windowToSlotOption);
 }
 
-export function defaultSlotCodeForKitchen(kitchen: Kitchen | undefined | null): string {
-    return defaultSlotCode(deliverySlotsForKitchen(kitchen)) ?? DEFAULT_SLOT_CODE;
-}
-
 /** The house default when the list offers it, otherwise the first slot; `null` for an empty list. */
 export function defaultSlotCode(slots: readonly DeliverySlotOption[]): string | null {
     if (slots.some((slot) => slot.code === DEFAULT_SLOT_CODE)) return DEFAULT_SLOT_CODE;
@@ -140,5 +137,28 @@ export function deliveryAreaStatus(kitchen: Kitchen | undefined, area: string): 
     const areas = servedAreas(kitchen);
     if (areas.length === 0) return 'unknown';
     if (normalise(area).length === 0) return 'unknown';
-    return areas.some((served) => normalise(served) === normalise(area)) ? 'served' : 'unserved';
+    return matchedZones(kitchen, area).length > 0 ? 'served' : 'unserved';
+}
+
+/** The active branches' zones whose published area label is the typed area — the same match as above. */
+export function matchedZones(kitchen: Kitchen | undefined, area: string): readonly DeliveryZone[] {
+    const typed = normalise(area);
+    if (kitchen === undefined || typed.length === 0) return [];
+    return kitchen.branches
+        .filter((branch) => branch.isActive)
+        .flatMap((branch) => branch.deliveryZones)
+        .filter((zone) => normalise(zone.area) === typed);
+}
+
+/**
+ * The slot codes offered where the typed area falls — the union when several zones match, because
+ * which of them placement resolves cannot be known from a label. `null` while no zone matches (the area is unknown or
+ * unserved), which {@link offeredSlots} reads as "filter nothing"; `[]` is a zone offering no slot.
+ */
+export function zoneWindowCodes(
+    kitchen: Kitchen | undefined,
+    area: string,
+): readonly string[] | null {
+    const zones = matchedZones(kitchen, area);
+    return zones.length === 0 ? null : zones.flatMap((zone) => zone.windowCodes);
 }

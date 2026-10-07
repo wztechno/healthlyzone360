@@ -30017,6 +30017,7 @@ components:
         - delivery_fee
         - minimum_order
         - estimated_minutes
+        - window_codes
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -30046,6 +30047,15 @@ components:
             - integer
             - 'null'
           minimum: 0
+        window_codes:
+          type: array
+          description: |
+            The codes of the kitchen's `delivery_windows` this zone offers —
+            assigned to the zone and active — in display order. Guest checkout
+            offers only these slots once the guest's area falls in the zone;
+            placement refuses any other with `window_not_offered`.
+          items:
+            type: string
       additionalProperties: false
     MarketplaceOpeningHours:
       type: object

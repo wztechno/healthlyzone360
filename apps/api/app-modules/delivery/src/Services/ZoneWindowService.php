@@ -183,17 +183,39 @@ final readonly class ZoneWindowService
      */
     public function offeredCodes(DeliveryZone $zone): array
     {
-        /** @var list<string> $codes */
-        $codes = DeliveryWindow::withoutTenancy()
+        return $this->offeredCodesByZone([(string) $zone->getKey()])[(string) $zone->getKey()] ?? [];
+    }
+
+    /**
+     * `offeredCodes()` for many zones in one query — the marketplace kitchen
+     * payload publishes each zone's offered codes so guest checkout can filter
+     * its slots. Zones offering nothing are absent; callers default to `[]`.
+     *
+     * @param  list<string>  $zoneIds
+     * @return array<string, list<string>>
+     */
+    public function offeredCodesByZone(array $zoneIds): array
+    {
+        if ($zoneIds === []) {
+            return [];
+        }
+
+        $map = [];
+
+        $rows = DeliveryWindow::withoutTenancy()
             ->join('delivery_zone_windows', 'delivery_zone_windows.delivery_window_id', '=', 'delivery_windows.id')
-            ->where('delivery_zone_windows.delivery_zone_id', $zone->getKey())
+            ->whereIn('delivery_zone_windows.delivery_zone_id', $zoneIds)
             ->where('delivery_windows.is_active', true)
             ->orderBy('delivery_windows.display_order')
             ->orderBy('delivery_windows.code')
-            ->pluck('delivery_windows.code')
-            ->all();
+            ->toBase()
+            ->get(['delivery_zone_windows.delivery_zone_id', 'delivery_windows.code']);
 
-        return $codes;
+        foreach ($rows as $row) {
+            $map[(string) $row->delivery_zone_id][] = (string) $row->code;
+        }
+
+        return $map;
     }
 
     /**

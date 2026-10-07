@@ -62,6 +62,7 @@ const RECORDED_KITCHENS = {
                             delivery_fee: { amount: 1500, currency: 'USD' },
                             minimum_order: { amount: 5000, currency: 'USD' },
                             estimated_minutes: 90,
+                            window_codes: ['morning', 'midday'],
                         },
                         {
                             id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1bb2',
@@ -71,6 +72,7 @@ const RECORDED_KITCHENS = {
                             delivery_fee: { amount: 2500, currency: 'USD' },
                             minimum_order: { amount: 3000, currency: 'USD' },
                             estimated_minutes: 30,
+                            window_codes: [],
                         },
                     ],
                     opening_hours: [
@@ -270,6 +272,10 @@ describe('the api marketplace repository', () => {
             amount: 1500,
             currency: 'USD',
         });
+        expect(kitchen?.branches[0]?.deliveryZones.map((zone) => zone.windowCodes)).toEqual([
+            ['morning', 'midday'],
+            [],
+        ]);
 
         // A closed day is a row with no times, and it survives the mapping as one.
         expect(kitchen?.branches[0]?.openingHours[1]).toEqual({

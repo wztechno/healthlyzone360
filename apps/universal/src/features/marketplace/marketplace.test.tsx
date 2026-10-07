@@ -138,6 +138,7 @@ function testZone(ordinal: number): DeliveryZone {
         deliveryFee: { amount: 1200, currency: 'AED' },
         minimumOrder: { amount: 5000, currency: 'AED' },
         estimatedMinutes: 45,
+        windowCodes: [],
     };
 }
 

@@ -28546,7 +28546,7 @@ components:
         One kitchen's published terms for reaching a set of places. The fee and
         the minimum are what the kitchen *charges*, never what the food costs
         it — which is why they are publishable at all.
-      required: [id, name, area, country_code, delivery_fee, minimum_order, estimated_minutes]
+      required: [id, name, area, country_code, delivery_fee, minimum_order, estimated_minutes, window_codes]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -28574,6 +28574,15 @@ components:
         estimated_minutes:
           type: ['integer', 'null']
           minimum: 0
+        window_codes:
+          type: array
+          description: |
+            The codes of the kitchen's `delivery_windows` this zone offers —
+            assigned to the zone and active — in display order. Guest checkout
+            offers only these slots once the guest's area falls in the zone;
+            placement refuses any other with `window_not_offered`.
+          items:
+            type: string
       additionalProperties: false
 
     MarketplaceOpeningHours:

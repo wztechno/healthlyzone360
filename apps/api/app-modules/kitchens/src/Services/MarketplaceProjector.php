@@ -41,7 +41,7 @@ final class MarketplaceProjector
      *     branches: list<OrganisationBranch>,
      *     hours: list<BranchOpeningHour>,
      *     windows: list<DeliveryWindow>,
-     *     zones: array<string, list<array{zone: DeliveryZone, areas: list<DeliveryArea>}>>,
+     *     zones: array<string, list<array{zone: DeliveryZone, areas: list<DeliveryArea>, window_codes: list<string>}>>,
      *     channels: array{b2c: bool, b2b: bool, marketplace: bool, pos: bool, subscription: bool, delivery: bool, pickup: bool, corporate: bool},
      *     listing_channels: list<SalesChannel>,
      *     availability: list<array{date: string, available: bool, remaining: null, order_cut_off_at: string|null}>
@@ -185,7 +185,7 @@ final class MarketplaceProjector
      *     branches: list<OrganisationBranch>,
      *     hours: list<BranchOpeningHour>,
      *     windows: list<DeliveryWindow>,
-     *     zones: array<string, list<array{zone: DeliveryZone, areas: list<DeliveryArea>}>>,
+     *     zones: array<string, list<array{zone: DeliveryZone, areas: list<DeliveryArea>, window_codes: list<string>}>>,
      *     channels: array{b2c: bool, b2b: bool, marketplace: bool, pos: bool, subscription: bool, delivery: bool, pickup: bool, corporate: bool},
      *     listing_channels: list<SalesChannel>,
      *     availability: list<array{date: string, available: bool, remaining: null, order_cut_off_at: string|null}>

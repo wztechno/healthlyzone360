@@ -47,6 +47,11 @@ export interface DeliveryZone {
     readonly minimumOrder: Money | null;
     /** Minutes from order to delivery, as advertised. */
     readonly estimatedMinutes: number | null;
+    /**
+     * Codes of the kitchen's `deliveryWindows` this zone offers (assigned and active), in display
+     * order. Guest checkout offers only these once the guest's area matches the zone.
+     */
+    readonly windowCodes: readonly string[];
 }
 
 export interface OpeningHours {
