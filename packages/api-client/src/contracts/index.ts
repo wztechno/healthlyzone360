@@ -573,6 +573,7 @@ export type {
     OrderDeskCustomerOrigin,
     OrderDeskCustomerSearch,
     OrderDeskDeliveryJob,
+    OrderDeskDeliveryWindow,
     OrderDeskDriver,
     OrderDeskDrivers,
     OrderDeskFulfilmentType,
@@ -604,6 +605,7 @@ export type {
     DriverJobDelivery,
     DriverJobStatus,
     DriverJobsRepository,
+    DriverRunSheet,
     DriverJobTrackingStatus,
 } from './driver-jobs.ts';
 

@@ -14,6 +14,7 @@ import type {
     OrderDeskCustomerAddress,
     OrderDeskCustomerCreated,
     OrderDeskCustomerSearch,
+    OrderDeskDeliveryWindow,
     OrderDeskDrivers,
     OrderDeskQueue,
     OrderDeskQueueFilters,
@@ -28,6 +29,7 @@ import type {
 import type {
     AssignedDeliveryJob as WireAssignedDeliveryJob,
     CustomerAddressEnvelope,
+    DeliveryWindow as WireDeliveryWindow,
     KitchenOrder as WireKitchenOrder,
     OrderDeskBasketLine as WireOrderDeskBasketLine,
     OrderDeskCalendarEnvelope,
@@ -352,6 +354,20 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
             };
         },
 
+        async listDeliveryWindows(): Promise<readonly OrderDeskDeliveryWindow[]> {
+            const windows = await transport.request<readonly WireDeliveryWindow[]>({
+                method: 'GET',
+                path: '/catalogue/order-desk/delivery-windows',
+            });
+            return windows.map((window) => ({
+                code: window.code,
+                nameEn: window.name_en,
+                nameAr: window.name_ar,
+                startsAt: window.starts_at,
+                endsAt: window.ends_at,
+            }));
+        },
+
         async getCashReport(filters: OrderDeskCashReportFilters): Promise<OrderDeskCashReport> {
             // `data` is an object carrying two arrays rather than the bare array the queue answers
             // — the wire's own shape, left alone here. The envelope is read whole because `meta`
@@ -390,6 +406,9 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 // Present on a counter sale, absent on the other two — a `422` either way, so the
                 // key is spread rather than set to `undefined`, which `exactOptionalPropertyTypes`
                 // would allow through as a present-but-empty field.
+                ...(request.driverUserId === undefined
+                    ? {}
+                    : { driver_user_id: request.driverUserId }),
                 ...(request.payment === undefined
                     ? {}
                     : {

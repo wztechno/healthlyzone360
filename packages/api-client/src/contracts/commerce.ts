@@ -454,6 +454,12 @@ export interface CommerceRepository {
      */
     placeOrder(request: PlaceOrderRequest): Promise<PlacedOrder>;
 
+    /** `GET /api/v1/me/orders` — the caller's own orders, newest first, keyset-paged. */
+    listMyOrders(request?: CursorPageRequest): Promise<CursorPage<PlacedOrder>>;
+
+    /** `GET /api/v1/me/orders/{order}` — one of the caller's orders; `resource.not_found` otherwise. */
+    getMyOrder(orderId: OrderId): Promise<PlacedOrder>;
+
     /** `POST /api/v1/subscriptions/preview`. */
     previewSubscription(configuration: SubscriptionConfiguration): Promise<SubscriptionPreview>;
 

@@ -315,6 +315,7 @@
             "nutrition": "التغذية",
             "virtualDietitian": "أخصائي التغذية الافتراضي",
             "subscriptions": "الاشتراكات",
+            "orders": "الطلبات",
             "cart": "السلة",
             "cartWithCount": "{{label}} ({{items}})",
             "profile": "الملف الشخصي"

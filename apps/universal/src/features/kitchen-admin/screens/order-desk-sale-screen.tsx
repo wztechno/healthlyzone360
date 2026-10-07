@@ -4,6 +4,8 @@ import type {
     KitchenOrderPaymentMethod,
     LocalisedText,
     OrderDeskCustomer,
+    OrderDeskDeliveryWindow,
+    OrderDeskDriver,
     OrderDeskFulfilmentType,
     OrderDeskQuote,
     OrderDeskSaleRequest,
@@ -14,6 +16,7 @@ import {
     Badge,
     Button,
     Callout,
+    DateField,
     EmptyState,
     ErrorState,
     FormGrid,
@@ -38,7 +41,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { Gate } from '../../../access/gate.tsx';
+import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     useAllergenClassesQuery,
@@ -51,10 +54,13 @@ import {
     useAddOrderDeskCustomerAddressMutation,
     useCreateOrderDeskCustomerMutation,
     useOrderDeskCustomerSearchQuery,
+    useOrderDeskDeliveryWindowsQuery,
+    useOrderDeskDriversQuery,
     useOrderDeskQuoteQuery,
     usePlaceOrderDeskSaleMutation,
 } from '../../../data/order-desk-hooks.ts';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
+import { todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CATALOGUE_PRIORITY } from '../catalogue/catalogue-column-spec.ts';
@@ -63,7 +69,7 @@ import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
-import { ORDER_CREATE_ON_BEHALF_PERMISSION } from '../entity-registry.ts';
+import { ORDER_CREATE_ON_BEHALF_PERMISSION, ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import {
     kitchenOrderPaymentMethodKey,
@@ -84,6 +90,7 @@ import {
     nextStep,
     paymentMethodsFor,
     previousStep,
+    scheduleFor,
     withCustomer,
     withFulfilmentType,
 } from '../order-desk/steps.ts';
@@ -249,6 +256,22 @@ function SaleWizard() {
 
     const place = usePlaceOrderDeskSaleMutation();
 
+    /*
+     * The day, the slot and the driver — Review-step inputs for the sales that need them. The slots
+     * are the kitchen's own active windows; the driver list is read only by somebody allowed to
+     * assign a run (`order.manage_organisation`), because the placement refuses a driver from
+     * anybody else and offering the picker would invite that refusal.
+     */
+    const windows = useOrderDeskDeliveryWindowsQuery(state.fulfilmentType !== 'counter');
+    const canAssign = useCan(ORDER_MANAGE_PERMISSION);
+    const drivers = useOrderDeskDriversQuery(canAssign && state.fulfilmentType === 'delivery');
+    const windowList = windows.data ?? [];
+    const schedule = scheduleFor(
+        state,
+        todayIso(),
+        windowList.map((window) => window.code),
+    );
+
     // Naming the leaf is what makes "Order desk" in the trail a link back.
     useKitchenTrailLeaf(t('kitchen:desk.sale.title'));
 
@@ -335,6 +358,15 @@ function SaleWizard() {
                 ...(state.customerAddressId === null
                     ? {}
                     : { customerAddressId: state.customerAddressId }),
+                ...(schedule === null
+                    ? {}
+                    : {
+                          requestedDeliveryDate: schedule.requestedDeliveryDate,
+                          ...(schedule.deliveryWindowCode === null
+                              ? {}
+                              : { deliveryWindowCode: schedule.deliveryWindowCode }),
+                      }),
+                ...(state.driverUserId === null ? {} : { driverUserId: state.driverUserId }),
                 ...(state.fulfilmentType === 'counter' && state.payment !== null
                     ? {
                           payment: {
@@ -358,10 +390,18 @@ function SaleWizard() {
                         setCompleted(order);
                         return;
                     }
+                    // A delivery comes back confirmed — its run already exists, assigned when a
+                    // driver was named and waiting in the drivers' pool when not.
+                    const toastKey =
+                        state.fulfilmentType !== 'delivery'
+                            ? 'kitchen:desk.sale.placedToast'
+                            : state.driverUserId === null
+                              ? 'kitchen:desk.sale.placedConfirmedToast'
+                              : 'kitchen:desk.sale.placedAssignedToast';
                     toast.show({
                         testID: 'kitchen-order-desk-sale-placed-toast',
                         tone: 'success',
-                        message: t('kitchen:desk.sale.placedToast', { number: order.orderNumber }),
+                        message: t(toastKey, { number: order.orderNumber }),
                     });
                     router.replace('/kitchen/order-desk');
                 },
@@ -517,6 +557,15 @@ function SaleWizard() {
                                 quote={quoted}
                                 onMethod={(method) => {
                                     update({ ...state, paymentMethod: method });
+                                }}
+                                windows={windowList}
+                                schedule={schedule}
+                                onSchedule={(next) => {
+                                    update({ ...state, ...next });
+                                }}
+                                drivers={drivers.data?.rows ?? null}
+                                onDriver={(driverUserId) => {
+                                    update({ ...state, driverUserId });
                                 }}
                             />
                         ) : null}
@@ -1696,10 +1745,23 @@ function ReviewStep({
     state,
     quote,
     onMethod,
+    windows,
+    schedule,
+    onSchedule,
+    drivers,
+    onDriver,
 }: {
     readonly state: SaleWizardState;
     readonly quote: OrderDeskQuote | null;
     readonly onMethod: (method: KitchenOrderPaymentMethod) => void;
+    readonly windows: readonly OrderDeskDeliveryWindow[];
+    readonly schedule: ReturnType<typeof scheduleFor>;
+    readonly onSchedule: (
+        next: Pick<SaleWizardState, 'requestedDeliveryDate' | 'deliveryWindowCode'>,
+    ) => void;
+    /** `null` when nobody here may assign, or the list is not in yet: no picker is drawn. */
+    readonly drivers: readonly OrderDeskDriver[] | null;
+    readonly onDriver: (driverUserId: string | null) => void;
 }) {
     const { t } = useTranslation();
     const { locale } = useLocale();
@@ -1788,10 +1850,102 @@ function ReviewStep({
                         />
                     </View>
                 )}
+
+                {schedule === null ? null : (
+                    // When it is cooked for. Defaults to today and the kitchen's default slot
+                    // (`scheduleFor`), so the agent only touches this when the caller asks.
+                    <View
+                        testID="kitchen-order-desk-sale-review-when"
+                        className="flex-col gap-hair"
+                    >
+                        <Text variant="strong">{t('kitchen:desk.sale.whenLabel')}</Text>
+                        <View style={{ width: fieldWidth }}>
+                            <DateField
+                                testID="kitchen-order-desk-sale-review-date"
+                                id="kitchen-order-desk-sale-review-date"
+                                label={t('kitchen:desk.sale.dateLabel')}
+                                value={schedule.requestedDeliveryDate}
+                                min={todayIso()}
+                                onChange={(requestedDeliveryDate) => {
+                                    onSchedule({
+                                        requestedDeliveryDate,
+                                        deliveryWindowCode: schedule.deliveryWindowCode,
+                                    });
+                                }}
+                            />
+                        </View>
+                        {windows.length === 0 ? (
+                            <Text
+                                testID="kitchen-order-desk-sale-review-no-slots"
+                                variant="caption"
+                                tone="secondary"
+                            >
+                                {t('kitchen:desk.sale.noSlots')}
+                            </Text>
+                        ) : (
+                            <View
+                                testID="kitchen-order-desk-sale-review-slot"
+                                role="radiogroup"
+                                aria-label={t('kitchen:desk.sale.slotLabel')}
+                                className="flex-row flex-wrap gap-tight"
+                            >
+                                {windows.map((window) => (
+                                    <ChoiceCard
+                                        key={window.code}
+                                        testID={`kitchen-order-desk-sale-review-slot-${window.code}`}
+                                        label={
+                                            locale.startsWith('ar') ? window.nameAr : window.nameEn
+                                        }
+                                        hint={
+                                            window.startsAt === null || window.endsAt === null
+                                                ? undefined
+                                                : t('kitchen:desk.sale.slotHours', {
+                                                      from: window.startsAt,
+                                                      to: window.endsAt,
+                                                  })
+                                        }
+                                        selected={schedule.deliveryWindowCode === window.code}
+                                        onPress={() => {
+                                            onSchedule({
+                                                requestedDeliveryDate:
+                                                    schedule.requestedDeliveryDate,
+                                                deliveryWindowCode: window.code,
+                                            });
+                                        }}
+                                    />
+                                ))}
+                            </View>
+                        )}
+                    </View>
+                )}
+
+                {state.fulfilmentType !== 'delivery' || drivers === null ? null : (
+                    <View style={{ width: fieldWidth }}>
+                        <Select<string>
+                            testID="kitchen-order-desk-sale-review-driver"
+                            label={t('kitchen:desk.sale.driverLabel')}
+                            hint={t('kitchen:desk.sale.driverHint')}
+                            value={state.driverUserId ?? NO_DRIVER}
+                            options={[
+                                { value: NO_DRIVER, label: t('kitchen:desk.sale.driverNone') },
+                                ...drivers.map((driver) => ({
+                                    value: driver.userId,
+                                    label: driver.displayName ?? EM_DASH,
+                                })),
+                            ]}
+                            onChange={(value) => {
+                                onDriver(value === NO_DRIVER ? null : value);
+                            }}
+                        />
+                    </View>
+                )}
             </View>
         </View>
     );
 }
+
+/** The driver picker's "nobody yet" option. Not a uuid, so it can never name a member. */
+const NO_DRIVER = 'none';
 
 /* ------------------------------------------------------------------------------------------------
  * After a counter sale

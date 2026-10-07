@@ -41,7 +41,7 @@ final class AddressDestroyController
     public function __invoke(Request $request, string $address): Response
     {
         $user = $this->currentUser($request);
-        $account = $this->customerAccount($user);
+        $account = $this->addressBookAccount($request, $user);
 
         $this->addresses->remove($this->addressFor($account, $address));
 

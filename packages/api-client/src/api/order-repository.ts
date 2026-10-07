@@ -2,6 +2,7 @@ import { OrderId, isCurrencyCode } from '@healthy360/domain-types';
 import type { Money } from '@healthy360/domain-types';
 
 import type {
+    CommerceRepository,
     DeliveryAddress,
     PlaceOrderRequest,
     PlacedOrder,
@@ -9,6 +10,7 @@ import type {
     PriceLine,
 } from '../contracts/commerce.ts';
 import { ApiError, apiFailure, validationFailure } from '../contracts/failure.ts';
+import type { CursorPage, CursorPageRequest } from '../contracts/pagination.ts';
 import type { OrderState } from '../contracts/commerce.ts';
 import type {
     CustomerOrder as WireOrder,
@@ -137,6 +139,49 @@ export function mapPlacedOrder(wire: WireOrder): PlacedOrder {
         slotCode: wire.delivery.window_code ?? '',
         deliveryDate: wire.delivery.requested_date ?? '',
         placedAt: wire.placed_at,
+    };
+}
+
+/**
+ * The caller's own orders — `GET /me/orders[/{order}]` — through the same mapper placement uses, so
+ * a confirmation and a history row are one shape. The list's `data` is the bare array; the detail
+ * wraps it in `{ order }`, exactly as placement does. Keyset meta never counts, so `totalCount` is
+ * `null`.
+ */
+export function createApiMyOrderReads(
+    transport: Transport,
+): Pick<CommerceRepository, 'listMyOrders' | 'getMyOrder'> {
+    return {
+        async listMyOrders(request?: CursorPageRequest): Promise<CursorPage<PlacedOrder>> {
+            const query = new URLSearchParams();
+            if (request?.cursor !== undefined) query.set('cursor', request.cursor);
+            if (request?.limit !== undefined) query.set('limit', String(request.limit));
+            const search = query.toString();
+
+            const envelope = await transport.requestEnvelope<WireOrder[]>({
+                method: 'GET',
+                path: `/me/orders${search === '' ? '' : `?${search}`}`,
+            });
+            const meta = (envelope.meta ?? {}) as {
+                readonly next_cursor?: string | null;
+                readonly has_more?: boolean;
+            };
+
+            return {
+                items: envelope.data.map(mapPlacedOrder),
+                nextCursor: meta.next_cursor ?? null,
+                hasMore: meta.has_more ?? false,
+                totalCount: null,
+            };
+        },
+
+        async getMyOrder(orderId: OrderId): Promise<PlacedOrder> {
+            const payload = await transport.request<{ order: WireOrder }>({
+                method: 'GET',
+                path: `/me/orders/${encodeURIComponent(String(orderId))}`,
+            });
+            return mapPlacedOrder(payload.order);
+        },
     };
 }
 

@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { Gate } from '../../access/gate.tsx';
 import {
     toFailure,
+    useClaimDriverJobMutation,
     useDeliverDriverJobMutation,
     useDriverJobsQuery,
 } from '../../data/driver-jobs-hooks.ts';
@@ -31,7 +32,8 @@ import { useOnlineStatus } from '../../online/online-status.tsx';
  *
  * ## Whose jobs these are is not a question this screen asks
  *
- * `GET /driver/jobs` answers the signed-in driver's own live work and nothing else. The narrowing
+ * `GET /driver/jobs` answers the signed-in driver's own live work, plus the unassigned pool below
+ * it (see "The pool"). The narrowing
  * is `where driver_user_id = me`, which is ownership rather than authority, and it is why the two
  * driver routes carry no permission code at all. So there is no filter here, no branch picker and
  * no driver selector — not as a simplification, but because the endpoint has no parameter that
@@ -85,6 +87,15 @@ import { useOnlineStatus } from '../../online/online-status.tsx';
  * full-width action rather than a table with a row menu, and the card itself is **not** pressable —
  * a card that takes `onPress` around a button is an axe `nested-interactive` violation and, worse,
  * a target that closes a delivery when a thumb misses the button.
+ *
+ * ## The pool, and claiming from it
+ *
+ * Under the caller's own runs sits **Available runs**: confirmed deliveries nobody has been given
+ * yet. There is no driver role, so anybody on this screen may claim one; the first tap wins and the
+ * second is told somebody else got there (`resource.conflict`). Either way the sheet re-reads, so a
+ * claimed run moves up into the caller's list and a lost one simply leaves the pool. Claiming is
+ * not a confirmation dialog: it is reversible by the dispatcher, and it is the one action here a
+ * driver should be able to take with a thumb while walking to the van.
  *
  * ## Live-ness
  *
@@ -144,6 +155,7 @@ function DriverJobs() {
 
     const jobs = useDriverJobsQuery(true, { refetchInterval: online ? DRIVER_POLL_MS : false });
     const deliver = useDeliverDriverJobMutation();
+    const claim = useClaimDriverJobMutation();
 
     /** The job the confirmation is open for. `null` closes the dialog. */
     const [delivering, setDelivering] = useState<DriverJob | null>(null);
@@ -151,7 +163,10 @@ function DriverJobs() {
 
     const listFailure = toFailure(jobs.error);
     const actionFailure = toFailure(deliver.error);
-    const rows = jobs.data ?? [];
+    const claimFailure = toFailure(claim.error);
+    const rows = jobs.data?.jobs ?? [];
+    const available = jobs.data?.available ?? [];
+    const busy = deliver.isPending || claim.isPending;
 
     function openDeliver(job: DriverJob) {
         deliver.reset();
@@ -193,6 +208,18 @@ function DriverJobs() {
                 </Text>
             )}
 
+            {/*
+             * Out here rather than inside the pool, because the usual failure — somebody else took
+             * the run — re-reads the sheet and can empty the pool the message would have lived in.
+             */}
+            {claimFailure === null ? null : (
+                <Text testID="driver-jobs-claim-error" tone="danger">
+                    {claimFailure.code === 'resource.conflict'
+                        ? t('kitchen:driver.claimTaken')
+                        : claimFailure.message}
+                </Text>
+            )}
+
             {jobs.isPending ? (
                 <Stack space="sm" testID="driver-jobs-loading">
                     {Array.from({ length: 3 }, (_, index) => (
@@ -209,24 +236,53 @@ function DriverJobs() {
                     }}
                     retrying={jobs.isFetching}
                 />
-            ) : rows.length === 0 ? (
-                <EmptyState
-                    testID="driver-jobs-empty"
-                    title={t('kitchen:driver.emptyTitle')}
-                    body={t('kitchen:driver.emptyBody')}
-                />
             ) : (
-                <Stack space="sm" testID="driver-jobs-list">
-                    {rows.map((job) => (
-                        <JobCard
-                            key={job.id}
-                            job={job}
-                            locale={locale}
-                            disabled={deliver.isPending}
-                            onDeliver={openDeliver}
+                <>
+                    <Heading level={2}>{t('kitchen:driver.mineTitle')}</Heading>
+                    {rows.length === 0 ? (
+                        <EmptyState
+                            testID="driver-jobs-empty"
+                            title={t('kitchen:driver.emptyTitle')}
+                            body={t('kitchen:driver.emptyBody')}
                         />
-                    ))}
-                </Stack>
+                    ) : (
+                        <Stack space="sm" testID="driver-jobs-list">
+                            {rows.map((job) => (
+                                <JobCard
+                                    key={job.id}
+                                    job={job}
+                                    locale={locale}
+                                    disabled={busy}
+                                    action="deliver"
+                                    onAction={openDeliver}
+                                />
+                            ))}
+                        </Stack>
+                    )}
+
+                    {available.length === 0 ? null : (
+                        <Stack space="sm" testID="driver-jobs-available">
+                            <Stack space="xs">
+                                <Heading level={2}>{t('kitchen:driver.availableTitle')}</Heading>
+                                <Text tone="secondary" variant="caption">
+                                    {t('kitchen:driver.availableHint')}
+                                </Text>
+                            </Stack>
+                            {available.map((job) => (
+                                <JobCard
+                                    key={job.id}
+                                    job={job}
+                                    locale={locale}
+                                    disabled={busy}
+                                    action="claim"
+                                    onAction={(picked) => {
+                                        claim.mutate(picked.id);
+                                    }}
+                                />
+                            ))}
+                        </Stack>
+                    )}
+                </>
             )}
 
             <Dialog
@@ -309,9 +365,11 @@ interface JobCardProps {
     readonly job: DriverJob;
     /** The reader's locale, for the area name. Passed down rather than read again per card. */
     readonly locale: string;
-    /** A stamp is in flight for some job — every Deliver button waits for it. */
+    /** A stamp or a claim is in flight — every action button waits for it. */
     readonly disabled: boolean;
-    readonly onDeliver: (job: DriverJob) => void;
+    /** Deliver one of the caller's own runs, or claim one from the pool. */
+    readonly action: 'deliver' | 'claim';
+    readonly onAction: (job: DriverJob) => void;
 }
 
 /**
@@ -320,7 +378,7 @@ interface JobCardProps {
  * The card takes no `onPress`. It holds a button, and a pressable card around a button is both an
  * axe `nested-interactive` violation and a way to deliver an order with a mistimed thumb.
  */
-function JobCard({ job, locale, disabled, onDeliver }: JobCardProps) {
+function JobCard({ job, locale, disabled, action, onAction }: JobCardProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const testID = `driver-job-${job.id}`;
@@ -429,12 +487,14 @@ function JobCard({ job, locale, disabled, onDeliver }: JobCardProps) {
                 )}
 
                 <Button
-                    testID={`${testID}-deliver`}
+                    testID={`${testID}-${action}`}
                     block
-                    label={t('kitchen:driver.deliver')}
+                    label={t(
+                        action === 'deliver' ? 'kitchen:driver.deliver' : 'kitchen:driver.claim',
+                    )}
                     disabled={disabled}
                     onPress={() => {
-                        onDeliver(job);
+                        onAction(job);
                     }}
                 />
             </Stack>

@@ -991,6 +991,7 @@ describe('navigation descriptors', () => {
         expect([...new Set(offered)]).toEqual([
             '/customer',
             '/customer/cart',
+            '/customer/orders',
             '/customer/subscriptions',
             '/discover',
             '/for-business',

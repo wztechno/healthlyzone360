@@ -123,7 +123,8 @@
         "successSummaryTitle": "ما طلبته",
         "successPriceCaption": "الإجمالي المؤكَّد لهذا الطلب.",
         "successCart": "العودة إلى السلة",
-        "successSubscriptions": "عرض الاشتراكات"
+        "successSubscriptions": "عرض الاشتراكات",
+        "successOrder": "عرض هذا الطلب"
     },
     "configurator": {
         "title": "إعداد اشتراكك",
@@ -324,6 +325,21 @@
         "noNextDelivery": "لا توجد توصيلة مجدولة",
         "rowSummary": "{{price}} أسبوعيًا، تصل أيام {{days}}",
         "newHint": "تبدأ الاشتراكات الجديدة من خطة وجبات: افتح خطة واختر إعداد الاشتراك."
+    },
+    "orders": {
+        "title": "طلباتي",
+        "body": "كل الطلبات التي قدّمتها، الأحدث أولاً.",
+        "emptyTitle": "لا توجد طلبات بعد",
+        "emptyBody": "تظهر هنا الطلبات التي تقدّمها من أي مطبخ، لتتابعها حتى باب منزلك.",
+        "browse": "تصفّح الوجبات",
+        "loadMore": "عرض الطلبات الأقدم",
+        "open": "عرض طلباتي",
+        "rowLabel": "الطلب {{reference}}، {{state}}، {{total}}",
+        "placedOn": "تم الطلب في {{date}}",
+        "lineLabel": "{{quantity}} × {{name}}",
+        "notFoundTitle": "تعذّر العثور على هذا الطلب",
+        "notFoundBody": "قد يكون الرابط قديماً، أو قد يعود الطلب إلى حساب آخر.",
+        "backToList": "كل الطلبات"
     },
     "subscription": {
         "notFoundTitle": "لم نتمكن من العثور على هذا الاشتراك",

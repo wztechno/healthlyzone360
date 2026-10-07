@@ -1,7 +1,7 @@
 import type {
     DeliverDriverJobRequest,
-    DriverJob,
     DriverJobsRepository,
+    DriverRunSheet,
 } from '../contracts/driver-jobs.ts';
 import type { DriverJob as WireDriverJob } from '../generated/types.ts';
 import { mapDriverJob } from './driver-jobs-mappers.ts';
@@ -10,13 +10,14 @@ import type { Transport } from './transport.ts';
 /**
  * The driver's run sheet, backed by the real Laravel routes under `/driver`.
  *
- * ## Two calls, one organisation header, no permission code
+ * ## Three calls, one organisation header, no permission code
  *
- * Both routes sit inside `org.context` and neither carries a `permission:` middleware. The
+ * All three routes sit inside `org.context` and none carries a `permission:` middleware. The
  * narrowing that matters is `where driver_user_id = me`, enforced in the controllers — ownership
- * rather than authority. Nothing in this module can ask for anybody else's jobs, because neither
- * call takes a driver: the list has no parameters at all, and the write is scoped by the same
- * predicate before it looks at the identifier in the path.
+ * rather than authority. Nothing in this module can ask for anybody else's jobs, because no call
+ * takes a driver: the list has no parameters at all, `deliver` is scoped by the same predicate
+ * before it looks at the identifier in the path, and `claim` can only ever name the caller — and
+ * only on a run nobody holds, which the server checks inside the write (`409` when it lost).
  *
  * That is also why a job belonging to another driver answers `resource.not_found` rather than a
  * refusal — the endpoint declines to confirm the job exists. This module passes that through
@@ -40,12 +41,25 @@ import type { Transport } from './transport.ts';
  */
 export function createApiDriverJobsRepository(transport: Transport): DriverJobsRepository {
     return {
-        async listJobs(): Promise<readonly DriverJob[]> {
-            const payload = await transport.request<{ readonly jobs: readonly WireDriverJob[] }>({
+        async listJobs(): Promise<DriverRunSheet> {
+            const payload = await transport.request<{
+                readonly jobs: readonly WireDriverJob[];
+                readonly available: readonly WireDriverJob[];
+            }>({
                 method: 'GET',
                 path: '/driver/jobs',
             });
-            return payload.jobs.map(mapDriverJob);
+            return {
+                jobs: payload.jobs.map(mapDriverJob),
+                available: payload.available.map(mapDriverJob),
+            };
+        },
+
+        async claimJob(jobId: string): Promise<void> {
+            await transport.request({
+                method: 'POST',
+                path: `/driver/jobs/${encodeURIComponent(jobId)}/claim`,
+            });
         },
 
         async deliverJob(jobId: string, request: DeliverDriverJobRequest = {}): Promise<void> {

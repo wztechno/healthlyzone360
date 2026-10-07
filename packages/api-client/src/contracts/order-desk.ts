@@ -664,6 +664,19 @@ export interface OrderDeskDrivers {
     readonly limit: number;
 }
 
+/**
+ * A slot a desk sale can be booked into: one of the kitchen's **active** delivery windows, by the
+ * code the placement's `deliveryWindowCode` takes. Times are kitchen-local `HH:mm`, null on a
+ * window somebody named before deciding its hours.
+ */
+export interface OrderDeskDeliveryWindow {
+    readonly code: string;
+    readonly nameEn: string;
+    readonly nameAr: string;
+    readonly startsAt: string | null;
+    readonly endsAt: string | null;
+}
+
 /* ------------------------------------------------------------------------------------------------
  * Selling: the quote, the placement, and the customer a sale is for
  * ---------------------------------------------------------------------------------------------- */
@@ -819,6 +832,12 @@ export interface PlaceOrderDeskSaleRequest extends OrderDeskSaleRequest {
     readonly paymentMethod: KitchenOrderPaymentMethod;
     /** Required on `counter`, **prohibited** on the other two. A `422` either way. */
     readonly payment?: OrderDeskCounterPayment | undefined;
+    /**
+     * Delivery only (`422` otherwise): hand the run the placement creates to this person. Needs
+     * `order.manage_organisation` (`403` without it) and an active member (`422` otherwise). Omit
+     * it to leave the run in the unassigned pool drivers claim from.
+     */
+    readonly driverUserId?: string | undefined;
 }
 
 /** How a customer record came to exist. `staff` is a caller some kitchen wrote down at a desk. */
@@ -990,6 +1009,9 @@ export interface OrderDeskRepository {
      * only ever wanted at the moment somebody is choosing.
      */
     listDrivers(): Promise<OrderDeskDrivers>;
+
+    /** This kitchen's active delivery windows, in display order — the desk sale's slot choice. */
+    listDeliveryWindows(): Promise<readonly OrderDeskDeliveryWindow[]>;
 
     /**
      * One day's takings, by agent, method and currency — **the till-shift mitigation**.

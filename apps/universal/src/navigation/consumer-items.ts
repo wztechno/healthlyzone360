@@ -92,6 +92,13 @@ export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         area: 'customer',
     },
     {
+        key: 'orders',
+        labelKey: 'marketplace:consumer.nav.orders',
+        href: '/customer/orders',
+        icon: 'receipt',
+        area: 'customer',
+    },
+    {
         key: 'cart',
         labelKey: 'marketplace:consumer.nav.cart',
         href: '/customer/cart',

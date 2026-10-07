@@ -20,6 +20,7 @@ use Healthy360\Pricing\Services\PriceResolver;
 use Healthy360\Pricing\Services\ResolvedPrice;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Illuminate\Support\Collection;
 
 /**
@@ -31,6 +32,7 @@ final readonly class B2bCatalogueBrowse
     public function __construct(
         private BuyerAgreementLookup $agreements,
         private PriceResolver $prices,
+        private DatabaseTenantContext $tenantContext,
     ) {}
 
     /**
@@ -46,7 +48,10 @@ final readonly class B2bCatalogueBrowse
 
         foreach ($channels as $channel) {
             foreach ($this->offeredItems($channel, $on) as $item) {
-                $price = $this->resolvePrice($channel, $item, $buyer, $on);
+                // Priced under the seller's tenant, as `LineProbe` prices a basket line: the
+                // buyer's ambient organisation is the corporate one, and the policy on
+                // `price_list_items` would otherwise hide every row of the kitchen's tariff.
+                $price = $this->tenantContext->during(null, (string) $channel->organisation_id, null, fn (): ?ResolvedPrice => $this->resolvePrice($channel, $item, $buyer, $on));
 
                 if (! $price instanceof ResolvedPrice) {
                     continue;
@@ -90,7 +95,10 @@ final readonly class B2bCatalogueBrowse
                 continue;
             }
 
-            $price = $this->resolvePrice($channel, $article, $buyer, $on);
+            // Priced under the seller's tenant, as `LineProbe` prices a basket line: the
+            // buyer's ambient organisation is the corporate one, and the policy on
+            // `price_list_items` would otherwise hide every row of the kitchen's tariff.
+            $price = $this->tenantContext->during(null, (string) $channel->organisation_id, null, fn (): ?ResolvedPrice => $this->resolvePrice($channel, $article, $buyer, $on));
 
             if ($price instanceof ResolvedPrice) {
                 return [

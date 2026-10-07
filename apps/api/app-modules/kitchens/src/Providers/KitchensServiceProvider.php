@@ -15,6 +15,7 @@ use Healthy360\Kitchens\Console\PriceRecipesFromCatalogueCommand;
 use Healthy360\Kitchens\Console\PublishReadyCatalogueCommand;
 use Healthy360\Kitchens\Console\RelinkRecipeLinesCommand;
 use Healthy360\Kitchens\Console\SeedApproximatePlanPricesCommand;
+use Healthy360\Kitchens\Console\SeedTestAccountsCommand;
 use Healthy360\Kitchens\Console\SimulateStockCommand;
 use Healthy360\Kitchens\Console\UnitNormalisationReportCommand;
 use Illuminate\Support\ServiceProvider;
@@ -50,6 +51,7 @@ class KitchensServiceProvider extends ServiceProvider
                 UnitNormalisationReportCommand::class,
                 FormulateUnlinkedCommand::class,
                 SimulateStockCommand::class,
+                SeedTestAccountsCommand::class,
             ]);
         }
     }

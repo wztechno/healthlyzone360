@@ -187,6 +187,9 @@ export function CheckoutScreen() {
                 onSubscriptions={() => {
                     router.push('/customer/subscriptions' as never);
                 }}
+                onOrder={() => {
+                    router.push(`/customer/orders/${String(placed.id)}` as never);
+                }}
             />
         );
     }
@@ -531,16 +534,24 @@ interface OrderPlacedProps {
     readonly onBrowse: () => void;
     readonly onCart: () => void;
     readonly onSubscriptions: () => void;
+    readonly onOrder: () => void;
 }
 
 /** Catalogue copy for the price-line codes the order repository emits; unknown codes keep the
  * server's own label rather than disappearing. */
-const PRICE_LINE_LABEL_KEYS: Record<string, string> = {
+export const PRICE_LINE_LABEL_KEYS: Readonly<Record<string, string>> = {
     subtotal: 'commerce:cart.subtotal',
     delivery: 'commerce:cart.delivery',
 };
 
-function OrderPlaced({ order, delivery, onBrowse, onCart, onSubscriptions }: OrderPlacedProps) {
+function OrderPlaced({
+    order,
+    delivery,
+    onBrowse,
+    onCart,
+    onSubscriptions,
+    onOrder,
+}: OrderPlacedProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
 
@@ -631,8 +642,14 @@ function OrderPlaced({ order, delivery, onBrowse, onCart, onSubscriptions }: Ord
                 />
                 <Button
                     testID="checkout-success-subscriptions"
+                    variant="secondary"
                     label={t('commerce:checkout.successSubscriptions')}
                     onPress={onSubscriptions}
+                />
+                <Button
+                    testID="checkout-success-order"
+                    label={t('commerce:checkout.successOrder')}
+                    onPress={onOrder}
                 />
             </Inline>
         </Stack>

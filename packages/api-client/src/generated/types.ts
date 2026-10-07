@@ -8207,6 +8207,15 @@ export type QuoteOrderDeskRequest = OrderDeskSaleBase & {};
 export type PlaceOrderDeskRequest = OrderDeskSaleBase & {
     payment_method: PaymentMethod;
     payment?: OrderDeskCounterPayment;
+    /**
+     * **Delivery only** — prohibited (`422`) on a pickup or a counter
+     * sale. The person the new run is handed to; must be an active
+     * member of this organisation, the rule `POST /delivery/jobs/{job}/
+     * assign` applies. Requires `order.manage_organisation`. Omit it to
+     * leave the run in the unassigned pool.
+     *
+     */
+    driver_user_id?: Uuid | null;
 };
 
 /**
@@ -28701,9 +28710,8 @@ export type PlaceOrderDeskOrderError = PlaceOrderDeskOrderErrors[keyof PlaceOrde
 export type PlaceOrderDeskOrderResponses = {
     /**
      * The order as the kitchen sees it, with every line at the price it was
-     * placed at. `status` is `placed` on a delivery or a pickup and
-     * `fulfilled` on a counter sale, which is the whole observable
-     * difference between the two writes this operation performs. A replay
+     * placed at. `status` is `placed` on a pickup, `confirmed` on a
+     * delivery and `fulfilled` on a counter sale. A replay
      * of a request this key already answered returns this same body and
      * this same status, with `Idempotency-Replayed: true`; nothing ran a
      * second time.
@@ -29126,6 +29134,57 @@ export type GetOrderDeskShortfallCountResponses = {
 };
 
 export type GetOrderDeskShortfallCountResponse = GetOrderDeskShortfallCountResponses[keyof GetOrderDeskShortfallCountResponses];
+
+export type ListOrderDeskDeliveryWindowsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/order-desk/delivery-windows';
+};
+
+export type ListOrderDeskDeliveryWindowsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListOrderDeskDeliveryWindowsError = ListOrderDeskDeliveryWindowsErrors[keyof ListOrderDeskDeliveryWindowsErrors];
+
+export type ListOrderDeskDeliveryWindowsResponses = {
+    /**
+     * The active windows. `meta.count` and `meta.active_count` are equal.
+     */
+    200: DeliveryWindowsEnvelope;
+};
+
+export type ListOrderDeskDeliveryWindowsResponse = ListOrderDeskDeliveryWindowsResponses[keyof ListOrderDeskDeliveryWindowsResponses];
 
 export type ListOrderDeskDriversData = {
     body?: never;
@@ -30905,12 +30964,114 @@ export type ListDriverJobsResponses = {
     200: {
         data: {
             jobs: Array<DriverJob>;
+            /**
+             * Unassigned `pending` runs anybody here may claim.
+             */
+            available: Array<DriverJob>;
         };
         meta: Meta;
     };
 };
 
 export type ListDriverJobsResponse = ListDriverJobsResponses[keyof ListDriverJobsResponses];
+
+export type ClaimDriverJobData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery job identifier. On the driver routes, one that is not the
+         * caller's own answers 404, decided before the request body is looked at;
+         * on the dispatcher's `assign`, one belonging to another organisation
+         * answers 404 for the same reason — a 403 would confirm that the
+         * identifier names something real.
+         *
+         */
+        job: Uuid;
+    };
+    query?: never;
+    url: '/driver/jobs/{job}/claim';
+};
+
+export type ClaimDriverJobErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ClaimDriverJobError = ClaimDriverJobErrors[keyof ClaimDriverJobErrors];
+
+export type ClaimDriverJobResponses = {
+    /**
+     * The job, now the caller's.
+     */
+    200: {
+        data: {
+            job: {
+                id: Uuid;
+                /**
+                 * Always `assigned` on success.
+                 */
+                status: DeliveryJobStatus;
+            };
+        };
+        meta: Meta;
+    };
+};
+
+export type ClaimDriverJobResponse = ClaimDriverJobResponses[keyof ClaimDriverJobResponses];
 
 export type DeliverDriverJobData = {
     body?: DeliverDriverJobRequest;

@@ -12529,10 +12529,19 @@ paths:
 
         ## One operation, two writes, and `payment` is what chooses
 
-        A `delivery` or a `pickup` is **placed** and comes back `status: placed`:
-        the kitchen has not confirmed it yet, nobody has been handed anything,
-        and the money arrives later through `POST /catalogue/orders/{order}/
-        payments`.
+        A `pickup` is **placed** and comes back `status: placed`: the kitchen
+        has not confirmed it yet, nobody has been handed anything, and the money
+        arrives later through `POST /catalogue/orders/{order}/payments`.
+
+        A `delivery` is placed **and confirmed** in one transaction and comes
+        back `status: confirmed`: confirming consumes the stock and creates the
+        delivery job, so the run exists the moment the desk is done. With
+        `driver_user_id` the job is assigned to that person (the assign
+        operation's own membership rule — an outsider is `422` on that field,
+        and the whole sale rolls back); without one it waits in the unassigned
+        pool `GET /driver/jobs` serves as `available`. Naming a driver needs
+        `order.manage_organisation`, the code the assign operation carries, and
+        is `403` without it.
 
         A `counter` sale is **completed**. In one transaction it is placed,
         confirmed — which is where the ingredients come off the shelf —
@@ -12598,9 +12607,8 @@ paths:
         '201':
           description: |
             The order as the kitchen sees it, with every line at the price it was
-            placed at. `status` is `placed` on a delivery or a pickup and
-            `fulfilled` on a counter sale, which is the whole observable
-            difference between the two writes this operation performs. A replay
+            placed at. `status` is `placed` on a pickup, `confirmed` on a
+            delivery and `fulfilled` on a counter sale. A replay
             of a request this key already answered returns this same body and
             this same status, with `Idempotency-Replayed: true`; nothing ran a
             second time.
@@ -13226,6 +13234,38 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/delivery-windows:
+    get:
+      operationId: listOrderDeskDeliveryWindows
+      tags:
+        - Order desk
+      summary: The slots a desk sale can be booked into
+      description: |
+        This kitchen's **active** delivery windows, in display order — the set
+        a desk agent picks a sale's slot from. The same rows and the same shape
+        as `GET /catalogue/delivery-windows`, with withdrawn windows left out
+        and behind `order.create_on_behalf_organisation` rather than
+        `delivery_zone.manage_organisation`, which governs the kitchen's map
+        and which a desk agent need not hold.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The active windows. `meta.count` and `meta.active_count` are equal.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryWindowsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /catalogue/order-desk/drivers:
@@ -15192,6 +15232,11 @@ paths:
         **No cap and no cursor**, unlike the dispatch board: a driver's
         outstanding list is bounded by a shift, and a page break in the middle
         of a run would be a page break in the middle of a run.
+
+        **`available` is the unassigned pool**: this kitchen's jobs with no
+        driver and status `pending`, in the same row shape, oldest first. There
+        is no driver role, so any active member sees it and may take one with
+        `POST /driver/jobs/{job}/claim`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -15213,9 +15258,15 @@ paths:
                     type: object
                     required:
                       - jobs
+                      - available
                     properties:
                       jobs:
                         type: array
+                        items:
+                          $ref: '#/components/schemas/DriverJob'
+                      available:
+                        type: array
+                        description: Unassigned `pending` runs anybody here may claim.
                         items:
                           $ref: '#/components/schemas/DriverJob'
                   meta:
@@ -15226,6 +15277,71 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /driver/jobs/{job}/claim:
+    post:
+      operationId: claimDriverJob
+      tags:
+        - Delivery
+      summary: Take an unassigned run
+      description: |
+        Assigns the job to the caller when nobody has it yet. The guard —
+        `driver_user_id IS NULL AND status = pending` — is folded into one
+        conditional UPDATE, so of two drivers claiming at once exactly one
+        wins and the other gets `409 resource.conflict`. No permission code and
+        no `If-Match`: there is no driver role, and the contended state *is* the
+        guard. Audited as `delivery.job_claimed`.
+      parameters:
+        - $ref: '#/components/parameters/DeliveryJobPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The job, now the caller's.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - job
+                    properties:
+                      job:
+                        type: object
+                        required:
+                          - id
+                          - status
+                        properties:
+                          id:
+                            $ref: '#/components/schemas/Uuid'
+                          status:
+                            allOf:
+                              - $ref: '#/components/schemas/DeliveryJobStatus'
+                            description: Always `assigned` on success.
+                        additionalProperties: false
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /driver/jobs/{job}/deliver:
@@ -37181,6 +37297,16 @@ components:
               $ref: '#/components/schemas/PaymentMethod'
             payment:
               $ref: '#/components/schemas/OrderDeskCounterPayment'
+            driver_user_id:
+              oneOf:
+                - $ref: '#/components/schemas/Uuid'
+                - type: 'null'
+              description: |
+                **Delivery only** — prohibited (`422`) on a pickup or a counter
+                sale. The person the new run is handed to; must be an active
+                member of this organisation, the rule `POST /delivery/jobs/{job}/
+                assign` applies. Requires `order.manage_organisation`. Omit it to
+                leave the run in the unassigned pool.
           additionalProperties: false
           description: |
             The quote's body plus two fields, and the two do different jobs.

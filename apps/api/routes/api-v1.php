@@ -154,6 +154,7 @@ use Healthy360\Delivery\Http\Controllers\DeliveryZoneIndexController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneShowController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneStoreController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneUpdateController;
+use Healthy360\Delivery\Http\Controllers\DriverJobClaimController;
 use Healthy360\Delivery\Http\Controllers\DriverJobDeliverController;
 use Healthy360\Delivery\Http\Controllers\DriverJobIndexController;
 use Healthy360\Delivery\Http\Controllers\PublicDeliveryAreaIndexController;
@@ -212,6 +213,7 @@ use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCashReportController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerStoreController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDeliveryWindowIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDriverIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlacementController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQueueController;
@@ -681,6 +683,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         | `/delivery/jobs` is the dispatcher's view of the same table and is
         | scoped by the organisation alone.
         |
+        | `claim` is codeless for the same reason: there is no driver role, so
+        | any active member may take a run from the unassigned pool that
+        | `/driver/jobs` serves as `available`. The controller's conditional
+        | UPDATE (`driver_user_id IS NULL AND status = pending`) is the guard,
+        | and a run somebody else took first is `409`.
+        |
         | **`assign` is the exception, and it is the only write here that
         | somebody could be wrong to make** (C3). Deciding whose run this is
         | *is* authority — it commits a person's evening — so it carries
@@ -697,6 +705,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         Route::middleware('org.context')->group(function (): void {
             Route::get('/driver/jobs', DriverJobIndexController::class)->name('driver.jobs.index');
             Route::post('/driver/jobs/{job}/deliver', DriverJobDeliverController::class)->name('driver.jobs.deliver');
+            Route::post('/driver/jobs/{job}/claim', DriverJobClaimController::class)->name('driver.jobs.claim');
 
             Route::get('/delivery/jobs', DeliveryJobIndexController::class)->name('delivery.jobs.index');
 
@@ -2015,6 +2024,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/order-desk/orders', OrderDeskPlacementController::class)
                     ->middleware('idempotency')
                     ->name('catalogue.order-desk.orders.store');
+
+                // The slots a sale can be booked into, for the agent who is
+                // booking it. The admin list needs `delivery_zone.manage_
+                // organisation`, which a desk agent need not hold.
+                Route::get('/order-desk/delivery-windows', OrderDeskDeliveryWindowIndexController::class)
+                    ->name('catalogue.order-desk.delivery-windows.index');
             });
 
             /*

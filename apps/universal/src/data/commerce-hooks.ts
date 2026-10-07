@@ -26,9 +26,14 @@ import type {
     SubscriptionQuote,
     SubscriptionQuoteRequest,
 } from '@healthy360/api-client/contracts';
-import type { CartId, SubscriptionId } from '@healthy360/domain-types';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
+import type { CartId, OrderId, SubscriptionId } from '@healthy360/domain-types';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type {
+    InfiniteData,
+    UseInfiniteQueryResult,
+    UseMutationResult,
+    UseQueryResult,
+} from '@tanstack/react-query';
 
 import { queryKeys } from './query-keys.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
@@ -223,6 +228,47 @@ export function usePlaceOrderMutation(
         mutationFn: (request: PlaceOrderRequest) => repositories.commerce.placeOrder(request),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.commerce.cart(channelCode) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.commerce.myOrders() });
+        },
+    });
+}
+
+/* ── my orders ───────────────────────────────────────────────────────────────────────────────── */
+
+export type MyOrdersInfiniteResult = UseInfiniteQueryResult<
+    InfiniteData<CursorPage<PlacedOrder>, string | undefined>,
+    Error
+>;
+
+/** `/customer/orders` — newest first, one keyset page at a time. */
+export function useMyOrdersQuery(): MyOrdersInfiniteResult {
+    const { repositories } = useRepositoryContext();
+
+    return useInfiniteQuery({
+        queryKey: queryKeys.commerce.myOrders(),
+        enabled: repositories !== null,
+        initialPageParam: undefined as string | undefined,
+        queryFn: ({ pageParam }) => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.commerce.listMyOrders(
+                pageParam === undefined ? {} : { cursor: pageParam },
+            );
+        },
+        getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    });
+}
+
+/** One of the person's orders. `null` while a deep link's parameter has not arrived. */
+export function useMyOrderQuery(orderId: OrderId | null): UseQueryResult<PlacedOrder> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.commerce.myOrder(orderId ?? ''),
+        enabled: repositories !== null && orderId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (orderId === null) throw new Error('No order identifier.');
+            return repositories.commerce.getMyOrder(orderId);
         },
     });
 }

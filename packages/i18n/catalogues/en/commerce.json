@@ -119,7 +119,8 @@
         "successSummaryTitle": "What you ordered",
         "successPriceCaption": "Basket total shown at checkout. Delivery may adjust at confirmation.",
         "successCart": "Back to the basket",
-        "successSubscriptions": "See subscriptions"
+        "successSubscriptions": "See subscriptions",
+        "successOrder": "View this order"
     },
     "configurator": {
         "title": "Set up your subscription",
@@ -304,6 +305,21 @@
         "noNextDelivery": "No delivery scheduled",
         "rowSummary": "{{price}} a week, delivered on {{days}}",
         "newHint": "New subscriptions start from a meal plan: open a plan and choose Configure subscription."
+    },
+    "orders": {
+        "title": "My orders",
+        "body": "Every order you have placed, newest first.",
+        "emptyTitle": "No orders yet",
+        "emptyBody": "Orders you place from a kitchen appear here, so you can follow them to your door.",
+        "browse": "Browse meals",
+        "loadMore": "Show older orders",
+        "open": "See my orders",
+        "rowLabel": "Order {{reference}}, {{state}}, {{total}}",
+        "placedOn": "Placed {{date}}",
+        "lineLabel": "{{quantity}} × {{name}}",
+        "notFoundTitle": "We could not find that order",
+        "notFoundBody": "The link may be out of date, or the order may belong to another account.",
+        "backToList": "All orders"
     },
     "subscription": {
         "notFoundTitle": "We could not find that subscription",

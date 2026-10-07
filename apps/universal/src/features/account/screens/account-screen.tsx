@@ -141,6 +141,7 @@ function ChecklistRow({ item }: { readonly item: AccountChecklistItem }) {
 
 export function AccountScreen() {
     const { t } = useTranslation();
+    const router = useRouter();
     const overview = useAccountOverviewQuery();
     const consents = useConsentsQuery();
     const setConsent = useSetConsentMutation();
@@ -205,6 +206,24 @@ export function AccountScreen() {
                     ))}
                 </Stack>
             </QueryStates>
+
+            <Card testID="account-orders" padding="md">
+                <Stack space="sm">
+                    <Heading level={2}>{t('commerce:orders.title')}</Heading>
+                    <Text tone="secondary">{t('commerce:orders.body')}</Text>
+                    <Inline space="sm">
+                        <Button
+                            testID="account-orders-open"
+                            size="sm"
+                            variant="secondary"
+                            label={t('commerce:orders.open')}
+                            onPress={() => {
+                                router.push('/customer/orders' as never);
+                            }}
+                        />
+                    </Inline>
+                </Stack>
+            </Card>
 
             <Card testID="account-marketing" padding="md">
                 <Stack space="sm">

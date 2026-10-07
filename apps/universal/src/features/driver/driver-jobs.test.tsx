@@ -1,4 +1,5 @@
 import { ApiError, apiFailure } from '@healthy360/api-client';
+import { conflictFailure } from '@healthy360/api-client/contracts';
 import type { DriverJob } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
@@ -122,10 +123,16 @@ function driverSession() {
     });
 }
 
+/**
+ * `listJobs` answers both lists in one read; the overrides state them separately so the existing
+ * cases keep talking about the caller's own runs, and the pool is empty unless a case says so.
+ */
 function renderRunSheet(
     overrides: {
         readonly listJobs?: () => readonly DriverJob[] | Promise<readonly DriverJob[]>;
+        readonly available?: () => readonly DriverJob[];
         readonly deliverJob?: (jobId: string, request?: { notes?: string | undefined }) => void;
+        readonly claimJob?: (jobId: string) => void;
     } = {},
 ) {
     return renderStubScreen(<DriverJobsScreen />, {
@@ -134,7 +141,19 @@ function renderRunSheet(
             driverJobs: {
                 ...(overrides.listJobs === undefined
                     ? {}
-                    : { listJobs: async () => overrides.listJobs!() }),
+                    : {
+                          listJobs: async () => ({
+                              jobs: await overrides.listJobs!(),
+                              available: overrides.available?.() ?? [],
+                          }),
+                      }),
+                ...(overrides.claimJob === undefined
+                    ? {}
+                    : {
+                          claimJob: async (jobId: string) => {
+                              overrides.claimJob!(jobId);
+                          },
+                      }),
                 ...(overrides.deliverJob === undefined
                     ? {}
                     : {
@@ -473,6 +492,91 @@ describe('delivering a job', () => {
         fireEvent.press(screen.getByTestId('driver-jobs-deliver-dismiss'));
         await waitFor(() => {
             expect(screen.getByTestId('driver-jobs-action-error')).toBeTruthy();
+        });
+    });
+});
+
+describe('claiming a run from the pool', () => {
+    function poolJob(): DriverJob {
+        return driverJob({
+            id: JOB_TWO,
+            orderId: 'test-0000-order-0002' as OrderId,
+            orderNumber: 'H360-2026-0149',
+            status: 'pending',
+            assignedAt: null,
+        });
+    }
+
+    it('lists unassigned runs under the caller’s own, and a claimed one moves up', async () => {
+        let mine: DriverJob[] = [];
+        let pool: DriverJob[] = [poolJob()];
+        const { repositories } = await renderRunSheet({
+            listJobs: () => mine,
+            available: () => pool,
+            claimJob: (jobId) => {
+                const claimed = pool.find((job) => job.id === jobId);
+                if (claimed === undefined) throw new ApiError(conflictFailure());
+                pool = pool.filter((job) => job.id !== jobId);
+                mine = [...mine, { ...claimed, status: 'assigned' }];
+            },
+        });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('driver-jobs-available')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        // Nothing of the caller's own yet — the pool is beside an empty sheet, not instead of it.
+        expect(screen.getByTestId('driver-jobs-empty')).toBeTruthy();
+        // A pool run is claimed, never delivered: it is not the caller's until they take it.
+        expect(screen.queryByTestId(`${jobTestId(JOB_TWO)}-deliver`)).toBeNull();
+
+        fireEvent.press(screen.getByTestId(`${jobTestId(JOB_TWO)}-claim`));
+
+        await waitFor(() => {
+            expect(repositories.driverJobs.claimJob).toHaveBeenCalledWith(JOB_TWO);
+        });
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(`${jobTestId(JOB_TWO)}-deliver`)).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        expect(screen.queryByTestId('driver-jobs-available')).toBeNull();
+    });
+
+    it('says somebody else got there first when the claim loses the race', async () => {
+        let pool: DriverJob[] = [poolJob()];
+        await renderRunSheet({
+            listJobs: () => [],
+            available: () => pool,
+            claimJob: () => {
+                // Another driver took it a moment earlier.
+                pool = [];
+                throw new ApiError(conflictFailure());
+            },
+        });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(`${jobTestId(JOB_TWO)}-claim`)).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        fireEvent.press(screen.getByTestId(`${jobTestId(JOB_TWO)}-claim`));
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('driver-jobs-claim-error')).toHaveTextContent(
+                    'Someone else took that run first.',
+                );
+            },
+            { timeout: 5000 },
+        );
+        // The sheet re-read on the failure too, so the lost run has left the pool.
+        await waitFor(() => {
+            expect(screen.queryByTestId('driver-jobs-available')).toBeNull();
         });
     });
 });

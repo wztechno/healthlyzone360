@@ -8,6 +8,7 @@ import type {
     MealId,
     MealPlanEntryId,
     MealPlanId,
+    OrderId,
     PriceListId,
     ProductId,
     QuotationId,
@@ -530,6 +531,13 @@ export const apiCommerceRepository: CommerceRepository = {
      */
     placeOrder(_request: PlaceOrderRequest): Promise<PlacedOrder> {
         return notImplemented(`POST ${BASE}/orders`);
+    },
+    /** Served — overridden per bundle from `./order-repository.ts`, like `placeOrder`. */
+    listMyOrders(_request?: CursorPageRequest): Promise<CursorPage<PlacedOrder>> {
+        return notImplemented(`GET ${BASE}/me/orders`);
+    },
+    getMyOrder(_orderId: OrderId): Promise<PlacedOrder> {
+        return notImplemented(`GET ${BASE}/me/orders/{order}`);
     },
     /**
      * Subscription lifecycle (quote preview, create, reads, pause/resume/skip, address/window) is

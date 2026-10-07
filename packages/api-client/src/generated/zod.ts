@@ -5514,7 +5514,8 @@ export const zOrderDeskCounterPayment = z.object({
 
 export const zPlaceOrderDeskRequest = zOrderDeskSaleBase.and(z.object({
     payment_method: zPaymentMethod,
-    payment: zOrderDeskCounterPayment.optional()
+    payment: zOrderDeskCounterPayment.optional(),
+    driver_user_id: zUuid.nullish()
 }));
 
 /**
@@ -13152,9 +13153,8 @@ export const zPlaceOrderDeskOrderHeaders = z.object({
 
 /**
  * The order as the kitchen sees it, with every line at the price it was
- * placed at. `status` is `placed` on a delivery or a pickup and
- * `fulfilled` on a counter sale, which is the whole observable
- * difference between the two writes this operation performs. A replay
+ * placed at. `status` is `placed` on a pickup, `confirmed` on a
+ * delivery and `fulfilled` on a counter sale. A replay
  * of a request this key already answered returns this same body and
  * this same status, with `Idempotency-Replayed: true`; nothing ran a
  * second time.
@@ -13253,6 +13253,16 @@ export const zGetOrderDeskShortfallCountQuery = z.object({
  * The count, or null when no branch was named.
  */
 export const zGetOrderDeskShortfallCountResponse = zOrderDeskShortfallCountEnvelope;
+
+export const zListOrderDeskDeliveryWindowsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The active windows. `meta.count` and `meta.active_count` are equal.
+ */
+export const zListOrderDeskDeliveryWindowsResponse = zDeliveryWindowsEnvelope;
 
 export const zListOrderDeskDriversHeaders = z.object({
     'X-Organisation-Id': zUuid,
@@ -13698,7 +13708,30 @@ export const zListDriverJobsHeaders = z.object({
  */
 export const zListDriverJobsResponse = z.object({
     data: z.object({
-        jobs: z.array(zDriverJob)
+        jobs: z.array(zDriverJob),
+        available: z.array(zDriverJob)
+    }),
+    meta: zMeta
+});
+
+export const zClaimDriverJobHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zClaimDriverJobPath = z.object({
+    job: zUuid
+});
+
+/**
+ * The job, now the caller's.
+ */
+export const zClaimDriverJobResponse = z.object({
+    data: z.object({
+        job: z.object({
+            id: zUuid,
+            status: zDeliveryJobStatus
+        })
     }),
     meta: zMeta
 });

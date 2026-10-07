@@ -307,6 +307,7 @@
             "nutrition": "Nutrition",
             "virtualDietitian": "Virtual Dietitian",
             "subscriptions": "Subscriptions",
+            "orders": "Orders",
             "cart": "Basket",
             "cartWithCount": "{{label}} ({{items}})",
             "profile": "Profile"
