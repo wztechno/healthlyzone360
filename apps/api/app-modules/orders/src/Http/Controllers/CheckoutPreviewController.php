@@ -76,6 +76,7 @@ final class CheckoutPreviewController
                 'total_minor' => $result->totalMinor,
                 'line_count' => $result->lineCount,
                 'warnings' => $result->warnings,
+                'offered_window_codes' => $result->offeredWindowCodes,
             ],
         ]);
     }

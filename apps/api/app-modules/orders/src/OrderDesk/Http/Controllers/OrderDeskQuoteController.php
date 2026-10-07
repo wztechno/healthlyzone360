@@ -104,6 +104,7 @@ final class OrderDeskQuoteController
             $requestedDate === null
                 ? null
                 : CarbonImmutable::createFromFormat('Y-m-d', $requestedDate)->startOfDay(),
+            $payload['delivery_window_code'],
         );
 
         return ApiResponse::data(['quote' => $quote]);

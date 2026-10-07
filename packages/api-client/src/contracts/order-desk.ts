@@ -802,6 +802,11 @@ export interface OrderDeskQuote {
     /** Order-level refusals — the shape, the destination, the schedule. Line refusals are on lines. */
     readonly refusals: readonly OrderDeskRefusal[];
     readonly quotable: boolean;
+    /**
+     * The slot codes the delivery address's zone offers. Non-null only for a delivery whose
+     * address resolves to a serving zone; `null` means no filtering applies.
+     */
+    readonly offeredWindowCodes: readonly string[] | null;
 }
 
 /**

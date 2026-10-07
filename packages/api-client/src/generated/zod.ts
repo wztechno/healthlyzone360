@@ -2340,6 +2340,7 @@ export const zDeliveryZone = z.object({
     source_system: z.string().max(40).nullish(),
     source_ref: z.string().max(160).nullish(),
     lock_version: z.int().gte(0),
+    delivery_window_ids: z.array(zUuid),
     created_at: z.iso.datetime({ offset: true }).nullish(),
     updated_at: z.iso.datetime({ offset: true }).nullish()
 });
@@ -2751,6 +2752,7 @@ export const zDeliveryWindow = z.object({
     weekdays: z.array(z.int().gte(1).lte(7)).max(7),
     display_order: z.int(),
     is_active: z.boolean(),
+    delivery_zone_ids: z.array(zUuid),
     created_at: z.iso.datetime({ offset: true }).nullish(),
     updated_at: z.iso.datetime({ offset: true }).nullish()
 });
@@ -2825,6 +2827,22 @@ export const zUpdateDeliveryZoneRequest = z.object({
     minimum_order_minor: z.int().gte(0).nullish(),
     estimated_minutes: z.int().gte(1).nullish(),
     is_active: z.boolean().optional()
+});
+
+export const zDeliveryZoneWindowsEnvelope = z.object({
+    data: z.object({
+        delivery_window_ids: z.array(zUuid)
+    }),
+    meta: zMeta
+});
+
+/**
+ * The **whole** set of windows this zone offers. An empty array is a
+ * zone that offers no slot.
+ *
+ */
+export const zReplaceDeliveryZoneWindowsRequest = z.object({
+    delivery_window_ids: z.array(zUuid).max(100)
 });
 
 /**
@@ -3123,7 +3141,8 @@ export const zCheckoutPreview = z.object({
     delivery_fee_minor: z.int().nullable(),
     total_minor: z.int(),
     line_count: z.int().gte(0),
-    warnings: z.array(z.string())
+    warnings: z.array(z.string()),
+    offered_window_codes: z.array(z.string()).nullable()
 });
 
 export const zCheckoutPreviewEnvelope = z.object({
@@ -5577,7 +5596,8 @@ export const zOrderDeskQuote = z.object({
     total_minor: z.int().gte(0),
     currency_code: z.string().length(3),
     refusals: z.array(zOrderDeskQuoteRefusal),
-    quotable: z.boolean()
+    quotable: z.boolean(),
+    offered_window_codes: z.array(z.string()).nullable()
 });
 
 export const zOrderDeskQuoteEnvelope = z.object({
@@ -11902,6 +11922,43 @@ export const zReplaceDeliveryZoneAreasPath = z.object({
  * The areas this zone covers after the write.
  */
 export const zReplaceDeliveryZoneAreasResponse = zDeliveryZoneAreasEnvelope;
+
+export const zListDeliveryZoneWindowsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListDeliveryZoneWindowsPath = z.object({
+    zone: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The windows this zone offers.
+ */
+export const zListDeliveryZoneWindowsResponse = zDeliveryZoneWindowsEnvelope;
+
+export const zReplaceDeliveryZoneWindowsBody = zReplaceDeliveryZoneWindowsRequest;
+
+export const zReplaceDeliveryZoneWindowsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceDeliveryZoneWindowsPath = z.object({
+    zone: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The windows this zone offers after the write.
+ */
+export const zReplaceDeliveryZoneWindowsResponse = zDeliveryZoneWindowsEnvelope;
 
 export const zListDeliveryWindowsHeaders = z.object({
     'X-Organisation-Id': zUuid,

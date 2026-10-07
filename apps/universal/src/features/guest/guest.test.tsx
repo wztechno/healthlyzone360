@@ -128,6 +128,7 @@ function testPreview(overrides: Partial<CheckoutPreview> = {}): CheckoutPreview 
         total: money(5000),
         earliestDeliveryDate: '2026-08-13',
         warnings: [],
+        offeredWindowCodes: null,
         paymentDeferred: true,
         ...overrides,
     };

@@ -1905,7 +1905,8 @@
                 "customer": "Choose the customer to place this order.",
                 "address": "Save the delivery address to place this order.",
                 "reference": "Write down the transfer reference to take a WISH payment."
-            }
+            },
+            "zoneNoSlots": "The delivery zone for this address offers none of the kitchen’s slots. Tick one on the zone’s Delivery windows step."
         },
         "refusal": {
             "customer_required": "This kind of sale needs a customer. Go back and choose or add one.",
@@ -1924,7 +1925,8 @@
             "variant_not_active": "That pack is not available.",
             "channel_unavailable": "That article is not offered at the counter. Publish it to the desk channel first.",
             "channel_not_trading": "The counter is not taking orders at the moment.",
-            "unpriced": "That article has no counter price. Add it to a price list the desk uses."
+            "unpriced": "That article has no counter price. Add it to a price list the desk uses.",
+            "window_not_offered": "The address’s delivery zone does not offer that slot. Choose another."
         },
         "columnPhone": "Telephone",
         "columnAgeing": "Ageing",
@@ -2126,6 +2128,10 @@
         "productionBatches": {
             "name": "Batch register",
             "description": "Finished batches: what each one made, where it was put and what is still in date."
+        },
+        "deliveryWindows": {
+            "name": "Delivery windows",
+            "description": "The delivery slots this kitchen runs — names, days and hours — and which zones offer each one."
         }
     },
     "analytics": {
@@ -4047,5 +4053,23 @@
         "price": "Price",
         "marginLow": "Below {{percent}}%",
         "marginBelowCost": "Below cost"
+    },
+    "deliveryWindows": {
+        "title": "Delivery windows",
+        "intro": "Every delivery slot the kitchen runs. A new window is offered in no zone until a zone ticks it on its Delivery windows step.",
+        "zonesColumn": "Offered in",
+        "noZones": "No zone yet",
+        "unknownZone": "Unknown zone",
+        "loadErrorTitle": "The delivery windows could not be loaded",
+        "emptyTitle": "No delivery windows yet",
+        "emptyBody": "Add a window to give customers a time to choose, then tick it on each zone that offers it."
+    },
+    "zoneWindows": {
+        "intro": "Tick the windows this zone offers. An address in this zone only sees the ticked windows, and an order for any other is refused.",
+        "none": "This kitchen has no delivery windows yet.",
+        "groupLabel": "Windows offered in this zone",
+        "everyDay": "Every day",
+        "inactiveBadge": "Inactive",
+        "manage": "Manage delivery windows"
     }
 }

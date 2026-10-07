@@ -7,6 +7,7 @@ namespace Healthy360\Delivery\Http\Controllers;
 use Healthy360\Delivery\Models\DeliveryZoneArea;
 use Healthy360\Delivery\Presenters\DeliveryAdminPresenter;
 use Healthy360\Delivery\Services\DeliveryZoneLocator;
+use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -29,6 +30,7 @@ final class DeliveryZoneShowController
     public function __construct(
         private readonly DeliveryZoneLocator $locator,
         private readonly DeliveryAdminPresenter $presenter,
+        private readonly ZoneWindowService $windows,
     ) {}
 
     /**
@@ -41,7 +43,7 @@ final class DeliveryZoneShowController
         $areaCount = DeliveryZoneArea::query()->where('delivery_zone_id', $record->getKey())->count();
 
         return ApiResponse::data(
-            ['delivery_zone' => $this->presenter->zone($record)],
+            ['delivery_zone' => $this->presenter->zone($record, $this->windows->windowIdsFor($record))],
             ['area_count' => $areaCount],
         )->withHeaders(['ETag' => '"'.$record->lock_version.'"']);
     }

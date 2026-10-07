@@ -9,7 +9,7 @@ import type {
     DeliveryZoneAdminFilter,
     ServiceArea,
     ServiceAreaFilter,
-    SetDeliveryWindowsRequest,
+    SetZoneWindowsRequest,
 } from '@healthy360/api-client/contracts';
 import {
     DeliveryWindowId,
@@ -22,10 +22,12 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
+import KitchenWindowsRoute from '../../../app/kitchen/delivery-windows/index.tsx';
 import KitchenZonesRoute from '../../../app/kitchen/delivery-zones/index.tsx';
 import {
     TEST_BRANCH_ID,
     kitchenManagerSession,
+    testActiveContext,
     testBranch,
     testMembership,
 } from '../../testing/session-fixtures.ts';
@@ -34,6 +36,8 @@ import type { RepositoryOverrides } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import {
     areaMatches,
+    assignedWindows,
+    changedWindows,
     copyDayToOpenDays,
     groupServiceAreas,
     moneyInputState,
@@ -46,14 +50,16 @@ import {
     summariseOperating,
     summariseWindows,
     toggleArea,
+    windowDraft,
     windowErrors,
-    windowRequest,
+    windowWrite,
     withDayClosed,
 } from './delivery-model.ts';
 import type { DeliveryWindowDraft, OperatingDayDraft } from './delivery-model.ts';
 import { ServiceAreaPicker } from './delivery-row-editors.tsx';
 import { ZONE_STATUS_FILTERS, zoneRowTestId } from './format.ts';
 import { BranchOperatingScreen } from './screens/branch-operating-screen.tsx';
+import { DeliveryWindowsScreen } from './screens/delivery-windows-screen.tsx';
 import { DeliveryZoneEditScreen } from './screens/delivery-zone-edit-screen.tsx';
 import { DeliveryZonesScreen } from './screens/delivery-zones-screen.tsx';
 import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
@@ -95,9 +101,10 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
  *    plan's production gazetteer has around 125, so the picker is asserted against a synthesised 125
  *    as well: search narrows, the cap holds, the hidden count is honest, and a chip removes what the
  *    list selected.
- * 5. **A window added here gets the server's identifier.** The set is replaced wholesale, so an
- *    editor that failed to rebase on the echo would mint a duplicate on the second save — the same
- *    defect the plan editor's variant save documents.
+ * 5. **Windows are the kitchen's; a zone only chooses among them.** The windows page writes row by
+ *    row and never touches an untouched row; the zone editor only ticks windows and saves the set
+ *    through `setZoneWindows` under the zone's lock version — a new zone starting with every
+ *    active window ticked.
  * 6. **The two safety mechanisms fire here too**: a stale `lockVersion` opens the conflict dialog
  *    rather than overwriting, and leaving a dirty editor asks first.
  */
@@ -246,12 +253,14 @@ function deliveryWindow(ordinal: number, overrides: Partial<DeliveryWindow> = {}
         id: DeliveryWindowId.unsafe(
             `01935f6d-0000-7000-8000-000000010${String(ordinal).padStart(3, '0')}`,
         ),
+        code: `window-${String(ordinal)}`,
         label: { en: `Window ${String(ordinal)}`, ar: `نافذة ${String(ordinal)}` },
         weekdays: [1, 2, 3, 4, 5, 6, 7],
         startsAt: '08:00',
         endsAt: '11:00',
         capacity: null,
         isActive: true,
+        zoneIds: [],
         ...overrides,
     };
 }
@@ -268,17 +277,34 @@ function zone(ordinal: number, overrides: Partial<DeliveryZoneAdmin> = {}): Deli
         minimumOrderMinor: null,
         currency: 'USD',
         estimatedMinutes: null,
-        deliveryWindows: [],
+        windowIds: [],
         ...overrides,
     };
 }
 
 /**
- * The zone every editor assertion is written against: two areas, two windows, a fee and a minimum.
+ * The kitchen's windows: two the seeded zone offers, and a withdrawn one it does not.
  *
- * The first window covers the whole week on purpose — the weekday test toggles Sunday off it, and a
- * window that never reached Sunday would make the toggle indistinguishable from a broken control.
+ * The first covers the whole week on purpose — a window that never reached Sunday would make the
+ * list's day count indistinguishable from a broken summary.
  */
+const MORNING_WINDOW = deliveryWindow(1, { zoneIds: [zoneId(1)] });
+const EVENING_WINDOW = deliveryWindow(2, {
+    label: { en: 'Evening', ar: 'مساء' },
+    weekdays: [1, 2, 3],
+    startsAt: '17:00',
+    endsAt: '20:00',
+    zoneIds: [zoneId(1)],
+});
+const LATE_WINDOW = deliveryWindow(3, {
+    label: { en: 'Late', ar: 'متأخر' },
+    startsAt: '21:00',
+    endsAt: '23:00',
+    isActive: false,
+});
+const KITCHEN_WINDOWS: readonly DeliveryWindow[] = [MORNING_WINDOW, EVENING_WINDOW, LATE_WINDOW];
+
+/** The zone every editor assertion is written against: two areas, two windows, a fee and a minimum. */
 const SEEDED_ZONE: DeliveryZoneAdmin = zone(1, {
     meta: meta({ status: 'published', lockVersion: 2 }),
     name: { en: 'Marina ring', ar: 'حلقة المارينا' },
@@ -286,15 +312,7 @@ const SEEDED_ZONE: DeliveryZoneAdmin = zone(1, {
     deliveryFeeMinor: 1500,
     minimumOrderMinor: 5000,
     estimatedMinutes: 45,
-    deliveryWindows: [
-        deliveryWindow(1),
-        deliveryWindow(2, {
-            label: { en: 'Evening', ar: 'مساء' },
-            weekdays: [1, 2, 3],
-            startsAt: '17:00',
-            endsAt: '20:00',
-        }),
-    ],
+    windowIds: [MORNING_WINDOW.id, EVENING_WINDOW.id],
 });
 
 /** A zone nobody has decided a fee for: `null`, which is not zero and must not read as one. */
@@ -380,6 +398,7 @@ function zoneEditorReads(
         listZones: zoneListing(zones),
         listPriceLists: async () => page([]),
         listServiceAreas: gazetteerListing(),
+        listDeliveryWindows: async () => KITCHEN_WINDOWS,
     };
 }
 
@@ -389,33 +408,18 @@ function zonelessEditorReads() {
         listZones: zoneListing(() => [SEEDED_ZONE]),
         listPriceLists: async () => page([]),
         listServiceAreas: gazetteerListing(),
+        listDeliveryWindows: async () => KITCHEN_WINDOWS,
     };
 }
 
-/** The server's rule for a wholesale window write: a `null` identifier comes back with one. */
-function mintWindows(
+/** The server's rule for a zone's window set: replaced wholesale, and the zone moves on a version. */
+function assignWindows(
     record: DeliveryZoneAdmin,
-    request: SetDeliveryWindowsRequest,
+    request: SetZoneWindowsRequest,
 ): DeliveryZoneAdmin {
-    let minted = 0;
     return {
         ...record,
-        deliveryWindows: request.windows.map((input) => {
-            minted += 1;
-            return {
-                id:
-                    input.id ??
-                    DeliveryWindowId.unsafe(
-                        `01935f6d-0000-7000-8000-0000000209${String(minted).padStart(2, '0')}`,
-                    ),
-                label: input.label,
-                weekdays: input.weekdays,
-                startsAt: input.startsAt,
-                endsAt: input.endsAt,
-                capacity: input.capacity ?? null,
-                isActive: input.isActive ?? true,
-            };
-        }),
+        windowIds: request.windowIds,
         meta: { ...record.meta, lockVersion: request.lockVersion + 1 },
     };
 }
@@ -473,7 +477,6 @@ function windowRow(overrides: Partial<DeliveryWindowDraft> = {}): DeliveryWindow
         weekdays: [1, 2, 3, 4, 5],
         startsAt: '08:00',
         endsAt: '11:00',
-        capacity: '',
         isActive: true,
         ...overrides,
     };
@@ -496,7 +499,6 @@ const WINDOW_MESSAGES = {
     startInvalid: 'start',
     endInvalid: 'end',
     endBeforeStart: 'order',
-    capacityInvalid: 'capacity',
 };
 
 const DAY_MESSAGES = {
@@ -576,18 +578,37 @@ describe('the delivery model', () => {
             WINDOW_MESSAGES,
         );
         expect(overnight.get('w1')).toBe('order');
-
-        const capacity = windowErrors([windowRow({ capacity: '0' })], WINDOW_MESSAGES);
-        expect(capacity.get('w1')).toBe('capacity');
     });
 
-    it('sends a window with padded times and an uncapped capacity as null', () => {
-        const [request] = windowRequest([windowRow({ startsAt: '8:00', capacity: '' })]);
-        expect(request?.startsAt).toBe('08:00');
-        expect(request?.capacity).toBeNull();
+    it('writes a window with padded times and trimmed names', () => {
+        const request = windowWrite(
+            windowRow({ startsAt: '8:00', label: { en: ' Morning ', ar: '' } }),
+        );
+        expect(request.startsAt).toBe('08:00');
+        expect(request.label).toEqual({ en: 'Morning', ar: '' });
+        expect(request.isActive).toBe(true);
+    });
 
-        const [capped] = windowRequest([windowRow({ capacity: '40' })]);
-        expect(capped?.capacity).toBe(40);
+    it('writes only new and changed windows, never an untouched one', () => {
+        const rows = KITCHEN_WINDOWS.map((window, index) => windowDraft(window, index));
+        expect(changedWindows(rows, KITCHEN_WINDOWS)).toEqual([]);
+
+        const edited = rows.map((row) =>
+            row.id === EVENING_WINDOW.id ? { ...row, endsAt: '21:00' } : row,
+        );
+        const added = [...edited, windowRow({ key: 'new' })];
+        expect(changedWindows(added, KITCHEN_WINDOWS).map((row) => row.key)).toEqual([
+            edited[1]!.key,
+            'new',
+        ]);
+    });
+
+    it('resolves a zone’s window ids against the kitchen’s list, in the kitchen’s order', () => {
+        expect(
+            assignedWindows([EVENING_WINDOW.id, MORNING_WINDOW.id], KITCHEN_WINDOWS).map(
+                (window) => window.id,
+            ),
+        ).toEqual([MORNING_WINDOW.id, EVENING_WINDOW.id]);
     });
 
     it('always produces seven operating rows, filling anything the server omitted as closed', () => {
@@ -786,7 +807,10 @@ describe('the delivery-zone list', () => {
             session: kitchenSession(),
             latencyMs: 40,
             repositories: {
-                kitchenAdmin: { listZones: zoneListing(() => [SEEDED_ZONE, UNDECIDED_ZONE]) },
+                kitchenAdmin: {
+                    listDeliveryWindows: async () => KITCHEN_WINDOWS,
+                    listZones: zoneListing(() => [SEEDED_ZONE, UNDECIDED_ZONE]),
+                },
             },
         });
 
@@ -797,15 +821,44 @@ describe('the delivery-zone list', () => {
         expect(screen.getByTestId(`${row}-name`)).toBeTruthy();
         // Two areas and two windows, which is what this file authored onto the zone.
         expect(screen.getByTestId(`${row}-area-count`)).toHaveTextContent(/2/);
-        expect(screen.getByTestId(`${row}-window-count`)).toHaveTextContent(/2/);
+        // Resolved from the zone's window ids against the kitchen's own list.
+        await waitFor(() => {
+            expect(screen.getByTestId(`${row}-window-count`)).toHaveTextContent(/2/);
+        });
         expect(screen.getByTestId(`${row}-status`)).toBeTruthy();
+    });
+
+    it('counts a zone’s assigned windows, and says when none of them is active', async () => {
+        const withdrawnOnly = zone(4, {
+            name: { en: 'Late ring', ar: 'حلقة متأخرة' },
+            windowIds: [LATE_WINDOW.id],
+        });
+        await renderStubScreen(<DeliveryZonesScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listDeliveryWindows: async () => KITCHEN_WINDOWS,
+                    listZones: zoneListing(() => [withdrawnOnly]),
+                },
+            },
+        });
+        await untilVisible('kitchen-zones-table');
+
+        const row = zoneRowTestId(String(withdrawnOnly.id));
+        await waitFor(() => {
+            expect(screen.getByTestId(`${row}-windows`)).toHaveTextContent(/1 window/);
+        });
+        expect(screen.getByTestId(`${row}-windows`)).toHaveTextContent(/none of them are active/i);
     });
 
     it('states an unrecorded fee as an absence rather than as a zero', async () => {
         await renderStubScreen(<DeliveryZonesScreen />, {
             session: kitchenSession(),
             repositories: {
-                kitchenAdmin: { listZones: zoneListing(() => [SEEDED_ZONE, UNDECIDED_ZONE]) },
+                kitchenAdmin: {
+                    listDeliveryWindows: async () => KITCHEN_WINDOWS,
+                    listZones: zoneListing(() => [SEEDED_ZONE, UNDECIDED_ZONE]),
+                },
             },
         });
         await untilVisible('kitchen-zones-table');
@@ -824,7 +877,10 @@ describe('the delivery-zone list', () => {
         await renderStubScreen(<DeliveryZonesScreen />, {
             session: kitchenSession(),
             repositories: {
-                kitchenAdmin: { listZones: zoneListing(() => [SEEDED_ZONE, FREE_ZONE]) },
+                kitchenAdmin: {
+                    listDeliveryWindows: async () => KITCHEN_WINDOWS,
+                    listZones: zoneListing(() => [SEEDED_ZONE, FREE_ZONE]),
+                },
             },
         });
         await untilVisible('kitchen-zones-table');
@@ -839,7 +895,10 @@ describe('the delivery-zone list', () => {
         await renderStubScreen(<DeliveryZonesScreen />, {
             session: kitchenSession(),
             repositories: {
-                kitchenAdmin: { listZones: zoneListing(() => [SEEDED_ZONE, UNDECIDED_ZONE]) },
+                kitchenAdmin: {
+                    listDeliveryWindows: async () => KITCHEN_WINDOWS,
+                    listZones: zoneListing(() => [SEEDED_ZONE, UNDECIDED_ZONE]),
+                },
             },
         });
         await untilVisible('kitchen-zones-table');
@@ -855,6 +914,7 @@ describe('the delivery-zone list', () => {
             repositories: {
                 kitchenAdmin: {
                     listZones: zoneListing(() => [UNDECIDED_ZONE, SEEDED_ZONE, FREE_ZONE]),
+                    listDeliveryWindows: async () => KITCHEN_WINDOWS,
                 },
             },
         });
@@ -884,7 +944,9 @@ describe('the delivery-zone list', () => {
         const listZones = jest.fn(zoneListing(() => [SEEDED_ZONE, UNDECIDED_ZONE]));
         await renderStubScreen(<DeliveryZonesScreen />, {
             session: kitchenSession(),
-            repositories: { kitchenAdmin: { listZones } },
+            repositories: {
+                kitchenAdmin: { listZones, listDeliveryWindows: async () => KITCHEN_WINDOWS },
+            },
         });
         await untilVisible('kitchen-zones-table');
 
@@ -920,7 +982,10 @@ describe('the delivery-zone list', () => {
         await renderStubScreen(<DeliveryZonesScreen />, {
             session: kitchenSession(),
             repositories: {
-                kitchenAdmin: { listZones: zoneListing(() => [SEEDED_ZONE, UNDECIDED_ZONE]) },
+                kitchenAdmin: {
+                    listDeliveryWindows: async () => KITCHEN_WINDOWS,
+                    listZones: zoneListing(() => [SEEDED_ZONE, UNDECIDED_ZONE]),
+                },
             },
         });
         await untilVisible('kitchen-zones-table');
@@ -942,6 +1007,7 @@ describe('the delivery-zone list', () => {
             repositories: {
                 kitchenAdmin: {
                     listZones: async () => throwFailure(apiFailure('server', { message: 'Boom.' })),
+                    listDeliveryWindows: async () => KITCHEN_WINDOWS,
                 },
             },
         });
@@ -953,7 +1019,10 @@ describe('the delivery-zone list', () => {
         await renderStubScreen(<KitchenZonesRoute />, {
             session: kitchenSession(),
             repositories: {
-                kitchenAdmin: { listZones: zoneListing(() => [SEEDED_ZONE]) },
+                kitchenAdmin: {
+                    listDeliveryWindows: async () => KITCHEN_WINDOWS,
+                    listZones: zoneListing(() => [SEEDED_ZONE]),
+                },
             },
         });
         await untilVisible('kitchen-zones-screen');
@@ -1155,38 +1224,38 @@ describe('the delivery-zone editor', () => {
         ).toBeNull();
     });
 
-    it('opens a zone with no windows on one blank window, which is not saved until typed into', async () => {
-        const empty = { ...SEEDED_ZONE, deliveryWindows: [] };
-        const saved: unknown[] = [];
-
+    it('lists every kitchen window read-only, ticked where the zone offers it', async () => {
         await renderStubScreen(<DeliveryZoneEditScreen zone={String(SEEDED_ZONE.id)} />, {
             session: kitchenSession(),
-            repositories: {
-                kitchenAdmin: {
-                    ...zoneEditorReads(
-                        () => empty,
-                        () => [empty],
-                    ),
-                    setDeliveryWindows: async (_id, request) => {
-                        saved.push(request);
-                        return empty;
-                    },
-                },
-            },
+            repositories: { kitchenAdmin: zoneEditorReads(() => SEEDED_ZONE) },
         });
         await openZoneStep('windows');
-        await untilVisible('kitchen-zone-window-rows');
+        await untilVisible(`kitchen-zone-window-${String(LATE_WINDOW.id)}`);
 
-        expect(screen.getByTestId('kitchen-zone-window-rows-row-window-blank')).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-zone-window-rows-empty')).toBeNull();
-        // Drawn, not held: the blank row names no problem and does not dirty the zone.
-        expect(screen.queryByTestId('kitchen-zone-window-rows-row-window-blank-error')).toBeNull();
-        expect(screen.queryByTestId('kitchen-zone-editor-screen-dirty')).toBeNull();
-        expect(saved).toHaveLength(0);
+        const box = (id: string) =>
+            screen.getByTestId(`kitchen-zone-window-${id}-control`).props.accessibilityState;
+        expect(box(String(MORNING_WINDOW.id))).toMatchObject({ checked: true });
+        expect(box(String(EVENING_WINDOW.id))).toMatchObject({ checked: true });
+        expect(box(String(LATE_WINDOW.id))).toMatchObject({ checked: false });
+        expect(
+            screen.getByTestId(`kitchen-zone-window-${String(LATE_WINDOW.id)}-inactive`),
+        ).toBeTruthy();
+        expect(
+            screen.getByTestId(`kitchen-zone-window-${String(EVENING_WINDOW.id)}`),
+        ).toHaveTextContent(/17:00–20:00/);
+
+        // Assignment only: no name, day or hour controls, and a way to where they are edited.
+        expect(screen.queryByTestId('kitchen-zone-window-rows')).toBeNull();
+        expect(screen.queryByTestId('kitchen-zone-window-rows-add')).toBeNull();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-zone-windows-manage'));
+        });
+        expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/delivery-windows');
     });
 
-    it('toggles a window weekday and saves the set, minting an identifier for a new row', async () => {
+    it('saves a changed assignment with setZoneWindows under the zone’s lock version', async () => {
         let stored: DeliveryZoneAdmin = SEEDED_ZONE;
+        const sent: SetZoneWindowsRequest[] = [];
 
         await renderStubScreen(<DeliveryZoneEditScreen zone={String(SEEDED_ZONE.id)} />, {
             session: kitchenSession(),
@@ -1196,93 +1265,88 @@ describe('the delivery-zone editor', () => {
                         () => stored,
                         () => [stored],
                     ),
-                    setDeliveryWindows: async (_id, request) => {
-                        stored = mintWindows(stored, request);
+                    setZoneWindows: async (_id, request) => {
+                        sent.push(request);
+                        stored = assignWindows(stored, request);
                         return stored;
                     },
                 },
             },
         });
         await openZoneStep('windows');
-        await untilVisible('kitchen-zone-window-rows');
+        await untilVisible(`kitchen-zone-window-${String(LATE_WINDOW.id)}`);
 
-        const firstWindow = SEEDED_ZONE.deliveryWindows[0]!;
-        const rowId = `kitchen-zone-window-rows-row-seed-window-0-${String(firstWindow.id)}`;
-
-        // Sunday off, in ISO terms: weekday 7.
         await act(async () => {
-            fireEvent.press(screen.getByTestId(`${rowId}-weekday-7`));
-        });
-
-        // A brand-new window, which goes up with a null identifier and comes back with one.
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-zone-window-rows-add'));
-        });
-        // One field per `act`: each change is applied against the state the previous one produced,
-        // and batching them would make the last write win over its own siblings.
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId('kitchen-zone-window-rows-row-window-1-label-en-input'),
-                'Late evening',
+            fireEvent.press(
+                screen.getByTestId(`kitchen-zone-window-${String(EVENING_WINDOW.id)}-control`),
             );
         });
         await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId('kitchen-zone-window-rows-row-window-1-starts-input'),
-                '19:00',
+            fireEvent.press(
+                screen.getByTestId(`kitchen-zone-window-${String(LATE_WINDOW.id)}-control`),
             );
         });
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId('kitchen-zone-window-rows-row-window-1-ends-input'),
-                '21:30',
-            );
-        });
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-zone-windows-save'));
-        });
+        await saveZone();
 
         await waitFor(() => {
-            expect(stored.deliveryWindows).toHaveLength(SEEDED_ZONE.deliveryWindows.length + 1);
-            const added = stored.deliveryWindows.find((row) => row.label.en === 'Late evening');
-            expect(added?.startsAt).toBe('19:00');
-            expect(String(added?.id ?? '')).not.toBe('');
-            expect(
-                stored.deliveryWindows.find((row) => String(row.id) === String(firstWindow.id))
-                    ?.weekdays,
-            ).not.toContain(7);
+            expect(sent).toHaveLength(1);
         });
+        expect(sent[0]).toEqual({
+            lockVersion: SEEDED_ZONE.meta.lockVersion,
+            windowIds: [MORNING_WINDOW.id, LATE_WINDOW.id],
+        });
+        expect(stored.meta.lockVersion).toBe(SEEDED_ZONE.meta.lockVersion + 1);
     });
 
-    it('blocks the window save while a row is backwards, and names the row', async () => {
-        await renderStubScreen(<DeliveryZoneEditScreen zone={String(SEEDED_ZONE.id)} />, {
+    it('starts a new zone with every active window ticked, and saves them once it exists', async () => {
+        const created = zone(9, { meta: meta({ lockVersion: 0 }) });
+        const sent: { zoneId: string; request: SetZoneWindowsRequest }[] = [];
+
+        await renderStubScreen(<DeliveryZoneEditScreen zone="new" />, {
             session: kitchenSession(),
-            repositories: { kitchenAdmin: zoneEditorReads(() => SEEDED_ZONE) },
+            repositories: {
+                kitchenAdmin: {
+                    ...zonelessEditorReads(),
+                    createZone: async () => created,
+                    setZoneWindows: async (zoneIdentifier, request) => {
+                        sent.push({ zoneId: String(zoneIdentifier), request });
+                        return assignWindows(created, request);
+                    },
+                },
+            },
+        });
+        await untilVisible('kitchen-zone-name-en-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-zone-name-en-input'), 'New ring');
+        });
+        // The later steps unlock once the details would save (the currency is derived on load).
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('kitchen-zone-editor-screen-steps-windows').props
+                    .accessibilityState,
+            ).toEqual(expect.objectContaining({ disabled: false }));
         });
         await openZoneStep('windows');
-        await untilVisible('kitchen-zone-window-rows');
+        await untilVisible(`kitchen-zone-window-${String(LATE_WINDOW.id)}`);
 
-        const firstWindow = SEEDED_ZONE.deliveryWindows[0]!;
-        const rowId = `kitchen-zone-window-rows-row-seed-window-0-${String(firstWindow.id)}`;
+        // Active windows pre-ticked; the withdrawn one is not.
+        expect(
+            screen.getByTestId(`kitchen-zone-window-${String(MORNING_WINDOW.id)}-control`).props
+                .accessibilityState,
+        ).toMatchObject({ checked: true });
+        expect(
+            screen.getByTestId(`kitchen-zone-window-${String(LATE_WINDOW.id)}-control`).props
+                .accessibilityState,
+        ).toMatchObject({ checked: false });
 
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId(`${rowId}-starts-input`), '22:00');
+        await saveZone();
+        await waitFor(() => {
+            expect(sent).toHaveLength(1);
         });
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId(`${rowId}-ends-input`), '02:00');
+        expect(sent[0]).toEqual({
+            zoneId: String(created.id),
+            request: { lockVersion: 0, windowIds: [MORNING_WINDOW.id, EVENING_WINDOW.id] },
         });
-
-        expect(screen.getByTestId(`${rowId}-error`)).toBeTruthy();
-        // Named in the banner as it is typed, and on the step's tab; Save answers by naming it
-        // again rather than writing.
-        expect(screen.getByTestId('kitchen-zone-editor-screen-issues-errors')).toHaveTextContent(
-            /windows/i,
-        );
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-zone-windows-save'));
-        });
-        expect(screen.queryByTestId('kitchen-zone-saved-toast')).toBeNull();
     });
 
     it('offers reload-or-keep when somebody else has moved the zone on', async () => {
@@ -1387,6 +1451,136 @@ describe('the delivery-zone editor', () => {
             repositories: { kitchenAdmin: zonelessEditorReads() },
         });
         await untilVisible('kitchen-zone-not-found');
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * The kitchen's delivery windows page
+ * ---------------------------------------------------------------------------------------------- */
+
+function windowsPageReads(windows: () => readonly DeliveryWindow[] = () => KITCHEN_WINDOWS) {
+    return {
+        listDeliveryWindows: async () => windows(),
+        listZones: zoneListing(() => [SEEDED_ZONE, UNDECIDED_ZONE]),
+    };
+}
+
+const windowRowId = (window: DeliveryWindow) =>
+    `kitchen-windows-rows-row-window-${String(window.id)}`;
+
+describe('the delivery-windows page', () => {
+    it('lists the kitchen’s windows with the zones that offer each', async () => {
+        await renderStubScreen(<DeliveryWindowsScreen />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: windowsPageReads() },
+        });
+        await untilVisible(windowRowId(LATE_WINDOW));
+
+        await waitFor(() => {
+            expect(screen.getByTestId(`${windowRowId(MORNING_WINDOW)}-zones`)).toHaveTextContent(
+                'Marina ring',
+            );
+        });
+        expect(screen.getByTestId(`${windowRowId(LATE_WINDOW)}-zones`)).toHaveTextContent(
+            /no zone/i,
+        );
+        // A saved window cannot be deleted — only withdrawn through Offered.
+        expect(screen.queryByTestId(`${windowRowId(MORNING_WINDOW)}-remove`)).toBeNull();
+        expect(screen.getByTestId(`${windowRowId(LATE_WINDOW)}-active-state`)).toBeTruthy();
+    });
+
+    it('saves only the changed row, and creates an added one in no zone', async () => {
+        const updateDeliveryWindow = jest.fn(async (id: DeliveryWindow['id']) => ({
+            ...KITCHEN_WINDOWS.find((window) => window.id === id)!,
+        }));
+        const createDeliveryWindow = jest.fn(async () =>
+            deliveryWindow(4, { label: { en: 'Brunch', ar: '' } }),
+        );
+
+        await renderStubScreen(<DeliveryWindowsScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: { ...windowsPageReads(), updateDeliveryWindow, createDeliveryWindow },
+            },
+        });
+        await untilVisible(windowRowId(EVENING_WINDOW));
+
+        // Nothing changed yet: nothing to save.
+        expect(screen.getByTestId('kitchen-windows-save')).toBeDisabled();
+
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId(`${windowRowId(EVENING_WINDOW)}-ends-input`),
+                '21:00',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-windows-rows-add'));
+        });
+        const added = 'kitchen-windows-rows-row-window-new-1';
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${added}-label-en-input`), 'Brunch');
+        });
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${added}-starts-input`), '10:00');
+        });
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${added}-ends-input`), '12:00');
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-windows-save'));
+        });
+
+        await untilVisible('kitchen-windows-saved-toast');
+        expect(updateDeliveryWindow).toHaveBeenCalledTimes(1);
+        expect(updateDeliveryWindow).toHaveBeenCalledWith(
+            EVENING_WINDOW.id,
+            expect.objectContaining({ startsAt: '17:00', endsAt: '21:00' }),
+        );
+        expect(createDeliveryWindow).toHaveBeenCalledTimes(1);
+        expect(createDeliveryWindow).toHaveBeenCalledWith(
+            expect.objectContaining({
+                label: { en: 'Brunch', ar: '' },
+                startsAt: '10:00',
+                endsAt: '12:00',
+                isActive: true,
+            }),
+        );
+    });
+
+    it('is read-only without the delivery-zone manage permission', async () => {
+        await renderStubScreen(<DeliveryWindowsScreen />, {
+            session: kitchenManagerSession({
+                memberships: [testMembership({ branches: [testBranch()] })],
+                activeContext: testActiveContext({ permissions: ['catalogue.view_organisation'] }),
+            }),
+            repositories: { kitchenAdmin: windowsPageReads() },
+        });
+        await untilVisible(windowRowId(MORNING_WINDOW));
+
+        expect(screen.queryByTestId('kitchen-windows-save')).toBeNull();
+        expect(screen.queryByTestId('kitchen-windows-rows-add')).toBeNull();
+        expect(
+            screen.getByTestId(`${windowRowId(MORNING_WINDOW)}-weekday-1`).props.accessibilityState,
+        ).toMatchObject({ disabled: true });
+    });
+
+    it('opens an empty kitchen on an empty state with a way to add the first window', async () => {
+        await renderStubScreen(<DeliveryWindowsScreen />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: windowsPageReads(() => []) },
+        });
+        await untilVisible('kitchen-windows-empty');
+        expect(screen.getByTestId('kitchen-windows-empty-add')).toBeTruthy();
+    });
+
+    it('renders through the code-split route', async () => {
+        await renderStubScreen(<KitchenWindowsRoute />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: windowsPageReads() },
+        });
+        await untilVisible('kitchen-windows-screen');
     });
 });
 

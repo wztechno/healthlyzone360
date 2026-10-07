@@ -228,6 +228,18 @@ export function scheduleFor(
 }
 
 /**
+ * The kitchen windows a delivery's address zone offers (`OrderDeskQuote.offeredWindowCodes`).
+ * `null` codes — not a delivery, no address, or no serving zone — filter nothing; placement refuses
+ * any other slot (`window_not_offered`), so the chips never offer one.
+ */
+export function offeredDeskWindows<T extends { readonly code: string }>(
+    windows: readonly T[],
+    codes: readonly string[] | null,
+): readonly T[] {
+    return codes === null ? windows : windows.filter((window) => codes.includes(window.code));
+}
+
+/**
  * Choose the customer, and **drop the address that belonged to somebody else**.
  *
  * An address must belong to `customer_account_id` — one that does not is a `404` — so an agent who

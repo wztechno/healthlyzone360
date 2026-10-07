@@ -6,6 +6,7 @@ namespace Healthy360\Orders\OrderDesk\Http\Controllers;
 
 use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Presenters\DeliveryAdminPresenter;
+use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 
@@ -26,7 +27,10 @@ use Illuminate\Http\JsonResponse;
  */
 final class OrderDeskDeliveryWindowIndexController
 {
-    public function __construct(private readonly DeliveryAdminPresenter $presenter) {}
+    public function __construct(
+        private readonly DeliveryAdminPresenter $presenter,
+        private readonly ZoneWindowService $zoneWindows,
+    ) {}
 
     public function __invoke(): JsonResponse
     {
@@ -36,8 +40,11 @@ final class OrderDeskDeliveryWindowIndexController
             ->orderBy('code')
             ->get();
 
+        // Which zones offer each window — one query for the whole list.
+        $zoneIds = $this->zoneWindows->zoneIdsByWindow($windows->map(static fn (DeliveryWindow $window): string => (string) $window->getKey())->all());
+
         return ApiResponse::data(
-            $windows->map(fn (DeliveryWindow $window): array => $this->presenter->window($window))->all(),
+            $windows->map(fn (DeliveryWindow $window): array => $this->presenter->window($window, $zoneIds[(string) $window->getKey()] ?? []))->all(),
             [
                 'count' => $windows->count(),
                 'active_count' => $windows->count(),

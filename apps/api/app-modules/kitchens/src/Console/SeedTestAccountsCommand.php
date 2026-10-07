@@ -30,6 +30,7 @@ use Healthy360\Delivery\Enums\DeliveryZoneStatus;
 use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Models\DeliveryZoneArea;
+use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Identity\Enums\ContactChannel;
 use Healthy360\Identity\Models\ContactPoint;
 use Healthy360\Identity\Models\UserProfile;
@@ -69,7 +70,8 @@ use Illuminate\Support\Facades\Hash;
  * - a **delivery zone** covering one area, when the kitchen serves none — both checkouts need an
  *   address somebody delivers to;
  * - the four **delivery windows** `morning` / `midday` / `afternoon` / `evening` (Breakfast, Lunch,
- *   Snack, Dinner), active, with English and Arabic names;
+ *   Snack, Dinner), active, with English and Arabic names, and offered in every zone of the kitchen
+ *   (placement refuses a window its zone does not offer);
  * - **B2C** `customer@healthzone360.test`: the consumer account `POST /customer-account` opens, a
  *   verified login email, a default address in the served area, a dietary declaration and the
  *   required consents, then activated through the lifecycle service;
@@ -157,9 +159,11 @@ final class SeedTestAccountsCommand extends Command
         /** @var array{area: string, wholesale: SalesChannel|null} $kitchenSide */
         $kitchenSide = $this->insideOrganisation($kitchen, function (string $organisationId) use ($currency): array {
             $this->windows($organisationId);
+            $area = $this->servedArea($organisationId, $currency);
+            $this->offerWindowsEverywhere($organisationId);
 
             return [
-                'area' => $this->servedArea($organisationId, $currency),
+                'area' => $area,
                 'wholesale' => SalesChannel::withoutTenancy()
                     ->where('organisation_id', $organisationId)
                     ->where('code', self::WHOLESALE_CHANNEL)
@@ -441,6 +445,22 @@ final class SeedTestAccountsCommand extends Command
 
             $window->forceFill(['name_en' => $nameEn, 'name_ar' => $nameAr, 'is_active' => true])->save();
         }
+    }
+
+    /**
+     * The four windows in every zone of the kitchen, so both test checkouts can name one. Additive
+     * and idempotent; no other window's assignments are touched.
+     */
+    private function offerWindowsEverywhere(string $organisationId): void
+    {
+        /** @var list<string> $windowIds */
+        $windowIds = DeliveryWindow::withoutTenancy()
+            ->where('organisation_id', $organisationId)
+            ->whereIn('code', array_keys(self::WINDOWS))
+            ->pluck('id')
+            ->all();
+
+        app(ZoneWindowService::class)->assignAll($organisationId, $windowIds);
     }
 
     private function user(string $email, string $givenName, string $familyName): User

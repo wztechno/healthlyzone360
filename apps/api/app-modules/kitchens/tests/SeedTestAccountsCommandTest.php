@@ -93,7 +93,7 @@ function seededFingerprint(): array
         'users', 'user_profiles', 'contact_points', 'consent_grants', 'customer_accounts', 'customer_addresses',
         'customer_dietary_profiles', 'organisations', 'organisation_memberships', 'membership_roles',
         'b2b_applications', 'b2b_agreements', 'otp_challenges', 'price_lists', 'channel_price_lists',
-        'corporate_programmes', 'delivery_areas', 'delivery_zones', 'delivery_zone_areas', 'delivery_windows',
+        'corporate_programmes', 'delivery_areas', 'delivery_zones', 'delivery_zone_areas', 'delivery_windows', 'delivery_zone_windows',
     ];
 
     $fingerprint = [];

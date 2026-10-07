@@ -7461,6 +7461,100 @@ paths:
           $ref: '#/components/responses/PreconditionRequired'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/delivery-zones/{zone}/windows:
+    get:
+      operationId: listDeliveryZoneWindows
+      tags:
+        - Delivery
+      summary: The delivery windows a zone offers
+      description: |
+        Identifiers of the windows assigned to this zone, in window display
+        order, inactive ones included — an inactive window stays assigned but
+        is not offered.
+
+        A window **not** assigned to a zone is not offered to an address in it
+        and placement refuses it with `window_not_offered`. A newly created
+        window is assigned to no zone. When this endpoint shipped, every
+        existing zone was given every then-active window of its organisation.
+
+        `ETag` is the **zone's** validator, as on `…/areas`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/DeliveryZonePath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The windows this zone offers.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryZoneWindowsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      operationId: replaceDeliveryZoneWindows
+      tags:
+        - Delivery
+      summary: Set the delivery windows a zone offers
+      description: |
+        Set-replace: the body is the whole set, and windows absent from it are
+        unassigned. `If-Match` carries the **zone's** validator and the zone's
+        `lock_version` advances; a stale one is `409`.
+
+        A window that is not one of this organisation's is
+        `422 validation.failed` on `delivery_window_ids`, with
+        `details.unknown_delivery_window_ids`. An inactive window may be
+        assigned; it is simply not offered until re-activated.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/DeliveryZonePath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceDeliveryZoneWindowsRequest'
+      responses:
+        '200':
+          description: The windows this zone offers after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryZoneWindowsEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/delivery-windows:
     get:
       operationId: listDeliveryWindows
@@ -8445,7 +8539,8 @@ paths:
         and refuses the whole order with `409 order.placement_refused`; a
         preview has no transaction to abort, so the same facts — `cart_empty`,
         `address_missing`, `address_not_deliverable`, `area_not_served`,
-        `zone_suspended`, `currency_mismatch`, plus the line-probe vocabulary —
+        `zone_suspended`, `currency_mismatch`, `window_not_offered`, plus the
+        line-probe vocabulary —
         come back as `warnings` inside an ordinary `200`. Deliberately the
         *same words* placement would refuse with: a customer taught one
         vocabulary for "we don't deliver there" on the cart screen and a
@@ -8543,6 +8638,8 @@ paths:
         `account_not_ready`, `account_not_active`, `guest_not_verified`,
         `cart_empty`, `cart_not_open`, `address_not_owned`,
         `address_not_deliverable`, `area_not_served`, `zone_suspended`,
+        `window_not_offered` (with `delivery_window_code` and
+        `delivery_zone_id` — the slot is not one the address's zone offers),
         `currency_mismatch`, `mixed_delivery_dates`, `cut_off_passed`,
         `branch_closed`, `date_in_the_past`, plus the whole line vocabulary
         folded in per line with the offending `cart_item_id`. A checkout that
@@ -12399,8 +12496,9 @@ paths:
         `refusals`, and are the three families an agent can actually do something
         about: the fulfilment **shape** (`customer_required`,
         `address_required`, `address_not_applicable`), the **destination**
-        (`address_not_deliverable`, `area_not_served`, `zone_suspended`, and a
-        `currency_mismatch` whose `subject` is `delivery_fee`), and the
+        (`address_not_deliverable`, `area_not_served`, `zone_suspended`,
+        `window_not_offered`, and a `currency_mismatch` whose `subject` is
+        `delivery_fee`), and the
         **schedule** (`cut_off_passed`, `branch_closed`, `date_in_the_past`).
 
         **`quotable` is the field a screen branches on.** It is false whenever
@@ -29449,6 +29547,7 @@ components:
         - status
         - is_active
         - lock_version
+        - delivery_window_ids
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -29522,6 +29621,14 @@ components:
           description: |
             The optimistic-concurrency validator, echoed as the `ETag`. The
             zone's **area set** is versioned against this same number.
+        delivery_window_ids:
+          type: array
+          description: |
+            The windows this zone offers (assigned; an inactive one is assigned
+            but not offered), in window display order. Replaced through
+            `PUT /catalogue/delivery-zones/{zone}/windows`.
+          items:
+            $ref: '#/components/schemas/Uuid'
         created_at:
           type:
             - string
@@ -30638,6 +30745,7 @@ components:
         - weekdays
         - display_order
         - is_active
+        - delivery_zone_ids
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -30686,6 +30794,14 @@ components:
         is_active:
           type: boolean
           description: The only withdrawal there is. No DELETE exists.
+        delivery_zone_ids:
+          type: array
+          description: |
+            The zones this window is assigned to, ordered by zone code. A
+            window in no zone is offered nowhere; a newly created window starts
+            that way.
+          items:
+            $ref: '#/components/schemas/Uuid'
         created_at:
           type:
             - string
@@ -30908,6 +31024,39 @@ components:
             The reversible half of the lifecycle: `false` suspends the zone and
             **keeps** its area claims. Archiving is the POST action, and it
             releases them.
+      additionalProperties: false
+    DeliveryZoneWindowsEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - delivery_window_ids
+          properties:
+            delivery_window_ids:
+              type: array
+              description: Assigned windows, in window display order, inactive ones included.
+              items:
+                $ref: '#/components/schemas/Uuid'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    ReplaceDeliveryZoneWindowsRequest:
+      type: object
+      required:
+        - delivery_window_ids
+      description: |
+        The **whole** set of windows this zone offers. An empty array is a
+        zone that offers no slot.
+      properties:
+        delivery_window_ids:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Uuid'
       additionalProperties: false
     ReplaceDeliveryZoneAreasRequest:
       type: object
@@ -31409,9 +31558,9 @@ components:
             - 'null'
           maxLength: 40
           description: |
-            The slot the customer chose, as the window's own code. Whether that
-            slot is offered on that day by that branch is a scheduling question
-            answered during placement, with the cut-off rules in hand.
+            The slot the customer chose, as the window's own code. It must be
+            one the address's zone offers (`offered_window_codes` on the
+            preview), or placement refuses `window_not_offered`.
           examples:
             - evening
         requested_delivery_date:
@@ -31472,6 +31621,7 @@ components:
         - total_minor
         - line_count
         - warnings
+        - offered_window_codes
       description: |
         What a basket would cost, priced by the same `LineProbe` and
         `ZoneResolver` `POST /orders` runs at placement — a preview and the
@@ -31517,9 +31667,20 @@ components:
             Every unresolved fact about the cart or the address, in the same
             vocabulary `409 order.placement_refused` uses at placement:
             `cart_empty`, `address_missing`, `address_not_deliverable`,
-            `area_not_served`, `zone_suspended`, `currency_mismatch`, plus the
-            line-probe vocabulary. Deduplicated — three lines refused for the
+            `area_not_served`, `zone_suspended`, `currency_mismatch`,
+            `window_not_offered`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
             same reason read as one fact, not three repeats of it.
+        offered_window_codes:
+          type:
+            - array
+            - 'null'
+          items:
+            type: string
+          description: |
+            The window codes the address's zone offers — assigned to the zone
+            and active, in display order. A picker shows only these; placement
+            refuses any other with `window_not_offered`. Null when no zone
+            resolved (no address, or an area not served).
       additionalProperties: false
     CheckoutPreviewEnvelope:
       type: object
@@ -37291,10 +37452,10 @@ components:
             - 'null'
           maxLength: 40
           description: |
-            The slot, by the window's own code. Not validated against the
-            kitchen's windows here — whether that slot is offered on that day by
-            that branch is a scheduling question answered with the cut-off rules
-            in hand.
+            The slot, by the window's own code. On a delivery it must be one the
+            address's zone offers (`offered_window_codes` on the quote), or the
+            quote refuses and the sale is refused `window_not_offered`. Not
+            checked on a pickup.
     QuoteOrderDeskRequest:
       allOf:
         - $ref: '#/components/schemas/OrderDeskSaleBase'
@@ -37431,7 +37592,8 @@ components:
             `unpriced`, `currency_mismatch`, `channel_not_trading`. Order-level:
             `customer_required`, `address_required`, `address_not_applicable`,
             `address_not_deliverable`, `area_not_served`, `zone_suspended`,
-            `currency_mismatch` (with `subject: delivery_fee`), `cut_off_passed`,
+            `window_not_offered`, `currency_mismatch` (with
+            `subject: delivery_fee`), `cut_off_passed`,
             `branch_closed`, `date_in_the_past`.
       additionalProperties: true
     OrderDeskQuoteLine:
@@ -37508,6 +37670,7 @@ components:
         - currency_code
         - refusals
         - quotable
+        - offered_window_codes
       description: |
         What this basket would come to, and everything standing in the way of it.
 
@@ -37560,6 +37723,17 @@ components:
             collected — a quote showing a confident total for a basket the sale
             would then reject is a number the agent reads out loud and has to
             take back.
+        offered_window_codes:
+          type:
+            - array
+            - 'null'
+          items:
+            type: string
+          description: |
+            On a delivery whose address resolved to a serving zone, the window
+            codes that zone offers, in display order — the desk's slot picker
+            shows only these. Null otherwise (pickup, counter, no address, an
+            unserved area).
       additionalProperties: false
     OrderDeskQuoteEnvelope:
       type: object
@@ -38685,7 +38859,9 @@ components:
             - string
             - 'null'
           maxLength: 40
-          description: The chosen slot, as the delivery window's own code.
+          description: |
+            The chosen slot, as the delivery window's own code. Must be one the
+            address's zone offers, or placement refuses `window_not_offered`.
         requested_delivery_date:
           type:
             - string

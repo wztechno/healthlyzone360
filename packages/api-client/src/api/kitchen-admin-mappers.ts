@@ -1350,12 +1350,14 @@ export function mapPriceListAdmin(
 export function mapDeliveryWindow(wire: WireDeliveryWindow): DeliveryWindow {
     return {
         id: DeliveryWindowId.unsafe(wire.id),
+        code: wire.code,
         label: localised(wire.name_en, wire.name_ar),
         weekdays: wire.weekdays.length === 0 ? [1, 2, 3, 4, 5, 6, 7] : wire.weekdays,
         startsAt: wire.starts_at ?? '00:00',
         endsAt: wire.ends_at ?? '00:00',
         capacity: null,
         isActive: wire.is_active,
+        zoneIds: (wire.delivery_zone_ids ?? []).map((id) => DeliveryZoneId.unsafe(id)),
     };
 }
 
@@ -1373,7 +1375,6 @@ export function mapDeliveryZoneAdmin(
     wire: DeliveryZone,
     options?: {
         readonly areas?: readonly ServiceArea[];
-        readonly deliveryWindows?: readonly DeliveryWindow[];
     },
 ): DeliveryZoneAdmin {
     return {
@@ -1395,7 +1396,7 @@ export function mapDeliveryZoneAdmin(
         minimumOrderMinor: wire.minimum_order_minor,
         currency: isCurrencyCode(wire.currency_code) ? wire.currency_code : 'USD',
         estimatedMinutes: wire.estimated_minutes,
-        deliveryWindows: options?.deliveryWindows ?? [],
+        windowIds: (wire.delivery_window_ids ?? []).map((id) => DeliveryWindowId.unsafe(id)),
     };
 }
 

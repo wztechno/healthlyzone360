@@ -53,9 +53,10 @@ import {
 import type { SummaryItem } from '../checkout-frame.tsx';
 import { earliestStartDate } from '../dates.ts';
 import {
-    defaultSlotCodeForKitchen,
+    defaultSlotCode,
     deliverySlotByCode,
     deliverySlotsForKitchen,
+    offeredSlots,
 } from '../delivery.ts';
 import { displayableWarnings, isCriticalWarning, warningMessageKey } from '../warnings.ts';
 
@@ -157,10 +158,6 @@ export function CheckoutScreen() {
      * out not to offer — the basket changed kitchen under the person — falls back to the default
      * rather than sticking.
      */
-    const chosenSlotIsOffered =
-        chosenSlotCode !== null && deliverySlots.some((slot) => slot.code === chosenSlotCode);
-    const slotCode = chosenSlotIsOffered ? chosenSlotCode : defaultSlotCodeForKitchen(kitchen.data);
-
     const addressList = addresses.data ?? [];
     const selectedAddress = addressList.find((entry) => entry.id === addressId) ?? null;
 
@@ -175,6 +172,16 @@ export function CheckoutScreen() {
 
     const preview = useCheckoutPreviewQuery(previewRequest);
     const quotation: CheckoutPreview | undefined = preview.data;
+
+    /*
+     * Only the slots the address's zone offers: placement refuses any other (`window_not_offered`).
+     * `null` codes — no address yet, or no serving zone — filter nothing. A choice the zone does not
+     * offer falls back to the default over what it does, and a zone offering none says so.
+     */
+    const slotOptions = offeredSlots(deliverySlots, quotation?.offeredWindowCodes ?? null);
+    const chosenSlotIsOffered =
+        chosenSlotCode !== null && slotOptions.some((slot) => slot.code === chosenSlotCode);
+    const slotCode = chosenSlotIsOffered ? chosenSlotCode : defaultSlotCode(slotOptions);
     const placeFailure = toFailure(placeOrder.error);
 
     /*
@@ -258,7 +265,7 @@ export function CheckoutScreen() {
 
     const onReview = () => {
         setShowErrors(true);
-        if (selectedAddress === null || deliveryDate === null) return;
+        if (selectedAddress === null || deliveryDate === null || slotCode === null) return;
         setCommitted({
             addressId: selectedAddress.id,
             addressLabel: formatSavedAddress(selectedAddress),
@@ -446,24 +453,35 @@ export function CheckoutScreen() {
             </View>
 
             <View className="mt-5" testID="checkout-slot">
-                <ChoiceChips
-                    testID="checkout-slot-picker"
-                    label={t('commerce:checkout.slotTitle')}
-                    value={slotCode}
-                    onChange={(next) => {
-                        setSlotCode(next);
-                        setCommitted(null);
-                    }}
-                    options={deliverySlots.map((slot) => ({
-                        value: slot.code,
-                        label: t('commerce:checkout.slotChip', {
-                            slot: slotName(slot.code),
-                            from: slot.startsAt,
-                            to: slot.endsAt,
-                        }),
-                        testID: `checkout-slot-${slot.code}`,
-                    }))}
-                />
+                {slotCode === null ? (
+                    <Callout
+                        testID="checkout-slot-none"
+                        role="alert"
+                        tone="warning"
+                        icon="warning"
+                        title={t('commerce:checkout.slotTitle')}
+                        body={t('commerce:checkout.noSlotsOffered')}
+                    />
+                ) : (
+                    <ChoiceChips
+                        testID="checkout-slot-picker"
+                        label={t('commerce:checkout.slotTitle')}
+                        value={slotCode}
+                        onChange={(next) => {
+                            setSlotCode(next);
+                            setCommitted(null);
+                        }}
+                        options={slotOptions.map((slot) => ({
+                            value: slot.code,
+                            label: t('commerce:checkout.slotChip', {
+                                slot: slotName(slot.code),
+                                from: slot.startsAt,
+                                to: slot.endsAt,
+                            }),
+                            testID: `checkout-slot-${slot.code}`,
+                        }))}
+                    />
+                )}
             </View>
 
             <View className="mt-6 flex-row">

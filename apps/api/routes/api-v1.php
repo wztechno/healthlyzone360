@@ -154,6 +154,8 @@ use Healthy360\Delivery\Http\Controllers\DeliveryZoneIndexController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneShowController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneStoreController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneUpdateController;
+use Healthy360\Delivery\Http\Controllers\DeliveryZoneWindowIndexController;
+use Healthy360\Delivery\Http\Controllers\DeliveryZoneWindowReplaceController;
 use Healthy360\Delivery\Http\Controllers\DriverJobClaimController;
 use Healthy360\Delivery\Http\Controllers\DriverJobDeliverController;
 use Healthy360\Delivery\Http\Controllers\DriverJobIndexController;
@@ -1468,6 +1470,14 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::put('/delivery-zones/{zone}/areas', DeliveryZoneAreaReplaceController::class)
                     ->middleware('precondition')
                     ->name('catalogue.delivery-zones.areas.replace');
+
+                // Which windows the zone offers, versioned against the zone
+                // exactly as its areas are.
+                Route::get('/delivery-zones/{zone}/windows', DeliveryZoneWindowIndexController::class)->name('catalogue.delivery-zones.windows.index');
+
+                Route::put('/delivery-zones/{zone}/windows', DeliveryZoneWindowReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.delivery-zones.windows.replace');
 
                 Route::get('/delivery-windows', DeliveryWindowIndexController::class)->name('catalogue.delivery-windows.index');
                 Route::post('/delivery-windows', DeliveryWindowStoreController::class)->name('catalogue.delivery-windows.store');

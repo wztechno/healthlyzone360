@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8201 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8222 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1947,6 +1947,7 @@ export interface NamespaceKeys {
     | 'checkout.noAddressBody'
     | 'checkout.noAddressTitle'
     | 'checkout.noNote'
+    | 'checkout.noSlotsOffered'
     | 'checkout.noteLabel'
     | 'checkout.paymentCod'
     | 'checkout.paymentCodMeta'
@@ -2238,6 +2239,7 @@ export interface NamespaceKeys {
     | 'validation.tooLong'
     | 'warnings.checkout_address_missing'
     | 'warnings.checkout_empty_cart'
+    | 'warnings.checkout_window_not_offered'
     | 'warnings.planner_allergen_conflict'
     | 'warnings.subscription_delivery_day_unavailable'
     | 'warnings.subscription_no_delivery_days'
@@ -2549,6 +2551,7 @@ export interface NamespaceKeys {
     | 'orderRefusal.unpriced'
     | 'orderRefusal.variant_not_active'
     | 'orderRefusal.variant_unknown'
+    | 'orderRefusal.window_not_offered'
     | 'orderRefusal.zone_suspended'
     | 'validation.accept_privacy'
     | 'validation.accept_terms'
@@ -3083,6 +3086,14 @@ export interface NamespaceKeys {
     | 'conflict.title'
     | 'containment.contains'
     | 'containment.mayContain'
+    | 'deliveryWindows.emptyBody'
+    | 'deliveryWindows.emptyTitle'
+    | 'deliveryWindows.intro'
+    | 'deliveryWindows.loadErrorTitle'
+    | 'deliveryWindows.noZones'
+    | 'deliveryWindows.title'
+    | 'deliveryWindows.unknownZone'
+    | 'deliveryWindows.zonesColumn'
     | 'desk.a11y.noCustomerName'
     | 'desk.a11y.noDeliveryRun'
     | 'desk.assign.assignedToast'
@@ -3213,6 +3224,7 @@ export interface NamespaceKeys {
     | 'desk.refusal.unpriced'
     | 'desk.refusal.variant_not_active'
     | 'desk.refusal.variant_unknown'
+    | 'desk.refusal.window_not_offered'
     | 'desk.refusal.zone_suspended'
     | 'desk.sale.addItem'
     | 'desk.sale.addItemPriced'
@@ -3320,6 +3332,7 @@ export interface NamespaceKeys {
     | 'desk.sale.whenLabel'
     | 'desk.sale.wishNoteBody'
     | 'desk.sale.wishNoteTitle'
+    | 'desk.sale.zoneNoSlots'
     | 'desk.searchHint'
     | 'desk.searchLabel'
     | 'desk.searchPlaceholder'
@@ -3427,6 +3440,8 @@ export interface NamespaceKeys {
     | 'families.consumptionExceptions.name'
     | 'families.costReport.description'
     | 'families.costReport.name'
+    | 'families.deliveryWindows.description'
+    | 'families.deliveryWindows.name'
     | 'families.deliveryZones.description'
     | 'families.deliveryZones.name'
     | 'families.ingredients.description'
@@ -6222,6 +6237,12 @@ export interface NamespaceKeys {
     | 'windows.weekdaysHint'
     | 'windows.weekdaysLabel'
     | 'windows.weekdaysRequired'
+    | 'zoneWindows.everyDay'
+    | 'zoneWindows.groupLabel'
+    | 'zoneWindows.inactiveBadge'
+    | 'zoneWindows.intro'
+    | 'zoneWindows.manage'
+    | 'zoneWindows.none'
     | 'zones.amountInvalid'
     | 'zones.archiveAreaCount'
     | 'zones.archiveBody'
@@ -10172,6 +10193,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.noAddressBody',
   'commerce:checkout.noAddressTitle',
   'commerce:checkout.noNote',
+  'commerce:checkout.noSlotsOffered',
   'commerce:checkout.noteLabel',
   'commerce:checkout.paymentCod',
   'commerce:checkout.paymentCodMeta',
@@ -10463,6 +10485,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:validation.tooLong',
   'commerce:warnings.checkout_address_missing',
   'commerce:warnings.checkout_empty_cart',
+  'commerce:warnings.checkout_window_not_offered',
   'commerce:warnings.planner_allergen_conflict',
   'commerce:warnings.subscription_delivery_day_unavailable',
   'commerce:warnings.subscription_no_delivery_days',
@@ -10771,6 +10794,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:orderRefusal.unpriced',
   'errors:orderRefusal.variant_not_active',
   'errors:orderRefusal.variant_unknown',
+  'errors:orderRefusal.window_not_offered',
   'errors:orderRefusal.zone_suspended',
   'errors:validation.accept_privacy',
   'errors:validation.accept_terms',
@@ -11302,6 +11326,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:conflict.title',
   'kitchen:containment.contains',
   'kitchen:containment.mayContain',
+  'kitchen:deliveryWindows.emptyBody',
+  'kitchen:deliveryWindows.emptyTitle',
+  'kitchen:deliveryWindows.intro',
+  'kitchen:deliveryWindows.loadErrorTitle',
+  'kitchen:deliveryWindows.noZones',
+  'kitchen:deliveryWindows.title',
+  'kitchen:deliveryWindows.unknownZone',
+  'kitchen:deliveryWindows.zonesColumn',
   'kitchen:desk.a11y.noCustomerName',
   'kitchen:desk.a11y.noDeliveryRun',
   'kitchen:desk.assign.assignedToast',
@@ -11432,6 +11464,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.refusal.unpriced',
   'kitchen:desk.refusal.variant_not_active',
   'kitchen:desk.refusal.variant_unknown',
+  'kitchen:desk.refusal.window_not_offered',
   'kitchen:desk.refusal.zone_suspended',
   'kitchen:desk.sale.addItem',
   'kitchen:desk.sale.addItemPriced',
@@ -11539,6 +11572,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.whenLabel',
   'kitchen:desk.sale.wishNoteBody',
   'kitchen:desk.sale.wishNoteTitle',
+  'kitchen:desk.sale.zoneNoSlots',
   'kitchen:desk.searchHint',
   'kitchen:desk.searchLabel',
   'kitchen:desk.searchPlaceholder',
@@ -11646,6 +11680,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.consumptionExceptions.name',
   'kitchen:families.costReport.description',
   'kitchen:families.costReport.name',
+  'kitchen:families.deliveryWindows.description',
+  'kitchen:families.deliveryWindows.name',
   'kitchen:families.deliveryZones.description',
   'kitchen:families.deliveryZones.name',
   'kitchen:families.ingredients.description',
@@ -14441,6 +14477,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:windows.weekdaysHint',
   'kitchen:windows.weekdaysLabel',
   'kitchen:windows.weekdaysRequired',
+  'kitchen:zoneWindows.everyDay',
+  'kitchen:zoneWindows.groupLabel',
+  'kitchen:zoneWindows.inactiveBadge',
+  'kitchen:zoneWindows.intro',
+  'kitchen:zoneWindows.manage',
+  'kitchen:zoneWindows.none',
   'kitchen:zones.amountInvalid',
   'kitchen:zones.archiveAreaCount',
   'kitchen:zones.archiveBody',

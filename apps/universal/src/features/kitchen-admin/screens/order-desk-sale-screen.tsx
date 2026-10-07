@@ -70,6 +70,7 @@ import {
     needsCustomer,
     paymentMethodsFor,
     saleShortfall,
+    offeredDeskWindows,
     scheduleFor,
     withCustomer,
     withFulfilmentType,
@@ -246,12 +247,6 @@ function Sale() {
     const windows = useOrderDeskDeliveryWindowsQuery(state.fulfilmentType !== 'counter');
     const canAssign = useCan(ORDER_MANAGE_PERMISSION);
     const drivers = useOrderDeskDriversQuery(canAssign && state.fulfilmentType === 'delivery');
-    const windowList = windows.data ?? [];
-    const schedule = scheduleFor(
-        state,
-        todayIso(),
-        windowList.map((window) => window.code),
-    );
 
     // Naming the leaf is what makes "Order desk" in the trail a link back.
     useKitchenTrailLeaf(t('kitchen:desk.sale.title'));
@@ -290,6 +285,16 @@ function Sale() {
      */
     const quote = saleRequest === null ? null : (ticketQuote.data ?? null);
     const quoteStale = quotedRequest !== saleRequest || ticketQuote.isFetching;
+
+    // On a delivery, only the slots the address's zone offers; the default is chosen among those.
+    const offeredCodes =
+        state.fulfilmentType === 'delivery' ? (quote?.offeredWindowCodes ?? null) : null;
+    const windowList = offeredDeskWindows(windows.data ?? [], offeredCodes);
+    const schedule = scheduleFor(
+        state,
+        todayIso(),
+        windowList.map((window) => window.code),
+    );
 
     function onPlace() {
         const lines = toWire(state.lines);
@@ -424,6 +429,7 @@ function Sale() {
             {schedule === null ? null : (
                 <WhenSection
                     windows={windowList}
+                    zoneOffersNone={offeredCodes !== null && windowList.length === 0}
                     schedule={schedule}
                     onSchedule={(next) => {
                         update({ ...state, ...next });
@@ -516,6 +522,7 @@ const NO_DRIVER = 'none';
  */
 function WhenSection({
     windows,
+    zoneOffersNone,
     schedule,
     onSchedule,
     drivers,
@@ -523,6 +530,8 @@ function WhenSection({
     onDriver,
 }: {
     readonly windows: readonly OrderDeskDeliveryWindow[];
+    /** The address's zone offers none of the kitchen's windows — a different sentence from "none set up". */
+    readonly zoneOffersNone: boolean;
     readonly schedule: NonNullable<ReturnType<typeof scheduleFor>>;
     readonly onSchedule: (
         next: Pick<SaleState, 'requestedDeliveryDate' | 'deliveryWindowCode'>,
@@ -577,7 +586,11 @@ function WhenSection({
             </View>
             {windows.length === 0 ? (
                 <Text testID="kitchen-order-desk-sale-no-slots" variant="caption" tone="secondary">
-                    {t('kitchen:desk.sale.noSlots')}
+                    {t(
+                        zoneOffersNone
+                            ? 'kitchen:desk.sale.zoneNoSlots'
+                            : 'kitchen:desk.sale.noSlots',
+                    )}
                 </Text>
             ) : (
                 <View

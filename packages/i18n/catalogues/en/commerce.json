@@ -38,7 +38,8 @@
         "planner_allergen_conflict": "Something in this basket declares an allergen you have asked us to exclude. Please check every dish before ordering.",
         "subscription_no_delivery_days": "No delivery days have been chosen, so this subscription would never deliver.",
         "subscription_delivery_day_unavailable": "This plan does not deliver on one of the days you chose.",
-        "subscription_unknown_slot": "That delivery window is not one this kitchen offers."
+        "subscription_unknown_slot": "That delivery window is not one this kitchen offers.",
+        "checkout_window_not_offered": "The delivery zone for this address does not offer that slot. Choose another."
     },
     "address": {
         "label": "Name for this address",
@@ -154,7 +155,8 @@
         "theKitchen": "The kitchen",
         "setupTitle": "Finish setting up your account to order",
         "setupBody_one": "{{count}} step is left. Do it below, then place your order again.",
-        "setupBody_other": "{{count}} steps are left. Do them below, then place your order again."
+        "setupBody_other": "{{count}} steps are left. Do them below, then place your order again.",
+        "noSlotsOffered": "The delivery zone for this address offers no delivery slot. Choose another address, or contact the kitchen."
     },
     "configurator": {
         "title": "Set up your subscription",

@@ -36,6 +36,7 @@ use Healthy360\Delivery\Enums\DeliveryZoneStatus;
 use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Models\DeliveryZoneArea;
+use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Ingredients\Enums\AllergenMappingSource;
@@ -280,6 +281,10 @@ class DemoTenantSeeder extends Seeder
 
         $this->deliveryWindow($verdant, 'morning', 'Morning', 'صباحاً', '09:00:00', '12:00:00', [], 1, $creator);
         $this->deliveryWindow($verdant, 'evening', 'Evening', 'مساءً', '18:00:00', '21:00:00', [1, 2, 3, 4], 2, $creator);
+
+        // Both windows in both zones — placement refuses a slot the zone does
+        // not offer.
+        app(ZoneWindowService::class)->assignAll((string) $verdant->getKey());
 
         // Saturday to Thursday open, Friday closed. ISO weekdays: 5 is Friday.
         foreach ([1, 2, 3, 4, 5, 6, 7] as $weekday) {

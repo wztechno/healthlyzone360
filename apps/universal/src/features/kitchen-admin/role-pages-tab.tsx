@@ -33,7 +33,7 @@ import {
  * New customer, Unpriced receipts) are chips in the last column of the page they belong to.
  *
  * It holds no state of its own. The whole matrix is derived from the code set on every render,
- * which is what makes shared codes honest: eleven families are gated on
+ * which is what makes shared codes honest: ten families are gated on
  * `catalogue.view_organisation`, so setting one of them moves the other ten, and the reader watches
  * the ticks move rather than discovering it after a save. Each row says what else it opens.
  *

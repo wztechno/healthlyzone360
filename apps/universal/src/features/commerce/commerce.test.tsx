@@ -125,6 +125,7 @@ import {
 import {
     ALLERGEN_CONFLICT_WARNING,
     CHECKOUT_ADDRESS_MISSING,
+    CHECKOUT_WINDOW_NOT_OFFERED,
     CHECKOUT_EMPTY_CART,
     SUBSCRIPTION_DAY_UNAVAILABLE,
     displayableWarnings,
@@ -661,6 +662,7 @@ function checkoutPreview(cart: Cart, request: PreviewCheckoutRequest): CheckoutP
         total: { amount: cart.subtotal.amount + (deliveryFee?.amount ?? 0), currency: AED },
         earliestDeliveryDate: '2026-08-12',
         warnings: [],
+        offeredWindowCodes: null,
         paymentDeferred: true,
     };
 }
@@ -2085,6 +2087,128 @@ describe('CheckoutScreen', () => {
             fireEvent.press(screen.getByTestId('checkout-setup-step-dietary_profile-open'));
         });
         expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/allergies');
+    });
+});
+
+describe('CheckoutScreen — the slots the address zone offers', () => {
+    /** A preview whose zone offers `codes` once an address is chosen, and nothing filtered before. */
+    function zonePreview(basket: Basket, codes: readonly string[]) {
+        return {
+            previewCheckout: async (request: PreviewCheckoutRequest): Promise<CheckoutPreview> => ({
+                ...checkoutPreview(basket.cart, request),
+                offeredWindowCodes: request.addressId === undefined ? null : codes,
+            }),
+        };
+    }
+
+    async function chooseAddress(addressId: string): Promise<void> {
+        await act(async () => {
+            await kitchenServed;
+        });
+        await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
+        await fireEvent.press(
+            await screen.findByTestId(`checkout-address-picker-option-${addressId}`),
+        );
+    }
+
+    it('offers only the zone’s slots, moves off one it does not offer, and sends that', async () => {
+        const basket = basketOf(1);
+        const harness = await renderCheckout(basket, {
+            addresses: [HOME_ADDRESS],
+            commerce: {
+                ...zonePreview(basket, ['evening']),
+                placeOrder: async (request: PlaceOrderRequest): Promise<PlacedOrder> =>
+                    placedOrderFrom(basket.cart, request),
+            },
+        });
+
+        // No address yet: nothing to filter by, so the default is offered.
+        await waitFor(() => {
+            expect(screen.getByTestId(`checkout-slot-${DEFAULT_SLOT_CODE}`)).toBeTruthy();
+        });
+
+        await chooseAddress(HOME_ADDRESS.id);
+        await waitFor(() => {
+            expect(screen.queryByTestId(`checkout-slot-${DEFAULT_SLOT_CODE}`)).toBeNull();
+        });
+        expect(screen.getByTestId('checkout-slot-evening').props.accessibilityState).toMatchObject({
+            checked: true,
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-review'));
+        });
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('checkout-place-order').props.accessibilityState,
+            ).toMatchObject({ disabled: false });
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-place-order'));
+        });
+        await waitFor(() => {
+            expect(harness.repositories.commerce.placeOrder).toHaveBeenCalledWith(
+                expect.objectContaining({ slotCode: 'evening' }),
+            );
+        });
+    });
+
+    it('says so, and will not review, when the zone offers no slot', async () => {
+        const basket = basketOf(1);
+        await renderCheckout(basket, {
+            addresses: [HOME_ADDRESS],
+            commerce: zonePreview(basket, []),
+        });
+
+        await chooseAddress(HOME_ADDRESS.id);
+        await waitFor(() => {
+            expect(screen.getByTestId('checkout-slot-none')).toBeTruthy();
+        });
+        expect(screen.getByTestId('checkout-slot-none')).toHaveTextContent(
+            /offers no delivery slot/,
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-review'));
+        });
+        expect(screen.queryByTestId('checkout-place-order')).toBeNull();
+    });
+
+    it('names a window_not_offered refusal in words', async () => {
+        await renderCheckout(basketOf(1), {
+            addresses: [HOME_ADDRESS],
+            commerce: {
+                placeOrder: () =>
+                    Promise.reject(
+                        new ApiError(
+                            orderPlacementRefusedFailure([
+                                {
+                                    reason: 'window_not_offered',
+                                    context: { delivery_window_code: 'evening' },
+                                },
+                            ]),
+                        ),
+                    ),
+            },
+        });
+
+        await reviewCheckout(HOME_ADDRESS.id);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-place-order'));
+        });
+
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('checkout-place-error-reason-window_not_offered'),
+            ).toHaveTextContent(/does not offer that delivery slot/);
+        });
+    });
+
+    it('has written copy for the window_not_offered preview warning', () => {
+        expect(isKnownWarning(CHECKOUT_WINDOW_NOT_OFFERED)).toBe(true);
+        expect(warningMessageKey(CHECKOUT_WINDOW_NOT_OFFERED)).toBe(
+            'commerce:warnings.checkout_window_not_offered',
+        );
     });
 });
 

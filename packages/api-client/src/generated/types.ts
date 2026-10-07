@@ -3587,6 +3587,13 @@ export type DeliveryZone = {
      *
      */
     lock_version: number;
+    /**
+     * The windows this zone offers (assigned; an inactive one is assigned
+     * but not offered), in window display order. Replaced through
+     * `PUT /catalogue/delivery-zones/{zone}/windows`.
+     *
+     */
+    delivery_window_ids: Array<Uuid>;
     created_at?: string | null;
     updated_at?: string | null;
 };
@@ -4213,6 +4220,13 @@ export type DeliveryWindow = {
      * The only withdrawal there is. No DELETE exists.
      */
     is_active: boolean;
+    /**
+     * The zones this window is assigned to, ordered by zone code. A
+     * window in no zone is offered nowhere; a newly created window starts
+     * that way.
+     *
+     */
+    delivery_zone_ids: Array<Uuid>;
     created_at?: string | null;
     updated_at?: string | null;
 };
@@ -4329,6 +4343,25 @@ export type UpdateDeliveryZoneRequest = {
      *
      */
     is_active?: boolean;
+};
+
+export type DeliveryZoneWindowsEnvelope = {
+    data: {
+        /**
+         * Assigned windows, in window display order, inactive ones included.
+         */
+        delivery_window_ids: Array<Uuid>;
+    };
+    meta: Meta;
+};
+
+/**
+ * The **whole** set of windows this zone offers. An empty array is a
+ * zone that offers no slot.
+ *
+ */
+export type ReplaceDeliveryZoneWindowsRequest = {
+    delivery_window_ids: Array<Uuid>;
 };
 
 /**
@@ -4631,9 +4664,9 @@ export type PlaceOrderRequest = {
     cart_id: Uuid;
     customer_address_id: Uuid;
     /**
-     * The slot the customer chose, as the window's own code. Whether that
-     * slot is offered on that day by that branch is a scheduling question
-     * answered during placement, with the cut-off rules in hand.
+     * The slot the customer chose, as the window's own code. It must be
+     * one the address's zone offers (`offered_window_codes` on the
+     * preview), or placement refuses `window_not_offered`.
      *
      */
     delivery_window_code?: string | null;
@@ -4704,12 +4737,20 @@ export type CheckoutPreview = {
      * Every unresolved fact about the cart or the address, in the same
      * vocabulary `409 order.placement_refused` uses at placement:
      * `cart_empty`, `address_missing`, `address_not_deliverable`,
-     * `area_not_served`, `zone_suspended`, `currency_mismatch`, plus the
-     * line-probe vocabulary. Deduplicated — three lines refused for the
+     * `area_not_served`, `zone_suspended`, `currency_mismatch`,
+     * `window_not_offered`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
      * same reason read as one fact, not three repeats of it.
      *
      */
     warnings: Array<string>;
+    /**
+     * The window codes the address's zone offers — assigned to the zone
+     * and active, in display order. A picker shows only these; placement
+     * refuses any other with `window_not_offered`. Null when no zone
+     * resolved (no address, or an area not served).
+     *
+     */
+    offered_window_codes: Array<string> | null;
 };
 
 export type CheckoutPreviewEnvelope = {
@@ -8208,10 +8249,10 @@ export type OrderDeskSaleBase = {
      */
     requested_delivery_date?: string | null;
     /**
-     * The slot, by the window's own code. Not validated against the
-     * kitchen's windows here — whether that slot is offered on that day by
-     * that branch is a scheduling question answered with the cut-off rules
-     * in hand.
+     * The slot, by the window's own code. On a delivery it must be one the
+     * address's zone offers (`offered_window_codes` on the quote), or the
+     * quote refuses and the sale is refused `window_not_offered`. Not
+     * checked on a pickup.
      *
      */
     delivery_window_code?: string | null;
@@ -8303,7 +8344,8 @@ export type OrderDeskQuoteRefusal = {
      * `unpriced`, `currency_mismatch`, `channel_not_trading`. Order-level:
      * `customer_required`, `address_required`, `address_not_applicable`,
      * `address_not_deliverable`, `area_not_served`, `zone_suspended`,
-     * `currency_mismatch` (with `subject: delivery_fee`), `cut_off_passed`,
+     * `window_not_offered`, `currency_mismatch` (with
+     * `subject: delivery_fee`), `cut_off_passed`,
      * `branch_closed`, `date_in_the_past`.
      *
      */
@@ -8395,6 +8437,14 @@ export type OrderDeskQuote = {
      *
      */
     quotable: boolean;
+    /**
+     * On a delivery whose address resolved to a serving zone, the window
+     * codes that zone offers, in display order — the desk's slot picker
+     * shows only these. Null otherwise (pickup, counter, no address, an
+     * unserved area).
+     *
+     */
+    offered_window_codes: Array<string> | null;
 };
 
 export type OrderDeskQuoteEnvelope = {
@@ -9146,7 +9196,9 @@ export type PlaceGuestOrderRequest = {
     cart_id: Uuid;
     customer_address_id: Uuid;
     /**
-     * The chosen slot, as the delivery window's own code.
+     * The chosen slot, as the delivery window's own code. Must be one the
+     * address's zone offers, or placement refuses `window_not_offered`.
+     *
      */
     delivery_window_code?: string | null;
     /**
@@ -22768,6 +22820,161 @@ export type ReplaceDeliveryZoneAreasResponses = {
 };
 
 export type ReplaceDeliveryZoneAreasResponse = ReplaceDeliveryZoneAreasResponses[keyof ReplaceDeliveryZoneAreasResponses];
+
+export type ListDeliveryZoneWindowsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery zone identifier, or its `code`.
+         */
+        zone: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/delivery-zones/{zone}/windows';
+};
+
+export type ListDeliveryZoneWindowsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListDeliveryZoneWindowsError = ListDeliveryZoneWindowsErrors[keyof ListDeliveryZoneWindowsErrors];
+
+export type ListDeliveryZoneWindowsResponses = {
+    /**
+     * The windows this zone offers.
+     */
+    200: DeliveryZoneWindowsEnvelope;
+};
+
+export type ListDeliveryZoneWindowsResponse = ListDeliveryZoneWindowsResponses[keyof ListDeliveryZoneWindowsResponses];
+
+export type ReplaceDeliveryZoneWindowsData = {
+    body: ReplaceDeliveryZoneWindowsRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery zone identifier, or its `code`.
+         */
+        zone: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/delivery-zones/{zone}/windows';
+};
+
+export type ReplaceDeliveryZoneWindowsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceDeliveryZoneWindowsError = ReplaceDeliveryZoneWindowsErrors[keyof ReplaceDeliveryZoneWindowsErrors];
+
+export type ReplaceDeliveryZoneWindowsResponses = {
+    /**
+     * The windows this zone offers after the write.
+     */
+    200: DeliveryZoneWindowsEnvelope;
+};
+
+export type ReplaceDeliveryZoneWindowsResponse = ReplaceDeliveryZoneWindowsResponses[keyof ReplaceDeliveryZoneWindowsResponses];
 
 export type ListDeliveryWindowsData = {
     body?: never;

@@ -79,8 +79,8 @@ export const WINDOW_TRACKS = {
     days: 260,
     starts: 116,
     ends: 116,
-    capacity: 104,
     offered: 112,
+    zones: 180,
     remove: 28,
 } as const;
 
@@ -96,13 +96,15 @@ export interface DeliveryWindowRowsProps {
     readonly onAdd: () => void;
     /** Drawn beside "Add a window" — the section's save, which the screen owns. */
     readonly saveAction?: ReactNode | undefined;
+    /** A read-only trailing cell per row — the zones that offer the window. */
+    readonly zonesCell?: ((row: DeliveryWindowDraft) => ReactNode) | undefined;
     readonly testID: string;
 }
 
 type Offered = 'yes' | 'no';
 
 /**
- * The delivery windows of one zone, as one ruled table.
+ * The kitchen's delivery windows, as one ruled table.
  *
  * No move controls, unlike the recipe-line and pack editors. A window's array position carries no
  * meaning anywhere — the consumer `DeliveryZone` has no window list at all, so nothing downstream
@@ -113,7 +115,10 @@ type Offered = 'yes' | 'no';
  * rows of it is five chances for an inconsistent Wednesday.
  *
  * Each row carries at most one note under it, in order of what a person must act on first: the
- * row's error, then "not offered", then "uncapped" — empty capacity is a sentence, never `0`.
+ * row's error, then "not offered".
+ *
+ * Only a row not yet saved can be removed: there is no window delete, so a saved window is
+ * withdrawn with Offered → No instead.
  */
 export function DeliveryWindowRows({
     rows,
@@ -122,6 +127,7 @@ export function DeliveryWindowRows({
     canManage,
     onAdd,
     saveAction,
+    zonesCell,
     testID,
 }: DeliveryWindowRowsProps) {
     const { t } = useTranslation();
@@ -155,8 +161,10 @@ export function DeliveryWindowRows({
                     {head(t('kitchen:windows.weekdaysLabel'), WINDOW_TRACKS.days)}
                     {head(t('kitchen:windows.startsLabel'), WINDOW_TRACKS.starts)}
                     {head(t('kitchen:windows.endsLabel'), WINDOW_TRACKS.ends)}
-                    {head(t('kitchen:windows.capacityColumn'), WINDOW_TRACKS.capacity)}
                     {head(t('kitchen:windows.offeredColumn'), WINDOW_TRACKS.offered)}
+                    {zonesCell === undefined
+                        ? null
+                        : head(t('kitchen:deliveryWindows.zonesColumn'), WINDOW_TRACKS.zones)}
                     <View style={{ width: WINDOW_TRACKS.remove }} />
                 </View>
 
@@ -261,23 +269,6 @@ export function DeliveryWindowRows({
                                         }}
                                     />
                                 </View>
-                                <View style={{ width: WINDOW_TRACKS.capacity }}>
-                                    <TextInputField
-                                        testID={`${rowTestId}-capacity`}
-                                        id={`${rowTestId}-capacity`}
-                                        label={`${rowName} — ${t('kitchen:windows.capacityLabel')}`}
-                                        labelHidden
-                                        size="sm"
-                                        placeholder={t('kitchen:windows.capacityPlaceholder')}
-                                        value={row.capacity}
-                                        inputMode="numeric"
-                                        autoCorrect={false}
-                                        disabled={!canManage}
-                                        onChangeText={(next) => {
-                                            patch(index, { capacity: next });
-                                        }}
-                                    />
-                                </View>
                                 <View style={{ width: WINDOW_TRACKS.offered }} className="z-auto">
                                     <Select<Offered>
                                         testID={`${rowTestId}-active`}
@@ -301,11 +292,19 @@ export function DeliveryWindowRows({
                                         }}
                                     />
                                 </View>
+                                {zonesCell === undefined ? null : (
+                                    <View
+                                        style={{ width: WINDOW_TRACKS.zones }}
+                                        testID={`${rowTestId}-zones`}
+                                    >
+                                        {zonesCell(row)}
+                                    </View>
+                                )}
                                 <View
                                     style={{ width: WINDOW_TRACKS.remove }}
                                     className="items-center"
                                 >
-                                    {canManage ? (
+                                    {canManage && row.id === null ? (
                                         <Pressable
                                             testID={`${rowTestId}-remove`}
                                             role="button"
@@ -343,14 +342,6 @@ export function DeliveryWindowRows({
                                     variant="caption"
                                 >
                                     {t('kitchen:windows.activeHint')}
-                                </Text>
-                            ) : row.capacity.trim() === '' ? (
-                                <Text
-                                    testID={`${rowTestId}-capacity-state`}
-                                    tone="secondary"
-                                    variant="caption"
-                                >
-                                    {t('kitchen:windows.capacityUncapped')}
                                 </Text>
                             ) : null}
                         </View>

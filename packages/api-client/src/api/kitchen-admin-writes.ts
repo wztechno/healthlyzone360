@@ -6,18 +6,25 @@ import {
     RecipeId,
     SubscriptionPlanId,
 } from '@healthy360/domain-types';
-import type { KitchenBranchId, PriceListId, RecipeVersionId } from '@healthy360/domain-types';
+import type {
+    DeliveryWindowId,
+    KitchenBranchId,
+    PriceListId,
+    RecipeVersionId,
+} from '@healthy360/domain-types';
 import type { MeasureUnit, NutritionFacts } from '@healthy360/nutrition';
 
 import type {
     BranchOperating,
     CostAmount,
+    CreateDeliveryWindowRequest,
     CreateDeliveryZoneRequest,
     CreateIngredientRequest,
     CreateMealRequest,
     CreatePlanRequest,
     CreateProductRequest,
     CreateRecipeRequest,
+    DeliveryWindow,
     DeliveryZoneAdmin,
     IngredientAdmin,
     IngredientAllergenMapping,
@@ -36,7 +43,6 @@ import type {
     ReplacePlanMenuRequest,
     SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
-    SetDeliveryWindowsRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
     SetPlanCombinationsRequest,
@@ -48,6 +54,8 @@ import type {
     SetRecipeOutputsRequest,
     SetRecipeStepsRequest,
     SetZoneAreasRequest,
+    SetZoneWindowsRequest,
+    UpdateDeliveryWindowRequest,
     UpdateDeliveryZoneRequest,
     UpdateIngredientRequest,
     UpdateMealRequest,
@@ -74,6 +82,7 @@ import type {
 } from '../generated/types.ts';
 import {
     buildCategoryLookup,
+    mapDeliveryWindow,
     mapPlanMenu,
     mapRecipeRollupPreview,
     pickCurrentRecipeVersion,
@@ -126,7 +135,9 @@ export type ApiKitchenAdminWrites = Pick<
     | 'updateZone'
     | 'archiveZone'
     | 'setZoneAreas'
-    | 'setDeliveryWindows'
+    | 'setZoneWindows'
+    | 'createDeliveryWindow'
+    | 'updateDeliveryWindow'
     | 'setBranchOperating'
 >;
 
@@ -184,6 +195,40 @@ function slugifyCode(label: string): string {
         .replace(/^-+|-+$/g, '')
         .slice(0, 40);
     return slug === '' ? 'item' : slug;
+}
+
+/** The window code column's width. */
+const WINDOW_CODE_MAX = 30;
+
+/**
+ * A new window's code: the English name slugged and cut to the column's 30 characters, made unique
+ * against the kitchen's existing codes with a numeric suffix (`morning`, `morning-2`, …).
+ */
+export function deriveWindowCode(name: string, existing: readonly string[]): string {
+    const base = slugifyCode(name).slice(0, WINDOW_CODE_MAX).replace(/-+$/, '') || 'window';
+    const taken = new Set(existing);
+    if (!taken.has(base)) return base;
+    for (let suffix = 2; ; suffix += 1) {
+        const tail = `-${String(suffix)}`;
+        const candidate = `${base.slice(0, WINDOW_CODE_MAX - tail.length).replace(/-+$/, '')}${tail}`;
+        if (!taken.has(candidate)) return candidate;
+    }
+}
+
+/** The editable window fields, sent only when present. An Arabic name left empty is omitted. */
+function deliveryWindowWire(request: UpdateDeliveryWindowRequest): Record<string, unknown> {
+    return {
+        ...(request.label === undefined
+            ? {}
+            : {
+                  name_en: request.label.en,
+                  ...(request.label.ar === '' ? {} : { name_ar: request.label.ar }),
+              }),
+        ...(request.weekdays === undefined ? {} : { weekdays: [...request.weekdays] }),
+        ...(request.startsAt === undefined ? {} : { starts_at: request.startsAt }),
+        ...(request.endsAt === undefined ? {} : { ends_at: request.endsAt }),
+        ...(request.isActive === undefined ? {} : { is_active: request.isActive }),
+    };
 }
 
 function isUuid(value: string): boolean {
@@ -1834,75 +1879,52 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             return reads.getZone(zoneId);
         },
 
-        /**
-         * Org-scoped delivery windows. The contract keys the write by zone so
-         * the zone editor can own the form; windows themselves are kitchen
-         * vocabulary (no zone FK on the wire today).
-         */
-        async setDeliveryWindows(
+        async setZoneWindows(
             zoneId: DeliveryZoneId,
-            request: SetDeliveryWindowsRequest,
+            request: SetZoneWindowsRequest,
         ): Promise<DeliveryZoneAdmin> {
-            let windows = await transport.request<WireDeliveryWindow[]>({
+            await transport.request({
+                method: 'PUT',
+                path: `/catalogue/delivery-zones/${encodeURIComponent(String(zoneId))}/windows`,
+                headers: ifMatch(request.lockVersion),
+                body: { delivery_window_ids: request.windowIds.map((id) => String(id)) },
+            });
+            return reads.getZone(zoneId);
+        },
+
+        async createDeliveryWindow(request: CreateDeliveryWindowRequest): Promise<DeliveryWindow> {
+            const existing = await transport.request<WireDeliveryWindow[]>({
                 method: 'GET',
                 path: '/catalogue/delivery-windows',
             });
+            const envelope = await transport.requestEnvelope<{
+                readonly delivery_window: WireDeliveryWindow;
+            }>({
+                method: 'POST',
+                path: '/catalogue/delivery-windows',
+                body: {
+                    code: deriveWindowCode(
+                        request.label.en,
+                        existing.map((row) => row.code),
+                    ),
+                    ...deliveryWindowWire(request),
+                },
+            });
+            return mapDeliveryWindow(envelope.data.delivery_window);
+        },
 
-            const keptIds = new Set<string>();
-
-            for (const window of request.windows) {
-                const body = {
-                    name_en: window.label.en,
-                    ...(window.label.ar === undefined || window.label.ar === ''
-                        ? {}
-                        : { name_ar: window.label.ar }),
-                    weekdays: [...window.weekdays],
-                    starts_at: window.startsAt,
-                    ends_at: window.endsAt,
-                    is_active: window.isActive ?? true,
-                };
-
-                if (window.id === null) {
-                    const created = await transport.requestEnvelope<{
-                        readonly delivery_window: WireDeliveryWindow;
-                    }>({
-                        method: 'POST',
-                        path: '/catalogue/delivery-windows',
-                        body: {
-                            code: slugifyCode(window.label.en),
-                            ...body,
-                        },
-                    });
-                    windows = [...windows, created.data.delivery_window];
-                    keptIds.add(created.data.delivery_window.id);
-                    continue;
-                }
-
-                const id = String(window.id);
-                keptIds.add(id);
-                const updated = await transport.requestEnvelope<{
-                    readonly delivery_window: WireDeliveryWindow;
-                }>({
-                    method: 'PATCH',
-                    path: `/catalogue/delivery-windows/${encodeURIComponent(id)}`,
-                    body,
-                });
-                windows = windows.map((row) =>
-                    row.id === id ? updated.data.delivery_window : row,
-                );
-            }
-
-            for (const existing of windows) {
-                if (keptIds.has(existing.id) || !existing.is_active) continue;
-
-                await transport.request({
-                    method: 'PATCH',
-                    path: `/catalogue/delivery-windows/${encodeURIComponent(existing.id)}`,
-                    body: { is_active: false },
-                });
-            }
-
-            return reads.getZone(zoneId);
+        async updateDeliveryWindow(
+            windowId: DeliveryWindowId,
+            request: UpdateDeliveryWindowRequest,
+        ): Promise<DeliveryWindow> {
+            const envelope = await transport.requestEnvelope<{
+                readonly delivery_window: WireDeliveryWindow;
+            }>({
+                method: 'PATCH',
+                path: `/catalogue/delivery-windows/${encodeURIComponent(String(windowId))}`,
+                body: deliveryWindowWire(request),
+            });
+            return mapDeliveryWindow(envelope.data.delivery_window);
         },
 
         async setMealAvailability(

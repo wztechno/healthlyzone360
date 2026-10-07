@@ -12,8 +12,10 @@ use Healthy360\Customers\Enums\CustomerAddressType;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Customers\Models\CustomerDietaryProfile;
+use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Models\DeliveryZoneArea;
+use Healthy360\Delivery\Models\DeliveryZoneWindow;
 use Healthy360\Identity\Models\ContactPoint;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Organisations\Models\Organisation;
@@ -203,6 +205,25 @@ final class CheckoutWorld
         ]);
 
         return $zone;
+    }
+
+    /**
+     * A delivery window of the zone's organisation, offered in that zone when
+     * `$assigned` — placement refuses a slot its zone does not offer.
+     */
+    public static function window(DeliveryZone $zone, string $code = 'evening', bool $assigned = true): DeliveryWindow
+    {
+        $window = DeliveryWindow::factory()->create(['organisation_id' => $zone->organisation_id, 'code' => $code]);
+
+        if ($assigned) {
+            DeliveryZoneWindow::withoutTenancy()->create([
+                'organisation_id' => $zone->organisation_id,
+                'delivery_zone_id' => $zone->getKey(),
+                'delivery_window_id' => $window->getKey(),
+            ]);
+        }
+
+        return $window;
     }
 
     /**

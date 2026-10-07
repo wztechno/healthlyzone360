@@ -71,9 +71,24 @@ export function deliverySlotsForKitchen(
 }
 
 export function defaultSlotCodeForKitchen(kitchen: Kitchen | undefined | null): string {
-    const slots = deliverySlotsForKitchen(kitchen);
+    return defaultSlotCode(deliverySlotsForKitchen(kitchen)) ?? DEFAULT_SLOT_CODE;
+}
+
+/** The house default when the list offers it, otherwise the first slot; `null` for an empty list. */
+export function defaultSlotCode(slots: readonly DeliverySlotOption[]): string | null {
     if (slots.some((slot) => slot.code === DEFAULT_SLOT_CODE)) return DEFAULT_SLOT_CODE;
-    return slots[0]?.code ?? DEFAULT_SLOT_CODE;
+    return slots[0]?.code ?? null;
+}
+
+/**
+ * The slots the delivery address's zone offers (`CheckoutPreview.offeredWindowCodes`). `null` codes
+ * — no address yet, or no zone serves it — filter nothing; `[]` is a zone that offers no slot.
+ */
+export function offeredSlots(
+    slots: readonly DeliverySlotOption[],
+    codes: readonly string[] | null,
+): readonly DeliverySlotOption[] {
+    return codes === null ? slots : slots.filter((slot) => codes.includes(slot.code));
 }
 
 export function isDeliverySlotCode(code: string, kitchen?: Kitchen | null | undefined): boolean {

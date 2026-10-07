@@ -9,6 +9,7 @@ use Healthy360\Delivery\Http\Requests\UpdateDeliveryZoneRequest;
 use Healthy360\Delivery\Presenters\DeliveryAdminPresenter;
 use Healthy360\Delivery\Services\DeliveryZoneLocator;
 use Healthy360\Delivery\Services\DeliveryZoneService;
+use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -31,6 +32,7 @@ final class DeliveryZoneUpdateController
         private readonly DeliveryZoneLocator $locator,
         private readonly DeliveryZoneService $zones,
         private readonly DeliveryAdminPresenter $presenter,
+        private readonly ZoneWindowService $windows,
     ) {}
 
     /**
@@ -41,7 +43,7 @@ final class DeliveryZoneUpdateController
         $record = $this->locator->zone($zone);
         $updated = $this->zones->update($record, $request->payload(), $this->requiredLockVersion($request));
 
-        return ApiResponse::data(['delivery_zone' => $this->presenter->zone($updated)])
+        return ApiResponse::data(['delivery_zone' => $this->presenter->zone($updated, $this->windows->windowIdsFor($updated))])
             ->withHeaders(['ETag' => '"'.$updated->lock_version.'"']);
     }
 }

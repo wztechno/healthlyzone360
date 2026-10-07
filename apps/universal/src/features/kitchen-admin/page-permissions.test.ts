@@ -92,8 +92,8 @@ describe('reading a level off a code set', () => {
 
 describe('the grid', () => {
     it('names the siblings a shared code moves with it', () => {
-        // `catalogue.view_organisation` gates nine families. The row has to say so, because
-        // setting one and watching eight others move is otherwise indistinguishable from a bug.
+        // `catalogue.view_organisation` gates ten families. The row has to say so, because
+        // setting one and watching nine others move is otherwise indistinguishable from a bug.
         const sections = pageSections(new Set());
         const rows = sections.flatMap((section) => section.rows);
         const ingredients = rows.find((row) => row.family.key === 'ingredients');

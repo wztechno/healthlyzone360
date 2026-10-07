@@ -398,6 +398,7 @@ export const queryKeys = {
         zonesPage: (filter: QueryScope | undefined, page: number) =>
             ['kitchenAdmin', 'zones', 'page', scope(filter), page] as const,
         zone: (zoneId: DeliveryZoneId) => ['kitchenAdmin', 'zone', zoneId] as const,
+        deliveryWindows: () => ['kitchenAdmin', 'delivery-windows'] as const,
 
         branchOperating: (branchId: KitchenBranchId) =>
             ['kitchenAdmin', 'branch-operating', branchId] as const,

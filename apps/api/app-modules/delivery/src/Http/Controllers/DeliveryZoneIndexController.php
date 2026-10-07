@@ -7,6 +7,7 @@ namespace Healthy360\Delivery\Http\Controllers;
 use Healthy360\Delivery\Enums\DeliveryZoneStatus;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Presenters\DeliveryAdminPresenter;
+use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\CursorPage;
 use Healthy360\Support\Api\ErrorCode;
@@ -33,7 +34,10 @@ use Illuminate\Http\Request;
  */
 final class DeliveryZoneIndexController
 {
-    public function __construct(private readonly DeliveryAdminPresenter $presenter) {}
+    public function __construct(
+        private readonly DeliveryAdminPresenter $presenter,
+        private readonly ZoneWindowService $windows,
+    ) {}
 
     /**
      * @throws ApiException
@@ -60,7 +64,7 @@ final class DeliveryZoneIndexController
             $rows = $query->get();
 
             return ApiResponse::data(
-                $rows->map(fn (DeliveryZone $zone): array => $this->presenter->zone($zone))->all(),
+                $this->present($rows->all()),
                 OffsetPage::meta($rows, $requestedPage, $perPage, $total),
             );
         }
@@ -71,8 +75,24 @@ final class DeliveryZoneIndexController
         $page = CursorPage::page($query->get(), $limit);
 
         return ApiResponse::data(
-            $page['items']->map(fn (DeliveryZone $zone): array => $this->presenter->zone($zone))->all(),
+            $this->present($page['items']->all()),
             $page['meta'],
+        );
+    }
+
+    /**
+     * Each zone with the windows it offers — one query for the page.
+     *
+     * @param  array<int, DeliveryZone>  $zones
+     * @return list<array<string, mixed>>
+     */
+    private function present(array $zones): array
+    {
+        $windowIds = $this->windows->windowIdsByZone(array_map(static fn (DeliveryZone $zone): string => (string) $zone->getKey(), array_values($zones)));
+
+        return array_map(
+            fn (DeliveryZone $zone): array => $this->presenter->zone($zone, $windowIds[(string) $zone->getKey()] ?? []),
+            array_values($zones),
         );
     }
 
