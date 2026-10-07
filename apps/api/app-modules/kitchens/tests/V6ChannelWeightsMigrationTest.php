@@ -163,3 +163,30 @@ it('moves item-level importer prices onto packs a meal already had', function ()
         ->and(PriceListItem::withoutTenancy()->whereKey($own->getKey())->sole()->catalogue_item_variant_id)->toBeNull()
         ->and(CatalogueItemVariant::withoutTenancy()->where('catalogue_item_id', $guacamole->getKey())->count())->toBe(2);
 });
+
+it('does the same for a frozen meal that was a meal when it was priced', function (): void {
+    $organisation = $this->kitchen->organisation;
+
+    // PRD-011 Chicken Nuggets: B2C 1 kg at $8.00, priced on the item while it was still a meal.
+    $nuggets = CatalogueItem::factory()->create([
+        'catalogue_id' => $this->kitchen->catalogue->getKey(),
+        'organisation_id' => $organisation->getKey(),
+        'item_type' => CatalogueItemType::FrozenMeal,
+        'slug' => 'chicken-nuggets',
+        'source_system' => 'healthy360_workbook_v6',
+        'source_ref' => 'PRD-011',
+    ]);
+
+    $pack = CatalogueItemVariant::factory()->create(['catalogue_item_id' => $nuggets->getKey(), 'code' => 'b2c']);
+    CatalogueItemPackVariant::factory()->create(['catalogue_item_variant_id' => $pack->getKey(), 'pack_quantity' => '1.0000']);
+
+    $imported = PricingWorld::price(PricingWorld::priceList($organisation, 'v6-b2c'), $nuggets, null, 800);
+    $imported->source_ref = 'PRD-011/b2c';
+    $imported->save();
+
+    $migration = require dirname(__DIR__).'/database/migrations/2026_10_07_000003_move_every_v6_items_prices_onto_its_packs.php';
+    $migration->up();
+
+    expect(PriceListItem::withoutTenancy()->whereKey($imported->getKey())->sole()->catalogue_item_variant_id)
+        ->toBe((string) $pack->getKey());
+});
