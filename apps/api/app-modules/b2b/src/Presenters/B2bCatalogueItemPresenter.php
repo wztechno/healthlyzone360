@@ -14,6 +14,7 @@ use Healthy360\Pricing\Services\ResolvedPrice;
 final class B2bCatalogueItemPresenter
 {
     /**
+     * @param  array{size: string, unit: string}|null  $pack  the size the price buys; null for an item-level price
      * @return array{
      *     id: string,
      *     name: string,
@@ -21,6 +22,7 @@ final class B2bCatalogueItemPresenter
      *     seller_organisation_id: string,
      *     sales_channel_id: string,
      *     price: array{amount_minor: int, currency_code: string}|null,
+     *     pack: array{size: string, unit: string}|null,
      * }
      */
     public function item(
@@ -28,6 +30,7 @@ final class B2bCatalogueItemPresenter
         string $salesChannelId,
         ?ResolvedPrice $price,
         string $languageCode,
+        ?array $pack,
     ): array {
         return [
             'id' => (string) $item->getKey(),
@@ -39,6 +42,7 @@ final class B2bCatalogueItemPresenter
                 'amount_minor' => $price->amountMinor,
                 'currency_code' => $price->currencyCode,
             ],
+            'pack' => $pack,
         ];
     }
 }

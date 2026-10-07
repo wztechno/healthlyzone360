@@ -7,11 +7,14 @@ use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\B2b\Tests\Fixtures\B2bCheckoutWorld;
 use Healthy360\Cart\Services\CartService;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
+use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
+use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Orders\Exceptions\PlacementRefused;
 use Healthy360\Orders\Services\OrderPlacementService;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Pricing\Services\PriceResolver;
 use Healthy360\Pricing\Services\ResolvedPrice;
+use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 
 beforeEach(function (): void {
@@ -117,7 +120,35 @@ it('lists catalogue items for a corporate buyer with agreement prices', function
         ->assertOk()
         ->assertJsonPath('data.items.0.id', (string) $world['meal']->getKey())
         ->assertJsonPath('data.items.0.price.amount_minor', 1800)
+        // Priced as itself, so there is no pack size to state.
+        ->assertJsonPath('data.items.0.pack', null)
         ->assertJsonMissing(['price_list_id', 'price_list_item_id', 'unit_amount_minor']);
+});
+
+it('quotes a dual-pack article on the pack the wholesale tariff prices, and says what it holds', function (): void {
+    $world = B2bCheckoutWorld::dualAgreement();
+    $buyer = $world['buyers']['acme'];
+
+    // Sold by weight, the way the v6 sheet sells it: the 200 g consumer pack
+    // is the default, and only the kilo is on the buyer's tariff.
+    $onions = CheckoutWorld::publishedMeal($world['seller'], 'Caramelised onions');
+    $retail = CatalogueItemVariant::factory()->create(['catalogue_item_id' => $onions->getKey(), 'code' => 'b2c', 'is_default' => true]);
+    CatalogueItemPackVariant::factory()->create(['catalogue_item_variant_id' => $retail->getKey(), 'pack_quantity' => '0.2000']);
+    $kilo = CatalogueItemVariant::factory()->create(['catalogue_item_id' => $onions->getKey(), 'code' => 'b2b']);
+    CatalogueItemPackVariant::factory()->create(['catalogue_item_variant_id' => $kilo->getKey(), 'pack_quantity' => '1.0000']);
+    CheckoutWorld::offer($world['channel'], $onions);
+    PricingWorld::price($buyer['agreementList'], $onions, $kilo, 1200);
+
+    $this->actingAs($buyer['user'])
+        ->getJson('/api/v1/b2b/catalogue/items', $buyer['headers'])
+        ->assertOk()
+        ->assertJsonPath('data.items.0.id', (string) $onions->getKey())
+        ->assertJsonPath('data.items.0.price.amount_minor', 1200)
+        ->assertJsonPath('data.items.0.pack', ['size' => '1', 'unit' => 'kg']);
+
+    $this->getJson('/api/v1/b2b/catalogue/items/'.$onions->getKey(), $buyer['headers'])
+        ->assertOk()
+        ->assertJsonPath('data.item.pack', ['size' => '1', 'unit' => 'kg']);
 });
 
 it('refuses placement below the agreement minimum order', function (): void {

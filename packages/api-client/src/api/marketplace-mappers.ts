@@ -13,7 +13,7 @@ import type {
     SalesChannel,
     SubscriptionPlanId,
 } from '@healthy360/domain-types';
-import type { NutritionFacts, Serving } from '@healthy360/nutrition';
+import { isMeasureUnit, type NutritionFacts, type Serving } from '@healthy360/nutrition';
 
 import type {
     DeliveryZone,
@@ -23,6 +23,7 @@ import type {
     MarketplaceMeal,
     MealAvailability,
     OpeningHours,
+    PackSize,
 } from '../contracts/marketplace.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
@@ -34,6 +35,7 @@ import type {
     MarketplaceNutritionFacts as WireNutritionFacts,
     MarketplaceMoney as WireMoney,
     MarketplaceOpeningHours as WireOpeningHours,
+    PackSize as WirePackSize,
     MarketplaceSalesChannels as WireChannels,
 } from '../generated/types.ts';
 import { UNKNOWN_ISO_DATE_TIME } from './mappers.ts';
@@ -288,6 +290,19 @@ export function mapMealAvailability(wire: {
 }
 
 /**
+ * Wire pack size → `PackSize`, or `null` when there is none — or when it cannot be shown honestly:
+ * a quantity that is not a positive number, or a unit this build has no label for. Dropping the
+ * size leaves the price on screen without one, which is what an item-level price looks like anyway.
+ */
+export function mapPackSize(wire: WirePackSize | null | undefined): PackSize | null {
+    // `undefined` too: a server older than the field omits it, and a missing size is no size.
+    if (wire === null || wire === undefined) return null;
+    const quantity = Number(wire.size);
+    if (!Number.isFinite(quantity) || quantity <= 0 || !isMeasureUnit(wire.unit)) return null;
+    return { quantity, unit: wire.unit };
+}
+
+/**
  * Wire meal → `MarketplaceMeal`, or `null` when the price is unusable.
  *
  * The only way to reach `null` is a currency this client does not recognise. Dropping the meal is
@@ -335,6 +350,7 @@ export function mapMarketplaceMeal(wire: WireMeal): MarketplaceMeal | null {
         serving,
         nutrition,
         price,
+        pack: mapPackSize(wire.pack),
         preparationMinutes: wire.preparation_minutes,
         imagePlaceholderId: wire.image_placeholder_id,
         availability: wire.availability.map(mapMealAvailability),

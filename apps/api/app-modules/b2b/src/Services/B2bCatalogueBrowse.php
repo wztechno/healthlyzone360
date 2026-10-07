@@ -10,6 +10,7 @@ use Healthy360\Catalogues\Enums\SalesChannelStatus;
 use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Enums\VariantType;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
@@ -36,7 +37,7 @@ final readonly class B2bCatalogueBrowse
     ) {}
 
     /**
-     * @return list<array{item: CatalogueItem, sales_channel_id: string, price: ResolvedPrice|null}>
+     * @return list<array{item: CatalogueItem, sales_channel_id: string, price: ResolvedPrice, pack: array{size: string, unit: string}|null}>
      */
     public function items(CustomerAccount $buyer, CarbonImmutable $on): array
     {
@@ -61,6 +62,7 @@ final readonly class B2bCatalogueBrowse
                     'item' => $item,
                     'sales_channel_id' => (string) $channel->getKey(),
                     'price' => $price,
+                    'pack' => CatalogueItemPackVariant::sizeOf($price->catalogueItemVariantId),
                 ];
             }
         }
@@ -69,7 +71,7 @@ final readonly class B2bCatalogueBrowse
     }
 
     /**
-     * @return array{item: CatalogueItem, sales_channel_id: string, price: ResolvedPrice}
+     * @return array{item: CatalogueItem, sales_channel_id: string, price: ResolvedPrice, pack: array{size: string, unit: string}|null}
      *
      * @throws ApiException
      */
@@ -105,6 +107,7 @@ final readonly class B2bCatalogueBrowse
                     'item' => $article,
                     'sales_channel_id' => (string) $channel->getKey(),
                     'price' => $price,
+                    'pack' => CatalogueItemPackVariant::sizeOf($price->catalogueItemVariantId),
                 ];
             }
         }
@@ -112,35 +115,55 @@ final readonly class B2bCatalogueBrowse
         throw new ApiException(ErrorCode::ResourceNotFound);
     }
 
+    /**
+     * The first pack this channel prices, default first, then the item-level
+     * row — the same order the consumer listing and the basket use.
+     *
+     * Not the default pack alone. A dual-pack article's default is its B2C
+     * bottle, which the wholesale tariff does not price; asking only for it
+     * fell through to an item-level row that does not exist, and the article
+     * vanished from the corporate catalogue although its B2B pack is priced.
+     */
     private function resolvePrice(
         SalesChannel $channel,
         CatalogueItem $item,
         CustomerAccount $buyer,
         CarbonImmutable $on,
     ): ?ResolvedPrice {
-        $variantId = $item->item_type->variantType() === VariantType::Pack
-            ? $this->defaultPackVariantId($item)
-            : null;
+        foreach ([...$this->activePackIds($item), null] as $variantId) {
+            $price = $this->prices->currentFor(
+                (string) $channel->getKey(),
+                (string) $item->getKey(),
+                $variantId,
+                buyer: $buyer,
+                date: $on,
+            );
 
-        return $this->prices->currentFor(
-            (string) $channel->getKey(),
-            (string) $item->getKey(),
-            $variantId,
-            buyer: $buyer,
-            date: $on,
-        );
+            if ($price instanceof ResolvedPrice) {
+                return $price;
+            }
+        }
+
+        return null;
     }
 
-    private function defaultPackVariantId(CatalogueItem $item): ?string
+    /**
+     * @return list<string>
+     */
+    private function activePackIds(CatalogueItem $item): array
     {
-        $id = CatalogueItemVariant::withoutTenancy()
+        if ($item->item_type->variantType() !== VariantType::Pack) {
+            return [];
+        }
+
+        return array_values(CatalogueItemVariant::withoutTenancy()
             ->where('catalogue_item_id', $item->getKey())
             ->where('status', VariantStatus::Active->value)
             ->orderByDesc('is_default')
             ->orderBy('created_at')
-            ->value('id');
-
-        return $id === null ? null : (string) $id;
+            ->pluck('id')
+            ->map(static fn (mixed $id): string => (string) $id)
+            ->all());
     }
 
     /**

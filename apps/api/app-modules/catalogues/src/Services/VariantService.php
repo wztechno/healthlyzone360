@@ -65,13 +65,6 @@ final readonly class VariantService
 
         $variantType = $item->item_type->variantType();
 
-        if ($variantType === null) {
-            throw $this->invalid(
-                'variants',
-                'A meal is sold as itself and has no variants. Packs belong to products; configurations belong to subscription plans.',
-            );
-        }
-
         $prepared = $this->prepare($item, $variants, $variantType);
 
         DB::transaction(function () use ($item, $prepared, $variantType, $expectedLockVersion): void {

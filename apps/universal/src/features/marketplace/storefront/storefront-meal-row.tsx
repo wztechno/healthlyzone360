@@ -8,6 +8,7 @@ import { Pressable, Text as RNText, View } from 'react-native';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { allergenKey, formatMoney, nutrientValue } from '../format.ts';
+import { PackSuffix } from '../pack-suffix.tsx';
 
 /**
  * One dish on a kitchen's storefront — HealthZone `§isStorefront`, the Menu tab's row: a square
@@ -152,6 +153,7 @@ export function StorefrontMealRow({ meal, onOpen, onAdd, testID }: StorefrontMea
                             className="shrink font-display text-base font-bold tabular-nums text-content-primary text-start"
                         >
                             {formatMoney(formatter, meal.price)}
+                            <PackSuffix pack={meal.pack} testID={`${resolvedTestID}-pack`} />
                         </RNText>
 
                         <View className="shrink-0">

@@ -127,6 +127,7 @@ final class MarketplaceProjector
             $context['kitchen']->name,
             $locale,
             $price,
+            $this->meals->packSizeOf($meal, $price),
             $allergens,
             $this->meals->nutritionOf($meal),
             $this->meals->dietClassificationCodesOf($meal),

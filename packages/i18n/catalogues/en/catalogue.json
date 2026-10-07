@@ -93,6 +93,7 @@
         "allergensNone": "The kitchen declares no allergens in this dish.",
         "allergenItem": "Contains {{allergen}}",
         "addingToBasket": "Adding",
+        "pricePerPack": "{{price}} per {{size}}",
         "addedToBasket": "Added. Your basket now holds {{items}} items.",
         "actionErrorTitle": "That did not go through",
         "actionErrorBody": "Nothing was changed. Try again, and if it keeps failing the kitchen may have withdrawn the dish while this page was open.",

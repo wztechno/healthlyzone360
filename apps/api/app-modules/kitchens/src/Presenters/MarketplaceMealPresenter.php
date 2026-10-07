@@ -48,6 +48,7 @@ use Healthy360\Pricing\Services\ResolvedPrice;
 final class MarketplaceMealPresenter
 {
     /**
+     * @param  array{size: string, unit: string}|null  $pack  the size the price buys; null for an item-level price
      * @param  list<string>  $mealTypes
      * @param  list<string>  $dietClassifications
      * @param  list<string>  $allergens
@@ -61,6 +62,7 @@ final class MarketplaceMealPresenter
         string $kitchenName,
         string $locale,
         ResolvedPrice $price,
+        ?array $pack,
         array $allergens,
         ?array $nutrition,
         array $dietClassifications,
@@ -92,6 +94,11 @@ final class MarketplaceMealPresenter
             'serving' => $nutrition['serving'] ?? null,
             'nutrition' => $nutrition,
             'price' => ['amount' => $price->amountMinor, 'currency' => $price->currencyCode],
+
+            // What the price buys — a 300 g bottle, a 1 kg tray — so a sauce's
+            // $3.00 is never read as a price per kilo. Null for a dish priced
+            // as itself.
+            'pack' => $pack,
 
             // No column records how long a dish takes to make, and the
             // production time a kitchen plans with is not the wait a customer

@@ -105,6 +105,8 @@ import type {
     ServiceAreaFilter,
     SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
+    ItemChannelPrices,
+    SetItemChannelPricesRequest,
     SetDeliveryWindowsRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
@@ -843,6 +845,15 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         _request: SetChannelAvailabilityRequest,
     ): Promise<ProductAdmin> {
         return notImplemented(`PUT ${BASE}/catalogue/items/{item}/channels`);
+    },
+    getItemChannelPrices(_itemId: ProductId | MealId): Promise<ItemChannelPrices> {
+        return notImplemented(`GET ${BASE}/catalogue/items/{item}/channel-prices`);
+    },
+    setItemChannelPrices(
+        _itemId: ProductId | MealId,
+        _request: SetItemChannelPricesRequest,
+    ): Promise<ItemChannelPrices> {
+        return notImplemented(`PUT ${BASE}/catalogue/items/{item}/channel-prices`);
     },
 
     listPriceLists(_filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {

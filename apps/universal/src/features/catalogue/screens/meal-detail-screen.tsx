@@ -24,7 +24,7 @@ import { usePrototypeAction } from '../../../prototype/index.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { Eyebrow } from '../../../ui/eyebrow.tsx';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
-import { formatMoney } from '../../marketplace/format.ts';
+import { formatMoney, formatPackSize } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { leadTag, publishedFigure } from '../meal-readings.ts';
 import { MenuGrid } from '../menu-grid.tsx';
@@ -525,6 +525,19 @@ function MealInfoColumn({
                         </RNText>
                     </Pressable>
                 </View>
+
+                {/* What one unit buys, when it is sold by weight: the total above is per pack. */}
+                {item.pack === null ? null : (
+                    <RNText
+                        testID="meal-detail-pack"
+                        className="text-sm tabular-nums text-content-secondary text-start"
+                    >
+                        {t('catalogue:meal.pricePerPack', {
+                            price: formatMoney(formatter, item.price),
+                            size: formatPackSize(t, formatter, item.pack),
+                        })}
+                    </RNText>
+                )}
 
                 {errored ? (
                     <Callout

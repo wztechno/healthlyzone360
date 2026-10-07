@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8201 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8234 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1180,6 +1180,7 @@ export interface NamespaceKeys {
     | 'catalogue.buildQuotation'
     | 'catalogue.clearFilters'
     | 'catalogue.contractPrice'
+    | 'catalogue.contractPricePerPack'
     | 'catalogue.emptyBody'
     | 'catalogue.emptyTitle'
     | 'catalogue.kindAll'
@@ -1581,6 +1582,7 @@ export interface NamespaceKeys {
     | 'meal.notRatedYet'
     | 'meal.optionsNone'
     | 'meal.planSignIn'
+    | 'meal.pricePerPack'
     | 'meal.quantityDecrease'
     | 'meal.quantityIncrease'
     | 'meal.quantityLabel'
@@ -3018,6 +3020,21 @@ export interface NamespaceKeys {
     | 'catalogue.statsViewLabel'
     | 'catalogue.title'
     | 'catalogue.view'
+    | 'channelPrices.b2b'
+    | 'channelPrices.b2c'
+    | 'channelPrices.conflict'
+    | 'channelPrices.failed'
+    | 'channelPrices.hint'
+    | 'channelPrices.noPriceList'
+    | 'channelPrices.price'
+    | 'channelPrices.priceInvalid'
+    | 'channelPrices.priceNeedsWeight'
+    | 'channelPrices.save'
+    | 'channelPrices.saved'
+    | 'channelPrices.title'
+    | 'channelPrices.unit'
+    | 'channelPrices.weight'
+    | 'channelPrices.weightInvalid'
     | 'channels.consumerTag'
     | 'channels.createFirst'
     | 'channels.fromHint'
@@ -6684,6 +6701,22 @@ export interface NamespaceKeys {
     | 'nutrition.fat'
     | 'nutrition.protein'
     | 'nutrition.source'
+    | 'packSize.per'
+    | 'packSize.units.bag'
+    | 'packSize.units.bottle'
+    | 'packSize.units.can'
+    | 'packSize.units.cup'
+    | 'packSize.units.g'
+    | 'packSize.units.gallon'
+    | 'packSize.units.kg'
+    | 'packSize.units.l'
+    | 'packSize.units.ml'
+    | 'packSize.units.pack'
+    | 'packSize.units.piece'
+    | 'packSize.units.portion'
+    | 'packSize.units.slice'
+    | 'packSize.units.tbsp'
+    | 'packSize.units.tsp'
     | 'prototype.badge'
     | 'prototype.hint'
     | 'prototype.notBuilt'
@@ -9407,6 +9440,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:catalogue.buildQuotation',
   'business:catalogue.clearFilters',
   'business:catalogue.contractPrice',
+  'business:catalogue.contractPricePerPack',
   'business:catalogue.emptyBody',
   'business:catalogue.emptyTitle',
   'business:catalogue.kindAll',
@@ -9807,6 +9841,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meal.notRatedYet',
   'catalogue:meal.optionsNone',
   'catalogue:meal.planSignIn',
+  'catalogue:meal.pricePerPack',
   'catalogue:meal.quantityDecrease',
   'catalogue:meal.quantityIncrease',
   'catalogue:meal.quantityLabel',
@@ -11237,6 +11272,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:catalogue.statsViewLabel',
   'kitchen:catalogue.title',
   'kitchen:catalogue.view',
+  'kitchen:channelPrices.b2b',
+  'kitchen:channelPrices.b2c',
+  'kitchen:channelPrices.conflict',
+  'kitchen:channelPrices.failed',
+  'kitchen:channelPrices.hint',
+  'kitchen:channelPrices.noPriceList',
+  'kitchen:channelPrices.price',
+  'kitchen:channelPrices.priceInvalid',
+  'kitchen:channelPrices.priceNeedsWeight',
+  'kitchen:channelPrices.save',
+  'kitchen:channelPrices.saved',
+  'kitchen:channelPrices.title',
+  'kitchen:channelPrices.unit',
+  'kitchen:channelPrices.weight',
+  'kitchen:channelPrices.weightInvalid',
   'kitchen:channels.consumerTag',
   'kitchen:channels.createFirst',
   'kitchen:channels.fromHint',
@@ -14902,6 +14952,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:nutrition.fat',
   'marketplace:nutrition.protein',
   'marketplace:nutrition.source',
+  'marketplace:packSize.per',
+  'marketplace:packSize.units.bag',
+  'marketplace:packSize.units.bottle',
+  'marketplace:packSize.units.can',
+  'marketplace:packSize.units.cup',
+  'marketplace:packSize.units.g',
+  'marketplace:packSize.units.gallon',
+  'marketplace:packSize.units.kg',
+  'marketplace:packSize.units.l',
+  'marketplace:packSize.units.ml',
+  'marketplace:packSize.units.pack',
+  'marketplace:packSize.units.piece',
+  'marketplace:packSize.units.portion',
+  'marketplace:packSize.units.slice',
+  'marketplace:packSize.units.tbsp',
+  'marketplace:packSize.units.tsp',
   'marketplace:prototype.badge',
   'marketplace:prototype.hint',
   'marketplace:prototype.notBuilt',

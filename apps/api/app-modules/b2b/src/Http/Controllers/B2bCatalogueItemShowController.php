@@ -41,6 +41,7 @@ final class B2bCatalogueItemShowController
                 $row['sales_channel_id'],
                 $row['price'],
                 is_string($language) ? $language : 'en',
+                $row['pack'],
             ),
         ]);
     }

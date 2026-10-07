@@ -36,6 +36,8 @@ import type {
     ReplacePlanMenuRequest,
     SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
+    ItemChannelPrices,
+    SetItemChannelPricesRequest,
     SetDeliveryWindowsRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
@@ -76,8 +78,10 @@ import {
     buildCategoryLookup,
     mapPlanMenu,
     mapRecipeRollupPreview,
+    mapItemChannelPrices,
     pickCurrentRecipeVersion,
     type CategoryLookup,
+    type WireItemChannelPrices,
 } from './kitchen-admin-mappers.ts';
 import { createApiKitchenAdminReads } from './kitchen-admin-repository.ts';
 import type { Transport } from './transport.ts';
@@ -107,6 +111,7 @@ export type ApiKitchenAdminWrites = Pick<
     | 'publishProduct'
     | 'archiveProduct'
     | 'setProductChannelAvailability'
+    | 'setItemChannelPrices'
     | 'setPriceListEntries'
     | 'publishPriceList'
     | 'createMeal'
@@ -1233,6 +1238,33 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             });
 
             return reads.getProduct(productId);
+        },
+
+        async setItemChannelPrices(
+            itemId: ProductId | MealId,
+            request: SetItemChannelPricesRequest,
+        ): Promise<ItemChannelPrices> {
+            const body: Record<string, unknown> = {};
+            for (const channel of ['b2b', 'b2c'] as const) {
+                const offer = request[channel];
+                if (offer === undefined) continue;
+                body[channel] =
+                    offer === null
+                        ? null
+                        : {
+                              quantity: offer.quantity,
+                              unit: offer.unit,
+                              amount_minor: offer.amountMinor,
+                          };
+            }
+
+            const data = await transport.request<WireItemChannelPrices>({
+                method: 'PUT',
+                path: `/catalogue/items/${encodeURIComponent(String(itemId))}/channel-prices`,
+                headers: ifMatch(request.lockVersion),
+                body,
+            });
+            return mapItemChannelPrices(data);
         },
 
         async setPriceListEntries(

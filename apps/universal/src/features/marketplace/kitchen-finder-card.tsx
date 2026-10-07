@@ -19,6 +19,7 @@ import {
     publishesHours,
 } from './kitchen-finder.ts';
 import { deliveryTerms, fastestDeliveryMinutes, hoursToday } from './storefront-facts.ts';
+import { PackSuffix } from './pack-suffix.tsx';
 
 /**
  * One kitchen in the `/kitchens` finder — HealthZone's finder card, element for element: the
@@ -494,6 +495,7 @@ function DishPreview({
                             </View>
                             <RNText className="text-sm font-semibold tabular-nums text-content-primary text-end">
                                 {formatMoney(formatter, meal.price)}
+                                <PackSuffix pack={meal.pack} />
                             </RNText>
                         </Pressable>
                         {/*

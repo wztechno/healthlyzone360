@@ -2601,6 +2601,55 @@ export type RetireCatalogueItemRequest = {
     reason?: string | null;
 };
 
+/**
+ * One channel's side of the pair.
+ */
+export type ItemChannelOffer = {
+    sales_channel_id: Uuid;
+    /**
+     * The list the price is written to.
+     */
+    price_list_id: Uuid;
+    currency_code: CurrencyCode;
+    /**
+     * The pack's weight, or null when the item has no pack for this channel.
+     */
+    pack: PackSize | null;
+    /**
+     * Whole minor units of `currency_code`, or null when the pack is not priced.
+     */
+    amount_minor: number | null;
+};
+
+export type ItemChannelPricesEnvelope = {
+    data: {
+        item_id: Uuid;
+        lock_version: number;
+        channels: {
+            b2b: ItemChannelOffer | null;
+            b2c: ItemChannelOffer | null;
+        };
+    };
+    meta: Meta;
+};
+
+export type SetItemChannelOffer = {
+    quantity: number;
+    /**
+     * A measurement unit code, such as `g`, `kg`, `ml`, `l` or `piece`.
+     */
+    unit: string;
+    amount_minor?: number | null;
+};
+
+/**
+ * Each key optional; absent is untouched, null stops selling on that channel.
+ */
+export type SetItemChannelPricesRequest = {
+    b2b?: SetItemChannelOffer | null;
+    b2c?: SetItemChannelOffer | null;
+};
+
 export type ReplaceCatalogueItemVariantsRequest = {
     /**
      * The complete set. An empty array is a legitimate statement ("this
@@ -3642,6 +3691,21 @@ export type AdminDeliveryArea = {
 };
 
 /**
+ * The size a price is quoted for. `size` is a decimal string in
+ * `unit` — `0.3` with `kg` is 300 g. Never converted server-side. Named
+ * `size`, not `quantity`, because public surfaces never carry a key that
+ * could be read as a recipe quantity.
+ *
+ */
+export type PackSize = {
+    size: string;
+    /**
+     * A measurement unit code — `g`, `kg`, `ml`, `l`, `piece`, …
+     */
+    unit: string;
+};
+
+/**
  * An integer number of minor units and its currency code. `4200` with
  * `AED` is 42.00 AED. Amounts are never formatted server-side and never
  * travel without their currency (master plan v2 §4.4).
@@ -3984,6 +4048,12 @@ export type MarketplaceMeal = {
      */
     nutrition: MarketplaceNutritionFacts | null;
     price: MarketplaceMoney;
+    /**
+     * What `price` buys — a 300 g bottle, a 1 kg tray. Null when the item
+     * is priced as itself (a plated dish).
+     *
+     */
+    pack: PackSize | null;
     /**
      * Always null; no column records how long a dish takes to make.
      */
@@ -11192,7 +11262,7 @@ export type QuoteQuotationRequest = {
 };
 
 /**
- * One article as a corporate buyer sees it — one name, one price, no tariff paperwork.
+ * One article as a corporate buyer sees it — one name, one price and the size it buys, no tariff paperwork.
  */
 export type B2bCatalogueItem = {
     id: Uuid;
@@ -11229,6 +11299,12 @@ export type B2bCatalogueItem = {
         amount_minor: number;
         currency_code: CurrencyCode;
     } | null;
+    /**
+     * What `price` buys — the B2B pack's size, `1` `kg` for a sauce sold
+     * by the kilo. Null when the price is quoted for the item itself.
+     *
+     */
+    pack: PackSize | null;
 };
 
 /**
@@ -19477,6 +19553,171 @@ export type ReplaceCatalogueItemVariantsResponses = {
 };
 
 export type ReplaceCatalogueItemVariantsResponse = ReplaceCatalogueItemVariantsResponses[keyof ReplaceCatalogueItemVariantsResponses];
+
+export type GetCatalogueItemChannelPricesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/channel-prices';
+};
+
+export type GetCatalogueItemChannelPricesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetCatalogueItemChannelPricesError = GetCatalogueItemChannelPricesErrors[keyof GetCatalogueItemChannelPricesErrors];
+
+export type GetCatalogueItemChannelPricesResponses = {
+    /**
+     * The item's channel offer.
+     */
+    200: ItemChannelPricesEnvelope;
+};
+
+export type GetCatalogueItemChannelPricesResponse = GetCatalogueItemChannelPricesResponses[keyof GetCatalogueItemChannelPricesResponses];
+
+export type SetCatalogueItemChannelPricesData = {
+    body: SetItemChannelPricesRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/channel-prices';
+};
+
+export type SetCatalogueItemChannelPricesErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SetCatalogueItemChannelPricesError = SetCatalogueItemChannelPricesErrors[keyof SetCatalogueItemChannelPricesErrors];
+
+export type SetCatalogueItemChannelPricesResponses = {
+    /**
+     * The item's channel offer as it now stands.
+     */
+    200: ItemChannelPricesEnvelope;
+};
+
+export type SetCatalogueItemChannelPricesResponse = SetCatalogueItemChannelPricesResponses[keyof SetCatalogueItemChannelPricesResponses];
 
 export type ReplaceCatalogueItemIngredientsData = {
     body: ReplaceCatalogueItemIngredientsRequest;
