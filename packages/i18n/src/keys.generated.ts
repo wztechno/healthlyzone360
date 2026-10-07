@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8185 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8201 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3253,9 +3253,13 @@ export interface NamespaceKeys {
     | 'desk.sale.customerTitle'
     | 'desk.sale.customerUnnamed'
     | 'desk.sale.customerUseInstead'
+    | 'desk.sale.dateLabel'
     | 'desk.sale.deliveryFee'
     | 'desk.sale.directionsLabel'
     | 'desk.sale.directionsPlaceholder'
+    | 'desk.sale.driverHint'
+    | 'desk.sale.driverLabel'
+    | 'desk.sale.driverNone'
     | 'desk.sale.each'
     | 'desk.sale.itemCount'
     | 'desk.sale.lineOneLabel'
@@ -3267,6 +3271,7 @@ export interface NamespaceKeys {
     | 'desk.sale.method.wish'
     | 'desk.sale.methodLabel'
     | 'desk.sale.more'
+    | 'desk.sale.noSlots'
     | 'desk.sale.notSold'
     | 'desk.sale.notesLabel'
     | 'desk.sale.onTicket'
@@ -3276,6 +3281,8 @@ export interface NamespaceKeys {
     | 'desk.sale.pickerSearchLabel'
     | 'desk.sale.pickerSearchPlaceholder'
     | 'desk.sale.placeFor'
+    | 'desk.sale.placedAssignedToast'
+    | 'desk.sale.placedConfirmedToast'
     | 'desk.sale.placedToast'
     | 'desk.sale.quoteErrorBody'
     | 'desk.sale.quoteErrorTitle'
@@ -3294,6 +3301,8 @@ export interface NamespaceKeys {
     | 'desk.sale.shortfall.address'
     | 'desk.sale.shortfall.customer'
     | 'desk.sale.shortfall.reference'
+    | 'desk.sale.slotHours'
+    | 'desk.sale.slotLabel'
     | 'desk.sale.soldBody'
     | 'desk.sale.soldToast'
     | 'desk.sale.subtotal'
@@ -3308,6 +3317,7 @@ export interface NamespaceKeys {
     | 'desk.sale.typeHint.delivery'
     | 'desk.sale.typeHint.pickup'
     | 'desk.sale.typeLabel'
+    | 'desk.sale.whenLabel'
     | 'desk.sale.wishNoteBody'
     | 'desk.sale.wishNoteTitle'
     | 'desk.searchHint'
@@ -3330,6 +3340,10 @@ export interface NamespaceKeys {
     | 'dressings.title'
     | 'dressings.viewKind'
     | 'driver.assignedAt'
+    | 'driver.availableHint'
+    | 'driver.availableTitle'
+    | 'driver.claim'
+    | 'driver.claimTaken'
     | 'driver.deliver'
     | 'driver.deliverBody'
     | 'driver.deliverConfirm'
@@ -3339,6 +3353,7 @@ export interface NamespaceKeys {
     | 'driver.emptyBody'
     | 'driver.emptyTitle'
     | 'driver.loadErrorTitle'
+    | 'driver.mineTitle'
     | 'driver.noAddress'
     | 'driver.notesHint'
     | 'driver.notesLabel'
@@ -11457,9 +11472,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.customerTitle',
   'kitchen:desk.sale.customerUnnamed',
   'kitchen:desk.sale.customerUseInstead',
+  'kitchen:desk.sale.dateLabel',
   'kitchen:desk.sale.deliveryFee',
   'kitchen:desk.sale.directionsLabel',
   'kitchen:desk.sale.directionsPlaceholder',
+  'kitchen:desk.sale.driverHint',
+  'kitchen:desk.sale.driverLabel',
+  'kitchen:desk.sale.driverNone',
   'kitchen:desk.sale.each',
   'kitchen:desk.sale.itemCount',
   'kitchen:desk.sale.lineOneLabel',
@@ -11471,6 +11490,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.method.wish',
   'kitchen:desk.sale.methodLabel',
   'kitchen:desk.sale.more',
+  'kitchen:desk.sale.noSlots',
   'kitchen:desk.sale.notSold',
   'kitchen:desk.sale.notesLabel',
   'kitchen:desk.sale.onTicket',
@@ -11480,6 +11500,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.pickerSearchLabel',
   'kitchen:desk.sale.pickerSearchPlaceholder',
   'kitchen:desk.sale.placeFor',
+  'kitchen:desk.sale.placedAssignedToast',
+  'kitchen:desk.sale.placedConfirmedToast',
   'kitchen:desk.sale.placedToast',
   'kitchen:desk.sale.quoteErrorBody',
   'kitchen:desk.sale.quoteErrorTitle',
@@ -11498,6 +11520,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.shortfall.address',
   'kitchen:desk.sale.shortfall.customer',
   'kitchen:desk.sale.shortfall.reference',
+  'kitchen:desk.sale.slotHours',
+  'kitchen:desk.sale.slotLabel',
   'kitchen:desk.sale.soldBody',
   'kitchen:desk.sale.soldToast',
   'kitchen:desk.sale.subtotal',
@@ -11512,6 +11536,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.typeHint.delivery',
   'kitchen:desk.sale.typeHint.pickup',
   'kitchen:desk.sale.typeLabel',
+  'kitchen:desk.sale.whenLabel',
   'kitchen:desk.sale.wishNoteBody',
   'kitchen:desk.sale.wishNoteTitle',
   'kitchen:desk.searchHint',
@@ -11534,6 +11559,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:dressings.title',
   'kitchen:dressings.viewKind',
   'kitchen:driver.assignedAt',
+  'kitchen:driver.availableHint',
+  'kitchen:driver.availableTitle',
+  'kitchen:driver.claim',
+  'kitchen:driver.claimTaken',
   'kitchen:driver.deliver',
   'kitchen:driver.deliverBody',
   'kitchen:driver.deliverConfirm',
@@ -11543,6 +11572,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.emptyBody',
   'kitchen:driver.emptyTitle',
   'kitchen:driver.loadErrorTitle',
+  'kitchen:driver.mineTitle',
   'kitchen:driver.noAddress',
   'kitchen:driver.notesHint',
   'kitchen:driver.notesLabel',

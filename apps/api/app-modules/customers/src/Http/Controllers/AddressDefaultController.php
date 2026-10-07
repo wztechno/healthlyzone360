@@ -48,7 +48,7 @@ final class AddressDefaultController
     public function __invoke(Request $request, string $address): JsonResponse
     {
         $user = $this->currentUser($request);
-        $account = $this->customerAccount($user);
+        $account = $this->addressBookAccount($request, $user);
 
         $promoted = $this->addresses->makeDefault(
             $this->addressFor($account, $address),

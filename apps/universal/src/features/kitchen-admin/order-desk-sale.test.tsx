@@ -17,6 +17,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { todayIso } from '../commerce/dates.ts';
 import { OrderDeskSaleScreen } from './screens/order-desk-sale-screen.tsx';
 
 /* `mock`-prefixed so the factory below may close over them — Jest's hoisting rule. */
@@ -234,6 +235,22 @@ async function renderSale(stubs: SaleStubs = {}) {
                 quoteSale: stubs.quoteSale ?? (async (request) => quoteFor(request)),
                 placeSale: stubs.placeSale ?? (async () => placedOrder()),
                 searchCustomers: async () => ({ rows: [customer()], limit: 20 }),
+                listDeliveryWindows: async () => [
+                    {
+                        code: 'morning',
+                        nameEn: 'Breakfast',
+                        nameAr: 'فطور',
+                        startsAt: '08:00',
+                        endsAt: '10:00',
+                    },
+                    {
+                        code: 'midday',
+                        nameEn: 'Lunch',
+                        nameAr: 'غداء',
+                        startsAt: '12:00',
+                        endsAt: '14:00',
+                    },
+                ],
                 createCustomer:
                     stubs.createCustomer ??
                     (async () => ({ customer: customer(), possibleDuplicates: [] })),
@@ -600,6 +617,9 @@ describe('sale — collections and deliveries', () => {
             ],
             paymentMethod: 'cash_at_counter',
             customerAccountId: ACCOUNT_ID,
+            // Untouched When card: today, and the checkout's midday slot the kitchen offers.
+            requestedDeliveryDate: todayIso(),
+            deliveryWindowCode: 'midday',
         });
     });
 

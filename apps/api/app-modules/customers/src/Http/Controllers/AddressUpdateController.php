@@ -51,7 +51,7 @@ final class AddressUpdateController
     public function __invoke(UpdateAddressRequest $request, string $address): JsonResponse
     {
         $user = $this->currentUser($request);
-        $account = $this->customerAccount($user);
+        $account = $this->addressBookAccount($request, $user);
         $record = $this->addressFor($account, $address);
 
         $updated = $this->addresses->update($record, $request->payload(), (string) $user->getKey());

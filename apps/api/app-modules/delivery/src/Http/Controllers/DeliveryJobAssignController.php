@@ -4,20 +4,14 @@ declare(strict_types=1);
 
 namespace Healthy360\Delivery\Http\Controllers;
 
-use Carbon\CarbonImmutable;
-use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Delivery\Http\Concerns\ReadsPrecondition;
 use Healthy360\Delivery\Http\Requests\AssignDeliveryJobRequest;
 use Healthy360\Delivery\Models\DeliveryJob;
-use Healthy360\Organisations\Enums\MembershipStatus;
-use Healthy360\Organisations\Models\OrganisationMembership;
+use Healthy360\Delivery\Services\DeliveryJobAssignment;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
-use Healthy360\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 /**
  * POST /api/v1/delivery/jobs/{job}/assign — this run is yours.
@@ -115,11 +109,6 @@ final class DeliveryJobAssignController
     use ReadsPrecondition;
 
     /**
-     * The dispatch state a named driver puts a run into.
-     */
-    private const string ASSIGNED_STATUS = 'assigned';
-
-    /**
      * States from which there is nothing left to assign. Both are ends of the
      * line — one because the food arrived, one because the run was called off —
      * and neither is a place a fresh driver can be inserted into.
@@ -128,10 +117,7 @@ final class DeliveryJobAssignController
      */
     private const array TERMINAL_STATUSES = ['delivered', 'cancelled'];
 
-    public function __construct(
-        private readonly AuditRecorder $audit,
-        private readonly TenantContext $context,
-    ) {}
+    public function __construct(private readonly DeliveryJobAssignment $assignment) {}
 
     /**
      * @throws ApiException
@@ -143,50 +129,13 @@ final class DeliveryJobAssignController
 
         $this->refuseTerminal($record);
 
-        $driverUserId = $request->driverUserId();
-        $this->refuseOutsider($driverUserId);
-
-        $assignedAt = CarbonImmutable::now();
-
         // The validator travels inside the `WHERE`, so the check and the write
         // are one statement and no second dispatcher can land between them.
-        $updated = DeliveryJob::query()
-            ->whereKey($record->getKey())
-            ->where('lock_version', $expected)
-            ->update([
-                'driver_user_id' => $driverUserId,
-                'assigned_at' => $assignedAt,
-                'status' => self::ASSIGNED_STATUS,
-                'lock_version' => DB::raw('lock_version + 1'),
-                'updated_at' => $assignedAt,
-            ]);
-
-        if ($updated === 0) {
+        // `DeliveryJobAssignment` refuses an outsider driver (422) before it
+        // writes and records `delivery.job_assigned` after.
+        if (! $this->assignment->assign($record, $request->driverUserId(), ['lock_version' => $expected])) {
             $this->refuseStale($record);
         }
-
-        $record->refresh();
-
-        // Outside no transaction of its own, and after the write, matching
-        // `OrderLifecycle`: the event describes something that has happened. The
-        // subject is the **job** rather than the order, because this is the
-        // delivery module's decision about the delivery module's row, and an
-        // order's own trail should not acquire entries for work its customer
-        // never sees.
-        $this->audit->record(
-            'delivery.job_assigned',
-            actorUserId: $this->context->userId(),
-            subjectType: 'delivery_job',
-            subjectId: (string) $record->getKey(),
-            metadata: [
-                'order_id' => $record->order_id,
-                'driver_user_id' => $driverUserId,
-                // Never `*_code`: the audit redactor blanks any key containing
-                // `code`, and this is the field that says what the run became.
-                'status' => $record->status,
-                'lock_version' => $record->lock_version,
-            ],
-        );
 
         return ApiResponse::data(['job' => $this->row($record)])
             ->withHeaders(['ETag' => '"'.$record->lock_version.'"']);
@@ -230,46 +179,6 @@ final class DeliveryJobAssignController
                 'current_lock_version' => $job->lock_version,
             ],
         );
-    }
-
-    /**
-     * A driver has to work here.
-     *
-     * `active`, not merely present: an invitation nobody accepted, a suspension
-     * and an ended employment are all rows in `organisation_memberships`, and
-     * none of them is somebody a kitchen can send out with its food. The
-     * predicate is the one `DeskCustomerDirectory` uses for the same table and
-     * the same reason.
-     *
-     * A `422` rather than a `404`: the request is about the *job*, which exists
-     * and which the caller may reach, and what is wrong is one field of the
-     * body. It is thrown as a `ValidationException` so the envelope, the status
-     * and the field key are identical to what a rule in the form request would
-     * have produced — a client branches on `validation.failed` and reads
-     * `details.fields.driver_user_id`, whether the number was the wrong shape or
-     * the right shape for the wrong person.
-     *
-     * The membership read is scoped by the ambient organisation too — the model
-     * carries the same global scope the job does — so a courier who genuinely
-     * works for the kitchen next door is refused on the same predicate as a uuid
-     * that names nobody, and the message deliberately does not distinguish them.
-     *
-     * @throws ValidationException
-     */
-    private function refuseOutsider(string $driverUserId): void
-    {
-        $isMember = OrganisationMembership::query()
-            ->where('user_id', $driverUserId)
-            ->where('status', MembershipStatus::Active->value)
-            ->exists();
-
-        if ($isMember) {
-            return;
-        }
-
-        throw ValidationException::withMessages([
-            'driver_user_id' => 'That person is not an active member of this organisation, so this delivery cannot be given to them.',
-        ]);
     }
 
     /**

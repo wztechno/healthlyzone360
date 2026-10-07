@@ -1,4 +1,4 @@
-import type { DriverJob } from '@healthy360/api-client/contracts';
+import type { DriverRunSheet } from '@healthy360/api-client/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
@@ -46,7 +46,7 @@ export interface DriverJobsQueryOptions {
 }
 
 /**
- * The caller's own live jobs, oldest first.
+ * The caller's own live jobs, oldest first, and the unassigned pool beside them.
  *
  * No parameters and no key scope: the endpoint takes none, and the narrowing is
  * `driver_user_id = me` rather than anything a filter could express.
@@ -54,7 +54,7 @@ export interface DriverJobsQueryOptions {
 export function useDriverJobsQuery(
     enabled = true,
     options: DriverJobsQueryOptions = {},
-): UseQueryResult<readonly DriverJob[]> {
+): UseQueryResult<DriverRunSheet> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
@@ -64,6 +64,22 @@ export function useDriverJobsQuery(
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.driverJobs.listJobs();
+        },
+    });
+}
+
+/**
+ * Take a run from the unassigned pool, then re-read the sheet — on failure too, because the usual
+ * failure is `resource.conflict` (somebody else took it) and the run should leave the pool either way.
+ */
+export function useClaimDriverJobMutation(): UseMutationResult<void, unknown, string> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (jobId: string) => repositories.driverJobs.claimJob(jobId),
+        onSettled: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.driverJobs.all() });
         },
     });
 }

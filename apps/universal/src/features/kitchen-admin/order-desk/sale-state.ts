@@ -3,6 +3,7 @@ import type {
     OrderDeskFulfilmentType,
 } from '@healthy360/api-client/contracts';
 
+import { DEFAULT_SLOT_CODE } from '../../commerce/delivery.ts';
 import type { BasketLine } from './basket.ts';
 import { isQuotableBasket } from './basket.ts';
 
@@ -46,14 +47,23 @@ import { isQuotableBasket } from './basket.ts';
  * or a **pickup** it is an *intent* recorded for later, with no transaction to describe — so the same
  * control on the ticket records it, and nothing else is asked.
  *
- * ## The schedule is not asked for in v1
+ * ## The schedule: a day and a slot, for pickup and delivery
  *
- * `requested_delivery_date` and `delivery_window_code` are on {@link SaleState} so both request
- * bodies are shaped correctly, and this page leaves them `null`. An order with no requested day is
- * read by the server as *as soon as possible*, which is the honest answer for an order somebody just
- * took over the telephone. A desk cannot yet take an order *for Thursday*; that needs a slot picker
- * over the kitchen's delivery windows, and the fields are here so it lands as a section rather than a
- * rewrite.
+ * `requestedDeliveryDate` and `deliveryWindowCode` are asked for in a When card for the two sales
+ * that are cooked to a slot. Both start `null` and {@link scheduleFor} reads `null` as the default —
+ * today, and the `midday` window when the kitchen offers one (the checkout's rule,
+ * `commerce/delivery.ts`), otherwise its first — so the agent changes them only when the caller asks
+ * for another day. The slots are the kitchen's own active windows
+ * (`GET /catalogue/order-desk/delivery-windows`); a kitchen with none sends no slot. The cut-off
+ * refusals (`cut_off_passed`, `date_in_the_past`) are the server's and arrive in the placement's
+ * refusal envelope. A **counter** sale is handed over now and is never slotted — switching to it
+ * clears both.
+ *
+ * ## The driver: delivery only, optional
+ *
+ * A desk delivery is confirmed at placement, which creates its run. `driverUserId` hands that run
+ * to somebody straight away; `null` leaves it in the pool drivers claim from on `/driver`. The wire
+ * refuses it on anything but a delivery, so leaving delivery clears it.
  */
 
 /** What the agent says they saw at the counter. Only ever present on a counter sale. */
@@ -80,10 +90,12 @@ export interface SaleState {
     readonly paymentMethod: KitchenOrderPaymentMethod;
     /** The receipt written at the till. Non-null **only** on a counter sale. */
     readonly payment: CounterPaymentDraft | null;
-    /** `YYYY-MM-DD`. Always `null` in v1 — see the module note on the schedule. */
+    /** `YYYY-MM-DD`; `null` is "the default" — see {@link scheduleFor}. Never set on a counter sale. */
     readonly requestedDeliveryDate: string | null;
-    /** Always `null` in v1 — see the module note on the schedule. */
+    /** A window code; `null` is "the default" — see {@link scheduleFor}. Never set on a counter sale. */
     readonly deliveryWindowCode: string | null;
+    /** Delivery only: who takes the run. `null` leaves it for a driver to claim. */
+    readonly driverUserId: string | null;
 }
 
 /**
@@ -144,6 +156,7 @@ export function initialSaleState(): SaleState {
         payment: { method, reference: '', notes: '' },
         requestedDeliveryDate: null,
         deliveryWindowCode: null,
+        driverUserId: null,
     };
 }
 
@@ -160,6 +173,8 @@ export function initialSaleState(): SaleState {
  *   for changing one's mind.
  * - away from **counter**: the payment draft goes, because the wire *forbids* the block on the other
  *   two (`422`).
+ * - to **counter**: the day and the slot go too — a counter sale is handed over now.
+ * - away from **delivery**: the driver goes (`422` on anything else).
  *
  * The method is always re-defaulted, because a method that made sense for the old shape may not name
  * anything real about the new one. The basket is never cleared: the same food is being sold whichever
@@ -179,6 +194,36 @@ export function withFulfilmentType(
         customerAddressId: needsAddress(fulfilmentType) ? state.customerAddressId : null,
         paymentMethod: method,
         payment: toCounter ? { method, reference: '', notes: '' } : null,
+        requestedDeliveryDate: toCounter ? null : state.requestedDeliveryDate,
+        deliveryWindowCode: toCounter ? null : state.deliveryWindowCode,
+        driverUserId: fulfilmentType === 'delivery' ? state.driverUserId : null,
+    };
+}
+
+/**
+ * The day and slot this sale is placed for, with the defaults applied — the checkout's `midday`
+ * when offered, else the kitchen's first window.
+ *
+ * `null` on a counter sale, which is never slotted. Otherwise the stated day or `today`, and the
+ * stated slot or the default among `offeredCodes` — `null` when the kitchen offers none, so nothing
+ * is sent rather than a code no window answers to. A stated slot the kitchen no longer offers is
+ * dropped to the default for the same reason.
+ */
+export function scheduleFor(
+    state: SaleState,
+    today: string,
+    offeredCodes: readonly string[],
+): { readonly requestedDeliveryDate: string; readonly deliveryWindowCode: string | null } | null {
+    if (state.fulfilmentType === 'counter') return null;
+
+    const stated = state.deliveryWindowCode;
+    const fallback = offeredCodes.includes(DEFAULT_SLOT_CODE)
+        ? DEFAULT_SLOT_CODE
+        : (offeredCodes[0] ?? null);
+
+    return {
+        requestedDeliveryDate: state.requestedDeliveryDate ?? today,
+        deliveryWindowCode: stated !== null && offeredCodes.includes(stated) ? stated : fallback,
     };
 }
 

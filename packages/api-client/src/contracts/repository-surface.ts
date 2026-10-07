@@ -325,6 +325,7 @@ export const REPOSITORY_SURFACE = {
         'createCustomer',
         'getCashReport',
         'listCalendar',
+        'listDeliveryWindows',
         'listDrivers',
         'listQueue',
         'listRequirements',
@@ -333,7 +334,7 @@ export const REPOSITORY_SURFACE = {
         'searchCustomers',
     ],
     kitchenQuotations: ['getQuotation', 'listQuotations', 'quoteQuotation'],
-    driverJobs: ['deliverJob', 'listJobs'],
+    driverJobs: ['claimJob', 'deliverJob', 'listJobs'],
     platformAdmin: [
         'createKitchen',
         'getKitchen',
