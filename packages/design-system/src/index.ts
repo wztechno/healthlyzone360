@@ -106,7 +106,7 @@ export type { ButtonProps, ButtonSize, ButtonVariant } from './actions/button.ts
 export { IconButton } from './actions/icon-button.tsx';
 export type { IconButtonProps } from './actions/icon-button.tsx';
 
-export { FormField, REQUIRED_MARK } from './forms/form-field.tsx';
+export { FormField, NUMBER_FIELD_MAX_WIDTH, REQUIRED_MARK } from './forms/form-field.tsx';
 export type { FieldControlProps, FormFieldProps } from './forms/form-field.tsx';
 export {
     INPUT_SIZES,

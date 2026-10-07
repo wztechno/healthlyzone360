@@ -8,7 +8,7 @@ import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
 import { KEYS, keyDownProps } from '../internal/web-props.ts';
 import type { WebKeyEvent } from '../internal/web-props.ts';
-import { FormField } from './form-field.tsx';
+import { FormField, NUMBER_FIELD_MAX_WIDTH } from './form-field.tsx';
 import type { FieldControlProps } from './form-field.tsx';
 import { inputControlClassName, inputFrameClassName } from './text-input.tsx';
 
@@ -149,6 +149,9 @@ export function NumberStepper({
                             }),
                             'flex-1',
                         )}
+                        // The box between the two buttons is a number field like any other: never
+                        // wider than the half track, so the stepper does not stretch across a form.
+                        style={{ maxWidth: NUMBER_FIELD_MAX_WIDTH }}
                     >
                         <RNTextInput
                             {...control}

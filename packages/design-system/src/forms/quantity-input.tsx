@@ -101,6 +101,7 @@ export function QuantityInput({
             {...(warning === undefined ? {} : { warning })}
             required={required}
             disabled={disabled}
+            numeric
             {...(id === undefined ? {} : { id })}
             {...(className === undefined ? {} : { className })}
             {...(testID === undefined ? {} : { testID })}

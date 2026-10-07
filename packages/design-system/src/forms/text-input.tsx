@@ -216,6 +216,14 @@ export function TextInputField({
 }: TextInputFieldProps) {
     const [focused, setFocused] = useState(false);
     const density = useDensity();
+    // A field that asks for a number is drawn as one — capped at the half track. The keyboard it
+    // asks for is the signal, so every numeric call site gets the cap without opting in.
+    const numeric =
+        rest.inputMode === 'numeric' ||
+        rest.inputMode === 'decimal' ||
+        rest.keyboardType === 'numeric' ||
+        rest.keyboardType === 'decimal-pad' ||
+        rest.keyboardType === 'number-pad';
 
     return (
         <FormField
@@ -226,6 +234,7 @@ export function TextInputField({
             warning={warning}
             required={required}
             disabled={disabled}
+            numeric={numeric}
             id={id}
             className={className}
             testID={testID}
