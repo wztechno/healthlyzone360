@@ -91,14 +91,14 @@ export interface StockItemLineEditorProps {
     readonly rowFieldLabel: (field: string, line: number) => string;
     /**
      * When set, each row captures a purchase unit (INV1.1) in a column of its own. The picker
-     * offers only the units in the stock item's own dimension, defaulting to its own unit, and is
-     * disabled — still showing the unit — when there is only the one to quote in.
+     * offers what `unitOptionsForItem` returns, defaulting to the item's own unit, and is disabled
+     * — still showing the unit — when there is only the one to quote in.
      */
     readonly withUnit?: boolean;
     readonly unitLabel?: string;
     /** What the unit box reads before an item is chosen — a dash, not "Choose an option". */
     readonly unitPlaceholder?: string;
-    /** The units offered for a given stock item — same dimension only. Required when `withUnit`. */
+    /** The units offered for a given stock item. Required when `withUnit`. */
     readonly unitOptionsForItem?: (stockItemId: string | null) => readonly SelectOption<string>[];
     /** The stock item's own unit id, the default a fresh line takes. Required when `withUnit`. */
     readonly defaultUnitIdForItem?: (stockItemId: string | null) => string | null;
@@ -135,9 +135,9 @@ export interface StockItemLineEditorProps {
  *
  * ```
  * Stock item                  Quantity  Unit    Unit price (USD)  Line total
- * [ FLR-01 — Flour     ▾ ]   [   25 ]  [kg ▾]  [        2.00 ]        50.00   ✕
- *                                               Last paid 1.90 / kg
- * [ EGG-01 — Eggs      ▾ ]   [   30 ]  [pcs ]  [       Later ]            —   ✕
+ * [ Flour              ▾ ]   [   25 ]  [Kg  ]  [        2.00 ]        50.00   ✕
+ *                                               Last paid 1.90 / Kg
+ * [ Eggs               ▾ ]   [   30 ]  [Piece]  [      Later ]            —   ✕
  *                                               Never bought
  * [ + Add line ]                                              Total   50.00
  * ```
@@ -148,7 +148,7 @@ export interface StockItemLineEditorProps {
  * `${testID}-row-${key}`.
  *
  * The Post Receipt design gives the unit and the line total a column each. The unit is a picker in
- * every row — disabled, and still reading "pcs", where there is only the one unit — so the column
+ * every row — disabled, and still reading "Kg", where there is only the one unit — so the column
  * reads down as a column; the line total is the figure somebody checks against the invoice.
  *
  * Every cell keeps a caption-high slot under its control: the price's "Last paid" note, or a

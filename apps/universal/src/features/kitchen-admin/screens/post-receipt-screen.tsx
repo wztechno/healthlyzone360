@@ -82,7 +82,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * ┌ RECEIPT ───────────────────────────────────────────┐  │ Total        318.30 USD   │
  * │ Supplier [ BEQAA — Beqaa Fresh ▾ ]  Delivery note [ ] │ ─────────────────────────  │
  * │ + New supplier                                      │  │ Stock at Beirut rises by │
- * │ Invoice number [ Not arrived yet ]  Date received [ ] │ Chicken breast   +24 kg  │
+ * │ Invoice number [ Not arrived yet ]  Date received [ ] │ Chicken breast   +24 Kg  │
  * └────────────────────────────────────────────────────┘  │ ⚠ 1 line has no price…   │
  * ┌ LINES  3 lines · 1 without a price ─────────────────┐  │ ─────────────────────────  │
  * │ Stock item   Quantity  Unit  Unit price  Line total │  └──────────────────────────┘
@@ -132,13 +132,12 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  */
 
 /**
- * The dimensions the server's `UnitConversionService` can convert *between different units* within
- * (INV1.0) — mass and volume carry real `base_ratio` factors; `count`, `serving`, `package`,
- * `energy` and `length` carry an identity 1 and only the same-unit identity converts. Offering a
- * second unit inside a non-convertible dimension would post a receipt the server must reject, so the
- * picker offers alternatives only inside these two.
+ * A unit code as this page shows it: `Kg`, `L`, `Piece`. The codes are lower case on the wire
+ * (`kg`, `l`), and a lone lower-case `l` beside a figure reads as a `1`.
  */
-const CONVERTIBLE_DIMENSIONS: ReadonlySet<string> = new Set(['mass', 'volume']);
+function unitDisplay(code: string): string {
+    return code === '' ? '' : `${code.charAt(0).toLocaleUpperCase()}${code.slice(1)}`;
+}
 
 /**
  * The one currency a goods receipt's prices are booked in.
@@ -307,9 +306,8 @@ function PostReceipt() {
     const formatAmount = (amount: number) =>
         formatter.formatNumber(amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    // Unit reference, indexed so the line editor can resolve a stock item's own unit and offer only
-    // the units in its dimension. A stock item names its unit by code; the reference gives that
-    // code an id and a dimension.
+    // Unit reference, indexed so the line editor can resolve a stock item's own unit. A stock item
+    // names its unit by code; the reference gives that code an id.
     const unitByCode = useMemo(() => {
         const map = new Map<string, MeasurementUnitOption>();
         for (const unit of referenceData?.measurementUnits ?? []) map.set(unit.code, unit);
@@ -341,25 +339,30 @@ function PostReceipt() {
         return unitByCode.get(code)?.id ?? null;
     }
 
+    /*
+     * The item's own unit and nothing else. A kilogram shelf is received in kilograms, a litre one in
+     * litres: offering grams, millilitres or tablespoons beside them only invited a quantity typed in
+     * one unit and read in another. With the one option the picker stays disabled, still reading it.
+     */
     function unitOptionsForItem(stockItemId: string | null): readonly SelectOption<string>[] {
         const code = itemOwnUnitCode(stockItemId);
         const own = code === null ? undefined : unitByCode.get(code);
         if (own === undefined) return [];
-        if (!CONVERTIBLE_DIMENSIONS.has(own.dimension)) {
-            return [{ value: own.id, label: own.code }];
-        }
-        return (referenceData?.measurementUnits ?? [])
-            .filter((unit) => unit.dimension === own.dimension)
-            .map((unit) => ({ value: unit.id, label: unit.code }));
+        return [{ value: own.id, label: unitDisplay(own.code) }];
     }
 
-    /** A human unit label — the resolved unit's code, or the item's own. */
-    function unitLabelFor(stockItemId: string | null, unitId: string | null): string {
+    /** The resolved unit's code, or the item's own — as the wire spells it, for comparing. */
+    function unitCodeFor(stockItemId: string | null, unitId: string | null): string {
         if (unitId !== null) {
             const code = unitById.get(unitId);
             if (code !== undefined) return code;
         }
         return itemOwnUnitCode(stockItemId) ?? '';
+    }
+
+    /** The same unit as the reader sees it. */
+    function unitLabelFor(stockItemId: string | null, unitId: string | null): string {
+        return unitDisplay(unitCodeFor(stockItemId, unitId));
     }
 
     /*
@@ -428,7 +431,7 @@ function PostReceipt() {
             typed !== null &&
             !foreign &&
             lastPrice > 0 &&
-            lastUnit === unitLabelFor(line.stockItemId, line.unitId ?? null);
+            lastUnit === unitCodeFor(line.stockItemId, line.unitId ?? null);
         if (comparable) {
             const change = (typed - lastPrice) / lastPrice;
             if (Math.abs(change) >= PRICE_CHANGE_FLAG) {
@@ -446,7 +449,10 @@ function PostReceipt() {
             }
         }
         return {
-            text: t('kitchen:ops.procurement.lastPaid', { price: lastText, unit: lastUnit }),
+            text: t('kitchen:ops.procurement.lastPaid', {
+                price: lastText,
+                unit: unitDisplay(lastUnit),
+            }),
             tone: 'secondary',
         };
     }

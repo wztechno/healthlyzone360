@@ -232,7 +232,7 @@ describe('post a goods receipt — a market purchase', () => {
 
         // The aside says what the shelves will read after.
         await untilVisible('kitchen-post-receipt-rises');
-        expect(screen.getByText('+24 kg')).toBeTruthy();
+        expect(screen.getByText('+24 Kg')).toBeTruthy();
         await waitFor(() => {
             expect(screen.queryByTestId('kitchen-post-receipt-screen-issues-errors')).toBeNull();
         });
@@ -267,13 +267,28 @@ describe('post a goods receipt — a market purchase', () => {
         await untilVisible(`${LINES}-row-line-first-item`);
         await choose(`${LINES}-row-line-first-item`, String(CHICKEN));
         await waitFor(() => {
-            expect(screen.getByText('Last paid 2.00 / kg')).toBeTruthy();
+            expect(screen.getByText('Last paid 2.00 / Kg')).toBeTruthy();
         });
 
         await type(`${LINES}-row-line-first-unit-price-input`, '2.50');
         await waitFor(() => {
             expect(screen.getByText('+25% on last 2.00')).toBeTruthy();
         });
+    });
+
+    it('receives an item in its own unit only, written with a capital', async () => {
+        await renderStubScreen(<PostReceiptScreen />, {
+            session: kitchenManagerSession(),
+            repositories: world([]),
+        });
+
+        await untilVisible(`${LINES}-row-line-first-item`);
+        await choose(`${LINES}-row-line-first-item`, String(CHICKEN));
+
+        // A kilogram shelf: no grams offered beside it, so the picker is shut and reads its unit.
+        const unit = screen.getByTestId(`${LINES}-row-line-first-unit-trigger`);
+        expect(unit.props.accessibilityState).toMatchObject({ disabled: true });
+        expect(screen.getByTestId(`${LINES}-row-line-first-unit-value`)).toHaveTextContent('Kg');
     });
 
     it('labels a stock item by its name once, and by its code only where two share a name', async () => {
@@ -349,7 +364,7 @@ describe('post a goods receipt — a market purchase', () => {
             expect(screen.getAllByText('Not a valid price').length).toBeGreaterThan(0);
         });
         // The problem takes the slot the "Last paid" note would have had.
-        expect(screen.queryByText('Last paid 2.00 / kg')).toBeNull();
+        expect(screen.queryByText('Last paid 2.00 / Kg')).toBeNull();
 
         await press('kitchen-procurement-post-confirm');
         await untilVisible('kitchen-post-receipt-screen-issues-errors');
