@@ -16,11 +16,12 @@ import { DateField } from './date-field.native.tsx';
 import { DateField as WebDateField } from './date-field.web.tsx';
 import { SliderField } from './slider-field.native.tsx';
 import { SliderField as WebSliderField } from './slider-field.web.tsx';
-import { FormField } from './form-field.tsx';
+import { FormField, NUMBER_MAX_LENGTH } from './form-field.tsx';
 import { FormIssueBanner } from './form-issue-banner.tsx';
 import { FormIssueScope } from './form-issue-scope.tsx';
 import { NumberStepper, clampToStep } from './number-stepper.tsx';
 import { PasswordInput } from './password-input.tsx';
+import { QuantityInput } from './quantity-input.tsx';
 import { RangeFilter, isInvertedRange } from './range-filter.tsx';
 import { Select } from './select.native.tsx';
 import { TextInputField, inputFrameClassName } from './text-input.tsx';
@@ -1451,5 +1452,37 @@ describe('SliderField — native (stepper, not a drag rail)', () => {
             'ar',
         );
         assertSubtreeIsLogical(screen.getByTestId('energy'));
+    });
+});
+
+describe('number fields', () => {
+    it("take a number's worth of characters, and a caller's own cap wins", async () => {
+        await renderWithI18n(
+            <>
+                <QuantityInput testID="qty" label="Quantity" value="" onChangeText={jest.fn()} />
+                <QuantityInput
+                    testID="code"
+                    label="Code"
+                    value=""
+                    onChangeText={jest.fn()}
+                    maxLength={4}
+                />
+                <NumberStepper testID="portion" label="Portion" value={2} onChange={jest.fn()} />
+                <TextInputField testID="yield" label="Yield" keyboardType="decimal-pad" />
+                <TextInputField testID="pin" label="PIN" inputMode="numeric" maxLength={6} />
+                <TextInputField testID="name" label="Name" />
+                <TextInputField testID="phone" label="Phone" keyboardType="phone-pad" />
+            </>,
+        );
+
+        expect(NUMBER_MAX_LENGTH).toBe(10);
+        expect(screen.getByTestId('qty-input').props.maxLength).toBe(NUMBER_MAX_LENGTH);
+        expect(screen.getByTestId('code-input').props.maxLength).toBe(4);
+        expect(screen.getByTestId('portion-input').props.maxLength).toBe(NUMBER_MAX_LENGTH);
+        expect(screen.getByTestId('yield-input').props.maxLength).toBe(NUMBER_MAX_LENGTH);
+        expect(screen.getByTestId('pin-input').props.maxLength).toBe(6);
+        // Not numbers: a name, and a telephone, which is a string of digits but not a figure.
+        expect(screen.getByTestId('name-input').props.maxLength).toBeUndefined();
+        expect(screen.getByTestId('phone-input').props.maxLength).toBeUndefined();
     });
 });

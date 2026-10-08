@@ -8,7 +8,7 @@ import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
 import { KEYS, keyDownProps } from '../internal/web-props.ts';
 import type { WebKeyEvent } from '../internal/web-props.ts';
-import { FormField, NUMBER_FIELD_MAX_WIDTH } from './form-field.tsx';
+import { FormField, NUMBER_FIELD_MAX_WIDTH, NUMBER_MAX_LENGTH } from './form-field.tsx';
 import type { FieldControlProps } from './form-field.tsx';
 import { inputControlClassName, inputFrameClassName } from './text-input.tsx';
 
@@ -168,6 +168,7 @@ export function NumberStepper({
                             editable={!disabled}
                             inputMode="numeric"
                             keyboardType="numeric"
+                            maxLength={NUMBER_MAX_LENGTH}
                             value={value === null ? '' : String(value)}
                             onChangeText={commit}
                             onBlur={blur}

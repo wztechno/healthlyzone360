@@ -14,6 +14,17 @@ import type { GridSpanProps } from '../primitives/grid-shared.ts';
 export const NUMBER_FIELD_MAX_WIDTH = HALF_TRACK_WIDTH;
 
 /**
+ * The most characters a number field takes — `999999.999`, or a six-figure price to two places.
+ *
+ * Nothing a kitchen counts, weighs or pays runs longer, and a field that took any number of digits
+ * took a held-down key too: a quantity forty digits long reaches the server as a validation error,
+ * or as a float that is not the figure typed. The same three fields the width cap finds take it —
+ * `QuantityInput`, the `NumberStepper` box, and a `TextInputField` whose keyboard is numeric — and a
+ * caller's own `maxLength` wins.
+ */
+export const NUMBER_MAX_LENGTH = 10;
+
+/**
  * The accessibility props a `FormField` hands to whatever control it wraps.
  *
  * Both spellings are supplied on purpose: `aria-describedby` builds the id chain the web platform

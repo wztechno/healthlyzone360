@@ -8,7 +8,7 @@ import { neutral } from '@healthy360/design-tokens';
 import { useDensity } from '../hooks/use-density.tsx';
 import type { Density } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
-import { FormField } from './form-field.tsx';
+import { FormField, NUMBER_MAX_LENGTH } from './form-field.tsx';
 import type { FieldControlProps } from './form-field.tsx';
 import type { GridSpanProps } from '../primitives/grid-shared.ts';
 
@@ -254,6 +254,11 @@ export function TextInputField({
                 >
                     <RNTextInput
                         {...rest}
+                        // A number field takes a number's worth of characters (`NUMBER_MAX_LENGTH`)
+                        // unless the caller says otherwise.
+                        {...(numeric && rest.maxLength === undefined
+                            ? { maxLength: NUMBER_MAX_LENGTH }
+                            : {})}
                         {...control}
                         testID={testID === undefined ? undefined : `${testID}-input`}
                         editable={!disabled}
