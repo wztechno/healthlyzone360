@@ -13,9 +13,7 @@ import {
     DatePickerButton,
     EmptyState,
     ErrorState,
-    FilterChip,
     Inline,
-    Select,
     Stack,
     TableSkeleton,
     Text,
@@ -38,18 +36,23 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CATALOGUE_PAGE_SIZE, CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
+import {
+    compareAmount,
+    compareNumber,
+    compareText,
+    useColumnControls,
+} from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { receiptCostStatusKey } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
@@ -61,9 +64,9 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * person without the cost permission never reaches it (the card is hidden and the `<Gate>` refuses).
  *
  * Filters are the questions a manager reconciling a month asks — date range, supplier and, since
- * SUP2, stock item — and the page walks forward by cursor. The screen shows what was bought and
- * what it cost, and nothing about how any of it is used: no recipe, no formulation, no derivation
- * passes through the ledger.
+ * SUP2, stock item — and the pages are walked by cursor. The screen shows what was bought and what
+ * it cost, and nothing about how any of it is used: no recipe, no formulation, no derivation passes
+ * through the ledger.
  *
  * ## Three modes of one screen, over one set of filters
  *
@@ -93,14 +96,21 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  *
  * ## On the Catalogue list (Operations handoff)
  *
- * The cost note sits first, then stat cards counted over the lines in hand, then the toolbar whose
- * segments are the three read-as modes. The server filters stay beneath it — they are the questions
- * the endpoint can answer — and the search box narrows only the page in hand, because the endpoint
- * has no text search. Read-only: View is the one row action, and it opens the record window.
+ * The cost note sits first, then stat cards counted over the lines in hand, then one toolbar row:
+ * the search, the three read-as modes, and at its end the received-between window. Supplier, item
+ * and price state are filtered from their column headers, which send them with the request, so the
+ * row carries no picker that repeats a header. The search box narrows only the page in hand,
+ * because the endpoint has no text search. Read-only: View is the one row action, and it opens the
+ * record window.
+ *
+ * ## Pages, like every other admin table
+ *
+ * The endpoint is a keyset: it hands back the next page's cursor and whether there is one, and never
+ * a total. So the pager is built from the cursors seen — page one has none, and each page that
+ * loads with more behind it adds the cursor of the next — and offers every page reached plus the
+ * next one. It grows as the reader walks forward, any page seen is one press away, and it claims no
+ * total the server never gave. Any filter starts it again at page one.
  */
-
-/** The supplier and item pickers' track on the filter panel — the toolbar's compact width. */
-const FILTER_SELECT_WIDTH = 200;
 
 /** Detail walks the lines; weekly and monthly total them. */
 const LEDGER_MODES = ['detail', 'weekly', 'monthly'] as const;
@@ -144,7 +154,11 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
     const [to, setTo] = useState('');
     const [costStatus, setCostStatus] = useState<ReceiptCostStatus | null>(null);
     const [activeMode, setActiveMode] = useState<LedgerMode>(isLedgerMode(mode) ? mode : 'detail');
-    const [cursor, setCursor] = useState<string | undefined>(undefined);
+    // `cursors[n - 1]` opens page n: page one has none, and each loaded page with more behind it
+    // adds the next page's. See "Pages, like every other admin table" above.
+    const [cursors, setCursors] = useState<readonly (string | undefined)[]>([undefined]);
+    const [page, setPage] = useState(1);
+    const cursor = cursors[page - 1];
     const [expandedCharges, setExpandedCharges] = useState<readonly string[]>([]);
     const [query, setQuery] = useState('');
     const [viewing, setViewing] = useState<PurchaseLedgerLine | null>(null);
@@ -170,6 +184,7 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
             ...shared,
             ...(costStatus === null ? {} : { costStatus }),
             ...(cursor === undefined ? {} : { cursor }),
+            limit: CATALOGUE_PAGE_SIZE,
         }),
         [shared, costStatus, cursor],
     );
@@ -186,40 +201,30 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
     const ledger = usePurchasesLedgerQuery(ledgerFilter, isDetail);
     const summary = useSpendSummaryQuery(summaryFilter, !isDetail);
 
-    // Suppliers are bilingual since SUP1, so the filter labels them in the reader's own language
-    // and falls back to the other side rather than offering a blank option.
-    const supplierOptions = useMemo(
-        () => [
-            { value: '', label: t('kitchen:ops.ledger.allSuppliers') },
-            ...(suppliers.data ?? []).map((row) => ({
-                value: String(row.id),
-                label: `${row.code} — ${displayName(row.name, locale).value}`,
-            })),
-        ],
-        [suppliers.data, locale, t],
-    );
-
-    // Server order kept — stocked first, then ever-moved, then by name. Re-sorting alphabetically
-    // would put two hundred never-received shelves above the dozen this kitchen actually buys.
-    const stockItemOptions = useMemo(
-        () => [
-            { value: '', label: t('kitchen:ops.ledger.allItems') },
-            ...(stockItems.data ?? []).map((row) => ({
-                value: String(row.id),
-                label: `${row.code} — ${row.nameEn}`,
-            })),
-        ],
-        [stockItems.data, t],
-    );
+    // Only the label of a deep-linked item that is not on the page in hand comes from here.
+    const stockItemNameById = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const row of stockItems.data ?? []) map.set(String(row.id), row.nameEn);
+        return map;
+    }, [stockItems.data]);
 
     function resetCursor() {
-        setCursor(undefined);
+        setCursors([undefined]);
+        setPage(1);
         setViewing(null);
     }
 
     const pageRows = useMemo(() => ledger.data?.items ?? [], [ledger.data]);
     const nextCursor = ledger.data?.nextCursor ?? null;
     const hasMore = (ledger.data?.hasMore ?? false) && nextCursor !== null;
+
+    // The page in hand says there is another: remember where it starts, once. Adjusted during
+    // render — this component's own state, derived from what it fetched — rather than in an effect,
+    // which would paint the pager a page short first. The query keeps no previous data, so
+    // `ledger.data` is always this page's own, and once added the condition no longer holds.
+    if (hasMore && nextCursor !== null && cursors.length === page) {
+        setCursors([...cursors, nextCursor]);
+    }
 
     // The endpoint has no text search, so the search box narrows the page in hand and says so in
     // its placeholder; the filters below are the server-side questions.
@@ -266,15 +271,34 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
             value: itemTitle,
             sort: (left, right, direction) =>
                 compareText(itemTitle(left), itemTitle(right), direction),
+            /*
+             * Sent with the request, like Supplier: the page is one of many. Offered from the items
+             * on the page in hand rather than the whole library — five hundred shelves is not a
+             * menu — plus the chosen one when it is not among them, which is how a `?item=` link
+             * from the stock screen stays clearable.
+             */
+            filter: {
+                values: (loaded) => {
+                    const items = new Map<string, string>();
+                    for (const row of loaded) items.set(String(row.stockItemId), itemTitle(row));
+                    if (stockItemId !== null && !items.has(stockItemId)) {
+                        items.set(stockItemId, stockItemNameById.get(stockItemId) ?? stockItemId);
+                    }
+                    return [...items].map(([key, label]) => ({ key, label }));
+                },
+                external: {
+                    value: stockItemId,
+                    onChange: (next) => {
+                        setStockItemId(next);
+                        resetCursor();
+                    },
+                },
+            },
+            // The name alone: the code is the name's slug, and the price has its own column.
             render: (row) => (
-                <View className="min-w-0">
-                    <Text variant="strong" numberOfLines={1}>
-                        {itemTitle(row)}
-                    </Text>
-                    <Text variant="caption" tone="secondary" numberOfLines={1}>
-                        {`${row.itemCode ?? '—'} · ${money(row.unitPriceAmount, row.costCurrencyCode)}`}
-                    </Text>
-                </View>
+                <Text variant="strong" numberOfLines={1}>
+                    {itemTitle(row)}
+                </Text>
             ),
         },
         {
@@ -283,9 +307,8 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
             width: 180,
             priority: 80,
             value: (row) => row.supplier?.nameEn ?? t('kitchen:ops.ledger.noSupplier'),
-            // The ledger is cursor-paged, so the supplier travels with the request — the same
-            // `supplierId` the Supplier select below holds, so the two always agree. Every supplier
-            // in the book is offered, not only those on the loaded page.
+            // The ledger is cursor-paged, so the supplier travels with the request. Every
+            // supplier in the book is offered, not only those on the loaded page.
             filter: {
                 values: () =>
                     (suppliers.data ?? []).map((entry) => ({
@@ -333,8 +356,25 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
             width: 100,
             priority: 70,
             value: (row) => formatter.formatNumber(Number(row.quantity)),
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.quantity), Number(right.quantity), direction),
             render: (row) => (
                 <Text variant="mono">{formatter.formatNumber(Number(row.quantity))}</Text>
+            ),
+        },
+        {
+            key: 'unitPrice',
+            role: 'metric',
+            label: t('kitchen:ops.ledger.columnUnitPrice'),
+            width: 120,
+            priority: 72,
+            value: (row) => money(row.unitPriceAmount, row.costCurrencyCode),
+            sort: (left, right, direction) =>
+                compareAmount(left.unitPriceAmount, right.unitPriceAmount, direction),
+            render: (row) => (
+                <Text variant="mono" testID={`kitchen-ledger-${row.id}-unit-price`}>
+                    {money(row.unitPriceAmount, row.costCurrencyCode)}
+                </Text>
             ),
         },
         {
@@ -344,6 +384,8 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
             width: 120,
             priority: 85,
             value: (row) => money(row.lineTotalAmount, row.costCurrencyCode),
+            sort: (left, right, direction) =>
+                compareAmount(left.lineTotalAmount, right.lineTotalAmount, direction),
             render: (row) => (
                 <Text variant="mono" testID={`kitchen-ledger-${row.id}-total`}>
                     {money(row.lineTotalAmount, row.costCurrencyCode)}
@@ -363,7 +405,7 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
              * state, so the values are named in the receipt's words — No prices · Some prices ·
              * Priced — rather than the badge's, and "Some prices" honestly shows priced and unpriced
              * lines side by side. Narrowing the loaded page by the line state instead would misreport
-             * every page after it. Shares `costStatus` with the chips below.
+             * every page after it.
              */
             filter: {
                 values: () =>
@@ -391,7 +433,11 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
         },
     ];
 
-    const controls = useColumnControls(rows, columns, 'kitchen-purchases-ledger');
+    // Seven columns, one over the catalogue's six: a price without its quantity, or a quantity
+    // without its price, is half of a purchase line.
+    const controls = useColumnControls(rows, columns, 'kitchen-purchases-ledger', {
+        picker: { max: 7 },
+    });
 
     const failure = toFailure(isDetail ? ledger.error : summary.error);
     const pending = isDetail ? ledger.isPending : summary.isPending;
@@ -511,77 +557,10 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                     setViewing(null);
                 }}
             >
-                <ColumnPicker {...controls.picker} />
-            </CatalogueToolbar>
-
-            {/*
-             * The filters on the raised panel the search row above sits on, in one row: the two
-             * pickers at the toolbar's compact width, the received-between window, and — for the
-             * lines, where it applies — the price chips at the inline end, under the mode switch.
-             */}
-            <ToolbarPanel
-                testID="kitchen-ledger-filters"
-                end={
-                    isDetail ? (
-                        <View
-                            testID="kitchen-ledger-filter-cost-status"
-                            role="group"
-                            aria-label={t('kitchen:ops.ledger.filterCostStatus')}
-                            className="flex-row flex-wrap items-center gap-tight"
-                        >
-                            {RECEIPT_COST_STATUSES.map((status) => (
-                                <FilterChip
-                                    key={status}
-                                    testID={`kitchen-ledger-cost-status-${status}`}
-                                    label={t(receiptCostStatusKey(status))}
-                                    selected={costStatus === status}
-                                    onChange={(selected) => {
-                                        // One state at a time: the endpoint takes a single
-                                        // `cost_status`, and a second selected chip would be a
-                                        // control promising a union it cannot ask for.
-                                        setCostStatus(selected ? status : null);
-                                        resetCursor();
-                                    }}
-                                />
-                            ))}
-                        </View>
-                    ) : undefined
-                }
-            >
-                <View className="z-tooltip" style={{ width: FILTER_SELECT_WIDTH }}>
-                    <Select
-                        testID="kitchen-ledger-filter-supplier"
-                        label={t('kitchen:ops.ledger.filterSupplier')}
-                        labelHidden
-                        size="sm"
-                        options={supplierOptions}
-                        value={supplierId ?? ''}
-                        onChange={(value) => {
-                            setSupplierId(value === '' ? null : value);
-                            resetCursor();
-                        }}
-                        searchable
-                    />
-                </View>
-                <View className="z-tooltip" style={{ width: FILTER_SELECT_WIDTH }}>
-                    <Select
-                        testID="kitchen-ledger-filter-item"
-                        label={t('kitchen:ops.ledger.filterItem')}
-                        labelHidden
-                        size="sm"
-                        options={stockItemOptions}
-                        value={stockItemId ?? ''}
-                        onChange={(value) => {
-                            setStockItemId(value === '' ? null : value);
-                            resetCursor();
-                        }}
-                        searchable
-                    />
-                </View>
                 {/*
-                 * The order desk's calendar picker, as the cost report draws its window: two days
-                 * with "to" between. Either bound may stay open, and each picker keeps the other
-                 * honest — From cannot pass To, nor To precede From.
+                 * The received-between window, at the row's end: the one filter with no column to
+                 * live on. Two days with "to" between, either bound open, and each picker keeps the
+                 * other honest — From cannot pass To, nor To precede From.
                  */}
                 <DatePickerButton
                     testID="kitchen-ledger-filter-from"
@@ -616,7 +595,8 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                         resetCursor();
                     }}
                 />
-            </ToolbarPanel>
+                <ColumnPicker {...controls.picker} />
+            </CatalogueToolbar>
 
             {pending ? (
                 <TableSkeleton
@@ -663,20 +643,16 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                                 },
                             ]}
                         />
-                        {hasMore ? (
-                            <Inline space="sm" align="center" justify="center">
-                                <Button
-                                    testID="kitchen-purchases-ledger-next"
-                                    variant="secondary"
-                                    size="sm"
-                                    label={t('kitchen:ops.ledger.nextPage')}
-                                    onPress={() => {
-                                        setCursor(nextCursor ?? undefined);
-                                        setViewing(null);
-                                    }}
-                                />
-                            </Inline>
-                        ) : null}
+                        <CataloguePager
+                            testID="kitchen-purchases-ledger-pagination"
+                            page={page}
+                            totalPages={cursors.length}
+                            onPageChange={(next) => {
+                                setPage(next);
+                                setViewing(null);
+                            }}
+                            label={t('kitchen:catalogue.pagerLabel')}
+                        />
                     </Stack>
                 )
             ) : periods.length === 0 ? (

@@ -182,6 +182,8 @@ function UnpricedReceipts() {
                 label: t('kitchen:ops.unpricedReceipts.columnRefs'),
                 width: 200,
                 priority: 60,
+                // A plain label: see "Which headers act" above.
+                sort: false,
                 value: (row) =>
                     `${row.documentRef ?? '—'} · ${
                         row.supplierInvoiceRef ?? t('kitchen:ops.unpricedReceipts.noInvoiceRef')
@@ -200,6 +202,7 @@ function UnpricedReceipts() {
                 label: t('kitchen:ops.unpricedReceipts.columnToPrice'),
                 width: 150,
                 priority: 80,
+                sort: false,
                 value: (row) =>
                     t('kitchen:ops.unpricedReceipts.linesToPrice', {
                         count: row.unpricedLineCount,
@@ -229,6 +232,7 @@ function UnpricedReceipts() {
                 label: t('kitchen:ops.unpricedReceipts.columnState'),
                 width: 110,
                 priority: 85,
+                sort: false,
                 value: (row) => t(receiptCostStatusKey(row.costStatus)),
                 render: (row) => (
                     <Badge

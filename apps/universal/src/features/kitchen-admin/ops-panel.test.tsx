@@ -113,6 +113,9 @@ describe('ops panels', () => {
         expect(screen.getByTestId(`${rowFor(2)}-status`)).toHaveTextContent(/Low/);
         // No level row at this branch is an empty shelf, not a missing row.
         expect(screen.getByTestId(`${rowFor(3)}-status`)).toHaveTextContent(/Empty/);
+        // The item cell is the name alone; the code under it only repeated it as a slug.
+        expect(screen.getByTestId(rowFor(1))).toHaveTextContent('Stock item 1');
+        expect(screen.getByTestId(rowFor(1))).not.toHaveTextContent('ITEM-1');
         // The resale book is a kind switch away, not on the ingredients page.
         expect(screen.queryByTestId(`${rowFor(4)}-name`)).toBeNull();
 

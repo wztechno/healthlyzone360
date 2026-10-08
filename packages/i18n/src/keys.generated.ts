@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8190 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8184 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4006,8 +4006,6 @@ export interface NamespaceKeys {
     | 'ops.exceptions.window.openNote'
     | 'ops.exceptions.window.retry'
     | 'ops.exceptions.window.title'
-    | 'ops.ledger.allItems'
-    | 'ops.ledger.allSuppliers'
     | 'ops.ledger.chargeDelivery'
     | 'ops.ledger.chargeDiscount'
     | 'ops.ledger.chargeOther'
@@ -4024,10 +4022,7 @@ export interface NamespaceKeys {
     | 'ops.ledger.costNoteTitle'
     | 'ops.ledger.emptyBody'
     | 'ops.ledger.emptyTitle'
-    | 'ops.ledger.filterCostStatus'
     | 'ops.ledger.filterFrom'
-    | 'ops.ledger.filterItem'
-    | 'ops.ledger.filterSupplier'
     | 'ops.ledger.filterTo'
     | 'ops.ledger.fromPlaceholder'
     | 'ops.ledger.hideCharges'
@@ -4036,7 +4031,6 @@ export interface NamespaceKeys {
     | 'ops.ledger.modeLabel'
     | 'ops.ledger.modeMonthly'
     | 'ops.ledger.modeWeekly'
-    | 'ops.ledger.nextPage'
     | 'ops.ledger.noPricedDeliveries'
     | 'ops.ledger.noSupplier'
     | 'ops.ledger.pendingFxNote'
@@ -12214,8 +12208,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.window.openNote',
   'kitchen:ops.exceptions.window.retry',
   'kitchen:ops.exceptions.window.title',
-  'kitchen:ops.ledger.allItems',
-  'kitchen:ops.ledger.allSuppliers',
   'kitchen:ops.ledger.chargeDelivery',
   'kitchen:ops.ledger.chargeDiscount',
   'kitchen:ops.ledger.chargeOther',
@@ -12232,10 +12224,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.costNoteTitle',
   'kitchen:ops.ledger.emptyBody',
   'kitchen:ops.ledger.emptyTitle',
-  'kitchen:ops.ledger.filterCostStatus',
   'kitchen:ops.ledger.filterFrom',
-  'kitchen:ops.ledger.filterItem',
-  'kitchen:ops.ledger.filterSupplier',
   'kitchen:ops.ledger.filterTo',
   'kitchen:ops.ledger.fromPlaceholder',
   'kitchen:ops.ledger.hideCharges',
@@ -12244,7 +12233,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.modeLabel',
   'kitchen:ops.ledger.modeMonthly',
   'kitchen:ops.ledger.modeWeekly',
-  'kitchen:ops.ledger.nextPage',
   'kitchen:ops.ledger.noPricedDeliveries',
   'kitchen:ops.ledger.noSupplier',
   'kitchen:ops.ledger.pendingFxNote',

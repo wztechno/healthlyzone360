@@ -28,11 +28,12 @@ import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
 import {
+    compareAmount,
     compareNumber,
     compareText,
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
@@ -476,16 +477,6 @@ function Procurement() {
             )}
         </Cascade>
     );
-}
-
-/** A money amount as the wire sends it, in `direction`, with no amount (redacted, unpriced) last. */
-function compareAmount(
-    left: string | null,
-    right: string | null,
-    direction: SortDirection,
-): number {
-    if (left === null || right === null) return left === right ? 0 : left === null ? 1 : -1;
-    return compareNumber(Number(left), Number(right), direction);
 }
 
 /** "DN-4471 · INV-8820" — the delivery note and the invoice number, or the words for none. */

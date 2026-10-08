@@ -55,7 +55,7 @@ import {
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { parseQuantity } from '../format.ts';
-import { isOutOfStock, stockItemLabel, stockItemRowTestId } from '../ops-format.ts';
+import { isOutOfStock, stockItemRowTestId } from '../ops-format.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { RecordPhoto } from '../catalogue/record-photo.tsx';
@@ -269,13 +269,11 @@ function Stock() {
                 compareText(left.item.nameEn, right.item.nameEn, direction),
             render: (row) => {
                 const testID = stockItemRowTestId(String(row.item.id));
+                // The name alone: the code is the name's slug, so under it the name read twice.
                 return (
                     <View testID={testID} className="min-w-0 flex-col">
                         <Text variant="strong" numberOfLines={1} testID={`${testID}-name`}>
                             {row.item.nameEn}
-                        </Text>
-                        <Text variant="caption" tone="secondary" numberOfLines={1}>
-                            {row.item.code}
                         </Text>
                     </View>
                 );
@@ -362,6 +360,7 @@ function Stock() {
             // `414` above), so ordering or narrowing the book by it would act on 25 shelves and
             // shuffle the other pages by what had not been read. It needs the latest purchase on
             // the stock read itself, or a purchase read that is not keyed by a list of ids.
+            sort: false,
             render: (row) => renderLastPurchase(row),
         },
         {
@@ -956,7 +955,7 @@ function StockMovementEditor({
     return (
         <EditorFrame
             testID="kitchen-stock-editor"
-            title={stockItemLabel(row.item)}
+            title={row.item.nameEn}
             titleChip={{ label: t('kitchen:ops.stock.chip'), tone: 'neutral' }}
             summary={
                 <Text variant="caption" tone="secondary" testID="kitchen-stock-editor-summary">
