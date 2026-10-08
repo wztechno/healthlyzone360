@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8187 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8190 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4187,6 +4187,7 @@ export interface NamespaceKeys {
     | 'ops.procurement.issueDateFuture'
     | 'ops.procurement.issueFieldItem'
     | 'ops.procurement.issueFieldQuantity'
+    | 'ops.procurement.issueFieldUnitPrice'
     | 'ops.procurement.issueLine'
     | 'ops.procurement.issueNoLines'
     | 'ops.procurement.issueNoOrder'
@@ -4201,8 +4202,10 @@ export interface NamespaceKeys {
     | 'ops.procurement.lineCountUnpriced'
     | 'ops.procurement.lineFieldLabel'
     | 'ops.procurement.lineItemMissing'
+    | 'ops.procurement.lineQuantityInvalid'
     | 'ops.procurement.lineQuantityMissing'
     | 'ops.procurement.lineTotal'
+    | 'ops.procurement.lineUnitPriceInvalid'
     | 'ops.procurement.linesSection'
     | 'ops.procurement.listFoot'
     | 'ops.procurement.manageSuppliers'
@@ -12392,6 +12395,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.issueDateFuture',
   'kitchen:ops.procurement.issueFieldItem',
   'kitchen:ops.procurement.issueFieldQuantity',
+  'kitchen:ops.procurement.issueFieldUnitPrice',
   'kitchen:ops.procurement.issueLine',
   'kitchen:ops.procurement.issueNoLines',
   'kitchen:ops.procurement.issueNoOrder',
@@ -12406,8 +12410,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.lineCountUnpriced',
   'kitchen:ops.procurement.lineFieldLabel',
   'kitchen:ops.procurement.lineItemMissing',
+  'kitchen:ops.procurement.lineQuantityInvalid',
   'kitchen:ops.procurement.lineQuantityMissing',
   'kitchen:ops.procurement.lineTotal',
+  'kitchen:ops.procurement.lineUnitPriceInvalid',
   'kitchen:ops.procurement.linesSection',
   'kitchen:ops.procurement.listFoot',
   'kitchen:ops.procurement.manageSuppliers',

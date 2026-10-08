@@ -275,6 +275,87 @@ describe('post a goods receipt — a market purchase', () => {
             expect(screen.getByText('+25% on last 2.00')).toBeTruthy();
         });
     });
+
+    it('labels a stock item by its name once, and by its code only where two share a name', async () => {
+        const twin = StockItemId.unsafe('01935f6d-0000-7000-8000-0000000000b4');
+        const base = world([]);
+        await renderStubScreen(<PostReceiptScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    ...base.kitchenOps,
+                    listStockItems: async () => [
+                        ...STOCK_ITEMS,
+                        shelf(twin, 'quinoa-white-2', 'Quinoa, white', 'kg'),
+                    ],
+                },
+            },
+        });
+
+        await untilVisible(`${LINES}-row-line-first-item`);
+        await press(`${LINES}-row-line-first-item-trigger`);
+        const chicken = await screen.findByTestId(`${LINES}-row-line-first-item-option-${CHICKEN}`);
+        expect(chicken.props.accessibilityLabel).toBe('Chicken breast, fresh');
+        expect(screen.queryByText('ING-0031')).toBeNull();
+        // The two quinoa shelves carry their codes on the second line, and only they do.
+        expect(screen.getByText('ING-0104')).toBeTruthy();
+        expect(screen.getByText('quinoa-white-2')).toBeTruthy();
+    });
+
+    it('marks a negative quantity as it is typed, and refuses to post it', async () => {
+        const posted: PostGoodsReceiptRequest[] = [];
+        await renderStubScreen(<PostReceiptScreen />, {
+            session: kitchenManagerSession(),
+            repositories: world(posted),
+        });
+
+        await untilVisible(`${LINES}-row-line-first-item`);
+        await choose(`${LINES}-row-line-first-item`, String(CHICKEN));
+        await type(`${LINES}-row-line-first-quantity-input`, '-5');
+
+        // Before any press: the field says so, and the banner is not involved yet.
+        await waitFor(() => {
+            expect(screen.getAllByText('Must be above 0').length).toBeGreaterThan(0);
+        });
+        expect(screen.getByTestId(`${LINES}-row-line-first-quantity-input`).props).toMatchObject({
+            'aria-invalid': true,
+        });
+        expect(screen.queryByTestId('kitchen-post-receipt-screen-issues-errors')).toBeNull();
+
+        await press('kitchen-procurement-post-confirm');
+        await untilVisible('kitchen-post-receipt-screen-issues-errors');
+        expect(screen.getByText('Line 1 — quantity')).toBeTruthy();
+        expect(posted).toHaveLength(0);
+
+        await type(`${LINES}-row-line-first-quantity-input`, '5');
+        await waitFor(() => {
+            expect(screen.queryByText('Must be above 0')).toBeNull();
+        });
+    });
+
+    it('marks a price that does not read as it is typed, and refuses to post it', async () => {
+        const posted: PostGoodsReceiptRequest[] = [];
+        await renderStubScreen(<PostReceiptScreen />, {
+            session: kitchenManagerSession(),
+            repositories: world(posted),
+        });
+
+        await untilVisible(`${LINES}-row-line-first-item`);
+        await choose(`${LINES}-row-line-first-item`, String(CHICKEN));
+        await type(`${LINES}-row-line-first-quantity-input`, '24');
+        await type(`${LINES}-row-line-first-unit-price-input`, '-2');
+
+        await waitFor(() => {
+            expect(screen.getAllByText('Not a valid price').length).toBeGreaterThan(0);
+        });
+        // The problem takes the slot the "Last paid" note would have had.
+        expect(screen.queryByText('Last paid 2.00 / kg')).toBeNull();
+
+        await press('kitchen-procurement-post-confirm');
+        await untilVisible('kitchen-post-receipt-screen-issues-errors');
+        expect(screen.getByText('Line 1 — unit price')).toBeTruthy();
+        expect(posted).toHaveLength(0);
+    });
 });
 
 /* ------------------------------------------------------------------------------------------------

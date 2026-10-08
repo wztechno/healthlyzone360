@@ -42,7 +42,6 @@ import {
     goodsReceiptRowTestId,
     receiptCostStatusKey,
     receiptCostStatusTone,
-    stockItemLabel,
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
@@ -101,9 +100,10 @@ function Procurement() {
 
     const receiptRows = useMemo(() => receipts.data ?? [], [receipts.data]);
 
+    // By name alone, as the receipt form's picker labels them: the code is the name's slug.
     const stockItemLabelById = useMemo(() => {
         const map = new Map<string, string>();
-        for (const item of stockItems.data ?? []) map.set(String(item.id), stockItemLabel(item));
+        for (const item of stockItems.data ?? []) map.set(String(item.id), item.nameEn);
         return map;
     }, [stockItems.data]);
 
