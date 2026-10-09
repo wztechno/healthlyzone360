@@ -2601,6 +2601,55 @@ export type RetireCatalogueItemRequest = {
     reason?: string | null;
 };
 
+/**
+ * One channel's side of the pair.
+ */
+export type ItemChannelOffer = {
+    sales_channel_id: Uuid;
+    /**
+     * The list the price is written to.
+     */
+    price_list_id: Uuid;
+    currency_code: CurrencyCode;
+    /**
+     * The pack's weight, or null when the item has no pack for this channel.
+     */
+    pack: PackSize | null;
+    /**
+     * Whole minor units of `currency_code`, or null when the pack is not priced.
+     */
+    amount_minor: number | null;
+};
+
+export type ItemChannelPricesEnvelope = {
+    data: {
+        item_id: Uuid;
+        lock_version: number;
+        channels: {
+            b2b: ItemChannelOffer | null;
+            b2c: ItemChannelOffer | null;
+        };
+    };
+    meta: Meta;
+};
+
+export type SetItemChannelOffer = {
+    quantity: number;
+    /**
+     * A measurement unit code, such as `g`, `kg`, `ml`, `l` or `piece`.
+     */
+    unit: string;
+    amount_minor?: number | null;
+};
+
+/**
+ * Each key optional; absent is untouched, null stops selling on that channel.
+ */
+export type SetItemChannelPricesRequest = {
+    b2b?: SetItemChannelOffer | null;
+    b2c?: SetItemChannelOffer | null;
+};
+
 export type ReplaceCatalogueItemVariantsRequest = {
     /**
      * The complete set. An empty array is a legitimate statement ("this
@@ -3587,6 +3636,13 @@ export type DeliveryZone = {
      *
      */
     lock_version: number;
+    /**
+     * The windows this zone offers (assigned; an inactive one is assigned
+     * but not offered), in window display order. Replaced through
+     * `PUT /catalogue/delivery-zones/{zone}/windows`.
+     *
+     */
+    delivery_window_ids: Array<Uuid>;
     created_at?: string | null;
     updated_at?: string | null;
 };
@@ -3639,6 +3695,21 @@ export type AdminDeliveryArea = {
     region: string | null;
     display_order: number;
     is_active: boolean;
+};
+
+/**
+ * The size a price is quoted for. `size` is a decimal string in
+ * `unit` — `0.3` with `kg` is 300 g. Never converted server-side. Named
+ * `size`, not `quantity`, because public surfaces never carry a key that
+ * could be read as a recipe quantity.
+ *
+ */
+export type PackSize = {
+    size: string;
+    /**
+     * A measurement unit code — `g`, `kg`, `ml`, `l`, `piece`, …
+     */
+    unit: string;
 };
 
 /**
@@ -3704,6 +3775,14 @@ export type MarketplaceDeliveryZone = {
     delivery_fee: MarketplaceMoney | null;
     minimum_order: MarketplaceMoney | null;
     estimated_minutes: number | null;
+    /**
+     * The codes of the kitchen's `delivery_windows` this zone offers —
+     * assigned to the zone and active — in display order. Guest checkout
+     * offers only these slots once the guest's area falls in the zone;
+     * placement refuses any other with `window_not_offered`.
+     *
+     */
+    window_codes: Array<string>;
 };
 
 /**
@@ -3905,12 +3984,13 @@ export type MarketplaceMeal = {
     kitchen_name: string;
     /**
      * Whether this listing is a prepared meal, a resold product
-     * (frozen pack, drink, bread and so on), a kitchen-made sauce or a
-     * dressing. All appear on the kitchen menu; clients filter with
+     * (frozen pack, drink, bread and so on), a kitchen-made sauce, a
+     * dressing, or a frozen meal the kitchen makes and sells from its
+     * freezer. All appear on the kitchen menu; clients filter with
      * `item_types`.
      *
      */
-    item_type: 'meal' | 'product' | 'sauce' | 'dressing';
+    item_type: 'meal' | 'product' | 'sauce' | 'dressing' | 'frozen_meal';
     /**
      * The customer-facing shelf this listing is published under, from
      * the platform product taxonomy. Null when the kitchen has not
@@ -3983,6 +4063,12 @@ export type MarketplaceMeal = {
      */
     nutrition: MarketplaceNutritionFacts | null;
     price: MarketplaceMoney;
+    /**
+     * What `price` buys — a 300 g bottle, a 1 kg tray. Null when the item
+     * is priced as itself (a plated dish).
+     *
+     */
+    pack: PackSize | null;
     /**
      * Always null; no column records how long a dish takes to make.
      */
@@ -4212,6 +4298,13 @@ export type DeliveryWindow = {
      * The only withdrawal there is. No DELETE exists.
      */
     is_active: boolean;
+    /**
+     * The zones this window is assigned to, ordered by zone code. A
+     * window in no zone is offered nowhere; a newly created window starts
+     * that way.
+     *
+     */
+    delivery_zone_ids: Array<Uuid>;
     created_at?: string | null;
     updated_at?: string | null;
 };
@@ -4328,6 +4421,25 @@ export type UpdateDeliveryZoneRequest = {
      *
      */
     is_active?: boolean;
+};
+
+export type DeliveryZoneWindowsEnvelope = {
+    data: {
+        /**
+         * Assigned windows, in window display order, inactive ones included.
+         */
+        delivery_window_ids: Array<Uuid>;
+    };
+    meta: Meta;
+};
+
+/**
+ * The **whole** set of windows this zone offers. An empty array is a
+ * zone that offers no slot.
+ *
+ */
+export type ReplaceDeliveryZoneWindowsRequest = {
+    delivery_window_ids: Array<Uuid>;
 };
 
 /**
@@ -4630,9 +4742,9 @@ export type PlaceOrderRequest = {
     cart_id: Uuid;
     customer_address_id: Uuid;
     /**
-     * The slot the customer chose, as the window's own code. Whether that
-     * slot is offered on that day by that branch is a scheduling question
-     * answered during placement, with the cut-off rules in hand.
+     * The slot the customer chose, as the window's own code. It must be
+     * one the address's zone offers (`offered_window_codes` on the
+     * preview), or placement refuses `window_not_offered`.
      *
      */
     delivery_window_code?: string | null;
@@ -4703,12 +4815,20 @@ export type CheckoutPreview = {
      * Every unresolved fact about the cart or the address, in the same
      * vocabulary `409 order.placement_refused` uses at placement:
      * `cart_empty`, `address_missing`, `address_not_deliverable`,
-     * `area_not_served`, `zone_suspended`, `currency_mismatch`, plus the
-     * line-probe vocabulary. Deduplicated — three lines refused for the
+     * `area_not_served`, `zone_suspended`, `currency_mismatch`,
+     * `window_not_offered`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
      * same reason read as one fact, not three repeats of it.
      *
      */
     warnings: Array<string>;
+    /**
+     * The window codes the address's zone offers — assigned to the zone
+     * and active, in display order. A picker shows only these; placement
+     * refuses any other with `window_not_offered`. Null when no zone
+     * resolved (no address, or an area not served).
+     *
+     */
+    offered_window_codes: Array<string> | null;
 };
 
 export type CheckoutPreviewEnvelope = {
@@ -8207,10 +8327,10 @@ export type OrderDeskSaleBase = {
      */
     requested_delivery_date?: string | null;
     /**
-     * The slot, by the window's own code. Not validated against the
-     * kitchen's windows here — whether that slot is offered on that day by
-     * that branch is a scheduling question answered with the cut-off rules
-     * in hand.
+     * The slot, by the window's own code. On a delivery it must be one the
+     * address's zone offers (`offered_window_codes` on the quote), or the
+     * quote refuses and the sale is refused `window_not_offered`. Not
+     * checked on a pickup.
      *
      */
     delivery_window_code?: string | null;
@@ -8221,6 +8341,15 @@ export type QuoteOrderDeskRequest = OrderDeskSaleBase & {};
 export type PlaceOrderDeskRequest = OrderDeskSaleBase & {
     payment_method: PaymentMethod;
     payment?: OrderDeskCounterPayment;
+    /**
+     * **Delivery only** — prohibited (`422`) on a pickup or a counter
+     * sale. The person the new run is handed to; must be an active
+     * member of this organisation, the rule `POST /delivery/jobs/{job}/
+     * assign` applies. Requires `order.manage_organisation`. Omit it to
+     * leave the run in the unassigned pool.
+     *
+     */
+    driver_user_id?: Uuid | null;
 };
 
 /**
@@ -8293,7 +8422,8 @@ export type OrderDeskQuoteRefusal = {
      * `unpriced`, `currency_mismatch`, `channel_not_trading`. Order-level:
      * `customer_required`, `address_required`, `address_not_applicable`,
      * `address_not_deliverable`, `area_not_served`, `zone_suspended`,
-     * `currency_mismatch` (with `subject: delivery_fee`), `cut_off_passed`,
+     * `window_not_offered`, `currency_mismatch` (with
+     * `subject: delivery_fee`), `cut_off_passed`,
      * `branch_closed`, `date_in_the_past`.
      *
      */
@@ -8385,6 +8515,14 @@ export type OrderDeskQuote = {
      *
      */
     quotable: boolean;
+    /**
+     * On a delivery whose address resolved to a serving zone, the window
+     * codes that zone offers, in display order — the desk's slot picker
+     * shows only these. Null otherwise (pickup, counter, no address, an
+     * unserved area).
+     *
+     */
+    offered_window_codes: Array<string> | null;
 };
 
 export type OrderDeskQuoteEnvelope = {
@@ -9136,7 +9274,9 @@ export type PlaceGuestOrderRequest = {
     cart_id: Uuid;
     customer_address_id: Uuid;
     /**
-     * The chosen slot, as the delivery window's own code.
+     * The chosen slot, as the delivery window's own code. Must be one the
+     * address's zone offers, or placement refuses `window_not_offered`.
+     *
      */
     delivery_window_code?: string | null;
     /**
@@ -11182,7 +11322,7 @@ export type QuoteQuotationRequest = {
 };
 
 /**
- * One article as a corporate buyer sees it — one name, one price, no tariff paperwork.
+ * One article as a corporate buyer sees it — one name, one price and the size it buys, no tariff paperwork.
  */
 export type B2bCatalogueItem = {
     id: Uuid;
@@ -11219,6 +11359,12 @@ export type B2bCatalogueItem = {
         amount_minor: number;
         currency_code: CurrencyCode;
     } | null;
+    /**
+     * What `price` buys — the B2B pack's size, `1` `kg` for a sauce sold
+     * by the kilo. Null when the price is quoted for the item itself.
+     *
+     */
+    pack: PackSize | null;
 };
 
 /**
@@ -19468,6 +19614,171 @@ export type ReplaceCatalogueItemVariantsResponses = {
 
 export type ReplaceCatalogueItemVariantsResponse = ReplaceCatalogueItemVariantsResponses[keyof ReplaceCatalogueItemVariantsResponses];
 
+export type GetCatalogueItemChannelPricesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/channel-prices';
+};
+
+export type GetCatalogueItemChannelPricesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetCatalogueItemChannelPricesError = GetCatalogueItemChannelPricesErrors[keyof GetCatalogueItemChannelPricesErrors];
+
+export type GetCatalogueItemChannelPricesResponses = {
+    /**
+     * The item's channel offer.
+     */
+    200: ItemChannelPricesEnvelope;
+};
+
+export type GetCatalogueItemChannelPricesResponse = GetCatalogueItemChannelPricesResponses[keyof GetCatalogueItemChannelPricesResponses];
+
+export type SetCatalogueItemChannelPricesData = {
+    body: SetItemChannelPricesRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/channel-prices';
+};
+
+export type SetCatalogueItemChannelPricesErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SetCatalogueItemChannelPricesError = SetCatalogueItemChannelPricesErrors[keyof SetCatalogueItemChannelPricesErrors];
+
+export type SetCatalogueItemChannelPricesResponses = {
+    /**
+     * The item's channel offer as it now stands.
+     */
+    200: ItemChannelPricesEnvelope;
+};
+
+export type SetCatalogueItemChannelPricesResponse = SetCatalogueItemChannelPricesResponses[keyof SetCatalogueItemChannelPricesResponses];
+
 export type ReplaceCatalogueItemIngredientsData = {
     body: ReplaceCatalogueItemIngredientsRequest;
     headers: {
@@ -22759,6 +23070,161 @@ export type ReplaceDeliveryZoneAreasResponses = {
 
 export type ReplaceDeliveryZoneAreasResponse = ReplaceDeliveryZoneAreasResponses[keyof ReplaceDeliveryZoneAreasResponses];
 
+export type ListDeliveryZoneWindowsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery zone identifier, or its `code`.
+         */
+        zone: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/delivery-zones/{zone}/windows';
+};
+
+export type ListDeliveryZoneWindowsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListDeliveryZoneWindowsError = ListDeliveryZoneWindowsErrors[keyof ListDeliveryZoneWindowsErrors];
+
+export type ListDeliveryZoneWindowsResponses = {
+    /**
+     * The windows this zone offers.
+     */
+    200: DeliveryZoneWindowsEnvelope;
+};
+
+export type ListDeliveryZoneWindowsResponse = ListDeliveryZoneWindowsResponses[keyof ListDeliveryZoneWindowsResponses];
+
+export type ReplaceDeliveryZoneWindowsData = {
+    body: ReplaceDeliveryZoneWindowsRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery zone identifier, or its `code`.
+         */
+        zone: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/delivery-zones/{zone}/windows';
+};
+
+export type ReplaceDeliveryZoneWindowsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceDeliveryZoneWindowsError = ReplaceDeliveryZoneWindowsErrors[keyof ReplaceDeliveryZoneWindowsErrors];
+
+export type ReplaceDeliveryZoneWindowsResponses = {
+    /**
+     * The windows this zone offers after the write.
+     */
+    200: DeliveryZoneWindowsEnvelope;
+};
+
+export type ReplaceDeliveryZoneWindowsResponse = ReplaceDeliveryZoneWindowsResponses[keyof ReplaceDeliveryZoneWindowsResponses];
+
 export type ListDeliveryWindowsData = {
     body?: never;
     headers: {
@@ -23313,7 +23779,7 @@ export type ListMarketplaceMealsData = {
         category_slug?: string;
         /**
          * Comma-separated catalogue item types to include. Allowed values:
-         * `meal`, `product`, `sauce`, `dressing`. Omit to receive all.
+         * `meal`, `product`, `sauce`, `dressing`, `frozen_meal`. Omit to receive all.
          * Unknown values are `400`.
          *
          */
@@ -28734,9 +29200,8 @@ export type PlaceOrderDeskOrderError = PlaceOrderDeskOrderErrors[keyof PlaceOrde
 export type PlaceOrderDeskOrderResponses = {
     /**
      * The order as the kitchen sees it, with every line at the price it was
-     * placed at. `status` is `placed` on a delivery or a pickup and
-     * `fulfilled` on a counter sale, which is the whole observable
-     * difference between the two writes this operation performs. A replay
+     * placed at. `status` is `placed` on a pickup, `confirmed` on a
+     * delivery and `fulfilled` on a counter sale. A replay
      * of a request this key already answered returns this same body and
      * this same status, with `Idempotency-Replayed: true`; nothing ran a
      * second time.
@@ -29159,6 +29624,57 @@ export type GetOrderDeskShortfallCountResponses = {
 };
 
 export type GetOrderDeskShortfallCountResponse = GetOrderDeskShortfallCountResponses[keyof GetOrderDeskShortfallCountResponses];
+
+export type ListOrderDeskDeliveryWindowsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/order-desk/delivery-windows';
+};
+
+export type ListOrderDeskDeliveryWindowsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListOrderDeskDeliveryWindowsError = ListOrderDeskDeliveryWindowsErrors[keyof ListOrderDeskDeliveryWindowsErrors];
+
+export type ListOrderDeskDeliveryWindowsResponses = {
+    /**
+     * The active windows. `meta.count` and `meta.active_count` are equal.
+     */
+    200: DeliveryWindowsEnvelope;
+};
+
+export type ListOrderDeskDeliveryWindowsResponse = ListOrderDeskDeliveryWindowsResponses[keyof ListOrderDeskDeliveryWindowsResponses];
 
 export type ListOrderDeskDriversData = {
     body?: never;
@@ -30938,12 +31454,114 @@ export type ListDriverJobsResponses = {
     200: {
         data: {
             jobs: Array<DriverJob>;
+            /**
+             * Unassigned `pending` runs anybody here may claim.
+             */
+            available: Array<DriverJob>;
         };
         meta: Meta;
     };
 };
 
 export type ListDriverJobsResponse = ListDriverJobsResponses[keyof ListDriverJobsResponses];
+
+export type ClaimDriverJobData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery job identifier. On the driver routes, one that is not the
+         * caller's own answers 404, decided before the request body is looked at;
+         * on the dispatcher's `assign`, one belonging to another organisation
+         * answers 404 for the same reason — a 403 would confirm that the
+         * identifier names something real.
+         *
+         */
+        job: Uuid;
+    };
+    query?: never;
+    url: '/driver/jobs/{job}/claim';
+};
+
+export type ClaimDriverJobErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ClaimDriverJobError = ClaimDriverJobErrors[keyof ClaimDriverJobErrors];
+
+export type ClaimDriverJobResponses = {
+    /**
+     * The job, now the caller's.
+     */
+    200: {
+        data: {
+            job: {
+                id: Uuid;
+                /**
+                 * Always `assigned` on success.
+                 */
+                status: DeliveryJobStatus;
+            };
+        };
+        meta: Meta;
+    };
+};
+
+export type ClaimDriverJobResponse = ClaimDriverJobResponses[keyof ClaimDriverJobResponses];
 
 export type DeliverDriverJobData = {
     body?: DeliverDriverJobRequest;

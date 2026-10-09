@@ -32,9 +32,9 @@ import type { AccessState } from '@healthy360/permissions';
  * no lifecycle, nothing to create. Folding them into one card would mean a card whose count answered
  * two different questions at once, and an "open" control that had to pick which of the two it meant.
  *
- * Delivery *windows* get no card, and that is the contract's shape rather than an omission:
- * `setDeliveryWindows` is keyed by zone, so a window is only ever edited inside the zone that owns
- * it (`data/kitchen-admin-hooks.ts`, gap 14).
+ * Delivery *windows* are a third card beside the zones: the kitchen's slots are org-wide records
+ * edited on their own page (`/kitchen/delivery-windows`), and a zone only chooses which of them it
+ * offers (`setZoneWindows`).
  */
 
 /**
@@ -573,6 +573,19 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // the card is what carries the meaning until a real icon set retires the compromise.
         icon: 'mapPin',
         href: '/kitchen/delivery-zones',
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: DELIVERY_ZONE_MANAGE_PERMISSION,
+    },
+    {
+        key: 'delivery-windows',
+        kind: 'managed',
+        group: 'commercial',
+        nameKey: 'kitchen:families.deliveryWindows.name',
+        descriptionKey: 'kitchen:families.deliveryWindows.description',
+        // The kitchen's delivery slots, beside the zones that choose among them. Same code pair as
+        // the zones: the backend gates windows and zones on one permission.
+        icon: 'clock',
+        href: '/kitchen/delivery-windows',
         permission: CATALOGUE_VIEW_PERMISSION,
         managePermission: DELIVERY_ZONE_MANAGE_PERMISSION,
     },

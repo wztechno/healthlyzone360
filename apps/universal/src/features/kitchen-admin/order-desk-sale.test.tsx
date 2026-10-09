@@ -17,6 +17,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { todayIso } from '../commerce/dates.ts';
 import { OrderDeskSaleScreen } from './screens/order-desk-sale-screen.tsx';
 
 /* `mock`-prefixed so the factory below may close over them — Jest's hoisting rule. */
@@ -131,6 +132,8 @@ interface QuoteRules {
     /** Refuse an article only at this quantity — a ticket line, never the one-of-each shelf. */
     readonly refuseAtQuantity?: string;
     readonly orderRefusals?: OrderDeskQuote['refusals'];
+    /** The slot codes the delivery address's zone offers; `null` (the default) filters nothing. */
+    readonly offeredWindowCodes?: readonly string[] | null;
 }
 
 /** A quote that prices whatever it is asked, by {@link UNIT_PRICE}. */
@@ -163,6 +166,7 @@ function quoteFor(request: OrderDeskSaleRequest, rules: QuoteRules = {}): OrderD
         currencyCode: 'AED',
         refusals: orderRefusals,
         quotable: orderRefusals.length === 0 && lines.every((line) => line.refusals.length === 0),
+        offeredWindowCodes: rules.offeredWindowCodes ?? null,
     };
 }
 
@@ -234,6 +238,22 @@ async function renderSale(stubs: SaleStubs = {}) {
                 quoteSale: stubs.quoteSale ?? (async (request) => quoteFor(request)),
                 placeSale: stubs.placeSale ?? (async () => placedOrder()),
                 searchCustomers: async () => ({ rows: [customer()], limit: 20 }),
+                listDeliveryWindows: async () => [
+                    {
+                        code: 'morning',
+                        nameEn: 'Breakfast',
+                        nameAr: 'فطور',
+                        startsAt: '08:00',
+                        endsAt: '10:00',
+                    },
+                    {
+                        code: 'midday',
+                        nameEn: 'Lunch',
+                        nameAr: 'غداء',
+                        startsAt: '12:00',
+                        endsAt: '14:00',
+                    },
+                ],
                 createCustomer:
                     stubs.createCustomer ??
                     (async () => ({ customer: customer(), possibleDuplicates: [] })),
@@ -600,6 +620,9 @@ describe('sale — collections and deliveries', () => {
             ],
             paymentMethod: 'cash_at_counter',
             customerAccountId: ACCOUNT_ID,
+            // Untouched When card: today, and the checkout's midday slot the kitchen offers.
+            requestedDeliveryDate: todayIso(),
+            deliveryWindowCode: 'midday',
         });
     });
 
@@ -697,5 +720,65 @@ describe('sale — collections and deliveries', () => {
         // The new customer was chosen straight away, so the ticket no longer asks for one.
         await tapMeal();
         expect(screen.queryByTestId('kitchen-order-desk-sale-shortfall')).toBeNull();
+    });
+});
+
+describe('sale — the slots the address zone offers', () => {
+    it('offers only the zone’s slots on a delivery, and defaults among them', async () => {
+        await renderSale({
+            quoteSale: async (request) =>
+                quoteFor(request, {
+                    offeredWindowCodes: request.fulfilmentType === 'delivery' ? ['morning'] : null,
+                }),
+        });
+        await chooseKind('delivery');
+        await tapMeal();
+
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-order-desk-sale-slot-midday')).toBeNull();
+        });
+        expect(
+            screen.getByTestId('kitchen-order-desk-sale-slot-morning').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ checked: true }));
+    });
+
+    it('says so when the zone offers none of the kitchen’s slots', async () => {
+        await renderSale({
+            quoteSale: async (request) =>
+                quoteFor(request, {
+                    offeredWindowCodes: request.fulfilmentType === 'delivery' ? [] : null,
+                }),
+        });
+        await chooseKind('delivery');
+        await tapMeal();
+
+        await untilVisible('kitchen-order-desk-sale-no-slots');
+        expect(screen.getByTestId('kitchen-order-desk-sale-no-slots')).toHaveTextContent(
+            /offers none of the kitchen’s slots/,
+        );
+    });
+
+    it('keeps every slot on a collection, where no zone applies', async () => {
+        await renderSale();
+        await chooseKind('pickup');
+        await tapMeal();
+
+        await untilVisible('kitchen-order-desk-sale-slot-midday');
+        expect(screen.getByTestId('kitchen-order-desk-sale-slot-morning')).toBeTruthy();
+    });
+
+    it('names a window_not_offered refusal in words', async () => {
+        await renderSale({
+            quoteSale: async (request) =>
+                quoteFor(request, {
+                    orderRefusals: [{ reason: 'window_not_offered', context: {} }],
+                }),
+        });
+        await tapMeal();
+
+        await untilVisible('kitchen-order-desk-sale-order-refusal-window_not_offered');
+        expect(
+            screen.getByTestId('kitchen-order-desk-sale-order-refusal-window_not_offered'),
+        ).toHaveTextContent(/does not offer that slot/);
     });
 });

@@ -14,7 +14,13 @@ describe('shelfNarrowing', () => {
         expect(isShownShelf('bread')).toBe(false);
         expect(shownCategory()).toBeUndefined();
         expect(shownCategory('dressing')).toBe('dressing');
-        expect(shownItemTypes(['meal'])).toEqual(['meal', 'product', 'sauce', 'dressing']);
+        expect(shownItemTypes(['meal'])).toEqual([
+            'meal',
+            'product',
+            'sauce',
+            'dressing',
+            'frozen_meal',
+        ]);
     });
 
     it('narrows a listing to a single shown shelf', () => {
@@ -29,7 +35,13 @@ describe('shelfNarrowing', () => {
         expect(shownCategory()).toBe('frozen');
         expect(shownCategory('meal')).toBe('frozen');
         expect(shownCategory('frozen')).toBe('frozen');
-        expect(shownItemTypes(['meal'])).toEqual(['meal', 'product', 'sauce', 'dressing']);
+        expect(shownItemTypes(['meal'])).toEqual([
+            'meal',
+            'product',
+            'sauce',
+            'dressing',
+            'frozen_meal',
+        ]);
     });
 
     it('leaves the shelf to the caller when more than one is shown', () => {

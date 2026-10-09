@@ -137,8 +137,10 @@ function manifestKey(placeholderId: string, variant: EntityImageVariant): string
         // That is what made the v6 stand-in block this table used to carry dead on arrival: it was
         // keyed on a `meal-` prefix those rows never produce, so the borrowed photographs it
         // assigned were never actually shown. The block is gone, and both prefixes now resolve to
-        // a catalogue item's own photograph.
+        // a catalogue item's own photograph. A frozen meal (`frozen_meal-<slug>`) is one of
+        // those dishes moved to the freezer, and keeps the photograph it had as a meal.
         case 'meal':
+        case 'frozen_meal':
         case 'product': {
             // The prototype's forty meals are portions of twenty recipes, so they alias onto the
             // dish photograph of the recipe that makes them — the one reuse that is honest.

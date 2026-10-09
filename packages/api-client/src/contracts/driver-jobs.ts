@@ -1,8 +1,15 @@
 import type { IsoDateTime, OrderId } from '@healthy360/domain-types';
 
 /**
- * A driver's own run sheet — the delivery jobs assigned to the signed-in person, and the one action
- * that closes them.
+ * A driver's own run sheet — the delivery jobs assigned to the signed-in person, the unassigned pool
+ * beside them, and the two actions: claim one from the pool, and close one.
+ *
+ * ## The pool
+ *
+ * `available` is every projected run nobody has been given (`driver_user_id IS NULL`, `pending`),
+ * in the same row shape. There is no driver role, so any member who opens the sheet sees it, and
+ * {@link DriverJobsRepository.claimJob} takes one — first tap wins, the second is
+ * `resource.conflict`.
  *
  * ## Why this is not a filter on the dispatch board
  *
@@ -30,7 +37,7 @@ import type { IsoDateTime, OrderId } from '@healthy360/domain-types';
  * later version fills in: a run sheet is what one person can carry in a car this afternoon. A list
  * that needed paging would be a rota, not a run.
  *
- * `listJobs` therefore answers a plain array rather than a `CursorPage`, on the same terms as
+ * `listJobs` therefore answers two plain arrays rather than a `CursorPage`, on the same terms as
  * `KitchenQuotationsRepository.listQuotations` — a `nextCursor: null` field would be a promise of
  * paging this endpoint cannot keep.
  *
@@ -163,9 +170,22 @@ export interface DeliverDriverJobRequest {
     readonly notes?: string | undefined;
 }
 
-export interface DriverJobsRepository {
+/** The two lists one read of the run sheet answers. */
+export interface DriverRunSheet {
     /** The caller's own live jobs, oldest first. Empty when there is nothing to run. */
-    listJobs(): Promise<readonly DriverJob[]>;
+    readonly jobs: readonly DriverJob[];
+    /** Unassigned `pending` runs anybody here may claim, oldest first. */
+    readonly available: readonly DriverJob[];
+}
+
+export interface DriverJobsRepository {
+    listJobs(): Promise<DriverRunSheet>;
+
+    /**
+     * Take an unassigned run. `resource.conflict` when somebody else got there first; the sheet
+     * re-reads either way.
+     */
+    claimJob(jobId: string): Promise<void>;
 
     /**
      * Stamp a job delivered, optionally with proof-of-delivery notes.

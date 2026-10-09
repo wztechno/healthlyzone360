@@ -45,6 +45,7 @@ import {
 } from '../../data/kitchen-admin-hooks.ts';
 import { useProcurementReferenceQuery } from '../../data/kitchen-ops-hooks.ts';
 import { BilingualField } from './bilingual-field.tsx';
+import { ChannelPricesSection } from './channel-prices-section.tsx';
 import {
     MealAvailabilityEditor,
     availabilityErrors,
@@ -1149,6 +1150,9 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                         </Stack>
                     </FormSection>
                 )}
+
+                {/* ── B2B / B2C weight and price ──────────────────────────────────────────── */}
+                <ChannelPricesSection itemId={meal} />
 
                 {/* ── service days ──────────────────────────────────────────────────────────── */}
                 <FormSection

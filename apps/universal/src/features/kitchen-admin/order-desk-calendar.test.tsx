@@ -209,50 +209,54 @@ describe('order desk calendar — deriving the week', () => {
 });
 
 describe('order desk calendar — the slot rows', () => {
-    it('unions the slots across the week so one grid has one set of rows', () => {
+    const MEAL_ROWS = ['slot-breakfast', 'slot-lunch', 'slot-snack', 'slot-dinner'];
+
+    it('always draws the four sittings once the week is answered, whatever was booked', () => {
         const slots = calendarSlots([
             day('2026-08-17', counts(1, 0, 0), [{ code: 'morning', counts: counts(1, 0, 0) }]),
             day('2026-08-18', counts(1, 0, 0), [{ code: 'evening', counts: counts(1, 0, 0) }]),
         ]);
 
-        // Both rows on both days: Monday's evening square then reads `0`, which is true, and is the
-        // comparison a week view exists to make.
-        // Snack is always a row, between the day's middle and its evening.
-        expect(slots.map((slot) => slot.code)).toEqual(['morning', 'snack', 'evening']);
+        // Lunch and Snack carry nothing this week and still have their rows: a quiet sitting reads
+        // a true `0` rather than vanishing, so the grid is the same shape every week.
+        expect(slots.map((slot) => slot.key)).toEqual(MEAL_ROWS);
+        expect(slots.map((slot) => slot.meal)).toEqual(['breakfast', 'lunch', 'snack', 'dinner']);
+        expect(calendarSlots(week()).map((slot) => slot.key)).toEqual(MEAL_ROWS);
     });
 
-    it('orders slots as the day runs, then any other code alphabetically', () => {
+    it('folds both names for a sitting into its one row', () => {
         const slots = calendarSlots([
-            day('2026-08-17', counts(1, 0, 0), [{ code: 'evening', counts: counts(1, 0, 0) }]),
-            day('2026-08-18', counts(1, 0, 0), [
-                { code: 'late', counts: counts(1, 0, 0) },
+            day('2026-08-17', counts(4, 0, 0), [
                 { code: 'midday', counts: counts(1, 0, 0) },
-                { code: 'morning', counts: counts(1, 0, 0) },
+                { code: 'lunch', counts: counts(1, 0, 0) },
                 { code: 'afternoon', counts: counts(1, 0, 0) },
+                { code: 'snack', counts: counts(1, 0, 0) },
             ]),
         ]);
 
-        // First-seen order would put `evening` first purely because Monday was quiet.
-        expect(slots.map((slot) => slot.code)).toEqual([
-            'morning',
-            'midday',
-            'afternoon',
-            'evening',
-            'late',
-        ]);
+        expect(slots.map((slot) => slot.key)).toEqual(MEAL_ROWS);
+        expect(slots[1]?.codes).toEqual(['midday', 'lunch']);
     });
 
-    it('keeps a slot named like a number a string, and sorts it as one', () => {
+    it('puts any other code after the sittings, sorted as a string', () => {
         const slots = calendarSlots([
             day('2026-08-17', counts(1, 0, 0), [
+                { code: 'late', counts: counts(1, 0, 0) },
                 { code: '2', counts: counts(1, 0, 0) },
                 { code: '12', counts: counts(1, 0, 0) },
+                { code: 'morning', counts: counts(1, 0, 0) },
             ]),
         ]);
 
         // `12` before `2`, which is what alphabetical means and what the server already answered.
         // A client that coerced the codes to numbers would disagree with it.
-        expect(slots.map((slot) => slot.code)).toEqual(['snack', '12', '2']);
+        expect(slots.map((slot) => slot.key)).toEqual([
+            ...MEAL_ROWS,
+            'slot-12',
+            'slot-2',
+            'slot-late',
+        ]);
+        expect(slots[4]?.meal).toBeNull();
     });
 
     it('puts the unslotted bucket last, and only when a day actually has one', () => {
@@ -263,19 +267,23 @@ describe('order desk calendar — the slot rows', () => {
             ]),
         ]);
 
-        expect(withUnslotted.map((slot) => slot.code)).toEqual(['morning', 'snack', null]);
-        expect(withUnslotted[2]?.key).toBe(UNSLOTTED_SLOT_KEY);
+        expect(withUnslotted.map((slot) => slot.key)).toEqual([...MEAL_ROWS, UNSLOTTED_SLOT_KEY]);
+        expect(withUnslotted[4]?.codes).toEqual([null]);
         // Prefixed, so a kitchen whose own code is literally `unslotted` cannot collide with it.
-        expect(withUnslotted[0]?.key).toBe('slot-morning');
+        const literal = calendarSlots([
+            day('2026-08-17', counts(1, 0, 0), [{ code: 'unslotted', counts: counts(1, 0, 0) }]),
+        ]);
+        expect(literal.map((slot) => slot.key)).toEqual([...MEAL_ROWS, 'slot-unslotted']);
 
         // A kitchen that names every slot gets no permanent row of zeroes about a bucket it does
         // not use.
         const named = calendarSlots([
             day('2026-08-17', counts(1, 0, 0), [{ code: 'morning', counts: counts(1, 0, 0) }]),
         ]);
-        expect(named.map((slot) => slot.code)).toEqual(['morning', 'snack']);
+        expect(named.map((slot) => slot.key)).toEqual(MEAL_ROWS);
 
-        expect(calendarSlots(week())).toEqual([]);
+        // No days at all is no answer, and draws no rows.
+        expect(calendarSlots([])).toEqual([]);
     });
 });
 
@@ -300,7 +308,7 @@ describe('order desk calendar — a square’s three readings', () => {
             { code: 'morning', counts: counts(1, 0, 0) },
         ]);
 
-        const evening = slotReadings(answered, 'evening');
+        const evening = slotReadings(answered, ['evening', 'dinner']);
 
         // The server sends only the slots carrying something, so absence is knowledge.
         expect(evening.map((reading) => reading.count)).toEqual([0, 0, 0]);
@@ -308,11 +316,27 @@ describe('order desk calendar — a square’s three readings', () => {
         expect(isUnknown(evening)).toBe(false);
     });
 
+    it('adds a sitting’s two names per basis, never across bases', () => {
+        const answered = day('2026-08-17', counts(3, 3, 1), [
+            { code: 'midday', counts: counts(1, 2, 0) },
+            { code: 'lunch', counts: counts(2, 1, 1) },
+            { code: 'evening', counts: counts(9, 9, 9) },
+        ]);
+
+        expect(slotReadings(answered, ['midday', 'lunch']).map((reading) => reading.count)).toEqual(
+            [3, 3, 1],
+        );
+        // One of the two names answered is enough to make the row known.
+        expect(slotReadings(answered, ['evening', 'dinner']).map((r) => r.count)).toEqual([
+            9, 9, 9,
+        ]);
+    });
+
     it('answers unknown for a date the calendar never carried', () => {
         const missing = calendarDayFor([day('2026-08-17')], '2026-08-18');
         expect(missing).toBeNull();
 
-        const readings = slotReadings(missing, 'morning');
+        const readings = slotReadings(missing, ['morning', 'breakfast']);
 
         // Not zero. A zero here would be the calendar claiming nothing is due on a day nobody
         // asked about.
@@ -392,7 +416,7 @@ describe('order desk calendar — the squares', () => {
         await renderCalendar(async () => busyWeek());
         await settled();
 
-        const cell = screen.getByTestId(`kitchen-order-desk-calendar-${FIRST}-slot-morning`);
+        const cell = screen.getByTestId(`kitchen-order-desk-calendar-${FIRST}-slot-breakfast`);
         const header = screen.getByTestId(`kitchen-order-desk-calendar-day-${FIRST}`);
 
         // The day header is the date alone — no figures to sum.
@@ -415,7 +439,7 @@ describe('order desk calendar — the squares', () => {
         await renderCalendar(async () => busyWeek());
         await settled();
 
-        const cell = `kitchen-order-desk-calendar-${FIRST}-slot-morning`;
+        const cell = `kitchen-order-desk-calendar-${FIRST}-slot-breakfast`;
         // The flag reaches the DOM as its own node, which is what carries the dashed outline.
         expect(screen.getByTestId(`${cell}-projected-forecast`)).toBeTruthy();
         // The two records are plain figures with no such wrapper — the drawing is the difference.
@@ -460,14 +484,14 @@ describe('order desk calendar — the squares', () => {
         await renderCalendar(async () => calendar([mondayWithOneOrder()]));
         await settled();
 
-        const missing = `kitchen-order-desk-calendar-${SECOND}-slot-morning`;
+        const missing = `kitchen-order-desk-calendar-${SECOND}-slot-breakfast`;
         expect(screen.getByTestId(`${missing}-unknown`)).toHaveTextContent('—');
         // The dash is silent, so the square says in words that nobody asked about this day.
         expect(screen.getAllByLabelText('This day was not answered.').length).toBeGreaterThan(0);
 
         // The answered day is not a dash.
         expect(
-            screen.queryByTestId(`kitchen-order-desk-calendar-${FIRST}-slot-morning-unknown`),
+            screen.queryByTestId(`kitchen-order-desk-calendar-${FIRST}-slot-breakfast-unknown`),
         ).toBeNull();
     });
 });

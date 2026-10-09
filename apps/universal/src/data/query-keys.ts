@@ -367,6 +367,8 @@ export const queryKeys = {
         productsPage: (filter: QueryScope | undefined, page: number) =>
             ['kitchenAdmin', 'products', 'page', scope(filter), page] as const,
         product: (productId: ProductId) => ['kitchenAdmin', 'product', productId] as const,
+        itemChannelPrices: (itemId: string) =>
+            ['kitchenAdmin', 'itemChannelPrices', itemId] as const,
 
         priceLists: (filter?: QueryScope) =>
             ['kitchenAdmin', 'price-lists', scope(filter)] as const,
@@ -398,6 +400,7 @@ export const queryKeys = {
         zonesPage: (filter: QueryScope | undefined, page: number) =>
             ['kitchenAdmin', 'zones', 'page', scope(filter), page] as const,
         zone: (zoneId: DeliveryZoneId) => ['kitchenAdmin', 'zone', zoneId] as const,
+        deliveryWindows: () => ['kitchenAdmin', 'delivery-windows'] as const,
 
         branchOperating: (branchId: KitchenBranchId) =>
             ['kitchenAdmin', 'branch-operating', branchId] as const,
@@ -640,6 +643,8 @@ export const queryKeys = {
          * wants its own copy.
          */
         drivers: () => ['orderDesk', 'drivers'] as const,
+        /** The kitchen's active delivery windows — the sale's slot choice. No scope: one list. */
+        deliveryWindows: () => ['orderDesk', 'deliveryWindows'] as const,
         /**
          * One day's takings. Keyed on the whole filter (shape rule 3): the day and the branch
          * together are the document, and the branch in particular is not a narrowing of a shared

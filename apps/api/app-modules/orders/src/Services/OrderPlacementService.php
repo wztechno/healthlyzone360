@@ -21,6 +21,7 @@ use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Services\ZoneResolver;
+use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\OrderStatus;
@@ -146,6 +147,7 @@ use Illuminate\Support\Facades\DB;
  * | `shapeReasons()` | yes | yes | yes |
  * | `CheckoutEligibility::outstanding()` | self-service only | self-service only | self-service only |
  * | `addressReasons()`, `zoneFor()`, fee currency | yes | — | — |
+ * | `windowReasons()` | unless `enforceWindowOffer` is false | — | — |
  * | `scheduleReasons()` | yes | **yes** | — |
  * | `composedSnapshots()` (repricing) | yes | yes | yes |
  * | `agreementReasons()`, agreement snapshot | yes | yes | yes |
@@ -175,6 +177,7 @@ final readonly class OrderPlacementService
         private CheckoutEligibility $eligibility,
         private AreaServiceLookup $areas,
         private ZoneResolver $zones,
+        private ZoneWindowService $zoneWindows,
         private OrderSchedulingLookup $scheduling,
         private DerivedAllergenService $allergens,
         private OrderNumbers $numbers,
@@ -381,6 +384,12 @@ final readonly class OrderPlacementService
 
             [$zone, $zoneReasons] = $this->zoneFor($placement->branchId, $address);
             $reasons = [...$reasons, ...$zoneReasons];
+
+            // Subscription generation passes false: a standing subscriber is
+            // not refused retroactively because a kitchen edited its map.
+            if ($placement->enforceWindowOffer) {
+                $reasons = [...$reasons, ...$this->windowReasons($zone, $placement->deliveryWindowCode)];
+            }
 
             if ($zone instanceof DeliveryZone && $zone->delivery_fee_minor !== null && $zone->currency_code !== $placement->currencyCode) {
                 $reasons[] = [
@@ -594,6 +603,7 @@ final readonly class OrderPlacementService
 
         [$zone, $zoneReasons] = $this->zoneFor($cart->branch_id, $address);
         $reasons = [...$reasons, ...$zoneReasons];
+        $reasons = [...$reasons, ...$this->windowReasons($zone, $deliveryWindowCode)];
 
         if ($zone instanceof DeliveryZone && $zone->delivery_fee_minor !== null && $zone->currency_code !== $cart->currency_code) {
             $reasons[] = [
@@ -1124,6 +1134,31 @@ final readonly class OrderPlacementService
             'delivery_area_id' => $areaId,
             'served_by_anyone' => $this->areas->isServed($areaId),
         ]]];
+    }
+
+    /**
+     * `window_not_offered` when the slot asked for is not one the resolved
+     * zone runs — `ZoneWindowService::offeredCodes()` is the definition, a
+     * code naming no window at all included. Nothing to say when no zone
+     * resolved (`zoneFor()` already refused) or no slot was named.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function windowReasons(?DeliveryZone $zone, ?string $deliveryWindowCode): array
+    {
+        if (! $zone instanceof DeliveryZone || $deliveryWindowCode === null) {
+            return [];
+        }
+
+        if (in_array($deliveryWindowCode, $this->zoneWindows->offeredCodes($zone), true)) {
+            return [];
+        }
+
+        return [[
+            'reason' => 'window_not_offered',
+            'delivery_window_code' => $deliveryWindowCode,
+            'delivery_zone_id' => (string) $zone->getKey(),
+        ]];
     }
 
     /**

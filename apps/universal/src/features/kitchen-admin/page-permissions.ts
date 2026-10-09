@@ -17,9 +17,9 @@ import type { EntityFamily, EntityGroup, PageExtra } from './entity-registry.ts'
  *
  * ## It is a projection, not a set of switches
  *
- * `catalogue.view_organisation` is the `permission` of eleven families, so Ingredients → View also
+ * `catalogue.view_organisation` is the `permission` of ten families, so Ingredients → View also
  * lights Products, Sauces, Meals, Packaging, Plans and more. There is no way around that: the
- * backend gates all eleven on one code, and inventing a per-page code would be inventing an
+ * backend gates all ten on one code, and inventing a per-page code would be inventing an
  * authority the server does not have.
  *
  * So the grid is **recomputed from the code set after every change** rather than holding per-row
@@ -173,7 +173,7 @@ export function unmappedCodes(
  * removes both.
  *
  * What it does **not** do is reason about the siblings. Removing `catalogue.view_organisation` takes
- * it away from all eleven families at once, which is exactly what the server would do, and
+ * it away from all ten families at once, which is exactly what the server would do, and
  * {@link pageSections} recomputed afterwards is what shows the person that it happened.
  */
 export function applyPageLevel(

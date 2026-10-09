@@ -1,6 +1,7 @@
 import type {
     AllergenClass,
     BranchOperating,
+    CreateDeliveryWindowRequest,
     CreateDeliveryZoneRequest,
     CreateIngredientRequest,
     CreateMealRequest,
@@ -8,6 +9,7 @@ import type {
     CreateProductRequest,
     CreateRecipeRequest,
     CursorPage,
+    DeliveryWindow,
     DeliveryZoneAdmin,
     DeliveryZoneAdminFilter,
     IngredientAdmin,
@@ -34,7 +36,8 @@ import type {
     ServiceArea,
     SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
-    SetDeliveryWindowsRequest,
+    ItemChannelPrices,
+    SetItemChannelPricesRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
     SetPlanCombinationsRequest,
@@ -46,6 +49,8 @@ import type {
     SetRecipeOutputsRequest,
     SetRecipeStepsRequest,
     SetZoneAreasRequest,
+    SetZoneWindowsRequest,
+    UpdateDeliveryWindowRequest,
     UpdateDeliveryZoneRequest,
     UpdateIngredientRequest,
     UpdateMealRequest,
@@ -56,6 +61,7 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { PACKAGING_CATEGORY_CODE, RECIPE_KINDS, pageCount } from '@healthy360/api-client/contracts';
 import type {
+    DeliveryWindowId,
     DeliveryZoneId,
     IngredientId,
     KitchenBranchId,
@@ -197,10 +203,10 @@ import { useRepositories, useRepositoryContext } from './repository-provider.tsx
  *
  * ## Four more, on the delivery half (K1.7)
  *
- * 14. **A delivery window belongs to a zone, not to the kitchen.** `setDeliveryWindows` takes a
- *     `DeliveryZoneId` and answers with the whole `DeliveryZoneAdmin`; there is no `listWindows`,
- *     no `getWindow` and no kitchen-wide window resource. So there is no windows hook here and no
- *     windows screen: the zone editor owns them, which is where the only setter is.
+ * 14. **A delivery window belongs to the kitchen; a zone only chooses among them.** Windows are
+ *     org-wide records with their own screen (`/kitchen/delivery-windows`, written through
+ *     `createDeliveryWindow` / `updateDeliveryWindow`), and a zone's assignment is a separate,
+ *     lock-versioned set (`setZoneWindows`). A new window is offered in no zone until one opts in.
  * 15. **A zone has no publication action.** The contract publishes `archiveZone` and nothing else —
  *     no `publishZone`, no `retireZone` — so a zone moves *out* of visibility from this workspace
  *     and never into it, exactly as a product does. {@link useZoneSummaryQuery} therefore counts
@@ -1390,6 +1396,53 @@ export function useSetProductChannelAvailabilityMutation(): UseMutationResult<
     });
 }
 
+/* ── B2B / B2C weight and price ──────────────────────────────────────────────────────────────── */
+
+/** An article's B2B and B2C weight and price — a product, a sauce or a meal. */
+export function useItemChannelPricesQuery(
+    itemId: ProductId | MealId | null,
+): UseQueryResult<ItemChannelPrices> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.itemChannelPrices(itemId ?? ''),
+        enabled: repositories !== null && itemId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (itemId === null) throw new Error('No item identifier.');
+            return repositories.kitchenAdmin.getItemChannelPrices(itemId);
+        },
+    });
+}
+
+export interface SetItemChannelPricesVariables {
+    readonly itemId: ProductId | MealId;
+    readonly request: SetItemChannelPricesRequest;
+}
+
+/**
+ * Writes the B2B/B2C packs and their prices together. The packs are the item's, so the item's lock
+ * version moves: everything under `kitchenAdmin` is refetched so the product or meal form on the
+ * same page picks up the new version instead of being refused on its next save.
+ */
+export function useSetItemChannelPricesMutation(): UseMutationResult<
+    ItemChannelPrices,
+    unknown,
+    SetItemChannelPricesVariables
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ itemId, request }: SetItemChannelPricesVariables) =>
+            repositories.kitchenAdmin.setItemChannelPrices(itemId, request),
+        onSuccess: (prices, { itemId }) => {
+            queryClient.setQueryData(queryKeys.kitchenAdmin.itemChannelPrices(itemId), prices);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+        },
+    });
+}
+
 /* ── price lists (K1.5) ──────────────────────────────────────────────────────────────────────── */
 
 export type PriceListsInfiniteResult = UseInfiniteQueryResult<
@@ -2379,7 +2432,7 @@ export function zoneTotalFromPages(
     return pages?.[0]?.totalCount ?? null;
 }
 
-/** The kitchen's delivery zones, with their areas and windows already resolved by the contract. */
+/** The kitchen's delivery zones, with their areas resolved and their window identifiers. */
 export function useAdminZonesQuery(
     filter?: Omit<DeliveryZoneAdminFilter, 'cursor'>,
     enabled = true,
@@ -2573,30 +2626,76 @@ export function useSetZoneAreasMutation(): UseMutationResult<
     });
 }
 
-export interface SetDeliveryWindowsVariables {
+export interface SetZoneWindowsVariables {
     readonly zoneId: DeliveryZoneId;
-    readonly request: SetDeliveryWindowsRequest;
+    readonly request: SetZoneWindowsRequest;
 }
 
 /**
- * Replaces the whole window set.
- *
- * A window sent with `id: null` is minted server-side and comes back with one, exactly as a plan
- * variant is — so the editor rebases its rows on the echo after every save. Without that, a second
- * save would send the same window with a null identifier again and create a duplicate.
+ * Replaces the whole set of windows the zone offers, under the zone's lock version, and answers
+ * with the zone — so the editor rebases its `lockVersion` on the echo. The window list is
+ * invalidated with the workspace root, because each window carries the zones that offer it.
  */
-export function useSetDeliveryWindowsMutation(): UseMutationResult<
+export function useSetZoneWindowsMutation(): UseMutationResult<
     DeliveryZoneAdmin,
     unknown,
-    SetDeliveryWindowsVariables
+    SetZoneWindowsVariables
 > {
     const repositories = useRepositories();
     const onWritten = useZoneWriteEffects();
 
     return useMutation({
-        mutationFn: ({ zoneId, request }: SetDeliveryWindowsVariables) =>
-            repositories.kitchenAdmin.setDeliveryWindows(zoneId, request),
+        mutationFn: ({ zoneId, request }: SetZoneWindowsVariables) =>
+            repositories.kitchenAdmin.setZoneWindows(zoneId, request),
         onSuccess: onWritten,
+    });
+}
+
+/* ── delivery windows ────────────────────────────────────────────────────────────────────────── */
+
+/** The kitchen's delivery windows, org-wide, inactive ones included, in display order. */
+export function useDeliveryWindowsQuery(enabled = true): UseQueryResult<readonly DeliveryWindow[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.deliveryWindows(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listDeliveryWindows();
+        },
+    });
+}
+
+/**
+ * One window write: `id: null` creates (in no zone), anything else patches. The page saves row by
+ * row, so a failure names the row it stopped at and the rows before it stay saved.
+ *
+ * Invalidates the workspace (zones read windows), the desk's slot list and the marketplace (a
+ * kitchen publishes its windows to shoppers).
+ */
+export type SaveDeliveryWindowVariables =
+    | { readonly id: null; readonly request: CreateDeliveryWindowRequest }
+    | { readonly id: DeliveryWindowId; readonly request: UpdateDeliveryWindowRequest };
+
+export function useSaveDeliveryWindowMutation(): UseMutationResult<
+    DeliveryWindow,
+    unknown,
+    SaveDeliveryWindowVariables
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (variables: SaveDeliveryWindowVariables) =>
+            variables.id === null
+                ? repositories.kitchenAdmin.createDeliveryWindow(variables.request)
+                : repositories.kitchenAdmin.updateDeliveryWindow(variables.id, variables.request),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.deliveryWindows() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.all() });
+        },
     });
 }
 

@@ -99,74 +99,77 @@ export function calendarWeek(anchor: string, maxWindowDays: number | null): Cale
 /** The grid key of the row that carries work no slot was named for. */
 export const UNSLOTTED_SLOT_KEY = 'unslotted';
 
+/** The four sittings a kitchen day runs through, in the order it runs through them. */
+export const CALENDAR_MEALS = ['breakfast', 'lunch', 'snack', 'dinner'] as const;
+export type CalendarMeal = (typeof CALENDAR_MEALS)[number];
+
+/**
+ * The delivery-window codes each sitting covers. Kitchens name the same slot two ways — the
+ * seeded `morning`/`midday`/`afternoon`/`evening` and the plain meal word — and both are one row.
+ */
+const MEAL_CODES: Readonly<Record<CalendarMeal, readonly string[]>> = {
+    breakfast: ['morning', 'breakfast'],
+    lunch: ['midday', 'lunch'],
+    snack: ['afternoon', 'snack'],
+    dinner: ['evening', 'dinner'],
+};
+
+const MEAL_OF_CODE: ReadonlyMap<string, CalendarMeal> = new Map(
+    CALENDAR_MEALS.flatMap((meal) => MEAL_CODES[meal].map((code) => [code, meal] as const)),
+);
+
 export interface CalendarSlotDescriptor {
     /**
-     * Stable within a week and safe as a test id — named slots are prefixed, so a kitchen whose own
+     * Stable within a week and safe as a test id — named rows are prefixed, so a kitchen whose own
      * slot code is literally `unslotted` still gets `slot-unslotted` and cannot collide with the
-     * bucket below it.
+     * bucket below it. A meal row is keyed by its meal (`slot-lunch`), and every meal word is
+     * itself one of the codes that row covers, so it cannot collide with an unknown code's row.
      */
     readonly key: string;
-    /** The kitchen's own code, or `null` for the unslotted bucket. */
-    readonly code: string | null;
+    /** The sitting this row is, or `null` for an unknown code and for the unslotted bucket. */
+    readonly meal: CalendarMeal | null;
+    /** The codes this row's squares add up; `[null]` for the unslotted bucket. */
+    readonly codes: readonly (string | null)[];
 }
 
 /**
- * The rows the visible week needs: every slot that carries something on any of its days.
+ * The rows the visible week needs.
  *
- * **A union across the week rather than per day**, because a grid whose rows changed from column to
- * column would not be a grid. A kitchen that delivers in the morning on Monday and the evening on
- * Tuesday gets both rows on both days, and Monday's evening square reads `0` — which is true, and
- * is the comparison the week view exists to make.
+ * **The four sittings are always there once the week is answered** — Breakfast, Lunch, Snack and
+ * Dinner, in that order — so the grid has the same shape every week and a quiet sitting reads a
+ * true `0` rather than vanishing. Each row covers both names a kitchen may give that slot.
  *
- * Named codes are sorted, which reproduces the order the server already uses within a day; taking
- * first-seen order instead would put Tuesday's `evening` above Monday's `morning` purely because
- * Monday was quiet. The unslotted bucket is **last and only when some day has one**: a permanent
- * empty row on a kitchen that names every slot would be a row of zeroes about a bucket it does not
- * use.
+ * Any other code the week carries follows, **a union across the week rather than per day**,
+ * because a grid whose rows changed from column to column would not be a grid. Those are sorted in
+ * code-unit order, so a slot named `12` stays the string `12` rather than a number sorting before
+ * `2`. The unslotted bucket is **last and only when some day has one**: a permanent empty row on a
+ * kitchen that names every slot would be a row of zeroes about a bucket it does not use.
  *
- * An empty result is a real answer — a week with nothing on any book — and the screen renders the
- * day columns without slot rows rather than inventing a row to put dashes in.
+ * No days at all is no answer, and gets no rows.
  */
-/** Slot codes in the order a day runs, not the alphabet's. */
-const DAY_ORDER: readonly string[] = [
-    'morning',
-    'breakfast',
-    'midday',
-    'lunch',
-    'afternoon',
-    'snack',
-    'evening',
-    'dinner',
-];
-
 export function calendarSlots(
     days: readonly OrderDeskCalendarDay[],
 ): readonly CalendarSlotDescriptor[] {
-    const named = new Set<string>();
+    if (days.length === 0) return [];
+
+    const others = new Set<string>();
     let unslotted = false;
 
     for (const day of days) {
         for (const window of day.windows) {
             if (window.code === null) unslotted = true;
-            else named.add(window.code);
+            else if (!MEAL_OF_CODE.has(window.code)) others.add(window.code);
         }
     }
 
-    // Snack always has its row once the week is answered, so the kitchen sees the sitting even on
-    // a week nobody booked one — its squares then read a true `0`. `afternoon` already is Snack.
-    if ((named.size > 0 || unslotted) && !named.has('afternoon')) named.add('snack');
+    const rows: CalendarSlotDescriptor[] = [
+        ...CALENDAR_MEALS.map((meal) => ({ key: `slot-${meal}`, meal, codes: MEAL_CODES[meal] })),
+        ...[...others]
+            .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+            .map((code) => ({ key: `slot-${code}`, meal: null, codes: [code] })),
+    ];
 
-    // The day's own order — morning, midday, evening — then any other code in code-unit order,
-    // so a slot named `12` stays the string `12` rather than a number sorting before `2`.
-    const rank = (code: string): number => {
-        const index = DAY_ORDER.indexOf(code);
-        return index === -1 ? DAY_ORDER.length : index;
-    };
-    const rows: CalendarSlotDescriptor[] = [...named]
-        .sort((a, b) => rank(a) - rank(b) || (a < b ? -1 : a > b ? 1 : 0))
-        .map((code) => ({ key: `slot-${code}`, code }));
-
-    if (unslotted) rows.push({ key: UNSLOTTED_SLOT_KEY, code: null });
+    if (unslotted) rows.push({ key: UNSLOTTED_SLOT_KEY, meal: null, codes: [null] });
     return rows;
 }
 
@@ -182,8 +185,6 @@ export interface CalendarReading {
     /** True for the one basis that is a forecast rather than a record. Drives the dashed styling. */
     readonly forecast: boolean;
 }
-
-const ZERO_COUNTS: OrderDeskCalendarCounts = { order: 0, scheduled: 0, projected: 0 };
 
 /**
  * The three books of one square, in reading order.
@@ -213,22 +214,27 @@ export function dayReadings(day: OrderDeskCalendarDay | null): readonly Calendar
 }
 
 /**
- * One slot on one day.
+ * One row on one day.
  *
  * Three outcomes, and telling them apart is the whole job:
  *
  * - the **day** is missing → unknown, every basis `null`;
- * - the day is present and the **slot** is missing → a true zero, because the server sends only the
- *   slots carrying something;
- * - both present → the counts as they arrived.
+ * - the day is present and **none of the row's codes** is in it → a true zero, because the server
+ *   sends only the slots carrying something;
+ * - otherwise → the counts of the row's codes, added **per basis**. Two names for one sitting are
+ *   one sitting; adding them is the same safe addition as the day header's, never across bases.
  */
 export function slotReadings(
     day: OrderDeskCalendarDay | null,
-    code: string | null,
+    codes: readonly (string | null)[],
 ): readonly CalendarReading[] {
     if (day === null) return countsReadings(null);
-    const window = day.windows.find((candidate) => candidate.code === code);
-    return countsReadings(window === undefined ? ZERO_COUNTS : window.counts);
+    const summed: Record<CalendarBasis, number> = { order: 0, scheduled: 0, projected: 0 };
+    for (const window of day.windows) {
+        if (!codes.includes(window.code)) continue;
+        for (const basis of CALENDAR_BASES) summed[basis] += window.counts[basis];
+    }
+    return countsReadings(summed);
 }
 
 /**

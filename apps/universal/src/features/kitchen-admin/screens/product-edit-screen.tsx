@@ -34,6 +34,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
+import { ChannelPricesSection } from '../channel-prices-section.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     recipesFromPages,
@@ -1289,6 +1290,9 @@ function ProductEditor({
                         ) : null}
                     </View>
                 </FormSection>
+
+                {/* ── B2B / B2C weight and price ──────────────────────────────────────────── */}
+                {data === undefined ? null : <ChannelPricesSection itemId={data.id} />}
 
                 {/* ── sale ─────────────────────────────────────────────────────────────────── */}
                 <FormSection

@@ -113,8 +113,8 @@ describe('the api bundle exposes the prototype repositories', () => {
         expect(repositories.kitchenAdmin.setPlanCombinations).not.toBe(
             API_PROTOTYPE_REPOSITORIES.kitchenAdmin.setPlanCombinations,
         );
-        expect(repositories.kitchenAdmin.setDeliveryWindows).not.toBe(
-            API_PROTOTYPE_REPOSITORIES.kitchenAdmin.setDeliveryWindows,
+        expect(repositories.kitchenAdmin.setZoneWindows).not.toBe(
+            API_PROTOTYPE_REPOSITORIES.kitchenAdmin.setZoneWindows,
         );
         expect(repositories.kitchenAdmin.listAllergenClasses).not.toBe(
             API_PROTOTYPE_REPOSITORIES.kitchenAdmin.listAllergenClasses,
@@ -220,7 +220,6 @@ describe('the api bundle exposes the prototype repositories', () => {
         expect(table.adminPreviewRecipeRollup).toBeUndefined();
         expect(table.adminSetMealAvailability).toBeUndefined();
         expect(table.adminSetPlanCombinations).toBeUndefined();
-        expect(table.adminSetDeliveryWindows).toBeUndefined();
 
         // Cart and subscription lifecycle left the ledger in Phase 4 — wired in cart-repository
         // and subscription-repository.

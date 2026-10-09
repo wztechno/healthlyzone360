@@ -89,6 +89,11 @@ export interface CheckoutPreview {
     readonly total: Money;
     readonly earliestDeliveryDate: string | null;
     readonly warnings: readonly string[];
+    /**
+     * The slot codes the address's delivery zone offers. `null` when there is no address or no
+     * serving zone — no filtering applies then; `[]` is a zone that offers no slot at all.
+     */
+    readonly offeredWindowCodes: readonly string[] | null;
     /** Always `true` in the prototype: no payment method is ever attached. */
     readonly paymentDeferred: true;
 }

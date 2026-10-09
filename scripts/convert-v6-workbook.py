@@ -113,6 +113,14 @@ PUBLISHED_CATEGORY_CODES = {
     "bread": "bread",
 }
 
+# Owner ruling 2026-10-05: these Meals-sheet rows are made ahead and sold from the freezer, so
+# they are frozen meals published under Frozen. Keyed by source ref; slugs keep their meal form.
+FROZEN_MEAL_REFS = {
+    "PRD-001", "PRD-002", "PRD-003", "PRD-006", "PRD-009", "PRD-011", "PRD-012", "PRD-014",
+    "PRD-017", "PRD-018", "PRD-020", "PRD-024", "PRD-025", "PRD-026", "PRD-027", "PRD-029",
+    "PRD-031",
+}
+
 # Case/plural variants folded onto one taxonomy node. Keys and values are the
 # verbatim sheet wording; resolution happens before slugging so "Vegetables"
 # and "Vegetable" become one platform category.
@@ -560,10 +568,11 @@ def convert_production_sheet(ws, id_prefix: str, item_type: str, taxonomy: Taxon
 
         entry = {
             "source_ref": rid,
-            "sheet_item_type": item_type,
+            "sheet_item_type": "frozen_meal" if rid in FROZEN_MEAL_REFS else item_type,
             "name_en": name,
             "slug": slug,
-            "published_category_code": PUBLISHED_CATEGORY_CODES.get(clean(record["published"]).lower()),
+            "published_category_code": "frozen" if rid in FROZEN_MEAL_REFS
+            else PUBLISHED_CATEGORY_CODES.get(clean(record["published"]).lower()),
             "kitchen_category": clean(record["category"]) or None,
             "kitchen_subcategory": clean(record["subcategory"]) or None,
             "is_ingredient": is_ingredient,
@@ -926,6 +935,7 @@ def self_test():
     assert onions["prices"]["b2b"]["price_minor"] == 1200
 
     meal_fajita, product_fajita = by_ref(items, "PRD-003"), by_ref(items, "RSL-001")
+    assert meal_fajita["sheet_item_type"] == "frozen_meal" and meal_fajita["published_category_code"] == "frozen"
     assert meal_fajita["slug"] == "test-fajita" and product_fajita["slug"] == "test-fajita-product"
     assert product_fajita["composition"] == "Beef, cheese, pepper"
     assert {m["allergen_code"] for m in product_fajita["allergens"]} == {"milk", "egg"}

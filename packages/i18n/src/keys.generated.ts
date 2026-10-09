@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8189 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8260 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1180,6 +1180,7 @@ export interface NamespaceKeys {
     | 'catalogue.buildQuotation'
     | 'catalogue.clearFilters'
     | 'catalogue.contractPrice'
+    | 'catalogue.contractPricePerPack'
     | 'catalogue.emptyBody'
     | 'catalogue.emptyTitle'
     | 'catalogue.kindAll'
@@ -1581,6 +1582,7 @@ export interface NamespaceKeys {
     | 'meal.notRatedYet'
     | 'meal.optionsNone'
     | 'meal.planSignIn'
+    | 'meal.pricePerPack'
     | 'meal.quantityDecrease'
     | 'meal.quantityIncrease'
     | 'meal.quantityLabel'
@@ -1947,6 +1949,7 @@ export interface NamespaceKeys {
     | 'checkout.noAddressBody'
     | 'checkout.noAddressTitle'
     | 'checkout.noNote'
+    | 'checkout.noSlotsOffered'
     | 'checkout.noteLabel'
     | 'checkout.paymentCod'
     | 'checkout.paymentCodMeta'
@@ -2238,6 +2241,7 @@ export interface NamespaceKeys {
     | 'validation.tooLong'
     | 'warnings.checkout_address_missing'
     | 'warnings.checkout_empty_cart'
+    | 'warnings.checkout_window_not_offered'
     | 'warnings.planner_allergen_conflict'
     | 'warnings.subscription_delivery_day_unavailable'
     | 'warnings.subscription_no_delivery_days'
@@ -2559,6 +2563,7 @@ export interface NamespaceKeys {
     | 'orderRefusal.unpriced'
     | 'orderRefusal.variant_not_active'
     | 'orderRefusal.variant_unknown'
+    | 'orderRefusal.window_not_offered'
     | 'orderRefusal.zone_suspended'
     | 'validation.accept_privacy'
     | 'validation.accept_terms'
@@ -2720,6 +2725,7 @@ export interface NamespaceKeys {
     | 'verify.confirmedAs'
     | 'verify.otpFallback'
     | 'verify.subtitle'
+    | 'when.noSlots'
     | 'when.title';
   readonly "invitations":
     | 'accept.action'
@@ -3028,6 +3034,21 @@ export interface NamespaceKeys {
     | 'catalogue.statsViewLabel'
     | 'catalogue.title'
     | 'catalogue.view'
+    | 'channelPrices.b2b'
+    | 'channelPrices.b2c'
+    | 'channelPrices.conflict'
+    | 'channelPrices.failed'
+    | 'channelPrices.hint'
+    | 'channelPrices.noPriceList'
+    | 'channelPrices.price'
+    | 'channelPrices.priceInvalid'
+    | 'channelPrices.priceNeedsWeight'
+    | 'channelPrices.save'
+    | 'channelPrices.saved'
+    | 'channelPrices.title'
+    | 'channelPrices.unit'
+    | 'channelPrices.weight'
+    | 'channelPrices.weightInvalid'
     | 'channels.consumerTag'
     | 'channels.createFirst'
     | 'channels.fromHint'
@@ -3093,6 +3114,14 @@ export interface NamespaceKeys {
     | 'conflict.title'
     | 'containment.contains'
     | 'containment.mayContain'
+    | 'deliveryWindows.emptyBody'
+    | 'deliveryWindows.emptyTitle'
+    | 'deliveryWindows.intro'
+    | 'deliveryWindows.loadErrorTitle'
+    | 'deliveryWindows.noZones'
+    | 'deliveryWindows.title'
+    | 'deliveryWindows.unknownZone'
+    | 'deliveryWindows.zonesColumn'
     | 'desk.a11y.noCustomerName'
     | 'desk.a11y.noDeliveryRun'
     | 'desk.assign.assignedToast'
@@ -3223,6 +3252,7 @@ export interface NamespaceKeys {
     | 'desk.refusal.unpriced'
     | 'desk.refusal.variant_not_active'
     | 'desk.refusal.variant_unknown'
+    | 'desk.refusal.window_not_offered'
     | 'desk.refusal.zone_suspended'
     | 'desk.sale.addItem'
     | 'desk.sale.addItemPriced'
@@ -3263,9 +3293,13 @@ export interface NamespaceKeys {
     | 'desk.sale.customerTitle'
     | 'desk.sale.customerUnnamed'
     | 'desk.sale.customerUseInstead'
+    | 'desk.sale.dateLabel'
     | 'desk.sale.deliveryFee'
     | 'desk.sale.directionsLabel'
     | 'desk.sale.directionsPlaceholder'
+    | 'desk.sale.driverHint'
+    | 'desk.sale.driverLabel'
+    | 'desk.sale.driverNone'
     | 'desk.sale.each'
     | 'desk.sale.itemCount'
     | 'desk.sale.lineOneLabel'
@@ -3277,6 +3311,7 @@ export interface NamespaceKeys {
     | 'desk.sale.method.wish'
     | 'desk.sale.methodLabel'
     | 'desk.sale.more'
+    | 'desk.sale.noSlots'
     | 'desk.sale.notSold'
     | 'desk.sale.notesLabel'
     | 'desk.sale.onTicket'
@@ -3286,6 +3321,8 @@ export interface NamespaceKeys {
     | 'desk.sale.pickerSearchLabel'
     | 'desk.sale.pickerSearchPlaceholder'
     | 'desk.sale.placeFor'
+    | 'desk.sale.placedAssignedToast'
+    | 'desk.sale.placedConfirmedToast'
     | 'desk.sale.placedToast'
     | 'desk.sale.quoteErrorBody'
     | 'desk.sale.quoteErrorTitle'
@@ -3304,6 +3341,8 @@ export interface NamespaceKeys {
     | 'desk.sale.shortfall.address'
     | 'desk.sale.shortfall.customer'
     | 'desk.sale.shortfall.reference'
+    | 'desk.sale.slotHours'
+    | 'desk.sale.slotLabel'
     | 'desk.sale.soldBody'
     | 'desk.sale.soldToast'
     | 'desk.sale.subtotal'
@@ -3318,8 +3357,10 @@ export interface NamespaceKeys {
     | 'desk.sale.typeHint.delivery'
     | 'desk.sale.typeHint.pickup'
     | 'desk.sale.typeLabel'
+    | 'desk.sale.whenLabel'
     | 'desk.sale.wishNoteBody'
     | 'desk.sale.wishNoteTitle'
+    | 'desk.sale.zoneNoSlots'
     | 'desk.searchHint'
     | 'desk.searchLabel'
     | 'desk.searchPlaceholder'
@@ -3340,6 +3381,10 @@ export interface NamespaceKeys {
     | 'dressings.title'
     | 'dressings.viewKind'
     | 'driver.assignedAt'
+    | 'driver.availableHint'
+    | 'driver.availableTitle'
+    | 'driver.claim'
+    | 'driver.claimTaken'
     | 'driver.deliver'
     | 'driver.deliverBody'
     | 'driver.deliverConfirm'
@@ -3349,6 +3394,7 @@ export interface NamespaceKeys {
     | 'driver.emptyBody'
     | 'driver.emptyTitle'
     | 'driver.loadErrorTitle'
+    | 'driver.mineTitle'
     | 'driver.noAddress'
     | 'driver.notesHint'
     | 'driver.notesLabel'
@@ -3422,6 +3468,8 @@ export interface NamespaceKeys {
     | 'families.consumptionExceptions.name'
     | 'families.costReport.description'
     | 'families.costReport.name'
+    | 'families.deliveryWindows.description'
+    | 'families.deliveryWindows.name'
     | 'families.deliveryZones.description'
     | 'families.deliveryZones.name'
     | 'families.ingredients.description'
@@ -6211,6 +6259,12 @@ export interface NamespaceKeys {
     | 'windows.weekdaysHint'
     | 'windows.weekdaysLabel'
     | 'windows.weekdaysRequired'
+    | 'zoneWindows.everyDay'
+    | 'zoneWindows.groupLabel'
+    | 'zoneWindows.inactiveBadge'
+    | 'zoneWindows.intro'
+    | 'zoneWindows.manage'
+    | 'zoneWindows.none'
     | 'zones.amountInvalid'
     | 'zones.archiveAreaCount'
     | 'zones.archiveBody'
@@ -6484,6 +6538,7 @@ export interface NamespaceKeys {
     | 'imageCredits.synthetic'
     | 'imageCredits.title'
     | 'itemTypes.dressing'
+    | 'itemTypes.frozen_meal'
     | 'itemTypes.meal'
     | 'itemTypes.product'
     | 'itemTypes.sauce'
@@ -6672,6 +6727,22 @@ export interface NamespaceKeys {
     | 'nutrition.fat'
     | 'nutrition.protein'
     | 'nutrition.source'
+    | 'packSize.per'
+    | 'packSize.units.bag'
+    | 'packSize.units.bottle'
+    | 'packSize.units.can'
+    | 'packSize.units.cup'
+    | 'packSize.units.g'
+    | 'packSize.units.gallon'
+    | 'packSize.units.kg'
+    | 'packSize.units.l'
+    | 'packSize.units.ml'
+    | 'packSize.units.pack'
+    | 'packSize.units.piece'
+    | 'packSize.units.portion'
+    | 'packSize.units.slice'
+    | 'packSize.units.tbsp'
+    | 'packSize.units.tsp'
     | 'prototype.badge'
     | 'prototype.hint'
     | 'prototype.notBuilt'
@@ -9395,6 +9466,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:catalogue.buildQuotation',
   'business:catalogue.clearFilters',
   'business:catalogue.contractPrice',
+  'business:catalogue.contractPricePerPack',
   'business:catalogue.emptyBody',
   'business:catalogue.emptyTitle',
   'business:catalogue.kindAll',
@@ -9795,6 +9867,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meal.notRatedYet',
   'catalogue:meal.optionsNone',
   'catalogue:meal.planSignIn',
+  'catalogue:meal.pricePerPack',
   'catalogue:meal.quantityDecrease',
   'catalogue:meal.quantityIncrease',
   'catalogue:meal.quantityLabel',
@@ -10160,6 +10233,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.noAddressBody',
   'commerce:checkout.noAddressTitle',
   'commerce:checkout.noNote',
+  'commerce:checkout.noSlotsOffered',
   'commerce:checkout.noteLabel',
   'commerce:checkout.paymentCod',
   'commerce:checkout.paymentCodMeta',
@@ -10451,6 +10525,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:validation.tooLong',
   'commerce:warnings.checkout_address_missing',
   'commerce:warnings.checkout_empty_cart',
+  'commerce:warnings.checkout_window_not_offered',
   'commerce:warnings.planner_allergen_conflict',
   'commerce:warnings.subscription_delivery_day_unavailable',
   'commerce:warnings.subscription_no_delivery_days',
@@ -10769,6 +10844,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:orderRefusal.unpriced',
   'errors:orderRefusal.variant_not_active',
   'errors:orderRefusal.variant_unknown',
+  'errors:orderRefusal.window_not_offered',
   'errors:orderRefusal.zone_suspended',
   'errors:validation.accept_privacy',
   'errors:validation.accept_terms',
@@ -10929,6 +11005,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:verify.confirmedAs',
   'guest:verify.otpFallback',
   'guest:verify.subtitle',
+  'guest:when.noSlots',
   'guest:when.title',
   'invitations:accept.action',
   'invitations:accept.pending',
@@ -11235,6 +11312,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:catalogue.statsViewLabel',
   'kitchen:catalogue.title',
   'kitchen:catalogue.view',
+  'kitchen:channelPrices.b2b',
+  'kitchen:channelPrices.b2c',
+  'kitchen:channelPrices.conflict',
+  'kitchen:channelPrices.failed',
+  'kitchen:channelPrices.hint',
+  'kitchen:channelPrices.noPriceList',
+  'kitchen:channelPrices.price',
+  'kitchen:channelPrices.priceInvalid',
+  'kitchen:channelPrices.priceNeedsWeight',
+  'kitchen:channelPrices.save',
+  'kitchen:channelPrices.saved',
+  'kitchen:channelPrices.title',
+  'kitchen:channelPrices.unit',
+  'kitchen:channelPrices.weight',
+  'kitchen:channelPrices.weightInvalid',
   'kitchen:channels.consumerTag',
   'kitchen:channels.createFirst',
   'kitchen:channels.fromHint',
@@ -11300,6 +11392,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:conflict.title',
   'kitchen:containment.contains',
   'kitchen:containment.mayContain',
+  'kitchen:deliveryWindows.emptyBody',
+  'kitchen:deliveryWindows.emptyTitle',
+  'kitchen:deliveryWindows.intro',
+  'kitchen:deliveryWindows.loadErrorTitle',
+  'kitchen:deliveryWindows.noZones',
+  'kitchen:deliveryWindows.title',
+  'kitchen:deliveryWindows.unknownZone',
+  'kitchen:deliveryWindows.zonesColumn',
   'kitchen:desk.a11y.noCustomerName',
   'kitchen:desk.a11y.noDeliveryRun',
   'kitchen:desk.assign.assignedToast',
@@ -11430,6 +11530,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.refusal.unpriced',
   'kitchen:desk.refusal.variant_not_active',
   'kitchen:desk.refusal.variant_unknown',
+  'kitchen:desk.refusal.window_not_offered',
   'kitchen:desk.refusal.zone_suspended',
   'kitchen:desk.sale.addItem',
   'kitchen:desk.sale.addItemPriced',
@@ -11470,9 +11571,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.customerTitle',
   'kitchen:desk.sale.customerUnnamed',
   'kitchen:desk.sale.customerUseInstead',
+  'kitchen:desk.sale.dateLabel',
   'kitchen:desk.sale.deliveryFee',
   'kitchen:desk.sale.directionsLabel',
   'kitchen:desk.sale.directionsPlaceholder',
+  'kitchen:desk.sale.driverHint',
+  'kitchen:desk.sale.driverLabel',
+  'kitchen:desk.sale.driverNone',
   'kitchen:desk.sale.each',
   'kitchen:desk.sale.itemCount',
   'kitchen:desk.sale.lineOneLabel',
@@ -11484,6 +11589,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.method.wish',
   'kitchen:desk.sale.methodLabel',
   'kitchen:desk.sale.more',
+  'kitchen:desk.sale.noSlots',
   'kitchen:desk.sale.notSold',
   'kitchen:desk.sale.notesLabel',
   'kitchen:desk.sale.onTicket',
@@ -11493,6 +11599,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.pickerSearchLabel',
   'kitchen:desk.sale.pickerSearchPlaceholder',
   'kitchen:desk.sale.placeFor',
+  'kitchen:desk.sale.placedAssignedToast',
+  'kitchen:desk.sale.placedConfirmedToast',
   'kitchen:desk.sale.placedToast',
   'kitchen:desk.sale.quoteErrorBody',
   'kitchen:desk.sale.quoteErrorTitle',
@@ -11511,6 +11619,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.shortfall.address',
   'kitchen:desk.sale.shortfall.customer',
   'kitchen:desk.sale.shortfall.reference',
+  'kitchen:desk.sale.slotHours',
+  'kitchen:desk.sale.slotLabel',
   'kitchen:desk.sale.soldBody',
   'kitchen:desk.sale.soldToast',
   'kitchen:desk.sale.subtotal',
@@ -11525,8 +11635,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.typeHint.delivery',
   'kitchen:desk.sale.typeHint.pickup',
   'kitchen:desk.sale.typeLabel',
+  'kitchen:desk.sale.whenLabel',
   'kitchen:desk.sale.wishNoteBody',
   'kitchen:desk.sale.wishNoteTitle',
+  'kitchen:desk.sale.zoneNoSlots',
   'kitchen:desk.searchHint',
   'kitchen:desk.searchLabel',
   'kitchen:desk.searchPlaceholder',
@@ -11547,6 +11659,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:dressings.title',
   'kitchen:dressings.viewKind',
   'kitchen:driver.assignedAt',
+  'kitchen:driver.availableHint',
+  'kitchen:driver.availableTitle',
+  'kitchen:driver.claim',
+  'kitchen:driver.claimTaken',
   'kitchen:driver.deliver',
   'kitchen:driver.deliverBody',
   'kitchen:driver.deliverConfirm',
@@ -11556,6 +11672,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.emptyBody',
   'kitchen:driver.emptyTitle',
   'kitchen:driver.loadErrorTitle',
+  'kitchen:driver.mineTitle',
   'kitchen:driver.noAddress',
   'kitchen:driver.notesHint',
   'kitchen:driver.notesLabel',
@@ -11629,6 +11746,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.consumptionExceptions.name',
   'kitchen:families.costReport.description',
   'kitchen:families.costReport.name',
+  'kitchen:families.deliveryWindows.description',
+  'kitchen:families.deliveryWindows.name',
   'kitchen:families.deliveryZones.description',
   'kitchen:families.deliveryZones.name',
   'kitchen:families.ingredients.description',
@@ -14418,6 +14537,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:windows.weekdaysHint',
   'kitchen:windows.weekdaysLabel',
   'kitchen:windows.weekdaysRequired',
+  'kitchen:zoneWindows.everyDay',
+  'kitchen:zoneWindows.groupLabel',
+  'kitchen:zoneWindows.inactiveBadge',
+  'kitchen:zoneWindows.intro',
+  'kitchen:zoneWindows.manage',
+  'kitchen:zoneWindows.none',
   'kitchen:zones.amountInvalid',
   'kitchen:zones.archiveAreaCount',
   'kitchen:zones.archiveBody',
@@ -14690,6 +14815,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:imageCredits.synthetic',
   'marketplace:imageCredits.title',
   'marketplace:itemTypes.dressing',
+  'marketplace:itemTypes.frozen_meal',
   'marketplace:itemTypes.meal',
   'marketplace:itemTypes.product',
   'marketplace:itemTypes.sauce',
@@ -14878,6 +15004,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:nutrition.fat',
   'marketplace:nutrition.protein',
   'marketplace:nutrition.source',
+  'marketplace:packSize.per',
+  'marketplace:packSize.units.bag',
+  'marketplace:packSize.units.bottle',
+  'marketplace:packSize.units.can',
+  'marketplace:packSize.units.cup',
+  'marketplace:packSize.units.g',
+  'marketplace:packSize.units.gallon',
+  'marketplace:packSize.units.kg',
+  'marketplace:packSize.units.l',
+  'marketplace:packSize.units.ml',
+  'marketplace:packSize.units.pack',
+  'marketplace:packSize.units.piece',
+  'marketplace:packSize.units.portion',
+  'marketplace:packSize.units.slice',
+  'marketplace:packSize.units.tbsp',
+  'marketplace:packSize.units.tsp',
   'marketplace:prototype.badge',
   'marketplace:prototype.hint',
   'marketplace:prototype.notBuilt',

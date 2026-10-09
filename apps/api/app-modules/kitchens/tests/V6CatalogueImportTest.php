@@ -8,6 +8,7 @@ use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\SalesChannelKind;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
@@ -88,8 +89,9 @@ it('imports every family with its ingredient rows, allergens and prices', functi
     expect($report->countOf('catalogue_item', 'created'))->toBe(7)
         ->and($report->countOf('ingredient', 'created'))->toBe(5)
         ->and($report->countOf('ingredient_allergen', 'created'))->toBe(5)
-        // Six packs, none of them on the two meals: a meal is priced at item level.
-        ->and($report->countOf('catalogue_item_variant', 'created'))->toBe(6)
+        // Eight packs: the priced meal sells by weight, so it has its two; the
+        // unpriced meal is a dish sold as itself and gets no placeholder pack.
+        ->and($report->countOf('catalogue_item_variant', 'created'))->toBe(8)
         ->and($report->countOf('price_list_item', 'created'))->toBe(5)
         ->and($report->countOf('channel_catalogue_item', 'created'))->toBe(5);
 
@@ -117,7 +119,12 @@ it('imports every family with its ingredient rows, allergens and prices', functi
 
     expect($ingredient->organisation_id)->toBe((string) $org->getKey())
         ->and($ingredient->composition)->toBe('Garlic, oil, lemon, salt')
-        ->and($ingredient->source_ref)->toBe('SAC-901');
+        ->and($ingredient->source_ref)->toBe('SAC-901')
+        // The catalogue's list prices restated per kilogram: $5.00 for 1 kg
+        // B2B, $3.00 for a 300 g bottle B2C.
+        ->and($ingredient->b2b_price_amount)->toBe('5.000000')
+        ->and($ingredient->b2c_price_amount)->toBe('10.000000')
+        ->and($ingredient->price_currency_code)->toBe('USD');
 
     $mappings = IngredientAllergen::withoutTenancy()
         ->where('ingredient_id', $ingredient->getKey())
@@ -146,17 +153,24 @@ it('imports every family with its ingredient rows, allergens and prices', functi
     expect($b2c->unit_amount_minor)->toBe(300)
         ->and($b2c->price_status->value)->toBe('confirmed');
 
-    // The sauce's price sits on its B2C pack. The meal's sits on the item
-    // itself — the row the marketplace, the cart and the B2B browse all ask a
-    // meal for — and the meal carries no pack at all.
+    // The sauce's price sits on its B2C pack, and so does the priced meal's:
+    // the sheet gives it a weight per channel, and a price with no size is a
+    // price per nothing.
     $mealB2c = PriceListItem::withoutTenancy()
         ->where('organisation_id', $org->getKey())
         ->where('source_ref', 'PRD-901/b2c')
         ->sole();
 
+    $mealPacks = CatalogueItemVariant::withoutTenancy()
+        ->where('catalogue_item_id', $items['PRD-901']->getKey())
+        ->get()
+        ->keyBy('code');
+
     expect($b2c->catalogue_item_variant_id)->not->toBeNull()
-        ->and($mealB2c->catalogue_item_variant_id)->toBeNull()
-        ->and(CatalogueItemVariant::withoutTenancy()->where('catalogue_item_id', $items['PRD-901']->getKey())->count())->toBe(0);
+        ->and($mealPacks->keys()->sort()->values()->all())->toBe(['b2b', 'b2c'])
+        ->and($mealB2c->catalogue_item_variant_id)->toBe((string) $mealPacks['b2c']->getKey())
+        ->and(CatalogueItemPackVariant::sizeOf((string) $mealPacks['b2b']->getKey()))->toBe(['size' => '1', 'unit' => 'kg'])
+        ->and(CatalogueItemVariant::withoutTenancy()->where('catalogue_item_id', $items['PRD-902']->getKey())->count())->toBe(0);
 });
 
 it('changes nothing on a second run', function (): void {
@@ -246,10 +260,17 @@ it('keeps unpriced items away from customers even once published', function (): 
 
     $channels = $meals->listingChannelsOf((string) $org->getKey());
 
-    expect($meals->priceOf($items['SAC-901'], $channels))->not->toBeNull()
+    $saucePrice = $meals->priceOf($items['SAC-901'], $channels);
+    $mealPrice = $meals->priceOf($items['PRD-901'], $channels);
+
+    expect($saucePrice)->not->toBeNull()
         ->and($meals->priceOf($items['SAC-902'], $channels))->toBeNull()
-        // A priced meal lists too: its price is read at item level, where the importer put it.
-        ->and($meals->priceOf($items['PRD-901'], $channels))->not->toBeNull();
+        // A priced meal lists too, on its B2C pack.
+        ->and($mealPrice)->not->toBeNull()
+        // And each listing says what its price buys: the 300 g bottle, the 1 kg tray.
+        ->and($meals->packSizeOf($items['SAC-901'], $saucePrice))->toBe(['size' => '0.3', 'unit' => 'kg'])
+        ->and($mealPrice?->amountMinor)->toBe(1000)
+        ->and($meals->packSizeOf($items['PRD-901'], $mealPrice))->toBe(['size' => '1', 'unit' => 'kg']);
 });
 
 it('lets a customer add a pack-priced sauce without naming its pack', function (): void {

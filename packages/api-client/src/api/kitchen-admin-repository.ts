@@ -11,16 +11,18 @@ import type {
     DietClassification,
     RecipeVersionId,
 } from '@healthy360/domain-types';
-import { isDietClassification } from '@healthy360/domain-types';
+import { DeliveryWindowId, isDietClassification } from '@healthy360/domain-types';
 
 import type {
     BranchOperating,
+    DeliveryWindow,
     DeliveryZoneAdmin,
     DeliveryZoneAdminFilter,
     IngredientAdmin,
     IngredientAdminFilter,
     IngredientAdminSort,
     IngredientCategoryAdmin,
+    ItemChannelPrices,
     KitchenAdminRepository,
     MealAdmin,
     MealAdminFilter,
@@ -101,8 +103,10 @@ import {
     pickCurrentRecipeVersion,
     planDurationsFromAssignments,
     priceListChannelsFromAssignments,
+    mapItemChannelPrices,
     type CategoryLookup,
     type SalesChannelLookup,
+    type WireItemChannelPrices,
 } from './kitchen-admin-mappers.ts';
 import type { Transport } from './transport.ts';
 
@@ -207,6 +211,7 @@ export type ApiKitchenAdminReads = Pick<
     | 'getRecipeTechnicalSheet'
     | 'listProducts'
     | 'getProduct'
+    | 'getItemChannelPrices'
     | 'listMeals'
     | 'getMeal'
     | 'listPlans'
@@ -216,6 +221,8 @@ export type ApiKitchenAdminReads = Pick<
     | 'getPriceList'
     | 'listZones'
     | 'getZone'
+    | 'getZoneWindows'
+    | 'listDeliveryWindows'
     | 'getBranchOperating'
 >;
 
@@ -740,6 +747,14 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             });
         },
 
+        async getItemChannelPrices(itemId: ProductId | MealId): Promise<ItemChannelPrices> {
+            const data = await transport.request<WireItemChannelPrices>({
+                method: 'GET',
+                path: `/catalogue/items/${encodeURIComponent(String(itemId))}/channel-prices`,
+            });
+            return mapItemChannelPrices(data);
+        },
+
         async listMeals(filter?: MealAdminFilter): Promise<CursorPage<MealAdmin>> {
             const status =
                 filter?.statuses !== undefined && filter.statuses.length === 1
@@ -1023,19 +1038,27 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 path: `/catalogue/delivery-zones/${encodeURIComponent(id)}/areas`,
             });
 
-            // Optional, on the same terms as the plan vocabulary above: a zone is still worth
-            // showing when the shared window list cannot be reached.
-            const windowsWire = await transport
-                .request<WireDeliveryWindow[]>({
-                    method: 'GET',
-                    path: '/catalogue/delivery-windows',
-                })
-                .catch((): WireDeliveryWindow[] => []);
-
             return mapDeliveryZoneAdmin(showEnvelope.data.delivery_zone, {
                 areas: areasWire.map(mapServiceAreaFromDeliveryArea),
-                deliveryWindows: windowsWire.map(mapDeliveryWindow),
             });
+        },
+
+        async getZoneWindows(zoneId: DeliveryZoneId): Promise<readonly DeliveryWindowId[]> {
+            const envelope = await transport.requestEnvelope<{
+                readonly delivery_window_ids: readonly string[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/delivery-zones/${encodeURIComponent(String(zoneId))}/windows`,
+            });
+            return envelope.data.delivery_window_ids.map((id) => DeliveryWindowId.unsafe(id));
+        },
+
+        async listDeliveryWindows(): Promise<readonly DeliveryWindow[]> {
+            const windows = await transport.request<WireDeliveryWindow[]>({
+                method: 'GET',
+                path: '/catalogue/delivery-windows',
+            });
+            return windows.map(mapDeliveryWindow);
         },
 
         async getBranchOperating(branchId: KitchenBranchId): Promise<BranchOperating> {

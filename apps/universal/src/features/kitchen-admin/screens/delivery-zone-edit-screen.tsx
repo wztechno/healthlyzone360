@@ -1,9 +1,14 @@
-import type { DeliveryZoneAdmin, LocalisedText } from '@healthy360/api-client/contracts';
+import type {
+    DeliveryWindow,
+    DeliveryZoneAdmin,
+    LocalisedText,
+} from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
     Callout,
     Cascade,
+    Checkbox,
     Dialog,
     ErrorState,
     FormGrid,
@@ -20,7 +25,7 @@ import {
 } from '@healthy360/design-system';
 import type { TabItem } from '@healthy360/design-system';
 import { CURRENCY_CODES, DeliveryZoneId } from '@healthy360/domain-types';
-import type { CurrencyCode, ServiceAreaId } from '@healthy360/domain-types';
+import type { CurrencyCode, DeliveryWindowId, ServiceAreaId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -36,30 +41,28 @@ import {
     useAdminZonesQuery,
     useArchiveZoneMutation,
     useCreateZoneMutation,
+    useDeliveryWindowsQuery,
     usePriceListsQuery,
     useServiceAreasQuery,
-    useSetDeliveryWindowsMutation,
     useSetZoneAreasMutation,
+    useSetZoneWindowsMutation,
     useUpdateZoneMutation,
     zonesFromPages,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 import { BilingualField } from '../bilingual-field.tsx';
+import { weekdayKey } from '../../marketplace/format.ts';
 import {
-    emptyWindow,
     moneyInputState,
     moneyInputValue,
-    windowDraft,
-    windowErrors,
-    windowRequest,
+    normaliseWeekdays,
     zoneAreaIds,
 } from '../delivery-model.ts';
-import type { DeliveryWindowDraft } from '../delivery-model.ts';
-import { DeliveryWindowRows, ServiceAreaPicker } from '../delivery-row-editors.tsx';
+import { ServiceAreaPicker } from '../delivery-row-editors.tsx';
 import { TabStepNavigation } from '../editor-steps.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
-import { displayName, minorAmountToInput, statusKey, statusTone } from '../format.ts';
+import { ISO_WEEKDAYS, displayName, minorAmountToInput, statusKey, statusTone } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
@@ -70,7 +73,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ## Three writes, three save controls
  *
- * `updateZone`, `setZoneAreas` and `setDeliveryWindows` are three separate lock-versioned methods,
+ * `updateZone`, `setZoneAreas` and `setZoneWindows` are three separate lock-versioned methods,
  * so each section saves itself — the same shape the plan editor's four sections take, for the same
  * reason: folding them into one button would mean chaining three writes and inventing an answer to
  * "the second one failed, is the first still applied?".
@@ -147,21 +150,9 @@ export interface DeliveryZoneEditScreenProps {
 const ZONE_STEPS = ['zone', 'areas', 'windows'] as const;
 type ZoneStep = (typeof ZONE_STEPS)[number];
 
-/** The key of the blank window a zone with none is drawn with. See `shownWindows`. */
-const BLANK_WINDOW_KEY = 'window-blank';
-
-function isUntouchedBlank(row: DeliveryWindowDraft): boolean {
-    const blank = emptyWindow(BLANK_WINDOW_KEY);
-    return (
-        row.key === BLANK_WINDOW_KEY &&
-        row.label.en === '' &&
-        row.label.ar === '' &&
-        row.startsAt === '' &&
-        row.endsAt === '' &&
-        row.capacity === '' &&
-        row.isActive &&
-        row.weekdays.join() === blank.weekdays.join()
-    );
+/** The window ids a new zone starts with: every active kitchen window, in display order. */
+function activeWindowIds(windows: readonly DeliveryWindow[]): readonly DeliveryWindowId[] {
+    return windows.filter((window) => window.isActive).map((window) => window.id);
 }
 
 export function DeliveryZoneEditScreen({ zone }: DeliveryZoneEditScreenProps) {
@@ -254,11 +245,12 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
     const allZones = useAdminZonesQuery({ limit: 100 });
     const priceLists = usePriceListsQuery({ limit: 100 });
     const gazetteer = useServiceAreasQuery(organisationCountry);
+    const kitchenWindows = useDeliveryWindowsQuery();
 
     const create = useCreateZoneMutation();
     const update = useUpdateZoneMutation();
     const saveAreasMutation = useSetZoneAreasMutation();
-    const saveWindowsMutation = useSetDeliveryWindowsMutation();
+    const saveWindowsMutation = useSetZoneWindowsMutation();
     const archive = useArchiveZoneMutation();
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
@@ -272,10 +264,11 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
     const [areas, setAreas] = useState<readonly ServiceAreaId[]>([]);
     const [areasDirty, setAreasDirty] = useState(false);
 
-    const [windows, setWindows] = useState<readonly DeliveryWindowDraft[]>([]);
+    /** The kitchen windows this zone offers. The windows themselves are edited on their own page. */
+    const [windowIds, setWindowIds] = useState<readonly DeliveryWindowId[]>([]);
     const [windowsDirty, setWindowsDirty] = useState(false);
+    const [createSeeded, setCreateSeeded] = useState(false);
     const [sectionsKey, setSectionsKey] = useState<string | null>(null);
-    const [ordinal, setOrdinal] = useState(1);
 
     const [showArchive, setShowArchive] = useState(false);
     /** Whether Save has been pressed — what lets an empty required field call itself out. */
@@ -303,14 +296,16 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
     if (data !== undefined && serverKey !== sectionsKey && !areasDirty && !windowsDirty) {
         setSectionsKey(serverKey);
         setAreas(zoneAreaIds(data));
-        setWindows(data.deliveryWindows.map(windowDraft));
+        setWindowIds(data.windowIds);
     }
-
-    const takeKey = (prefix: string): string => {
-        const key = `${prefix}-${String(ordinal)}`;
-        setOrdinal(ordinal + 1);
-        return key;
-    };
+    /*
+     * A new zone starts offering every active window (the owner's rule; the server's create
+     * answers with none, so `finish` writes this set right after the zone exists).
+     */
+    if (isCreating && !createSeeded && kitchenWindows.data !== undefined) {
+        setCreateSeeded(true);
+        setWindowIds(activeWindowIds(kitchenWindows.data));
+    }
 
     const markDirty = (mark: () => void) => {
         mark();
@@ -382,31 +377,6 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
         (details.estimatedMinutes !== null && details.estimatedMinutes < 0);
 
     /*
-     * At least one window is always on the page for somebody who can add one: a zone with none opens
-     * on a blank row rather than on "no windows" and an Add button. The blank is drawn, not held —
-     * it joins `windows` (and the save, and the checks) only once it is typed into, so opening the
-     * step never dirties the zone or blocks its save on a row nobody asked for. Removing the last
-     * window brings the blank back.
-     */
-    const shownWindows = useMemo(
-        () => (windows.length === 0 && canManage ? [emptyWindow(BLANK_WINDOW_KEY)] : windows),
-        [windows, canManage],
-    );
-
-    const windowRowErrors = useMemo(
-        () =>
-            windowErrors(windows, {
-                labelRequired: t('kitchen:windows.labelRequired'),
-                weekdaysRequired: t('kitchen:windows.weekdaysRequired'),
-                startInvalid: t('kitchen:windows.startInvalid'),
-                endInvalid: t('kitchen:windows.endInvalid'),
-                endBeforeStart: t('kitchen:windows.endBeforeStart'),
-                capacityInvalid: t('kitchen:windows.capacityInvalid'),
-            }),
-        [windows, t],
-    );
-
-    /*
      * Everything that stops the save, in step order, each naming the step and the field that fixes
      * it — the ingredient editor's list on the zone's three steps. A blank waits for Save to be
      * pressed; a value typed wrong is named at once.
@@ -460,17 +430,6 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                       label: t('kitchen:zones.minimumLabel', { currency: currency ?? '' }),
                       step: 'zone' as const,
                       fieldId: 'kitchen-zone-minimum',
-                      required: false,
-                  },
-              ]
-            : []),
-        ...(windowRowErrors.size > 0
-            ? [
-                  {
-                      key: 'windows',
-                      label: t('kitchen:zones.sectionWindows'),
-                      step: 'windows' as const,
-                      fieldId: null,
                       required: false,
                   },
               ]
@@ -544,21 +503,13 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                     settle({ areas: false });
                 }
 
-                if (windowsDirty) {
+                // A new zone always writes its pre-ticked set: the server creates it with none.
+                if (windowsDirty || (isCreating && windowIds.length > 0)) {
                     record = await saveWindowsMutation.mutateAsync({
                         zoneId: record.id,
-                        request: {
-                            lockVersion: record.meta.lockVersion,
-                            windows: windowRequest(windows),
-                        },
+                        request: { lockVersion: record.meta.lockVersion, windowIds },
                     });
-                    /*
-                     * Rebased on the echo, and this is the save where it matters: a window added
-                     * here went up with `id: null` and comes back with the identifier the server
-                     * minted. Without the rebase a second press would send the null again and mint
-                     * a duplicate — the defect the plan editor's variant save documents.
-                     */
-                    setWindows(record.deliveryWindows.map(windowDraft));
+                    setWindowIds(record.windowIds);
                     settle({ windows: false });
                 }
 
@@ -692,9 +643,8 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
         {
             value: 'windows',
             label: t('kitchen:zones.sectionWindows'),
-            count: windows.length,
+            count: windowIds.length,
             disabled: !stepsUnlocked,
-            issues: stepIssues('windows'),
             testID: 'kitchen-zone-editor-screen-steps-windows',
         },
     ];
@@ -1010,21 +960,18 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                     title={t('kitchen:zones.sectionWindows')}
                 >
                     <Stack space="md">
-                        <DeliveryWindowRows
-                            testID="kitchen-zone-window-rows"
-                            rows={shownWindows}
-                            errors={windowRowErrors}
+                        <ZoneWindowAssignment
+                            windows={kitchenWindows}
+                            selected={windowIds}
                             canManage={canManage}
-                            onChange={(next) => {
-                                markDirty(() => {
-                                    // The drawn blank, still blank, is not a window yet.
-                                    setWindows(next.filter((row) => !isUntouchedBlank(row)));
-                                    setWindowsDirty(true);
+                            onManage={() => {
+                                guard.intercept(() => {
+                                    router.push('/kitchen/delivery-windows' as never);
                                 });
                             }}
-                            onAdd={() => {
+                            onChange={(next) => {
                                 markDirty(() => {
-                                    setWindows([...shownWindows, emptyWindow(takeKey('window'))]);
+                                    setWindowIds(next);
                                     setWindowsDirty(true);
                                 });
                             }}
@@ -1142,7 +1089,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                             </Text>
                             <Text testID="kitchen-zone-archive-windows" variant="caption">
                                 {t('kitchen:zones.archiveWindowCount', {
-                                    count: data.deliveryWindows.length,
+                                    count: data.windowIds.length,
                                 })}
                             </Text>
                         </Stack>
@@ -1156,5 +1103,119 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                 concurrency={concurrency}
             />
         </Cascade>
+    );
+}
+
+/**
+ * The zone's windows step: every kitchen window, each ticked when this zone offers it. Names, days
+ * and hours are read-only here — they belong to the kitchen and are edited on their own page.
+ */
+function ZoneWindowAssignment({
+    windows,
+    selected,
+    canManage,
+    onChange,
+    onManage,
+}: {
+    readonly windows: ReturnType<typeof useDeliveryWindowsQuery>;
+    readonly selected: readonly DeliveryWindowId[];
+    readonly canManage: boolean;
+    readonly onChange: (next: readonly DeliveryWindowId[]) => void;
+    readonly onManage: () => void;
+}) {
+    const { t } = useTranslation();
+    const { locale } = useLocale();
+    const failure = toFailure(windows.error);
+    const chosen = new Set(selected.map(String));
+
+    if (windows.isPending) {
+        return <Skeleton testID="kitchen-zone-windows-loading" heightClassName="h-24" />;
+    }
+    if (failure !== null) {
+        return (
+            <ErrorState
+                testID="kitchen-zone-windows-error"
+                failure={failure}
+                onRetry={() => {
+                    void windows.refetch();
+                }}
+                retrying={windows.isFetching}
+            />
+        );
+    }
+
+    const all = windows.data ?? [];
+    const days = (weekdays: readonly number[]): string => {
+        const normalised = normaliseWeekdays(weekdays);
+        return normalised.length === ISO_WEEKDAYS.length
+            ? t('kitchen:zoneWindows.everyDay')
+            : normalised.map((day) => t(weekdayKey(day))).join(t('kitchen:common.listSeparator'));
+    };
+
+    return (
+        <Stack space="sm">
+            <Text variant="caption" tone="secondary">
+                {t('kitchen:zoneWindows.intro')}
+            </Text>
+            {all.length === 0 ? (
+                <Text testID="kitchen-zone-windows-none" tone="secondary">
+                    {t('kitchen:zoneWindows.none')}
+                </Text>
+            ) : (
+                <View
+                    role="group"
+                    aria-label={t('kitchen:zoneWindows.groupLabel')}
+                    className="flex-col border-t border-stroke"
+                >
+                    {all.map((window) => {
+                        const testID = `kitchen-zone-window-${String(window.id)}`;
+                        return (
+                            <View
+                                key={String(window.id)}
+                                className="min-h-control-sm flex-row items-center gap-tight border-b border-stroke-subtle px-tight py-1"
+                            >
+                                <Checkbox
+                                    testID={testID}
+                                    id={testID}
+                                    className="min-w-0 flex-1"
+                                    label={displayName(window.label, locale).value}
+                                    description={`${days(window.weekdays)} · ${window.startsAt}–${window.endsAt}`}
+                                    checked={chosen.has(String(window.id))}
+                                    disabled={!canManage}
+                                    onChange={(checked) => {
+                                        // Rebuilt in the kitchen's display order, not toggle order.
+                                        onChange(
+                                            all
+                                                .filter((candidate) =>
+                                                    candidate.id === window.id
+                                                        ? checked
+                                                        : chosen.has(String(candidate.id)),
+                                                )
+                                                .map((candidate) => candidate.id),
+                                        );
+                                    }}
+                                />
+                                {window.isActive ? null : (
+                                    <Badge
+                                        testID={`${testID}-inactive`}
+                                        tone="neutral"
+                                        label={t('kitchen:zoneWindows.inactiveBadge')}
+                                    />
+                                )}
+                            </View>
+                        );
+                    })}
+                </View>
+            )}
+            <View className="flex-row">
+                <Button
+                    testID="kitchen-zone-windows-manage"
+                    size="sm"
+                    variant="secondary"
+                    label={t('kitchen:zoneWindows.manage')}
+                    onPress={onManage}
+                />
+            </View>
+        </Stack>
     );
 }

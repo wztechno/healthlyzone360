@@ -1,0 +1,192 @@
+<?php
+
+declare(strict_types=1);
+
+use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
+use Healthy360\Catalogues\Enums\CatalogueItemType;
+use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
+use Healthy360\Catalogues\Models\CatalogueItemVariant;
+use Healthy360\Catalogues\Models\ChannelCatalogueItem;
+use Healthy360\Catalogues\Tests\Fixtures\CatalogueWorld;
+use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
+use Healthy360\Pricing\Models\PriceListItem;
+use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
+use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+
+/*
+| An already-imported v6 catalogue gets what the importer now writes from the
+| B2B/B2C weight and price columns: a meal sold by weight gets its packs and its
+| importer prices move onto them, and the kitchen ingredient states the same
+| prices per kilogram. Figures come from the committed v6-catalogue.json.
+*/
+
+beforeEach(function (): void {
+    $this->seed([ReferenceDataSeeder::class, OrganisationTypeSeeder::class, AccessControlSeeder::class]);
+    $this->kitchen = CatalogueWorld::kitchen('v6-weights@kitchen.test');
+});
+
+function runV6WeightsMigration(): void
+{
+    $migration = require dirname(__DIR__).'/database/migrations/2026_10_07_000001_carry_v6_channel_weights_and_prices.php';
+    $migration->up();
+}
+
+it('packs a meal sold by weight and moves the importer prices onto its packs', function (): void {
+    $organisation = $this->kitchen->organisation;
+
+    // PRD-005 Caramelised Onions: B2B 1 kg at $12.00, B2C 200 g at $3.00.
+    $onions = CatalogueItem::factory()->create([
+        'catalogue_id' => $this->kitchen->catalogue->getKey(),
+        'organisation_id' => $organisation->getKey(),
+        'item_type' => CatalogueItemType::Meal,
+        'slug' => 'caramelised-onions',
+        'source_system' => 'healthy360_workbook_v6',
+        'source_ref' => 'PRD-005',
+    ]);
+
+    $shop = PricingWorld::channel($organisation, 'web-shop');
+    $wholesale = PricingWorld::channel($organisation, 'wholesale');
+    $desk = PricingWorld::channel($organisation, 'desk');
+
+    foreach (['b2c' => [$shop, 300], 'b2b' => [$wholesale, 1200]] as $channel => [$salesChannel, $amount]) {
+        $row = PricingWorld::price(PricingWorld::priceList($organisation, "v6-{$channel}"), $onions, null, $amount);
+        $row->source_ref = "PRD-005/{$channel}";
+        $row->save();
+
+        ChannelCatalogueItem::withoutTenancy()->create([
+            'organisation_id' => $organisation->getKey(),
+            'sales_channel_id' => $salesChannel->getKey(),
+            'catalogue_item_id' => $onions->getKey(),
+            'is_available' => true,
+        ]);
+    }
+
+    // The desk mirrors the shop at item level; it keeps offering the article as a whole.
+    $deskOffer = ChannelCatalogueItem::withoutTenancy()->create([
+        'organisation_id' => $organisation->getKey(),
+        'sales_channel_id' => $desk->getKey(),
+        'catalogue_item_id' => $onions->getKey(),
+        'is_available' => true,
+    ]);
+
+    runV6WeightsMigration();
+    runV6WeightsMigration();
+
+    $packs = CatalogueItemVariant::withoutTenancy()->where('catalogue_item_id', $onions->getKey())->get()->keyBy('code');
+
+    expect($packs->keys()->sort()->values()->all())->toBe(['b2b', 'b2c'])
+        ->and($packs['b2c']->is_default)->toBeTrue()
+        ->and($packs['b2b']->is_default)->toBeFalse()
+        ->and(CatalogueItemPackVariant::sizeOf((string) $packs['b2c']->getKey()))->toBe(['size' => '0.2', 'unit' => 'kg'])
+        ->and(CatalogueItemPackVariant::sizeOf((string) $packs['b2b']->getKey()))->toBe(['size' => '1', 'unit' => 'kg']);
+
+    foreach (['b2c' => $shop, 'b2b' => $wholesale] as $channel => $salesChannel) {
+        expect(PriceListItem::withoutTenancy()->where('source_ref', "PRD-005/{$channel}")->sole()->catalogue_item_variant_id)
+            ->toBe((string) $packs[$channel]->getKey())
+            ->and(ChannelCatalogueItem::withoutTenancy()->where('sales_channel_id', $salesChannel->getKey())->sole()->catalogue_item_variant_id)
+            ->toBe((string) $packs[$channel]->getKey());
+    }
+
+    expect(ChannelCatalogueItem::withoutTenancy()->whereKey($deskOffer->getKey())->sole()->catalogue_item_variant_id)->toBeNull();
+});
+
+it('prices the kitchen ingredient per kilogram and never overwrites a typed price', function (): void {
+    $organisation = $this->kitchen->organisation;
+
+    // SAC-001 Aioli: B2B 1 kg at $5.00, B2C 300 g at $3.00.
+    $aioli = Ingredient::factory()->create([
+        'organisation_id' => $organisation->getKey(),
+        'source_system' => 'healthy360_workbook_v6',
+        'source_ref' => 'SAC-001',
+    ]);
+
+    // SAC-002 Barbecue Dip, already priced by hand.
+    $barbecue = Ingredient::factory()->create([
+        'organisation_id' => $organisation->getKey(),
+        'source_system' => 'healthy360_workbook_v6',
+        'source_ref' => 'SAC-002',
+        'b2b_price_amount' => '4.500000',
+        'price_currency_code' => 'USD',
+    ]);
+
+    runV6WeightsMigration();
+
+    $aioli = Ingredient::withoutTenancy()->whereKey($aioli->getKey())->sole();
+    $barbecue = Ingredient::withoutTenancy()->whereKey($barbecue->getKey())->sole();
+
+    expect($aioli->b2b_price_amount)->toBe('5.000000')
+        ->and($aioli->b2c_price_amount)->toBe('10.000000')
+        ->and($aioli->price_currency_code)->toBe('USD')
+        ->and($barbecue->b2b_price_amount)->toBe('4.500000')
+        ->and($barbecue->b2c_price_amount)->toBeNull();
+});
+
+it('moves item-level importer prices onto packs a meal already had', function (): void {
+    $organisation = $this->kitchen->organisation;
+
+    // PRD-037 Guacamole as an older import left it: both packs sized, both prices on the item.
+    $guacamole = CatalogueItem::factory()->create([
+        'catalogue_id' => $this->kitchen->catalogue->getKey(),
+        'organisation_id' => $organisation->getKey(),
+        'item_type' => CatalogueItemType::Meal,
+        'slug' => 'guacamole',
+        'source_system' => 'healthy360_workbook_v6',
+        'source_ref' => 'PRD-037',
+    ]);
+
+    $packs = [];
+
+    foreach (['b2c' => '0.3000', 'b2b' => '1.0000'] as $code => $size) {
+        $packs[$code] = CatalogueItemVariant::factory()->create(['catalogue_item_id' => $guacamole->getKey(), 'code' => $code]);
+        CatalogueItemPackVariant::factory()->create(['catalogue_item_variant_id' => $packs[$code]->getKey(), 'pack_quantity' => $size]);
+    }
+
+    $retail = PricingWorld::priceList($organisation, 'v6-b2c');
+    $kitchenPriced = PricingWorld::priceList($organisation, 'kitchen-b2c');
+
+    $imported = PricingWorld::price($retail, $guacamole, null, 300);
+    $imported->source_ref = 'PRD-037/b2c';
+    $imported->save();
+
+    // A row the kitchen wrote itself stays exactly where it is.
+    $own = PricingWorld::price($kitchenPriced, $guacamole, null, 350);
+
+    runV6WeightsMigration();
+    $follow = require dirname(__DIR__).'/database/migrations/2026_10_07_000002_move_v6_meal_prices_onto_their_packs.php';
+    $follow->up();
+    $follow->up();
+
+    expect(PriceListItem::withoutTenancy()->whereKey($imported->getKey())->sole()->catalogue_item_variant_id)
+        ->toBe((string) $packs['b2c']->getKey())
+        ->and(PriceListItem::withoutTenancy()->whereKey($own->getKey())->sole()->catalogue_item_variant_id)->toBeNull()
+        ->and(CatalogueItemVariant::withoutTenancy()->where('catalogue_item_id', $guacamole->getKey())->count())->toBe(2);
+});
+
+it('does the same for a frozen meal that was a meal when it was priced', function (): void {
+    $organisation = $this->kitchen->organisation;
+
+    // PRD-011 Chicken Nuggets: B2C 1 kg at $8.00, priced on the item while it was still a meal.
+    $nuggets = CatalogueItem::factory()->create([
+        'catalogue_id' => $this->kitchen->catalogue->getKey(),
+        'organisation_id' => $organisation->getKey(),
+        'item_type' => CatalogueItemType::FrozenMeal,
+        'slug' => 'chicken-nuggets',
+        'source_system' => 'healthy360_workbook_v6',
+        'source_ref' => 'PRD-011',
+    ]);
+
+    $pack = CatalogueItemVariant::factory()->create(['catalogue_item_id' => $nuggets->getKey(), 'code' => 'b2c']);
+    CatalogueItemPackVariant::factory()->create(['catalogue_item_variant_id' => $pack->getKey(), 'pack_quantity' => '1.0000']);
+
+    $imported = PricingWorld::price(PricingWorld::priceList($organisation, 'v6-b2c'), $nuggets, null, 800);
+    $imported->source_ref = 'PRD-011/b2c';
+    $imported->save();
+
+    $migration = require dirname(__DIR__).'/database/migrations/2026_10_07_000003_move_every_v6_items_prices_onto_its_packs.php';
+    $migration->up();
+
+    expect(PriceListItem::withoutTenancy()->whereKey($imported->getKey())->sole()->catalogue_item_variant_id)
+        ->toBe((string) $pack->getKey());
+});

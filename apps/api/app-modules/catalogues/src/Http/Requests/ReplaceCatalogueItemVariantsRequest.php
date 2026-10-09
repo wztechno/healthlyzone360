@@ -17,7 +17,7 @@ use Illuminate\Validation\Rules\Enum;
  * the field had been forgotten.
  *
  * `variant_type` is **not** a field. It is derived from the item's own type —
- * a product has packs, a plan has configurations, a meal has neither — and a
+ * a product or a meal has packs, a plan has configurations — and a
  * derived value a client can supply is a derived value that can disagree with
  * its source (appendix C).
  */

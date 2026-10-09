@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
+use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Cart\Services\CartService;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
 use Healthy360\Delivery\Models\DeliveryJob;
@@ -169,4 +170,49 @@ it('keeps finished runs off the driver\'s sheet', function (): void {
     ]);
 
     $this->getJson('/api/v1/driver/jobs', $this->headers)->assertOk()->assertJsonCount(0, 'data.jobs');
+});
+
+it('offers the unassigned pending runs as available, and nothing else', function (): void {
+    $order = fn (): Order => Order::factory()->create([
+        'organisation_id' => $this->world->organisation->getKey(),
+        'customer_account_id' => $this->world->customer->account->getKey(),
+        'sales_channel_id' => $this->world->channel->getKey(),
+    ]);
+
+    $open = smokeJob($this, $order());
+    // Somebody already has this one, and this one is over.
+    smokeJob($this, $order(), ['driver_user_id' => $this->world->tenant->user->getKey(), 'status' => 'assigned']);
+    smokeJob($this, $order(), ['status' => 'cancelled']);
+
+    $response = $this->getJson('/api/v1/driver/jobs', $this->headers)->assertOk();
+
+    expect(array_column($response->json('data.available'), 'id'))->toBe([(string) $open->getKey()])
+        ->and($response->json('data.jobs'))->toHaveCount(1);
+});
+
+it('lets one driver claim an open run, and tells the second one it is gone', function (): void {
+    $order = Order::factory()->create([
+        'organisation_id' => $this->world->organisation->getKey(),
+        'customer_account_id' => $this->world->customer->account->getKey(),
+        'sales_channel_id' => $this->world->channel->getKey(),
+    ]);
+    $job = smokeJob($this, $order);
+
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/claim", [], $this->headers)
+        ->assertOk()
+        ->assertJsonPath('data.job.status', 'assigned');
+
+    $job->refresh();
+
+    expect($job->driver_user_id)->toBe((string) $this->world->tenant->user->getKey())
+        ->and($job->assigned_at)->not->toBeNull()
+        ->and(AuditLog::query()->where('action', 'delivery.job_claimed')->count())->toBe(1);
+
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/claim", [], $this->headers)
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'resource.conflict');
+
+    $this->getJson('/api/v1/driver/jobs', $this->headers)->assertOk()
+        ->assertJsonCount(0, 'data.available')
+        ->assertJsonCount(1, 'data.jobs');
 });

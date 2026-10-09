@@ -1563,6 +1563,20 @@ export const zRetireCatalogueItemRequest = z.object({
     reason: z.string().max(200).nullish()
 });
 
+export const zSetItemChannelOffer = z.object({
+    quantity: z.number().gt(0),
+    unit: z.string(),
+    amount_minor: z.int().gte(1).nullish()
+});
+
+/**
+ * Each key optional; absent is untouched, null stops selling on that channel.
+ */
+export const zSetItemChannelPricesRequest = z.object({
+    b2b: zSetItemChannelOffer.nullish(),
+    b2c: zSetItemChannelOffer.nullish()
+});
+
 export const zReplaceCatalogueItemVariantsRequest = z.object({
     variants: z.array(z.object({
         id: zUuid.nullish(),
@@ -2340,6 +2354,7 @@ export const zDeliveryZone = z.object({
     source_system: z.string().max(40).nullish(),
     source_ref: z.string().max(160).nullish(),
     lock_version: z.int().gte(0),
+    delivery_window_ids: z.array(zUuid),
     created_at: z.iso.datetime({ offset: true }).nullish(),
     updated_at: z.iso.datetime({ offset: true }).nullish()
 });
@@ -2380,6 +2395,41 @@ export const zAdminDeliveryArea = z.object({
     region: z.string().max(60).nullable(),
     display_order: z.int(),
     is_active: z.boolean()
+});
+
+/**
+ * The size a price is quoted for. `size` is a decimal string in
+ * `unit` — `0.3` with `kg` is 300 g. Never converted server-side. Named
+ * `size`, not `quantity`, because public surfaces never carry a key that
+ * could be read as a recipe quantity.
+ *
+ */
+export const zPackSize = z.object({
+    size: z.string().regex(/^[0-9]+(\.[0-9]+)?$/),
+    unit: z.string()
+});
+
+/**
+ * One channel's side of the pair.
+ */
+export const zItemChannelOffer = z.object({
+    sales_channel_id: zUuid,
+    price_list_id: zUuid,
+    currency_code: zCurrencyCode,
+    pack: zPackSize.nullable(),
+    amount_minor: z.int().gte(1).nullable()
+});
+
+export const zItemChannelPricesEnvelope = z.object({
+    data: z.object({
+        item_id: zUuid,
+        lock_version: z.int().gte(0),
+        channels: z.object({
+            b2b: zItemChannelOffer.nullable(),
+            b2c: zItemChannelOffer.nullable()
+        })
+    }),
+    meta: zMeta
 });
 
 /**
@@ -2434,7 +2484,8 @@ export const zMarketplaceDeliveryZone = z.object({
     country_code: z.string().max(2),
     delivery_fee: zMarketplaceMoney.nullable(),
     minimum_order: zMarketplaceMoney.nullable(),
-    estimated_minutes: z.int().gte(0).nullable()
+    estimated_minutes: z.int().gte(0).nullable(),
+    window_codes: z.array(z.string())
 });
 
 /**
@@ -2610,7 +2661,8 @@ export const zMarketplaceMeal = z.object({
         'meal',
         'product',
         'sauce',
-        'dressing'
+        'dressing',
+        'frozen_meal'
     ]),
     published_category: z.object({
         code: z.string(),
@@ -2626,6 +2678,7 @@ export const zMarketplaceMeal = z.object({
     serving: zMarketplaceServing.nullable(),
     nutrition: zMarketplaceNutritionFacts.nullable(),
     price: zMarketplaceMoney,
+    pack: zPackSize.nullable(),
     preparation_minutes: z.int().nullable(),
     image_placeholder_id: z.string(),
     availability: z.array(zMarketplaceAvailability),
@@ -2750,6 +2803,7 @@ export const zDeliveryWindow = z.object({
     weekdays: z.array(z.int().gte(1).lte(7)).max(7),
     display_order: z.int(),
     is_active: z.boolean(),
+    delivery_zone_ids: z.array(zUuid),
     created_at: z.iso.datetime({ offset: true }).nullish(),
     updated_at: z.iso.datetime({ offset: true }).nullish()
 });
@@ -2824,6 +2878,22 @@ export const zUpdateDeliveryZoneRequest = z.object({
     minimum_order_minor: z.int().gte(0).nullish(),
     estimated_minutes: z.int().gte(1).nullish(),
     is_active: z.boolean().optional()
+});
+
+export const zDeliveryZoneWindowsEnvelope = z.object({
+    data: z.object({
+        delivery_window_ids: z.array(zUuid)
+    }),
+    meta: zMeta
+});
+
+/**
+ * The **whole** set of windows this zone offers. An empty array is a
+ * zone that offers no slot.
+ *
+ */
+export const zReplaceDeliveryZoneWindowsRequest = z.object({
+    delivery_window_ids: z.array(zUuid).max(100)
 });
 
 /**
@@ -3122,7 +3192,8 @@ export const zCheckoutPreview = z.object({
     delivery_fee_minor: z.int().nullable(),
     total_minor: z.int(),
     line_count: z.int().gte(0),
-    warnings: z.array(z.string())
+    warnings: z.array(z.string()),
+    offered_window_codes: z.array(z.string()).nullable()
 });
 
 export const zCheckoutPreviewEnvelope = z.object({
@@ -5515,7 +5586,8 @@ export const zOrderDeskCounterPayment = z.object({
 
 export const zPlaceOrderDeskRequest = zOrderDeskSaleBase.and(z.object({
     payment_method: zPaymentMethod,
-    payment: zOrderDeskCounterPayment.optional()
+    payment: zOrderDeskCounterPayment.optional(),
+    driver_user_id: zUuid.nullish()
 }));
 
 /**
@@ -5575,7 +5647,8 @@ export const zOrderDeskQuote = z.object({
     total_minor: z.int().gte(0),
     currency_code: z.string().length(3),
     refusals: z.array(zOrderDeskQuoteRefusal),
-    quotable: z.boolean()
+    quotable: z.boolean(),
+    offered_window_codes: z.array(z.string()).nullable()
 });
 
 export const zOrderDeskQuoteEnvelope = z.object({
@@ -7555,7 +7628,7 @@ export const zQuoteQuotationRequest = z.object({
 });
 
 /**
- * One article as a corporate buyer sees it — one name, one price, no tariff paperwork.
+ * One article as a corporate buyer sees it — one name, one price and the size it buys, no tariff paperwork.
  */
 export const zB2bCatalogueItem = z.object({
     id: zUuid,
@@ -7566,7 +7639,8 @@ export const zB2bCatalogueItem = z.object({
     price: z.object({
         amount_minor: z.int(),
         currency_code: zCurrencyCode
-    }).nullable()
+    }).nullable(),
+    pack: zPackSize.nullable()
 });
 
 /**
@@ -11138,6 +11212,43 @@ export const zReplaceCatalogueItemVariantsResponse = z.object({
     meta: zMeta
 });
 
+export const zGetCatalogueItemChannelPricesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetCatalogueItemChannelPricesPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item's channel offer.
+ */
+export const zGetCatalogueItemChannelPricesResponse = zItemChannelPricesEnvelope;
+
+export const zSetCatalogueItemChannelPricesBody = zSetItemChannelPricesRequest;
+
+export const zSetCatalogueItemChannelPricesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSetCatalogueItemChannelPricesPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item's channel offer as it now stands.
+ */
+export const zSetCatalogueItemChannelPricesResponse = zItemChannelPricesEnvelope;
+
 export const zReplaceCatalogueItemIngredientsBody = zReplaceCatalogueItemIngredientsRequest;
 
 export const zReplaceCatalogueItemIngredientsHeaders = z.object({
@@ -11900,6 +12011,43 @@ export const zReplaceDeliveryZoneAreasPath = z.object({
  * The areas this zone covers after the write.
  */
 export const zReplaceDeliveryZoneAreasResponse = zDeliveryZoneAreasEnvelope;
+
+export const zListDeliveryZoneWindowsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListDeliveryZoneWindowsPath = z.object({
+    zone: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The windows this zone offers.
+ */
+export const zListDeliveryZoneWindowsResponse = zDeliveryZoneWindowsEnvelope;
+
+export const zReplaceDeliveryZoneWindowsBody = zReplaceDeliveryZoneWindowsRequest;
+
+export const zReplaceDeliveryZoneWindowsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceDeliveryZoneWindowsPath = z.object({
+    zone: z.union([
+        zUuid,
+        z.string().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The windows this zone offers after the write.
+ */
+export const zReplaceDeliveryZoneWindowsResponse = zDeliveryZoneWindowsEnvelope;
 
 export const zListDeliveryWindowsHeaders = z.object({
     'X-Organisation-Id': zUuid,
@@ -13155,9 +13303,8 @@ export const zPlaceOrderDeskOrderHeaders = z.object({
 
 /**
  * The order as the kitchen sees it, with every line at the price it was
- * placed at. `status` is `placed` on a delivery or a pickup and
- * `fulfilled` on a counter sale, which is the whole observable
- * difference between the two writes this operation performs. A replay
+ * placed at. `status` is `placed` on a pickup, `confirmed` on a
+ * delivery and `fulfilled` on a counter sale. A replay
  * of a request this key already answered returns this same body and
  * this same status, with `Idempotency-Replayed: true`; nothing ran a
  * second time.
@@ -13256,6 +13403,16 @@ export const zGetOrderDeskShortfallCountQuery = z.object({
  * The count, or null when no branch was named.
  */
 export const zGetOrderDeskShortfallCountResponse = zOrderDeskShortfallCountEnvelope;
+
+export const zListOrderDeskDeliveryWindowsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The active windows. `meta.count` and `meta.active_count` are equal.
+ */
+export const zListOrderDeskDeliveryWindowsResponse = zDeliveryWindowsEnvelope;
 
 export const zListOrderDeskDriversHeaders = z.object({
     'X-Organisation-Id': zUuid,
@@ -13701,7 +13858,30 @@ export const zListDriverJobsHeaders = z.object({
  */
 export const zListDriverJobsResponse = z.object({
     data: z.object({
-        jobs: z.array(zDriverJob)
+        jobs: z.array(zDriverJob),
+        available: z.array(zDriverJob)
+    }),
+    meta: zMeta
+});
+
+export const zClaimDriverJobHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zClaimDriverJobPath = z.object({
+    job: zUuid
+});
+
+/**
+ * The job, now the caller's.
+ */
+export const zClaimDriverJobResponse = z.object({
+    data: z.object({
+        job: z.object({
+            id: zUuid,
+            status: zDeliveryJobStatus
+        })
     }),
     meta: zMeta
 });

@@ -30,6 +30,7 @@ export { BranchOperatingScreen } from './branch-operating-screen.tsx';
 export { ConsumptionExceptionsScreen } from './consumption-exceptions-screen.tsx';
 export { CookedItemEditScreen, RecipeBookEditScreen } from './cooked-item-edit-screen.tsx';
 export { CostReportScreen } from './cost-report-screen.tsx';
+export { DeliveryWindowsScreen } from './delivery-windows-screen.tsx';
 export { DeliveryZoneEditScreen } from './delivery-zone-edit-screen.tsx';
 export { DeliveryZonesScreen } from './delivery-zones-screen.tsx';
 export { IngredientEditScreen } from './ingredient-edit-screen.tsx';

@@ -68,15 +68,16 @@ import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
  * padding either side. Name takes the rest. The weekday track keeps the 260px the seven toggles were
  * drawn at; the time and offered tracks are the trading week's time and trading tracks, so the two
  * tables of the delivery slice size a time and a select alike. The control track is wide enough for
- * its "Actions" header to read whole.
+ * its "Actions" header to read whole. The zones track is the 180px the page's read-only "Offered
+ * in" cell was drawn at, plus the cell's padding.
  */
-const WINDOW_TRACKS = {
+export const WINDOW_TRACKS = {
     name: 220,
     days: 276,
     starts: 120,
     ends: 120,
-    capacity: 104,
     offered: 112,
+    zones: 196,
     remove: 72,
 } as const;
 
@@ -92,15 +93,17 @@ export interface DeliveryWindowRowsProps {
     readonly onAdd: () => void;
     /** Drawn beside "Add a window" — the section's save, which the screen owns. */
     readonly saveAction?: ReactNode | undefined;
+    /** A read-only trailing cell per row — the zones that offer the window. */
+    readonly zonesCell?: ((row: DeliveryWindowDraft) => ReactNode) | undefined;
     readonly testID: string;
 }
 
 type Offered = 'yes' | 'no';
 
 /**
- * The delivery windows of one zone, as a `DataList` at the desk's small density — the trading
- * week's shape, so the header is the table's green band and every column is an editable control.
- * Each row's id is `${testID}-row-${key}`, and its fields hang off that.
+ * The kitchen's delivery windows, as a `DataList` at the desk's small density — the trading week's
+ * shape, so the header is the table's green band and every column but the zones one is an editable
+ * control. Each row's id is `${testID}-row-${key}`, and its fields hang off that.
  *
  * No move controls, unlike the recipe-line and pack editors. A window's array position carries no
  * meaning anywhere — the consumer `DeliveryZone` has no window list at all, so nothing downstream
@@ -114,9 +117,12 @@ type Offered = 'yes' | 'no';
  * rather than hiding one.
  *
  * Each row carries at most one note, in order of what a person must act on first: the row's error,
- * then "not offered", then "uncapped" — empty capacity is a sentence, never `0`. It sits in the name
- * cell, under the name: the error can be about any field of the window, the name track is the one
- * wide enough for a sentence, and a `DataList` row has no line of its own beneath it.
+ * then "not offered". It sits in the name cell, under the name: the error can be about any field of
+ * the window, the name track is the one wide enough for a sentence, and a `DataList` row has no line
+ * of its own beneath it.
+ *
+ * Only a row not yet saved can be removed: there is no window delete, so a saved window is
+ * withdrawn with Offered → No instead.
  */
 export function DeliveryWindowRows({
     rows,
@@ -125,6 +131,7 @@ export function DeliveryWindowRows({
     canManage,
     onAdd,
     saveAction,
+    zonesCell,
     testID,
 }: DeliveryWindowRowsProps) {
     const { t } = useTranslation();
@@ -195,15 +202,6 @@ export function DeliveryWindowRows({
                                 numberOfLines={2}
                             >
                                 {t('kitchen:windows.activeHint')}
-                            </Text>
-                        ) : row.capacity.trim() === '' ? (
-                            <Text
-                                testID={`${rowTestId}-capacity-state`}
-                                tone="secondary"
-                                variant="caption"
-                                numberOfLines={2}
-                            >
-                                {t('kitchen:windows.capacityUncapped')}
                             </Text>
                         ) : null}
                     </View>
@@ -301,35 +299,6 @@ export function DeliveryWindowRows({
             },
         },
         {
-            key: 'capacity',
-            label: t('kitchen:windows.capacityColumn'),
-            width: WINDOW_TRACKS.capacity,
-            priority: 97,
-            grow: false,
-            render: (row) => {
-                const { index, rowTestId, rowName } = describe(row);
-                return (
-                    <View className="w-full py-tight">
-                        <TextInputField
-                            testID={`${rowTestId}-capacity`}
-                            id={`${rowTestId}-capacity`}
-                            label={`${rowName} — ${t('kitchen:windows.capacityLabel')}`}
-                            labelHidden
-                            size="sm"
-                            placeholder={t('kitchen:windows.capacityPlaceholder')}
-                            value={row.capacity}
-                            inputMode="numeric"
-                            autoCorrect={false}
-                            disabled={!canManage}
-                            onChangeText={(next) => {
-                                patch(index, { capacity: next });
-                            }}
-                        />
-                    </View>
-                );
-            },
-        },
-        {
             key: 'offered',
             label: t('kitchen:windows.offeredColumn'),
             width: WINDOW_TRACKS.offered,
@@ -359,6 +328,27 @@ export function DeliveryWindowRows({
                 );
             },
         },
+        ...(zonesCell === undefined
+            ? []
+            : [
+                  {
+                      key: 'zones',
+                      label: t('kitchen:deliveryWindows.zonesColumn'),
+                      width: WINDOW_TRACKS.zones,
+                      priority: 97,
+                      grow: false,
+                      sortable: false,
+                      filterable: false,
+                      render: (row) => (
+                          <View
+                              className="w-full py-tight"
+                              testID={`${describe(row).rowTestId}-zones`}
+                          >
+                              {zonesCell(row)}
+                          </View>
+                      ),
+                  } satisfies DataListColumn<DeliveryWindowDraft>,
+              ]),
         ...(canManage
             ? [
                   {
@@ -371,6 +361,8 @@ export function DeliveryWindowRows({
                       sortable: false,
                       filterable: false,
                       render: (row) => {
+                          // A saved window has no delete; it is withdrawn with Offered → No.
+                          if (row.id !== null) return null;
                           const { index, rowTestId, rowName } = describe(row);
                           const name = `${t('kitchen:rows.remove')} — ${rowName}`;
                           return (

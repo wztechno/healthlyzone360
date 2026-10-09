@@ -1,8 +1,13 @@
-import { RecipeId, SubscriptionPlanId } from '@healthy360/domain-types';
+import {
+    DeliveryWindowId,
+    DeliveryZoneId,
+    RecipeId,
+    SubscriptionPlanId,
+} from '@healthy360/domain-types';
 import { describe, expect, it } from 'vitest';
 
 import { createMemoryTokenStore } from '../contracts/session.ts';
-import { createApiKitchenAdminWrites } from './kitchen-admin-writes.ts';
+import { createApiKitchenAdminWrites, deriveWindowCode } from './kitchen-admin-writes.ts';
 import { createTransport } from './transport.ts';
 
 /**
@@ -250,5 +255,112 @@ describe('updatePlan', () => {
             ['PUT', '"5"'],
             ['PUT', '"6"'],
         ]);
+    });
+});
+
+describe('delivery windows', () => {
+    const ORG = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e3900';
+    const ZONE_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4001';
+    const WINDOW_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e5001';
+
+    function wireWindow(overrides: Record<string, unknown> = {}) {
+        return {
+            id: WINDOW_UUID,
+            organisation_id: ORG,
+            code: 'morning',
+            name_en: 'Morning',
+            name_ar: 'صباح',
+            starts_at: '08:00',
+            ends_at: '11:00',
+            weekdays: [],
+            display_order: 0,
+            is_active: true,
+            delivery_zone_ids: [],
+            ...overrides,
+        };
+    }
+
+    it('derives a unique code of at most thirty characters from the English name', () => {
+        expect(deriveWindowCode('Morning', [])).toBe('morning');
+        expect(deriveWindowCode('Morning', ['morning', 'morning-2'])).toBe('morning-3');
+        const long = deriveWindowCode('A very long delivery window name indeed', []);
+        expect(long.length).toBeLessThanOrEqual(30);
+        const suffixed = deriveWindowCode('A very long delivery window name indeed', [long]);
+        expect(suffixed.length).toBeLessThanOrEqual(30);
+        expect(suffixed.endsWith('-2')).toBe(true);
+        expect(deriveWindowCode('صباح', [])).toBe('item');
+    });
+
+    it('creates a window with a code unique against the kitchen’s existing ones', async () => {
+        const { writes, calls } = harness([
+            { status: 200, body: { data: [wireWindow()], meta: {} } },
+            {
+                status: 201,
+                body: {
+                    data: { delivery_window: wireWindow({ id: ZONE_UUID, code: 'morning-2' }) },
+                    meta: {},
+                },
+            },
+        ]);
+
+        const created = await writes.createDeliveryWindow({
+            label: { en: 'Morning', ar: '' },
+            weekdays: [1, 2],
+            startsAt: '08:00',
+            endsAt: '10:00',
+        });
+
+        expect(calls[1]).toMatchObject({
+            method: 'POST',
+            path: '/catalogue/delivery-windows',
+            body: {
+                code: 'morning-2',
+                name_en: 'Morning',
+                weekdays: [1, 2],
+                starts_at: '08:00',
+                ends_at: '10:00',
+            },
+        });
+        expect(calls[1]?.body).not.toHaveProperty('name_ar');
+        expect(created.code).toBe('morning-2');
+        expect(created.zoneIds).toEqual([]);
+    });
+
+    it('replaces a zone’s window set under the zone’s lock version', async () => {
+        const wireZone = {
+            id: ZONE_UUID,
+            organisation_id: ORG,
+            branch_id: null,
+            code: 'ring',
+            name_en: 'Ring',
+            name_ar: 'حلقة',
+            currency_code: 'USD',
+            delivery_fee_minor: null,
+            minimum_order_minor: null,
+            estimated_minutes: null,
+            status: 'active',
+            is_active: true,
+            lock_version: 4,
+            delivery_window_ids: [WINDOW_UUID],
+        };
+        const { writes, calls } = harness([
+            { status: 200, body: { data: { delivery_window_ids: [WINDOW_UUID] }, meta: {} } },
+            { status: 200, body: { data: { delivery_zone: wireZone }, meta: {} } },
+            { status: 200, body: { data: [], meta: {} } },
+        ]);
+
+        const zone = await writes.setZoneWindows(DeliveryZoneId.unsafe(ZONE_UUID), {
+            lockVersion: 3,
+            windowIds: [DeliveryWindowId.unsafe(WINDOW_UUID)],
+        });
+
+        expect(calls[0]).toMatchObject({
+            method: 'PUT',
+            path: `/catalogue/delivery-zones/${ZONE_UUID}/windows`,
+            body: { delivery_window_ids: [WINDOW_UUID] },
+        });
+        expect(calls[0]?.headers['if-match']).toBe('"3"');
+        expect(zone.meta.lockVersion).toBe(4);
+        expect(zone.windowIds.map(String)).toEqual([WINDOW_UUID]);
     });
 });

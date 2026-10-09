@@ -23,6 +23,7 @@ import {
     needsCustomer,
     paymentMethodsFor,
     saleShortfall,
+    scheduleFor,
     withCustomer,
     withFulfilmentType,
     withPaymentMethod,
@@ -184,6 +185,76 @@ describe('desk sale — what changing the kind clears', () => {
         expect(
             withPaymentMethod(withFulfilmentType(counterState(), 'pickup'), 'wish').payment,
         ).toBeNull();
+    });
+
+    it('keeps the driver only on a delivery, which is the only sale with a run', () => {
+        const delivery = {
+            ...withFulfilmentType(counterState(), 'delivery'),
+            driverUserId: 'user-1',
+        };
+
+        // The wire refuses `driver_user_id` on anything but a delivery.
+        expect(withFulfilmentType(delivery, 'pickup').driverUserId).toBeNull();
+        expect(withFulfilmentType(delivery, 'counter').driverUserId).toBeNull();
+        expect(initialSaleState().driverUserId).toBeNull();
+    });
+
+    it('keeps the day and slot between pickup and delivery and drops them on a counter sale', () => {
+        const delivery = {
+            ...withFulfilmentType(counterState(), 'delivery'),
+            requestedDeliveryDate: '2026-10-09',
+            deliveryWindowCode: 'evening',
+        };
+
+        const pickup = withFulfilmentType(delivery, 'pickup');
+        expect(pickup.requestedDeliveryDate).toBe('2026-10-09');
+        expect(pickup.deliveryWindowCode).toBe('evening');
+
+        // A counter sale is handed over now and is never slotted.
+        const counter = withFulfilmentType(delivery, 'counter');
+        expect(counter.requestedDeliveryDate).toBeNull();
+        expect(counter.deliveryWindowCode).toBeNull();
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Schedule
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('desk sale — the schedule a sale is placed for', () => {
+    const TODAY = '2026-10-07';
+
+    it('sends nothing on a counter sale', () => {
+        expect(scheduleFor(counterState(), TODAY, ['midday'])).toBeNull();
+    });
+
+    it('defaults to today and the checkout’s midday slot when the kitchen offers it', () => {
+        const pickup = withFulfilmentType(counterState(), 'pickup');
+
+        expect(scheduleFor(pickup, TODAY, ['morning', 'midday', 'evening'])).toEqual({
+            requestedDeliveryDate: TODAY,
+            deliveryWindowCode: 'midday',
+        });
+        // No midday: the kitchen's first window, in its own display order.
+        expect(scheduleFor(pickup, TODAY, ['evening', 'morning'])?.deliveryWindowCode).toBe(
+            'evening',
+        );
+        // No windows at all: no slot is sent, rather than a code nothing answers to.
+        expect(scheduleFor(pickup, TODAY, [])?.deliveryWindowCode).toBeNull();
+    });
+
+    it('keeps what the agent chose, unless the kitchen no longer offers that slot', () => {
+        const delivery = {
+            ...withFulfilmentType(counterState(), 'delivery'),
+            requestedDeliveryDate: '2026-10-09',
+            deliveryWindowCode: 'evening',
+        };
+
+        expect(scheduleFor(delivery, TODAY, ['midday', 'evening'])).toEqual({
+            requestedDeliveryDate: '2026-10-09',
+            deliveryWindowCode: 'evening',
+        });
+        expect(scheduleFor(delivery, TODAY, ['midday'])?.deliveryWindowCode).toBe('midday');
     });
 });
 

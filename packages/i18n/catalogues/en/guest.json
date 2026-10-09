@@ -191,7 +191,8 @@
     "change": "Change",
     "blockLabel": "Step {{step}} of {{total}}: {{title}}",
     "when": {
-        "title": "When"
+        "title": "When",
+        "noSlots": "Deliveries to {{area}} have no time slots at the moment. Try another area, or contact the kitchen."
     },
     "pay": {
         "title": "How you pay"

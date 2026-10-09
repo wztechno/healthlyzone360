@@ -50,7 +50,7 @@ final class AddressStoreController
     public function __invoke(StoreAddressRequest $request): JsonResponse
     {
         $user = $this->currentUser($request);
-        $account = $this->customerAccount($user);
+        $account = $this->addressBookAccount($request, $user);
 
         $payload = $request->payload();
 

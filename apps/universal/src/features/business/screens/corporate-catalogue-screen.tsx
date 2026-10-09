@@ -31,7 +31,7 @@ import {
     useB2bAddCatalogueItemMutation,
     B2B_CART_CHANNEL_CODE,
 } from '../../../data/business-hooks.ts';
-import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
+import { formatMoney, formatPackSize, weekdayKey } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { catalogueKindKey, contractPriceTestId, salesChannelKey } from '../format.ts';
 
@@ -263,9 +263,14 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
                                     </Text>
                                 ) : (
                                     <Text testID={contractPriceTestId(item.id)}>
-                                        {t('business:catalogue.contractPrice', {
-                                            price: formatMoney(formatter, item.contractPrice),
-                                        })}
+                                        {item.pack === null
+                                            ? t('business:catalogue.contractPrice', {
+                                                  price: formatMoney(formatter, item.contractPrice),
+                                              })
+                                            : t('business:catalogue.contractPricePerPack', {
+                                                  price: formatMoney(formatter, item.contractPrice),
+                                                  size: formatPackSize(t, formatter, item.pack),
+                                              })}
                                     </Text>
                                 )}
 

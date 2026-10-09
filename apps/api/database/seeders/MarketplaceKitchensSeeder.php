@@ -24,6 +24,7 @@ use Healthy360\Delivery\Enums\DeliveryZoneStatus;
 use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Models\DeliveryZoneArea;
+use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
@@ -277,6 +278,10 @@ class MarketplaceKitchensSeeder extends Seeder
         foreach ($windowFixtures as $window) {
             $this->deliveryWindow($kitchen, $window, $owner);
         }
+
+        // Every window in every zone — placement refuses a slot the zone
+        // does not offer.
+        app(ZoneWindowService::class)->assignAll((string) $kitchen->getKey());
 
         $catalogue = $this->catalogue($kitchen, $owner);
 

@@ -28,6 +28,7 @@ use Healthy360\Delivery\Models\DeliveryZone;
 final class DeliveryAdminPresenter
 {
     /**
+     * @param  list<string>  $windowIds  from `ZoneWindowService` — passed in so a list page costs one query, not one per zone
      * @return array{
      *     id: string,
      *     organisation_id: string,
@@ -45,11 +46,12 @@ final class DeliveryAdminPresenter
      *     source_system: string|null,
      *     source_ref: string|null,
      *     lock_version: int,
+     *     delivery_window_ids: list<string>,
      *     created_at: string|null,
      *     updated_at: string|null
      * }
      */
-    public function zone(DeliveryZone $zone): array
+    public function zone(DeliveryZone $zone, array $windowIds): array
     {
         return [
             'id' => (string) $zone->getKey(),
@@ -71,12 +73,14 @@ final class DeliveryAdminPresenter
             'source_system' => $zone->source_system,
             'source_ref' => $zone->source_ref,
             'lock_version' => $zone->lock_version,
+            'delivery_window_ids' => $windowIds,
             'created_at' => $zone->created_at?->toIso8601String(),
             'updated_at' => $zone->updated_at?->toIso8601String(),
         ];
     }
 
     /**
+     * @param  list<string>  $zoneIds  the zones that offer this window, from `ZoneWindowService`
      * @return array{
      *     id: string,
      *     organisation_id: string,
@@ -88,11 +92,12 @@ final class DeliveryAdminPresenter
      *     weekdays: list<int>,
      *     display_order: int,
      *     is_active: bool,
+     *     delivery_zone_ids: list<string>,
      *     created_at: string|null,
      *     updated_at: string|null
      * }
      */
-    public function window(DeliveryWindow $window): array
+    public function window(DeliveryWindow $window, array $zoneIds): array
     {
         return [
             'id' => (string) $window->getKey(),
@@ -108,6 +113,7 @@ final class DeliveryAdminPresenter
             'weekdays' => $window->weekdays,
             'display_order' => $window->display_order,
             'is_active' => $window->is_active,
+            'delivery_zone_ids' => $zoneIds,
             'created_at' => $window->created_at?->toIso8601String(),
             'updated_at' => $window->updated_at?->toIso8601String(),
         ];

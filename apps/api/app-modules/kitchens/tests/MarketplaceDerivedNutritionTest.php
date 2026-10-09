@@ -93,6 +93,7 @@ it('projects the derived per-serving facts and the serving they apply to', funct
         'Verdant Kitchen',
         'en',
         new ResolvedPrice(4200, 'USD', 'price-list', 'price-list-item'),
+        null,
         [],
         $nutrition,
         [],

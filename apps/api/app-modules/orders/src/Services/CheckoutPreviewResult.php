@@ -24,6 +24,7 @@ final readonly class CheckoutPreviewResult
 {
     /**
      * @param  list<string>  $warnings  the stable reason vocabulary this preview reports rather than refuses on — see `CheckoutPreviewService`
+     * @param  list<string>|null  $offeredWindowCodes  the window codes the resolved zone offers; null when no zone resolved
      */
     public function __construct(
         public string $cartId,
@@ -33,5 +34,6 @@ final readonly class CheckoutPreviewResult
         public int $totalMinor,
         public int $lineCount,
         public array $warnings,
+        public ?array $offeredWindowCodes = null,
     ) {}
 }

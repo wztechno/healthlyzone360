@@ -2,6 +2,8 @@ import type {
     KitchenOrder,
     KitchenOrderPaymentMethod,
     LocalisedText,
+    OrderDeskDeliveryWindow,
+    OrderDeskDriver,
     OrderDeskFulfilmentType,
     OrderDeskQuote,
     OrderDeskQuoteLine,
@@ -12,12 +14,14 @@ import {
     Badge,
     Button,
     Callout,
+    DateField,
     EmptyState,
     ErrorState,
     FormSection,
     Icon,
     IconButton,
     SegmentedControl,
+    Select,
     Skeleton,
     Text,
     TextInputField,
@@ -29,18 +33,21 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, View } from 'react-native';
 
-import { Gate } from '../../../access/gate.tsx';
+import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useAdminMealPageQuery, useProductPageQuery } from '../../../data/kitchen-admin-hooks.ts';
 import {
+    useOrderDeskDeliveryWindowsQuery,
+    useOrderDeskDriversQuery,
     useOrderDeskQuoteQuery,
     usePlaceOrderDeskSaleMutation,
 } from '../../../data/order-desk-hooks.ts';
 import { EntityImage } from '../../../media/entity-image.tsx';
+import { todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import { ORDER_CREATE_ON_BEHALF_PERMISSION } from '../entity-registry.ts';
+import { ORDER_CREATE_ON_BEHALF_PERMISSION, ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
@@ -63,6 +70,8 @@ import {
     needsCustomer,
     paymentMethodsFor,
     saleShortfall,
+    offeredDeskWindows,
+    scheduleFor,
     withCustomer,
     withFulfilmentType,
     withPaymentMethod,
@@ -229,6 +238,16 @@ function Sale() {
 
     const place = usePlaceOrderDeskSaleMutation();
 
+    /*
+     * The day, the slot and the driver, for the sales that need them. The slots are the kitchen's
+     * own active windows; the driver list is read only by somebody allowed to assign a run
+     * (`order.manage_organisation`), because the placement refuses a driver from anybody else and
+     * offering the picker would invite that refusal.
+     */
+    const windows = useOrderDeskDeliveryWindowsQuery(state.fulfilmentType !== 'counter');
+    const canAssign = useCan(ORDER_MANAGE_PERMISSION);
+    const drivers = useOrderDeskDriversQuery(canAssign && state.fulfilmentType === 'delivery');
+
     // Naming the leaf is what makes "Order desk" in the trail a link back.
     useKitchenTrailLeaf(t('kitchen:desk.sale.title'));
 
@@ -267,6 +286,16 @@ function Sale() {
     const quote = saleRequest === null ? null : (ticketQuote.data ?? null);
     const quoteStale = quotedRequest !== saleRequest || ticketQuote.isFetching;
 
+    // On a delivery, only the slots the address's zone offers; the default is chosen among those.
+    const offeredCodes =
+        state.fulfilmentType === 'delivery' ? (quote?.offeredWindowCodes ?? null) : null;
+    const windowList = offeredDeskWindows(windows.data ?? [], offeredCodes);
+    const schedule = scheduleFor(
+        state,
+        todayIso(),
+        windowList.map((window) => window.code),
+    );
+
     function onPlace() {
         const lines = toWire(state.lines);
         if (lines.length === 0) return;
@@ -283,6 +312,15 @@ function Sale() {
                 ...(state.customerAddressId === null
                     ? {}
                     : { customerAddressId: state.customerAddressId }),
+                ...(schedule === null
+                    ? {}
+                    : {
+                          requestedDeliveryDate: schedule.requestedDeliveryDate,
+                          ...(schedule.deliveryWindowCode === null
+                              ? {}
+                              : { deliveryWindowCode: schedule.deliveryWindowCode }),
+                      }),
+                ...(state.driverUserId === null ? {} : { driverUserId: state.driverUserId }),
                 ...(counter && state.payment !== null
                     ? {
                           payment: {
@@ -311,10 +349,18 @@ function Sale() {
                         });
                         return;
                     }
+                    // A delivery comes back confirmed: its run already exists, assigned when a
+                    // driver was named and waiting in the drivers' pool when not.
+                    const toastKey =
+                        state.fulfilmentType !== 'delivery'
+                            ? 'kitchen:desk.sale.placedToast'
+                            : state.driverUserId === null
+                              ? 'kitchen:desk.sale.placedConfirmedToast'
+                              : 'kitchen:desk.sale.placedAssignedToast';
                     toast.show({
                         testID: 'kitchen-order-desk-sale-placed-toast',
                         tone: 'success',
-                        message: t('kitchen:desk.sale.placedToast', { number: order.orderNumber }),
+                        message: t(toastKey, { number: order.orderNumber }),
                     });
                     router.replace('/kitchen/order-desk');
                 },
@@ -380,6 +426,24 @@ function Sale() {
                 />
             ) : null}
 
+            {schedule === null ? null : (
+                <WhenSection
+                    windows={windowList}
+                    zoneOffersNone={offeredCodes !== null && windowList.length === 0}
+                    schedule={schedule}
+                    onSchedule={(next) => {
+                        update({ ...state, ...next });
+                    }}
+                    drivers={
+                        state.fulfilmentType === 'delivery' ? (drivers.data?.rows ?? null) : null
+                    }
+                    driverUserId={state.driverUserId}
+                    onDriver={(driverUserId) => {
+                        update({ ...state, driverUserId });
+                    }}
+                />
+            )}
+
             <View
                 // Both measurement paths, each inert on the other's platform — as `CatalogueList`.
                 ref={Platform.OS === 'web' ? port.ref : undefined}
@@ -441,6 +505,145 @@ function Sale() {
                 />
             </View>
         </View>
+    );
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * When, and who drives it
+ * ---------------------------------------------------------------------------------------------- */
+
+/** The driver picker's "nobody yet" option. Not a uuid, so it can never name a member. */
+const NO_DRIVER = 'none';
+
+/**
+ * The day and slot a collection or delivery is cooked for, and on a delivery the optional driver.
+ * Defaults to today and the kitchen's default slot (`scheduleFor`), so the agent only touches this
+ * when the caller asks for another day.
+ */
+function WhenSection({
+    windows,
+    zoneOffersNone,
+    schedule,
+    onSchedule,
+    drivers,
+    driverUserId,
+    onDriver,
+}: {
+    readonly windows: readonly OrderDeskDeliveryWindow[];
+    /** The address's zone offers none of the kitchen's windows — a different sentence from "none set up". */
+    readonly zoneOffersNone: boolean;
+    readonly schedule: NonNullable<ReturnType<typeof scheduleFor>>;
+    readonly onSchedule: (
+        next: Pick<SaleState, 'requestedDeliveryDate' | 'deliveryWindowCode'>,
+    ) => void;
+    /** `null` when this is not a delivery, nobody here may assign, or the list is not in yet. */
+    readonly drivers: readonly OrderDeskDriver[] | null;
+    readonly driverUserId: string | null;
+    readonly onDriver: (driverUserId: string | null) => void;
+}) {
+    const { t } = useTranslation();
+    const { locale } = useLocale();
+
+    return (
+        <FormSection
+            variant="card"
+            testID="kitchen-order-desk-sale-when"
+            title={t('kitchen:desk.sale.whenLabel')}
+        >
+            <View className="flex-row flex-wrap items-end gap-snug">
+                <DateField
+                    testID="kitchen-order-desk-sale-date"
+                    id="kitchen-order-desk-sale-date"
+                    label={t('kitchen:desk.sale.dateLabel')}
+                    value={schedule.requestedDeliveryDate}
+                    min={todayIso()}
+                    onChange={(requestedDeliveryDate) => {
+                        onSchedule({
+                            requestedDeliveryDate,
+                            deliveryWindowCode: schedule.deliveryWindowCode,
+                        });
+                    }}
+                />
+                {drivers === null ? null : (
+                    <Select<string>
+                        testID="kitchen-order-desk-sale-driver"
+                        label={t('kitchen:desk.sale.driverLabel')}
+                        hint={t('kitchen:desk.sale.driverHint')}
+                        size="sm"
+                        value={driverUserId ?? NO_DRIVER}
+                        options={[
+                            { value: NO_DRIVER, label: t('kitchen:desk.sale.driverNone') },
+                            ...drivers.map((driver) => ({
+                                value: driver.userId,
+                                label: driver.displayName ?? EM_DASH,
+                            })),
+                        ]}
+                        onChange={(value) => {
+                            onDriver(value === NO_DRIVER ? null : value);
+                        }}
+                    />
+                )}
+            </View>
+            {windows.length === 0 ? (
+                <Text testID="kitchen-order-desk-sale-no-slots" variant="caption" tone="secondary">
+                    {t(
+                        zoneOffersNone
+                            ? 'kitchen:desk.sale.zoneNoSlots'
+                            : 'kitchen:desk.sale.noSlots',
+                    )}
+                </Text>
+            ) : (
+                <View
+                    testID="kitchen-order-desk-sale-slot"
+                    role="radiogroup"
+                    aria-label={t('kitchen:desk.sale.slotLabel')}
+                    className="flex-row flex-wrap gap-tight"
+                >
+                    {windows.map((window) => {
+                        const selected = schedule.deliveryWindowCode === window.code;
+                        const name = locale.startsWith('ar') ? window.nameAr : window.nameEn;
+                        const hours =
+                            window.startsAt === null || window.endsAt === null
+                                ? null
+                                : t('kitchen:desk.sale.slotHours', {
+                                      from: window.startsAt,
+                                      to: window.endsAt,
+                                  });
+                        return (
+                            <Pressable
+                                key={window.code}
+                                testID={`kitchen-order-desk-sale-slot-${window.code}`}
+                                role="radio"
+                                accessibilityRole="radio"
+                                aria-checked={selected}
+                                accessibilityState={{ checked: selected }}
+                                aria-label={hours === null ? name : `${name}. ${hours}`}
+                                onPress={() => {
+                                    onSchedule({
+                                        requestedDeliveryDate: schedule.requestedDeliveryDate,
+                                        deliveryWindowCode: window.code,
+                                    });
+                                }}
+                                className={
+                                    selected
+                                        ? 'h-control-md flex-row items-center gap-hair rounded-sm border border-surface-brand bg-surface-brand-subtle px-control-sm'
+                                        : 'h-control-md flex-row items-center gap-hair rounded-sm border border-stroke bg-surface-raised px-control-sm web:hover:border-surface-brand'
+                                }
+                            >
+                                <Text variant="label" numberOfLines={1}>
+                                    {name}
+                                </Text>
+                                {hours === null ? null : (
+                                    <Text variant="mono" tone="secondary" numberOfLines={1}>
+                                        {hours}
+                                    </Text>
+                                )}
+                            </Pressable>
+                        );
+                    })}
+                </View>
+            )}
+        </FormSection>
     );
 }
 

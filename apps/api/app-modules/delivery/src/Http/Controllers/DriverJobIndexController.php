@@ -5,13 +5,25 @@ declare(strict_types=1);
 namespace Healthy360\Delivery\Http\Controllers;
 
 use Carbon\CarbonImmutable;
+use Closure;
 use Healthy360\Delivery\Models\DeliveryJob;
 use Healthy360\Support\Api\ApiResponse;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 
 /**
  * GET /api/v1/driver/jobs — the caller's own outstanding runs, with enough on
- * each row to actually do one.
+ * each row to actually do one, and the unassigned pool beside them.
+ *
+ * ## Two lists, one row shape
+ *
+ * `jobs` is the caller's own live work. `available` is every projected run
+ * nobody has been given yet — `driver_user_id IS NULL AND status = pending` —
+ * which a driver may take with `POST /driver/jobs/{job}/claim`. There is no
+ * driver role by design (see `OrderDeskDriverIndexController`), so any active
+ * member who opens `/driver` sees the pool; the organisation scope on the model
+ * is what keeps it to this kitchen. Both lists serve the same row, because a
+ * driver deciding whether to claim a run needs to know where it is going.
  *
  * ## Why the row got wider
  *
@@ -77,9 +89,9 @@ use Illuminate\Http\JsonResponse;
  * is `order_payment_receipts`' to build when somebody builds it, not a total
  * bolted onto a run sheet.
  *
- * **Scoped to the caller in the query, not filtered afterwards.** The
- * `where driver_user_id = me` *is* the isolation, on top of the organisation
- * scope the model applies and which fails closed.
+ * **Scoped in the query, not filtered afterwards.** `jobs`' `where
+ * driver_user_id = me` *is* its isolation, on top of the organisation scope the
+ * model applies and which fails closed.
  */
 final class DriverJobIndexController
 {
@@ -119,7 +131,27 @@ final class DriverJobIndexController
     {
         $userId = (string) auth()->id();
 
-        $jobs = DeliveryJob::query()
+        return ApiResponse::data([
+            'jobs' => $this->sheet(fn (Builder $query) => $query
+                ->where('delivery_jobs.driver_user_id', $userId)
+                ->whereNotIn('delivery_jobs.status', self::CLOSED_STATUSES)),
+            // The unassigned pool: projected runs nobody has been given yet,
+            // which any member here may claim (`DriverJobClaimController`).
+            'available' => $this->sheet(fn (Builder $query) => $query
+                ->whereNull('delivery_jobs.driver_user_id')
+                ->where('delivery_jobs.status', 'pending')),
+        ]);
+    }
+
+    /**
+     * One list of run-sheet rows, narrowed by `$narrow`.
+     *
+     * @param  Closure(Builder<DeliveryJob>): mixed  $narrow
+     * @return array<int, array<string, mixed>>
+     */
+    private function sheet(Closure $narrow): array
+    {
+        $query = DeliveryJob::query()
             // `delivery_jobs.*` explicitly: both joins bring an `id` and a pair
             // of timestamps with them, and an unqualified `select *` would
             // hydrate a `DeliveryJob` whose primary key is an order's.
@@ -132,14 +164,15 @@ final class DriverJobIndexController
             // still ring the kitchen about; a 200 with an empty list is a driver
             // who thinks their shift is over.
             ->leftJoin('orders', 'orders.id', '=', 'delivery_jobs.order_id')
-            ->leftJoin('contact_points as cp', 'cp.id', '=', 'orders.delivery_contact_point_id')
-            ->where('delivery_jobs.driver_user_id', $userId)
-            ->whereNotIn('delivery_jobs.status', self::CLOSED_STATUSES)
+            ->leftJoin('contact_points as cp', 'cp.id', '=', 'orders.delivery_contact_point_id');
+
+        $narrow($query);
+
+        return $query
             ->orderBy('delivery_jobs.created_at')
             ->get()
-            ->map(fn (DeliveryJob $job): array => $this->row($job));
-
-        return ApiResponse::data(['jobs' => $jobs]);
+            ->map(fn (DeliveryJob $job): array => $this->row($job))
+            ->all();
     }
 
     /**

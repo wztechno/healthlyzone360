@@ -261,11 +261,15 @@ modules:
   # branch operating data is served and unreachable from api-mode (R-030), and
   # the importer is a console command with no surface at all. F1 is where the
   # rest of a kitchen's capability lives.
+  #
+  # `kitchen:seed-test-accounts` adds Identity, Consent, Verification, Customers and B2B: it stands
+  # up a checkout-ready consumer and a corporate buyer under a signed agreement on one kitchen,
+  # through those modules' own services. None of the five depends on Kitchens, so it stays acyclic.
   - name: Kitchens
     status: foundation
     phase: 2
     description: Branch operating data — opening hours per weekday and order cut-offs — and the private Healthy360 kitchen workbook importer that stands a kitchen up from its own workbook. Menus, approved meal-plan receipt and kitchen instructions are still to come.
-    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Allergens, Recipes, Catalogues, Pricing, Delivery]
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Allergens, Recipes, Catalogues, Pricing, Delivery, Identity, Consent, Verification, Customers, B2B]
 
   # INV1.2 widens the edges. The auto-deduction path answers the orders module's
   # `OrderStockConsumption` port, so it reads an order and its lines (Orders),

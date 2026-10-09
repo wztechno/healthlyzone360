@@ -6,6 +6,7 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Identity\Services\ContactValueHasher;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
@@ -192,9 +193,14 @@ class OrderDeskDemoSeeder extends Seeder
         DB::table('orders')->whereIn('id', $orderIds)->delete();
     }
 
-    /** The kitchen's three delivery slots, added only where it has none by that code. */
+    /**
+     * The kitchen's three delivery slots, added only where it has none by that code — and a slot
+     * this seeder adds is offered in every zone, since placement refuses one its zone does not run.
+     */
     private function windows(string $organisationId, string $ownerId): void
     {
+        $added = [];
+
         foreach (self::WINDOWS as $order => $window) {
             $exists = DB::table('delivery_windows')
                 ->where('organisation_id', $organisationId)
@@ -205,8 +211,11 @@ class OrderDeskDemoSeeder extends Seeder
                 continue;
             }
 
+            $id = (string) Str::uuid7();
+            $added[] = $id;
+
             DB::table('delivery_windows')->insert([
-                'id' => (string) Str::uuid7(),
+                'id' => $id,
                 'organisation_id' => $organisationId,
                 'code' => $window['code'],
                 'name_en' => $window['en'],
@@ -219,6 +228,10 @@ class OrderDeskDemoSeeder extends Seeder
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+        }
+
+        if ($added !== []) {
+            app(ZoneWindowService::class)->assignAll($organisationId, $added);
         }
     }
 

@@ -17,7 +17,7 @@ import { MealCard } from '../meal-card.tsx';
 import { QueryStates } from '../query-states.tsx';
 
 const MEAL_TYPES: readonly MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
-const ITEM_TYPES = ['meal', 'product', 'sauce', 'dressing'] as const;
+const ITEM_TYPES = ['meal', 'frozen_meal', 'product', 'sauce', 'dressing'] as const;
 
 // ponytail: the platform product-category codes, mirrored from the API's
 // ProductCategorySeeder — the seed is code, so this constant changes with it.
@@ -75,9 +75,8 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
         }
 
         const mealTypes = (selectedFilters['mealType'] ?? []) as readonly MealType[];
-        const itemTypes = (selectedFilters['itemType'] ?? []) as readonly (
-            'meal' | 'product' | 'sauce' | 'dressing'
-        )[];
+        const itemTypes = (selectedFilters['itemType'] ??
+            []) as readonly (typeof ITEM_TYPES)[number][];
         const categorySlug = selectedFilters['category']?.[0];
         return {
             kitchenIds: [parsed],

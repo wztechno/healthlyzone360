@@ -6,6 +6,8 @@ namespace Healthy360\Orders\OrderDesk\Http\Controllers;
 
 use Carbon\CarbonImmutable;
 use Healthy360\Cart\Services\ChannelCurrency;
+use Healthy360\Delivery\Models\DeliveryJob;
+use Healthy360\Delivery\Services\DeliveryJobAssignment;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\PaymentMethod;
 use Healthy360\Orders\Models\Order;
@@ -18,6 +20,7 @@ use Healthy360\Orders\Presenters\OrderPresenter;
 use Healthy360\Orders\Services\ComposedPlacement;
 use Healthy360\Orders\Services\CounterSale;
 use Healthy360\Orders\Services\CounterSaleDraft;
+use Healthy360\Orders\Services\OrderLifecycle;
 use Healthy360\Orders\Services\OrderLocator;
 use Healthy360\Orders\Services\OrderPlacementService;
 use Healthy360\Support\Api\ApiResponse;
@@ -25,6 +28,9 @@ use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 /**
  * POST /api/v1/catalogue/order-desk/orders — the kitchen sells something
@@ -91,9 +97,18 @@ use Illuminate\Http\JsonResponse;
  *
  * ## One endpoint, two writes, and the `payment` block is what chooses
  *
- * A delivery or a pickup is **placed** and comes back `placed`: the kitchen has
- * not confirmed it yet, nobody has been handed anything, and the money arrives
- * later through the receipts endpoint. A counter sale is **completed** —
+ * A pickup is **placed** and comes back `placed`: the kitchen has not
+ * confirmed it yet, nobody has been handed anything, and the money arrives later
+ * through the receipts endpoint. A delivery is placed **and confirmed** in the
+ * same transaction and comes back `confirmed`: confirming is what consumes the
+ * stock and projects the delivery job (`OrderLifecycle::confirm()`), and a desk
+ * delivery whose run did not exist until somebody remembered to press Confirm
+ * was a run no driver could see. When the body names a `driver_user_id` the new
+ * job is assigned to them through `DeliveryJobAssignment` — the assign
+ * endpoint's own write, membership check and audit — and otherwise it waits in
+ * the unassigned pool on `/driver`. Naming a driver needs
+ * `order.manage_organisation`, the code the assign endpoint carries; a `403`
+ * otherwise, before anything is written. A counter sale is **completed** —
  * `CounterSale::complete()` places, confirms, receipts and fulfils it in one
  * transaction — and comes back `fulfilled`, because by the time the response is
  * rendered the customer has walked away with the food.
@@ -143,6 +158,12 @@ final class OrderDeskPlacementController
     use RequiresIdempotencyKey;
     use ResolvesDeskParty;
 
+    /**
+     * What naming a driver at placement needs: the code the assign endpoint
+     * carries, so the desk is not a way round it.
+     */
+    private const string ASSIGN_PERMISSION = 'order.manage_organisation';
+
     public function __construct(
         private readonly OrderLocator $locator,
         private readonly DeskChannelLocator $channels,
@@ -152,6 +173,8 @@ final class OrderDeskPlacementController
         private readonly CounterSale $counterSales,
         private readonly OrderPresenter $presenter,
         private readonly TenantContext $context,
+        private readonly OrderLifecycle $lifecycle,
+        private readonly DeliveryJobAssignment $assignment,
     ) {}
 
     /**
@@ -208,31 +231,75 @@ final class OrderDeskPlacementController
             return $this->respond($order, replayed: false);
         }
 
-        $result = $this->placement->placeComposed(
-            new ComposedPlacement(
-                account: $account,
-                address: $address,
-                organisationId: $organisationId,
-                salesChannelId: (string) $channel->getKey(),
-                branchId: $branchId,
-                // The channel's own tariff currency, resolved by the class a
-                // cart's currency is resolved by. A desk sale has no basket to
-                // have been denominated earlier, so the question is asked here
-                // and answered identically.
-                currencyCode: $this->currencies->for($channel),
-                lines: $this->basket->aggregate($payload['lines']),
-                deliveryWindowCode: $payload['delivery_window_code'],
-                requestedDate: $requestedDate === null
-                    ? null
-                    : CarbonImmutable::createFromFormat('Y-m-d', $requestedDate)->startOfDay(),
-                fulfilmentType: FulfilmentType::from($payload['fulfilment_type']),
-                placedOnBehalfBy: $this->agentId(),
-                paymentMethod: PaymentMethod::from($payload['payment_method']),
-            ),
-            $idempotencyKey,
-        );
+        $fulfilmentType = FulfilmentType::from($payload['fulfilment_type']);
+        $driverUserId = $payload['driver_user_id'];
 
-        return $this->respond($result->order, $result->replayed);
+        if ($driverUserId !== null && ! Gate::allows(self::ASSIGN_PERMISSION)) {
+            throw new ApiException(
+                ErrorCode::AuthzPermissionDenied,
+                'Naming the driver needs the permission that assigns delivery jobs.',
+            );
+        }
+
+        // One transaction, as `CounterSale::complete()` has: a delivery that was
+        // placed but whose confirm or assignment failed would be an order with
+        // no run, which is the state this branch exists to remove.
+        [$order, $replayed] = DB::transaction(function () use ($payload, $account, $address, $organisationId, $channel, $branchId, $requestedDate, $fulfilmentType, $driverUserId, $idempotencyKey): array {
+            $result = $this->placement->placeComposed(
+                new ComposedPlacement(
+                    account: $account,
+                    address: $address,
+                    organisationId: $organisationId,
+                    salesChannelId: (string) $channel->getKey(),
+                    branchId: $branchId,
+                    // The channel's own tariff currency, resolved by the class a
+                    // cart's currency is resolved by. A desk sale has no basket to
+                    // have been denominated earlier, so the question is asked here
+                    // and answered identically.
+                    currencyCode: $this->currencies->for($channel),
+                    lines: $this->basket->aggregate($payload['lines']),
+                    deliveryWindowCode: $payload['delivery_window_code'],
+                    requestedDate: $requestedDate === null
+                        ? null
+                        : CarbonImmutable::createFromFormat('Y-m-d', $requestedDate)->startOfDay(),
+                    fulfilmentType: $fulfilmentType,
+                    placedOnBehalfBy: $this->agentId(),
+                    paymentMethod: PaymentMethod::from($payload['payment_method']),
+                ),
+                $idempotencyKey,
+            );
+
+            if ($result->replayed || $fulfilmentType !== FulfilmentType::Delivery) {
+                return [$result->order, $result->replayed];
+            }
+
+            $confirmed = $this->lifecycle->confirm($result->order, $result->order->lock_version);
+
+            if ($driverUserId !== null) {
+                $this->assignDriver($confirmed, $driverUserId);
+            }
+
+            return [$confirmed, false];
+        });
+
+        return $this->respond($order, $replayed);
+    }
+
+    /**
+     * Hand the run `confirm()` just projected to the named driver.
+     *
+     * No `If-Match` guard: the job was created inside this transaction and
+     * nobody else can have seen it yet. `DeliveryJobAssignment` refuses a driver
+     * who is not an active member with the assign endpoint's own `422`, which
+     * rolls the whole sale back.
+     *
+     * @throws ValidationException
+     */
+    private function assignDriver(Order $order, string $driverUserId): void
+    {
+        $job = DeliveryJob::query()->where('order_id', $order->getKey())->sole();
+
+        $this->assignment->assign($job, $driverUserId);
     }
 
     /**

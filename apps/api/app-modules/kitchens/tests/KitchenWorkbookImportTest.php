@@ -14,6 +14,7 @@ use Healthy360\Catalogues\Services\CatalogueItemReadiness;
 use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Models\DeliveryZoneArea;
+use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Kitchens\Import\Runtime\ImportOptions;
@@ -133,7 +134,7 @@ function importedRowCounts(): array
         'catalogue_items', 'catalogue_item_variants', 'catalogue_item_pack_variants',
         'catalogue_item_ingredients', 'channel_catalogue_items', 'price_list_items',
         'meal_combination_options', 'energy_bands', 'plan_durations', 'subscription_plan_profiles',
-        'plan_variant_profiles', 'plan_variant_durations', 'delivery_zones', 'delivery_zone_areas',
+        'plan_variant_profiles', 'plan_variant_durations', 'delivery_zones', 'delivery_zone_areas', 'delivery_zone_windows',
         'delivery_windows',
     ];
 
@@ -535,6 +536,10 @@ it('claims every Lebanese area in one zone with no fee and no minimum', function
                 ->and($window->ends_at)->toBeNull()
                 ->and($window->weekdays)->toBe([]);
         }
+
+        // The zone offers all three, or every imported delivery would be
+        // refused `window_not_offered`.
+        expect(app(ZoneWindowService::class)->offeredCodes($zone))->toEqualCanonicalizing(['afternoon', 'evening', 'morning']);
     });
 });
 

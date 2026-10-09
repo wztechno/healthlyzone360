@@ -154,6 +154,9 @@ use Healthy360\Delivery\Http\Controllers\DeliveryZoneIndexController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneShowController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneStoreController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneUpdateController;
+use Healthy360\Delivery\Http\Controllers\DeliveryZoneWindowIndexController;
+use Healthy360\Delivery\Http\Controllers\DeliveryZoneWindowReplaceController;
+use Healthy360\Delivery\Http\Controllers\DriverJobClaimController;
 use Healthy360\Delivery\Http\Controllers\DriverJobDeliverController;
 use Healthy360\Delivery\Http\Controllers\DriverJobIndexController;
 use Healthy360\Delivery\Http\Controllers\PublicDeliveryAreaIndexController;
@@ -212,6 +215,7 @@ use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCashReportController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerStoreController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDeliveryWindowIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDriverIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlacementController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQueueController;
@@ -227,6 +231,8 @@ use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenReactivate
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenShowController;
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenStoreController;
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenSuspendController;
+use Healthy360\Pricing\Http\Controllers\ItemChannelPricesSetController;
+use Healthy360\Pricing\Http\Controllers\ItemChannelPricesShowController;
 use Healthy360\Pricing\Http\Controllers\PriceListArchiveController;
 use Healthy360\Pricing\Http\Controllers\PriceListChannelReplaceController;
 use Healthy360\Pricing\Http\Controllers\PriceListEntryIndexController;
@@ -681,6 +687,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         | `/delivery/jobs` is the dispatcher's view of the same table and is
         | scoped by the organisation alone.
         |
+        | `claim` is codeless for the same reason: there is no driver role, so
+        | any active member may take a run from the unassigned pool that
+        | `/driver/jobs` serves as `available`. The controller's conditional
+        | UPDATE (`driver_user_id IS NULL AND status = pending`) is the guard,
+        | and a run somebody else took first is `409`.
+        |
         | **`assign` is the exception, and it is the only write here that
         | somebody could be wrong to make** (C3). Deciding whose run this is
         | *is* authority — it commits a person's evening — so it carries
@@ -697,6 +709,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         Route::middleware('org.context')->group(function (): void {
             Route::get('/driver/jobs', DriverJobIndexController::class)->name('driver.jobs.index');
             Route::post('/driver/jobs/{job}/deliver', DriverJobDeliverController::class)->name('driver.jobs.deliver');
+            Route::post('/driver/jobs/{job}/claim', DriverJobClaimController::class)->name('driver.jobs.claim');
 
             Route::get('/delivery/jobs', DeliveryJobIndexController::class)->name('delivery.jobs.index');
 
@@ -1255,6 +1268,9 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/price-lists', PriceListIndexController::class)->name('catalogue.price-lists.index');
                 Route::get('/price-lists/{priceList}', PriceListShowController::class)->name('catalogue.price-lists.show');
                 Route::get('/price-lists/{priceList}/entries', PriceListEntryIndexController::class)->name('catalogue.price-lists.entries.index');
+
+                // An article's B2B and B2C weight and price, read as one pair.
+                Route::get('/items/{item}/channel-prices', ItemChannelPricesShowController::class)->name('catalogue.items.channel-prices.show');
             });
 
             Route::middleware(['org.trading', 'permission:price_list.manage_organisation'])->group(function (): void {
@@ -1271,6 +1287,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::put('/price-lists/{priceList}/channels', PriceListChannelReplaceController::class)
                     ->middleware('precondition')
                     ->name('catalogue.price-lists.channels.replace');
+
+                // The packs are the item's and the prices are the lists', so
+                // this write needs both permissions.
+                Route::put('/items/{item}/channel-prices', ItemChannelPricesSetController::class)
+                    ->middleware(['precondition', 'permission:catalogue.manage_organisation'])
+                    ->name('catalogue.items.channel-prices.set');
             });
 
             Route::middleware(['org.trading', 'permission:catalogue.publish_organisation'])->group(function (): void {
@@ -1459,6 +1481,14 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::put('/delivery-zones/{zone}/areas', DeliveryZoneAreaReplaceController::class)
                     ->middleware('precondition')
                     ->name('catalogue.delivery-zones.areas.replace');
+
+                // Which windows the zone offers, versioned against the zone
+                // exactly as its areas are.
+                Route::get('/delivery-zones/{zone}/windows', DeliveryZoneWindowIndexController::class)->name('catalogue.delivery-zones.windows.index');
+
+                Route::put('/delivery-zones/{zone}/windows', DeliveryZoneWindowReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.delivery-zones.windows.replace');
 
                 Route::get('/delivery-windows', DeliveryWindowIndexController::class)->name('catalogue.delivery-windows.index');
                 Route::post('/delivery-windows', DeliveryWindowStoreController::class)->name('catalogue.delivery-windows.store');
@@ -2015,6 +2045,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/order-desk/orders', OrderDeskPlacementController::class)
                     ->middleware('idempotency')
                     ->name('catalogue.order-desk.orders.store');
+
+                // The slots a sale can be booked into, for the agent who is
+                // booking it. The admin list needs `delivery_zone.manage_
+                // organisation`, which a desk agent need not hold.
+                Route::get('/order-desk/delivery-windows', OrderDeskDeliveryWindowIndexController::class)
+                    ->name('catalogue.order-desk.delivery-windows.index');
             });
 
             /*

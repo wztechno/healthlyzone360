@@ -8,6 +8,7 @@ use App\Models\User;
 use Healthy360\Customers\Enums\CustomerAccountType;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
+use Healthy360\Customers\Services\ShopperResolver;
 use Healthy360\Identity\Models\ContactPoint;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -98,6 +99,42 @@ trait ResolvesCustomerAccount
             ->first();
 
         return $account instanceof CustomerAccount ? $account : null;
+    }
+
+    /**
+     * The account whose address book a `/me/addresses` call is about, if any.
+     *
+     * Without `X-Organisation-Id` this is exactly {@see customerAccountOrNull()}: the person's own
+     * consumer account, never a company's. With the header the answer is the one checkout itself
+     * uses — {@see ShopperResolver} — so a corporate buyer acting for their organisation reads and
+     * writes **that organisation's** delivery addresses, the ones a wholesale order is placed
+     * against. A header naming an organisation the caller is not an active member of, or one
+     * with no buyer account, falls back to the consumer account, as checkout does.
+     *
+     * Scoped to the address endpoints on purpose: contacts, consents and the dietary declaration
+     * are a person's own, whatever organisation they are acting for.
+     */
+    protected function addressBookAccountOrNull(Request $request, User $user): ?CustomerAccount
+    {
+        if (! $request->hasHeader('X-Organisation-Id')) {
+            return $this->customerAccountOrNull($user);
+        }
+
+        try {
+            return app(ShopperResolver::class)->resolve();
+        } catch (ApiException) {
+            return null;
+        }
+    }
+
+    /**
+     * {@see addressBookAccountOrNull()}, or the same refusal {@see CustomerAccount()} gives.
+     *
+     * @throws ApiException
+     */
+    protected function addressBookAccount(Request $request, User $user): CustomerAccount
+    {
+        return $this->addressBookAccountOrNull($request, $user) ?? $this->customerAccount($user);
     }
 
     /**

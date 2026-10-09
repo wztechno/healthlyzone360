@@ -14,6 +14,7 @@ use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Services\ZoneResolver;
+use Healthy360\Delivery\Services\ZoneWindowService;
 
 /**
  * "What would this basket cost, right now, delivered where?" — a query that
@@ -31,8 +32,8 @@ use Healthy360\Delivery\Services\ZoneResolver;
  * list of reasons and throws `PlacementRefused` with all of them; a preview
  * has no transaction to abort and no order to refuse, so the same facts —
  * `cart_empty`, `address_missing`, `address_not_deliverable`,
- * `area_not_served`, `zone_suspended`, `currency_mismatch`, plus the
- * line-probe vocabulary — come back as
+ * `area_not_served`, `zone_suspended`, `currency_mismatch`,
+ * `window_not_offered`, plus the line-probe vocabulary — come back as
  * `CheckoutPreviewResult::$warnings` inside an ordinary answer. Deliberately
  * the *same words* placement would refuse with: a customer taught one
  * vocabulary for "we don't deliver there" on the cart screen and a different
@@ -52,6 +53,7 @@ final readonly class CheckoutPreviewService
     public function __construct(
         private LineProbe $probe,
         private ZoneResolver $zones,
+        private ZoneWindowService $zoneWindows,
         private SellerContext $seller,
     ) {}
 
@@ -73,7 +75,7 @@ final readonly class CheckoutPreviewService
         return $this->seller->during(
             $cart->organisation_id,
             $cart->branch_id,
-            function () use ($cart, $address, $requestedDate): CheckoutPreviewResult {
+            function () use ($cart, $address, $deliveryWindowCode, $requestedDate): CheckoutPreviewResult {
                 /** @var list<CartItem> $lines */
                 $lines = $cart->items()->orderBy('created_at')->orderBy('id')->get()->all();
 
@@ -82,8 +84,17 @@ final readonly class CheckoutPreviewService
                 [$subtotal, $lineWarnings] = $this->pricedSubtotal($cart, $lines, $requestedDate);
                 $warnings = [...$warnings, ...$lineWarnings];
 
-                [$fee, $zoneWarnings] = $this->deliveryFee($cart, $address);
+                [$fee, $zoneWarnings, $zone] = $this->deliveryFee($cart, $address);
                 $warnings = [...$warnings, ...$zoneWarnings];
+
+                // The slots this address may pick, so a client filters its
+                // picker by the same rule placement refuses by. Null when no
+                // zone resolved — there is nothing to offer, not "nothing".
+                $offered = $zone instanceof DeliveryZone ? $this->zoneWindows->offeredCodes($zone) : null;
+
+                if ($offered !== null && $deliveryWindowCode !== null && ! in_array($deliveryWindowCode, $offered, true)) {
+                    $warnings[] = 'window_not_offered';
+                }
 
                 return new CheckoutPreviewResult(
                     cartId: (string) $cart->getKey(),
@@ -96,6 +107,7 @@ final readonly class CheckoutPreviewService
                     // same reason should read as one fact, not three repeats
                     // of it.
                     warnings: array_values(array_unique($warnings)),
+                    offeredWindowCodes: $offered,
                 );
             },
         );
@@ -161,40 +173,41 @@ final readonly class CheckoutPreviewService
     /**
      * The delivery fee, resolved exactly as `OrderPlacementService::zoneFor()`
      * resolves it — branch claim beats organisation-wide, and a zone with no
-     * fee configured is `null`, never `0`.
+     * fee configured is `null`, never `0`. The serving zone comes back third,
+     * whenever one resolved, for the window question.
      *
-     * @return array{0: int|null, 1: list<string>}
+     * @return array{0: int|null, 1: list<string>, 2: DeliveryZone|null}
      */
     private function deliveryFee(Cart $cart, ?CustomerAddress $address): array
     {
         if (! $address instanceof CustomerAddress) {
-            return [null, ['address_missing']];
+            return [null, ['address_missing'], null];
         }
 
         if ($address->address_type !== CustomerAddressType::Delivery) {
-            return [null, ['address_not_deliverable']];
+            return [null, ['address_not_deliverable'], null];
         }
 
         $explained = $this->zones->explain($address->delivery_area_id, $cart->branch_id);
 
         if ($explained['zone'] instanceof DeliveryZone && ! $explained['serves']) {
-            return [null, ['zone_suspended']];
+            return [null, ['zone_suspended'], null];
         }
 
         $zone = $explained['zone'];
 
         if (! $zone instanceof DeliveryZone) {
-            return [null, ['area_not_served']];
+            return [null, ['area_not_served'], null];
         }
 
         if ($zone->delivery_fee_minor === null) {
-            return [null, []];
+            return [null, [], $zone];
         }
 
         if ($zone->currency_code !== $cart->currency_code) {
-            return [null, ['currency_mismatch']];
+            return [null, ['currency_mismatch'], $zone];
         }
 
-        return [$zone->delivery_fee_minor, []];
+        return [$zone->delivery_fee_minor, [], $zone];
     }
 }

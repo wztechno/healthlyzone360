@@ -1,4 +1,8 @@
-import type { DeliveryZoneAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
+import type {
+    DeliveryWindow,
+    DeliveryZoneAdmin,
+    PublishableStatus,
+} from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -22,6 +26,7 @@ import { toFailure } from '../../../data/hooks.ts';
 import {
     KITCHEN_PAGE_SIZE,
     pagesInResult,
+    useDeliveryWindowsQuery,
     useDeliveryZonePageQuery,
     useDeliveryZoneWholeSetQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
@@ -40,7 +45,8 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
-import { summariseWindows } from '../delivery-model.ts';
+import { assignedWindows, summariseWindows } from '../delivery-model.ts';
+import type { WindowCoverage } from '../delivery-model.ts';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
     ZONE_STATUS_FILTERS,
@@ -88,6 +94,8 @@ export function DeliveryZonesScreen() {
     );
 }
 
+const NO_WINDOWS: readonly DeliveryWindow[] = [];
+
 const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'retired'];
 type StatusSegmentValue = PublishableStatus | 'all';
 
@@ -113,6 +121,11 @@ function DeliveryZonesList() {
     const [page, setPage] = useListPage(filter);
     const zones = useDeliveryZonePageQuery(filter, page);
     const wholeSet = useDeliveryZoneWholeSetQuery(filter);
+    // A zone carries window identifiers; the windows themselves are the kitchen's list.
+    const kitchenWindows = useDeliveryWindowsQuery();
+    const allWindows = kitchenWindows.data ?? NO_WINDOWS;
+    const coverageOf = (row: DeliveryZoneAdmin) =>
+        summariseWindows(assignedWindows(row.windowIds, allWindows));
     const rows = useMemo(() => zones.data?.items ?? [], [zones.data]);
     const total = zones.data?.totalCount ?? null;
     const totalPages = pagesInResult(zones.data) ?? 0;
@@ -221,11 +234,11 @@ function DeliveryZonesList() {
             label: t('kitchen:zones.columnWindows'),
             width: 190,
             priority: 70,
-            value: (row) => windowsText(row, t),
+            value: (row) => windowsText(coverageOf(row), t),
             // Coverage first — the days reached are what the cell is read for — then the count.
             sort: (left, right, direction) => {
-                const a = summariseWindows(left.deliveryWindows);
-                const b = summariseWindows(right.deliveryWindows);
+                const a = coverageOf(left);
+                const b = coverageOf(right);
                 return (
                     compareNumber(a.weekdays.length, b.weekdays.length, direction) ||
                     compareNumber(a.total, b.total, direction)
@@ -233,7 +246,7 @@ function DeliveryZonesList() {
             },
             render: (row) => {
                 const testID = zoneRowTestId(String(row.id));
-                const coverage = summariseWindows(row.deliveryWindows);
+                const coverage = coverageOf(row);
                 if (coverage.total === 0) {
                     return (
                         <Text tone="secondary" testID={`${testID}-windows-none`}>
@@ -320,9 +333,7 @@ function DeliveryZonesList() {
     // Counted over every page the filters match, not the eighteen rows on this one.
     const everyZone = wholeSet.data ?? [];
     const noAreas = everyZone.filter((row) => row.areas.length === 0).length;
-    const noWindows = everyZone.filter(
-        (row) => summariseWindows(row.deliveryWindows).weekdays.length === 0,
-    ).length;
+    const noWindows = everyZone.filter((row) => coverageOf(row).weekdays.length === 0).length;
     // Rows up to the end of this page: 18 of 40 on the first, 36 on the second.
     const shownSoFar = Math.min(page * KITCHEN_PAGE_SIZE, total ?? controls.rows.length);
     const cards: readonly CatalogueStatCard[] = [
@@ -400,13 +411,13 @@ function DeliveryZonesList() {
                     {
                         key: 'windows',
                         label: t('kitchen:zones.columnWindows'),
-                        value: windowsText(viewing, t),
+                        value: windowsText(coverageOf(viewing), t),
                     },
                     {
                         key: 'weekdays',
                         label: t('kitchen:zones.viewWeekdays'),
                         value: (() => {
-                            const days = summariseWindows(viewing.deliveryWindows).weekdays;
+                            const days = coverageOf(viewing).weekdays;
                             return days.length === 0
                                 ? t('kitchen:zones.noActiveWindows')
                                 : days
@@ -441,7 +452,7 @@ function DeliveryZonesList() {
                     testID="kitchen-zones-stats"
                     cards={cards}
                     pending={zones.isPending}
-                    countsPending={wholeSet.isPending}
+                    countsPending={wholeSet.isPending || kitchenWindows.isPending}
                 />
             )}
 
@@ -601,8 +612,7 @@ function areasText(row: DeliveryZoneAdmin, t: TFunction): string {
         : t('kitchen:zones.areaCount', { count: row.areas.length });
 }
 
-function windowsText(row: DeliveryZoneAdmin, t: TFunction): string {
-    const coverage = summariseWindows(row.deliveryWindows);
+function windowsText(coverage: WindowCoverage, t: TFunction): string {
     if (coverage.total === 0) return t('kitchen:zones.noWindows');
     const count = t('kitchen:zones.windowCount', { count: coverage.total });
     return coverage.weekdays.length === 0

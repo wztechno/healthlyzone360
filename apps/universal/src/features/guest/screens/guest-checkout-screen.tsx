@@ -47,11 +47,13 @@ import {
 } from '../../commerce/checkout-frame.tsx';
 import { earliestStartDate } from '../../commerce/dates.ts';
 import {
-    defaultSlotCodeForKitchen,
+    defaultSlotCode,
     deliveryAreaStatus,
     deliverySlotByCode,
     deliverySlotsForKitchen,
+    offeredSlots,
     servedAreas,
+    zoneWindowCodes,
 } from '../../commerce/delivery.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import {
@@ -85,6 +87,10 @@ import { GuestChallenge } from '../guest-challenge.tsx';
  *   anyway", because continuing leads to a placed order for food that cannot be delivered.
  *   `unknown` is a real third answer and is **not** a refusal: a kitchen that publishes no zones
  *   has told us nothing.
+ * - **Slots follow the zone.** Once the typed area matches a zone, card 3 offers only the slots
+ *   that zone runs (its published `windowCodes`) — placement refuses any other with
+ *   `window_not_offered`. A zone running none says so and disables "Place order". An unmatched area
+ *   filters nothing.
  * - **Placement** is the server's answer. "Place order" stays disabled until the session's
  *   `capabilities` include `place_order`; the client never decides the gate.
  *
@@ -160,10 +166,14 @@ export function GuestCheckoutScreen() {
     /** The kitchen the basket is from — the only source of a real delivery-zone answer. */
     const kitchenId = basket?.items[0]?.kitchenId ?? null;
     const kitchen = useKitchenQuery(kitchenId);
-    const deliverySlots = deliverySlotsForKitchen(kitchen.data);
+    // Only the matched zone's slots; a choice it does not run falls back to the default over them.
+    const deliverySlots = offeredSlots(
+        deliverySlotsForKitchen(kitchen.data),
+        zoneWindowCodes(kitchen.data, address.area),
+    );
     const chosenSlotIsOffered =
         chosenSlotCode !== null && deliverySlots.some((slot) => slot.code === chosenSlotCode);
-    const slotCode = chosenSlotIsOffered ? chosenSlotCode : defaultSlotCodeForKitchen(kitchen.data);
+    const slotCode = chosenSlotIsOffered ? chosenSlotCode : defaultSlotCode(deliverySlots);
 
     const dropOffLabel = (option: DropOff) => t(`guest:address.dropOff.${option}`);
 
@@ -241,7 +251,7 @@ export function GuestCheckoutScreen() {
     const onPlace = () => {
         if (basket === undefined) return;
         setShowAddressErrors(true);
-        if (Object.keys(addressErrors).length > 0 || outOfZone) return;
+        if (Object.keys(addressErrors).length > 0 || outOfZone || slotCode === null) return;
         place.mutate(
             {
                 cartId: basket.id,
@@ -579,23 +589,36 @@ export function GuestCheckoutScreen() {
                     <FieldCell>{null}</FieldCell>
                 </FieldRow>
                 <View className="mt-3">
-                    <ChoiceChips
-                        testID={`${TEST_ID}-slot`}
-                        label={t('guest:address.slot')}
-                        options={deliverySlots.map((slot) => ({
-                            value: slot.code,
-                            label: t('commerce:checkout.slotChip', {
-                                slot:
-                                    deliverySlotByCode(slot.code, kitchen.data)?.label ??
-                                    t(`commerce:slots.${slot.code}`, { defaultValue: slot.code }),
-                                from: slot.startsAt,
-                                to: slot.endsAt,
-                            }),
-                            testID: `${TEST_ID}-slot-${slot.code}`,
-                        }))}
-                        value={slotCode}
-                        onChange={setSlotCode}
-                    />
+                    {slotCode === null ? (
+                        <Callout
+                            testID={`${TEST_ID}-slot-none`}
+                            role="alert"
+                            tone="warning"
+                            icon="warning"
+                            title={t('guest:address.slot')}
+                            body={t('guest:when.noSlots', { area: address.area })}
+                        />
+                    ) : (
+                        <ChoiceChips
+                            testID={`${TEST_ID}-slot`}
+                            label={t('guest:address.slot')}
+                            options={deliverySlots.map((slot) => ({
+                                value: slot.code,
+                                label: t('commerce:checkout.slotChip', {
+                                    slot:
+                                        deliverySlotByCode(slot.code, kitchen.data)?.label ??
+                                        t(`commerce:slots.${slot.code}`, {
+                                            defaultValue: slot.code,
+                                        }),
+                                    from: slot.startsAt,
+                                    to: slot.endsAt,
+                                }),
+                                testID: `${TEST_ID}-slot-${slot.code}`,
+                            }))}
+                            value={slotCode}
+                            onChange={setSlotCode}
+                        />
+                    )}
                 </View>
             </Block>
 
@@ -644,7 +667,8 @@ export function GuestCheckoutScreen() {
 
     /* ── the rail ───────────────────────────────────────────────────────────────────────────── */
 
-    const placeReady = canPlace && basket !== undefined && !basketIsEmpty && !outOfZone;
+    const placeReady =
+        canPlace && basket !== undefined && !basketIsEmpty && !outOfZone && slotCode !== null;
 
     const summary = (
         <CheckoutCard radius="md" testID={`${TEST_ID}-rail`}>
@@ -736,7 +760,21 @@ export function GuestCheckoutScreen() {
                         role="alert"
                         tone="danger"
                         title={placeFailure.message}
-                    />
+                    >
+                        {placeFailure.code === 'order.placement_refused'
+                            ? placeFailure.reasons.map((entry) => (
+                                  <RNText
+                                      key={entry.reason}
+                                      testID={`${TEST_ID}-place-error-reason-${entry.reason}`}
+                                      className="text-xs text-content-secondary text-start"
+                                  >
+                                      {`• ${t(`errors:orderRefusal.${entry.reason}`, {
+                                          defaultValue: entry.reason,
+                                      })}`}
+                                  </RNText>
+                              ))
+                            : null}
+                    </Callout>
                 )}
 
                 {canPlace ? (

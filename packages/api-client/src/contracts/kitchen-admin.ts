@@ -22,6 +22,7 @@ import type {
 } from '@healthy360/domain-types';
 import type { MeasureUnit, NutritionFacts, Serving } from '@healthy360/nutrition';
 
+import type { PackSize } from './marketplace.ts';
 import type { CursorPage, CursorPageRequest, OffsetPageRequest } from './pagination.ts';
 
 /**
@@ -1487,6 +1488,52 @@ export interface SetChannelAvailabilityRequest extends LockedRequest {
 }
 
 /* ------------------------------------------------------------------------------------------------
+ * B2B / B2C weight and price
+ * ---------------------------------------------------------------------------------------------- */
+
+/** The two channels an article is priced on, as the v6 sheet states them. */
+export type TradeChannel = 'b2b' | 'b2c';
+
+/**
+ * One channel's side of an article's offer: the pack it sells (its `b2b` or `b2c` pack variant) and
+ * that pack's standing price on the list the channel quotes from. `amountMinor` is `null` while the
+ * pack is not priced.
+ */
+export interface ItemChannelOffer {
+    readonly salesChannelId: string;
+    readonly priceListId: PriceListId;
+    readonly currency: CurrencyCode;
+    readonly pack: PackSize | null;
+    readonly amountMinor: number | null;
+}
+
+/**
+ * An article's B2B and B2C weight and price. A channel is `null` when the kitchen has no such
+ * channel with an active price list, so there is nowhere to write the price.
+ */
+export interface ItemChannelPrices {
+    readonly lockVersion: number;
+    readonly b2b: ItemChannelOffer | null;
+    readonly b2c: ItemChannelOffer | null;
+}
+
+export interface SetItemChannelOffer {
+    readonly quantity: number;
+    readonly unit: MeasureUnit;
+    /** `null` keeps the pack and withdraws its price. */
+    readonly amountMinor: number | null;
+}
+
+/**
+ * Only the channels being changed. Absent is untouched; `null` stops selling on that channel (its
+ * price closes, the pack keeps its weight). `lockVersion` is the **item's**.
+ */
+export interface SetItemChannelPricesRequest extends LockedRequest {
+    readonly b2b?: SetItemChannelOffer | null | undefined;
+    readonly b2c?: SetItemChannelOffer | null | undefined;
+}
+
+/* ------------------------------------------------------------------------------------------------
  * Price lists
  * ---------------------------------------------------------------------------------------------- */
 
@@ -1897,6 +1944,8 @@ export interface ReplacePlanMenuRequest extends LockedRequest {
 
 export interface DeliveryWindow {
     readonly id: DeliveryWindowId;
+    /** Fixed at creation (≤ 30 characters); what a slot is chosen and refused by on the wire. */
+    readonly code: string;
     readonly label: LocalisedText;
     /**
      * ISO weekdays the window runs on, 1 Monday … 7 Sunday.
@@ -1911,6 +1960,8 @@ export interface DeliveryWindow {
     /** Deliveries the window can take, when the kitchen caps it. `null` for uncapped. */
     readonly capacity: number | null;
     readonly isActive: boolean;
+    /** The zones that offer this window. A window in no zone is offered nowhere. */
+    readonly zoneIds: readonly DeliveryZoneId[];
 }
 
 export interface DeliveryZoneAdmin {
@@ -1926,7 +1977,12 @@ export interface DeliveryZoneAdmin {
     readonly minimumOrderMinor: number | null;
     readonly currency: CurrencyCode;
     readonly estimatedMinutes: number | null;
-    readonly deliveryWindows: readonly DeliveryWindow[];
+    /**
+     * The kitchen windows this zone offers, in window display order (inactive ones included). The
+     * windows themselves are kitchen-wide records — `listDeliveryWindows` — and a zone only chooses
+     * among them.
+     */
+    readonly windowIds: readonly DeliveryWindowId[];
 }
 
 export interface DeliveryZoneAdminFilter extends CursorPageRequest, OffsetPageRequest {
@@ -1956,19 +2012,21 @@ export interface SetZoneAreasRequest extends LockedRequest {
     readonly serviceAreaIds: readonly ServiceAreaId[];
 }
 
-/** A window as a caller writes it. `id` is `null` for one being added. */
-export interface DeliveryWindowInput {
-    readonly id: DeliveryWindowId | null;
+/** A new kitchen window. The server-side code is derived from the English name. */
+export interface CreateDeliveryWindowRequest {
     readonly label: LocalisedText;
     readonly weekdays: readonly number[];
     readonly startsAt: string;
     readonly endsAt: string;
-    readonly capacity?: number | null | undefined;
     readonly isActive?: boolean | undefined;
 }
 
-export interface SetDeliveryWindowsRequest extends LockedRequest {
-    readonly windows: readonly DeliveryWindowInput[];
+/** A window's editable fields. No lock version: window rows carry none. Code is immutable. */
+export type UpdateDeliveryWindowRequest = Partial<CreateDeliveryWindowRequest>;
+
+/** The whole set of windows a zone offers. Empty is a zone that offers no slot. */
+export interface SetZoneWindowsRequest extends LockedRequest {
+    readonly windowIds: readonly DeliveryWindowId[];
 }
 
 /**
@@ -2156,6 +2214,12 @@ export interface KitchenAdminRepository {
         productId: ProductId,
         request: SetChannelAvailabilityRequest,
     ): Promise<ProductAdmin>;
+    /** The B2B and B2C weight and price of any sold article — a product, a sauce or a meal. */
+    getItemChannelPrices(itemId: ProductId | MealId): Promise<ItemChannelPrices>;
+    setItemChannelPrices(
+        itemId: ProductId | MealId,
+        request: SetItemChannelPricesRequest,
+    ): Promise<ItemChannelPrices>;
 
     /* ── price lists ────────────────────────────────────────────────────────────────────────── */
 
@@ -2222,10 +2286,21 @@ export interface KitchenAdminRepository {
     ): Promise<DeliveryZoneAdmin>;
     archiveZone(zoneId: DeliveryZoneId, request: LockedRequest): Promise<DeliveryZoneAdmin>;
     setZoneAreas(zoneId: DeliveryZoneId, request: SetZoneAreasRequest): Promise<DeliveryZoneAdmin>;
-    setDeliveryWindows(
+    /** Which windows the zone offers, versioned against the zone (wholesale replace). */
+    getZoneWindows(zoneId: DeliveryZoneId): Promise<readonly DeliveryWindowId[]>;
+    setZoneWindows(
         zoneId: DeliveryZoneId,
-        request: SetDeliveryWindowsRequest,
+        request: SetZoneWindowsRequest,
     ): Promise<DeliveryZoneAdmin>;
+    /** The kitchen's windows, org-wide, inactive ones included, in display order. */
+    listDeliveryWindows(): Promise<readonly DeliveryWindow[]>;
+    /** Created in no zone — a zone opts in through `setZoneWindows`. */
+    createDeliveryWindow(request: CreateDeliveryWindowRequest): Promise<DeliveryWindow>;
+    /** There is no delete: withdraw a window with `isActive: false`. */
+    updateDeliveryWindow(
+        windowId: DeliveryWindowId,
+        request: UpdateDeliveryWindowRequest,
+    ): Promise<DeliveryWindow>;
 
     /* ── branch operating data ──────────────────────────────────────────────────────────────── */
 

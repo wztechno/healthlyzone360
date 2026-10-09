@@ -12,6 +12,7 @@ import type {
     VolumeTierId,
 } from '@healthy360/domain-types';
 
+import type { PackSize } from './marketplace.ts';
 import type { CursorPage, CursorPageRequest } from './pagination.ts';
 
 /**
@@ -75,6 +76,8 @@ export interface CatalogueItem {
     readonly minimumOrderQuantity: number;
     readonly volumeTiers: readonly VolumeTier[];
     readonly contractPrice: Money | null;
+    /** What `contractPrice` buys — the B2B pack's size. `null` when the price is for the item itself. */
+    readonly pack: PackSize | null;
     readonly leadTimeDays: number;
     /** ISO weekdays the item can be delivered on. */
     readonly deliveryWeekdays: readonly number[];

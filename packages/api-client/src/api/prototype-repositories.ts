@@ -1,6 +1,7 @@
 import type {
     CartId,
     CorporateProgrammeId,
+    DeliveryWindowId,
     DeliveryZoneId,
     DietitianId,
     IngredientId,
@@ -105,7 +106,12 @@ import type {
     ServiceAreaFilter,
     SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
-    SetDeliveryWindowsRequest,
+    SetZoneWindowsRequest,
+    UpdateDeliveryWindowRequest,
+    CreateDeliveryWindowRequest,
+    DeliveryWindow,
+    ItemChannelPrices,
+    SetItemChannelPricesRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
     SetPlanCombinationsRequest,
@@ -844,6 +850,15 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     ): Promise<ProductAdmin> {
         return notImplemented(`PUT ${BASE}/catalogue/items/{item}/channels`);
     },
+    getItemChannelPrices(_itemId: ProductId | MealId): Promise<ItemChannelPrices> {
+        return notImplemented(`GET ${BASE}/catalogue/items/{item}/channel-prices`);
+    },
+    setItemChannelPrices(
+        _itemId: ProductId | MealId,
+        _request: SetItemChannelPricesRequest,
+    ): Promise<ItemChannelPrices> {
+        return notImplemented(`PUT ${BASE}/catalogue/items/{item}/channel-prices`);
+    },
 
     listPriceLists(_filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {
         return notImplemented(`GET ${BASE}/catalogue/price-lists`);
@@ -953,11 +968,26 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     ): Promise<DeliveryZoneAdmin> {
         return notImplemented(`PUT ${BASE}/catalogue/delivery-zones/{zone}/areas`);
     },
-    setDeliveryWindows(
+    getZoneWindows(_zoneId: DeliveryZoneId): Promise<readonly DeliveryWindowId[]> {
+        return notImplemented(`GET ${BASE}/catalogue/delivery-zones/{zone}/windows`);
+    },
+    setZoneWindows(
         _zoneId: DeliveryZoneId,
-        _request: SetDeliveryWindowsRequest,
+        _request: SetZoneWindowsRequest,
     ): Promise<DeliveryZoneAdmin> {
-        return notImplemented(`PUT ${BASE}/catalogue/delivery-windows`);
+        return notImplemented(`PUT ${BASE}/catalogue/delivery-zones/{zone}/windows`);
+    },
+    listDeliveryWindows(): Promise<readonly DeliveryWindow[]> {
+        return notImplemented(`GET ${BASE}/catalogue/delivery-windows`);
+    },
+    createDeliveryWindow(_request: CreateDeliveryWindowRequest): Promise<DeliveryWindow> {
+        return notImplemented(`POST ${BASE}/catalogue/delivery-windows`);
+    },
+    updateDeliveryWindow(
+        _windowId: DeliveryWindowId,
+        _request: UpdateDeliveryWindowRequest,
+    ): Promise<DeliveryWindow> {
+        return notImplemented(`PATCH ${BASE}/catalogue/delivery-windows/{window}`);
     },
 
     getBranchOperating(_branchId: KitchenBranchId): Promise<BranchOperating> {

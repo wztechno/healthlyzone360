@@ -436,6 +436,7 @@ export function mapOrderDeskQuote(wire: WireOrderDeskQuote): OrderDeskQuote {
         currencyCode: wire.currency_code as CurrencyCode,
         refusals: wire.refusals.map(mapOrderDeskRefusal),
         quotable: wire.quotable,
+        offeredWindowCodes: wire.offered_window_codes ?? null,
     };
 }
 

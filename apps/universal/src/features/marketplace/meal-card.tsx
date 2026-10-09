@@ -10,6 +10,7 @@ import { EntityImage, MediaChip } from '../../media/entity-image.tsx';
 import { BrowseCard } from '../../ui/browse-card.tsx';
 
 import { formatMoney, nutrientValue } from './format.ts';
+import { PackSuffix } from './pack-suffix.tsx';
 
 /**
  * A meal on a kitchen's menu.
@@ -275,6 +276,7 @@ export function MealCard({ meal, onPress, onAdd, testID }: MealCardProps) {
                     className="shrink text-xl leading-tight text-content-primary text-start"
                 >
                     {formatMoney(formatter, meal.price)}
+                    <PackSuffix pack={meal.pack} testID={`${resolvedTestID}-pack`} />
                 </RNText>
 
                 {onAdd === undefined ? null : (
