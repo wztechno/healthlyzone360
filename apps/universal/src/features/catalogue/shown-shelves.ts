@@ -1,19 +1,19 @@
 /**
- * The shelves the customer menu shows for now — Frozen alone.
+ * The shelves the customer menu shows: meals, sauces, dressings and frozen.
  *
- * A temporary narrowing, not a removal: Discover and `/meals` list only these shelves and their
- * items, and every other shelf is hidden rather than deleted. Widen {@link SHOWN_SHELVES} (or empty
- * it) to bring them back; nothing else needs to change.
+ * A narrowing, not a removal: Discover and `/meals` list only these shelves and their items, and
+ * every other shelf is hidden rather than deleted. Widen {@link SHOWN_SHELVES} (or empty it) to
+ * bring more back; nothing else needs to change.
  *
- * Frozen items are catalogue `product`s on the `frozen` shelf, not `meal`s, so a listing restricted
- * to these shelves has to ask for products as well.
+ * Only meals are catalogue `meal`s. Sauces and dressings are their own item types and frozen items
+ * are `product`s, so a listing restricted to these shelves has to ask for all four types.
  */
-export const SHOWN_SHELVES: readonly string[] = ['frozen'];
+export const SHOWN_SHELVES: readonly string[] = ['meal', 'sauce', 'dressing', 'frozen'];
 
 type ItemType = 'meal' | 'product' | 'sauce' | 'dressing';
 
 /** The item types a narrowed listing asks for. */
-const SHOWN_ITEM_TYPES: readonly ItemType[] = ['meal', 'product'];
+const SHOWN_ITEM_TYPES: readonly ItemType[] = ['meal', 'product', 'sauce', 'dressing'];
 
 export interface ShelfNarrowing {
     /** `true` while any shelf is hidden. */
@@ -26,7 +26,7 @@ export interface ShelfNarrowing {
      * the listing goes unfiltered by shelf.
      */
     readonly shownCategory: (picked?: string) => string | undefined;
-    /** The item types a listing asks for: meals and products while narrowed, else `fallback`. */
+    /** The item types a listing asks for: every shown shelf's type while narrowed, else `fallback`. */
     readonly shownItemTypes: (fallback: readonly ItemType[]) => readonly ItemType[];
 }
 

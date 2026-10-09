@@ -142,9 +142,9 @@ export function MealsScreen() {
                 limit: PAGE_SIZE,
             }),
             ...(category === undefined ? {} : { categorySlug: category }),
-            // The customer menu is prepared meals, not a kitchen's mixed shelf of sauces and
-            // resold products, so every card here is a dish — except while the menu is narrowed
-            // to the frozen shelf, whose items are products.
+            // Un-narrowed, the customer menu is prepared meals only. While the menu is narrowed
+            // to its shown shelves it asks for every type they hold: meals, sauces, dressings and
+            // the frozen shelf's products.
             itemTypes: shownItemTypes(['meal']),
         }),
         [searchTerm, selected, rangeValues, sort, category],

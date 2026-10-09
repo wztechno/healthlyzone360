@@ -84,7 +84,7 @@ jest.mock('expo-router', () => {
 });
 
 /**
- * The menu un-narrowed. Discover and `/meals` show only the Frozen shelf for now
+ * The menu un-narrowed. Discover and `/meals` show only the shown shelves
  * (`catalogue/shown-shelves.ts`, tested there); these tests describe the whole menu, which is what
  * comes back when that narrowing is lifted.
  */
