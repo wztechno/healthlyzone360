@@ -266,7 +266,7 @@ final readonly class MarketplaceKitchens
             }
         }
 
-        $windowCodesByZone = $this->zoneWindows->offeredCodesByZone(array_map('strval', $zones->modelKeys()));
+        $windowCodesByZone = $this->zoneWindows->offeredCodesByZone(array_values(array_map('strval', $zones->modelKeys())));
 
         $byBranch = [];
 

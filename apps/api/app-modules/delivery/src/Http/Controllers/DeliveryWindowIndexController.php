@@ -38,7 +38,7 @@ final class DeliveryWindowIndexController
             ->get();
 
         // Which zones offer each window — one query for the whole list.
-        $zoneIds = $this->zoneWindows->zoneIdsByWindow($windows->map(static fn (DeliveryWindow $window): string => (string) $window->getKey())->all());
+        $zoneIds = $this->zoneWindows->zoneIdsByWindow(array_values($windows->map(static fn (DeliveryWindow $window): string => (string) $window->getKey())->all()));
 
         return ApiResponse::data(
             $windows->map(fn (DeliveryWindow $window): array => $this->presenter->window($window, $zoneIds[(string) $window->getKey()] ?? []))->all(),
