@@ -55,7 +55,7 @@ final class MarketplaceKitchenPresenter
     /**
      * @param  list<string>  $dietClassifications
      * @param  array{b2c: bool, b2b: bool, marketplace: bool, pos: bool, subscription: bool, delivery: bool, pickup: bool, corporate: bool}  $channels
-     * @param  list<array{branch: OrganisationBranch, zones: list<array{zone: DeliveryZone, areas: list<DeliveryArea>}>, hours: list<BranchOpeningHour>}>  $branches
+     * @param  list<array{branch: OrganisationBranch, zones: list<array{zone: DeliveryZone, areas: list<DeliveryArea>, window_codes: list<string>}>, hours: list<BranchOpeningHour>}>  $branches
      * @param  list<DeliveryWindow>  $windows
      * @return array<string, mixed>
      */

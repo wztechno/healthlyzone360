@@ -51,7 +51,7 @@ import { focusField } from '../field-focus.ts';
 import { displayName } from '../format.ts';
 import { ChoiceTiles } from '../choice-tiles.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
-import { purchaseOrderStatusKey, stockItemLabel } from '../ops-format.ts';
+import { purchaseOrderStatusKey } from '../ops-format.ts';
 import {
     StockItemLineEditor,
     emptyStockItemLine,
@@ -82,7 +82,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * ┌ RECEIPT ───────────────────────────────────────────┐  │ Total        318.30 USD   │
  * │ Supplier [ BEQAA — Beqaa Fresh ▾ ]  Delivery note [ ] │ ─────────────────────────  │
  * │ + New supplier                                      │  │ Stock at Beirut rises by │
- * │ Invoice number [ Not arrived yet ]  Date received [ ] │ Chicken breast   +24 kg  │
+ * │ Invoice number [ Not arrived yet ]  Date received [ ] │ Chicken breast   +24 Kg  │
  * └────────────────────────────────────────────────────┘  │ ⚠ 1 line has no price…   │
  * ┌ LINES  3 lines · 1 without a price ─────────────────┐  │ ─────────────────────────  │
  * │ Stock item   Quantity  Unit  Unit price  Line total │  └──────────────────────────┘
@@ -118,6 +118,10 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * button could not: it only says *no*, never *why*. A price is not one of those things. A line with
  * no price posts and waits in Prices to finish, and the aside says so while there is one.
  *
+ * What is *incomplete* waits for the press; what is *wrong* does not. A quantity typed as `-5` or a
+ * price that does not read is marked the moment it is typed, in the slot under the field, because
+ * there is nothing left to wait for — the reader has already said the wrong thing.
+ *
  * ## Costs
  *
  * Prices are booked in {@link RECEIPT_CURRENCY} and the form offers no way to change that; the price
@@ -128,13 +132,12 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  */
 
 /**
- * The dimensions the server's `UnitConversionService` can convert *between different units* within
- * (INV1.0) — mass and volume carry real `base_ratio` factors; `count`, `serving`, `package`,
- * `energy` and `length` carry an identity 1 and only the same-unit identity converts. Offering a
- * second unit inside a non-convertible dimension would post a receipt the server must reject, so the
- * picker offers alternatives only inside these two.
+ * A unit code as this page shows it: `Kg`, `L`, `Piece`. The codes are lower case on the wire
+ * (`kg`, `l`), and a lone lower-case `l` beside a figure reads as a `1`.
  */
-const CONVERTIBLE_DIMENSIONS: ReadonlySet<string> = new Set(['mass', 'volume']);
+function unitDisplay(code: string): string {
+    return code === '' ? '' : `${code.charAt(0).toLocaleUpperCase()}${code.slice(1)}`;
+}
 
 /**
  * The one currency a goods receipt's prices are booked in.
@@ -303,9 +306,8 @@ function PostReceipt() {
     const formatAmount = (amount: number) =>
         formatter.formatNumber(amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    // Unit reference, indexed so the line editor can resolve a stock item's own unit and offer only
-    // the units in its dimension. A stock item names its unit by code; the reference gives that
-    // code an id and a dimension.
+    // Unit reference, indexed so the line editor can resolve a stock item's own unit. A stock item
+    // names its unit by code; the reference gives that code an id.
     const unitByCode = useMemo(() => {
         const map = new Map<string, MeasurementUnitOption>();
         for (const unit of referenceData?.measurementUnits ?? []) map.set(unit.code, unit);
@@ -337,20 +339,20 @@ function PostReceipt() {
         return unitByCode.get(code)?.id ?? null;
     }
 
+    /*
+     * The item's own unit and nothing else. A kilogram shelf is received in kilograms, a litre one in
+     * litres: offering grams, millilitres or tablespoons beside them only invited a quantity typed in
+     * one unit and read in another. With the one option the picker stays disabled, still reading it.
+     */
     function unitOptionsForItem(stockItemId: string | null): readonly SelectOption<string>[] {
         const code = itemOwnUnitCode(stockItemId);
         const own = code === null ? undefined : unitByCode.get(code);
         if (own === undefined) return [];
-        if (!CONVERTIBLE_DIMENSIONS.has(own.dimension)) {
-            return [{ value: own.id, label: own.code }];
-        }
-        return (referenceData?.measurementUnits ?? [])
-            .filter((unit) => unit.dimension === own.dimension)
-            .map((unit) => ({ value: unit.id, label: unit.code }));
+        return [{ value: own.id, label: unitDisplay(own.code) }];
     }
 
-    /** A human unit label — the resolved unit's code, or the item's own. */
-    function unitLabelFor(stockItemId: string | null, unitId: string | null): string {
+    /** The resolved unit's code, or the item's own — as the wire spells it, for comparing. */
+    function unitCodeFor(stockItemId: string | null, unitId: string | null): string {
         if (unitId !== null) {
             const code = unitById.get(unitId);
             if (code !== undefined) return code;
@@ -358,19 +360,32 @@ function PostReceipt() {
         return itemOwnUnitCode(stockItemId) ?? '';
     }
 
+    /** The same unit as the reader sees it. */
+    function unitLabelFor(stockItemId: string | null, unitId: string | null): string {
+        return unitDisplay(unitCodeFor(stockItemId, unitId));
+    }
+
     /*
      * Mapped in the order the server gave them and **never re-sorted** (INV2.0). Every ingredient in
      * the library has a shelf, so this picker is hundreds of rows long, and the server ranks the
      * ones this kitchen actually holds or has ever moved to the top. The type-ahead handles the tail.
+     *
+     * Labelled by name alone: the code is the name's slug, so `chicken-breast — Chicken breast`
+     * said it twice. Two shelves can still share a name, and only those carry the code, on the
+     * option's second line, where it tells them apart without doubling everybody else's.
      */
-    const stockItemOptions = useMemo(
-        () =>
-            (stockItems.data ?? []).map((item) => ({
-                value: String(item.id),
-                label: stockItemLabel(item),
-            })),
-        [stockItems.data],
-    );
+    const stockItemOptions = useMemo(() => {
+        const rows = stockItems.data ?? [];
+        const nameCount = new Map<string, number>();
+        for (const item of rows) {
+            nameCount.set(item.nameEn, (nameCount.get(item.nameEn) ?? 0) + 1);
+        }
+        return rows.map((item) => ({
+            value: String(item.id),
+            label: item.nameEn,
+            ...((nameCount.get(item.nameEn) ?? 0) > 1 ? { description: item.code } : {}),
+        }));
+    }, [stockItems.data]);
 
     /*
      * What each chosen item last cost, for the note under its price. Asked for the picked items
@@ -416,7 +431,7 @@ function PostReceipt() {
             typed !== null &&
             !foreign &&
             lastPrice > 0 &&
-            lastUnit === unitLabelFor(line.stockItemId, line.unitId ?? null);
+            lastUnit === unitCodeFor(line.stockItemId, line.unitId ?? null);
         if (comparable) {
             const change = (typed - lastPrice) / lastPrice;
             if (Math.abs(change) >= PRICE_CHANGE_FLAG) {
@@ -434,7 +449,10 @@ function PostReceipt() {
             }
         }
         return {
-            text: t('kitchen:ops.procurement.lastPaid', { price: lastText, unit: lastUnit }),
+            text: t('kitchen:ops.procurement.lastPaid', {
+                price: lastText,
+                unit: unitDisplay(lastUnit),
+            }),
             tone: 'secondary',
         };
     }
@@ -484,6 +502,10 @@ function PostReceipt() {
     const receivedInFuture = receivedOn.trim() !== '' && receivedOn > todayIsoDate();
 
     const lineIssues = new Map<string, Partial<Record<StockItemLineField, string>>>();
+    // What is wrong with what has been *typed* — a negative quantity, a price the server would
+    // refuse — is marked as it is typed, not on Post: there is nothing to wait for. A field still
+    // blank is only incomplete, and waits for Post like the rest of the form.
+    const liveLineIssues = new Map<string, Partial<Record<StockItemLineField, string>>>();
     const issues: ReceiptIssue[] = [];
     if (orderMode && order === null) {
         issues.push({
@@ -496,21 +518,39 @@ function PostReceipt() {
         issues.push({ key: 'lines', label: t('kitchen:ops.procurement.issueNoLines') });
     }
     lines.forEach((line, index) => {
-        if (stockItemLineWellFormed(line)) return;
-        const missing: StockItemLineField[] = [];
-        if (line.stockItemId === null) missing.push('item');
-        if (!((readQuantity(line.quantity) ?? 0) > 0)) missing.push('quantity');
+        const quantityTyped = line.quantity.trim() !== '';
+        const quantityBad = !((readQuantity(line.quantity) ?? 0) > 0);
+        // A price is optional — blank posts and waits in Prices — but a typed one has to read.
+        const priceBad =
+            canViewCosts &&
+            (line.unitPrice ?? '').trim() !== '' &&
+            readAmount(line.unitPrice ?? '') === null;
+
+        const live: Partial<Record<StockItemLineField, string>> = {
+            ...(quantityTyped && quantityBad
+                ? { quantity: t('kitchen:ops.procurement.lineQuantityInvalid') }
+                : {}),
+            ...(priceBad ? { unitPrice: t('kitchen:ops.procurement.lineUnitPriceInvalid') } : {}),
+        };
+        if (Object.keys(live).length > 0) liveLineIssues.set(line.key, live);
+
+        const wrong: StockItemLineField[] = [];
+        if (line.stockItemId === null) wrong.push('item');
+        if (quantityBad) wrong.push('quantity');
+        if (priceBad) wrong.push('unitPrice');
+        if (wrong.length === 0) return;
         lineIssues.set(line.key, {
-            ...(missing.includes('item')
+            ...live,
+            ...(wrong.includes('item')
                 ? { item: t('kitchen:ops.procurement.lineItemMissing') }
                 : {}),
-            ...(missing.includes('quantity')
+            ...(wrong.includes('quantity') && !quantityTyped
                 ? { quantity: t('kitchen:ops.procurement.lineQuantityMissing') }
                 : {}),
         });
-        // A chip per field rather than per line: a chip stands for one field, takes the reader to
-        // it, and is what lets that field drop its own message while the banner says it.
-        for (const field of missing) {
+        // A chip per field rather than per line: a chip stands for one field and takes the reader
+        // to it.
+        for (const field of wrong) {
             issues.push({
                 key: `line-${line.key}-${field}`,
                 label: t('kitchen:ops.procurement.issueLine', {
@@ -518,7 +558,9 @@ function PostReceipt() {
                     fields: t(
                         field === 'item'
                             ? 'kitchen:ops.procurement.issueFieldItem'
-                            : 'kitchen:ops.procurement.issueFieldQuantity',
+                            : field === 'quantity'
+                              ? 'kitchen:ops.procurement.issueFieldQuantity'
+                              : 'kitchen:ops.procurement.issueFieldUnitPrice',
                     ),
                 }),
                 fieldId: stockItemLineFieldId(LINES_ID, line.key, field),
@@ -544,7 +586,7 @@ function PostReceipt() {
     }
 
     const shownIssues = submitted ? issues : [];
-    const shownLineIssues = submitted ? lineIssues : undefined;
+    const shownLineIssues = submitted ? lineIssues : liveLineIssues;
     const postFailure = toFailure(postReceipt.error);
 
     // The aside's figures.

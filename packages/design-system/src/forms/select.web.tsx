@@ -1,20 +1,16 @@
-import { useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-    Pressable,
-    ScrollView,
-    Text as RNText,
-    TextInput as RNTextInput,
-    View,
-} from 'react-native';
+import { Pressable, ScrollView, Text as RNText, View } from 'react-native';
 
 import { useDensity } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
+import { webRole } from '../internal/web-props.ts';
 import { Dropdown } from '../overlays/dropdown.tsx';
 import { FormField, REQUIRED_MARK } from './form-field.tsx';
 import type { FieldControlProps } from './form-field.tsx';
-import { inputControlClass, inputFrameClassName } from './text-input.tsx';
+import { SearchInput } from './search-input.tsx';
+import { inputFrameClassName } from './text-input.tsx';
 import { optionMatches } from './select-shared.ts';
 import type { SelectOption, SelectProps } from './select-shared.ts';
 
@@ -35,31 +31,38 @@ export type { SelectOption, SelectProps } from './select-shared.ts';
  * while you choose the value for it. Chaining four of them down a form is four modal round trips for
  * four one-word answers. The panel below the field costs none of that.
  *
- * ## `searchable` types into the field, not into a second field
+ * ## `searchable` puts the filter in the panel, not in the field
  *
- * The first pass put a labelled "Search" input *inside* the panel with a result count under it.
- * That is three controls for one decision: press the field, move to the filter, then pick. §5 asks
- * for one — "28px input; typing filters" — so when `searchable` the trigger **is** the input. It
- * shows the chosen option's label at rest, clears to the placeholder on focus, filters as you type,
- * and restores the label on blur. Nothing is typed that is not a filter, so there is no partial
- * value to reconcile: the value only ever changes by choosing an option.
+ * Every `Select` has the same trigger: a button that shows the chosen option and opens the panel.
+ * A `searchable` one adds a search box at the top of that panel, focused as it opens, with the
+ * options under it — the shape the native half already has.
  *
- * A non-searchable `Select` keeps the plain button trigger. Six fixed options do not need a filter,
- * and a text cursor on a field that ignores text is a worse lie than no cursor.
+ * It used to be the other way round: the trigger *was* the input, cleared to its placeholder on
+ * focus and filtered as you typed. That made one kind of `Select` look and behave unlike every
+ * other, put a text cursor in a field whose value can only be chosen, and showed a half-typed query
+ * where the chosen value belonged. A field that always reads as its value, and a filter that lives
+ * where the options are, is one control for each job.
+ *
+ * Typing goes straight into the box, so the keyboard path is still press → type → Enter: Enter takes
+ * the first option still showing, Tab walks the options, Escape closes. The query belongs to the
+ * open panel and is gone when it closes, however it closed.
+ *
+ * A non-searchable `Select` has no box. Six fixed options do not need a filter.
  *
  * ## Still not an ARIA combobox
  *
- * Even with the input it is not one, and deliberately: this is a text field that filters a `listbox`
- * of `option`s, with `Dropdown` supplying `aria-expanded`, `aria-controls` and `aria-haspopup` and
- * owning dismissal, the outside-press swallow and the edge flip. A real combobox adds
- * `aria-activedescendant` tracking and an owned-element contract that is easy to get subtly wrong
- * and that axe reports as serious on every slip — and none of it maps onto React Native, so the two
- * halves would drift.
+ * Deliberately: a searchable panel is a `dialog` holding two independent, individually valid widgets
+ * — a labelled search box and the `listbox` of `option`s under it — with `Dropdown` supplying
+ * `aria-expanded`, `aria-controls` and `aria-haspopup` and owning dismissal, the outside-press
+ * swallow and the edge flip. A real combobox adds `aria-activedescendant` tracking and an
+ * owned-element contract that is easy to get subtly wrong and that axe reports as serious on every
+ * slip — and none of it maps onto React Native, so the two halves would drift. The count under the
+ * box is a polite live region, as on native: filtering silently shortens the list.
  *
- * `aria-required` is absent from the button trigger even when the field is required: ARIA 1.2 does
- * not allow it on `role="button"` and axe reports it as an `aria-allowed-attr` critical.
- * Required-ness travels the way `FormField` sends it — the visible `*` beside the label, and the
- * same mark inside the trigger's accessible name.
+ * `aria-required` is absent from the trigger even when the field is required: ARIA 1.2 does not
+ * allow it on `role="button"` and axe reports it as an `aria-allowed-attr` critical. Required-ness
+ * travels the way `FormField` sends it — the visible `*` beside the label, and the same mark inside
+ * the trigger's accessible name.
  */
 
 export function Select<T extends string = string>({
@@ -82,8 +85,9 @@ export function Select<T extends string = string>({
 }: SelectProps<T>) {
     const { t } = useTranslation();
     const density = useDensity();
-    const [query, setQuery] = useState<string | null>(null);
-    const input = useRef<RNTextInput | null>(null);
+    const [query, setQuery] = useState('');
+    const trigger = useRef<View | null>(null);
+    const searchId = `select-search-${useId().replace(/:/g, '')}`;
 
     const size = sizeProp ?? (density === 'compact' ? 'sm' : 'md');
     const selected = options.find((option) => option.value === value) ?? null;
@@ -92,13 +96,114 @@ export function Select<T extends string = string>({
         ? `${label} ${REQUIRED_MARK}: ${displayText}`
         : `${label}: ${displayText}`;
 
-    // `null` is "not typing" — the field shows the chosen label. `''` is "typing, nothing entered
-    // yet", which shows the placeholder and filters nothing. Collapsing the two would make the
-    // field clear itself the moment it was focused and never say what was already chosen.
-    const typing = query !== null;
-    const needle = (query ?? '').trim().toLocaleLowerCase();
-    const filtering = searchable && typing && needle.length > 0;
+    const needle = query.trim().toLocaleLowerCase();
+    const filtering = searchable && needle.length > 0;
     const visible = filtering ? options.filter((option) => optionMatches(option, needle)) : options;
+    const statusText = !filtering
+        ? ''
+        : visible.length === 0
+          ? t('designSystem:select.noResults')
+          : t('designSystem:select.searchResults', { count: visible.length });
+
+    const textClass = density === 'compact' ? 'text-role-body' : 'text-base';
+
+    /** Picks, closes, and hands focus back to the field — the panel it was in is gone. */
+    const choose = (option: SelectOption<T>, close: () => void) => {
+        onChange(option.value);
+        setQuery('');
+        close();
+        trigger.current?.focus();
+    };
+
+    const optionRows = (close: () => void) => (
+        <>
+            {visible.length > 0 ? null : (
+                <RNText
+                    {...(testID === undefined ? {} : { testID: `${testID}-no-results` })}
+                    className={cx(
+                        'px-control-md py-tight text-content-secondary text-start',
+                        density === 'compact' ? 'text-role-body' : 'text-sm',
+                    )}
+                >
+                    {t('designSystem:select.noResults')}
+                </RNText>
+            )}
+
+            {visible.map((option: SelectOption<T>) => {
+                const isSelected = option.value === value;
+                return (
+                    <Pressable
+                        key={option.value}
+                        {...(testID === undefined
+                            ? {}
+                            : { testID: `${testID}-option-${option.value}` })}
+                        role="option"
+                        // `option` is outside React Native's `Role` union, so the native side takes
+                        // `none` and the web `role` above is what the listbox actually owns.
+                        accessibilityRole="none"
+                        accessibilityLabel={option.label}
+                        aria-label={option.label}
+                        aria-selected={isSelected}
+                        accessibilityState={{
+                            selected: isSelected,
+                            disabled: option.disabled === true,
+                        }}
+                        aria-disabled={option.disabled === true}
+                        focusable={option.disabled !== true}
+                        disabled={option.disabled === true}
+                        onPress={() => {
+                            choose(option, close);
+                        }}
+                        className={cx(
+                            'flex-row items-center gap-control-sm px-control-md',
+                            // §5's 28px rows, as a floor: an option with a description is two
+                            // lines and must not be clipped.
+                            density === 'compact' ? 'min-h-control-sm py-hair' : 'min-h-touch py-2',
+                            // The row under the pointer or the keyboard is lit, so the reader sees
+                            // which one a press or Enter will take — the chosen one keeps its brand
+                            // tint over it.
+                            isSelected
+                                ? 'bg-surface-brand-subtle'
+                                : option.disabled === true
+                                  ? null
+                                  : 'hover:bg-surface-sunken focus:bg-surface-sunken',
+                            option.disabled === true ? 'opacity-50' : null,
+                        )}
+                    >
+                        {/* Fixed, so labels align whether or not one is ticked. */}
+                        <View className="w-icon-md">
+                            {isSelected ? (
+                                <Icon
+                                    name="check"
+                                    size="sm"
+                                    className="text-content-on-brand-subtle"
+                                />
+                            ) : null}
+                        </View>
+                        <View className="min-w-0 flex-1 flex-col">
+                            <RNText
+                                className={cx('text-content-primary text-start', textClass)}
+                                numberOfLines={1}
+                            >
+                                {option.label}
+                            </RNText>
+                            {option.description === undefined ? null : (
+                                <RNText
+                                    className={cx(
+                                        'text-content-secondary text-start',
+                                        density === 'compact' ? 'text-role-caption' : 'text-xs',
+                                    )}
+                                    numberOfLines={1}
+                                >
+                                    {option.description}
+                                </RNText>
+                            )}
+                        </View>
+                    </Pressable>
+                );
+            })}
+        </>
+    );
 
     return (
         <FormField
@@ -115,7 +220,7 @@ export function Select<T extends string = string>({
         >
             {(control: FieldControlProps) => (
                 <Dropdown
-                    role="listbox"
+                    role={searchable ? 'dialog' : 'listbox'}
                     label={label}
                     align="start"
                     {...(testID === undefined ? {} : { testID: `${testID}-list` })}
@@ -124,270 +229,147 @@ export function Select<T extends string = string>({
                     // a tooltip that happened to appear nearby. The field's width is the panel's.
                     panelClassName="w-full max-h-[320px] overflow-hidden"
                     /*
-                     * A closed panel has no query, whatever closed it.
-                     *
-                     * Resetting on `onBlur` alone was not enough: the panel also closes on an
-                     * outside press, on Escape and on choosing an option, and at least one of those
-                     * paths does not blur the input — which left `zzz` sitting in a field whose
-                     * value was still `Kilograms (kg)`, and no way to tell from looking. One
-                     * notification covers every route.
-                     *
-                     * This used to derive it inside `trigger` instead — `if (!open) setQuery(null)`
-                     * — on the grounds that adjusting state during render is React's sanctioned way
-                     * to derive from a prop. It is, but only for a component's *own* render. The
-                     * trigger render prop runs inside `Dropdown`'s render, so that line wrote
-                     * `Select` state while `Dropdown` was rendering and React reported it as a
-                     * cross-component update. The rule that does hold here is the ordinary one: a
-                     * state change belongs in an effect or a handler, and `onOpenChange` is both.
+                     * A closed panel has no query, whatever closed it — an outside press, Escape or
+                     * a choice. `onOpenChange` is the one notification that covers every route, and
+                     * it fires after commit, so setting state from it is not a cross-component
+                     * update during `Dropdown`'s render.
                      */
                     onOpenChange={(next) => {
-                        if (!next) setQuery(null);
+                        if (!next) setQuery('');
                     }}
-                    trigger={({ triggerProps, toggle, close, open }) => {
-                        const frame = inputFrameClassName({
-                            invalid: error !== undefined,
-                            caution: error === undefined && warning !== undefined,
-                            focused: open,
-                            disabled,
-                            density,
-                            size,
-                        });
-
-                        if (!searchable) {
-                            return (
-                                <Pressable
-                                    {...(testID === undefined
-                                        ? {}
-                                        : { testID: `${testID}-trigger` })}
-                                    nativeID={control.nativeID}
-                                    role="button"
-                                    accessibilityRole="button"
-                                    aria-labelledby={control['aria-labelledby']}
-                                    accessibilityLabel={accessibleName}
-                                    aria-label={accessibleName}
-                                    {...(control['aria-describedby'] === undefined
-                                        ? {}
-                                        : { 'aria-describedby': control['aria-describedby'] })}
-                                    aria-invalid={control['aria-invalid']}
-                                    {...triggerProps}
-                                    // After `triggerProps`, which carries `expanded` alone — the
-                                    // disabled state has to survive the merge.
-                                    accessibilityState={{ disabled, expanded: open }}
-                                    aria-disabled={disabled}
-                                    focusable={!disabled}
-                                    disabled={disabled}
-                                    onPress={toggle}
-                                    className={frame}
-                                >
+                    trigger={({ triggerProps, toggle, open }) => (
+                        <Pressable
+                            ref={trigger}
+                            {...(testID === undefined ? {} : { testID: `${testID}-trigger` })}
+                            nativeID={control.nativeID}
+                            role="button"
+                            accessibilityRole="button"
+                            aria-labelledby={control['aria-labelledby']}
+                            accessibilityLabel={accessibleName}
+                            aria-label={accessibleName}
+                            {...(control['aria-describedby'] === undefined
+                                ? {}
+                                : { 'aria-describedby': control['aria-describedby'] })}
+                            aria-invalid={control['aria-invalid']}
+                            {...triggerProps}
+                            // After `triggerProps`, which carries `expanded` alone — the disabled
+                            // state has to survive the merge.
+                            accessibilityState={{ disabled, expanded: open }}
+                            aria-disabled={disabled}
+                            focusable={!disabled}
+                            disabled={disabled}
+                            onPress={toggle}
+                            className={inputFrameClassName({
+                                invalid: error !== undefined,
+                                caution: error === undefined && warning !== undefined,
+                                focused: open,
+                                disabled,
+                                density,
+                                size,
+                            })}
+                        >
+                            <RNText
+                                {...(testID === undefined ? {} : { testID: `${testID}-value` })}
+                                className={cx(
+                                    'flex-1 text-start',
+                                    textClass,
+                                    selected === null
+                                        ? 'text-content-secondary'
+                                        : 'text-content-primary',
+                                )}
+                                numberOfLines={1}
+                            >
+                                {displayText}
+                            </RNText>
+                            <Icon name="chevronDown" size="sm" className="text-content-secondary" />
+                        </Pressable>
+                    )}
+                >
+                    {({ close }) =>
+                        !searchable ? (
+                            <ScrollView keyboardShouldPersistTaps="handled">
+                                {optionRows(close)}
+                            </ScrollView>
+                        ) : (
+                            <>
+                                {/* Pinned over the list: the box stays put while the list scrolls. */}
+                                <View className="shrink-0 border-b border-stroke-subtle p-tight">
+                                    <SearchInput
+                                        {...(testID === undefined
+                                            ? {}
+                                            : { testID: `${testID}-search` })}
+                                        label={t('designSystem:select.searchLabel')}
+                                        placeholder={t('designSystem:select.searchPlaceholder')}
+                                        size="xs"
+                                        nativeID={searchId}
+                                        value={query}
+                                        onChangeText={setQuery}
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                        onSubmitEditing={() => {
+                                            const first = visible.find(
+                                                (option) => option.disabled !== true,
+                                            );
+                                            if (first !== undefined) choose(first, close);
+                                        }}
+                                        onKeyPress={({ nativeEvent }) => {
+                                            // `Dropdown` closes on Escape; the field takes the
+                                            // focus back so the next Tab carries on from it.
+                                            if (nativeEvent.key === 'Escape') {
+                                                trigger.current?.focus();
+                                            }
+                                        }}
+                                    />
                                     <RNText
                                         {...(testID === undefined
                                             ? {}
-                                            : { testID: `${testID}-value` })}
-                                        className={cx(
-                                            'flex-1 text-start',
-                                            density === 'compact' ? 'text-role-body' : 'text-base',
-                                            selected === null
-                                                ? 'text-content-secondary'
-                                                : 'text-content-primary',
-                                        )}
-                                        numberOfLines={1}
+                                            : { testID: `${testID}-search-status` })}
+                                        role="status"
+                                        aria-live="polite"
+                                        accessibilityLiveRegion="polite"
+                                        // Spoken, not drawn: the list shrinking under the box is
+                                        // what a sighted reader sees, and the empty row says so
+                                        // when nothing is left.
+                                        className="absolute h-px w-px overflow-hidden opacity-0"
                                     >
-                                        {displayText}
+                                        {statusText}
                                     </RNText>
-                                    <Icon
-                                        name="chevronDown"
-                                        size="sm"
-                                        className="text-content-secondary"
-                                    />
-                                </Pressable>
-                            );
-                        }
-
-                        return (
-                            <View className={frame}>
-                                <RNTextInput
-                                    ref={input}
-                                    {...(testID === undefined
-                                        ? {}
-                                        : { testID: `${testID}-trigger` })}
-                                    nativeID={control.nativeID}
-                                    aria-labelledby={control['aria-labelledby']}
-                                    accessibilityLabel={accessibleName}
-                                    aria-label={accessibleName}
-                                    {...(control['aria-describedby'] === undefined
-                                        ? {}
-                                        : { 'aria-describedby': control['aria-describedby'] })}
-                                    aria-invalid={control['aria-invalid']}
-                                    {...triggerProps}
-                                    accessibilityState={{ disabled, expanded: open }}
-                                    aria-disabled={disabled}
-                                    editable={!disabled}
-                                    // `open` and not `typing` alone: the reset above lands in an
-                                    // effect, one commit after the panel closes, and without this
-                                    // the field would paint the dead query for that frame.
-                                    value={typing && open ? (query ?? '') : displayText}
-                                    placeholder={placeholder ?? displayText}
-                                    inputMode="search"
-                                    autoCapitalize="none"
-                                    autoCorrect={false}
-                                    onFocus={() => {
-                                        setQuery('');
-                                        if (!open) toggle();
-                                    }}
-                                    onBlur={() => {
-                                        setQuery(null);
-                                    }}
-                                    onChangeText={(next) => {
-                                        setQuery(next);
-                                        if (!open) toggle();
-                                    }}
-                                    onKeyPress={({ nativeEvent }) => {
-                                        if (nativeEvent.key !== 'Escape') return;
-                                        setQuery(null);
-                                        close();
-                                    }}
-                                    className={cx(
-                                        inputControlClass(density),
-                                        // At rest the field is showing a *value*, so it is inked
-                                        // like one; while filtering it is showing a query.
-                                        selected === null && !(typing && open)
-                                            ? 'text-content-secondary'
-                                            : null,
-                                    )}
-                                    style={{ textAlign: 'auto' }}
-                                />
-                                <Pressable
-                                    {...(testID === undefined
-                                        ? {}
-                                        : { testID: `${testID}-toggle` })}
-                                    // Decorative: the input beside it already carries the field's
-                                    // name, its expanded state and its describedby chain, and a
-                                    // second focus stop announcing the same field twice is noise on
-                                    // a form of twelve of them.
-                                    accessibilityElementsHidden
-                                    aria-hidden
-                                    focusable={false}
-                                    disabled={disabled}
-                                    onPress={() => {
-                                        input.current?.focus();
-                                        if (!open) toggle();
-                                    }}
+                                    <FocusWhenPlaced targetId={searchId} />
+                                </View>
+                                <ScrollView
+                                    keyboardShouldPersistTaps="handled"
+                                    className="min-h-0 shrink"
                                 >
-                                    <Icon
-                                        name="chevronDown"
-                                        size="sm"
-                                        className="text-content-secondary"
-                                    />
-                                </Pressable>
-                            </View>
-                        );
-                    }}
-                >
-                    {({ close }) => (
-                        <ScrollView keyboardShouldPersistTaps="handled">
-                            {visible.length > 0 ? null : (
-                                <RNText
-                                    {...(testID === undefined
-                                        ? {}
-                                        : { testID: `${testID}-no-results` })}
-                                    className={cx(
-                                        'px-control-md py-tight text-content-secondary text-start',
-                                        density === 'compact' ? 'text-role-body' : 'text-sm',
-                                    )}
-                                >
-                                    {t('designSystem:select.noResults')}
-                                </RNText>
-                            )}
-
-                            {visible.map((option: SelectOption<T>) => {
-                                const isSelected = option.value === value;
-                                return (
-                                    <Pressable
-                                        key={option.value}
-                                        {...(testID === undefined
-                                            ? {}
-                                            : { testID: `${testID}-option-${option.value}` })}
-                                        role="option"
-                                        // `option` is outside React Native's `Role` union, so the
-                                        // native side takes `none` and the web `role` above is what
-                                        // the listbox actually owns.
-                                        accessibilityRole="none"
-                                        accessibilityLabel={option.label}
-                                        aria-label={option.label}
-                                        aria-selected={isSelected}
-                                        accessibilityState={{
-                                            selected: isSelected,
-                                            disabled: option.disabled === true,
-                                        }}
-                                        aria-disabled={option.disabled === true}
-                                        focusable={option.disabled !== true}
-                                        disabled={option.disabled === true}
-                                        onPress={() => {
-                                            onChange(option.value);
-                                            setQuery(null);
-                                            close();
-                                        }}
-                                        className={cx(
-                                            'flex-row items-center gap-control-sm px-control-md',
-                                            // §5's 28px rows, as a floor: an option with a
-                                            // description is two lines and must not be clipped.
-                                            density === 'compact'
-                                                ? 'min-h-control-sm py-hair'
-                                                : 'min-h-touch py-2',
-                                            // The row under the pointer or the keyboard is lit, so
-                                            // the reader sees which one a press or Enter will take
-                                            // — the chosen one keeps its brand tint over it.
-                                            isSelected
-                                                ? 'bg-surface-brand-subtle'
-                                                : option.disabled === true
-                                                  ? null
-                                                  : 'hover:bg-surface-sunken focus:bg-surface-sunken',
-                                            option.disabled === true ? 'opacity-50' : null,
-                                        )}
-                                    >
-                                        {/* Fixed, so labels align whether or not one is ticked. */}
-                                        <View className="w-icon-md">
-                                            {isSelected ? (
-                                                <Icon
-                                                    name="check"
-                                                    size="sm"
-                                                    className="text-content-on-brand-subtle"
-                                                />
-                                            ) : null}
-                                        </View>
-                                        <View className="min-w-0 flex-1 flex-col">
-                                            <RNText
-                                                className={cx(
-                                                    'text-content-primary text-start',
-                                                    density === 'compact'
-                                                        ? 'text-role-body'
-                                                        : 'text-base',
-                                                )}
-                                                numberOfLines={1}
-                                            >
-                                                {option.label}
-                                            </RNText>
-                                            {option.description === undefined ? null : (
-                                                <RNText
-                                                    className={cx(
-                                                        'text-content-secondary text-start',
-                                                        density === 'compact'
-                                                            ? 'text-role-caption'
-                                                            : 'text-xs',
-                                                    )}
-                                                    numberOfLines={1}
-                                                >
-                                                    {option.description}
-                                                </RNText>
-                                            )}
-                                        </View>
-                                    </Pressable>
-                                );
-                            })}
-                        </ScrollView>
-                    )}
+                                    <View {...webRole('listbox')} aria-label={label}>
+                                        {optionRows(close)}
+                                    </View>
+                                </ScrollView>
+                            </>
+                        )
+                    }
                 </Dropdown>
             )}
         </FormField>
     );
+}
+
+/**
+ * Moves focus into the search box once the panel can take it.
+ *
+ * Not `autoFocus`, and not a plain effect: the lifted panel mounts `visibility: hidden` and is shown
+ * by the placement its layer sets in a layout effect (`anchored-layer.web.tsx`), and a hidden input
+ * refuses focus. That placement re-renders synchronously, after this component's passive effect has
+ * already run, so the focus waits one task — by then the panel is visible. A timer rather than an
+ * animation frame, which a browser does not run for a tab in the background.
+ */
+function FocusWhenPlaced({ targetId }: { readonly targetId: string }) {
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            document.getElementById(targetId)?.focus();
+        }, 0);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, [targetId]);
+    return null;
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { TextInput as RNTextInput, View } from 'react-native';
+import { Platform, TextInput as RNTextInput, View } from 'react-native';
 import type { TextInputProps as RNTextInputProps } from 'react-native';
 
 import { neutral } from '@healthy360/design-tokens';
@@ -8,7 +8,7 @@ import { neutral } from '@healthy360/design-tokens';
 import { useDensity } from '../hooks/use-density.tsx';
 import type { Density } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
-import { FormField } from './form-field.tsx';
+import { FormField, NUMBER_MAX_LENGTH } from './form-field.tsx';
 import type { FieldControlProps } from './form-field.tsx';
 import type { GridSpanProps } from '../primitives/grid-shared.ts';
 
@@ -216,6 +216,14 @@ export function TextInputField({
 }: TextInputFieldProps) {
     const [focused, setFocused] = useState(false);
     const density = useDensity();
+    // A field that asks for a number is drawn as one — capped at the half track. The keyboard it
+    // asks for is the signal, so every numeric call site gets the cap without opting in.
+    const numeric =
+        rest.inputMode === 'numeric' ||
+        rest.inputMode === 'decimal' ||
+        rest.keyboardType === 'numeric' ||
+        rest.keyboardType === 'decimal-pad' ||
+        rest.keyboardType === 'number-pad';
 
     return (
         <FormField
@@ -226,6 +234,7 @@ export function TextInputField({
             warning={warning}
             required={required}
             disabled={disabled}
+            numeric={numeric}
             id={id}
             className={className}
             testID={testID}
@@ -245,6 +254,11 @@ export function TextInputField({
                 >
                     <RNTextInput
                         {...rest}
+                        // A number field takes a number's worth of characters (`NUMBER_MAX_LENGTH`)
+                        // unless the caller says otherwise.
+                        {...(numeric && rest.maxLength === undefined
+                            ? { maxLength: NUMBER_MAX_LENGTH }
+                            : {})}
                         {...control}
                         testID={testID === undefined ? undefined : `${testID}-input`}
                         editable={!disabled}
@@ -254,7 +268,12 @@ export function TextInputField({
                         placeholderTextColor={neutral[600]}
                         // `textAlignVertical` only matters once the box is taller than one line,
                         // and without it Android centres a paragraph inside its own frame.
+                        // `width: 0` on the web: a DOM <input> otherwise brings its default
+                        // ~20-character width as a floor, so a field in a narrow table cell (the
+                        // opening-hours times) grew past its cell over its neighbour. It flexes to
+                        // the frame instead, which takes its width from the layout around it.
                         style={{
+                            ...(Platform.OS === 'web' ? { width: 0, minWidth: 0 } : {}),
                             textAlign: 'auto',
                             ...(rest.multiline === true
                                 ? { textAlignVertical: 'top' as const }

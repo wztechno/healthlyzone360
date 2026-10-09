@@ -14,7 +14,6 @@ import type {
     ReceiptCostStatus,
     QualityCheckStatus,
     QualityCheckSubjectType,
-    StockItem,
 } from '@healthy360/api-client/contracts';
 import type { BadgeTone } from '@healthy360/design-system';
 
@@ -31,11 +30,6 @@ import { ticketAgeTone } from '../kds/kds-board.ts';
  */
 
 /* ── stock items ─────────────────────────────────────────────────────────────────────────────── */
-
-/** `CODE — Name`, the one line a picker or a table cell needs to identify a stock item. */
-export function stockItemLabel(item: StockItem): string {
-    return `${item.code} — ${item.nameEn}`;
-}
 
 /** `true` when a level's quantity is at or below zero — a live count, not a stored flag. */
 export function isOutOfStock(quantity: string): boolean {

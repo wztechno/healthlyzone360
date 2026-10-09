@@ -43,8 +43,9 @@ export interface MealShelves {
 }
 
 /**
- * While the menu is narrowed (`shown-shelves.ts`) the walk reads only the shown shelf, so the rail's
- * rows and its "all" count are that shelf's alone.
+ * While the menu is narrowed (`shown-shelves.ts`) the walk reads every item type the shown shelves
+ * hold, and with a single shown shelf only that shelf, so the rail's rows and its "all" count
+ * describe the shown shelves alone.
  */
 const WALK_SHELF = shownCategory();
 const WALK: Omit<MealFilter, 'cursor'> = {

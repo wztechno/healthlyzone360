@@ -86,11 +86,16 @@ it('supersedes a changed price, leaves an unchanged one alone, and withdraws on 
         ->assertJsonPath('data.channels.b2c.amount_minor', 350)
         ->assertJsonPath('data.channels.b2b.amount_minor', 1200);
 
-    $retailRows = PriceListItem::withoutTenancy()->where('price_list_id', $this->retailList->getKey())->orderBy('created_at')->get();
+    $retailRows = PriceListItem::withoutTenancy()->where('price_list_id', $this->retailList->getKey())->get();
+    // Both writes can land in the same second, so the rows are told apart by the supersede link,
+    // never by `created_at`.
+    $closed = $retailRows->whereNotNull('superseded_by_id');
+    $current = $retailRows->whereNull('superseded_by_id');
 
     expect($retailRows)->toHaveCount(2)
-        ->and($retailRows[0]->effective_to)->not->toBeNull()
-        ->and($retailRows[0]->superseded_by_id)->toBe((string) $retailRows[1]->getKey())
+        ->and($closed)->toHaveCount(1)
+        ->and($closed->sole()->effective_to)->not->toBeNull()
+        ->and($closed->sole()->superseded_by_id)->toBe((string) $current->sole()->getKey())
         ->and(PriceListItem::withoutTenancy()->where('price_list_id', $this->tradeList->getKey())->count())->toBe(1);
 
     // Stop selling B2B: the price closes, the pack keeps its weight.

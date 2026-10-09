@@ -69,7 +69,10 @@
         "workspace": "Workspace",
         "profile": "Profile",
         "devices": "Devices and sessions",
-        "showcase": "Design system"
+        "showcase": "Design system",
+        "sectionWorkspaces": "Workspaces",
+        "sectionAccount": "Account",
+        "current": "Current"
     },
     "photoCredit": {
         "byline": "Photo: {{creator}}",

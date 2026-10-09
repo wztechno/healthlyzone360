@@ -7,6 +7,7 @@ import { IconButton } from '../actions/button.tsx';
 import { showFloatingLabel } from '../actions/floating-label.ts';
 import type { FloatingLabel } from '../actions/floating-label.ts';
 import { Icon } from '../icons/icon.tsx';
+import { CascadeItem } from '../motion/cascade.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
 import { cx } from '../internal/class-names.ts';
@@ -45,6 +46,11 @@ export interface NavigationItem {
      * item in a group that carries one names it; without any, the group's first item's `icon`.
      */
     readonly groupIcon?: IconName | undefined;
+    /**
+     * A sub-heading inside the module's panel — "Workspaces", "Account". A label is drawn wherever
+     * an item's section differs from the one before it; items without one draw no label.
+     */
+    readonly section?: string | undefined;
     /**
      * Trailing slot on the item row — a count badge for a queue destination. Honoured by the
      * sidebar and the drawer; the rail and the bottom tabs have no room for one.
@@ -231,6 +237,21 @@ function AppShellLayout({
         chosenGroup !== null && groups.includes(chosenGroup)
             ? chosenGroup
             : (activeGroup ?? (activeUngrouped === undefined ? groups[0] : undefined));
+
+    /*
+     * Arriving on a page the panel does not list — from the page search, a link in the content, the
+     * browser's back button — drops the module the reader last picked, so the panel follows the page
+     * to its own module, sliding open if it was shut. Keyed on the page, not on the module, so
+     * moving between two pages of the module already listed changes nothing.
+     */
+    const activeKey = navigation.find((item) => item.active === true)?.key;
+    const lastActiveKey = useRef(activeKey);
+    useEffect(() => {
+        if (lastActiveKey.current === activeKey) return;
+        lastActiveKey.current = activeKey;
+        setChosenGroup(null);
+        if (twoPane && sidebarCollapsed && activeGroup !== undefined) setCollapsed(false);
+    }, [activeKey, activeGroup, twoPane, sidebarCollapsed, setCollapsed]);
 
     const toggleSidebar = () => {
         setCollapsed(!sidebarCollapsed);
@@ -452,16 +473,22 @@ function AppShellLayout({
                 ? navigation
                 : navigation.filter((item) => item.group === onlyGroup);
 
-        const renderItem = (item: NavigationItem) =>
+        const renderItem = (item: NavigationItem, index: number) =>
             panel ? (
-                <PanelNavLink
-                    key={item.key}
-                    item={item}
-                    onPress={() => {
-                        setDrawerOpen(false);
-                        item.onPress();
-                    }}
-                />
+                /*
+                 * The module's pages rise in one after another when its icon is pressed. The list
+                 * is keyed by module (below), so choosing another module mounts a fresh cascade;
+                 * a page change inside the module keeps the items, which have already arrived.
+                 */
+                <CascadeItem key={item.key} index={index}>
+                    <PanelNavLink
+                        item={item}
+                        onPress={() => {
+                            setDrawerOpen(false);
+                            item.onPress();
+                        }}
+                    />
+                </CascadeItem>
             ) : (
                 <Pressable
                     key={item.key}
@@ -538,6 +565,7 @@ function AppShellLayout({
 
         return (
             <View
+                key={onlyGroup}
                 testID={testID === undefined ? undefined : `${testID}-navigation`}
                 role="navigation"
                 aria-label={t('designSystem:shell.primaryNavigation')}
@@ -572,7 +600,34 @@ function AppShellLayout({
                               >
                                   {group}
                               </RNText>
-                              {source.filter((item) => item.group === group).map(renderItem)}
+                              {source
+                                  .filter((item) => item.group === group)
+                                  .flatMap((item, index, members) => {
+                                      const opensSection =
+                                          item.section !== undefined &&
+                                          item.section !== members[index - 1]?.section;
+                                      return opensSection
+                                          ? [
+                                                <RNText
+                                                    key={`section-${item.section ?? ''}`}
+                                                    accessibilityRole="header"
+                                                    aria-level={3}
+                                                    className={cx(
+                                                        // A step under the module heading: the
+                                                        // module names the panel, this names a
+                                                        // run of pages inside it.
+                                                        'px-3 pb-1 pt-2 text-xs font-semibold text-start',
+                                                        onSidebar
+                                                            ? 'text-content-on-sidebar-muted'
+                                                            : 'text-content-secondary',
+                                                    )}
+                                                >
+                                                    {item.section}
+                                                </RNText>,
+                                                renderItem(item, index),
+                                            ]
+                                          : [renderItem(item, index)];
+                                  })}
                           </View>
                       ))}
             </View>
@@ -600,10 +655,19 @@ function AppShellLayout({
                   : activeGroup === undefined
                     ? undefined
                     : `group-${activeGroup}`;
-        const entries = [
-            ...navigation
-                .filter((item) => item.group === undefined)
-                .map((item) => ({
+        /*
+         * In the order the caller lists them: a destination where it appears, a module where its
+         * first page appears. So a module listed before Overview sits above it on the rail.
+         */
+        const railOrder: (NavigationItem | string)[] = [];
+        for (const item of navigation) {
+            if (item.group === undefined) railOrder.push(item);
+            else if (!railOrder.includes(item.group)) railOrder.push(item.group);
+        }
+        const entries = railOrder.map((slot) => {
+            if (typeof slot !== 'string') {
+                const item = slot;
+                return {
                     key: item.key,
                     label: item.label,
                     icon: item.icon ?? ('dot' as const),
@@ -613,25 +677,25 @@ function AppShellLayout({
                     onPress: () => {
                         chooseUngrouped(item);
                     },
-                })),
-            ...groups.map((group) => {
-                const members = navigation.filter((item) => item.group === group);
-                return {
-                    key: `group-${group}`,
-                    label: group,
-                    icon:
-                        members.find((item) => item.groupIcon !== undefined)?.groupIcon ??
-                        members[0]?.icon ??
-                        ('dot' as const),
-                    active: litKey === `group-${group}`,
-                    expanded: !sidebarCollapsed && shownGroup === group,
-                    testID: testID === undefined ? undefined : `${testID}-rail-group-${group}`,
-                    onPress: () => {
-                        chooseGroup(group);
-                    },
                 };
-            }),
-        ];
+            }
+            const group = slot;
+            const members = navigation.filter((item) => item.group === group);
+            return {
+                key: `group-${group}`,
+                label: group,
+                icon:
+                    members.find((item) => item.groupIcon !== undefined)?.groupIcon ??
+                    members[0]?.icon ??
+                    ('dot' as const),
+                active: litKey === `group-${group}`,
+                expanded: !sidebarCollapsed && shownGroup === group,
+                testID: testID === undefined ? undefined : `${testID}-rail-group-${group}`,
+                onPress: () => {
+                    chooseGroup(group);
+                },
+            };
+        });
 
         return (
             <View

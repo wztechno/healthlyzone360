@@ -5,10 +5,12 @@ import { useMemo, useState } from 'react';
 
 import { toFailure } from '../../../data/hooks.ts';
 import {
+    KITCHEN_PAGE_SIZE,
     pagesInResult,
     useArchiveProductMutation,
     useProductCategoriesQuery,
     useProductPageQuery,
+    useProductWholeSetQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import type { ProductCategory } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
@@ -91,6 +93,8 @@ export interface ProductListState {
     /** The server's count for the whole filtered set, or `null` before the first answer. */
     readonly total: number | null;
     readonly shown: number;
+    /** The whole-set read behind the other cards has not landed yet. */
+    readonly countsPending: boolean;
     readonly draftCount: number;
     readonly missingArabicCount: number;
     /** Rows with no pack at all, so nothing on them can be priced. */
@@ -165,6 +169,9 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
 
     const [page, setPage] = useListPage(filter);
     const products = useProductPageQuery(filter, page);
+    // The cards count every page the filters match, not the eighteen rows on this one.
+    const wholeSet = useProductWholeSetQuery(filter);
+    const everyRow = wholeSet.data ?? [];
     const archive = useDestructiveRow(useArchiveProductMutation(), (row: ProductAdmin) => ({
         productId: row.id,
         request: { lockVersion: row.meta.lockVersion },
@@ -236,10 +243,13 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
         setPage,
         totalPages: pagesInResult(products.data) ?? 0,
         total: products.data?.totalCount ?? null,
-        shown: sorted.length,
-        draftCount: sorted.filter((row) => row.meta.status === 'draft').length,
-        missingArabicCount: sorted.filter((row) => displayName(row.name, locale).isFallback).length,
-        noPackCount: sorted.filter((row) => row.packVariants.length === 0).length,
+        countsPending: wholeSet.isPending,
+        // Rows up to the end of this page: 18 of 306 on the first, 36 on the second.
+        shown: Math.min(page * KITCHEN_PAGE_SIZE, products.data?.totalCount ?? sorted.length),
+        draftCount: everyRow.filter((row) => row.meta.status === 'draft').length,
+        missingArabicCount: everyRow.filter((row) => displayName(row.name, locale).isFallback)
+            .length,
+        noPackCount: everyRow.filter((row) => row.packVariants.length === 0).length,
 
         openEditor: (productId) => {
             router.push(`${routeBase}/${productId}` as never);

@@ -4,7 +4,7 @@ import { TextInput as RNTextInput, Text as RNText, View } from 'react-native';
 
 import { useDensity } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
-import { FormField } from './form-field.tsx';
+import { FormField, NUMBER_MAX_LENGTH } from './form-field.tsx';
 import type { FieldControlProps } from './form-field.tsx';
 import { inputFrameClassName } from './text-input.tsx';
 import type { InputSize } from './text-input.tsx';
@@ -56,6 +56,8 @@ export interface QuantityInputProps {
     readonly readOnly?: boolean | undefined;
     readonly size?: InputSize | undefined;
     readonly placeholder?: string | undefined;
+    /** The most characters the field takes. Defaults to {@link NUMBER_MAX_LENGTH}. */
+    readonly maxLength?: number | undefined;
     readonly id?: string | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
@@ -84,6 +86,7 @@ export function QuantityInput({
     readOnly = false,
     size = 'sm',
     placeholder,
+    maxLength = NUMBER_MAX_LENGTH,
     id,
     className,
     testID,
@@ -101,6 +104,7 @@ export function QuantityInput({
             {...(warning === undefined ? {} : { warning })}
             required={required}
             disabled={disabled}
+            numeric
             {...(id === undefined ? {} : { id })}
             {...(className === undefined ? {} : { className })}
             {...(testID === undefined ? {} : { testID })}
@@ -129,6 +133,7 @@ export function QuantityInput({
                         {...(readOnly ? { 'aria-readonly': true } : {})}
                         inputMode="decimal"
                         keyboardType="decimal-pad"
+                        maxLength={maxLength}
                         {...(placeholder === undefined ? {} : { placeholder })}
                         placeholderTextColor={neutral[600]}
                         // `text-end`, and no inline `textAlign` at all. React Native's own

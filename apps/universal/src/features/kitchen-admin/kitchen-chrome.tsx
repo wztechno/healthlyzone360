@@ -9,7 +9,7 @@ import { Text as RNText, View } from 'react-native';
 
 import { useReviewQueueQuery } from '../../data/kitchen-admin-hooks.ts';
 import { useConsumptionExceptionCountQuery } from '../../data/kitchen-ops-hooks.ts';
-import { permittedNavigation } from '../../navigation/items.ts';
+import { workspaceGroup } from '../../navigation/workspace-group.tsx';
 import { useAccessState } from '../../session/session-provider.tsx';
 import {
     OVERVIEW_HREF,
@@ -187,6 +187,16 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
         };
 
         return [
+            // Workspace first: the areas and the account, above the kitchen's own modules.
+            ...workspaceGroup({
+                state,
+                t,
+                pathname,
+                currentArea: 'kitchen',
+                navigate: (href) => {
+                    router.push(href as never);
+                },
+            }),
             {
                 key: 'overview',
                 label: t('kitchen:nav.overview'),
@@ -204,18 +214,6 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
                     groupIcon: GROUP_ICONS[section.group],
                 })),
             ),
-            ...permittedNavigation(state).map((item): NavigationItem => ({
-                key: item.key,
-                label: t(item.labelKey),
-                icon: item.icon,
-                group: t('kitchen:nav.groups.workspace'),
-                groupIcon: 'userCircle',
-                active: pathname === item.href,
-                testID: `nav-${item.key}`,
-                onPress: () => {
-                    router.push(item.href as never);
-                },
-            })),
         ];
     }, [sections, state, pathname, reviewTotal, exceptionTotal, router, t]);
 }

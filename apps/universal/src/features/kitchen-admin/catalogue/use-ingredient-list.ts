@@ -18,12 +18,14 @@ import { useMemo, useState } from 'react';
 
 import { toFailure } from '../../../data/hooks.ts';
 import {
+    KITCHEN_PAGE_SIZE,
     pagesInResult,
     topLevelCategories,
     useAllergenClassesQuery,
     useArchiveIngredientMutation,
     useIngredientCategoriesQuery,
     useIngredientPageQuery,
+    useIngredientWholeSetQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
@@ -168,6 +170,8 @@ export interface IngredientListState {
     /** The server's count for the whole filtered set, or `null` before the first answer. */
     readonly total: number | null;
     readonly shown: number;
+    /** The whole-set read behind the other cards has not landed yet. */
+    readonly countsPending: boolean;
     readonly draftCount: number;
     readonly missingArabicCount: number;
     /** Rows with no unit price on file, so no cost per kilo can resolve downstream. */
@@ -262,6 +266,7 @@ export function useIngredientList(): IngredientListState {
 
     const [page, setPage] = useListPage(filter);
     const ingredients = useIngredientPageQuery(filter, page);
+    const wholeSet = useIngredientWholeSetQuery(filter);
     const categories = useIngredientCategoriesQuery();
     const allergenClasses = useAllergenClassesQuery();
     const archive = useDestructiveRow(useArchiveIngredientMutation(), (row: IngredientAdmin) => ({
@@ -280,11 +285,13 @@ export function useIngredientList(): IngredientListState {
      */
     const pageRows = rows ?? NO_ROWS;
 
-    const draftCount = pageRows.filter((row) => row.meta.status === 'draft').length;
-    const missingArabicCount = pageRows.filter(
+    // The cards count every page the filters match, not the eighteen rows on this one.
+    const everyRow = wholeSet.data ?? NO_ROWS;
+    const draftCount = everyRow.filter((row) => row.meta.status === 'draft').length;
+    const missingArabicCount = everyRow.filter(
         (row) => displayName(row.name, locale).isFallback,
     ).length;
-    const uncostedCount = pageRows.filter((row) => row.unitPrice === null).length;
+    const uncostedCount = everyRow.filter((row) => row.unitPrice === null).length;
 
     return {
         rows: pageRows,
@@ -329,7 +336,9 @@ export function useIngredientList(): IngredientListState {
         setPage,
         totalPages,
         total,
-        shown: pageRows.length,
+        countsPending: wholeSet.isPending,
+        // Rows up to the end of this page: 18 of 306 on the first, 36 on the second.
+        shown: Math.min(page * KITCHEN_PAGE_SIZE, total ?? pageRows.length),
         draftCount,
         missingArabicCount,
         uncostedCount,

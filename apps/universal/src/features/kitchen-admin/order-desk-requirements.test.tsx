@@ -8,6 +8,7 @@ import { screen, waitFor } from '@testing-library/react-native';
 
 import { kitchenManagerSession, testActiveContext } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
 import { OrderDeskRequirementsScreen } from './screens/order-desk-requirements-screen.tsx';
 import { Dimensions } from 'react-native';
 
@@ -105,6 +106,17 @@ async function settled() {
     );
 }
 
+const TABLE = 'kitchen-order-desk-requirements-table';
+
+/** Reserved and Available are off by default (six columns); these tests read them. */
+function showStockColumns(): void {
+    rememberColumnChoice(TABLE, ['ingredient', 'onHand', 'reserved', 'available', 'unit']);
+}
+
+afterEach(() => {
+    forgetColumnChoice(TABLE);
+});
+
 describe('order desk requirements — the ladder', () => {
     it('shows skeletons, then the table', async () => {
         let release: (value: OrderDeskRequirements) => void = () => undefined;
@@ -187,6 +199,7 @@ describe('order desk requirements — the branch gate', () => {
 
 describe('order desk requirements — what the rows say', () => {
     it('renders an em dash for a shelf with no unit and a zero for a shelf holding none', async () => {
+        showStockColumns();
         await renderRequirements(async () =>
             answer([
                 requirement({
@@ -216,6 +229,7 @@ describe('order desk requirements — what the rows say', () => {
      * explanation. `onHand` and `reserved` are the explanation.
      */
     it('shows what is claimed beside what is on the shelf when production has reserved it', async () => {
+        showStockColumns();
         await renderRequirements(async () =>
             answer([
                 requirement({
@@ -248,6 +262,7 @@ describe('order desk requirements — what the rows say', () => {
      * part of the problem the buyer is being asked to fix.
      */
     it('renders a negative available rather than clamping an over-claimed shelf to zero', async () => {
+        showStockColumns();
         await renderRequirements(async () =>
             answer([
                 requirement({

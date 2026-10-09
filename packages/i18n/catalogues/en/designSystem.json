@@ -217,5 +217,14 @@
         "more_other": "{{count}} more: {{labels}}",
         "overflow_one": "+{{count}}",
         "overflow_other": "+{{count}}"
+    },
+    "timeField": {
+        "hour": "Hour",
+        "minute": "Minute",
+        "open": "Choose a time for {{label}}",
+        "clear": "Clear",
+        "done": "Done",
+        "placeholder": "--:--",
+        "invalid": "Enter a time as HH:mm, for example 09:30."
     }
 }

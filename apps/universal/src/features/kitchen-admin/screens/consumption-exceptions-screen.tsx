@@ -499,11 +499,8 @@ function ConsumptionExceptions() {
                             rowActionsLabel={t('kitchen:list.rowActions')}
                         />
                     </WithColumnPicker>
-                    <View className="flex-row flex-wrap items-center justify-between gap-snug">
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:ops.exceptions.showingCount', { count: rows.length })}
-                        </Text>
-                        {hasMore ? (
+                    {hasMore ? (
+                        <View className="flex-row justify-end">
                             <Button
                                 testID="kitchen-consumption-exceptions-next"
                                 variant="secondary"
@@ -514,8 +511,8 @@ function ConsumptionExceptions() {
                                     setViewing(null);
                                 }}
                             />
-                        ) : null}
-                    </View>
+                        </View>
+                    ) : null}
                 </View>
             )}
 

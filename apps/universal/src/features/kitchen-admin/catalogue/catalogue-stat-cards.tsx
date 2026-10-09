@@ -51,11 +51,19 @@ export interface CatalogueStatCard {
     readonly value: string;
     /** What the figure counts — "records", "of 248". Sits on the value's baseline. */
     readonly unit?: string | undefined;
-    /** One translated line under the figure, saying what the tone means. */
-    readonly caption: string;
+    /**
+     * One translated line under the figure. Optional: a strip whose labels already say it all (the
+     * kitchen overview) leaves it out rather than repeating the label in other words.
+     */
+    readonly caption?: string | undefined;
     /** The corner mark. Decorative — the label and caption carry the meaning. */
     readonly mark: IconName;
     readonly tone?: CatalogueStatTone | undefined;
+    /**
+     * This card's figure alone is still in flight. Overrides the strip's `pending` for one card, for
+     * a strip whose figures come from different reads and land at different times.
+     */
+    readonly pending?: boolean | undefined;
     /** Makes the card a filter. Omit for a figure with no filter behind it. */
     readonly onPress?: (() => void) | undefined;
     /** Required with `onPress`: the label names the figure, not the action. */
@@ -127,10 +135,23 @@ export interface CatalogueStatCardsProps {
      * its figures faded in when they land, and one that does not draws them as they are.
      */
     readonly pending?: boolean | undefined;
+    /**
+     * The counts behind every card but the first are still in flight.
+     *
+     * The first card is the page's own "18 of 306", which the page query answers. The rest count
+     * every page the filters match, which a second, longer read answers — until it lands they hold
+     * a placeholder rather than a zero that reads as "none".
+     */
+    readonly countsPending?: boolean | undefined;
     readonly testID: string;
 }
 
-export function CatalogueStatCards({ cards, pending, testID }: CatalogueStatCardsProps) {
+export function CatalogueStatCards({
+    cards,
+    pending,
+    countsPending,
+    testID,
+}: CatalogueStatCardsProps) {
     return (
         /*
          * The cards fill the row, with a gap between them.
@@ -149,7 +170,7 @@ export function CatalogueStatCards({ cards, pending, testID }: CatalogueStatCard
          * they are four unrelated panels.
          */
         <View testID={testID} className="flex-row flex-wrap items-stretch gap-snug">
-            {cards.map((card) => (
+            {cards.map((card, index) => (
                 /*
                  * A wrapping row of equal shares, not `CardGrid`.
                  *
@@ -186,7 +207,13 @@ export function CatalogueStatCards({ cards, pending, testID }: CatalogueStatCard
                     className="flex-1 flex-col"
                     style={{ minWidth: cardWidth.min }}
                 >
-                    <StatCard card={card} pending={pending} testID={`${testID}-${card.key}`} />
+                    <StatCard
+                        card={card}
+                        pending={
+                            card.pending ?? (index > 0 && countsPending === true ? true : pending)
+                        }
+                        testID={`${testID}-${card.key}`}
+                    />
                 </View>
             ))}
         </View>
@@ -266,9 +293,11 @@ function StatCard({
                     figure
                 )}
 
-                <Text variant="body" tone={CAPTION_TONE[tone]} numberOfLines={2}>
-                    {card.caption}
-                </Text>
+                {card.caption === undefined ? null : (
+                    <Text variant="body" tone={CAPTION_TONE[tone]} numberOfLines={2}>
+                        {card.caption}
+                    </Text>
+                )}
             </View>
         </Card>
     );

@@ -7,7 +7,22 @@ import { useDensity } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
 import { FieldLabel } from './field-label';
 import { useFieldSummarised } from './form-issue-scope.tsx';
+import { HALF_TRACK_WIDTH } from '../primitives/grid-shared.ts';
 import type { GridSpanProps } from '../primitives/grid-shared.ts';
+
+/** The widest a number field draws: one half track. See `FormFieldProps.numeric`. */
+export const NUMBER_FIELD_MAX_WIDTH = HALF_TRACK_WIDTH;
+
+/**
+ * The most characters a number field takes — `999999.999`, or a six-figure price to two places.
+ *
+ * Nothing a kitchen counts, weighs or pays runs longer, and a field that took any number of digits
+ * took a held-down key too: a quantity forty digits long reaches the server as a validation error,
+ * or as a float that is not the figure typed. The same three fields the width cap finds take it —
+ * `QuantityInput`, the `NumberStepper` box, and a `TextInputField` whose keyboard is numeric — and a
+ * caller's own `maxLength` wins.
+ */
+export const NUMBER_MAX_LENGTH = 10;
 
 /**
  * The accessibility props a `FormField` hands to whatever control it wraps.
@@ -74,6 +89,12 @@ export interface FormFieldProps extends GridSpanProps {
     readonly disabled?: boolean | undefined;
     /** Stable id root. Generated when omitted, which is fine for everything except tests. */
     readonly id?: string | undefined;
+    /**
+     * The control holds a number. The field is then never wider than one half track (132px) — the
+     * smallest field the forms draw — so a two-digit value never sits in a 280px box. A narrower
+     * container (a table cell) still wins: this is a ceiling, not a width.
+     */
+    readonly numeric?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
     readonly children: (control: FieldControlProps) => ReactNode;
@@ -91,6 +112,7 @@ export function FormField({
     required = false,
     disabled = false,
     id,
+    numeric = false,
     className,
     testID,
     children,
@@ -138,7 +160,11 @@ export function FormField({
          * container has no business ordering anything, so it opts out and lets the panel compete
          * where it should: against its ancestors' siblings.
          */
-        <View testID={testID} className={cx('z-auto flex-col gap-hair', className)}>
+        <View
+            testID={testID}
+            className={cx('z-auto flex-col gap-hair', className)}
+            style={numeric ? { maxWidth: NUMBER_FIELD_MAX_WIDTH } : undefined}
+        >
             {/*
              * The label is an element in its own right, and on the web it is a real `<label
              * for="…">`. `aria-labelledby` alone reads as "labelled by a hidden thing" to axe the

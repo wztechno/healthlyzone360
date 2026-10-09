@@ -21,6 +21,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { TEST_BRANCH_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { CATALOGUE_PAGE_SIZE } from './catalogue/catalogue-pager.tsx';
 import {
     kitchenQuotationRowTestId,
     purchaseOrderRowTestId,
@@ -398,6 +399,7 @@ describe('supply order headers', () => {
         await waitFor(() => {
             expect(repositories.kitchenOps.listPurchaseOrders).toHaveBeenCalledWith({
                 supplierId: ADEL.id,
+                limit: CATALOGUE_PAGE_SIZE,
             });
         });
 
@@ -410,6 +412,7 @@ describe('supply order headers', () => {
             expect(repositories.kitchenOps.listPurchaseOrders).toHaveBeenCalledWith({
                 status: 'issued',
                 supplierId: ADEL.id,
+                limit: CATALOGUE_PAGE_SIZE,
             });
         });
     });

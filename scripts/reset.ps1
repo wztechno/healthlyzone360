@@ -37,6 +37,11 @@ php artisan kitchen:apply-allergen-determinations --org=healthzone360-kitchen
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw "kitchen:apply-allergen-determinations failed" }
 php artisan kitchen:publish-ready --org=healthzone360-kitchen
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw "kitchen:publish-ready failed" }
+# The workbook prices no frozen row, so the shelf imports unpriced and on no channel;
+# this prices it (placeholder figures in database/data/frozen-shelf-prices.json) and
+# lists it on the web shop.
+php artisan kitchen:price-frozen-shelf --org=healthzone360-kitchen
+if ($LASTEXITCODE -ne 0) { Pop-Location; throw "kitchen:price-frozen-shelf failed" }
 php artisan inventory:derive-stock-items
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw "inventory:derive-stock-items failed" }
 # The way in: owner@/staff@/customer@healthzone360.test, all "password".

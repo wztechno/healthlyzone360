@@ -30,6 +30,14 @@ import type { ColumnPickerProps } from './column-picker.tsx';
  * and travels to the server. A table picks one mode: `options.sort` present means every sortable
  * column is external.
  *
+ * **Every column of an in-memory table sorts**, whether it says how or not. A column with a `value`
+ * and no comparator sorts by that value — as a number when it reads as one (`1,234.50 USD` after
+ * `999.00 USD`, Arabic-Indic digits included), as text otherwise — so a column added to a table
+ * gets its arrow without anyone remembering to wire it. That is how Quantity and Line total on the
+ * purchases ledger went without one. A stated comparator still wins: it knows the raw figure the
+ * cell only formats. `sort: false` opts a column out. On a server-sorted table nothing is assumed:
+ * only the screen knows what the endpoint can order by.
+ *
  * ## The header rules it keeps
  *
  * A sorting header sorts on the press itself — first press ascending, pressing the sorted column
@@ -82,9 +90,10 @@ export type ColumnComparator<Row> = (left: Row, right: Row, direction: SortDirec
 export interface ColumnControl<Row> {
     /**
      * A comparator sorts in memory — it receives the direction rather than being negated, so it can
-     * keep blanks last both ways. `'external'` sorts through `options.sort`.
+     * keep blanks last both ways. `'external'` sorts through `options.sort`. Unset, an in-memory
+     * table sorts the column by its `value`; `false` says it does not sort at all.
      */
-    readonly sort?: ColumnComparator<Row> | 'external' | undefined;
+    readonly sort?: ColumnComparator<Row> | 'external' | false | undefined;
     /** Filters from the header's label. With a `sort` too, the arrow beside it sorts. */
     readonly filter?: ColumnFilter<Row> | undefined;
 }
@@ -170,19 +179,30 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
     const [filters, setFilters] = useState<Readonly<Record<string, string>>>({});
 
     /*
-     * Each column's in-memory comparator — its own, or for a matching filter column that names
-     * none, one over the label of the value the row matches. The labels are resolved once per row
-     * set rather than per comparison, since a match scan per compare is O(values) inside a sort.
+     * Each column's in-memory comparator — its own; for a matching filter column that names none,
+     * one over the label of the value the row matches; otherwise one over the column's `value`. The
+     * labels are resolved once per row set rather than per comparison, since a match scan per
+     * compare is O(values) inside a sort.
      */
     const sorters = useMemo(() => {
         const resolved = new Map<string, ColumnComparator<Row> | 'external'>();
         for (const column of columns) {
+            if (column.sort === false) continue;
             if (column.sort !== undefined) {
                 resolved.set(column.key, column.sort);
                 continue;
             }
+            if (external !== undefined) continue;
             const filter = column.filter;
-            if (external !== undefined || filter === undefined || !('match' in filter)) continue;
+            if (filter === undefined || !('match' in filter)) {
+                const read = column.value;
+                if (read !== undefined) {
+                    resolved.set(column.key, (left, right, direction) =>
+                        compareDisplayed(read(left), read(right), direction),
+                    );
+                }
+                continue;
+            }
             const values = filter.values(rows);
             const labels = new Map<Row, string>();
             for (const row of rows) {
@@ -373,4 +393,50 @@ export function compareText(
 /** Numbers (amounts, timestamps) in `direction`. */
 export function compareNumber(left: number, right: number, direction: SortDirection): number {
     return direction === 'asc' ? left - right : right - left;
+}
+
+/** A money amount as the wire sends it, in `direction`, with no amount (redacted, unpriced) last. */
+export function compareAmount(
+    left: string | null,
+    right: string | null,
+    direction: SortDirection,
+): number {
+    if (left === null || right === null) return left === right ? 0 : left === null ? 1 : -1;
+    return compareNumber(Number(left), Number(right), direction);
+}
+
+/** What a cell shows when it has nothing: blank, or the em dash the tables write for none. */
+const BLANK_DISPLAY = /^[\s—–-]*$/;
+
+/**
+ * The number a formatted cell starts with, or `null` when it does not start with one.
+ *
+ * Reads what `useFormatter` writes in either language: Arabic-Indic or extended digits, the Arabic
+ * decimal and group separators, and Latin grouping commas — `١٬٢٣٤٫٥ USD` and `1,234.5 USD` are
+ * both 1234.5. Only the leading figure counts, so a unit or currency after it is ignored.
+ */
+export function leadingNumber(text: string): number | null {
+    const latin = text
+        .replace(/[\u0660-\u0669]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
+        .replace(/[\u06f0-\u06f9]/g, (digit) => String(digit.charCodeAt(0) - 0x06f0))
+        .replace(/\u066b/g, '.')
+        .replace(/[\u066c,\u00a0\u202f]/g, '');
+    const match = /^\s*([+-]?\d+(?:\.\d+)?)/.exec(latin);
+    return match === null ? null : Number(match[1]);
+}
+
+/**
+ * Two cells by what they show — as numbers when both read as one, as text otherwise, with empty
+ * cells last either way. The comparator a column gets when it states none.
+ */
+export function compareDisplayed(left: string, right: string, direction: SortDirection): number {
+    const blankLeft = BLANK_DISPLAY.test(left);
+    const blankRight = BLANK_DISPLAY.test(right);
+    if (blankLeft || blankRight) return blankLeft === blankRight ? 0 : blankLeft ? 1 : -1;
+    const leftNumber = leadingNumber(left);
+    const rightNumber = leadingNumber(right);
+    if (leftNumber !== null && rightNumber !== null) {
+        return compareNumber(leftNumber, rightNumber, direction);
+    }
+    return compareText(left, right, direction);
 }

@@ -18,10 +18,6 @@
     },
     "hub": {
         "title": "Kitchen workspace",
-        "subtitle": "Mission control for this kitchen — catalogue health, commercial readiness, and what needs attention now.",
-        "open": "Open {{family}}",
-        "openReview": "Open the review queue",
-        "insightTag": "Needs attention",
         "itemCount_one": "{{count}} record",
         "itemCount_other": "{{count}} records",
         "draftCount_one": "{{count}} draft",
@@ -41,11 +37,13 @@
             "publishedMeals": "Published meals",
             "deliveryZones": "Delivery zones",
             "lowStock": "Low stock",
-            "consumptionExceptions": "Consumption exceptions",
+            "consumptionExceptions": "Stock gaps",
             "requirementShortfalls": "Short for the week",
             "lowStockReadyToOrder_one": "{{count}} item ready to order",
             "lowStockReadyToOrder_other": "{{count}} items ready to order"
-        }
+        },
+        "attentionTitle": "Needs attention",
+        "attentionClear": "Nothing is waiting on you right now."
     },
     "nav": {
         "railTitle": "Kitchen",
@@ -90,7 +88,6 @@
             "columnActions": "Actions",
             "loadMore": "Load more",
             "loadingMore": "Loading…",
-            "allLoaded": "Every matching order is loaded.",
             "loadErrorTitle": "Orders could not be loaded",
             "detailTitle": "Order {{number}}",
             "detailLoadErrorTitle": "This order could not be read",
@@ -145,9 +142,7 @@
                 "cancelled": "Cancelled"
             },
             "chip": "Confirming deducts stock",
-            "foot": "Newest first. Cancelling is final and needs a reason.",
             "viewKind": "Order",
-            "viewOpen": "Open the order",
             "viewPlacedNote": "This order is placed but not confirmed. Nothing has been deducted from stock and the kitchen has not been told to cook it.",
             "cancelFinal": "Cancelling is final and needs a reason.",
             "backToOrders": "Back to orders",
@@ -266,10 +261,8 @@
             "noThreshold": "No threshold",
             "lowBadge": "Low",
             "fieldThreshold": "Reorder threshold",
-            "fieldThresholdHint": "Flag as low when on-hand falls to or below this. Leave blank for no threshold.",
             "thresholdPlaceholder": "No threshold",
             "fieldParLevel": "Par level (optional)",
-            "fieldParLevelHint": "The level to restock back up to.",
             "parLevelPlaceholder": "Not set",
             "thresholdSetToast": "Reorder threshold set for {{name}}.",
             "thresholdClearedToast": "Reorder threshold cleared for {{name}}.",
@@ -292,7 +285,6 @@
             "columnReorderPar": "Reorder at / Par",
             "reorderPar": "{{threshold}} / {{par}}",
             "filteredEmptyBody": "Try a shorter search, or another level.",
-            "foot": "Counted per branch. Every movement is a ledger entry — there is no editing a level directly.",
             "ledgerNote": "Every movement is a ledger entry — there is no editing a level directly.",
             "viewKind": "Stock item",
             "viewNoteLow": "On hand is at or below this item’s reorder point, so it shows on the supply-order builder as needing ordering.",
@@ -301,18 +293,26 @@
             "statLowCaption": "at or below reorder point",
             "statOutCaption": "empty shelf",
             "statOkCaption": "above reorder point",
-            "chip": "Counted per branch",
-            "editorSummary": "{{code}} · {{quantity}} {{unit}} on hand",
             "saveLabel": "Post the movement",
-            "backLabel": "Back to stock",
             "saveFailedTitle": "That could not be posted",
             "saveFailedBody": "Nothing was posted. Check your connection and try again.",
             "numberInvalid": "Enter a number, or leave it blank.",
             "quantityInvalid": "Enter a quantity above zero.",
-            "quantityHint": "Enter how much to add or remove. Unit: {{unit}}.",
             "sectionMovement": "Movement",
             "fieldNotes": "Why (optional)",
-            "fieldNotesPlaceholder": "One sentence. It stays on the movement."
+            "fieldNotesPlaceholder": "One sentence. It stays on the movement.",
+            "sectionThreshold": "Reordering",
+            "thresholdNote": "The shelf shows as low when on hand falls to or below the threshold. Par is the level a supply order restocks it back up to. Leave both blank for no threshold.",
+            "quantityUnitHint": "In {{unit}}",
+            "summaryTitle": "This shelf",
+            "summaryOnHand": "On hand now",
+            "summaryAfter": "On hand after",
+            "summaryEffects": "Posting will",
+            "summaryNothing": "Nothing to post yet. Enter a quantity, or change the threshold.",
+            "effectIncrease": "Add stock",
+            "effectDecrease": "Remove stock",
+            "effectWaste": "Log waste",
+            "effectThreshold": "Reorder at / Par"
         },
         "supplyOrders": {
             "title": "Supply orders",
@@ -322,7 +322,7 @@
                 "low": "Running low"
             },
             "previewTitle": "What's low right now",
-            "previewCaption": "The first items needing attention at this branch.",
+            "previewCaption": "Items needing attention at this branch.",
             "columnItem": "Item",
             "columnOnHand": "On hand",
             "columnReorderAt": "Reorder at",
@@ -333,8 +333,6 @@
             "outBadge": "Out",
             "lowBadge": "Low",
             "prepare": "Prepare order",
-            "andMore_one": "and {{count}} more item",
-            "andMore_other": "and {{count}} more items",
             "needsCount_one": "{{count}} item needs ordering",
             "needsCount_other": "{{count}} items need ordering",
             "nothingNeededTitle": "Nothing needs ordering",
@@ -740,7 +738,9 @@
             "priceChange": "{{change}} on last {{price}}",
             "neverBought": "Never bought",
             "lineItemMissing": "Choose the stock item that arrived.",
-            "lineQuantityMissing": "Enter a quantity greater than zero.",
+            "lineQuantityMissing": "Enter a quantity",
+            "lineQuantityInvalid": "Must be above 0",
+            "lineUnitPriceInvalid": "Not a valid price",
             "issuesSummary_one": "{{count}} thing to fix before this can post",
             "issuesSummary_other": "{{count}} things to fix before this can post",
             "issueNoOrder": "Supply order — choose one",
@@ -748,6 +748,7 @@
             "issueLine": "Line {{line}} — {{fields}}",
             "issueFieldItem": "stock item",
             "issueFieldQuantity": "quantity",
+            "issueFieldUnitPrice": "unit price",
             "issueDateFuture": "Date received — after today",
             "issueOverReceipt": "Over-receipt — confirm it",
             "issueVarianceNote": "Why this delivery differs — say why",
@@ -908,26 +909,20 @@
             "title": "Purchases ledger",
             "emptyTitle": "No purchases yet",
             "emptyBody": "Posted goods receipts appear here, newest first, once stock has been received.",
-            "allSuppliers": "All suppliers",
             "noSupplier": "No supplier",
             "columnDate": "Date",
             "columnSupplier": "Supplier",
             "columnItem": "Item",
             "columnUnitPrice": "Unit price",
             "columnLineTotal": "Line total",
-            "filterSupplier": "Supplier",
             "filterFrom": "From",
             "filterTo": "To",
             "fromPlaceholder": "Start date",
             "toPlaceholder": "End date",
-            "nextPage": "Next 25",
-            "filterItem": "Item",
-            "allItems": "All items",
             "modeLabel": "How to read the ledger",
             "modeDetail": "Lines",
             "modeWeekly": "By week",
             "modeMonthly": "By month",
-            "filterCostStatus": "Price completeness",
             "summaryRange": "Showing {{from}} to {{to}}",
             "summaryEmptyTitle": "Nothing bought in this range",
             "summaryEmptyBody": "Change the dates or clear a filter to see the weeks and months that have deliveries in them.",
@@ -1349,7 +1344,7 @@
             "spendIncompleteBody_other": "{{count}} receipt lines in {{months}} have no usable price yet, so those months' purchasing spend is understated. The purchases ledger's weekly and monthly view lists them.",
             "chip": "Costs",
             "monthInvalid": "Use a month as YYYY-MM.",
-            "openExceptions": "Open consumption exceptions",
+            "openExceptions": "Open stock gaps",
             "chartRevenueCogs": "Revenue and COGS by month",
             "chartRevenueMixTitle": "Revenue by line of business",
             "window": {
@@ -1364,7 +1359,7 @@
             "columnEstimatedMargin": "Est. margin"
         },
         "exceptions": {
-            "title": "Consumption exceptions",
+            "title": "Stock gaps",
             "subtitle": "Sales a confirmed order could not deduct from stock honestly. Fix the cause and retry, or resolve one you have accepted.",
             "emptyTitle": "Nothing to review",
             "emptyBody": "When a confirmed order cannot deduct a line — no recipe, no stock item, not enough stock — it appears here instead of guessing a quantity.",
@@ -1409,8 +1404,6 @@
             "statUnresolvedCaption": "nothing deducted",
             "statResolvedCaption": "the gap was accepted",
             "fromInvalid": "Use a date as YYYY-MM-DD.",
-            "showingCount_one": "Showing {{count}} exception",
-            "showingCount_other": "Showing {{count}} exceptions",
             "resolvedToast": "The exception on order {{order}} is resolved.",
             "resolveTitle": "Resolve this exception?",
             "resolveBody": "Resolving accepts the stock gap for good: nothing is deducted for this line, and stock stays as it is. Retry instead if the cause has been fixed.",
@@ -1513,7 +1506,6 @@
             "columnCount": "Receipts",
             "columnAmount": "Amount",
             "totalsHeading": "Totals",
-            "totalsNote": "One total for each way money arrived, in each currency. There is no overall figure, because adding two currencies together would give a number in neither.",
             "a11y": {
                 "unnamedAgent": "This member has no name on their profile."
             },
@@ -1786,9 +1778,9 @@
             "noCustomerName": "No customer name on this order.",
             "noDeliveryRun": "A {{type}} order. Nothing is driven anywhere."
         },
-        "newSale": "New sale",
+        "newSale": "New order",
         "sale": {
-            "title": "New sale",
+            "title": "New order",
             "placedToast": "Order {{number}} placed.",
             "placedConfirmedToast": "Order {{number}} placed and confirmed. Its run is waiting for a driver to claim it.",
             "placedAssignedToast": "Order {{number}} placed, confirmed and handed to its driver.",
@@ -1862,10 +1854,10 @@
             "method": {
                 "cashOnDelivery": "Cash on delivery",
                 "cashAtCounter": "Cash at the counter",
-                "wish": "WISH transfer"
+                "wish": "Whish transfer"
             },
             "wishNoteTitle": "You are confirming this yourself",
-            "wishNoteBody": "Nothing checks a WISH transfer for us. Only record it once you have seen the money arrive, and write down the transfer reference so it can be found again.",
+            "wishNoteBody": "Nothing checks a Whish transfer for us. Only record it once you have seen the money arrive, and write down the transfer reference so it can be found again.",
             "referenceLabel": "Transfer reference",
             "referenceHint": "The identifier on the transfer. Required, because a confirmation nobody can check afterwards is worth nothing.",
             "referencePlaceholder": "For example TRX-104829",
@@ -1904,7 +1896,7 @@
             "shortfall": {
                 "customer": "Choose the customer to place this order.",
                 "address": "Save the delivery address to place this order.",
-                "reference": "Write down the transfer reference to take a WISH payment."
+                "reference": "Write down the transfer reference to take a Whish payment."
             },
             "zoneNoSlots": "The delivery zone for this address offers none of the kitchen’s slots. Tick one on the zone’s Delivery windows step."
         },
@@ -2090,7 +2082,7 @@
             "description": "Monthly spend and cost of goods sold beside selling revenue — the margin, at a glance."
         },
         "consumptionExceptions": {
-            "name": "Consumption exceptions",
+            "name": "Stock gaps",
             "description": "Sales a confirmed order could not deduct from stock honestly — review, retry, or resolve each one."
         },
         "orderDesk": {

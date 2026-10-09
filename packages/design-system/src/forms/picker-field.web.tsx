@@ -8,12 +8,36 @@ import { FormField } from './form-field.tsx';
 import type { FieldControlProps } from './form-field.tsx';
 import { PICKER_WIDTH } from './picker-field-shared.ts';
 import type { PickerFieldProps } from './picker-field-shared.ts';
+import { TimeField } from './time-field.tsx';
 import { inputFrameClassName } from './text-input.tsx';
 
 export type { PickerFieldProps } from './picker-field-shared.ts';
 
 /**
- * PickerField — web half. A native `<input type="date | month | time">` whose trigger is a drawn
+ * PickerField — web half. Time has its own themed field ({@link TimeField}), typed or picked from a
+ * panel; date and month keep the browser's input below.
+ */
+export function PickerField(props: PickerFieldProps) {
+    if (props.kind === 'time') {
+        return (
+            <TimeField
+                label={props.label}
+                labelHidden={props.labelHidden}
+                value={props.value}
+                onChange={props.onChange}
+                hint={props.hint}
+                error={props.error}
+                disabled={props.disabled}
+                fullWidth={props.fullWidth}
+                testID={props.testID}
+            />
+        );
+    }
+    return <BrowserPickerField {...props} />;
+}
+
+/**
+ * The browser's own `<input type="date | month">` whose trigger is a drawn
  * button (Workbench handoff §1b).
  *
  * **The drawn button is not a button.** The browser's own `::-webkit-calendar-picker-indicator` is
@@ -29,7 +53,7 @@ export type { PickerFieldProps } from './picker-field-shared.ts';
  * press anywhere on the field opens the OS picker. The input still owns focus, the label and the
  * value; only its rendering is replaced.
  */
-export function PickerField({
+function BrowserPickerField({
     kind,
     label,
     labelHidden = false,
@@ -115,11 +139,7 @@ export function PickerField({
                             covered ? 'me-0.5' : 'absolute end-0.5',
                         )}
                     >
-                        <Icon
-                            name={kind === 'time' ? 'clock' : 'calendar'}
-                            size="sm"
-                            className="text-content-secondary"
-                        />
+                        <Icon name="calendar" size="sm" className="text-content-secondary" />
                     </View>
                 </View>
             )}

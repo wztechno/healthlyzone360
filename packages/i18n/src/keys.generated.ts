@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8256 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8260 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2289,9 +2289,12 @@ export interface NamespaceKeys {
     | 'locale.reloadNow'
     | 'locale.reloadRequiredBody'
     | 'locale.reloadRequiredTitle'
+    | 'nav.current'
     | 'nav.devices'
     | 'nav.overview'
     | 'nav.profile'
+    | 'nav.sectionAccount'
+    | 'nav.sectionWorkspaces'
     | 'nav.showcase'
     | 'nav.workspace'
     | 'network.backOnline'
@@ -2475,7 +2478,14 @@ export interface NamespaceKeys {
     | 'table.sortedDescending'
     | 'tag.join'
     | 'tag.more'
-    | 'tag.overflow';
+    | 'tag.overflow'
+    | 'timeField.clear'
+    | 'timeField.done'
+    | 'timeField.hour'
+    | 'timeField.invalid'
+    | 'timeField.minute'
+    | 'timeField.open'
+    | 'timeField.placeholder';
   readonly "errors":
     | 'failure.access_self_lockout'
     | 'failure.account_verification_required'
@@ -3595,12 +3605,13 @@ export interface NamespaceKeys {
     | 'frozenMeals.create'
     | 'frozenMeals.title'
     | 'frozenMeals.viewKind'
+    | 'hub.attentionClear'
+    | 'hub.attentionTitle'
     | 'hub.countUnavailable'
     | 'hub.draftCount'
     | 'hub.emptyBody'
     | 'hub.emptyTitle'
     | 'hub.errorTitle'
-    | 'hub.insightTag'
     | 'hub.itemCount'
     | 'hub.kpi.consumptionExceptions'
     | 'hub.kpi.deliveryZones'
@@ -3610,12 +3621,9 @@ export interface NamespaceKeys {
     | 'hub.kpi.needsReview'
     | 'hub.kpi.publishedMeals'
     | 'hub.kpi.requirementShortfalls'
-    | 'hub.open'
-    | 'hub.openReview'
     | 'hub.publishedCount'
     | 'hub.quarantineCount'
     | 'hub.referenceOnly'
-    | 'hub.subtitle'
     | 'hub.title'
     | 'ingredientDetail.allergensDietsTitle'
     | 'ingredientDetail.fieldCapacity'
@@ -3941,7 +3949,6 @@ export interface NamespaceKeys {
     | 'ops.cashReport.summaryRows'
     | 'ops.cashReport.title'
     | 'ops.cashReport.totalsHeading'
-    | 'ops.cashReport.totalsNote'
     | 'ops.costReport.caption'
     | 'ops.costReport.chartCogs'
     | 'ops.costReport.chartCogsMix'
@@ -4029,7 +4036,6 @@ export interface NamespaceKeys {
     | 'ops.exceptions.resolvedBadge'
     | 'ops.exceptions.resolvedToast'
     | 'ops.exceptions.retry'
-    | 'ops.exceptions.showingCount'
     | 'ops.exceptions.statResolvedCaption'
     | 'ops.exceptions.statShownCaption'
     | 'ops.exceptions.statUnit'
@@ -4048,8 +4054,6 @@ export interface NamespaceKeys {
     | 'ops.exceptions.window.openNote'
     | 'ops.exceptions.window.retry'
     | 'ops.exceptions.window.title'
-    | 'ops.ledger.allItems'
-    | 'ops.ledger.allSuppliers'
     | 'ops.ledger.chargeDelivery'
     | 'ops.ledger.chargeDiscount'
     | 'ops.ledger.chargeOther'
@@ -4066,10 +4070,7 @@ export interface NamespaceKeys {
     | 'ops.ledger.costNoteTitle'
     | 'ops.ledger.emptyBody'
     | 'ops.ledger.emptyTitle'
-    | 'ops.ledger.filterCostStatus'
     | 'ops.ledger.filterFrom'
-    | 'ops.ledger.filterItem'
-    | 'ops.ledger.filterSupplier'
     | 'ops.ledger.filterTo'
     | 'ops.ledger.fromPlaceholder'
     | 'ops.ledger.hideCharges'
@@ -4078,7 +4079,6 @@ export interface NamespaceKeys {
     | 'ops.ledger.modeLabel'
     | 'ops.ledger.modeMonthly'
     | 'ops.ledger.modeWeekly'
-    | 'ops.ledger.nextPage'
     | 'ops.ledger.noPricedDeliveries'
     | 'ops.ledger.noSupplier'
     | 'ops.ledger.pendingFxNote'
@@ -4107,7 +4107,6 @@ export interface NamespaceKeys {
     | 'ops.ledger.viewUnpricedNote'
     | 'ops.metricUnavailable'
     | 'ops.orders.actionsHeading'
-    | 'ops.orders.allLoaded'
     | 'ops.orders.backToOrders'
     | 'ops.orders.cancel'
     | 'ops.orders.cancelBody'
@@ -4151,7 +4150,6 @@ export interface NamespaceKeys {
     | 'ops.orders.filterAll'
     | 'ops.orders.filteredEmptyBody'
     | 'ops.orders.filteredEmptyTitle'
-    | 'ops.orders.foot'
     | 'ops.orders.fulfil'
     | 'ops.orders.fulfilledAt'
     | 'ops.orders.fulfilledToast'
@@ -4196,7 +4194,6 @@ export interface NamespaceKeys {
     | 'ops.orders.total'
     | 'ops.orders.totalsHeading'
     | 'ops.orders.viewKind'
-    | 'ops.orders.viewOpen'
     | 'ops.orders.viewPlacedNote'
     | 'ops.procurement.addLine'
     | 'ops.procurement.arrivalAside'
@@ -4232,6 +4229,7 @@ export interface NamespaceKeys {
     | 'ops.procurement.issueDateFuture'
     | 'ops.procurement.issueFieldItem'
     | 'ops.procurement.issueFieldQuantity'
+    | 'ops.procurement.issueFieldUnitPrice'
     | 'ops.procurement.issueLine'
     | 'ops.procurement.issueNoLines'
     | 'ops.procurement.issueNoOrder'
@@ -4246,8 +4244,10 @@ export interface NamespaceKeys {
     | 'ops.procurement.lineCountUnpriced'
     | 'ops.procurement.lineFieldLabel'
     | 'ops.procurement.lineItemMissing'
+    | 'ops.procurement.lineQuantityInvalid'
     | 'ops.procurement.lineQuantityMissing'
     | 'ops.procurement.lineTotal'
+    | 'ops.procurement.lineUnitPriceInvalid'
     | 'ops.procurement.linesSection'
     | 'ops.procurement.listFoot'
     | 'ops.procurement.manageSuppliers'
@@ -4818,8 +4818,6 @@ export interface NamespaceKeys {
     | 'ops.requirements.windowTo'
     | 'ops.stock.adjust'
     | 'ops.stock.adjustedToast'
-    | 'ops.stock.backLabel'
-    | 'ops.stock.chip'
     | 'ops.stock.columnItem'
     | 'ops.stock.columnLastPurchase'
     | 'ops.stock.columnQuantity'
@@ -4828,17 +4826,17 @@ export interface NamespaceKeys {
     | 'ops.stock.direction'
     | 'ops.stock.directionDecrease'
     | 'ops.stock.directionIncrease'
-    | 'ops.stock.editorSummary'
+    | 'ops.stock.effectDecrease'
+    | 'ops.stock.effectIncrease'
+    | 'ops.stock.effectThreshold'
+    | 'ops.stock.effectWaste'
     | 'ops.stock.emptyShelf'
     | 'ops.stock.fieldAdjustQuantity'
     | 'ops.stock.fieldNotes'
     | 'ops.stock.fieldNotesPlaceholder'
     | 'ops.stock.fieldParLevel'
-    | 'ops.stock.fieldParLevelHint'
     | 'ops.stock.fieldThreshold'
-    | 'ops.stock.fieldThresholdHint'
     | 'ops.stock.filteredEmptyBody'
-    | 'ops.stock.foot'
     | 'ops.stock.history'
     | 'ops.stock.inStockBadge'
     | 'ops.stock.ingredientsEmptyBody'
@@ -4864,19 +4862,26 @@ export interface NamespaceKeys {
     | 'ops.stock.parLevelPlaceholder'
     | 'ops.stock.productsEmptyBody'
     | 'ops.stock.productsEmptyTitle'
-    | 'ops.stock.quantityHint'
     | 'ops.stock.quantityInvalid'
+    | 'ops.stock.quantityUnitHint'
     | 'ops.stock.reorderPar'
     | 'ops.stock.saveFailedBody'
     | 'ops.stock.saveFailedTitle'
     | 'ops.stock.saveLabel'
     | 'ops.stock.searchPlaceholder'
     | 'ops.stock.sectionMovement'
+    | 'ops.stock.sectionThreshold'
     | 'ops.stock.statLowCaption'
     | 'ops.stock.statOkCaption'
     | 'ops.stock.statOutCaption'
     | 'ops.stock.statUnit'
+    | 'ops.stock.summaryAfter'
+    | 'ops.stock.summaryEffects'
+    | 'ops.stock.summaryNothing'
+    | 'ops.stock.summaryOnHand'
+    | 'ops.stock.summaryTitle'
     | 'ops.stock.thresholdClearedToast'
+    | 'ops.stock.thresholdNote'
     | 'ops.stock.thresholdPlaceholder'
     | 'ops.stock.thresholdSetToast'
     | 'ops.stock.viewKind'
@@ -5012,7 +5017,6 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.addPlaceholder'
     | 'ops.supplyOrders.addSupplier'
     | 'ops.supplyOrders.addTitle'
-    | 'ops.supplyOrders.andMore'
     | 'ops.supplyOrders.backToOrders'
     | 'ops.supplyOrders.branchRequiredBody'
     | 'ops.supplyOrders.branchRequiredTitle'
@@ -10568,9 +10572,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:locale.reloadNow',
   'common:locale.reloadRequiredBody',
   'common:locale.reloadRequiredTitle',
+  'common:nav.current',
   'common:nav.devices',
   'common:nav.overview',
   'common:nav.profile',
+  'common:nav.sectionAccount',
+  'common:nav.sectionWorkspaces',
   'common:nav.showcase',
   'common:nav.workspace',
   'common:network.backOnline',
@@ -10754,6 +10761,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:tag.join',
   'designSystem:tag.more',
   'designSystem:tag.overflow',
+  'designSystem:timeField.clear',
+  'designSystem:timeField.done',
+  'designSystem:timeField.hour',
+  'designSystem:timeField.invalid',
+  'designSystem:timeField.minute',
+  'designSystem:timeField.open',
+  'designSystem:timeField.placeholder',
   'errors:failure.access_self_lockout',
   'errors:failure.account_verification_required',
   'errors:failure.address_area_not_served',
@@ -11869,12 +11883,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:frozenMeals.create',
   'kitchen:frozenMeals.title',
   'kitchen:frozenMeals.viewKind',
+  'kitchen:hub.attentionClear',
+  'kitchen:hub.attentionTitle',
   'kitchen:hub.countUnavailable',
   'kitchen:hub.draftCount',
   'kitchen:hub.emptyBody',
   'kitchen:hub.emptyTitle',
   'kitchen:hub.errorTitle',
-  'kitchen:hub.insightTag',
   'kitchen:hub.itemCount',
   'kitchen:hub.kpi.consumptionExceptions',
   'kitchen:hub.kpi.deliveryZones',
@@ -11884,12 +11899,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.kpi.needsReview',
   'kitchen:hub.kpi.publishedMeals',
   'kitchen:hub.kpi.requirementShortfalls',
-  'kitchen:hub.open',
-  'kitchen:hub.openReview',
   'kitchen:hub.publishedCount',
   'kitchen:hub.quarantineCount',
   'kitchen:hub.referenceOnly',
-  'kitchen:hub.subtitle',
   'kitchen:hub.title',
   'kitchen:ingredientDetail.allergensDietsTitle',
   'kitchen:ingredientDetail.fieldCapacity',
@@ -12215,7 +12227,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.cashReport.summaryRows',
   'kitchen:ops.cashReport.title',
   'kitchen:ops.cashReport.totalsHeading',
-  'kitchen:ops.cashReport.totalsNote',
   'kitchen:ops.costReport.caption',
   'kitchen:ops.costReport.chartCogs',
   'kitchen:ops.costReport.chartCogsMix',
@@ -12303,7 +12314,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.resolvedBadge',
   'kitchen:ops.exceptions.resolvedToast',
   'kitchen:ops.exceptions.retry',
-  'kitchen:ops.exceptions.showingCount',
   'kitchen:ops.exceptions.statResolvedCaption',
   'kitchen:ops.exceptions.statShownCaption',
   'kitchen:ops.exceptions.statUnit',
@@ -12322,8 +12332,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.window.openNote',
   'kitchen:ops.exceptions.window.retry',
   'kitchen:ops.exceptions.window.title',
-  'kitchen:ops.ledger.allItems',
-  'kitchen:ops.ledger.allSuppliers',
   'kitchen:ops.ledger.chargeDelivery',
   'kitchen:ops.ledger.chargeDiscount',
   'kitchen:ops.ledger.chargeOther',
@@ -12340,10 +12348,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.costNoteTitle',
   'kitchen:ops.ledger.emptyBody',
   'kitchen:ops.ledger.emptyTitle',
-  'kitchen:ops.ledger.filterCostStatus',
   'kitchen:ops.ledger.filterFrom',
-  'kitchen:ops.ledger.filterItem',
-  'kitchen:ops.ledger.filterSupplier',
   'kitchen:ops.ledger.filterTo',
   'kitchen:ops.ledger.fromPlaceholder',
   'kitchen:ops.ledger.hideCharges',
@@ -12352,7 +12357,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.modeLabel',
   'kitchen:ops.ledger.modeMonthly',
   'kitchen:ops.ledger.modeWeekly',
-  'kitchen:ops.ledger.nextPage',
   'kitchen:ops.ledger.noPricedDeliveries',
   'kitchen:ops.ledger.noSupplier',
   'kitchen:ops.ledger.pendingFxNote',
@@ -12381,7 +12385,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.viewUnpricedNote',
   'kitchen:ops.metricUnavailable',
   'kitchen:ops.orders.actionsHeading',
-  'kitchen:ops.orders.allLoaded',
   'kitchen:ops.orders.backToOrders',
   'kitchen:ops.orders.cancel',
   'kitchen:ops.orders.cancelBody',
@@ -12425,7 +12428,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.filterAll',
   'kitchen:ops.orders.filteredEmptyBody',
   'kitchen:ops.orders.filteredEmptyTitle',
-  'kitchen:ops.orders.foot',
   'kitchen:ops.orders.fulfil',
   'kitchen:ops.orders.fulfilledAt',
   'kitchen:ops.orders.fulfilledToast',
@@ -12470,7 +12472,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.total',
   'kitchen:ops.orders.totalsHeading',
   'kitchen:ops.orders.viewKind',
-  'kitchen:ops.orders.viewOpen',
   'kitchen:ops.orders.viewPlacedNote',
   'kitchen:ops.procurement.addLine',
   'kitchen:ops.procurement.arrivalAside',
@@ -12506,6 +12507,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.issueDateFuture',
   'kitchen:ops.procurement.issueFieldItem',
   'kitchen:ops.procurement.issueFieldQuantity',
+  'kitchen:ops.procurement.issueFieldUnitPrice',
   'kitchen:ops.procurement.issueLine',
   'kitchen:ops.procurement.issueNoLines',
   'kitchen:ops.procurement.issueNoOrder',
@@ -12520,8 +12522,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.lineCountUnpriced',
   'kitchen:ops.procurement.lineFieldLabel',
   'kitchen:ops.procurement.lineItemMissing',
+  'kitchen:ops.procurement.lineQuantityInvalid',
   'kitchen:ops.procurement.lineQuantityMissing',
   'kitchen:ops.procurement.lineTotal',
+  'kitchen:ops.procurement.lineUnitPriceInvalid',
   'kitchen:ops.procurement.linesSection',
   'kitchen:ops.procurement.listFoot',
   'kitchen:ops.procurement.manageSuppliers',
@@ -13092,8 +13096,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.requirements.windowTo',
   'kitchen:ops.stock.adjust',
   'kitchen:ops.stock.adjustedToast',
-  'kitchen:ops.stock.backLabel',
-  'kitchen:ops.stock.chip',
   'kitchen:ops.stock.columnItem',
   'kitchen:ops.stock.columnLastPurchase',
   'kitchen:ops.stock.columnQuantity',
@@ -13102,17 +13104,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.direction',
   'kitchen:ops.stock.directionDecrease',
   'kitchen:ops.stock.directionIncrease',
-  'kitchen:ops.stock.editorSummary',
+  'kitchen:ops.stock.effectDecrease',
+  'kitchen:ops.stock.effectIncrease',
+  'kitchen:ops.stock.effectThreshold',
+  'kitchen:ops.stock.effectWaste',
   'kitchen:ops.stock.emptyShelf',
   'kitchen:ops.stock.fieldAdjustQuantity',
   'kitchen:ops.stock.fieldNotes',
   'kitchen:ops.stock.fieldNotesPlaceholder',
   'kitchen:ops.stock.fieldParLevel',
-  'kitchen:ops.stock.fieldParLevelHint',
   'kitchen:ops.stock.fieldThreshold',
-  'kitchen:ops.stock.fieldThresholdHint',
   'kitchen:ops.stock.filteredEmptyBody',
-  'kitchen:ops.stock.foot',
   'kitchen:ops.stock.history',
   'kitchen:ops.stock.inStockBadge',
   'kitchen:ops.stock.ingredientsEmptyBody',
@@ -13138,19 +13140,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.parLevelPlaceholder',
   'kitchen:ops.stock.productsEmptyBody',
   'kitchen:ops.stock.productsEmptyTitle',
-  'kitchen:ops.stock.quantityHint',
   'kitchen:ops.stock.quantityInvalid',
+  'kitchen:ops.stock.quantityUnitHint',
   'kitchen:ops.stock.reorderPar',
   'kitchen:ops.stock.saveFailedBody',
   'kitchen:ops.stock.saveFailedTitle',
   'kitchen:ops.stock.saveLabel',
   'kitchen:ops.stock.searchPlaceholder',
   'kitchen:ops.stock.sectionMovement',
+  'kitchen:ops.stock.sectionThreshold',
   'kitchen:ops.stock.statLowCaption',
   'kitchen:ops.stock.statOkCaption',
   'kitchen:ops.stock.statOutCaption',
   'kitchen:ops.stock.statUnit',
+  'kitchen:ops.stock.summaryAfter',
+  'kitchen:ops.stock.summaryEffects',
+  'kitchen:ops.stock.summaryNothing',
+  'kitchen:ops.stock.summaryOnHand',
+  'kitchen:ops.stock.summaryTitle',
   'kitchen:ops.stock.thresholdClearedToast',
+  'kitchen:ops.stock.thresholdNote',
   'kitchen:ops.stock.thresholdPlaceholder',
   'kitchen:ops.stock.thresholdSetToast',
   'kitchen:ops.stock.viewKind',
@@ -13286,7 +13295,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.addPlaceholder',
   'kitchen:ops.supplyOrders.addSupplier',
   'kitchen:ops.supplyOrders.addTitle',
-  'kitchen:ops.supplyOrders.andMore',
   'kitchen:ops.supplyOrders.backToOrders',
   'kitchen:ops.supplyOrders.branchRequiredBody',
   'kitchen:ops.supplyOrders.branchRequiredTitle',

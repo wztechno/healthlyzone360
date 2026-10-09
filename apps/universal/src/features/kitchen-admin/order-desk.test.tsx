@@ -685,7 +685,7 @@ describe('order desk queue — the payment cell', () => {
             'Cash on delivery',
         );
         expect(screen.getByTestId(rowTestId(2, 'payment-method'))).toHaveTextContent(
-            'WISH transfer',
+            'Whish transfer',
         );
 
         expect(screen.getByTestId(rowTestId(3, 'payment-method'))).toHaveTextContent(
@@ -896,7 +896,7 @@ describe('order desk queue — the order record page', () => {
         });
 
         expect(screen.getByTestId('kitchen-order-desk-detail-payment-method')).toHaveTextContent(
-            'WISH transfer',
+            'Whish transfer',
         );
         expect(screen.getByTestId('kitchen-order-desk-detail-payment-received')).toHaveTextContent(
             'AED 100.00',

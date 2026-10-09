@@ -28,6 +28,7 @@ import {
     DerivedChipPanel,
     ListSummaryCards,
     PickerField,
+    TimeField,
     RecordSkeleton,
     RecordWindow,
     RecordWindowFieldGrid,
@@ -2415,6 +2416,31 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         variant="workspace"
                         title="Kitchen workspace"
                         navigation={[
+                            // Listed first, so it sits above Overview; its panel runs in sections.
+                            {
+                                key: 'area-customer',
+                                label: 'Home',
+                                group: 'Workspace',
+                                groupIcon: 'layers',
+                                section: 'Workspaces',
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'area-kds',
+                                label: 'Kitchen display',
+                                group: 'Workspace',
+                                groupIcon: 'layers',
+                                section: 'Workspaces',
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'profile',
+                                label: 'Profile',
+                                group: 'Workspace',
+                                groupIcon: 'layers',
+                                section: 'Account',
+                                onPress: () => undefined,
+                            },
                             {
                                 key: 'home',
                                 label: 'Overview',
@@ -2469,13 +2495,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 label: 'Team',
                                 group: 'Access',
                                 groupIcon: 'shield',
-                                onPress: () => undefined,
-                            },
-                            {
-                                key: 'profile',
-                                label: 'Profile',
-                                group: 'Workspace',
-                                groupIcon: 'userCircle',
                                 onPress: () => undefined,
                             },
                         ]}
@@ -2686,12 +2705,33 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         value={pickerDate}
                         onChange={setPickerDate}
                     />
-                    <PickerField
-                        kind="time"
+                    {/* Time: typed (930 → 09:30) or picked from its panel; a bound greys the rest. */}
+                    <TimeField
                         testID={id('picker-time')}
                         label="Opens"
                         value={pickerTime}
                         onChange={setPickerTime}
+                    />
+                    <TimeField
+                        testID={id('time-min')}
+                        label="Closes (after opening)"
+                        value=""
+                        min={pickerTime === '' ? undefined : pickerTime}
+                        onChange={() => undefined}
+                    />
+                    <TimeField
+                        testID={id('time-error')}
+                        label="Cut-off"
+                        value="25:00"
+                        error="Enter a time as HH:mm, for example 09:30."
+                        onChange={() => undefined}
+                    />
+                    <TimeField
+                        testID={id('time-disabled')}
+                        label="Closed"
+                        value="09:00"
+                        disabled
+                        onChange={() => undefined}
                     />
                     {/* The page words the value, and an empty date says what it means. */}
                     <View className="w-[132px]">

@@ -106,7 +106,12 @@ export type { ButtonProps, ButtonSize, ButtonVariant } from './actions/button.ts
 export { IconButton } from './actions/icon-button.tsx';
 export type { IconButtonProps } from './actions/icon-button.tsx';
 
-export { FormField, REQUIRED_MARK } from './forms/form-field.tsx';
+export {
+    FormField,
+    NUMBER_FIELD_MAX_WIDTH,
+    NUMBER_MAX_LENGTH,
+    REQUIRED_MARK,
+} from './forms/form-field.tsx';
 export type { FieldControlProps, FormFieldProps } from './forms/form-field.tsx';
 export {
     INPUT_SIZES,
@@ -118,7 +123,11 @@ export {
 export type { InputSize, TextInputFieldProps } from './forms/text-input.tsx';
 export { FormSection } from './forms/form-section.tsx';
 export type { FormSectionProps } from './forms/form-section.tsx';
-export { FormIssueScope, useFieldSummarised } from './forms/form-issue-scope.tsx';
+export {
+    FormIssueScope,
+    useFieldSummarised,
+    useSummariseFields,
+} from './forms/form-issue-scope.tsx';
 export type { FormIssueScopeProps } from './forms/form-issue-scope.tsx';
 export { FORM_ISSUE_TONES, FormIssueBanner } from './forms/form-issue-banner.tsx';
 export type {
@@ -189,6 +198,9 @@ export { PICKER_FORMAT, PICKER_KINDS, PICKER_WIDTH } from './forms/picker-field-
 export type { PickerKind } from './forms/picker-field-shared.ts';
 export { DatePickerButton } from './forms/date-picker-button.tsx';
 export type { DatePickerButtonProps } from './forms/date-picker-button.tsx';
+export { TIME_FIELD_WIDTH, TimeField } from './forms/time-field.tsx';
+export type { TimeFieldProps } from './forms/time-field.tsx';
+export { parseTypedTime } from './forms/time-field-shared.ts';
 
 export { CARD_PADDINGS, CARD_TONES, Card } from './content/card.tsx';
 export type { CardPadding, CardProps, CardTone } from './content/card.tsx';

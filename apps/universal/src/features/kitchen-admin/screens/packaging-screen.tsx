@@ -211,6 +211,7 @@ function PackagingList() {
                     testID="kitchen-packaging-stats"
                     cards={statCards(list, t)}
                     pending={list.isPending}
+                    countsPending={list.countsPending}
                 />
             </Stack>
 

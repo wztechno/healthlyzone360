@@ -5,6 +5,7 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
+    Inline,
     Stack,
     TableSkeleton,
     Text,
@@ -17,11 +18,15 @@ import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import { pagesInResult, usePriceListPageQuery } from '../../../data/kitchen-admin-hooks.ts';
+import {
+    KITCHEN_PAGE_SIZE,
+    pagesInResult,
+    usePriceListPageQuery,
+    usePriceListWholeSetQuery,
+} from '../../../data/kitchen-admin-hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -119,6 +124,7 @@ function PriceListsList() {
     );
     const [page, setPage] = useListPage(filter);
     const priceLists = usePriceListPageQuery(filter, page);
+    const wholeSet = usePriceListWholeSetQuery(filter);
     const rows = useMemo(() => priceLists.data?.items ?? [], [priceLists.data]);
     const total = priceLists.data?.totalCount ?? null;
     const totalPages = pagesInResult(priceLists.data) ?? 0;
@@ -146,10 +152,10 @@ function PriceListsList() {
                 const testID = priceListRowTestId(String(row.id));
                 const name = displayName(row.name, locale);
                 return (
-                    <View
-                        testID={testID}
-                        className="min-w-0 flex-row flex-wrap items-center gap-1.5"
-                    >
+                    // `Inline`, as every other list's name cell: in a table cell it stays on one
+                    // line and lets the name give way to an ellipsis (whole on hover), so a badge
+                    // never runs into the next column.
+                    <Inline testID={testID} space="xs" align="center">
                         <Text variant="strong" numberOfLines={1} testID={`${testID}-name`}>
                             {name.value}
                         </Text>
@@ -167,7 +173,7 @@ function PriceListsList() {
                                 label={t('kitchen:priceLists.agreementBadge')}
                             />
                         ) : null}
-                    </View>
+                    </Inline>
                 );
             },
         },
@@ -235,7 +241,7 @@ function PriceListsList() {
                         {t('kitchen:priceLists.noEntries')}
                     </Text>
                 ) : (
-                    <View className="flex-row flex-wrap items-center gap-1.5">
+                    <Inline space="xs" align="center">
                         <Text testID={`${testID}-entries`}>{entriesText(row, t)}</Text>
                         {summary.inconsistent === 0 ? null : (
                             <Badge
@@ -246,7 +252,7 @@ function PriceListsList() {
                                 })}
                             />
                         )}
-                    </View>
+                    </Inline>
                 );
             },
         },
@@ -337,12 +343,13 @@ function PriceListsList() {
             {failure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-price-lists-stats"
-                    cards={statCards(controls.rows, total, unfiltered, t, () => {
+                    cards={statCards(wholeSet.data ?? [], page, total, unfiltered, t, () => {
                         setQuery('');
                         setStatus('all');
                         setChannel(null);
                     })}
                     pending={priceLists.isPending}
+                    countsPending={wholeSet.isPending}
                 />
             )}
 
@@ -509,9 +516,11 @@ function viewFields(row: PriceListAdmin, t: TFunction, formatter: ReturnType<typ
     ];
 }
 
-/** Counted over the page in hand (§3z): shown, lists that price nothing, lists under an agreement. */
+/** Counted over every page the filters match: shown so far, lists that price nothing, under an agreement. */
 function statCards(
+    /** Every price list the filters match, across all pages. */
     rows: readonly PriceListAdmin[],
+    page: number,
     total: number | null,
     unfiltered: boolean,
     t: TFunction,
@@ -525,7 +534,7 @@ function statCards(
         {
             key: 'shown',
             label: t('kitchen:list.statShown'),
-            value: String(rows.length),
+            value: String(Math.min(page * KITCHEN_PAGE_SIZE, total ?? rows.length)),
             unit: t('kitchen:list.statShownUnit', { total: total ?? rows.length }),
             caption: unfiltered
                 ? t('kitchen:list.statShownUnfiltered')

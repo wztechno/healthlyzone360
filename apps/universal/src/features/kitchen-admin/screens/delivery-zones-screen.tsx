@@ -24,9 +24,11 @@ import { useTranslation } from 'react-i18next';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
+    KITCHEN_PAGE_SIZE,
     pagesInResult,
     useDeliveryWindowsQuery,
     useDeliveryZonePageQuery,
+    useDeliveryZoneWholeSetQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
@@ -118,6 +120,7 @@ function DeliveryZonesList() {
     );
     const [page, setPage] = useListPage(filter);
     const zones = useDeliveryZonePageQuery(filter, page);
+    const wholeSet = useDeliveryZoneWholeSetQuery(filter);
     // A zone carries window identifiers; the windows themselves are the kitchen's list.
     const kitchenWindows = useDeliveryWindowsQuery();
     const allWindows = kitchenWindows.data ?? NO_WINDOWS;
@@ -327,14 +330,18 @@ function DeliveryZonesList() {
         ...SEGMENT_STATUSES.map((value) => ({ value, label: t(statusShortKey(value)) })),
     ];
 
-    const noAreas = controls.rows.filter((row) => row.areas.length === 0).length;
-    const noWindows = controls.rows.filter((row) => coverageOf(row).weekdays.length === 0).length;
+    // Counted over every page the filters match, not the eighteen rows on this one.
+    const everyZone = wholeSet.data ?? [];
+    const noAreas = everyZone.filter((row) => row.areas.length === 0).length;
+    const noWindows = everyZone.filter((row) => coverageOf(row).weekdays.length === 0).length;
+    // Rows up to the end of this page: 18 of 40 on the first, 36 on the second.
+    const shownSoFar = Math.min(page * KITCHEN_PAGE_SIZE, total ?? controls.rows.length);
     const cards: readonly CatalogueStatCard[] = [
         {
             key: 'shown',
             label: t('kitchen:list.statShown'),
-            value: String(controls.rows.length),
-            unit: t('kitchen:list.statShownUnit', { total: total ?? controls.rows.length }),
+            value: String(shownSoFar),
+            unit: t('kitchen:list.statShownUnit', { total: total ?? shownSoFar }),
             caption: unfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),
@@ -445,6 +452,7 @@ function DeliveryZonesList() {
                     testID="kitchen-zones-stats"
                     cards={cards}
                     pending={zones.isPending}
+                    countsPending={wholeSet.isPending || kitchenWindows.isPending}
                 />
             )}
 

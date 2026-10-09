@@ -1,7 +1,7 @@
 import { PLAN_MENU_SLOTS } from '@healthy360/api-client/contracts';
 import type { MealAdmin, PlanMenuSlot } from '@healthy360/api-client/contracts';
-import { Badge, Button, Icon, Select, Text } from '@healthy360/design-system';
-import type { SelectOption } from '@healthy360/design-system';
+import { Badge, Button, DataList, fieldWidth, Icon, Select, Text } from '@healthy360/design-system';
+import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { MealId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
@@ -19,7 +19,7 @@ import {
     removeMenuEntry,
     restoreMenuEntry,
 } from './plan-menu.ts';
-import type { MenuDraft, MenuEntryDraft } from './plan-menu.ts';
+import type { MenuDay, MenuDraft, MenuEntryDraft } from './plan-menu.ts';
 import { CountField, RemoveButton } from './plan-row-editors.tsx';
 import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
 
@@ -38,12 +38,13 @@ import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
  * which dish. Making the day an editable number on every row would have made "move Tuesday's lunch to
  * Wednesday" a typo away from "two lunches on Wednesday and nothing on Tuesday".
  *
- * ## A table, drawn the way the durations draw theirs
+ * ## A `DataList`, like every admin table
  *
- * Column headers once, then one hairline row per day: the day and the date it first falls on at the
- * start, its dishes beside it, each dish a single control-height line of sitting, position, dish and
- * ✕. Every control is the desk's `sm` rung. A fortnight of four-dish days is a page a cook can read
- * down, where the card-per-dish layout it replaces ran to several screens.
+ * The same table the catalogue lists and the opening hours use — its green header band, its row
+ * heights — with one row per dish. The day is drawn on its first row and its Add a dish on its last,
+ * so a day still reads as one block. Every control is the desk's `sm` rung, and the dish picker is
+ * one field wide; the row's controls column takes the slack, so the band still runs the card's
+ * width.
  *
  * ## No move buttons
  *
@@ -179,164 +180,258 @@ export function PlanMenuDays({
         return label === '' ? t('kitchen:plans.menuEmptyDish') : label;
     };
 
+    const pickMeal = (row: MenuEntryDraft, next: string) => {
+        const meal = meals.find((candidate) => String(candidate.id) === next);
+        onChange(
+            patchMenuEntry(draft, row.key, {
+                mealId: MealId.unsafe(next),
+                mealName: meal?.name ?? row.mealName,
+            }),
+        );
+    };
+
+    const removeEntry = (row: MenuEntryDraft) => {
+        setRemoved({
+            row,
+            index: draft.entries.findIndex((entry) => entry.key === row.key),
+        });
+        onChange(removeMenuEntry(draft, row.key));
+    };
+
+    const addDish = (cycleDay: number) => {
+        const coordinate = nextCoordinate(draft, cycleDay);
+        onChange(addMenuEntry(draft, emptyMenuEntry(nextKey(), cycleDay, coordinate)));
+        setAnnouncement(
+            t('kitchen:plans.menuAddedAnnouncement', {
+                day: cycleDay,
+                slot: t(menuSlotKey(coordinate.slot)),
+            }),
+        );
+    };
+
+    /*
+     * One table row per dish, and one for a day with none. The day is the group, never a field: it
+     * is drawn on the day's first row only, and its Add a dish on its last, so a day still reads as
+     * one block down the table.
+     */
+    const rows = useMemo<readonly MenuRow[]>(
+        () =>
+            days.flatMap((day): MenuRow[] =>
+                day.entries.length === 0
+                    ? [
+                          {
+                              key: `day-${String(day.cycleDay)}`,
+                              day,
+                              entry: null,
+                              first: true,
+                              last: true,
+                          },
+                      ]
+                    : day.entries.map((entry, index) => ({
+                          key: entry.key,
+                          day,
+                          entry,
+                          first: index === 0,
+                          last: index === day.entries.length - 1,
+                      })),
+            ),
+        [days],
+    );
+
+    const columns: readonly DataListColumn<MenuRow>[] = [
+        {
+            key: 'day',
+            label: t('kitchen:plans.menuDayLabel'),
+            width: DAY_TRACK,
+            priority: 100,
+            grow: false,
+            render: (row) => {
+                if (!row.first) return null;
+                const dayTestId = `${testID}-day-${String(row.day.cycleDay)}`;
+                return (
+                    <View testID={dayTestId} className="flex-col gap-hair py-tight">
+                        <Text variant="label">
+                            {t('kitchen:plans.menuDayNumber', { number: row.day.cycleDay })}
+                        </Text>
+                        <Text testID={`${dayTestId}-date`} variant="caption" tone="secondary">
+                            {dayCaption(row.day.cycleDay)}
+                        </Text>
+                        {row.day.isBeyondCycle ? (
+                            <View className="flex-row">
+                                <Badge
+                                    testID={`${dayTestId}-beyond`}
+                                    tone="warning"
+                                    icon="warning"
+                                    label={t('kitchen:plans.menuDayBeyond')}
+                                />
+                            </View>
+                        ) : null}
+                    </View>
+                );
+            },
+        },
+        {
+            key: 'slot',
+            label: t('kitchen:plans.menuSlotLabel'),
+            width: SLOT_TRACK,
+            priority: 99,
+            grow: false,
+            render: (row) =>
+                row.entry === null ? null : (
+                    <View className="z-auto min-w-0 flex-1 py-tight">
+                        <Select<PlanMenuSlot>
+                            testID={`${testID}-row-${row.entry.key}-slot`}
+                            id={`${testID}-row-${row.entry.key}-slot`}
+                            label={t('kitchen:plans.menuSlotLabel')}
+                            labelHidden
+                            size="sm"
+                            disabled={!canManage}
+                            options={slotOptions}
+                            value={row.entry.slot}
+                            onChange={(next) => {
+                                if (row.entry === null) return;
+                                onChange(patchMenuEntry(draft, row.entry.key, { slot: next }));
+                            }}
+                        />
+                    </View>
+                ),
+        },
+        {
+            key: 'sequence',
+            label: t('kitchen:plans.menuSequenceShort'),
+            width: SEQUENCE_TRACK,
+            priority: 98,
+            grow: false,
+            render: (row) =>
+                row.entry === null ? null : (
+                    <View className="min-w-0 flex-1 py-tight">
+                        <CountField
+                            testID={`${testID}-row-${row.entry.key}-sequence`}
+                            label={t('kitchen:plans.menuSequenceLabel')}
+                            labelHidden
+                            placeholder="1"
+                            value={row.entry.sequence}
+                            disabled={!canManage}
+                            onChange={(next) => {
+                                if (row.entry === null) return;
+                                onChange(patchMenuEntry(draft, row.entry.key, { sequence: next }));
+                            }}
+                        />
+                    </View>
+                ),
+        },
+        {
+            key: 'dish',
+            label: t('kitchen:plans.menuMealLabel'),
+            // One field wide, like every other picker: the no-stretch rule.
+            width: DISH_TRACK,
+            priority: 97,
+            grow: false,
+            render: (row) => {
+                if (row.entry === null) {
+                    return (
+                        <Text
+                            testID={`${testID}-day-${String(row.day.cycleDay)}-empty`}
+                            variant="caption"
+                            tone="secondary"
+                        >
+                            {t('kitchen:plans.menuDayEmptyHint')}
+                        </Text>
+                    );
+                }
+                const entry = row.entry;
+                const error = errors.get(entry.key);
+                return (
+                    <View className="z-auto min-w-0 flex-1 flex-col gap-hair py-tight">
+                        <Select
+                            testID={`${testID}-row-${entry.key}-meal`}
+                            id={`${testID}-row-${entry.key}-meal`}
+                            label={t('kitchen:plans.menuMealLabel')}
+                            labelHidden
+                            size="sm"
+                            placeholder={
+                                mealsPending
+                                    ? t('kitchen:plans.menuMealsPending')
+                                    : t('kitchen:plans.menuMealPlaceholder')
+                            }
+                            searchable
+                            required
+                            disabled={!canManage}
+                            options={optionsFor(entry)}
+                            value={entry.mealId === null ? null : String(entry.mealId)}
+                            onChange={(next) => {
+                                pickMeal(entry, next);
+                            }}
+                        />
+                        {error === undefined ? null : (
+                            <Text
+                                testID={`${testID}-row-${entry.key}-error`}
+                                // A sentence, not a value: it wraps rather than ending in an ellipsis.
+                                numberOfLines={3}
+                                role="alert"
+                                tone="danger"
+                                variant="caption"
+                            >
+                                {error}
+                            </Text>
+                        )}
+                    </View>
+                );
+            },
+        },
+        {
+            key: 'actions',
+            label: t('kitchen:list.actionHeader'),
+            width: ACTIONS_TRACK,
+            priority: 96,
+            // Takes the row's slack, so the band runs the card's width and the picker stays one field.
+            fill: true,
+            render: (row) =>
+                !canManage ? null : (
+                    <View className="flex-row flex-wrap items-center gap-snug py-tight">
+                        {row.entry === null ? null : (
+                            <RemoveButton
+                                testID={`${testID}-row-${row.entry.key}`}
+                                onRemove={() => {
+                                    if (row.entry !== null) removeEntry(row.entry);
+                                }}
+                            />
+                        )}
+                        {row.last ? (
+                            <Button
+                                testID={`${testID}-day-${String(row.day.cycleDay)}-add`}
+                                size="sm"
+                                variant="ghost"
+                                iconStart={<Icon name="plus" size="sm" />}
+                                label={t('kitchen:plans.menuAddDish')}
+                                onPress={() => {
+                                    addDish(row.day.cycleDay);
+                                }}
+                            />
+                        ) : null}
+                    </View>
+                ),
+        },
+    ];
+
     return (
-        <View testID={testID} className="z-auto flex-col">
+        // The table carries the component's id when it is drawn, so its rows are `{testID}-row-{key}`
+        // exactly as before; the wrapper takes it only while there is no table to carry it.
+        <View {...(days.length === 0 ? { testID } : {})} className="z-auto flex-col">
             {days.length === 0 ? (
                 <Text testID={`${testID}-empty`} variant="caption" tone="secondary">
                     {t('kitchen:plans.menuEmpty')}
                 </Text>
             ) : (
-                <>
-                    {/* Each header over the start of the field below it, as the durations draw it. */}
-                    <View className="h-6 flex-row items-center gap-snug border-b border-stroke px-tight">
-                        <View style={{ width: DAY_TRACK }}>
-                            <Text variant="micro" tone="secondary">
-                                {t('kitchen:plans.menuDayLabel')}
-                            </Text>
-                        </View>
-                        <View style={{ width: SLOT_TRACK }}>
-                            <Text variant="micro" tone="secondary">
-                                {t('kitchen:plans.menuSlotLabel')}
-                            </Text>
-                        </View>
-                        <View style={{ width: SEQUENCE_TRACK }}>
-                            <Text variant="micro" tone="secondary">
-                                {t('kitchen:plans.menuSequenceShort')}
-                            </Text>
-                        </View>
-                        <View className="min-w-0 flex-1">
-                            <Text variant="micro" tone="secondary">
-                                {t('kitchen:plans.menuMealLabel')}
-                            </Text>
-                        </View>
-                    </View>
-
-                    {days.map((day) => {
-                        const dayTestId = `${testID}-day-${String(day.cycleDay)}`;
-                        const addDish = () => {
-                            const coordinate = nextCoordinate(draft, day.cycleDay);
-                            onChange(
-                                addMenuEntry(
-                                    draft,
-                                    emptyMenuEntry(nextKey(), day.cycleDay, coordinate),
-                                ),
-                            );
-                            setAnnouncement(
-                                t('kitchen:plans.menuAddedAnnouncement', {
-                                    day: day.cycleDay,
-                                    slot: t(menuSlotKey(coordinate.slot)),
-                                }),
-                            );
-                        };
-                        const addButton = canManage ? (
-                            <Button
-                                testID={`${dayTestId}-add`}
-                                size="sm"
-                                variant="ghost"
-                                iconStart={<Icon name="plus" size="sm" />}
-                                label={t('kitchen:plans.menuAddDish')}
-                                onPress={addDish}
-                            />
-                        ) : null;
-
-                        return (
-                            <View
-                                key={day.cycleDay}
-                                testID={dayTestId}
-                                className="z-auto flex-row items-start gap-snug border-b border-stroke-subtle px-tight py-1.5"
-                            >
-                                {/* The day is the group, never a field: see the module note. */}
-                                <View
-                                    style={{ width: DAY_TRACK }}
-                                    className="min-h-control-sm flex-col justify-center gap-hair"
-                                >
-                                    <Text variant="label">
-                                        {t('kitchen:plans.menuDayNumber', {
-                                            number: day.cycleDay,
-                                        })}
-                                    </Text>
-                                    <Text
-                                        testID={`${dayTestId}-date`}
-                                        variant="caption"
-                                        tone="secondary"
-                                    >
-                                        {dayCaption(day.cycleDay)}
-                                    </Text>
-                                    {day.isBeyondCycle ? (
-                                        <View className="flex-row">
-                                            <Badge
-                                                testID={`${dayTestId}-beyond`}
-                                                tone="warning"
-                                                icon="warning"
-                                                label={t('kitchen:plans.menuDayBeyond')}
-                                            />
-                                        </View>
-                                    ) : null}
-                                </View>
-
-                                <View className="z-auto min-w-0 flex-1 flex-col gap-hair">
-                                    {day.entries.length === 0 ? (
-                                        <View className="min-h-control-sm flex-row flex-wrap items-center gap-snug">
-                                            <Text
-                                                testID={`${dayTestId}-empty`}
-                                                variant="caption"
-                                                tone="secondary"
-                                            >
-                                                {t('kitchen:plans.menuDayEmptyHint')}
-                                            </Text>
-                                            {addButton}
-                                        </View>
-                                    ) : (
-                                        <>
-                                            {day.entries.map((row) => (
-                                                <MenuEntryRow
-                                                    key={row.key}
-                                                    testID={`${testID}-row-${row.key}`}
-                                                    row={row}
-                                                    error={errors.get(row.key)}
-                                                    slotOptions={slotOptions}
-                                                    mealOptions={optionsFor(row)}
-                                                    mealsPending={mealsPending}
-                                                    canManage={canManage}
-                                                    onPatch={(patch) => {
-                                                        onChange(
-                                                            patchMenuEntry(draft, row.key, patch),
-                                                        );
-                                                    }}
-                                                    onPickMeal={(next) => {
-                                                        const meal = meals.find(
-                                                            (candidate) =>
-                                                                String(candidate.id) === next,
-                                                        );
-                                                        onChange(
-                                                            patchMenuEntry(draft, row.key, {
-                                                                mealId: MealId.unsafe(next),
-                                                                mealName:
-                                                                    meal?.name ?? row.mealName,
-                                                            }),
-                                                        );
-                                                    }}
-                                                    onRemove={() => {
-                                                        setRemoved({
-                                                            row,
-                                                            index: draft.entries.findIndex(
-                                                                (entry) => entry.key === row.key,
-                                                            ),
-                                                        });
-                                                        onChange(removeMenuEntry(draft, row.key));
-                                                    }}
-                                                />
-                                            ))}
-                                            {addButton === null ? null : (
-                                                <View className="flex-row">{addButton}</View>
-                                            )}
-                                        </>
-                                    )}
-                                </View>
-                            </View>
-                        );
-                    })}
-                </>
+                <DataList<MenuRow>
+                    testID={testID}
+                    label={t('kitchen:plans.sectionMenu')}
+                    columns={columns}
+                    rows={rows}
+                    rowKey={(row) => row.key}
+                    density="sm"
+                    framed
+                />
             )}
 
             {removed === null ? null : (
@@ -355,103 +450,25 @@ export function PlanMenuDays({
     );
 }
 
-/**
- * One dish on one day: sitting, position, dish, ✕ — a single control-height line.
- *
- * Every label is hidden because the column headers above say it once; each control still carries its
- * own accessible name. The position is typed, not stepped — `CountField`, the durations' own figure
- * box — because a desk surface types a number, and a stepper's two buttons would triple the width of
- * a field whose answer is almost always `1`.
- */
-function MenuEntryRow({
-    testID,
-    row,
-    error,
-    slotOptions,
-    mealOptions,
-    mealsPending,
-    canManage,
-    onPatch,
-    onPickMeal,
-    onRemove,
-}: {
-    readonly testID: string;
-    readonly row: MenuEntryDraft;
-    readonly error: string | undefined;
-    readonly slotOptions: readonly SelectOption<PlanMenuSlot>[];
-    readonly mealOptions: readonly SelectOption[];
-    readonly mealsPending: boolean;
-    readonly canManage: boolean;
-    readonly onPatch: (patch: Partial<Omit<MenuEntryDraft, 'key'>>) => void;
-    readonly onPickMeal: (mealId: string) => void;
-    readonly onRemove: () => void;
-}) {
-    const { t } = useTranslation();
-
-    return (
-        <View testID={testID} className="z-auto flex-col gap-hair">
-            <View className="z-auto min-h-control-sm flex-row items-center gap-snug">
-                <View style={{ width: SLOT_TRACK }} className="z-auto">
-                    <Select<PlanMenuSlot>
-                        testID={`${testID}-slot`}
-                        id={`${testID}-slot`}
-                        label={t('kitchen:plans.menuSlotLabel')}
-                        labelHidden
-                        size="sm"
-                        disabled={!canManage}
-                        options={slotOptions}
-                        value={row.slot}
-                        onChange={(next) => {
-                            onPatch({ slot: next });
-                        }}
-                    />
-                </View>
-                <View style={{ width: SEQUENCE_TRACK }}>
-                    <CountField
-                        testID={`${testID}-sequence`}
-                        label={t('kitchen:plans.menuSequenceLabel')}
-                        labelHidden
-                        placeholder="1"
-                        value={row.sequence}
-                        disabled={!canManage}
-                        onChange={(next) => {
-                            onPatch({ sequence: next });
-                        }}
-                    />
-                </View>
-                <View className="z-auto min-w-0 flex-1">
-                    <Select
-                        testID={`${testID}-meal`}
-                        id={`${testID}-meal`}
-                        label={t('kitchen:plans.menuMealLabel')}
-                        labelHidden
-                        size="sm"
-                        placeholder={
-                            mealsPending
-                                ? t('kitchen:plans.menuMealsPending')
-                                : t('kitchen:plans.menuMealPlaceholder')
-                        }
-                        searchable
-                        required
-                        disabled={!canManage}
-                        options={mealOptions}
-                        value={row.mealId === null ? null : String(row.mealId)}
-                        onChange={onPickMeal}
-                    />
-                </View>
-                {canManage ? <RemoveButton testID={testID} onRemove={onRemove} /> : null}
-            </View>
-
-            {error === undefined ? null : (
-                <Text testID={`${testID}-error`} role="alert" tone="danger" variant="caption">
-                    {error}
-                </Text>
-            )}
-        </View>
-    );
+/** One line of the menu table: a dish on a day, or a day with no dish yet (`entry: null`). */
+interface MenuRow {
+    readonly key: string;
+    readonly day: MenuDay;
+    readonly entry: MenuEntryDraft | null;
+    /** The day's first line — the one that names the day. */
+    readonly first: boolean;
+    /** The day's last line — the one that carries its Add a dish. */
+    readonly last: boolean;
 }
 
-/** The menu's column tracks, sized like the durations': a day, a short select, a figure box. */
-const DAY_TRACK = 120;
-const SLOT_TRACK = 140;
-const SEQUENCE_TRACK = 64;
+/**
+ * The menu's column tracks: a day, a short select, a figure box, a picker, then the row's controls.
+ * Each is its content's width plus the cell's own `px-control-sm` (8 + 8), so the boxes inside keep
+ * the widths the design gives them — the dish picker is exactly one field.
+ */
+const CELL_PADDING = 16;
+const DAY_TRACK = 120 + CELL_PADDING;
+const SLOT_TRACK = 140 + CELL_PADDING;
+const SEQUENCE_TRACK = 64 + CELL_PADDING;
+const DISH_TRACK = fieldWidth + CELL_PADDING;
+const ACTIONS_TRACK = 160;

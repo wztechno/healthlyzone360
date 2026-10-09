@@ -7,15 +7,20 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { PACKAGING_CATEGORY_CODE } from '@healthy360/api-client/contracts';
 import {
+    DataList,
     Icon,
     IconButton,
     Text,
+    UNDROPPABLE_PRIORITY,
+    growWeights,
     inputControlClass,
     inputFrameClassName,
 } from '@healthy360/design-system';
+import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { MeasureUnit } from '@healthy360/nutrition';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 
@@ -421,8 +426,181 @@ export function RecipeLineTable({
         onChange(rows.filter((row) => row.key !== key));
     };
 
+    const rowTestId = (row: LineDraft) => `${testID}-row-${row.key}`;
+    const isZero = (row: LineDraft) => warnZeroQuantity && parseQuantity(row.quantity) === 0;
+    const removeLabel = t('kitchen:recipes.removeLine');
+
+    /*
+     * Every column is pinned (priority >= `UNDROPPABLE_PRIORITY`): a recipe line with its unit or
+     * its total dropped is a line that can no longer be checked against the sheet it came from, so
+     * a narrow port scrolls the table rather than thinning it.
+     *
+     * The two cell inputs are padded off the row's edges, as every DataList control is: a cell has
+     * no vertical padding of its own, so a 24px box in the 28px `sm` row sat on both hairlines.
+     * `py-hair` makes it the 32px row the design draws.
+     */
+    const columns: readonly DataListColumn<LineDraft>[] = [
+        {
+            key: 'name',
+            label: t('kitchen:list.columnName'),
+            width: COLUMN_WIDTH.name,
+            priority: 100,
+            render: (row) => {
+                const entry =
+                    row.ingredientId === null ? undefined : byId.get(String(row.ingredientId));
+                return (
+                    <View className="min-w-0 flex-1 flex-row items-baseline gap-hair">
+                        <Text variant="label" numberOfLines={1} testID={`${rowTestId(row)}-name`}>
+                            {entry === undefined
+                                ? t('kitchen:recipes.unnamedLine')
+                                : displayName(entry.name, locale).value}
+                        </Text>
+                        {entry?.reference == null ? null : (
+                            <Text variant="micro" tone="secondary">
+                                {entry.reference}
+                            </Text>
+                        )}
+                        {row.ingredientId !== null &&
+                        flaggedIngredientIds.includes(String(row.ingredientId)) ? (
+                            <Icon
+                                testID={`${rowTestId(row)}-flag`}
+                                name="warning"
+                                size="sm"
+                                className="text-warning-strong"
+                            />
+                        ) : null}
+                        {isZero(row) ? (
+                            <Icon
+                                testID={`${rowTestId(row)}-zero`}
+                                name="warning"
+                                size="sm"
+                                label={t('kitchen:forms.zeroQuantity')}
+                                className="text-warning-strong"
+                            />
+                        ) : null}
+                    </View>
+                );
+            },
+        },
+        {
+            key: 'unit',
+            label: t('kitchen:list.columnUnit'),
+            width: COLUMN_WIDTH.unit,
+            priority: UNDROPPABLE_PRIORITY,
+            grow: false,
+            render: (row) => (
+                <Text tone="secondary" numberOfLines={1}>
+                    {t(unitShortKey(row.unit))}
+                </Text>
+            ),
+        },
+        {
+            key: 'quantity',
+            label: t('kitchen:recipes.sheetColQuantityShort'),
+            width: COLUMN_WIDTH.quantity,
+            priority: UNDROPPABLE_PRIORITY,
+            grow: false,
+            mono: true,
+            render: (row) => (
+                <View className="w-full py-hair">
+                    <CellInput
+                        testID={`${rowTestId(row)}-qty`}
+                        value={row.quantity}
+                        disabled={!canManage}
+                        align="center"
+                        mono
+                        // The zero warning lives here and on the designation's mark: `DataList`
+                        // draws its own row, so the old row-wide fill has nowhere to go.
+                        caution={isZero(row)}
+                        label={t('kitchen:recipes.lineQuantity')}
+                        placeholder={t('kitchen:fields.quantityPlaceholder')}
+                        onChangeText={(next) => {
+                            patch(row.key, { quantity: next });
+                        }}
+                    />
+                </View>
+            ),
+        },
+        {
+            /*
+             * A figure, not a field. See the note above: a line carries no price of its own on this
+             * contract, so a box here would be a control with nowhere to write.
+             */
+            key: 'unitPrice',
+            label: t('kitchen:list.columnUnitPrice'),
+            width: COLUMN_WIDTH.unitPrice,
+            priority: UNDROPPABLE_PRIORITY,
+            grow: false,
+            mono: true,
+            render: (row) => (
+                <Text variant="mono" numberOfLines={1} testID={`${rowTestId(row)}-unit-price`}>
+                    {money(figures.get(row.key)?.unitCost ?? null, UNIT_COST)}
+                </Text>
+            ),
+        },
+        {
+            key: 'total',
+            label: t('kitchen:recipes.sheetColLineTotalLong'),
+            width: COLUMN_WIDTH.total,
+            priority: UNDROPPABLE_PRIORITY,
+            grow: false,
+            mono: true,
+            render: (row) => (
+                <Text variant="mono" numberOfLines={1} testID={`${rowTestId(row)}-total`}>
+                    {money(figures.get(row.key)?.lineCost ?? null, LINE_TOTAL)}
+                </Text>
+            ),
+        },
+        {
+            key: 'comments',
+            label: t('kitchen:recipes.sheetColComments'),
+            width: COLUMN_WIDTH.comments,
+            priority: UNDROPPABLE_PRIORITY,
+            render: (row) => (
+                <View className="w-full py-hair">
+                    <CellInput
+                        testID={`${rowTestId(row)}-comment`}
+                        value={row.note}
+                        disabled={!canManage}
+                        quiet
+                        placeholder={t('kitchen:list.noValue')}
+                        label={t('kitchen:recipes.lineNote')}
+                        onChangeText={(next) => {
+                            patch(row.key, { note: next });
+                        }}
+                    />
+                </View>
+            ),
+        },
+        {
+            key: 'remove',
+            label: removeLabel,
+            width: COLUMN_WIDTH.remove,
+            priority: UNDROPPABLE_PRIORITY,
+            grow: false,
+            align: 'end',
+            // No visible header: the ✕ says what it does, and "Remove" in a 44px track clips to a
+            // letter. The column is still named for a screen reader.
+            renderHeader: () => <View accessibilityLabel={removeLabel} />,
+            render: (row) =>
+                canManage ? (
+                    <IconButton
+                        testID={`${rowTestId(row)}-remove`}
+                        label={removeLabel}
+                        variant="ghost"
+                        tone="danger"
+                        size="sm"
+                        icon={<Icon name="close" size="sm" />}
+                        onPress={() => {
+                            remove(row.key);
+                        }}
+                    />
+                ) : null,
+        },
+    ];
+
     return (
-        <View testID={testID} className="flex-col gap-tight">
+        <View className="flex-col gap-tight">
             {canManage ? (
                 <Picker
                     testID={`${testID}-picker`}
@@ -452,158 +630,37 @@ export function RecipeLineTable({
             ) : null}
 
             <View>
-                <LineHeaderRow t={t} />
-
-                {rows.map((row) => {
-                    const entry =
-                        row.ingredientId === null ? undefined : byId.get(String(row.ingredientId));
-                    const figure = figures.get(row.key);
-                    const rowTestId = `${testID}-row-${row.key}`;
-                    const zero = warnZeroQuantity && parseQuantity(row.quantity) === 0;
-
-                    return (
+                {/*
+                 * `testID` goes on the list itself rather than on a wrapper, so a row is still
+                 * `${testID}-row-${key}` — the id `DataList` mints from its own id and the row key.
+                 */}
+                <DataList<LineDraft>
+                    testID={testID}
+                    label={t(
+                        wantsIngredients
+                            ? 'kitchen:recipes.sectionRawMaterials'
+                            : 'kitchen:recipes.sectionPackaging',
+                    )}
+                    columns={columns}
+                    rows={rows}
+                    rowKey={(row) => row.key}
+                    density="sm"
+                    emptyState={
                         <View
-                            key={row.key}
-                            testID={rowTestId}
-                            className={
-                                zero
-                                    ? 'min-h-row-md flex-row items-center gap-tight border-b border-stroke-subtle bg-warning-subtle px-tight py-hair'
-                                    : 'min-h-row-md flex-row items-center gap-tight border-b border-stroke-subtle px-tight py-hair'
-                            }
+                            testID={`${testID}-empty`}
+                            className="border-b border-stroke-subtle px-control-sm py-snug"
                         >
-                            <View
-                                style={DESIGNATION_TRACK}
-                                className="flex-row items-baseline gap-hair"
-                            >
-                                <Text
-                                    variant="label"
-                                    numberOfLines={1}
-                                    testID={`${rowTestId}-name`}
-                                >
-                                    {entry === undefined
-                                        ? t('kitchen:recipes.unnamedLine')
-                                        : displayName(entry.name, locale).value}
-                                </Text>
-                                {entry?.reference == null ? null : (
-                                    <Text variant="micro" tone="secondary">
-                                        {entry.reference}
-                                    </Text>
-                                )}
-                                {row.ingredientId !== null &&
-                                flaggedIngredientIds.includes(String(row.ingredientId)) ? (
-                                    <Icon
-                                        testID={`${rowTestId}-flag`}
-                                        name="warning"
-                                        size="sm"
-                                        className="text-warning-strong"
-                                    />
-                                ) : null}
-                                {zero ? (
-                                    <Icon
-                                        testID={`${rowTestId}-zero`}
-                                        name="warning"
-                                        size="sm"
-                                        label={t('kitchen:forms.zeroQuantity')}
-                                        className="text-warning-strong"
-                                    />
-                                ) : null}
-                            </View>
-
-                            <View style={{ width: TRACK.unit }}>
-                                <Text tone="secondary" numberOfLines={1}>
-                                    {t(unitShortKey(row.unit))}
-                                </Text>
-                            </View>
-
-                            <View style={{ width: TRACK.qty }}>
-                                <CellInput
-                                    testID={`${rowTestId}-qty`}
-                                    value={row.quantity}
-                                    disabled={!canManage}
-                                    align="center"
-                                    mono
-                                    caution={zero}
-                                    label={t('kitchen:recipes.lineQuantity')}
-                                    placeholder={t('kitchen:fields.quantityPlaceholder')}
-                                    onChangeText={(next) => {
-                                        patch(row.key, { quantity: next });
-                                    }}
-                                />
-                            </View>
-
-                            {/*
-                             * A figure, not a field. See the note above: a line carries no price of
-                             * its own on this contract, so a box here would be a control with
-                             * nowhere to write.
-                             */}
-                            <View style={{ width: TRACK.unitPrice }}>
-                                <Text
-                                    variant="mono"
-                                    align="center"
-                                    tone={figure?.unitCost == null ? 'secondary' : 'primary'}
-                                    numberOfLines={1}
-                                    testID={`${rowTestId}-unit-price`}
-                                >
-                                    {money(figure?.unitCost ?? null, UNIT_COST)}
-                                </Text>
-                            </View>
-
-                            <View style={{ width: TRACK.total }}>
-                                <Text
-                                    variant="mono"
-                                    align="center"
-                                    numberOfLines={1}
-                                    testID={`${rowTestId}-total`}
-                                >
-                                    {money(figure?.lineCost ?? null, LINE_TOTAL)}
-                                </Text>
-                            </View>
-
-                            <View style={COMMENTS_TRACK}>
-                                <CellInput
-                                    testID={`${rowTestId}-comment`}
-                                    value={row.note}
-                                    disabled={!canManage}
-                                    quiet
-                                    placeholder={t('kitchen:list.noValue')}
-                                    label={t('kitchen:recipes.lineNote')}
-                                    onChangeText={(next) => {
-                                        patch(row.key, { note: next });
-                                    }}
-                                />
-                            </View>
-
-                            <View style={{ width: TRACK.action }}>
-                                {canManage ? (
-                                    <IconButton
-                                        testID={`${rowTestId}-remove`}
-                                        label={t('kitchen:recipes.removeLine')}
-                                        variant="ghost"
-                                        tone="danger"
-                                        size="sm"
-                                        icon={<Icon name="close" size="sm" />}
-                                        onPress={() => {
-                                            remove(row.key);
-                                        }}
-                                    />
-                                ) : null}
-                            </View>
+                            <Text tone="secondary" variant="caption">
+                                {t('kitchen:recipes.linesEmpty')}
+                            </Text>
                         </View>
-                    );
-                })}
+                    }
+                />
 
-                {rows.length === 0 ? (
-                    <View
-                        testID={`${testID}-empty`}
-                        className="border-b border-stroke-subtle px-tight py-snug"
-                    >
-                        <Text tone="secondary" variant="caption">
-                            {t('kitchen:recipes.linesEmpty')}
-                        </Text>
-                    </View>
-                ) : (
+                {rows.length === 0 ? null : (
                     <TotalsRow
                         testID={`${testID}-totals`}
+                        columns={columns}
                         label={t('kitchen:recipes.sheetTotalRow')}
                         quantity={formatter.formatNumber(totalQuantity, LINE_TOTAL)}
                         cost={money(costs?.total ?? null, LINE_TOTAL)}
@@ -619,28 +676,25 @@ export function RecipeLineTable({
  * ---------------------------------------------------------------------------------------------- */
 
 /**
- * The design's tracks, in dp.
+ * The design's tracks, in dp, as `DataList` widths — each the design's content width plus the
+ * cell's `px-control-sm` either side (16), which stands in for the 8px gap the hand-drawn row put
+ * between tracks.
  *
- * Designation and Comments are the two that flex (`1.7fr` / `1.3fr` in the design, `flex-[1.7]` /
- * `flex-[1.3]` here); everything between them is fixed, because a Qty box that changed width with
- * the window is a column the eye cannot run down. The action track is one `sm` icon button.
+ * Designation and Comments are the two that flex, `1.7fr` / `1.3fr` in the design: they are the
+ * only growable columns, and `DataList` shares a row's slack between growable columns in proportion
+ * to their widths, so 170 : 130 is that ratio. Everything between them is `grow: false`, because a
+ * Qty box that changed width with the window is a column the eye cannot run down. The action track
+ * is one `sm` icon button.
  */
-const TRACK = { unit: 52, qty: 68, unitPrice: 80, total: 80, action: 28 } as const;
-
-/**
- * The two flexible tracks, as inline styles rather than classes.
- *
- * `flex-[1.7]` is an arbitrary Tailwind value and NativeWind does not emit a fractional `flexGrow`
- * for it, so both columns silently collapsed to their content width and every fixed track bunched
- * against the inline start. A fraction of the leftover space is geometry rather than theme, and
- * `style` is the one route to it that both platforms honour.
- *
- * `flexBasis: 0` with `minWidth: 0` is what makes the ratio hold: without a zero basis the tracks
- * divide only the space *left over* after their content, so a long designation would win a share it
- * was never given, and without `minWidth: 0` a long one refuses to truncate at all.
- */
-const DESIGNATION_TRACK = { flexGrow: 1.7, flexShrink: 1, flexBasis: 0, minWidth: 0 } as const;
-const COMMENTS_TRACK = { flexGrow: 1.3, flexShrink: 1, flexBasis: 0, minWidth: 0 } as const;
+const COLUMN_WIDTH = {
+    name: 170,
+    unit: 68,
+    quantity: 84,
+    unitPrice: 96,
+    total: 96,
+    comments: 130,
+    remove: 44,
+} as const;
 
 /** A picker's list price reads at two decimals; a line total at three — the source sheets' own. */
 const MONEY: Intl.NumberFormatOptions = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
@@ -654,84 +708,65 @@ const LINE_TOTAL: Intl.NumberFormatOptions = {
     maximumFractionDigits: 3,
 };
 
-function LineHeaderRow({ t }: { readonly t: (key: string) => string }) {
-    return (
-        <View className="h-control-sm flex-row items-center gap-tight border-b border-stroke px-tight">
-            <View style={DESIGNATION_TRACK}>
-                <HeaderCell label={t('kitchen:list.columnName')} />
-            </View>
-            <View style={{ width: TRACK.unit }}>
-                <HeaderCell label={t('kitchen:list.columnUnit')} />
-            </View>
-            <View style={{ width: TRACK.qty }}>
-                <HeaderCell label={t('kitchen:recipes.sheetColQuantityShort')} align="center" />
-            </View>
-            <View style={{ width: TRACK.unitPrice }}>
-                <HeaderCell label={t('kitchen:list.columnUnitPrice')} align="center" />
-            </View>
-            <View style={{ width: TRACK.total }}>
-                <HeaderCell label={t('kitchen:recipes.sheetColLineTotalLong')} align="center" />
-            </View>
-            <View style={COMMENTS_TRACK}>
-                <HeaderCell label={t('kitchen:recipes.sheetColComments')} />
-            </View>
-            <View style={{ width: TRACK.action }} />
-        </View>
-    );
-}
-
-function HeaderCell({
-    label,
-    align,
-}: {
-    readonly label: string;
-    /** `end` for a figure, `center` for a short code. Numbers read against the end edge. */
-    readonly align?: 'start' | 'end' | 'center' | undefined;
-}) {
-    return (
-        // `label`, not `micro`: the column names are the one key to a table of figures, and at 10px
-        // they read as a hairline over the rows rather than as headings anybody consults.
-        <Text variant="label" tone="secondary" numberOfLines={1} align={align}>
-            {label}
-        </Text>
-    );
-}
-
+/**
+ * The totals line under the list — the one row `DataList` has no slot for.
+ *
+ * Drawn on the list's own tracks so each total sits under its column: every cell is based on the
+ * column's width and grows by the weight `growWeights` gives it, with the same `px-control-sm`
+ * inset — the arithmetic `DataList` runs on its header and rows, over the same content width. All
+ * columns are pinned, so none is ever dropped there and missing here.
+ */
 function TotalsRow({
+    columns,
     label,
     quantity,
     cost,
     testID,
 }: {
+    readonly columns: readonly DataListColumn<LineDraft>[];
     readonly label: string;
     readonly quantity: string;
     readonly cost: string;
     readonly testID: string;
 }) {
+    const weights = growWeights(columns);
+    const trackSum = columns.reduce((sum, column) => sum + column.width, 0);
+    const content: Readonly<Record<string, ReactNode>> = {
+        name: <Text variant="bodyStrong">{label}</Text>,
+        quantity: (
+            <Text variant="mono" testID={`${testID}-quantity`}>
+                {quantity}
+            </Text>
+        ),
+        total: (
+            <Text variant="mono" testID={`${testID}-cost`}>
+                {cost}
+            </Text>
+        ),
+    };
+
     return (
         <View
             testID={testID}
+            style={{ minWidth: trackSum }}
             // The design's 2px rule under the totals: the one place in the table where a border
             // carries emphasis rather than separation.
-            className="h-control-md flex-row items-center gap-tight border-b-2 border-stroke px-tight"
+            className="h-control-md flex-row items-center border-b-2 border-stroke"
         >
-            <View style={DESIGNATION_TRACK}>
-                <Text variant="bodyStrong">{label}</Text>
-            </View>
-            <View style={{ width: TRACK.unit }} />
-            <View style={{ width: TRACK.qty }}>
-                <Text variant="mono" align="center" testID={`${testID}-quantity`}>
-                    {quantity}
-                </Text>
-            </View>
-            <View style={{ width: TRACK.unitPrice }} />
-            <View style={{ width: TRACK.total }}>
-                <Text variant="mono" align="center" testID={`${testID}-cost`}>
-                    {cost}
-                </Text>
-            </View>
-            <View style={COMMENTS_TRACK} />
-            <View style={{ width: TRACK.action }} />
+            {columns.map((column) => (
+                <View
+                    key={column.key}
+                    style={{
+                        flexBasis: column.width,
+                        flexGrow: weights.get(column.key) ?? 0,
+                        flexShrink: 0,
+                        minWidth: 0,
+                    }}
+                    className="px-control-sm"
+                >
+                    {content[column.key] ?? null}
+                </View>
+            ))}
         </View>
     );
 }

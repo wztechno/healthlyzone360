@@ -8,6 +8,7 @@ import {
     Stack,
     TableCellTextContext,
     Text,
+    useSummariseFields,
 } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
@@ -46,8 +47,11 @@ export function emptyStockItemLine(key: string): StockItemLineDraft {
     return { key, stockItemId: null, quantity: '' };
 }
 
-/** Which of a row's fields a problem sits on — the two a line cannot post without. */
-export type StockItemLineField = 'item' | 'quantity';
+/**
+ * Which of a row's fields a problem sits on — the two a line cannot post without, and the price,
+ * which a line can post without but not with a figure the server would refuse.
+ */
+export type StockItemLineField = 'item' | 'quantity' | 'unitPrice';
 
 /** The element id a row's field carries, so an issue chip can take the reader straight to it. */
 export function stockItemLineFieldId(
@@ -62,6 +66,12 @@ export function stockItemLineFieldId(
 export interface StockItemLinePriceNote {
     readonly text: string;
     readonly tone: 'secondary' | 'warning';
+}
+
+/** What a cell's caption slot holds: a field's problem, or the price's note. */
+interface CellNote {
+    readonly text: string;
+    readonly tone: 'secondary' | 'warning' | 'danger';
 }
 
 export interface StockItemLineEditorProps {
@@ -81,14 +91,14 @@ export interface StockItemLineEditorProps {
     readonly rowFieldLabel: (field: string, line: number) => string;
     /**
      * When set, each row captures a purchase unit (INV1.1) in a column of its own. The picker
-     * offers only the units in the stock item's own dimension, defaulting to its own unit, and is
-     * disabled — still showing the unit — when there is only the one to quote in.
+     * offers what `unitOptionsForItem` returns, defaulting to the item's own unit, and is disabled
+     * — still showing the unit — when there is only the one to quote in.
      */
     readonly withUnit?: boolean;
     readonly unitLabel?: string;
     /** What the unit box reads before an item is chosen — a dash, not "Choose an option". */
     readonly unitPlaceholder?: string;
-    /** The units offered for a given stock item — same dimension only. Required when `withUnit`. */
+    /** The units offered for a given stock item. Required when `withUnit`. */
     readonly unitOptionsForItem?: (stockItemId: string | null) => readonly SelectOption<string>[];
     /** The stock item's own unit id, the default a fresh line takes. Required when `withUnit`. */
     readonly defaultUnitIdForItem?: (stockItemId: string | null) => string | null;
@@ -110,8 +120,10 @@ export interface StockItemLineEditorProps {
     readonly priceNoteFor?:
         ((line: StockItemLineDraft) => StockItemLinePriceNote | null) | undefined;
     /**
-     * The problems to mark on each row, keyed by line key. The page's issue banner names them, so a
-     * field here draws only its invalid border; the message stays for a screen reader.
+     * The problems to mark on each row, keyed by line key. The field takes its invalid border and
+     * the message goes in the row's caption slot under it — never under the field itself, where a
+     * second line in one cell would drop that cell's box out of line with the rest of the row. Keep
+     * them short: the slot is one line of the cell's width.
      */
     readonly issues?: ReadonlyMap<string, Partial<Record<StockItemLineField, string>>> | undefined;
 }
@@ -123,9 +135,9 @@ export interface StockItemLineEditorProps {
  *
  * ```
  * Stock item                  Quantity  Unit    Unit price (USD)  Line total
- * [ FLR-01 — Flour     ▾ ]   [   25 ]  [kg ▾]  [        2.00 ]        50.00   ✕
- *                                               Last paid 1.90 / kg
- * [ EGG-01 — Eggs      ▾ ]   [   30 ]  [pcs ]  [       Later ]            —   ✕
+ * [ Flour              ▾ ]   [   25 ]  [Kg  ]  [        2.00 ]        50.00   ✕
+ *                                               Last paid 1.90 / Kg
+ * [ Eggs               ▾ ]   [   30 ]  [Piece]  [      Later ]            —   ✕
  *                                               Never bought
  * [ + Add line ]                                              Total   50.00
  * ```
@@ -136,12 +148,15 @@ export interface StockItemLineEditorProps {
  * `${testID}-row-${key}`.
  *
  * The Post Receipt design gives the unit and the line total a column each. The unit is a picker in
- * every row — disabled, and still reading "pcs", where there is only the one unit — so the column
+ * every row — disabled, and still reading "Kg", where there is only the one unit — so the column
  * reads down as a column; the line total is the figure somebody checks against the invoice.
  *
- * With costs on, every cell keeps a caption-high slot under its control, filled only under the
- * price. The row centres its cells, so a slot in one column alone would drop that column's box
- * half a line below the others.
+ * Every cell keeps a caption-high slot under its control: the price's "Last paid" note, or a
+ * field's problem. The row centres its cells, so the slot is a fixed one-line box in every cell,
+ * filled or not — a note that grew its cell by a line would push that cell's box up out of line
+ * with the rest of the row. (It used to hold a plain space when empty, which a one-line text's
+ * `nowrap` collapses to nothing on the web: the empty slots had no height, and the price box rose
+ * every time a note appeared.)
  */
 export function StockItemLineEditor({
     testID,
@@ -185,6 +200,29 @@ export function StockItemLineEditor({
         ]);
     }
 
+    /*
+     * Every field with a problem says it in its slot, so its own `FormField` must not say it a
+     * second time under the control — that is the line that moved the row. Registering the ids is
+     * the existing "said elsewhere" path: the red edge stays, and the message stays in the tree
+     * for a screen reader, as the control's description.
+     */
+    const issueFieldIds: string[] = [];
+    for (const line of lines) {
+        const fields = issues?.get(line.key);
+        if (fields === undefined) continue;
+        for (const field of ['item', 'quantity', 'unitPrice'] as const) {
+            if (fields[field] !== undefined) {
+                issueFieldIds.push(stockItemLineFieldId(testID, line.key, field));
+            }
+        }
+    }
+    useSummariseFields(issueFieldIds);
+
+    const issueNote = (line: StockItemLineDraft, field: StockItemLineField): CellNote | null => {
+        const text = issues?.get(line.key)?.[field];
+        return text === undefined ? null : { text, tone: 'danger' };
+    };
+
     const money = formatMoney ?? ((amount: number) => amount.toFixed(2));
     const receiptTotal = withCost ? stockItemLinesTotal(lines) : 0;
     const position = (line: StockItemLineDraft) =>
@@ -194,30 +232,39 @@ export function StockItemLineEditor({
         line.purchaseOrderLineId !== undefined && line.purchaseOrderLineId !== null;
 
     /*
-     * A control with the row's caption slot under it, when the table has one. `py-hair` in both:
-     * the row is only as tall as its box, so without it the first row's fields sit on the header
-     * band and each row's on the one above.
+     * A control with the row's caption slot under it. `py-hair`: the row is only as tall as its
+     * box, so without it the first row's fields sit on the header band and each row's on the one
+     * above. The slot is `h-icon-sm` — 14px, the `micro` role's line height — so it is the same
+     * height in every cell whatever it holds; the no-break space keeps an empty one a line tall
+     * where a plain space would collapse.
      */
-    const cell = (control: ReactNode, note: StockItemLinePriceNote | null = null) =>
-        withCost ? (
-            <View className="min-w-0 flex-1 flex-col gap-hair py-hair">
-                {control}
-                {/* Out of the cell's text voice: the note is a caption, not the cell's value. */}
-                <TableCellTextContext.Provider value={null}>
+    const cell = (control: ReactNode, note: CellNote | null = null) => (
+        <View className="min-w-0 flex-1 flex-col gap-hair py-hair">
+            {control}
+            {/* Out of the cell's text voice: the note is a caption, not the cell's value. */}
+            <TableCellTextContext.Provider value={null}>
+                <View
+                    className="h-icon-sm min-w-0 flex-row items-center gap-hair overflow-hidden"
+                    aria-hidden={note === null}
+                >
+                    {/* An error is never colour alone: the cross says it too. */}
+                    {note?.tone === 'danger' ? (
+                        <Icon name="circleX" size="sm" className="text-danger-strong" />
+                    ) : null}
                     <Text
                         variant="micro"
                         tone={note?.tone ?? 'secondary'}
                         align="start"
                         numberOfLines={1}
-                        aria-hidden={note === null}
+                        className="min-w-0 flex-1"
+                        {...(note === null ? {} : { accessibilityLabel: note.text })}
                     >
-                        {note?.text ?? ' '}
+                        {note?.text ?? NO_BREAK_SPACE}
                     </Text>
-                </TableCellTextContext.Provider>
-            </View>
-        ) : (
-            <View className="min-w-0 flex-1 py-hair">{control}</View>
-        );
+                </View>
+            </TableCellTextContext.Provider>
+        </View>
+    );
 
     const columns: DataListColumn<StockItemLineDraft>[] = [
         {
@@ -251,6 +298,7 @@ export function StockItemLineEditor({
                         }}
                         searchable
                     />,
+                    issueNote(line, 'item'),
                 ),
         },
         {
@@ -275,6 +323,7 @@ export function StockItemLineEditor({
                             updateLine(line.key, { quantity: value });
                         }}
                     />,
+                    issueNote(line, 'quantity'),
                 ),
         },
     ];
@@ -323,6 +372,7 @@ export function StockItemLineEditor({
                     cell(
                         <QuantityInput
                             testID={`${rowTestId(line)}-unit-price`}
+                            id={stockItemLineFieldId(testID, line.key, 'unitPrice')}
                             label={rowFieldLabel(unitPriceLabel ?? '', position(line))}
                             labelHidden
                             size="xs"
@@ -330,11 +380,15 @@ export function StockItemLineEditor({
                             {...(unitPricePlaceholder === undefined
                                 ? {}
                                 : { placeholder: unitPricePlaceholder })}
+                            {...(issues?.get(line.key)?.unitPrice === undefined
+                                ? {}
+                                : { error: issues.get(line.key)?.unitPrice })}
                             onChangeText={(value) => {
                                 updateLine(line.key, { unitPrice: value });
                             }}
                         />,
-                        priceNoteFor?.(line) ?? null,
+                        // The price's problem outranks what the item last cost.
+                        issueNote(line, 'unitPrice') ?? priceNoteFor?.(line) ?? null,
                     ),
             },
             {
@@ -426,6 +480,9 @@ export function StockItemLineEditor({
         </Stack>
     );
 }
+
+/** What an empty caption slot holds — a line tall, where a plain space would collapse. */
+const NO_BREAK_SPACE = '\u00A0';
 
 /** A quantity or price as typed, or `null` when blank, unreadable or negative. */
 function readFigure(raw: string | undefined): number | null {

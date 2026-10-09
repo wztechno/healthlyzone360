@@ -5,7 +5,6 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
-    Inline,
     Stack,
     TableSkeleton,
     Text,
@@ -29,11 +28,12 @@ import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
 import {
+    compareAmount,
     compareNumber,
     compareText,
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
@@ -43,7 +43,6 @@ import {
     goodsReceiptRowTestId,
     receiptCostStatusKey,
     receiptCostStatusTone,
-    stockItemLabel,
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
@@ -102,9 +101,10 @@ function Procurement() {
 
     const receiptRows = useMemo(() => receipts.data ?? [], [receipts.data]);
 
+    // By name alone, as the receipt form's picker labels them: the code is the name's slug.
     const stockItemLabelById = useMemo(() => {
         const map = new Map<string, string>();
-        for (const item of stockItems.data ?? []) map.set(String(item.id), stockItemLabel(item));
+        for (const item of stockItems.data ?? []) map.set(String(item.id), item.nameEn);
         return map;
     }, [stockItems.data]);
 
@@ -473,25 +473,10 @@ function Procurement() {
                             },
                         ]}
                     />
-                    <Inline space="sm" align="center" wrap testID="kitchen-procurement-foot">
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:ops.procurement.listFoot')}
-                        </Text>
-                    </Inline>
                 </Stack>
             )}
         </Cascade>
     );
-}
-
-/** A money amount as the wire sends it, in `direction`, with no amount (redacted, unpriced) last. */
-function compareAmount(
-    left: string | null,
-    right: string | null,
-    direction: SortDirection,
-): number {
-    if (left === null || right === null) return left === right ? 0 : left === null ? 1 : -1;
-    return compareNumber(Number(left), Number(right), direction);
 }
 
 /** "DN-4471 · INV-8820" — the delivery note and the invoice number, or the words for none. */
