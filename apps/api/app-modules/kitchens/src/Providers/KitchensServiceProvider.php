@@ -11,6 +11,7 @@ use Healthy360\Kitchens\Console\ImportKitchenWorkbookCommand;
 use Healthy360\Kitchens\Console\ImportV6CatalogueCommand;
 use Healthy360\Kitchens\Console\ImportV6RecipesCommand;
 use Healthy360\Kitchens\Console\OpenDeskChannelCommand;
+use Healthy360\Kitchens\Console\PriceFrozenShelfCommand;
 use Healthy360\Kitchens\Console\PriceRecipesFromCatalogueCommand;
 use Healthy360\Kitchens\Console\PublishReadyCatalogueCommand;
 use Healthy360\Kitchens\Console\RelinkRecipeLinesCommand;
@@ -50,6 +51,7 @@ class KitchensServiceProvider extends ServiceProvider
                 UnitNormalisationReportCommand::class,
                 FormulateUnlinkedCommand::class,
                 SimulateStockCommand::class,
+                PriceFrozenShelfCommand::class,
             ]);
         }
     }

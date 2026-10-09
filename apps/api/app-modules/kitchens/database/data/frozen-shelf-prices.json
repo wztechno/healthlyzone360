@@ -1,0 +1,25 @@
+{
+    "_comment": "Retail prices for the frozen shelf, read only by `kitchen:price-frozen-shelf`. The v6 workbook leaves every frozen row unpriced, so the import publishes them without a price or a channel and the marketplace hides them. These are PLACEHOLDER figures set on 2026-10-07 to put the shelf on sale, roughly 2.5x the simulated purchase cost in simulation-prices.json; replace them with the kitchen's own tariff. Each is the price of one piece, the `unit` pack the importer gives an unpriced row, in USD minor units.",
+    "currency": "USD",
+    "items": {
+        "burger-patty-beef-product": 200,
+        "calamari-pane-frozen": 400,
+        "cheddar-patty-frozen": 175,
+        "chicken-strips-product": 90,
+        "chicken-wings-product": 75,
+        "chicken-zinger-product": 250,
+        "cordon-bleu-product": 350,
+        "crispy-chicken": 250,
+        "crispy-fish-fingers-frozen": 75,
+        "curly-fries-twister-frozen": 150,
+        "escalope-product": 300,
+        "french-fries-frozen": 125,
+        "jalapeno-cheese-bites-frozen": 90,
+        "makanek-lebanese-sausage-product": 350,
+        "mozzarella-bricks-frozen": 100,
+        "mozzarella-patty-frozen": 175,
+        "onion-rings-frozen": 30,
+        "potato-cubes-frozen": 125,
+        "potato-wedges-frozen": 125
+    }
+}
