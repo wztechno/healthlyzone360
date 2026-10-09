@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8184 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8189 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4770,8 +4770,6 @@ export interface NamespaceKeys {
     | 'ops.requirements.windowTo'
     | 'ops.stock.adjust'
     | 'ops.stock.adjustedToast'
-    | 'ops.stock.backLabel'
-    | 'ops.stock.chip'
     | 'ops.stock.columnItem'
     | 'ops.stock.columnLastPurchase'
     | 'ops.stock.columnQuantity'
@@ -4780,15 +4778,16 @@ export interface NamespaceKeys {
     | 'ops.stock.direction'
     | 'ops.stock.directionDecrease'
     | 'ops.stock.directionIncrease'
-    | 'ops.stock.editorSummary'
+    | 'ops.stock.effectDecrease'
+    | 'ops.stock.effectIncrease'
+    | 'ops.stock.effectThreshold'
+    | 'ops.stock.effectWaste'
     | 'ops.stock.emptyShelf'
     | 'ops.stock.fieldAdjustQuantity'
     | 'ops.stock.fieldNotes'
     | 'ops.stock.fieldNotesPlaceholder'
     | 'ops.stock.fieldParLevel'
-    | 'ops.stock.fieldParLevelHint'
     | 'ops.stock.fieldThreshold'
-    | 'ops.stock.fieldThresholdHint'
     | 'ops.stock.filteredEmptyBody'
     | 'ops.stock.history'
     | 'ops.stock.inStockBadge'
@@ -4815,19 +4814,26 @@ export interface NamespaceKeys {
     | 'ops.stock.parLevelPlaceholder'
     | 'ops.stock.productsEmptyBody'
     | 'ops.stock.productsEmptyTitle'
-    | 'ops.stock.quantityHint'
     | 'ops.stock.quantityInvalid'
+    | 'ops.stock.quantityUnitHint'
     | 'ops.stock.reorderPar'
     | 'ops.stock.saveFailedBody'
     | 'ops.stock.saveFailedTitle'
     | 'ops.stock.saveLabel'
     | 'ops.stock.searchPlaceholder'
     | 'ops.stock.sectionMovement'
+    | 'ops.stock.sectionThreshold'
     | 'ops.stock.statLowCaption'
     | 'ops.stock.statOkCaption'
     | 'ops.stock.statOutCaption'
     | 'ops.stock.statUnit'
+    | 'ops.stock.summaryAfter'
+    | 'ops.stock.summaryEffects'
+    | 'ops.stock.summaryNothing'
+    | 'ops.stock.summaryOnHand'
+    | 'ops.stock.summaryTitle'
     | 'ops.stock.thresholdClearedToast'
+    | 'ops.stock.thresholdNote'
     | 'ops.stock.thresholdPlaceholder'
     | 'ops.stock.thresholdSetToast'
     | 'ops.stock.viewKind'
@@ -4963,7 +4969,6 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.addPlaceholder'
     | 'ops.supplyOrders.addSupplier'
     | 'ops.supplyOrders.addTitle'
-    | 'ops.supplyOrders.andMore'
     | 'ops.supplyOrders.backToOrders'
     | 'ops.supplyOrders.branchRequiredBody'
     | 'ops.supplyOrders.branchRequiredTitle'
@@ -12972,8 +12977,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.requirements.windowTo',
   'kitchen:ops.stock.adjust',
   'kitchen:ops.stock.adjustedToast',
-  'kitchen:ops.stock.backLabel',
-  'kitchen:ops.stock.chip',
   'kitchen:ops.stock.columnItem',
   'kitchen:ops.stock.columnLastPurchase',
   'kitchen:ops.stock.columnQuantity',
@@ -12982,15 +12985,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.direction',
   'kitchen:ops.stock.directionDecrease',
   'kitchen:ops.stock.directionIncrease',
-  'kitchen:ops.stock.editorSummary',
+  'kitchen:ops.stock.effectDecrease',
+  'kitchen:ops.stock.effectIncrease',
+  'kitchen:ops.stock.effectThreshold',
+  'kitchen:ops.stock.effectWaste',
   'kitchen:ops.stock.emptyShelf',
   'kitchen:ops.stock.fieldAdjustQuantity',
   'kitchen:ops.stock.fieldNotes',
   'kitchen:ops.stock.fieldNotesPlaceholder',
   'kitchen:ops.stock.fieldParLevel',
-  'kitchen:ops.stock.fieldParLevelHint',
   'kitchen:ops.stock.fieldThreshold',
-  'kitchen:ops.stock.fieldThresholdHint',
   'kitchen:ops.stock.filteredEmptyBody',
   'kitchen:ops.stock.history',
   'kitchen:ops.stock.inStockBadge',
@@ -13017,19 +13021,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.parLevelPlaceholder',
   'kitchen:ops.stock.productsEmptyBody',
   'kitchen:ops.stock.productsEmptyTitle',
-  'kitchen:ops.stock.quantityHint',
   'kitchen:ops.stock.quantityInvalid',
+  'kitchen:ops.stock.quantityUnitHint',
   'kitchen:ops.stock.reorderPar',
   'kitchen:ops.stock.saveFailedBody',
   'kitchen:ops.stock.saveFailedTitle',
   'kitchen:ops.stock.saveLabel',
   'kitchen:ops.stock.searchPlaceholder',
   'kitchen:ops.stock.sectionMovement',
+  'kitchen:ops.stock.sectionThreshold',
   'kitchen:ops.stock.statLowCaption',
   'kitchen:ops.stock.statOkCaption',
   'kitchen:ops.stock.statOutCaption',
   'kitchen:ops.stock.statUnit',
+  'kitchen:ops.stock.summaryAfter',
+  'kitchen:ops.stock.summaryEffects',
+  'kitchen:ops.stock.summaryNothing',
+  'kitchen:ops.stock.summaryOnHand',
+  'kitchen:ops.stock.summaryTitle',
   'kitchen:ops.stock.thresholdClearedToast',
+  'kitchen:ops.stock.thresholdNote',
   'kitchen:ops.stock.thresholdPlaceholder',
   'kitchen:ops.stock.thresholdSetToast',
   'kitchen:ops.stock.viewKind',
@@ -13165,7 +13176,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.addPlaceholder',
   'kitchen:ops.supplyOrders.addSupplier',
   'kitchen:ops.supplyOrders.addTitle',
-  'kitchen:ops.supplyOrders.andMore',
   'kitchen:ops.supplyOrders.backToOrders',
   'kitchen:ops.supplyOrders.branchRequiredBody',
   'kitchen:ops.supplyOrders.branchRequiredTitle',

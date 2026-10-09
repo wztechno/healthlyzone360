@@ -1,6 +1,7 @@
 import type { ItemLatestPurchase, StockItem, StockLevel } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    Button,
     Callout,
     Cascade,
     EmptyState,
@@ -22,6 +23,7 @@ import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -48,7 +50,6 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
-import { EditorFrame } from '../editor-frame.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
@@ -61,6 +62,9 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
+import { RecordSummaryAside } from '../record-summary-aside.tsx';
 
 /**
  * The photograph of what is on the shelf: the ingredient's own, or the product's.
@@ -834,10 +838,37 @@ function statCards(
 
 type MovementDirection = 'increase' | 'decrease' | 'waste';
 
+/** The shelf aside's column, and the narrowest the two form tracks fold to beside it. */
+const ASIDE_WIDTH = 300;
+const FORM_MIN_WIDTH = 600;
+const COLUMN_GAP = 16;
+
+const MOVEMENT_LABEL: Readonly<Record<MovementDirection, string>> = {
+    increase: 'kitchen:ops.stock.effectIncrease',
+    decrease: 'kitchen:ops.stock.effectDecrease',
+    waste: 'kitchen:ops.stock.effectWaste',
+};
+
 /**
- * The `edStock` editor: **Reorder threshold**, then **Movement**, one save that posts whichever of
- * the two changed. There is no quantity field that writes a level — a movement is a signed ledger
- * entry, and the level is whatever the ledger sums to.
+ * The `edStock` editor: **Reordering**, then **Movement**, one save that posts whichever of the two
+ * changed. There is no quantity field that writes a level — a movement is a signed ledger entry, and
+ * the level is whatever the ledger sums to.
+ *
+ * ```
+ * Aioli Sauce  LOW  ⚠ Unsaved                                      [ Cancel ]  [ Post ]
+ * ─────────────────────────────────────────────────────────────────────────────────────
+ * ┌ Reordering ─────────────────────────────┐  ┌ This shelf ─────────────┐
+ * │ [ Reorder threshold ]  [ Par level ]    │  │ Reference   aioli-sauce │
+ * └─────────────────────────────────────────┘  │ On hand now      0 kg   │
+ * ┌ Movement ───────────────────────────────┐  │ On hand after  2.5 kg   │
+ * │ [ Direction ▾ ]        [ Quantity ]     │  │ Saving will             │
+ * │ [ Why (optional)                    ]   │  │ Add stock     +2.5 kg   │
+ * └─────────────────────────────────────────┘  └─────────────────────────┘
+ * ```
+ *
+ * The opening every record form shares (`RecordFormOpening`), its sections as cards, and the
+ * record aside Post receipt draws — *this is the shelf, this is what posting does to it* — so the
+ * figure a count will leave on the shelf is read before it is posted rather than after.
  */
 function StockMovementEditor({
     row,
@@ -870,6 +901,9 @@ function StockMovementEditor({
     const [notes, setNotes] = useState('');
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [bodyWidth, setBodyWidth] = useState(0);
+
+    useKitchenTrailLeaf(row.item.nameEn);
 
     const thresholdTrimmed = thresholdValue.trim();
     const parTrimmed = parLevelValue.trim();
@@ -894,6 +928,28 @@ function StockMovementEditor({
         (thresholdChanged || hasMovement);
 
     const name = row.item.nameEn;
+    const unit = row.item.unitCode;
+    const onHand = row.level === null ? 0 : Number(row.level.quantity);
+    // What the posted movement adds to the shelf: increase is positive, decrease and waste take away.
+    const delta =
+        movementMagnitude === null || !hasMovement
+            ? 0
+            : direction === 'increase'
+              ? movementMagnitude
+              : -movementMagnitude;
+    const amount = (value: number) => `${formatter.formatNumber(value)} ${unit}`;
+    const levelsText = (reorder: number | null, par: number | null) =>
+        reorder === null && par === null
+            ? t('kitchen:ops.stock.noThreshold')
+            : t('kitchen:ops.stock.reorderPar', {
+                  threshold:
+                      reorder === null
+                          ? t('kitchen:list.noValue')
+                          : formatter.formatNumber(reorder),
+                  par: par === null ? t('kitchen:list.noValue') : formatter.formatNumber(par),
+              });
+    const savedReorder = initialThreshold === '' ? null : Number(initialThreshold);
+    const savedPar = initialPar === '' ? null : Number(initialPar);
 
     const edit = (setter: (value: string) => void) => (value: string) => {
         setter(value);
@@ -952,119 +1008,223 @@ function StockMovementEditor({
         }
     }
 
-    return (
-        <EditorFrame
-            testID="kitchen-stock-editor"
-            title={row.item.nameEn}
-            titleChip={{ label: t('kitchen:ops.stock.chip'), tone: 'neutral' }}
-            summary={
-                <Text variant="caption" tone="secondary" testID="kitchen-stock-editor-summary">
-                    {t('kitchen:ops.stock.editorSummary', {
-                        code: row.item.code,
-                        quantity:
-                            row.level === null
-                                ? formatter.formatNumber(0)
-                                : formatter.formatNumber(Number(row.level.quantity)),
-                        unit: row.item.unitCode,
-                    })}
-                </Text>
-            }
-            meta={null}
-            guard={guard}
-            concurrency={concurrency}
-            onSaveDraft={() => {
-                void save();
-            }}
-            saveLabel={t('kitchen:ops.stock.saveLabel')}
-            saving={saving}
-            saveDisabled={!canSave}
-            onBack={onDone}
-            backLabel={t('kitchen:ops.stock.backLabel')}
-            banner={
-                saveError === null ? null : (
-                    <Callout
-                        testID="kitchen-stock-movement-error"
-                        role="alert"
-                        tone="danger"
-                        title={t('kitchen:ops.stock.saveFailedTitle')}
-                        body={saveError}
-                    />
-                )
-            }
-        >
-            <FormSection
-                first
-                testID="kitchen-stock-threshold-section"
-                title={t('kitchen:ops.stock.fieldThreshold')}
-            >
-                <FormGrid testID="kitchen-stock-threshold-grid">
-                    <TextInputField
-                        testID="kitchen-stock-threshold-value"
-                        label={t('kitchen:ops.stock.fieldThreshold')}
-                        hint={t('kitchen:ops.stock.fieldThresholdHint')}
-                        placeholder={t('kitchen:ops.stock.thresholdPlaceholder')}
-                        error={thresholdInvalid ? t('kitchen:ops.stock.numberInvalid') : undefined}
-                        value={thresholdValue}
-                        onChangeText={edit(setThresholdValue)}
-                        keyboardType="decimal-pad"
-                        size="sm"
-                    />
-                    <TextInputField
-                        testID="kitchen-stock-threshold-par"
-                        label={t('kitchen:ops.stock.fieldParLevel')}
-                        hint={t('kitchen:ops.stock.fieldParLevelHint')}
-                        placeholder={t('kitchen:ops.stock.parLevelPlaceholder')}
-                        error={parInvalid ? t('kitchen:ops.stock.numberInvalid') : undefined}
-                        value={parLevelValue}
-                        onChangeText={edit(setParLevelValue)}
-                        keyboardType="decimal-pad"
-                        size="sm"
-                    />
-                </FormGrid>
-            </FormSection>
+    const sideBySide = bodyWidth >= ASIDE_WIDTH + FORM_MIN_WIDTH + COLUMN_GAP;
 
-            <FormSection
-                testID="kitchen-stock-movement-section"
-                title={t('kitchen:ops.stock.sectionMovement')}
-                description={t('kitchen:ops.stock.ledgerNote')}
+    // Only what this save would actually post — an invalid figure posts nothing, so it says nothing.
+    const effects = [
+        ...(hasMovement
+            ? [
+                  {
+                      key: 'movement',
+                      testID: 'kitchen-stock-editor-summary-movement',
+                      name: t(MOVEMENT_LABEL[direction]),
+                      value: `${formatter.formatNumber(delta, { signDisplay: 'exceptZero' })} ${unit}`,
+                      tone: delta > 0 ? ('success' as const) : ('danger' as const),
+                  },
+              ]
+            : []),
+        ...(thresholdChanged && !thresholdInvalid && !parInvalid
+            ? [
+                  {
+                      key: 'threshold',
+                      testID: 'kitchen-stock-editor-summary-threshold',
+                      name: t('kitchen:ops.stock.effectThreshold'),
+                      value: levelsText(thresholdMagnitude, parMagnitude),
+                  },
+              ]
+            : []),
+    ];
+
+    return (
+        <Cascade space="md" testID="kitchen-stock-editor">
+            <RecordFormOpening
+                testID="kitchen-stock-editor"
+                title={name}
+                dirty={guard.isDirty}
+                badges={
+                    <Badge
+                        variant="caps"
+                        testID="kitchen-stock-editor-status"
+                        tone={STATE_TONE[row.state]}
+                        icon={null}
+                        label={t(STATE_LABEL[row.state])}
+                    />
+                }
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-stock-editor-back"
+                            variant="secondary"
+                            label={t('kitchen:editor.cancel')}
+                            onPress={() => {
+                                guard.intercept(onDone);
+                            }}
+                        />
+                        <Button
+                            testID="kitchen-stock-editor-save"
+                            label={t('kitchen:ops.stock.saveLabel')}
+                            loading={saving}
+                            disabled={!canSave || saving}
+                            onPress={() => {
+                                void save();
+                            }}
+                        />
+                    </>
+                }
+            />
+
+            {saveError === null ? null : (
+                <Callout
+                    testID="kitchen-stock-movement-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('kitchen:ops.stock.saveFailedTitle')}
+                    body={saveError}
+                />
+            )}
+
+            <View
+                onLayout={(event: LayoutChangeEvent) => {
+                    setBodyWidth(event.nativeEvent.layout.width);
+                }}
+                className={
+                    sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
+                }
             >
-                <FormGrid testID="kitchen-stock-movement-grid">
-                    <Select<MovementDirection>
-                        testID="kitchen-stock-movement-direction"
-                        label={t('kitchen:ops.stock.direction')}
-                        options={[
-                            { value: 'increase', label: t('kitchen:ops.stock.directionIncrease') },
-                            { value: 'decrease', label: t('kitchen:ops.stock.directionDecrease') },
-                            { value: 'waste', label: t('kitchen:ops.stock.waste') },
-                        ]}
-                        value={direction}
-                        onChange={(next) => {
-                            setDirection(next);
-                            guard.markDirty();
-                        }}
-                    />
-                    <TextInputField
-                        testID="kitchen-stock-movement-quantity"
-                        label={t('kitchen:ops.stock.fieldAdjustQuantity')}
-                        hint={t('kitchen:ops.stock.quantityHint', { unit: row.item.unitCode })}
-                        placeholder={t('kitchen:fields.quantityPlaceholder')}
-                        error={quantityInvalid ? t('kitchen:ops.stock.quantityInvalid') : undefined}
-                        value={quantity}
-                        onChangeText={edit(setQuantity)}
-                        keyboardType="decimal-pad"
-                        size="sm"
-                    />
-                    <TextInputField
-                        testID="kitchen-stock-movement-notes"
-                        span={2}
-                        label={t('kitchen:ops.stock.fieldNotes')}
-                        placeholder={t('kitchen:ops.stock.fieldNotesPlaceholder')}
-                        value={notes}
-                        onChangeText={edit(setNotes)}
-                        size="sm"
-                    />
-                </FormGrid>
-            </FormSection>
-        </EditorFrame>
+                <View className="z-auto min-w-0 flex-1 flex-col gap-base">
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-stock-threshold-section"
+                        title={t('kitchen:ops.stock.sectionThreshold')}
+                        description={t('kitchen:ops.stock.thresholdNote')}
+                    >
+                        <FormGrid testID="kitchen-stock-threshold-grid">
+                            <TextInputField
+                                testID="kitchen-stock-threshold-value"
+                                label={t('kitchen:ops.stock.fieldThreshold')}
+                                placeholder={t('kitchen:ops.stock.thresholdPlaceholder')}
+                                error={
+                                    thresholdInvalid
+                                        ? t('kitchen:ops.stock.numberInvalid')
+                                        : undefined
+                                }
+                                value={thresholdValue}
+                                onChangeText={edit(setThresholdValue)}
+                                keyboardType="decimal-pad"
+                                size="sm"
+                            />
+                            <TextInputField
+                                testID="kitchen-stock-threshold-par"
+                                label={t('kitchen:ops.stock.fieldParLevel')}
+                                placeholder={t('kitchen:ops.stock.parLevelPlaceholder')}
+                                error={
+                                    parInvalid ? t('kitchen:ops.stock.numberInvalid') : undefined
+                                }
+                                value={parLevelValue}
+                                onChangeText={edit(setParLevelValue)}
+                                keyboardType="decimal-pad"
+                                size="sm"
+                            />
+                        </FormGrid>
+                    </FormSection>
+
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-stock-movement-section"
+                        title={t('kitchen:ops.stock.sectionMovement')}
+                        description={t('kitchen:ops.stock.ledgerNote')}
+                    >
+                        <FormGrid testID="kitchen-stock-movement-grid">
+                            <Select<MovementDirection>
+                                testID="kitchen-stock-movement-direction"
+                                label={t('kitchen:ops.stock.direction')}
+                                options={[
+                                    {
+                                        value: 'increase',
+                                        label: t('kitchen:ops.stock.directionIncrease'),
+                                    },
+                                    {
+                                        value: 'decrease',
+                                        label: t('kitchen:ops.stock.directionDecrease'),
+                                    },
+                                    { value: 'waste', label: t('kitchen:ops.stock.waste') },
+                                ]}
+                                value={direction}
+                                onChange={(next) => {
+                                    setDirection(next);
+                                    guard.markDirty();
+                                }}
+                            />
+                            <TextInputField
+                                testID="kitchen-stock-movement-quantity"
+                                label={t('kitchen:ops.stock.fieldAdjustQuantity')}
+                                hint={t('kitchen:ops.stock.quantityUnitHint', { unit })}
+                                placeholder={t('kitchen:fields.quantityPlaceholder')}
+                                error={
+                                    quantityInvalid
+                                        ? t('kitchen:ops.stock.quantityInvalid')
+                                        : undefined
+                                }
+                                value={quantity}
+                                onChangeText={edit(setQuantity)}
+                                keyboardType="decimal-pad"
+                                size="sm"
+                            />
+                            <TextInputField
+                                testID="kitchen-stock-movement-notes"
+                                span={2}
+                                label={t('kitchen:ops.stock.fieldNotes')}
+                                placeholder={t('kitchen:ops.stock.fieldNotesPlaceholder')}
+                                value={notes}
+                                onChangeText={edit(setNotes)}
+                                size="sm"
+                            />
+                        </FormGrid>
+                    </FormSection>
+                </View>
+
+                <RecordSummaryAside
+                    testID="kitchen-stock-editor-summary"
+                    title={t('kitchen:ops.stock.summaryTitle')}
+                    width={sideBySide ? ASIDE_WIDTH : null}
+                    rows={[
+                        {
+                            key: 'reference',
+                            label: t('kitchen:list.columnReference'),
+                            value: row.item.code,
+                        },
+                        {
+                            key: 'levels',
+                            label: t('kitchen:ops.stock.columnReorderPar'),
+                            value: levelsText(savedReorder, savedPar),
+                        },
+                        {
+                            key: 'on-hand',
+                            label: t('kitchen:ops.stock.summaryOnHand'),
+                            value: amount(onHand),
+                        },
+                    ]}
+                    total={{
+                        label: t('kitchen:ops.stock.summaryAfter'),
+                        value: amount(onHand + delta),
+                    }}
+                    list={{
+                        title: t('kitchen:ops.stock.summaryEffects'),
+                        empty: t('kitchen:ops.stock.summaryNothing'),
+                        testID: 'kitchen-stock-editor-summary-effects',
+                        emptyTestID: 'kitchen-stock-editor-summary-nothing',
+                        items: effects,
+                    }}
+                />
+            </View>
+
+            <EditorGuardDialogs
+                testID="kitchen-stock-editor"
+                guard={guard}
+                concurrency={concurrency}
+            />
+        </Cascade>
     );
 }

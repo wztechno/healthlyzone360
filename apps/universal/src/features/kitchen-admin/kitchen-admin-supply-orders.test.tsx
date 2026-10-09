@@ -411,19 +411,29 @@ describe('supply orders landing', () => {
         expect(screen.getByTestId(`${low}-reorder-at`)).toHaveTextContent('5');
     });
 
-    it('counts the rest of the queue rather than listing it', async () => {
-        const many = Array.from({ length: 11 }, (_, index) => proposalRow(index + 1));
+    it('pages the queue rather than cutting it off', async () => {
+        const many = Array.from({ length: 20 }, (_, index) => proposalRow(index + 1));
 
         await renderStubScreen(<SupplyOrdersScreen />, {
             session: kitchenManagerSession(),
             repositories: landingOverrides(many),
         });
 
-        await untilVisible('kitchen-supply-orders-and-more');
+        await untilVisible('kitchen-supply-orders-preview-pagination');
 
-        // Eight shown, three counted — enough to tell "four things" from "forty" at a glance.
-        expect(screen.getByTestId('kitchen-supply-orders-and-more')).toHaveTextContent(/3/);
-        expect(screen.queryByTestId(supplyOrderRowTestId(String(itemId(9))))).toBeNull();
+        // A page of the queue, and the rest one press away — never a count of rows nobody can reach.
+        expect(screen.getByTestId('kitchen-supply-orders-needs-count')).toHaveTextContent(/20/);
+        expect(screen.getByTestId(supplyOrderRowTestId(String(itemId(18))))).toBeTruthy();
+        expect(screen.queryByTestId(supplyOrderRowTestId(String(itemId(19))))).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-supply-orders-preview-pagination-pages-page-2'),
+            );
+        });
+
+        expect(screen.getByTestId(supplyOrderRowTestId(String(itemId(19))))).toBeTruthy();
+        expect(screen.queryByTestId(supplyOrderRowTestId(String(itemId(1))))).toBeNull();
     });
 
     it('reads an empty queue as good news and still offers a way in', async () => {

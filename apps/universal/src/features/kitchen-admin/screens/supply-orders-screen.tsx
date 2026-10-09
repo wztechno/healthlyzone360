@@ -35,6 +35,7 @@ import {
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CATALOGUE_PAGE_SIZE, CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
@@ -55,7 +56,7 @@ import {
     supplyOrderRowTestId,
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ColumnPicker, WithColumnPicker } from '../catalogue/column-picker.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/supply-orders` — the order book, and what the branch is short of (SUP3), on the
@@ -65,8 +66,10 @@ import { ColumnPicker, WithColumnPicker } from '../catalogue/column-picker.tsx';
  * ┌ OUT OF STOCK ┐ ┌ RUNNING LOW ┐ ┌ DRAFT ┐ ┌ ISSUED ┐
  * [ ⌕ search ]  [ All | Draft | Issued | Partly received | Received | Cancelled ]  [ Prepare order ]
  * ORDER         SUPPLIER            MADE ON     ITEMS   STATUS                 ◉ ✎
- * ── Needs ordering ────────────────────────────────────────────────
+ *                              [ ‹ 1 2 › ]
+ * What's low right now · 55 items need ordering                         [ ▦ Show columns ]
  * ITEM          ON HAND             REORDER AT
+ *                              [ ‹ 1 2 3 4 › ]
  * ```
  *
  * ## The two shortage cards are exact; the two order cards are the page in hand
@@ -90,13 +93,21 @@ import { ColumnPicker, WithColumnPicker } from '../catalogue/column-picker.tsx';
  *
  * The design's "Their reference" column is omitted: an order carries no supplier reference.
  *
- * ## The preview is a preview, not the builder
+ * ## Both tables page, like every other admin table
  *
- * Eight rows of the proposal and a count of the rest, under the book — enough to tell *four things*
- * from *forty*. No quantity boxes and no supplier pickers: a half-usable builder here would be a
- * second place to do the same job. It opens in the server's order; Item and Reorder at sort and On
- * hand filters by its badge, over the whole proposal before it is cut to eight. An empty queue is good news and is dressed as one, with a way in
- * that stays so a manager can order ahead of a busy weekend.
+ * The book is a keyset, so its pager is the purchases ledger's: built from the cursors seen, every
+ * page reached plus the next, no total claimed. A status or supplier change starts it again at page
+ * one. The queue comes back whole, so it pages in hand — over the sorted, filtered rows, and keyed
+ * on the header filters so narrowing a column lands on page one.
+ *
+ * ## The queue is a list, not the builder
+ *
+ * The proposal under the book, a page at a time. No quantity boxes and no supplier pickers: a
+ * half-usable builder here would be a second place to do the same job. It opens in the server's
+ * order; Item and Reorder at sort and On hand filters by its badge. Its count and its column picker
+ * share the section's heading row, so the button lines up with the title it belongs to. An empty
+ * queue is good news and is dressed as one, with a way in that stays so a manager can order ahead
+ * of a busy weekend.
  *
  * ## The batch that was just created gets a standing notice, not a toast action (SUP7)
  *
@@ -104,9 +115,6 @@ import { ColumnPicker, WithColumnPicker } from '../catalogue/column-picker.tsx';
  * success callout, which survives a glance away and a refresh. It counts from the query string,
  * because a keyset page cannot tell you how many orders were made.
  */
-
-/** How much of the queue the landing page shows before it starts counting instead. */
-const PREVIEW_ROWS = 8;
 
 const EM_DASH = '—';
 
@@ -189,6 +197,23 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
     /** The Supplier header's choice. Sent with the request — `PurchaseOrderFilter.supplierId`. */
     const [supplier, setSupplier] = useState<string | null>(null);
     const [viewing, setViewing] = useState<PurchaseOrder | null>(null);
+    // `cursors[n - 1]` opens page n of the book: page one has none, and each loaded page with more
+    // behind it adds the next page's — the purchases ledger's pager.
+    const [cursors, setCursors] = useState<readonly (string | undefined)[]>([undefined]);
+    const [page, setPage] = useState(1);
+    const cursor = cursors[page - 1];
+    /** The queue's page, remembered against the header filters it was chosen under. */
+    const [queuePaging, setQueuePaging] = useState<{
+        readonly key: object | null;
+        readonly page: number;
+    }>({ key: null, page: 1 });
+
+    /** A status or supplier change is a new book: back to page one, and out of any record. */
+    const resetBook = () => {
+        setCursors([undefined]);
+        setPage(1);
+        setViewing(null);
+    };
 
     const needs = useSupplyNeedsCountQuery(branchId);
     const proposal = useOrderProposalQuery(branchId);
@@ -201,11 +226,21 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
         () => ({
             ...(status === 'all' ? {} : { status }),
             ...(supplier === null ? {} : { supplierId: SupplierId.unsafe(supplier) }),
+            ...(cursor === undefined ? {} : { cursor }),
+            limit: CATALOGUE_PAGE_SIZE,
         }),
-        [status, supplier],
+        [status, supplier, cursor],
     );
     const orders = usePurchaseOrdersQuery(bookFilter, branchId !== null);
     const supplierBook = useSuppliersQuery(SUPPLIER_BOOK, branchId !== null);
+
+    const nextCursor = orders.data?.nextCursor ?? null;
+    const hasMore = (orders.data?.hasMore ?? false) && nextCursor !== null;
+    // The page in hand says there is another: remember where it starts, once — adjusted during
+    // render, as the ledger does, so the pager is never painted a page short.
+    if (hasMore && nextCursor !== null && cursors.length === page) {
+        setCursors([...cursors, nextCursor]);
+    }
 
     const trimmed = query.trim().toLocaleLowerCase(locale);
     const searched = useMemo(() => {
@@ -291,7 +326,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                         value: supplier,
                         onChange: (next) => {
                             setSupplier(next);
-                            setViewing(null);
+                            resetBook();
                         },
                     },
                 },
@@ -357,7 +392,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                         value: status === 'all' ? null : status,
                         onChange: (next) => {
                             setStatus(SEGMENT_STATUSES.find((value) => value === next) ?? 'all');
-                            setViewing(null);
+                            resetBook();
                         },
                     },
                 },
@@ -478,15 +513,20 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
     const controls = useColumnControls(searched, orderColumns, 'kitchen-supply-orders');
     const unfiltered = trimmed === '' && status === 'all' && supplier === null;
 
-    // Over the whole proposal, then cut to the preview — so a sort or a filter chooses which eight
-    // are shown and "and N more" counts what it left out, rather than reordering the first eight.
+    // Over the whole proposal, then cut to the page — so a sort or a filter reorders the queue, not
+    // just the rows on screen.
     const previewControls = useColumnControls(
         shortage,
         previewColumns,
         'kitchen-supply-orders-preview',
     );
-    const preview = previewControls.rows.slice(0, PREVIEW_ROWS);
-    const remaining = Math.max(previewControls.rows.length - preview.length, 0);
+    const queuePages = Math.max(1, Math.ceil(previewControls.rows.length / CATALOGUE_PAGE_SIZE));
+    const queuePage =
+        queuePaging.key === previewControls.key ? Math.min(queuePaging.page, queuePages) : 1;
+    const preview = previewControls.rows.slice(
+        (queuePage - 1) * CATALOGUE_PAGE_SIZE,
+        queuePage * CATALOGUE_PAGE_SIZE,
+    );
 
     const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
         { value: 'all', label: t('kitchen:toolbar.statusAll') },
@@ -573,7 +613,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                     t,
                     showDrafts: () => {
                         setStatus('draft');
-                        setViewing(null);
+                        resetBook();
                     },
                 })}
             />
@@ -592,7 +632,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                 status={status}
                 onStatusChange={(next) => {
                     setStatus(next);
-                    setViewing(null);
+                    resetBook();
                 }}
             >
                 <ColumnPicker {...controls.picker} />
@@ -644,7 +684,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                                     setQuery('');
                                     setStatus('all');
                                     setSupplier(null);
-                                    setViewing(null);
+                                    resetBook();
                                 }}
                             />
                         )
@@ -682,19 +722,40 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                             },
                         ]}
                     />
+                    <CataloguePager
+                        testID="kitchen-supply-orders-book-pagination"
+                        page={page}
+                        totalPages={cursors.length}
+                        onPageChange={(next) => {
+                            setPage(next);
+                            setViewing(null);
+                        }}
+                        label={t('kitchen:catalogue.pagerLabel')}
+                    />
                 </Stack>
             )}
 
             <FormSection
                 testID="kitchen-supply-orders-needs"
                 title={t('kitchen:ops.supplyOrders.previewTitle')}
-                {...(shortagePending || shortageFailure !== null
-                    ? {}
-                    : {
-                          description: t('kitchen:ops.supplyOrders.needsCount', {
-                              count: shortage.length,
-                          }),
-                      })}
+                // The count beside the title and the picker at the row's end, so both sit on the
+                // heading's one line rather than the button floating over the table below it.
+                aside={
+                    shortagePending || shortageFailure !== null ? undefined : (
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            testID="kitchen-supply-orders-needs-count"
+                        >
+                            {t('kitchen:ops.supplyOrders.needsCount', { count: shortage.length })}
+                        </Text>
+                    )
+                }
+                actions={
+                    shortagePending || shortageFailure !== null || queueEmpty ? undefined : (
+                        <ColumnPicker {...previewControls.picker} />
+                    )
+                }
             >
                 {shortagePending ? (
                     <TableSkeleton
@@ -729,26 +790,24 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                     />
                 ) : (
                     <Stack space="sm">
-                        <WithColumnPicker picker={previewControls.picker}>
-                            <CatalogueList<OrderProposalItem>
-                                testID="kitchen-supply-orders-preview"
-                                label={t('kitchen:ops.supplyOrders.previewCaption')}
-                                columns={previewControls.columns}
-                                rows={preview}
-                                rowKey={(row) => String(row.stockItemId)}
-                                density="sm"
-                                rowActionsLabel={t('kitchen:list.rowActions')}
-                            />
-                        </WithColumnPicker>
-                        {remaining === 0 ? null : (
-                            <Text
-                                tone="secondary"
-                                variant="caption"
-                                testID="kitchen-supply-orders-and-more"
-                            >
-                                {t('kitchen:ops.supplyOrders.andMore', { count: remaining })}
-                            </Text>
-                        )}
+                        <CatalogueList<OrderProposalItem>
+                            testID="kitchen-supply-orders-preview"
+                            label={t('kitchen:ops.supplyOrders.previewCaption')}
+                            columns={previewControls.columns}
+                            rows={preview}
+                            rowKey={(row) => String(row.stockItemId)}
+                            density="sm"
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
+                        <CataloguePager
+                            testID="kitchen-supply-orders-preview-pagination"
+                            page={queuePage}
+                            totalPages={queuePages}
+                            onPageChange={(next) => {
+                                setQueuePaging({ key: previewControls.key, page: next });
+                            }}
+                            label={t('kitchen:catalogue.pagerLabel')}
+                        />
                     </Stack>
                 )}
             </FormSection>
