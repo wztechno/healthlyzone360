@@ -198,9 +198,11 @@ function CatalogueTable<Row>({
     }
 
     /*
-     * No column is told to take the slack: `DataList` shares it across every column in proportion
-     * to its declared width, so the table ends where the page does without a hole after the names.
-     * A spec that wants one column to absorb it can still say `fill`.
+     * Slack is shared in proportion to declared width (8a558382), so the table ends where the page
+     * does: title-only growth left a ~300px hole after every name, and equal shares gave a unit
+     * the designation's extra. `metric` and `status` columns never take any — a figure or a badge
+     * gains nothing from a wider track but distance from its header — unless a spec says `grow`
+     * itself; short meta (units, codes, dates) opts out with `grow: false`, and `fill` still wins.
      */
     const drawn = withTableThumbnail(columns, rowKey, testID);
     const withActions =
@@ -252,7 +254,12 @@ function CatalogueTable<Row>({
                 className="flex-col"
             >
                 <DataList
-                    columns={visible}
+                    columns={visible.map((column) =>
+                        column.grow === undefined &&
+                        (column.role === 'metric' || column.role === 'status')
+                            ? { ...column, grow: false }
+                            : column,
+                    )}
                     rows={rows}
                     rowKey={rowKey}
                     label={label}
