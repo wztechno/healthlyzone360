@@ -750,6 +750,11 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     getIngredient(_ingredientId: IngredientId): Promise<IngredientAdmin> {
         return notImplemented(`GET ${BASE}/catalogue/ingredients/{ingredient}`);
     },
+    getIngredientsByIds(
+        _ingredientIds: readonly IngredientId[],
+    ): Promise<readonly IngredientAdmin[]> {
+        return notImplemented(`GET ${BASE}/catalogue/ingredients?ids[]`);
+    },
     createIngredient(_request: CreateIngredientRequest): Promise<IngredientAdmin> {
         return notImplemented(`POST ${BASE}/catalogue/ingredients`);
     },

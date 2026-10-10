@@ -7,9 +7,11 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { PACKAGING_CATEGORY_CODE } from '@healthy360/api-client/contracts';
 import {
+    Badge,
     DataList,
     Icon,
     IconButton,
+    Skeleton,
     Text,
     UNDROPPABLE_PRIORITY,
     growWeights,
@@ -192,6 +194,19 @@ export interface RecipeLineTableProps {
      */
     readonly flaggedIngredientIds?: readonly string[] | undefined;
     /**
+     * The screen's by-id lookup of the rows' ingredients is still in flight. A row whose ingredient
+     * is not in {@link ingredients} yet draws a placeholder rather than "Unnamed line", which would
+     * read as a fact about the recipe.
+     */
+    readonly resolving?: boolean | undefined;
+    /**
+     * Ingredients the lookup answered without — deleted, or not visible to this kitchen. The row
+     * keeps its fallback designation and says why it has nothing better.
+     */
+    readonly missingIngredientIds?: readonly string[] | undefined;
+    /** Prefix for those two marks: `<lineTestID>-<ingredientId>-loading` / `-missing`. */
+    readonly lineTestID?: string | undefined;
+    /**
      * Mark a line whose quantity is zero — the Catalogue Forms packaging warning. The row takes the
      * warning fill, its Qty cell the warning border, and the designation a mark whose accessible
      * name says why. Packaging only in practice: a sleeve label at `0` is a line that costs nothing
@@ -295,6 +310,9 @@ export function RecipeLineTable({
     ingredients,
     source = 'ingredients',
     flaggedIngredientIds = [],
+    resolving = false,
+    missingIngredientIds = [],
+    lineTestID,
     warnZeroQuantity = false,
     costs,
     canManage,
@@ -448,6 +466,14 @@ export function RecipeLineTable({
             render: (row) => {
                 const entry =
                     row.ingredientId === null ? undefined : byId.get(String(row.ingredientId));
+                const markTestID = `${lineTestID ?? testID}-${row.ingredientId ?? ''}`;
+                if (entry === undefined && resolving && row.ingredientId !== null) {
+                    return (
+                        <View className="min-w-0 flex-1">
+                            <Skeleton testID={`${markTestID}-loading`} widthClassName="w-1/2" />
+                        </View>
+                    );
+                }
                 return (
                     <View className="min-w-0 flex-1 flex-row items-baseline gap-hair">
                         <Text variant="label" numberOfLines={1} testID={`${rowTestId(row)}-name`}>
@@ -455,6 +481,16 @@ export function RecipeLineTable({
                                 ? t('kitchen:recipes.unnamedLine')
                                 : displayName(entry.name, locale).value}
                         </Text>
+                        {row.ingredientId !== null &&
+                        missingIngredientIds.includes(row.ingredientId) ? (
+                            <Badge
+                                testID={`${markTestID}-missing`}
+                                variant="label"
+                                tone="warning"
+                                icon="warning"
+                                label={t('kitchen:recipes.lineIngredientMissing')}
+                            />
+                        ) : null}
                         {entry?.reference == null ? null : (
                             <Text variant="micro" tone="secondary">
                                 {entry.reference}

@@ -205,6 +205,7 @@ export const REPOSITORY_SURFACE = {
         'forkIngredient',
         'getBranchOperating',
         'getIngredient',
+        'getIngredientsByIds',
         'getItemChannelPrices',
         'getMeal',
         'getPlan',

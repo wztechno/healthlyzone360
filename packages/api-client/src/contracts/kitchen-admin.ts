@@ -2118,6 +2118,14 @@ export interface KitchenAdminRepository {
 
     listIngredients(filter?: IngredientAdminFilter): Promise<CursorPage<IngredientAdmin>>;
     getIngredient(ingredientId: IngredientId): Promise<IngredientAdmin>;
+    /**
+     * The named rows this kitchen can see, show-complete, in as few requests as the endpoint's
+     * 100-id ceiling allows. Duplicates collapse; an id the kitchen cannot see (deleted, or another
+     * kitchen's) is simply absent — the caller decides what a missing row means.
+     */
+    getIngredientsByIds(
+        ingredientIds: readonly IngredientId[],
+    ): Promise<readonly IngredientAdmin[]>;
     createIngredient(request: CreateIngredientRequest): Promise<IngredientAdmin>;
     updateIngredient(
         ingredientId: IngredientId,

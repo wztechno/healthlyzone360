@@ -73,6 +73,7 @@ import {
     useSetRecipePackagingMutation,
     useUpdateRecipeMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
+import type { IngredientsByIds } from '../../../data/kitchen-admin-hooks.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
@@ -397,6 +398,38 @@ function uniqueIngredientIds(rows: readonly LineDraft[]): readonly IngredientId[
         found.push(IngredientId.unsafe(row.ingredientId));
     }
     return found;
+}
+
+/**
+ * The by-id lookup of a table's ingredients failed: say so once, above the table, rather than let
+ * every row read "This line" with no price as though that were the recipe.
+ */
+function LineIngredientsFailed({
+    lookup,
+    testID,
+}: {
+    readonly lookup: IngredientsByIds;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    if (lookup.status !== 'error') return null;
+    return (
+        <Callout
+            testID={testID}
+            role="alert"
+            tone="danger"
+            title={t('kitchen:recipes.lineIngredientsFailedTitle')}
+            body={t('kitchen:recipes.lineIngredientsFailedBody')}
+            actions={
+                <Button
+                    testID={`${testID}-retry`}
+                    variant="quiet"
+                    label={t('common:action.retry')}
+                    onPress={lookup.refetch}
+                />
+            }
+        />
+    );
 }
 
 /** Long enough that typing "1250" is one request, short enough to feel like a consequence. */
@@ -841,9 +874,9 @@ function RecipeEditor({
     const library = useMemo(() => {
         const byId = new Map<string, IngredientAdmin>();
         for (const entry of ingredients) byId.set(String(entry.id), entry);
-        for (const [id, entry] of Object.entries(lineIngredients)) byId.set(id, entry);
+        for (const [id, entry] of Object.entries(lineIngredients.byId)) byId.set(id, entry);
         return [...byId.values()];
-    }, [ingredients, lineIngredients]);
+    }, [ingredients, lineIngredients.byId]);
 
     /** The same pool, in the shape the line table draws rows from. */
     const libraryEntries = useMemo(
@@ -869,9 +902,9 @@ function RecipeEditor({
         for (const entry of ingredientsFromPages(packagingCatalogue.data?.pages)) {
             byId.set(String(entry.id), entry);
         }
-        for (const [id, entry] of Object.entries(packagingIngredients)) byId.set(id, entry);
+        for (const [id, entry] of Object.entries(packagingIngredients.byId)) byId.set(id, entry);
         return [...byId.values()].map(packagingEntry);
-    }, [packagingCatalogue.data?.pages, packagingIngredients]);
+    }, [packagingCatalogue.data?.pages, packagingIngredients.byId]);
 
     /* ── what the server could not cost ──────────────────────────────────────────────────────── */
 
@@ -2324,10 +2357,17 @@ function RecipeEditor({
                             testID="kitchen-recipe-lines"
                             title={t('kitchen:recipes.sectionRawMaterials')}
                         >
+                            <LineIngredientsFailed
+                                testID="kitchen-recipe-lines-failed"
+                                lookup={lineIngredients}
+                            />
                             <RecipeLineTable
                                 testID="kitchen-recipe-lines-table"
+                                lineTestID="kitchen-recipe-line"
                                 rows={lines}
                                 ingredients={libraryEntries}
+                                resolving={lineIngredients.status === 'pending'}
+                                missingIngredientIds={lineIngredients.missingIds}
                                 flaggedIngredientIds={flaggedIngredientIds}
                                 costs={computed?.production ?? null}
                                 canManage={editable}
@@ -2408,11 +2448,18 @@ function RecipeEditor({
                              * inside the section so the section can carry its `flow`: a `FormSection` is
                              * `z-auto`, no stacking context, so the raise still reaches the tab body's.
                              */}
+                            <LineIngredientsFailed
+                                testID="kitchen-recipe-packaging-failed"
+                                lookup={packagingIngredients}
+                            />
                             <View className="relative z-sticky">
                                 <RecipeLineTable
                                     testID="kitchen-recipe-packaging-table"
+                                    lineTestID="kitchen-recipe-packaging-line"
                                     rows={packaging}
                                     ingredients={packagingLibrary}
+                                    resolving={packagingIngredients.status === 'pending'}
+                                    missingIngredientIds={packagingIngredients.missingIds}
                                     source="packaging"
                                     warnZeroQuantity
                                     costs={computed?.packaging ?? null}

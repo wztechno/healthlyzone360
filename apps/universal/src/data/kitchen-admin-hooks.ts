@@ -314,8 +314,22 @@ export function useIngredientQuery(
     });
 }
 
+/** What {@link useIngredientsByIds} resolved, and what it could not. */
+export interface IngredientsByIds {
+    readonly byId: Readonly<Record<string, IngredientAdmin>>;
+    /** `pending` also while a changed id set is in flight over the previous answer. */
+    readonly status: 'pending' | 'error' | 'success';
+    readonly error: Error | null;
+    /** Requested but not returned: deleted, or not visible to this kitchen. Empty until settled. */
+    readonly missingIds: readonly IngredientId[];
+    readonly refetch: () => void;
+}
+
+const NO_INGREDIENTS: Readonly<Record<string, IngredientAdmin>> = {};
+const NO_IDS: readonly IngredientId[] = [];
+
 /**
- * The specific ingredients a set of ids names, read one request at a time.
+ * The specific ingredients a set of ids names, in one request per hundred.
  *
  * The recipe editor's line table has to show a designation and a unit price for every row it draws,
  * and the row only stores an id. It cannot get those from the listing: `CursorPage::MAX_LIMIT` is
@@ -328,37 +342,63 @@ export function useIngredientQuery(
  * `RecipeLine.lineCost` is `null` on the wire, and `ingredientName` is really the line's
  * `source_designation` — often empty. The ingredient record is the only place both facts live.
  *
- * So the ids are resolved directly, and the cost is bounded by the length of a recipe rather than by
- * the size of the library: twenty lines is twenty cached reads, and every one of them is the same
- * cache entry the ingredient editor opens.
+ * So the ids are resolved directly through the index's `ids[]` lookup — same permission and same
+ * visibility as the show route — and every row is written into its per-id entry, so the ingredient
+ * editor and this read share one truth. It used to be one show request per id, which on a long
+ * recipe was enough on its own to trip the API's 60/min limiter.
+ *
+ * Nothing is dropped silently: a row the server did not return is in `missingIds`, and a failed
+ * read is `status: 'error'`, so a caller can say which rather than draw a blank.
  */
-export function useIngredientsByIds(
-    ingredientIds: readonly IngredientId[],
-): Readonly<Record<string, IngredientAdmin>> {
+export function useIngredientsByIds(ingredientIds: readonly IngredientId[]): IngredientsByIds {
     const { repositories } = useRepositoryContext();
+    const queryClient = useQueryClient();
+    const queryKey = queryKeys.kitchenAdmin.ingredientsByIds(ingredientIds);
+    const ids = queryKey[2];
 
-    return useQueries({
-        queries: ingredientIds.map((ingredientId) => ({
-            queryKey: queryKeys.kitchenAdmin.ingredient(ingredientId),
-            enabled: repositories !== null,
-            queryFn: () => {
-                if (repositories === null) throw new Error('Repositories are not ready.');
-                return repositories.kitchenAdmin.getIngredient(ingredientId);
-            },
-        })),
-        // A plain record rather than a Map: `combine` runs through the same structural sharing
-        // every other query result does, so the value it returns has to be one that sharing
-        // understands, and its memoisation is what keeps the callers' `useMemo`s from rebuilding on
-        // every render.
-        combine: (results): Readonly<Record<string, IngredientAdmin>> => {
+    const query = useQuery({
+        queryKey,
+        enabled: repositories !== null && ids.length > 0,
+        // Adding a line keeps the rows already drawn rather than blanking the table.
+        placeholderData: keepPreviousData,
+        // A plain record rather than a Map: query data runs through structural sharing, so a
+        // refetch that changes nothing hands the callers' `useMemo`s the same object back.
+        queryFn: async (): Promise<Readonly<Record<string, IngredientAdmin>>> => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            const rows = await repositories.kitchenAdmin.getIngredientsByIds(ids);
             const byId: Record<string, IngredientAdmin> = {};
-            for (const result of results) {
-                if (result.data !== undefined) byId[String(result.data.id)] = result.data;
+            for (const row of rows) {
+                queryClient.setQueryData(queryKeys.kitchenAdmin.ingredient(row.id), row);
+                byId[String(row.id)] = row;
             }
             return byId;
         },
     });
+
+    if (ids.length === 0) {
+        return {
+            byId: NO_INGREDIENTS,
+            status: 'success',
+            error: null,
+            missingIds: NO_IDS,
+            refetch: noop,
+        };
+    }
+
+    const data = query.data;
+    const settled = data !== undefined && query.status === 'success' && !query.isPlaceholderData;
+    const missing = settled ? ids.filter((id) => data[String(id)] === undefined) : NO_IDS;
+
+    return {
+        byId: data ?? NO_INGREDIENTS,
+        status: query.isPlaceholderData ? 'pending' : query.status,
+        error: query.error,
+        missingIds: missing.length === 0 ? NO_IDS : missing,
+        refetch: () => void query.refetch(),
+    };
 }
+
+function noop(): void {}
 
 /**
  * The declared category tree — both levels, every branch, whether or not anything is filed under it.
@@ -522,6 +562,10 @@ export function useIngredientSummaryQuery(enabled = true): UseQueryResult<Family
  *
  * Both, not either — see the module note. Kept as one function so that the eight mutations this
  * workspace will eventually carry cannot each remember it slightly differently.
+ *
+ * The root invalidation is also what reaches {@link useIngredientsByIds}' batch entries
+ * (`['kitchenAdmin', 'ingredients-by-ids', …]`), so an open recipe re-reads a saved ingredient's
+ * new price; the batch read then re-seeds this detail entry from the server.
  */
 function useIngredientWriteEffects(): (ingredient: IngredientAdmin) => void {
     const queryClient = useQueryClient();

@@ -17,7 +17,7 @@ import {
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
-import type { IngredientAdmin, RecipeVersionAdmin } from '@healthy360/api-client/contracts';
+import type { RecipeVersionAdmin } from '@healthy360/api-client/contracts';
 import type { GridSpanProps, SelectOption } from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -34,6 +34,7 @@ import {
     useRecipeQuery,
     useRecipesQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
+import type { IngredientsByIds } from '../../../data/kitchen-admin-hooks.ts';
 import { useCreateProductionOrderMutation } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { PRODUCTION_MANAGE_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
@@ -903,7 +904,7 @@ interface ConsumePreviewProps {
     readonly onOrderShortfall: () => void;
     readonly version: RecipeVersionAdmin | null;
     readonly factor: number | null;
-    readonly ingredients: Readonly<Record<string, IngredientAdmin>>;
+    readonly ingredients: IngredientsByIds;
     readonly availability: ShelfAvailability;
 }
 

@@ -1,11 +1,20 @@
 import type {
-    IngredientAdmin,
     PackagingBasis,
     RecipeLine,
     RecipePackagingLine,
     RecipeVersionAdmin,
 } from '@healthy360/api-client/contracts';
-import { Badge, FormSection, Inline, Stack, Table, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    FormSection,
+    Inline,
+    Skeleton,
+    Stack,
+    Table,
+    Text,
+} from '@healthy360/design-system';
 import type { TableColumn } from '@healthy360/design-system';
 import type { IngredientId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -15,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useCan } from '../../../access/gate.tsx';
 import { useIngredientsByIds } from '../../../data/kitchen-admin-hooks.ts';
+import type { IngredientsByIds } from '../../../data/kitchen-admin-hooks.ts';
 import { useStockItemsQuery, useStockLevelsQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { displayQuantity, scaleLine, scalePackaging, withWaste } from '../batch-scaling.ts';
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
@@ -82,9 +92,7 @@ export function useShelfAvailability(): ShelfAvailability {
 }
 
 /** Every ingredient the version names — lines and packaging — resolved by id from the catalogue. */
-export function useBatchIngredients(
-    version: RecipeVersionAdmin | null,
-): Readonly<Record<string, IngredientAdmin>> {
+export function useBatchIngredients(version: RecipeVersionAdmin | null): IngredientsByIds {
     const ids = useMemo<readonly IngredientId[]>(() => {
         if (version === null) return [];
         const byId = new Map<string, IngredientId>();
@@ -95,10 +103,73 @@ export function useBatchIngredients(
     return useIngredientsByIds(ids);
 }
 
+/**
+ * A sheet whose ingredients could not be resolved says so, once, above its tables: a sheet that
+ * prints a column of dashes is a sheet somebody weighs from.
+ */
+export function BatchIngredientsFailed({ lookup }: { readonly lookup: IngredientsByIds }) {
+    const { t } = useTranslation();
+    if (lookup.status !== 'error') return null;
+    return (
+        <Callout
+            testID="kitchen-batch-ingredients-failed"
+            role="alert"
+            tone="danger"
+            title={t('kitchen:recipes.lineIngredientsFailedTitle')}
+            body={t('kitchen:recipes.lineIngredientsFailedBody')}
+            actions={
+                <Button
+                    testID="kitchen-batch-ingredients-failed-retry"
+                    variant="quiet"
+                    label={t('common:action.retry')}
+                    onPress={lookup.refetch}
+                />
+            }
+        />
+    );
+}
+
+/**
+ * A row's designation in either sheet: a placeholder while its ingredient resolves, the dash and an
+ * "unavailable" note when the lookup answered without it. Test ids `kitchen-batch-row-<id>-name`,
+ * `-loading`, `-missing`.
+ */
+export function BatchItemName({
+    lookup,
+    ingredientId,
+}: {
+    readonly lookup: IngredientsByIds;
+    readonly ingredientId: IngredientId;
+}) {
+    const { t } = useTranslation();
+    const { locale } = useLocale();
+    const id = String(ingredientId);
+    const found = lookup.byId[id];
+
+    if (found === undefined && lookup.status === 'pending') {
+        return <Skeleton testID={`kitchen-batch-row-${id}-loading`} widthClassName="w-24" />;
+    }
+
+    return (
+        <>
+            <Text variant="bodyStrong" testID={`kitchen-batch-row-${id}-name`}>
+                {found === undefined
+                    ? t('kitchen:list.noValue')
+                    : displayName(found.name, locale).value}
+            </Text>
+            {lookup.missingIds.includes(ingredientId) ? (
+                <Text variant="caption" tone="warning" testID={`kitchen-batch-row-${id}-missing`}>
+                    {t('kitchen:recipes.lineIngredientMissing')}
+                </Text>
+            ) : null}
+        </>
+    );
+}
+
 export interface BatchSheetProps {
     readonly version: RecipeVersionAdmin;
     readonly factor: number;
-    readonly ingredients: Readonly<Record<string, IngredientAdmin>>;
+    readonly ingredients: IngredientsByIds;
     /** This branch's shelves: Required / Available / Short / Position. */
     readonly availability: ShelfAvailability;
     readonly first?: boolean | undefined;
@@ -109,7 +180,6 @@ export interface BatchSheetProps {
  */
 export function BatchSheet({ version, factor, ingredients, availability, first }: BatchSheetProps) {
     const { t } = useTranslation();
-    const { locale } = useLocale();
     const formatter = useFormatter();
 
     const dash = t('kitchen:list.noValue');
@@ -118,11 +188,6 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
     // The batch planner's rule: each half carries its own waste rate (see `withWaste`).
     const ingredientFactor = withWaste(factor, version.wastePercent);
     const packagingFactor = withWaste(factor, version.packagingWastePercent);
-
-    const nameOf = (ingredientId: IngredientId): string => {
-        const found = ingredients[String(ingredientId)];
-        return found === undefined ? dash : displayName(found.name, locale).value;
-    };
 
     const shortOf = (line: RecipeLine): { available: number | null; short: number | null } => {
         const available = availability(line.ingredientId, line.unit);
@@ -139,12 +204,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
             flex: 2,
             render: (line) => (
                 <Inline space="xs" align="center" wrap>
-                    <Text
-                        variant="bodyStrong"
-                        testID={`kitchen-batch-row-${String(line.ingredientId)}-name`}
-                    >
-                        {nameOf(line.ingredientId)}
-                    </Text>
+                    <BatchItemName lookup={ingredients} ingredientId={line.ingredientId} />
                     {line.isOptional ? (
                         <Badge
                             testID={`kitchen-batch-row-${String(line.ingredientId)}-optional`}
@@ -261,12 +321,9 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
             rowHeader: true,
             flex: 2,
             render: (row) => (
-                <Text
-                    variant="bodyStrong"
-                    testID={`kitchen-batch-row-${String(row.ingredientId)}-name`}
-                >
-                    {nameOf(row.ingredientId)}
-                </Text>
+                <Inline space="xs" align="center" wrap>
+                    <BatchItemName lookup={ingredients} ingredientId={row.ingredientId} />
+                </Inline>
             ),
         },
         {
@@ -337,6 +394,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
 
     return (
         <>
+            <BatchIngredientsFailed lookup={ingredients} />
             <FormSection
                 first={first}
                 testID="kitchen-batch-consume"

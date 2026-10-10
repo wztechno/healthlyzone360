@@ -206,6 +206,7 @@ export type ApiKitchenAdminReads = Pick<
     | 'nextReference'
     | 'listIngredients'
     | 'getIngredient'
+    | 'getIngredientsByIds'
     | 'listIngredientCategories'
     | 'listRecipes'
     | 'getRecipe'
@@ -226,6 +227,9 @@ export type ApiKitchenAdminReads = Pick<
     | 'listDeliveryWindows'
     | 'getBranchOperating'
 >;
+
+/** Ids per `GET /catalogue/ingredients?ids[]=…` — the endpoint's `MAX_IDS`. */
+const INGREDIENT_IDS_PER_REQUEST = 100;
 
 /** A price list's entries per page — the endpoint's `CursorPage::MAX_LIMIT`, so a list is few reads. */
 const PRICE_LIST_ENTRY_PAGE = 100;
@@ -612,6 +616,43 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             const aliases = envelope.data.aliases.map((row) => row.alias);
 
             return mapIngredientAdmin(envelope.data.ingredient, lookup, { aliases });
+        },
+
+        async getIngredientsByIds(
+            ingredientIds: readonly IngredientId[],
+        ): Promise<readonly IngredientAdmin[]> {
+            const unique = [...new Set(ingredientIds.map(String))];
+            if (unique.length === 0) return [];
+
+            const lookup = await loadCategoryLookup();
+            const chunks: Promise<readonly IngredientAdmin[]>[] = [];
+
+            // The endpoint's own ceiling, and `limit` must cover the chunk or it would page it.
+            // 100 uuids as `ids[]` is ~4.7 KB of request line — inside nginx's 8 KB.
+            for (let from = 0; from < unique.length; from += INGREDIENT_IDS_PER_REQUEST) {
+                const chunk = unique.slice(from, from + INGREDIENT_IDS_PER_REQUEST);
+                const params = new URLSearchParams({ limit: String(chunk.length) });
+                for (const id of chunk) params.append('ids[]', id);
+
+                chunks.push(
+                    transport
+                        .requestEnvelope<AdminIngredient[]>({
+                            method: 'GET',
+                            path: `/catalogue/ingredients?${params.toString()}`,
+                        })
+                        // Mapped exactly as `getIngredient` maps the show endpoint, whose
+                        // `aliases` sit beside the ingredient rather than on it.
+                        .then((envelope) =>
+                            envelope.data.map((wire) =>
+                                mapIngredientAdmin(wire, lookup, {
+                                    aliases: (wire.aliases ?? []).map((row) => row.alias),
+                                }),
+                            ),
+                        ),
+                );
+            }
+
+            return (await Promise.all(chunks)).flat();
         },
 
         async listRecipes(filter?: RecipeAdminFilter): Promise<CursorPage<RecipeAdminSummary>> {
