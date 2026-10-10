@@ -25,15 +25,18 @@ import {
     FormIssueBanner,
     FormSection,
     FormSkeleton,
+    HALF_TRACK_WIDTH,
     Icon,
     Inline,
     QuantityInput,
+    SectionGrid,
     Select,
     Stack,
     Tabs,
     Tag,
     Text,
     TextInputField,
+    spanWidth,
     useToast,
 } from '@healthy360/design-system';
 import type { CardTone, FormIssueItem, SelectOption, TagTone } from '@healthy360/design-system';
@@ -106,6 +109,7 @@ import {
 } from '../recipe-line-table.tsx';
 import type { PickerEntry } from '../recipe-line-table.tsx';
 import type { LineDraft } from '../recipe-line-table.tsx';
+import { SideRailLayout } from '../side-rail-layout.tsx';
 import { TechnicalSheetPanel } from '../technical-sheet-panel.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
@@ -1902,7 +1906,7 @@ function RecipeEditor({
 
             {/* ── Description ──────────────────────────────────────────────────────────────── */}
             {tab !== 'description' ? null : (
-                <View className="relative z-raised flex-col gap-loose">
+                <View className="relative z-raised">
                     {/*
                      * Every tab body is one raised layer, and the same is true of the four below.
                      *
@@ -1915,691 +1919,741 @@ function RecipeEditor({
                      * is what orders the two; the panels' own z-indexes keep ordering the body's
                      * insides.
                      */}
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-recipe-identity"
-                        title={t('kitchen:recipes.sectionIdentity')}
-                    >
-                        <View className="z-auto flex-row flex-wrap items-start gap-base">
-                            <ImageSlot
-                                testID="kitchen-recipe-image"
-                                uri={image}
-                                disabled={!editable}
-                                onChange={setImage}
-                            />
-                            {/*
-                             * Four half tracks beside the photo — two 280px fields: the designation
-                             * pair on the first row, the filing and the handle under it.
-                             *
-                             * The classification cells are two children of the grid, never one
-                             * wrapper around both: `FormGrid` gives each *element* child its own
-                             * cell, and a fragment is one child. Drawn only where the route knows
-                             * the vocabulary — the category is stated, not asked, because a form
-                             * reached through Sauces & marinades cannot be filed anywhere else.
-                             */}
-                            <FormGrid
-                                track="half"
-                                maxColumns={4}
-                                testID="kitchen-recipe-identity-grid"
-                            >
-                                <BilingualField
-                                    span={4}
-                                    layout="row"
-                                    testID="kitchen-recipe-name"
-                                    fieldLabel={t('kitchen:recipes.columnName')}
-                                    placeholder={{
-                                        en: t('kitchen:fields.recipeNamePlaceholderEn'),
-                                        ar: t('kitchen:fields.recipeNamePlaceholderAr'),
-                                    }}
-                                    value={details.name}
-                                    requiredEnglish
+                    <SectionGrid testID="kitchen-recipe-description-sections">
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-recipe-identity"
+                            title={t('kitchen:recipes.sectionIdentity')}
+                        >
+                            <View className="z-auto flex-row flex-wrap items-start gap-base">
+                                <ImageSlot
+                                    testID="kitchen-recipe-image"
+                                    uri={image}
                                     disabled={!editable}
-                                    {...(shows('name')
-                                        ? { englishError: t('kitchen:forms.required') }
-                                        : {})}
-                                    onChange={(next) => {
-                                        setDetails({ ...details, name: next });
-                                        markDirty('details');
-                                    }}
+                                    onChange={setImage}
                                 />
                                 {/*
-                                 * Only when creating something sold — a sauce, a dressing, a
-                                 * frozen meal, a meal: the description is its catalogue item's, and
-                                 * once it exists it is edited on the Selling tab with the rest of
-                                 * the listing. A library recipe sells nothing and draws none.
+                                 * Four half tracks beside the photo — two 280px fields: the designation
+                                 * pair on the first row, the filing and the handle under it.
+                                 *
+                                 * The classification cells are two children of the grid, never one
+                                 * wrapper around both: `FormGrid` gives each *element* child its own
+                                 * cell, and a fragment is one child. Drawn only where the route knows
+                                 * the vocabulary — the category is stated, not asked, because a form
+                                 * reached through Sauces & marinades cannot be filed anywhere else.
                                  */}
-                                {!isCreating || onCreated === undefined ? null : (
-                                    <BilingualField
-                                        span={4}
-                                        layout="row"
-                                        multiline
-                                        testID="kitchen-recipe-description"
-                                        fieldLabel={t('kitchen:products.descriptionLabel')}
-                                        placeholder={{
-                                            en: t('kitchen:fields.descriptionPlaceholderEn'),
-                                            ar: t('kitchen:fields.descriptionPlaceholderAr'),
-                                        }}
-                                        value={details.description}
-                                        disabled={!editable}
-                                        onChange={(next) => {
-                                            setDetails({ ...details, description: next });
-                                            markDirty('details');
-                                        }}
-                                    />
-                                )}
-                                {classification === undefined ? null : (
-                                    <TextInputField
-                                        span={2}
-                                        testID="kitchen-recipe-category"
-                                        id="kitchen-recipe-category"
-                                        label={t('kitchen:fields.category')}
-                                        size="sm"
-                                        value={classification.categoryLabel}
-                                        disabled
-                                        onChangeText={() => undefined}
-                                    />
-                                )}
                                 {/*
-                                 * Dressings pass no options: the sheets file all fourteen alike,
-                                 * and a picker with one option is a label wearing a chevron.
+                                 * The field region: flex sets its width, not the grid inside it, so the
+                                 * fitted grid converges whether the page shrinks or grows — beside the
+                                 * photo while four half tracks fit, under it at full width once they do not.
                                  */}
-                                {classification === undefined ||
-                                classification.options.length === 0 ? null : (
-                                    <Select
-                                        span={2}
-                                        testID="kitchen-recipe-subcategory"
-                                        id="kitchen-recipe-subcategory"
-                                        label={classification.subcategoryLabel}
-                                        placeholder={classification.subcategoryPlaceholder}
-                                        disabled={!editable}
-                                        options={classification.options}
-                                        value={
-                                            details.recipeCategory === ''
-                                                ? null
-                                                : details.recipeCategory
-                                        }
-                                        onChange={(next) => {
-                                            setDetails({ ...details, recipeCategory: next });
-                                            markDirty('details');
-                                        }}
-                                    />
-                                )}
-                                {/*
-                                 * Read, never written: the series is the server's to issue — and
-                                 * not drawn on a new record, where it could only preview a number
-                                 * the save has not taken yet. The preview stays beside the title.
-                                 * The record's own `RC-0001`, not its slug: a slug follows the name.
-                                 */}
-                                {isCreating ? null : (
-                                    <TextInputField
-                                        span={2}
-                                        testID="kitchen-recipe-reference"
-                                        id="kitchen-recipe-reference"
-                                        label={t('kitchen:list.columnReference')}
-                                        size="sm"
-                                        placeholder={t('kitchen:fields.referencePlaceholder')}
-                                        value={headerReference}
-                                        disabled
-                                        onChangeText={() => undefined}
-                                    />
-                                )}
-                            </FormGrid>
-                        </View>
-                    </FormSection>
+                                <View
+                                    className="z-auto"
+                                    style={{
+                                        flexGrow: 1,
+                                        flexShrink: 1,
+                                        flexBasis: spanWidth(4, HALF_TRACK_WIDTH),
+                                        minWidth: 0,
+                                    }}
+                                >
+                                    <FormGrid
+                                        fit
+                                        track="half"
+                                        maxColumns={4}
+                                        testID="kitchen-recipe-identity-grid"
+                                    >
+                                        <BilingualField
+                                            span={4}
+                                            layout="row"
+                                            testID="kitchen-recipe-name"
+                                            fieldLabel={t('kitchen:recipes.columnName')}
+                                            placeholder={{
+                                                en: t('kitchen:fields.recipeNamePlaceholderEn'),
+                                                ar: t('kitchen:fields.recipeNamePlaceholderAr'),
+                                            }}
+                                            value={details.name}
+                                            requiredEnglish
+                                            disabled={!editable}
+                                            {...(shows('name')
+                                                ? { englishError: t('kitchen:forms.required') }
+                                                : {})}
+                                            onChange={(next) => {
+                                                setDetails({ ...details, name: next });
+                                                markDirty('details');
+                                            }}
+                                        />
+                                        {/*
+                                         * Only when creating something sold — a sauce, a dressing, a
+                                         * frozen meal, a meal: the description is its catalogue item's, and
+                                         * once it exists it is edited on the Selling tab with the rest of
+                                         * the listing. A library recipe sells nothing and draws none.
+                                         */}
+                                        {!isCreating || onCreated === undefined ? null : (
+                                            <BilingualField
+                                                span={4}
+                                                layout="row"
+                                                multiline
+                                                testID="kitchen-recipe-description"
+                                                fieldLabel={t('kitchen:products.descriptionLabel')}
+                                                placeholder={{
+                                                    en: t(
+                                                        'kitchen:fields.descriptionPlaceholderEn',
+                                                    ),
+                                                    ar: t(
+                                                        'kitchen:fields.descriptionPlaceholderAr',
+                                                    ),
+                                                }}
+                                                value={details.description}
+                                                disabled={!editable}
+                                                onChange={(next) => {
+                                                    setDetails({ ...details, description: next });
+                                                    markDirty('details');
+                                                }}
+                                            />
+                                        )}
+                                        {classification === undefined ? null : (
+                                            <TextInputField
+                                                span={2}
+                                                testID="kitchen-recipe-category"
+                                                id="kitchen-recipe-category"
+                                                label={t('kitchen:fields.category')}
+                                                size="sm"
+                                                value={classification.categoryLabel}
+                                                disabled
+                                                onChangeText={() => undefined}
+                                            />
+                                        )}
+                                        {/*
+                                         * Dressings pass no options: the sheets file all fourteen alike,
+                                         * and a picker with one option is a label wearing a chevron.
+                                         */}
+                                        {classification === undefined ||
+                                        classification.options.length === 0 ? null : (
+                                            <Select
+                                                span={2}
+                                                testID="kitchen-recipe-subcategory"
+                                                id="kitchen-recipe-subcategory"
+                                                label={classification.subcategoryLabel}
+                                                placeholder={classification.subcategoryPlaceholder}
+                                                disabled={!editable}
+                                                options={classification.options}
+                                                value={
+                                                    details.recipeCategory === ''
+                                                        ? null
+                                                        : details.recipeCategory
+                                                }
+                                                onChange={(next) => {
+                                                    setDetails({
+                                                        ...details,
+                                                        recipeCategory: next,
+                                                    });
+                                                    markDirty('details');
+                                                }}
+                                            />
+                                        )}
+                                        {/*
+                                         * Read, never written: the series is the server's to issue — and
+                                         * not drawn on a new record, where it could only preview a number
+                                         * the save has not taken yet. The preview stays beside the title.
+                                         * The record's own `RC-0001`, not its slug: a slug follows the name.
+                                         */}
+                                        {isCreating ? null : (
+                                            <TextInputField
+                                                span={2}
+                                                testID="kitchen-recipe-reference"
+                                                id="kitchen-recipe-reference"
+                                                label={t('kitchen:list.columnReference')}
+                                                size="sm"
+                                                placeholder={t(
+                                                    'kitchen:fields.referencePlaceholder',
+                                                )}
+                                                value={headerReference}
+                                                disabled
+                                                onChangeText={() => undefined}
+                                            />
+                                        )}
+                                    </FormGrid>
+                                </View>
+                            </View>
+                        </FormSection>
 
-                    {isCreating ? null : (
-                        <FormSection
-                            variant="card"
-                            testID="kitchen-recipe-versions"
-                            title={t('kitchen:recipes.sectionVersions')}
-                            actions={
-                                data?.meta.status === 'published' && canManage ? (
-                                    <Button
-                                        testID="kitchen-recipe-retire"
-                                        size="sm"
-                                        variant="secondary"
-                                        label={t('kitchen:recipes.retire')}
-                                        onPress={() => {
-                                            setShowRetire(true);
-                                        }}
-                                    />
-                                ) : undefined
-                            }
-                        >
-                            <Stack space="sm" testID="kitchen-recipe-version-list">
-                                {versions.map((version) => {
-                                    const rowTestId = `kitchen-recipe-version-${String(version.id)}`;
-                                    const isSelected =
-                                        selected !== null && selected.id === version.id;
-                                    return (
-                                        <Card
-                                            key={String(version.id)}
-                                            testID={rowTestId}
-                                            padding="sm"
-                                            tone={isSelected ? 'sunken' : 'default'}
-                                        >
-                                            <Inline
-                                                space="sm"
-                                                align="center"
-                                                justify="between"
-                                                wrap
+                        {isCreating ? null : (
+                            <FormSection
+                                variant="card"
+                                flow="full"
+                                testID="kitchen-recipe-versions"
+                                title={t('kitchen:recipes.sectionVersions')}
+                                actions={
+                                    data?.meta.status === 'published' && canManage ? (
+                                        <Button
+                                            testID="kitchen-recipe-retire"
+                                            size="sm"
+                                            variant="secondary"
+                                            label={t('kitchen:recipes.retire')}
+                                            onPress={() => {
+                                                setShowRetire(true);
+                                            }}
+                                        />
+                                    ) : undefined
+                                }
+                            >
+                                <Stack space="sm" testID="kitchen-recipe-version-list">
+                                    {versions.map((version) => {
+                                        const rowTestId = `kitchen-recipe-version-${String(version.id)}`;
+                                        const isSelected =
+                                            selected !== null && selected.id === version.id;
+                                        return (
+                                            <Card
+                                                key={String(version.id)}
+                                                testID={rowTestId}
+                                                padding="sm"
+                                                tone={isSelected ? 'sunken' : 'default'}
                                             >
-                                                <Inline space="sm" align="center" wrap>
-                                                    <Text variant="bodyStrong">
-                                                        {t('kitchen:recipes.versionNumber', {
-                                                            number: version.versionNumber,
-                                                        })}
-                                                    </Text>
-                                                    <Badge
-                                                        testID={`${rowTestId}-status`}
-                                                        tone={statusTone(version.status)}
-                                                        label={t(statusKey(version.status))}
-                                                    />
-                                                    {version.isCurrent ? (
+                                                <Inline
+                                                    space="sm"
+                                                    align="center"
+                                                    justify="between"
+                                                    wrap
+                                                >
+                                                    <Inline space="sm" align="center" wrap>
+                                                        <Text variant="bodyStrong">
+                                                            {t('kitchen:recipes.versionNumber', {
+                                                                number: version.versionNumber,
+                                                            })}
+                                                        </Text>
                                                         <Badge
-                                                            testID={`${rowTestId}-current`}
-                                                            tone="info"
-                                                            label={t(
-                                                                'kitchen:recipes.currentVersion',
-                                                            )}
+                                                            testID={`${rowTestId}-status`}
+                                                            tone={statusTone(version.status)}
+                                                            label={t(statusKey(version.status))}
                                                         />
-                                                    ) : null}
+                                                        {version.isCurrent ? (
+                                                            <Badge
+                                                                testID={`${rowTestId}-current`}
+                                                                tone="info"
+                                                                label={t(
+                                                                    'kitchen:recipes.currentVersion',
+                                                                )}
+                                                            />
+                                                        ) : null}
+                                                    </Inline>
+                                                    <Button
+                                                        testID={`${rowTestId}-select`}
+                                                        size="sm"
+                                                        variant={isSelected ? 'secondary' : 'ghost'}
+                                                        label={
+                                                            isSelected
+                                                                ? t(
+                                                                      'kitchen:recipes.versionSelected',
+                                                                  )
+                                                                : t('kitchen:recipes.versionSelect')
+                                                        }
+                                                        onPress={() => {
+                                                            setSelectedVersionId(version.id);
+                                                        }}
+                                                    />
                                                 </Inline>
+                                            </Card>
+                                        );
+                                    })}
+
+                                    {isViewingCurrent ? null : (
+                                        <Callout
+                                            testID="kitchen-recipe-version-unavailable"
+                                            role="note"
+                                            tone="info"
+                                            title={t('kitchen:recipes.versionUnavailableTitle')}
+                                            body={t('kitchen:recipes.versionUnavailableBody')}
+                                            actions={
                                                 <Button
-                                                    testID={`${rowTestId}-select`}
+                                                    testID="kitchen-recipe-version-back-to-current"
                                                     size="sm"
-                                                    variant={isSelected ? 'secondary' : 'ghost'}
-                                                    label={
-                                                        isSelected
-                                                            ? t('kitchen:recipes.versionSelected')
-                                                            : t('kitchen:recipes.versionSelect')
-                                                    }
+                                                    variant="quiet"
+                                                    label={t(
+                                                        'kitchen:recipes.backToCurrentVersion',
+                                                    )}
                                                     onPress={() => {
-                                                        setSelectedVersionId(version.id);
+                                                        setSelectedVersionId(null);
                                                     }}
                                                 />
-                                            </Inline>
-                                        </Card>
-                                    );
-                                })}
+                                            }
+                                        />
+                                    )}
 
-                                {isViewingCurrent ? null : (
-                                    <Callout
-                                        testID="kitchen-recipe-version-unavailable"
-                                        role="note"
-                                        tone="info"
-                                        title={t('kitchen:recipes.versionUnavailableTitle')}
-                                        body={t('kitchen:recipes.versionUnavailableBody')}
-                                        actions={
-                                            <Button
-                                                testID="kitchen-recipe-version-back-to-current"
-                                                size="sm"
-                                                variant="quiet"
-                                                label={t('kitchen:recipes.backToCurrentVersion')}
-                                                onPress={() => {
-                                                    setSelectedVersionId(null);
-                                                }}
-                                            />
-                                        }
-                                    />
-                                )}
-
-                                {/*
-                                 * A published or retired version is immutable (plan §4.7). The one
-                                 * thing that can happen next is the successor draft, and this is the
-                                 * control that makes it — `createRecipeVersion`, copying the version
-                                 * on screen.
-                                 */}
-                                {isViewingCurrent && !isEditable && canManage ? (
-                                    <Callout
-                                        testID="kitchen-recipe-immutable"
-                                        role="note"
-                                        tone="info"
-                                        title={t('kitchen:recipes.immutableTitle')}
-                                        body={t('kitchen:recipes.immutableBody')}
-                                        actions={
-                                            <Button
-                                                testID="kitchen-recipe-new-draft"
-                                                size="sm"
-                                                label={t('kitchen:recipes.newDraftFromVersion')}
-                                                loading={openDraft.isPending}
-                                                onPress={() => {
-                                                    if (data === undefined) return;
-                                                    openDraft.mutate(
-                                                        {
-                                                            recipeId: data.id,
-                                                            copyFromVersion:
-                                                                data.currentVersion.versionNumber,
-                                                        },
-                                                        {
-                                                            onSuccess: (updated) => {
-                                                                setSelectedVersionId(null);
-                                                                toast.show({
-                                                                    testID: 'kitchen-recipe-draft-opened-toast',
-                                                                    tone: 'success',
-                                                                    message: t(
-                                                                        'kitchen:recipes.draftOpenedToast',
-                                                                        {
-                                                                            number: updated
-                                                                                .currentVersion
-                                                                                .versionNumber,
-                                                                        },
-                                                                    ),
-                                                                });
+                                    {/*
+                                     * A published or retired version is immutable (plan §4.7). The one
+                                     * thing that can happen next is the successor draft, and this is the
+                                     * control that makes it — `createRecipeVersion`, copying the version
+                                     * on screen.
+                                     */}
+                                    {isViewingCurrent && !isEditable && canManage ? (
+                                        <Callout
+                                            testID="kitchen-recipe-immutable"
+                                            role="note"
+                                            tone="info"
+                                            title={t('kitchen:recipes.immutableTitle')}
+                                            body={t('kitchen:recipes.immutableBody')}
+                                            actions={
+                                                <Button
+                                                    testID="kitchen-recipe-new-draft"
+                                                    size="sm"
+                                                    label={t('kitchen:recipes.newDraftFromVersion')}
+                                                    loading={openDraft.isPending}
+                                                    onPress={() => {
+                                                        if (data === undefined) return;
+                                                        openDraft.mutate(
+                                                            {
+                                                                recipeId: data.id,
+                                                                copyFromVersion:
+                                                                    data.currentVersion
+                                                                        .versionNumber,
                                                             },
-                                                            onError: (error) => {
-                                                                concurrency.capture(error);
+                                                            {
+                                                                onSuccess: (updated) => {
+                                                                    setSelectedVersionId(null);
+                                                                    toast.show({
+                                                                        testID: 'kitchen-recipe-draft-opened-toast',
+                                                                        tone: 'success',
+                                                                        message: t(
+                                                                            'kitchen:recipes.draftOpenedToast',
+                                                                            {
+                                                                                number: updated
+                                                                                    .currentVersion
+                                                                                    .versionNumber,
+                                                                            },
+                                                                        ),
+                                                                    });
+                                                                },
+                                                                onError: (error) => {
+                                                                    concurrency.capture(error);
+                                                                },
                                                             },
-                                                        },
-                                                    );
-                                                }}
-                                            />
-                                        }
-                                    />
-                                ) : null}
-                            </Stack>
-                        </FormSection>
-                    )}
+                                                        );
+                                                    }}
+                                                />
+                                            }
+                                        />
+                                    ) : null}
+                                </Stack>
+                            </FormSection>
+                        )}
+                    </SectionGrid>
                 </View>
             )}
 
             {/* ── Production ───────────────────────────────────────────────────────────────── */}
             {tab !== 'production' ? null : (
-                <View className="relative z-raised flex-col gap-loose">
+                <View className="relative z-raised">
                     {/*
                      * Yield & waste above the formulation, as one reading: a yield is only
                      * meaningful beside the lines it is divided into — "1.7 kg from these nine
                      * rows" — and the production loss is a property of the same pan. The packaging
                      * loss sits above the packaging lines the same way.
                      */}
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-recipe-yield"
-                        title={t('kitchen:forms.yieldAndWaste')}
-                    >
-                        <FormGrid track="half" testID="kitchen-recipe-yield-grid">
-                            {/*
-                             * The unit rides on the field as a suffix rather than sitting in a
-                             * picker beside it. Every recipe in this kitchen yields a mass, the cost
-                             * cascade divides by kilograms, and a unit selector whose other options
-                             * all produce a cost per portion the costing tab cannot read is a choice
-                             * offered only to be wrong. `kg` is stated, not chosen.
-                             */}
-                            <QuantityInput
-                                testID="kitchen-recipe-yield-quantity"
-                                id="kitchen-recipe-yield-quantity"
-                                label={t('kitchen:recipes.yieldQuantity')}
-                                placeholder={t('kitchen:fields.quantityPlaceholder')}
-                                size="sm"
-                                required
-                                unit={t(unitShortKey('kg'))}
-                                value={details.yieldQuantity}
-                                disabled={!editable}
-                                {...(shows('yield')
-                                    ? {
-                                          error:
-                                              details.yieldQuantity.trim() === ''
-                                                  ? t('kitchen:forms.required')
-                                                  : t('kitchen:recipes.yieldRequired'),
-                                      }
-                                    : {})}
-                                onChangeText={(next) => {
-                                    setDetails({ ...details, yieldQuantity: next });
-                                    markDirty('details');
-                                }}
-                            />
-                            <QuantityInput
-                                testID="kitchen-recipe-yield-pieces"
-                                id="kitchen-recipe-yield-pieces"
-                                label={t('kitchen:recipes.yieldPieces')}
-                                placeholder={t('kitchen:fields.quantityPlaceholder')}
-                                size="sm"
-                                value={details.yieldPieces}
-                                disabled={!editable}
-                                onChangeText={(next) => {
-                                    setDetails({ ...details, yieldPieces: next });
-                                    markDirty('details');
-                                }}
-                            />
-                            <QuantityInput
-                                testID="kitchen-recipe-waste"
-                                id="kitchen-recipe-waste"
-                                label={t('kitchen:recipes.productionWastePercent')}
-                                placeholder={t('kitchen:fields.percentPlaceholder')}
-                                size="sm"
-                                unit="%"
-                                value={details.wastePercent}
-                                disabled={!editable}
-                                onChangeText={(next) => {
-                                    setDetails({ ...details, wastePercent: next });
-                                    markDirty('details');
-                                }}
-                            />
-                        </FormGrid>
-                    </FormSection>
+                    <SectionGrid testID="kitchen-recipe-production-sections">
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-recipe-yield"
+                            title={t('kitchen:forms.yieldAndWaste')}
+                        >
+                            <FormGrid fit track="half" testID="kitchen-recipe-yield-grid">
+                                {/*
+                                 * The unit rides on the field as a suffix rather than sitting in a
+                                 * picker beside it. Every recipe in this kitchen yields a mass, the cost
+                                 * cascade divides by kilograms, and a unit selector whose other options
+                                 * all produce a cost per portion the costing tab cannot read is a choice
+                                 * offered only to be wrong. `kg` is stated, not chosen.
+                                 */}
+                                <QuantityInput
+                                    testID="kitchen-recipe-yield-quantity"
+                                    id="kitchen-recipe-yield-quantity"
+                                    label={t('kitchen:recipes.yieldQuantity')}
+                                    placeholder={t('kitchen:fields.quantityPlaceholder')}
+                                    size="sm"
+                                    required
+                                    unit={t(unitShortKey('kg'))}
+                                    value={details.yieldQuantity}
+                                    disabled={!editable}
+                                    {...(shows('yield')
+                                        ? {
+                                              error:
+                                                  details.yieldQuantity.trim() === ''
+                                                      ? t('kitchen:forms.required')
+                                                      : t('kitchen:recipes.yieldRequired'),
+                                          }
+                                        : {})}
+                                    onChangeText={(next) => {
+                                        setDetails({ ...details, yieldQuantity: next });
+                                        markDirty('details');
+                                    }}
+                                />
+                                <QuantityInput
+                                    testID="kitchen-recipe-yield-pieces"
+                                    id="kitchen-recipe-yield-pieces"
+                                    label={t('kitchen:recipes.yieldPieces')}
+                                    placeholder={t('kitchen:fields.quantityPlaceholder')}
+                                    size="sm"
+                                    value={details.yieldPieces}
+                                    disabled={!editable}
+                                    onChangeText={(next) => {
+                                        setDetails({ ...details, yieldPieces: next });
+                                        markDirty('details');
+                                    }}
+                                />
+                                <QuantityInput
+                                    testID="kitchen-recipe-waste"
+                                    id="kitchen-recipe-waste"
+                                    label={t('kitchen:recipes.productionWastePercent')}
+                                    placeholder={t('kitchen:fields.percentPlaceholder')}
+                                    size="sm"
+                                    unit="%"
+                                    value={details.wastePercent}
+                                    disabled={!editable}
+                                    onChangeText={(next) => {
+                                        setDetails({ ...details, wastePercent: next });
+                                        markDirty('details');
+                                    }}
+                                />
+                            </FormGrid>
+                        </FormSection>
 
-                    <FormSection
-                        variant="card"
-                        testID="kitchen-recipe-lines"
-                        title={t('kitchen:recipes.sectionRawMaterials')}
-                    >
-                        <RecipeLineTable
-                            testID="kitchen-recipe-lines-table"
-                            rows={lines}
-                            ingredients={libraryEntries}
-                            flaggedIngredientIds={flaggedIngredientIds}
-                            costs={computed?.production ?? null}
-                            canManage={editable}
-                            nextKey={nextKey}
-                            pickerPlaceholder={t('kitchen:recipes.addIngredientPlaceholder')}
-                            onChange={(next) => {
-                                setLinesDraft(next);
-                                markDirty('lines');
-                            }}
-                        />
-                    </FormSection>
+                        <FormSection
+                            variant="card"
+                            flow="full"
+                            testID="kitchen-recipe-lines"
+                            title={t('kitchen:recipes.sectionRawMaterials')}
+                        >
+                            <RecipeLineTable
+                                testID="kitchen-recipe-lines-table"
+                                rows={lines}
+                                ingredients={libraryEntries}
+                                flaggedIngredientIds={flaggedIngredientIds}
+                                costs={computed?.production ?? null}
+                                canManage={editable}
+                                nextKey={nextKey}
+                                pickerPlaceholder={t('kitchen:recipes.addIngredientPlaceholder')}
+                                onChange={(next) => {
+                                    setLinesDraft(next);
+                                    markDirty('lines');
+                                }}
+                            />
+                        </FormSection>
+                    </SectionGrid>
                 </View>
             )}
 
             {/* ── Packaging ────────────────────────────────────────────────────────────────── */}
             {tab !== 'packaging' ? null : (
-                <View className="relative z-raised flex-col gap-loose">
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-recipe-packaging-coefficients"
-                        title={t('kitchen:forms.expiryAndWaste')}
-                    >
-                        <FormGrid track="half" testID="kitchen-recipe-packaging-waste-grid">
-                            {/*
-                             * How long a packed batch keeps — a property of the pack as much as of
-                             * the formulation, so it sits with the packaging. The recipe's, so it
-                             * stays open on a published version (see the docblock).
-                             */}
-                            <QuantityInput
-                                testID="kitchen-recipe-expiry"
-                                id="kitchen-recipe-expiry"
-                                size="sm"
-                                label={t('kitchen:forms.expiryPeriod')}
-                                placeholder={t('kitchen:fields.daysPlaceholder')}
-                                unit={t('kitchen:forms.days')}
-                                value={details.shelfLifeDays}
-                                disabled={!canManage}
-                                {...(shows('shelf-life')
-                                    ? { error: t('kitchen:forms.shelfLifeInvalid') }
-                                    : {})}
-                                onChangeText={(next) => {
-                                    setDetails({ ...details, shelfLifeDays: next });
-                                    markDirty('details');
-                                }}
-                            />
-                            <QuantityInput
-                                testID="kitchen-recipe-packaging-waste"
-                                id="kitchen-recipe-packaging-waste"
-                                label={t('kitchen:recipes.packagingWastePercent')}
-                                placeholder={t('kitchen:fields.percentPlaceholder')}
-                                size="sm"
-                                unit="%"
-                                value={details.packagingWastePercent}
-                                disabled={!editable}
-                                onChangeText={(next) => {
-                                    setDetails({ ...details, packagingWastePercent: next });
-                                    markDirty('details');
-                                }}
-                            />
-                        </FormGrid>
-                    </FormSection>
-
-                    {/*
-                     * The picker's panel opens downward into whatever is drawn after the table, so
-                     * the section it hangs from is raised: a z-index orders an element against its
-                     * siblings in one stacking context, and this subtree has to paint above the
-                     * next one whatever the views in between do with their own.
-                     */}
-                    <View className="relative z-sticky">
+                <View className="relative z-raised">
+                    <SectionGrid testID="kitchen-recipe-packaging-sections">
                         <FormSection
                             first
                             variant="card"
+                            testID="kitchen-recipe-packaging-coefficients"
+                            title={t('kitchen:forms.expiryAndWaste')}
+                        >
+                            <FormGrid fit track="half" testID="kitchen-recipe-packaging-waste-grid">
+                                {/*
+                                 * How long a packed batch keeps — a property of the pack as much as of
+                                 * the formulation, so it sits with the packaging. The recipe's, so it
+                                 * stays open on a published version (see the docblock).
+                                 */}
+                                <QuantityInput
+                                    testID="kitchen-recipe-expiry"
+                                    id="kitchen-recipe-expiry"
+                                    size="sm"
+                                    label={t('kitchen:forms.expiryPeriod')}
+                                    placeholder={t('kitchen:fields.daysPlaceholder')}
+                                    unit={t('kitchen:forms.days')}
+                                    value={details.shelfLifeDays}
+                                    disabled={!canManage}
+                                    {...(shows('shelf-life')
+                                        ? { error: t('kitchen:forms.shelfLifeInvalid') }
+                                        : {})}
+                                    onChangeText={(next) => {
+                                        setDetails({ ...details, shelfLifeDays: next });
+                                        markDirty('details');
+                                    }}
+                                />
+                                <QuantityInput
+                                    testID="kitchen-recipe-packaging-waste"
+                                    id="kitchen-recipe-packaging-waste"
+                                    label={t('kitchen:recipes.packagingWastePercent')}
+                                    placeholder={t('kitchen:fields.percentPlaceholder')}
+                                    size="sm"
+                                    unit="%"
+                                    value={details.packagingWastePercent}
+                                    disabled={!editable}
+                                    onChangeText={(next) => {
+                                        setDetails({ ...details, packagingWastePercent: next });
+                                        markDirty('details');
+                                    }}
+                                />
+                            </FormGrid>
+                        </FormSection>
+
+                        <FormSection
+                            first
+                            variant="card"
+                            flow="full"
                             testID="kitchen-recipe-packaging"
                             title={t('kitchen:recipes.sectionPackaging')}
                         >
-                            <RecipeLineTable
-                                testID="kitchen-recipe-packaging-table"
-                                rows={packaging}
-                                ingredients={packagingLibrary}
-                                source="packaging"
-                                warnZeroQuantity
-                                costs={computed?.packaging ?? null}
-                                canManage={canManage}
-                                nextKey={nextKey}
-                                pickerPlaceholder={t('kitchen:recipes.packagingPlaceholder')}
-                                onChange={(next) => {
-                                    setPackaging(next);
-                                    markDirty('packaging');
-                                }}
-                            />
+                            {/*
+                             * The picker's panel opens downward into whatever is drawn after the table, so
+                             * the table it hangs from is raised: a z-index orders an element against its
+                             * siblings in one stacking context, and this subtree has to paint above the
+                             * next one whatever the views in between do with their own. The raise sits
+                             * inside the section so the section can carry its `flow`: a `FormSection` is
+                             * `z-auto`, no stacking context, so the raise still reaches the tab body's.
+                             */}
+                            <View className="relative z-sticky">
+                                <RecipeLineTable
+                                    testID="kitchen-recipe-packaging-table"
+                                    rows={packaging}
+                                    ingredients={packagingLibrary}
+                                    source="packaging"
+                                    warnZeroQuantity
+                                    costs={computed?.packaging ?? null}
+                                    canManage={canManage}
+                                    nextKey={nextKey}
+                                    pickerPlaceholder={t('kitchen:recipes.packagingPlaceholder')}
+                                    onChange={(next) => {
+                                        setPackaging(next);
+                                        markDirty('packaging');
+                                    }}
+                                />
+                            </View>
                         </FormSection>
-                    </View>
+                    </SectionGrid>
                 </View>
             )}
 
             {/* ── Costing ──────────────────────────────────────────────────────────────────── */}
             {tab !== 'costing' ? null : (
-                <View className="relative z-raised flex-col gap-loose">
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-recipe-cost-cascade"
-                        title={t('kitchen:recipes.sectionCostCascade')}
-                        // Kept where the design drops its subtitles: it says which price the
-                        // figures are built on, so a number that moves tomorrow can be traced.
-                        description={t('kitchen:recipes.costCascadeHint')}
-                        aside={
-                            <Badge
-                                variant="label"
-                                tone="danger"
-                                icon="eyeOff"
-                                label={t('kitchen:recipes.confidential')}
-                            />
-                        }
-                    >
-                        {canViewCosts ? (
-                            <Stack space="sm">
-                                <CostCascade
-                                    testID="kitchen-recipe-cost-cards"
+                <View className="relative z-raised">
+                    <SectionGrid testID="kitchen-recipe-costing-sections">
+                        <FormSection
+                            first
+                            variant="card"
+                            flow="full"
+                            testID="kitchen-recipe-cost-cascade"
+                            title={t('kitchen:recipes.sectionCostCascade')}
+                            // Kept where the design drops its subtitles: it says which price the
+                            // figures are built on, so a number that moves tomorrow can be traced.
+                            description={t('kitchen:recipes.costCascadeHint')}
+                            aside={
+                                <Badge
+                                    variant="label"
+                                    tone="danger"
+                                    icon="eyeOff"
+                                    label={t('kitchen:recipes.confidential')}
+                                />
+                            }
+                        >
+                            {canViewCosts ? (
+                                <Stack space="sm">
+                                    <CostCascade
+                                        testID="kitchen-recipe-cost-cards"
+                                        computed={computed}
+                                        yieldUnit={t(unitShortKey(details.yieldUnit))}
+                                        productionWaste={details.wastePercent}
+                                        packagingWaste={details.packagingWastePercent}
+                                        t={t}
+                                        formatter={formatter}
+                                    />
+
+                                    {/*
+                                     * What makes the figures above less than the whole story, said under
+                                     * them rather than left for somebody to notice.
+                                     *
+                                     * A line with no price is *excluded* from the sums and withholds the
+                                     * total, so without this the cascade reads as the cost of a
+                                     * formulation it has only partly costed — and it names the lines,
+                                     * because "some lines" is not something a person can act on.
+                                     */}
+                                    {uncostedNames === '' ? null : (
+                                        <Text
+                                            testID="kitchen-recipe-uncosted"
+                                            variant="caption"
+                                            tone="warning"
+                                        >
+                                            {t('kitchen:recipes.uncostedLines', {
+                                                names: uncostedNames,
+                                            })}
+                                        </Text>
+                                    )}
+                                </Stack>
+                            ) : (
+                                // Said, rather than drawn as a grid of dashes nobody can explain.
+                                <Text
+                                    testID="kitchen-recipe-costs-hidden"
+                                    variant="caption"
+                                    tone="secondary"
+                                >
+                                    {t('kitchen:recipes.sheetCostHidden')}
+                                </Text>
+                            )}
+                        </FormSection>
+
+                        {/*
+                         * Between the cascade and the prices, because that is the order the question is
+                         * asked in: what does a kilogram cost, what does one of the things we actually
+                         * sell cost, what do we charge for it.
+                         */}
+                        {!canViewCosts ? null : (
+                            <FormSection
+                                variant="card"
+                                flow="full"
+                                testID="kitchen-recipe-package-costs"
+                                title={t('kitchen:recipes.sectionPackageCosts')}
+                            >
+                                <PackageCosts
+                                    testID="kitchen-recipe-package-costs"
                                     computed={computed}
-                                    yieldUnit={t(unitShortKey(details.yieldUnit))}
-                                    productionWaste={details.wastePercent}
-                                    packagingWaste={details.packagingWastePercent}
+                                    rows={packaging}
+                                    packagingItems={packagingLibrary}
+                                    yieldInvalid={yieldInvalid}
+                                    locale={locale}
                                     t={t}
                                     formatter={formatter}
                                 />
-
-                                {/*
-                                 * What makes the figures above less than the whole story, said under
-                                 * them rather than left for somebody to notice.
-                                 *
-                                 * A line with no price is *excluded* from the sums and withholds the
-                                 * total, so without this the cascade reads as the cost of a
-                                 * formulation it has only partly costed — and it names the lines,
-                                 * because "some lines" is not something a person can act on.
-                                 */}
-                                {uncostedNames === '' ? null : (
-                                    <Text
-                                        testID="kitchen-recipe-uncosted"
-                                        variant="caption"
-                                        tone="warning"
-                                    >
-                                        {t('kitchen:recipes.uncostedLines', {
-                                            names: uncostedNames,
-                                        })}
-                                    </Text>
-                                )}
-                            </Stack>
-                        ) : (
-                            // Said, rather than drawn as a grid of dashes nobody can explain.
-                            <Text
-                                testID="kitchen-recipe-costs-hidden"
-                                variant="caption"
-                                tone="secondary"
-                            >
-                                {t('kitchen:recipes.sheetCostHidden')}
-                            </Text>
+                            </FormSection>
                         )}
-                    </FormSection>
 
-                    {/*
-                     * Between the cascade and the prices, because that is the order the question is
-                     * asked in: what does a kilogram cost, what does one of the things we actually
-                     * sell cost, what do we charge for it.
-                     */}
-                    {!canViewCosts ? null : (
+                        {/*
+                         * Two list prices and the margin between the trade one and the cascade above,
+                         * on the same three-column 280px track the cost cards use, so the price a
+                         * person types lands under the cost it has to beat.
+                         *
+                         * The currency rides in the unit slot as a static suffix rather than in the
+                         * value — a price carrying its own currency is a string, and the save has to
+                         * send an amount. The same reasoning is written out on the ingredient editor's
+                         * price fields, which these deliberately mirror: an operator who prices a raw
+                         * material and a recipe in one sitting meets one control twice, not two.
+                         *
+                         * Locked with the version, like every other version field: the prices live on
+                         * the version, so on a published one they cannot be written, and a box that
+                         * took a figure the save then dropped would be worse than a closed one.
+                         */}
                         <FormSection
                             variant="card"
-                            testID="kitchen-recipe-package-costs"
-                            title={t('kitchen:recipes.sectionPackageCosts')}
+                            flow="full"
+                            testID="kitchen-recipe-coefficients"
+                            title={t('kitchen:forms.price')}
                         >
-                            <PackageCosts
-                                testID="kitchen-recipe-package-costs"
-                                computed={computed}
-                                rows={packaging}
-                                packagingItems={packagingLibrary}
-                                yieldInvalid={yieldInvalid}
-                                locale={locale}
-                                t={t}
-                                formatter={formatter}
-                            />
+                            <Stack space="sm">
+                                {currencyMissing ? (
+                                    <Callout
+                                        testID="kitchen-recipe-currency-missing"
+                                        role="alert"
+                                        tone="warning"
+                                        title={t('kitchen:sale.currencyUnknown')}
+                                    />
+                                ) : null}
+
+                                <FormGrid
+                                    fit
+                                    track="half"
+                                    testID="kitchen-recipe-coefficients-grid"
+                                >
+                                    <QuantityInput
+                                        testID="kitchen-recipe-b2b-price"
+                                        id="kitchen-recipe-b2b-price"
+                                        size="sm"
+                                        label={t('kitchen:recipes.b2bPricePerUnit', {
+                                            unit: t(unitShortKey(details.yieldUnit)),
+                                        })}
+                                        placeholder={t('kitchen:fields.unitPricePlaceholder')}
+                                        value={details.b2bPrice}
+                                        disabled={!editable}
+                                        {...(currency === null
+                                            ? {}
+                                            : {
+                                                  // The mark, not the code: `$` is what a price field
+                                                  // wears, and `Intl` is what knows which mark this
+                                                  // locale writes for this code.
+                                                  unit: currencySymbol(
+                                                      formatter.resolvedLocale,
+                                                      currency,
+                                                  ),
+                                              })}
+                                        {...(shows('b2b-price')
+                                            ? { error: t('kitchen:sale.priceInvalid') }
+                                            : {})}
+                                        onChangeText={(next) => {
+                                            setDetails({ ...details, b2bPrice: next });
+                                            markDirty('details');
+                                        }}
+                                    />
+
+                                    <QuantityInput
+                                        testID="kitchen-recipe-b2c-price"
+                                        id="kitchen-recipe-b2c-price"
+                                        size="sm"
+                                        label={t('kitchen:recipes.b2cPricePerUnit', {
+                                            unit: t(unitShortKey(details.yieldUnit)),
+                                        })}
+                                        placeholder={t('kitchen:fields.unitPricePlaceholder')}
+                                        value={details.b2cPrice}
+                                        disabled={!editable}
+                                        {...(currency === null
+                                            ? {}
+                                            : {
+                                                  unit: currencySymbol(
+                                                      formatter.resolvedLocale,
+                                                      currency,
+                                                  ),
+                                              })}
+                                        {...(shows('b2c-price')
+                                            ? { error: t('kitchen:sale.priceInvalid') }
+                                            : {})}
+                                        onChangeText={(next) => {
+                                            setDetails({ ...details, b2cPrice: next });
+                                            markDirty('details');
+                                        }}
+                                    />
+
+                                    {/*
+                                     * The derived third cell, in the `readOnly` variant the cost cascade's
+                                     * own totals use — a figure on the sunken fill, in a field's shape,
+                                     * that nobody types into. Empty rather than a stand-in when the sum
+                                     * cannot be stated: the placeholder's em dash says "not calculable",
+                                     * where a `0.0` would claim the margin is nil.
+                                     */}
+                                    <QuantityInput
+                                        testID="kitchen-recipe-margin"
+                                        id="kitchen-recipe-margin"
+                                        size="sm"
+                                        readOnly
+                                        label={t('kitchen:recipes.grossMargin')}
+                                        unit="%"
+                                        placeholder={t('kitchen:sale.marginUnavailable')}
+                                        {...(marginNegative
+                                            ? { error: t('kitchen:forms.marginBelowCost') }
+                                            : marginLow
+                                              ? {
+                                                    warning: t('kitchen:forms.marginLow', {
+                                                        percent: MARGIN_WARNING_PERCENT,
+                                                    }),
+                                                }
+                                              : {})}
+                                        value={
+                                            margin === null
+                                                ? ''
+                                                : formatter.formatNumber(margin, {
+                                                      minimumFractionDigits: 1,
+                                                      maximumFractionDigits: 1,
+                                                      signDisplay: 'exceptZero',
+                                                  })
+                                        }
+                                        onChangeText={() => undefined}
+                                    />
+                                </FormGrid>
+                            </Stack>
                         </FormSection>
-                    )}
-
-                    {/*
-                     * Two list prices and the margin between the trade one and the cascade above,
-                     * on the same three-column 280px track the cost cards use, so the price a
-                     * person types lands under the cost it has to beat.
-                     *
-                     * The currency rides in the unit slot as a static suffix rather than in the
-                     * value — a price carrying its own currency is a string, and the save has to
-                     * send an amount. The same reasoning is written out on the ingredient editor's
-                     * price fields, which these deliberately mirror: an operator who prices a raw
-                     * material and a recipe in one sitting meets one control twice, not two.
-                     *
-                     * Locked with the version, like every other version field: the prices live on
-                     * the version, so on a published one they cannot be written, and a box that
-                     * took a figure the save then dropped would be worse than a closed one.
-                     */}
-                    <FormSection
-                        variant="card"
-                        testID="kitchen-recipe-coefficients"
-                        title={t('kitchen:forms.price')}
-                    >
-                        <Stack space="sm">
-                            {currencyMissing ? (
-                                <Callout
-                                    testID="kitchen-recipe-currency-missing"
-                                    role="alert"
-                                    tone="warning"
-                                    title={t('kitchen:sale.currencyUnknown')}
-                                />
-                            ) : null}
-
-                            <FormGrid track="half" testID="kitchen-recipe-coefficients-grid">
-                                <QuantityInput
-                                    testID="kitchen-recipe-b2b-price"
-                                    id="kitchen-recipe-b2b-price"
-                                    size="sm"
-                                    label={t('kitchen:recipes.b2bPricePerUnit', {
-                                        unit: t(unitShortKey(details.yieldUnit)),
-                                    })}
-                                    placeholder={t('kitchen:fields.unitPricePlaceholder')}
-                                    value={details.b2bPrice}
-                                    disabled={!editable}
-                                    {...(currency === null
-                                        ? {}
-                                        : {
-                                              // The mark, not the code: `$` is what a price field
-                                              // wears, and `Intl` is what knows which mark this
-                                              // locale writes for this code.
-                                              unit: currencySymbol(
-                                                  formatter.resolvedLocale,
-                                                  currency,
-                                              ),
-                                          })}
-                                    {...(shows('b2b-price')
-                                        ? { error: t('kitchen:sale.priceInvalid') }
-                                        : {})}
-                                    onChangeText={(next) => {
-                                        setDetails({ ...details, b2bPrice: next });
-                                        markDirty('details');
-                                    }}
-                                />
-
-                                <QuantityInput
-                                    testID="kitchen-recipe-b2c-price"
-                                    id="kitchen-recipe-b2c-price"
-                                    size="sm"
-                                    label={t('kitchen:recipes.b2cPricePerUnit', {
-                                        unit: t(unitShortKey(details.yieldUnit)),
-                                    })}
-                                    placeholder={t('kitchen:fields.unitPricePlaceholder')}
-                                    value={details.b2cPrice}
-                                    disabled={!editable}
-                                    {...(currency === null
-                                        ? {}
-                                        : {
-                                              unit: currencySymbol(
-                                                  formatter.resolvedLocale,
-                                                  currency,
-                                              ),
-                                          })}
-                                    {...(shows('b2c-price')
-                                        ? { error: t('kitchen:sale.priceInvalid') }
-                                        : {})}
-                                    onChangeText={(next) => {
-                                        setDetails({ ...details, b2cPrice: next });
-                                        markDirty('details');
-                                    }}
-                                />
-
-                                {/*
-                                 * The derived third cell, in the `readOnly` variant the cost cascade's
-                                 * own totals use — a figure on the sunken fill, in a field's shape,
-                                 * that nobody types into. Empty rather than a stand-in when the sum
-                                 * cannot be stated: the placeholder's em dash says "not calculable",
-                                 * where a `0.0` would claim the margin is nil.
-                                 */}
-                                <QuantityInput
-                                    testID="kitchen-recipe-margin"
-                                    id="kitchen-recipe-margin"
-                                    size="sm"
-                                    readOnly
-                                    label={t('kitchen:recipes.grossMargin')}
-                                    unit="%"
-                                    placeholder={t('kitchen:sale.marginUnavailable')}
-                                    {...(marginNegative
-                                        ? { error: t('kitchen:forms.marginBelowCost') }
-                                        : marginLow
-                                          ? {
-                                                warning: t('kitchen:forms.marginLow', {
-                                                    percent: MARGIN_WARNING_PERCENT,
-                                                }),
-                                            }
-                                          : {})}
-                                    value={
-                                        margin === null
-                                            ? ''
-                                            : formatter.formatNumber(margin, {
-                                                  minimumFractionDigits: 1,
-                                                  maximumFractionDigits: 1,
-                                                  signDisplay: 'exceptZero',
-                                              })
-                                    }
-                                    onChangeText={() => undefined}
-                                />
-                            </FormGrid>
-                        </Stack>
-                    </FormSection>
+                    </SectionGrid>
                 </View>
             )}
 
@@ -2623,231 +2677,244 @@ function RecipeEditor({
 
             {/* ── Technical sheet ──────────────────────────────────────────────────────────── */}
             {tab !== 'sheet' ? null : (
-                <View className="relative z-raised flex-col gap-loose lg:flex-row lg:items-start">
-                    <View className="min-w-0 flex-1 flex-col gap-loose">
-                        {/*
-                         * The sheet as a reader checks it before publishing: one ledger of the figures
-                         * the other steps produced, from the draft rather than the saved version, so it
-                         * answers while a recipe is still being written.
-                         */}
-                        <FormSection
-                            first
-                            variant="card"
-                            testID="kitchen-recipe-sheet-summary"
-                            title={t('kitchen:recipes.sheetTitle')}
-                        >
-                            <View className="flex-col">
-                                {sheetRows.map((row) => (
-                                    <View
-                                        key={row.key}
-                                        testID={`kitchen-recipe-sheet-summary-${row.key}`}
-                                        className="min-h-8 flex-row items-baseline gap-snug border-b border-stroke-subtle py-hair"
-                                    >
-                                        <View className="w-44 shrink-0">
-                                            <Text variant="caption" tone="secondary">
-                                                {row.label}
-                                            </Text>
-                                        </View>
-                                        <Text
-                                            testID={`kitchen-recipe-sheet-summary-${row.key}-value`}
-                                            variant={row.mono ? 'mono' : 'label'}
-                                        >
-                                            {row.value}
-                                        </Text>
-                                    </View>
-                                ))}
-                            </View>
-                        </FormSection>
-
-                        <FormSection
-                            first
-                            variant="card"
-                            testID="kitchen-recipe-composition"
-                            title={t('kitchen:forms.nutritionTitle')}
-                            aside={
-                                <Badge
-                                    variant="label"
-                                    tone="info"
-                                    label={t('kitchen:composition.fromDatabase')}
-                                />
-                            }
-                        >
-                            <DerivedPanel
-                                testID="kitchen-recipe-composition-panel"
-                                variant="outline"
-                                figures={nutrientFigures(
-                                    rollup.data?.per100g ?? null,
-                                    t,
-                                    formatter,
-                                )}
-                                emptyValue={t('kitchen:list.noValue')}
-                            />
-
-                            {/*
-                             * Why the tiles are dashes, in the reader's language and naming the row.
-                             * The panel above withholds every figure the moment one line cannot be
-                             * resolved, and a panel of dashes with no reason beside it is the version
-                             * of this screen a kitchen files a bug against.
-                             */}
-                            {warningNotices.length === 0 ? null : (
-                                <Stack space="sm" testID="kitchen-recipe-composition-warnings">
-                                    {warningNotices.map((notice) => (
-                                        <Callout
-                                            key={notice.code}
-                                            testID={`kitchen-recipe-composition-warnings-warning-${notice.code}`}
-                                            tone="warning"
-                                            role="status"
-                                            title={notice.text}
-                                        />
-                                    ))}
-                                </Stack>
-                            )}
-                        </FormSection>
-
-                        {/*
-                         * The chips come from the *roll-up*, not from the saved version, which is what
-                         * lets this tab answer while a recipe is still being written: the roll-up is
-                         * computed from the draft lines. `origin` is not on `AllergenSource` — it is a
-                         * derivation by definition — so nothing here claims a hand-declared entry.
-                         */}
-                        <FormSection
-                            variant="card"
-                            testID="kitchen-recipe-allergens"
-                            title={t('kitchen:forms.allergensTitle')}
-                            aside={
-                                <Badge
-                                    variant="label"
-                                    tone="info"
-                                    label={t('kitchen:composition.fromDatabase')}
-                                />
-                            }
-                        >
-                            {allergenSources.length === 0 ? (
-                                <Text
-                                    testID="kitchen-recipe-allergens-none"
-                                    tone="secondary"
-                                    variant="caption"
-                                >
-                                    {t('kitchen:recipes.noAllergens')}
-                                </Text>
-                            ) : (
-                                <Inline space="xs" wrap testID="kitchen-recipe-allergen-chips">
-                                    {allergenSources.map((source) => {
-                                        const code = String(source.allergenCode);
-                                        // `contains` and `may_contain` are two different claims and
-                                        // never one colour: the tone separates them, the label carries
-                                        // the rest, and the source names the line that put it there.
-                                        const tone: TagTone =
-                                            source.containment === 'contains'
-                                                ? 'danger'
-                                                : 'warning';
-                                        const via = source.ingredientIds
-                                            .map((id) => {
-                                                const found = ingredients.find(
-                                                    (entry) => entry.id === id,
-                                                );
-                                                return found === undefined
-                                                    ? null
-                                                    : displayName(found.name, locale).value;
-                                            })
-                                            .filter((name): name is string => name !== null);
-
-                                        return (
-                                            <Tag
-                                                key={code}
-                                                testID={`kitchen-recipe-allergen-${code}`}
-                                                tone={tone}
-                                                label={
-                                                    via.length === 0
-                                                        ? code
-                                                        : t('kitchen:recipes.allergenVia', {
-                                                              code,
-                                                              name: via[0],
-                                                          })
-                                                }
-                                            />
-                                        );
-                                    })}
-                                </Inline>
-                            )}
-                        </FormSection>
-
-                        {/*
-                         * The print view is the one thing here that genuinely needs a saved record: a
-                         * technical sheet is a snapshot of a version, with its number on it, and there
-                         * is no version to snapshot until the recipe exists.
-                         */}
-                        <FormSection
-                            variant="card"
-                            testID="kitchen-recipe-sheet"
-                            title={t('kitchen:recipes.sheetPrintTitle')}
-                        >
-                            {data === undefined ? (
-                                <Text
-                                    testID="kitchen-recipe-sheet-unsaved"
-                                    tone="secondary"
-                                    variant="caption"
-                                >
-                                    {t('kitchen:recipes.sheetAfterSave')}
-                                </Text>
-                            ) : (
-                                <TechnicalSheetPanel
-                                    testID="kitchen-recipe-technical-sheet"
-                                    recipe={data}
-                                    version={data.currentVersion}
-                                    sheet={technicalSheet.data}
-                                    isLoading={technicalSheet.isPending}
-                                />
-                            )}
-                        </FormSection>
-                    </View>
-
+                <View className="relative z-raised">
                     {/*
                      * The rail: what stands between this draft and a published label, live. The
                      * publish dialog re-reads the saved version and is the gate; this is the reading
                      * a person works from while there is still something to fix.
                      */}
-                    <View
-                        testID="kitchen-recipe-publish-checks"
-                        className="flex-col lg:w-72 lg:shrink-0"
-                    >
-                        <FormSection
-                            first
-                            variant="card"
-                            title={t('kitchen:recipes.publishChecksTitle')}
-                        >
-                            <View className="flex-col">
-                                {publishChecks.map((check) => (
-                                    <View
-                                        key={check.key}
-                                        testID={`kitchen-recipe-check-${check.key}`}
-                                        accessibilityLabel={`${check.label}: ${check.note}`}
-                                        className="flex-row items-start gap-tight border-b border-stroke-subtle py-tight"
-                                    >
-                                        <Icon
-                                            name={check.ok ? 'check' : 'warning'}
-                                            size="sm"
-                                            className={
-                                                check.ok
-                                                    ? 'text-success-strong'
-                                                    : 'text-warning-strong'
-                                            }
-                                        />
-                                        <View className="min-w-0 flex-1 flex-col">
-                                            <Text variant="label">{check.label}</Text>
-                                            <Text
-                                                testID={`kitchen-recipe-check-${check.key}-note`}
-                                                variant="caption"
-                                                tone="secondary"
+                    <SideRailLayout
+                        sticky
+                        testID="kitchen-recipe-sheet"
+                        main={
+                            <SectionGrid testID="kitchen-recipe-sheet-sections">
+                                {/*
+                                 * The sheet as a reader checks it before publishing: one ledger of the figures
+                                 * the other steps produced, from the draft rather than the saved version, so it
+                                 * answers while a recipe is still being written.
+                                 */}
+                                <FormSection
+                                    first
+                                    variant="card"
+                                    testID="kitchen-recipe-sheet-summary"
+                                    title={t('kitchen:recipes.sheetTitle')}
+                                >
+                                    <View className="flex-col">
+                                        {sheetRows.map((row) => (
+                                            <View
+                                                key={row.key}
+                                                testID={`kitchen-recipe-sheet-summary-${row.key}`}
+                                                className="min-h-8 flex-row items-baseline gap-snug border-b border-stroke-subtle py-hair"
                                             >
-                                                {check.note}
-                                            </Text>
-                                        </View>
+                                                <View className="w-44 shrink-0">
+                                                    <Text variant="caption" tone="secondary">
+                                                        {row.label}
+                                                    </Text>
+                                                </View>
+                                                <Text
+                                                    testID={`kitchen-recipe-sheet-summary-${row.key}-value`}
+                                                    variant={row.mono ? 'mono' : 'label'}
+                                                >
+                                                    {row.value}
+                                                </Text>
+                                            </View>
+                                        ))}
                                     </View>
-                                ))}
-                            </View>
-                        </FormSection>
-                    </View>
+                                </FormSection>
+
+                                <FormSection
+                                    first
+                                    variant="card"
+                                    testID="kitchen-recipe-composition"
+                                    title={t('kitchen:forms.nutritionTitle')}
+                                    aside={
+                                        <Badge
+                                            variant="label"
+                                            tone="info"
+                                            label={t('kitchen:composition.fromDatabase')}
+                                        />
+                                    }
+                                >
+                                    <DerivedPanel
+                                        testID="kitchen-recipe-composition-panel"
+                                        variant="outline"
+                                        figures={nutrientFigures(
+                                            rollup.data?.per100g ?? null,
+                                            t,
+                                            formatter,
+                                        )}
+                                        emptyValue={t('kitchen:list.noValue')}
+                                    />
+
+                                    {/*
+                                     * Why the tiles are dashes, in the reader's language and naming the row.
+                                     * The panel above withholds every figure the moment one line cannot be
+                                     * resolved, and a panel of dashes with no reason beside it is the version
+                                     * of this screen a kitchen files a bug against.
+                                     */}
+                                    {warningNotices.length === 0 ? null : (
+                                        <Stack
+                                            space="sm"
+                                            testID="kitchen-recipe-composition-warnings"
+                                        >
+                                            {warningNotices.map((notice) => (
+                                                <Callout
+                                                    key={notice.code}
+                                                    testID={`kitchen-recipe-composition-warnings-warning-${notice.code}`}
+                                                    tone="warning"
+                                                    role="status"
+                                                    title={notice.text}
+                                                />
+                                            ))}
+                                        </Stack>
+                                    )}
+                                </FormSection>
+
+                                {/*
+                                 * The chips come from the *roll-up*, not from the saved version, which is what
+                                 * lets this tab answer while a recipe is still being written: the roll-up is
+                                 * computed from the draft lines. `origin` is not on `AllergenSource` — it is a
+                                 * derivation by definition — so nothing here claims a hand-declared entry.
+                                 */}
+                                <FormSection
+                                    variant="card"
+                                    testID="kitchen-recipe-allergens"
+                                    title={t('kitchen:forms.allergensTitle')}
+                                    aside={
+                                        <Badge
+                                            variant="label"
+                                            tone="info"
+                                            label={t('kitchen:composition.fromDatabase')}
+                                        />
+                                    }
+                                >
+                                    {allergenSources.length === 0 ? (
+                                        <Text
+                                            testID="kitchen-recipe-allergens-none"
+                                            tone="secondary"
+                                            variant="caption"
+                                        >
+                                            {t('kitchen:recipes.noAllergens')}
+                                        </Text>
+                                    ) : (
+                                        <Inline
+                                            space="xs"
+                                            wrap
+                                            testID="kitchen-recipe-allergen-chips"
+                                        >
+                                            {allergenSources.map((source) => {
+                                                const code = String(source.allergenCode);
+                                                // `contains` and `may_contain` are two different claims and
+                                                // never one colour: the tone separates them, the label carries
+                                                // the rest, and the source names the line that put it there.
+                                                const tone: TagTone =
+                                                    source.containment === 'contains'
+                                                        ? 'danger'
+                                                        : 'warning';
+                                                const via = source.ingredientIds
+                                                    .map((id) => {
+                                                        const found = ingredients.find(
+                                                            (entry) => entry.id === id,
+                                                        );
+                                                        return found === undefined
+                                                            ? null
+                                                            : displayName(found.name, locale).value;
+                                                    })
+                                                    .filter(
+                                                        (name): name is string => name !== null,
+                                                    );
+
+                                                return (
+                                                    <Tag
+                                                        key={code}
+                                                        testID={`kitchen-recipe-allergen-${code}`}
+                                                        tone={tone}
+                                                        label={
+                                                            via.length === 0
+                                                                ? code
+                                                                : t('kitchen:recipes.allergenVia', {
+                                                                      code,
+                                                                      name: via[0],
+                                                                  })
+                                                        }
+                                                    />
+                                                );
+                                            })}
+                                        </Inline>
+                                    )}
+                                </FormSection>
+
+                                {/*
+                                 * The print view is the one thing here that genuinely needs a saved record: a
+                                 * technical sheet is a snapshot of a version, with its number on it, and there
+                                 * is no version to snapshot until the recipe exists.
+                                 */}
+                                <FormSection
+                                    variant="card"
+                                    flow="full"
+                                    testID="kitchen-recipe-sheet"
+                                    title={t('kitchen:recipes.sheetPrintTitle')}
+                                >
+                                    {data === undefined ? (
+                                        <Text
+                                            testID="kitchen-recipe-sheet-unsaved"
+                                            tone="secondary"
+                                            variant="caption"
+                                        >
+                                            {t('kitchen:recipes.sheetAfterSave')}
+                                        </Text>
+                                    ) : (
+                                        <TechnicalSheetPanel
+                                            testID="kitchen-recipe-technical-sheet"
+                                            recipe={data}
+                                            version={data.currentVersion}
+                                            sheet={technicalSheet.data}
+                                            isLoading={technicalSheet.isPending}
+                                        />
+                                    )}
+                                </FormSection>
+                            </SectionGrid>
+                        }
+                        rail={
+                            <FormSection
+                                first
+                                variant="card"
+                                testID="kitchen-recipe-publish-checks"
+                                title={t('kitchen:recipes.publishChecksTitle')}
+                            >
+                                <View className="flex-col">
+                                    {publishChecks.map((check) => (
+                                        <View
+                                            key={check.key}
+                                            testID={`kitchen-recipe-check-${check.key}`}
+                                            accessibilityLabel={`${check.label}: ${check.note}`}
+                                            className="flex-row items-start gap-tight border-b border-stroke-subtle py-tight"
+                                        >
+                                            <Icon
+                                                name={check.ok ? 'check' : 'warning'}
+                                                size="sm"
+                                                className={
+                                                    check.ok
+                                                        ? 'text-success-strong'
+                                                        : 'text-warning-strong'
+                                                }
+                                            />
+                                            <View className="min-w-0 flex-1 flex-col">
+                                                <Text variant="label">{check.label}</Text>
+                                                <Text
+                                                    testID={`kitchen-recipe-check-${check.key}-note`}
+                                                    variant="caption"
+                                                    tone="secondary"
+                                                >
+                                                    {check.note}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    ))}
+                                </View>
+                            </FormSection>
+                        }
+                    />
                 </View>
             )}
 
@@ -3341,7 +3408,7 @@ function CostCascade({
     const drawn = [...cards, ...packagingCards];
 
     return (
-        <FormGrid testID={testID}>
+        <FormGrid fit testID={testID}>
             {drawn.map((card) => (
                 <CostCard
                     key={card.key}
@@ -3549,7 +3616,7 @@ function PackageCosts({
 
     return (
         <Stack space="sm">
-            <FormGrid testID={`${testID}-grid`}>
+            <FormGrid fit testID={`${testID}-grid`}>
                 {cards.map((card) => (
                     <CostCard
                         key={card.key}
