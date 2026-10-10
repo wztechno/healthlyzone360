@@ -108,6 +108,7 @@ import {
     type SalesChannelLookup,
     type WireItemChannelPrices,
 } from './kitchen-admin-mappers.ts';
+import { memoiseAsync, memoiseAsyncPer } from './once.ts';
 import type { Transport } from './transport.ts';
 
 type CursorQueryFilter = {
@@ -292,67 +293,86 @@ function ingredientSortParameter(
     return sort;
 }
 
+/*
+ * The catalogue's reference reads, one shared in-flight request per transport (see `memoiseAsync`
+ * for why the promise is the cache and why a rejection is not kept).
+ *
+ * Per transport rather than per repository object because the reads and the writes both translate
+ * through them, and the writes build their own reads as well: opening the recipe editor reads the
+ * recipe (unit id → code) while the rollup preview resolves every line's unit at once (code → id),
+ * and those used to be three caches and, before the first answer, one request per caller. The
+ * transport is created with the repositories, so the lifetime is the one the caches always had.
+ */
+
+/** The platform's measurement units, from `/catalogue/procurement/reference`. */
+export const loadMeasurementUnits = memoiseAsyncPer(
+    async (transport: Transport): Promise<readonly { id: string; code: string }[]> => {
+        const reference = await transport.requestEnvelope<{
+            measurement_units: Array<{ id: string; code: string }>;
+        }>({ method: 'GET', path: '/catalogue/procurement/reference' });
+
+        return reference.data.measurement_units;
+    },
+);
+
+/**
+ * The category rows and the id↔code lookup built from them, kept together:
+ * `listIngredientCategories` answers from the same fetch the translation already needs, so a
+ * screen that shows the tree and a write that resolves a code do not make two requests for one
+ * response.
+ */
+export const loadIngredientCategories = memoiseAsyncPer(async (transport: Transport) => {
+    const rows = await transport.request<WireIngredientCategory[]>({
+        method: 'GET',
+        path: '/catalogue/ingredient-categories',
+    });
+
+    return { rows, lookup: buildCategoryLookup(rows) };
+});
+
+const loadSalesChannels = memoiseAsyncPer(
+    async (transport: Transport): Promise<SalesChannelLookup> =>
+        buildSalesChannelLookup(
+            await transport.request<AdminSalesChannel[]>({
+                method: 'GET',
+                path: '/catalogue/sales-channels',
+            }),
+        ),
+);
+
 export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdminReads {
-    let unitCodeLookup: ReadonlyMap<string, string> | null = null;
+    const loadUnitCodes = memoiseAsync(async (): Promise<ReadonlyMap<string, string>> => {
+        try {
+            const units = await loadMeasurementUnits(transport);
+            return new Map(units.map((row) => [row.id, row.code]));
+        } catch (caught) {
+            // A refused permission will not change mid-session, so the empty map is the answer and
+            // is kept. Anything else (a 429 during a burst, a dropped connection) rejects, which
+            // leaves nothing cached and lets the next read try again.
+            if (caught instanceof ApiError && caught.code === 'authz.permission_denied') {
+                return new Map();
+            }
+            throw caught;
+        }
+    });
 
     async function loadUnitCodeLookup(): Promise<ReadonlyMap<string, string>> {
-        if (unitCodeLookup !== null) return unitCodeLookup;
-
         try {
-            const reference = await transport.requestEnvelope<{
-                measurement_units: Array<{ id: string; code: string }>;
-            }>({ method: 'GET', path: '/catalogue/procurement/reference' });
-
-            unitCodeLookup = new Map(
-                reference.data.measurement_units.map((row) => [row.id, row.code]),
-            );
+            return await loadUnitCodes();
         } catch {
-            // A member who cannot read the procurement reference still gets
-            // recipes; the units fall back to the mapper's honest default.
-            unitCodeLookup = new Map();
+            // A member who cannot read the procurement reference still gets recipes; the units
+            // fall back to the mapper's honest default — for this read only.
+            return new Map();
         }
-
-        return unitCodeLookup;
     }
 
-    let categoryLookup: CategoryLookup | null = null;
-    // The rows the lookup was built from, kept rather than discarded: `listIngredientCategories`
-    // answers from the same fetch the id↔code translation already needs, so a screen that shows the
-    // tree and a write that resolves a code do not make two requests for one response.
-    let categoryRows: readonly WireIngredientCategory[] | null = null;
-    let salesChannelLookup: SalesChannelLookup | null = null;
-
-    async function loadCategories(): Promise<readonly WireIngredientCategory[]> {
-        if (categoryRows !== null) return categoryRows;
-
-        const categories = await transport.request<WireIngredientCategory[]>({
-            method: 'GET',
-            path: '/catalogue/ingredient-categories',
-        });
-
-        categoryRows = categories;
-        categoryLookup = buildCategoryLookup(categories);
-        return categories;
-    }
+    const loadCategories = () => loadIngredientCategories(transport);
 
     async function loadCategoryLookup(): Promise<CategoryLookup> {
-        if (categoryLookup !== null) return categoryLookup;
-
-        await loadCategories();
-        return categoryLookup ?? buildCategoryLookup([]);
+        return (await loadCategories()).lookup;
     }
 
-    async function loadSalesChannelLookup(): Promise<SalesChannelLookup> {
-        if (salesChannelLookup !== null) return salesChannelLookup;
-
-        const channels = await transport.request<AdminSalesChannel[]>({
-            method: 'GET',
-            path: '/catalogue/sales-channels',
-        });
-
-        salesChannelLookup = buildSalesChannelLookup(channels);
-        return salesChannelLookup;
-    }
+    const loadSalesChannelLookup = () => loadSalesChannels(transport);
 
     async function fetchCatalogueItemShow(itemId: string): Promise<CatalogueItemShowPayload> {
         const envelope = await transport.requestEnvelope<CatalogueItemShowPayload>({
@@ -399,7 +419,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         },
 
         async listIngredientCategories(): Promise<readonly IngredientCategoryAdmin[]> {
-            const rows = await loadCategories();
+            const { rows } = await loadCategories();
             const idToCode = new Map(rows.map((row) => [row.id, row.code]));
 
             // Sorted here rather than at each call site: three consumers need the same order and
@@ -418,7 +438,6 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             filter?: IngredientAdminFilter,
         ): Promise<CursorPage<IngredientAdmin>> {
             const lookup = await loadCategoryLookup();
-            categoryLookup = lookup;
 
             const search = new URLSearchParams();
 
