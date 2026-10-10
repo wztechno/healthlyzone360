@@ -16,12 +16,15 @@ import {
     FormIssueBanner,
     FormSection,
     FormSkeleton,
+    HALF_TRACK_WIDTH,
     Inline,
     QuantityInput,
+    SectionGrid,
     Select,
     Stack,
     Tag,
     Text,
+    spanWidth,
     useToast,
 } from '@healthy360/design-system';
 import type { FormIssueItem, SelectOption } from '@healthy360/design-system';
@@ -62,6 +65,7 @@ import {
     CATALOGUE_MANAGE_PERMISSION,
     CATALOGUE_VIEW_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
+    PRICE_LIST_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import {
@@ -481,6 +485,11 @@ function ProductEditor({
      * role cannot fill the pair in and is told so rather than shown an empty picker.
      */
     const canReadUnits = useCan(INVENTORY_VIEW_PERMISSION);
+    /*
+     * `ChannelPricesSection` draws nothing without this, but a `SectionGrid` still gives the
+     * element a cell — an empty slot a bounded card would pair with. Gate it here instead.
+     */
+    const canViewPrices = useCan(PRICE_LIST_VIEW_PERMISSION);
     const reference = useProcurementReferenceQuery(canReadUnits);
     const referenceUnits: readonly MeasurementUnitOption[] | undefined =
         reference.data?.measurementUnits;
@@ -989,7 +998,7 @@ function ProductEditor({
     );
 
     const identityFields = (
-        <FormGrid track="half" maxColumns={4} testID="kitchen-product-identity-grid">
+        <FormGrid fit track="half" maxColumns={4} testID="kitchen-product-identity-grid">
             {/*
              * One `BilingualField` rather than two inputs, because that component owns the
              * per-language writing direction; `row` puts the halves side by side inside the four
@@ -1219,8 +1228,11 @@ function ProductEditor({
                 />
             )}
 
-            {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
-            <View className="z-auto flex-col gap-loose">
+            {/*
+             * The sections pair where two fit; the editor uses the width. A `SectionGrid` cell is
+             * a plain div, so nothing here traps a dropdown: see `FormSection` on why a View would.
+             */}
+            <SectionGrid testID="kitchen-product-sections">
                 {/* ── description ──────────────────────────────────────────────────────────── */}
                 <FormSection
                     first
@@ -1239,7 +1251,23 @@ function ProductEditor({
                                 disabled={!canManage}
                                 onChange={setImage}
                             />
-                            {identityFields}
+                            {/*
+                             * The field region: flex sets its width, not the grid inside it, so the
+                             * fitted grid converges whether the page shrinks or grows — beside the
+                             * photo while four half tracks fit, under it at full width once they
+                             * do not.
+                             */}
+                            <View
+                                className="z-auto"
+                                style={{
+                                    flexGrow: 1,
+                                    flexShrink: 1,
+                                    flexBasis: spanWidth(4, HALF_TRACK_WIDTH),
+                                    minWidth: 0,
+                                }}
+                            >
+                                {identityFields}
+                            </View>
                         </View>
                     )}
                 </FormSection>
@@ -1247,6 +1275,7 @@ function ProductEditor({
                 {/* ── packs ────────────────────────────────────────────────────────────────── */}
                 <FormSection
                     first
+                    flow="full"
                     variant="card"
                     testID="kitchen-product-packs"
                     title={t('kitchen:products.sectionPacks')}
@@ -1292,7 +1321,9 @@ function ProductEditor({
                 </FormSection>
 
                 {/* ── B2B / B2C weight and price ──────────────────────────────────────────── */}
-                {data === undefined ? null : <ChannelPricesSection itemId={data.id} />}
+                {data === undefined || !canViewPrices ? null : (
+                    <ChannelPricesSection itemId={data.id} />
+                )}
 
                 {/* ── sale ─────────────────────────────────────────────────────────────────── */}
                 <FormSection
@@ -1315,7 +1346,7 @@ function ProductEditor({
                          */}
                         {canReadUnits ? (
                             <Stack space="xs">
-                                <FormGrid track="half" testID="kitchen-product-sale-grid">
+                                <FormGrid fit track="half" testID="kitchen-product-sale-grid">
                                     <QuantityInput
                                         testID="kitchen-product-net-content"
                                         id="kitchen-product-net-content"
@@ -1405,6 +1436,7 @@ function ProductEditor({
                  */}
                 <FormSection
                     first
+                    flow="full"
                     variant="card"
                     testID="kitchen-product-channels"
                     title={t('kitchen:channels.sectionTitle')}
@@ -1479,6 +1511,7 @@ function ProductEditor({
                 (data.composition === null && data.kitchenCategory === null) ? null : (
                     <FormSection
                         first
+                        flow="full"
                         variant="card"
                         testID="kitchen-product-composition"
                         title={t('kitchen:fields.composition')}
@@ -1503,7 +1536,7 @@ function ProductEditor({
                         </Stack>
                     </FormSection>
                 )}
-            </View>
+            </SectionGrid>
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog
