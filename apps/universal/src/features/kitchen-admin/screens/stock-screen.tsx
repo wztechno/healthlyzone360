@@ -895,8 +895,11 @@ function StockMovementEditor({
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
     const concurrency = useOptimisticConcurrency({ onReload });
 
-    const initialThreshold = row.level?.reorderThreshold ?? '';
-    const initialPar = row.level?.parLevel ?? '';
+    // The level arrives at the column's four decimals ("1.5000"); the field shows what was typed ("1.5").
+    const toInput = (value: string | null | undefined) =>
+        value === null || value === undefined ? '' : String(Number(value));
+    const initialThreshold = toInput(row.level?.reorderThreshold);
+    const initialPar = toInput(row.level?.parLevel);
     const [thresholdValue, setThresholdValue] = useState(initialThreshold);
     const [parLevelValue, setParLevelValue] = useState(initialPar);
     const [direction, setDirection] = useState<MovementDirection>('increase');

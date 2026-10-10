@@ -275,7 +275,13 @@ describe('ops panels', () => {
             repositories: {
                 kitchenOps: {
                     listStockItems: async () => [stockItem(1)],
-                    listStockLevels: async () => [stockLevel(1, { quantity: '4.000' })],
+                    listStockLevels: async () => [
+                        stockLevel(1, {
+                            quantity: '4.000',
+                            reorderThreshold: '1.5000',
+                            parLevel: '5.0000',
+                        }),
+                    ],
                     listItemLatestPurchases: async () => [],
                     recordStockCount: async () => ({
                         id: 'movement-1',
@@ -311,6 +317,10 @@ describe('ops panels', () => {
             });
         };
 
+        // The stored "1.5000" / "5.0000" open as the figures a person would type.
+        expect(screen.getByTestId('kitchen-stock-threshold-value-input').props.value).toBe('1.5');
+        expect(screen.getByTestId('kitchen-stock-threshold-par-input').props.value).toBe('5');
+
         // Wasting more than the four kilograms on the shelf is refused before it is posted.
         await choose('waste');
         await type('kitchen-stock-movement-quantity-input', '5');
@@ -325,8 +335,8 @@ describe('ops panels', () => {
         expect(screen.getByTestId('kitchen-stock-threshold-par-error')).toHaveTextContent(
             /must be above the reorder threshold/,
         );
-        await type('kitchen-stock-threshold-value-input', '');
-        await type('kitchen-stock-threshold-par-input', '');
+        await type('kitchen-stock-threshold-value-input', '1.5');
+        await type('kitchen-stock-threshold-par-input', '5');
 
         // A count states the shelf; the server posts the difference.
         await choose('count');
