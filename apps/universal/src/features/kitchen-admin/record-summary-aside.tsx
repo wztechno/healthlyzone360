@@ -27,12 +27,16 @@ export interface RecordSummaryAsideProps {
      */
     readonly testID: string;
     readonly title: string;
-    /** A fixed column beside the form, or `null` to run the full width under it. */
-    readonly width: number | null;
+    /**
+     * Legacy sizing, for the screens that still measure their own body: a fixed column beside the
+     * form, or `null` to run the full width under it. Omit it inside a `SideRailLayout` rail, which
+     * owns the width, the sticky offset and the alignment; the prop goes once the last caller does.
+     */
+    readonly width?: number | null | undefined;
     readonly rows: readonly RecordSummaryRow[];
     /** The record's bottom line, or `null` when there is none to show this reader. */
     readonly total: { readonly label: string; readonly value: string } | null;
-    readonly list: {
+    readonly list?: {
         readonly title: string;
         readonly empty: string;
         readonly items: readonly RecordSummaryListItem[];
@@ -81,8 +85,8 @@ export function RecordSummaryAside({
             testID={testID}
             role="complementary"
             aria-label={title}
-            style={width === null ? undefined : { width }}
-            className="z-auto self-start web:sticky web:top-0"
+            style={typeof width === 'number' ? { width } : undefined}
+            className={width === undefined ? 'z-auto' : 'z-auto self-start web:sticky web:top-0'}
         >
             <FormSection first variant="card" testID={`${testID}-card`} title={title}>
                 <View className="flex-col gap-base">
@@ -120,39 +124,41 @@ export function RecordSummaryAside({
                         )}
                     </View>
 
-                    <View className="flex-col gap-snug border-t border-stroke-subtle pt-base">
-                        <Text variant="strong">{list.title}</Text>
-                        {list.items.length === 0 ? (
-                            <Text variant="caption" tone="secondary" testID={list.emptyTestID}>
-                                {list.empty}
-                            </Text>
-                        ) : (
-                            <View testID={list.testID} className="flex-col gap-hair">
-                                {list.items.map((item) => (
-                                    <View
-                                        key={item.key}
-                                        testID={item.testID}
-                                        className="flex-row items-baseline justify-between gap-tight"
-                                    >
-                                        <Text
-                                            variant="caption"
-                                            numberOfLines={1}
-                                            className="min-w-0 shrink"
+                    {list === undefined ? null : (
+                        <View className="flex-col gap-snug border-t border-stroke-subtle pt-base">
+                            <Text variant="strong">{list.title}</Text>
+                            {list.items.length === 0 ? (
+                                <Text variant="caption" tone="secondary" testID={list.emptyTestID}>
+                                    {list.empty}
+                                </Text>
+                            ) : (
+                                <View testID={list.testID} className="flex-col gap-hair">
+                                    {list.items.map((item) => (
+                                        <View
+                                            key={item.key}
+                                            testID={item.testID}
+                                            className="flex-row items-baseline justify-between gap-tight"
                                         >
-                                            {item.name}
-                                        </Text>
-                                        <Text
-                                            variant="caption"
-                                            tone={item.tone ?? 'secondary'}
-                                            className="font-semibold tabular-nums"
-                                        >
-                                            {item.value}
-                                        </Text>
-                                    </View>
-                                ))}
-                            </View>
-                        )}
-                    </View>
+                                            <Text
+                                                variant="caption"
+                                                numberOfLines={1}
+                                                className="min-w-0 shrink"
+                                            >
+                                                {item.name}
+                                            </Text>
+                                            <Text
+                                                variant="caption"
+                                                tone={item.tone ?? 'secondary'}
+                                                className="font-semibold tabular-nums"
+                                            >
+                                                {item.value}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+                    )}
 
                     {note}
                 </View>

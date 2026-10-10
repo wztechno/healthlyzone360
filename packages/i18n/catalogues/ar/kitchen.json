@@ -2763,7 +2763,10 @@
         "stepsLabel": "خطوات النموذج",
         "previous": "السابق",
         "next": "التالي",
-        "stepCounter": "الخطوة {{current}} من {{total}} · {{label}}"
+        "stepCounter": "الخطوة {{current}} من {{total}} · {{label}}",
+        "summaryTitle": "الملخّص",
+        "reviewTitle": "بنود للمراجعة",
+        "reviewNothing": "لا شيء للمراجعة"
     },
     "bilingual": {
         "englishLabel": "{{field}} (بالإنجليزية)",

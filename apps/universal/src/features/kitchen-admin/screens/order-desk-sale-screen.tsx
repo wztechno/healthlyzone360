@@ -25,6 +25,7 @@ import {
     Skeleton,
     Text,
     TextInputField,
+    usePortWidth,
     useToast,
 } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -45,7 +46,6 @@ import {
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { ORDER_CREATE_ON_BEHALF_PERMISSION, ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
@@ -231,9 +231,9 @@ function Sale() {
      * The body row's width, read from the node rather than from `onLayout`: on the web `onLayout`
      * is a `ResizeObserver` that delivered one early width and nothing after it, so the tiles were
      * cut for a narrower row than the one on screen and a band of nothing opened between the last
-     * tile and the ticket. The port hook reads on mount, on resize and when the nav rail settles.
+     * tile and the ticket. The port hook reads after every commit and on the `resize` the shell fires once the nav settles.
      */
-    const port = useCataloguePort();
+    const port = usePortWidth();
     const bodyWidth = port.width;
 
     const place = usePlaceOrderDeskSaleMutation();

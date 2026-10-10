@@ -200,7 +200,6 @@ function LayoutRail({ testID }: { readonly testID: string }) {
         <RecordSummaryAside
             testID={testID}
             title="Summary"
-            width={null}
             rows={[
                 { key: 'cost', label: 'Unit cost', value: '0.0833 SAR' },
                 { key: 'basis', label: 'Basis', value: '12 × 1 kg' },

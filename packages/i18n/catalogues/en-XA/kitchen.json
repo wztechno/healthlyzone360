@@ -2472,7 +2472,10 @@
     "stepsLabel": "[[Ƒóŕɱ šţéþš āēīō]]",
     "previous": "[[Þŕéṽíóúš āēīō]]",
     "next": "[[Ñéẋţ āē]]",
-    "stepCounter": "[[Šţéþ {{current}} óƒ {{total}} · {{label}} āēīōūāēīōūāēīōūāē]]"
+    "stepCounter": "[[Šţéþ {{current}} óƒ {{total}} · {{label}} āēīōūāēīōūāēīōūāē]]",
+    "summaryTitle": "[[Šúɱɱáŕý āēī]]",
+    "reviewTitle": "[[Íţéɱš ţó ŕéṽíéŵ āēīōūā]]",
+    "reviewNothing": "[[Ñóţĥíñĝ ţó ŕéṽíéŵ āēīōūāē]]"
   },
   "bilingual": {
     "englishLabel": "[[{{field}} (Éñĝłíšĥ) āēīōūāēī]]",
