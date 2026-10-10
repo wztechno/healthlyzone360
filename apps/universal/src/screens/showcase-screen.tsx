@@ -2377,6 +2377,27 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     cards={SHOWCASE_STAT_CARDS}
                     pending
                 />
+                {/*
+                 * The kitchen overview's form: the same figures with no card chrome, columns
+                 * parted by a hairline, tone in the figure's ink and the mark only.
+                 */}
+                <Text variant="caption" tone="secondary">
+                    strip
+                </Text>
+                <CatalogueStatCards
+                    testID={id('stat-cards-strip')}
+                    appearance="strip"
+                    cards={SHOWCASE_STAT_CARDS}
+                />
+                <Text variant="caption" tone="secondary">
+                    strip, pending
+                </Text>
+                <CatalogueStatCards
+                    testID={id('stat-cards-strip-pending')}
+                    appearance="strip"
+                    cards={SHOWCASE_STAT_CARDS}
+                    pending
+                />
             </Stack>
 
             <ArrivalStory prefix={prefix} columns={catalogueColumns('list-arrival')} />

@@ -54,16 +54,8 @@
             "deliveryZones": "مناطق التوصيل",
             "lowStock": "مخزون منخفض",
             "consumptionExceptions": "نواقص المخزون",
-            "requirementShortfalls": "نقص هذا الأسبوع",
-            "lowStockReadyToOrder_zero": "لا أصناف جاهزة للطلب",
-            "lowStockReadyToOrder_one": "صنف واحد جاهز للطلب",
-            "lowStockReadyToOrder_two": "صنفان جاهزان للطلب",
-            "lowStockReadyToOrder_few": "{{count}} أصناف جاهزة للطلب",
-            "lowStockReadyToOrder_many": "{{count}} صنفًا جاهزًا للطلب",
-            "lowStockReadyToOrder_other": "{{count}} صنف جاهز للطلب"
-        },
-        "attentionTitle": "بحاجة إلى انتباه",
-        "attentionClear": "لا شيء بانتظارك الآن."
+            "requirementShortfalls": "نقص هذا الأسبوع"
+        }
     },
     "nav": {
         "railTitle": "المطبخ",

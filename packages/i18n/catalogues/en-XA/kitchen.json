@@ -38,12 +38,8 @@
       "deliveryZones": "[[Ðéłíṽéŕý žóñéš āēīōūā]]",
       "lowStock": "[[Łóŵ šţóçķ āēīō]]",
       "consumptionExceptions": "[[Šţóçķ ĝáþš āēīō]]",
-      "requirementShortfalls": "[[Šĥóŕţ ƒóŕ ţĥé ŵééķ āēīōūāēī]]",
-      "lowStockReadyToOrder_one": "[[{{count}} íţéɱ ŕéáðý ţó óŕðéŕ āēīōūāēīōūāē]]",
-      "lowStockReadyToOrder_other": "[[{{count}} íţéɱš ŕéáðý ţó óŕðéŕ āēīōūāēīōūāē]]"
-    },
-    "attentionTitle": "[[Ñééðš áţţéñţíóñ āēīōūā]]",
-    "attentionClear": "[[Ñóţĥíñĝ íš ŵáíţíñĝ óñ ýóú ŕíĝĥţ ñóŵ. āēīōūāēīōūāēīōū]]"
+      "requirementShortfalls": "[[Šĥóŕţ ƒóŕ ţĥé ŵééķ āēīōūāēī]]"
+    }
   },
   "nav": {
     "railTitle": "[[Ķíţçĥéñ āēī]]",

@@ -38,12 +38,8 @@
             "deliveryZones": "Delivery zones",
             "lowStock": "Low stock",
             "consumptionExceptions": "Stock gaps",
-            "requirementShortfalls": "Short for the week",
-            "lowStockReadyToOrder_one": "{{count}} item ready to order",
-            "lowStockReadyToOrder_other": "{{count}} items ready to order"
-        },
-        "attentionTitle": "Needs attention",
-        "attentionClear": "Nothing is waiting on you right now."
+            "requirementShortfalls": "Short for the week"
+        }
     },
     "nav": {
         "railTitle": "Kitchen",
