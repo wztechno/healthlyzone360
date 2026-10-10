@@ -1601,6 +1601,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         <View
                             className="z-auto"
                             style={{
+                                // eslint-disable-next-line no-restricted-syntax -- the field region *is* the row beside the photo; the FormGrid inside keeps its fixed tracks.
                                 flexGrow: 1,
                                 flexShrink: 1,
                                 flexBasis: spanWidth(4, HALF_TRACK_WIDTH),
@@ -1608,7 +1609,6 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                             }}
                         >
                             <FormGrid
-                                fit
                                 track="half"
                                 {...(family.food ? { maxColumns: 4 } : {})}
                                 testID="kitchen-ingredient-identity-grid"
@@ -1715,7 +1715,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         family.food ? 'kitchen:editor.sectionMeasurement' : 'kitchen:forms.pack',
                     )}
                 >
-                    <FormGrid fit track="half" testID="kitchen-ingredient-measurement-grid">
+                    <FormGrid track="half" testID="kitchen-ingredient-measurement-grid">
                         {unitFields}
 
                         {/*
@@ -1796,7 +1796,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         testID="kitchen-ingredient-cost"
                         title={t('kitchen:forms.cost')}
                     >
-                        <FormGrid fit track="half" testID="kitchen-ingredient-cost-grid">
+                        <FormGrid track="half" testID="kitchen-ingredient-cost-grid">
                             <QuantityInput
                                 testID="kitchen-ingredient-pack-price"
                                 id="kitchen-ingredient-pack-price"
@@ -1886,7 +1886,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                              * keeps the prices it had, and re-listing it is one switch.
                              */}
                             {details.isSellable ? (
-                                <FormGrid fit track="half" testID="kitchen-ingredient-sale-grid">
+                                <FormGrid track="half" testID="kitchen-ingredient-sale-grid">
                                     <QuantityInput
                                         testID="kitchen-ingredient-b2b-price"
                                         id="kitchen-ingredient-b2b-price"
@@ -2020,7 +2020,6 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 />
 
                                 <FormGrid
-                                    fit
                                     track="half"
                                     maxColumns={4}
                                     testID="kitchen-ingredient-nutrition-note-grid"

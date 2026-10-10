@@ -522,6 +522,7 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                      * density is a floor — so a 28px box in a 28px row sat on both hairlines and
                      * met the next row's box.
                      */
+                    // eslint-disable-next-line no-restricted-syntax -- the cell's content *is* its DataList track; the quantity column's declared width is the input's width.
                     <View className="min-w-0 flex-1 py-tight">
                         <QuantityInput
                             testID={`${testID}-quantity`}
@@ -791,7 +792,7 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
 
                                 {/* Under the rows it joins, as the builder's "Add something else". */}
                                 {editable ? (
-                                    <View className="z-tooltip w-full max-w-field">
+                                    <View className="z-tooltip w-field max-w-full">
                                         <Select
                                             testID="kitchen-supply-order-detail-add-line"
                                             label={t('kitchen:ops.supplyOrders.addLineLabel')}

@@ -1225,12 +1225,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                         testID="kitchen-plan-identity"
                         title={t('kitchen:forms.description')}
                     >
-                        <FormGrid
-                            fit
-                            track="half"
-                            maxColumns={4}
-                            testID="kitchen-plan-identity-grid"
-                        >
+                        <FormGrid track="half" maxColumns={4} testID="kitchen-plan-identity-grid">
                             <BilingualField
                                 span={4}
                                 layout="row"

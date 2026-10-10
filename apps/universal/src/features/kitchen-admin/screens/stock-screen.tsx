@@ -1129,7 +1129,7 @@ function StockMovementEditor({
                             title={t('kitchen:ops.stock.sectionThreshold')}
                             description={t('kitchen:ops.stock.thresholdNote')}
                         >
-                            <FormGrid fit testID="kitchen-stock-threshold-grid">
+                            <FormGrid testID="kitchen-stock-threshold-grid">
                                 <TextInputField
                                     testID="kitchen-stock-threshold-value"
                                     label={t('kitchen:ops.stock.fieldThreshold')}
@@ -1170,7 +1170,7 @@ function StockMovementEditor({
                             title={t('kitchen:ops.stock.sectionMovement')}
                             description={t('kitchen:ops.stock.ledgerNote')}
                         >
-                            <FormGrid fit testID="kitchen-stock-movement-grid">
+                            <FormGrid testID="kitchen-stock-movement-grid">
                                 <Select<MovementDirection>
                                     testID="kitchen-stock-movement-direction"
                                     label={t('kitchen:ops.stock.direction')}

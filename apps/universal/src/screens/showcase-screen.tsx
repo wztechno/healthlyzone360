@@ -187,7 +187,7 @@ function LayoutCard({
 }) {
     return (
         <FormSection testID={id} variant="card" title={title}>
-            <FormGrid fit testID={`${id}-grid`}>
+            <FormGrid testID={`${id}-grid`}>
                 <LayoutFields prefix={id} count={fields} />
             </FormGrid>
         </FormSection>
@@ -4749,7 +4749,7 @@ export function ShowcaseScreen() {
                         Fitted form grid
                     </Text>
                     <View style={{ width: 620, maxWidth: '100%' }}>
-                        <FormGrid fit testID="showcase-kitchen-fit-grid">
+                        <FormGrid testID="showcase-kitchen-fit-grid">
                             <LayoutFields prefix="showcase-kitchen-fit" count={4} />
                         </FormGrid>
                     </View>
@@ -4773,7 +4773,6 @@ export function ShowcaseScreen() {
                             }}
                         >
                             <FormGrid
-                                fit
                                 track="half"
                                 maxColumns={4}
                                 testID="showcase-kitchen-fit-half-grid"

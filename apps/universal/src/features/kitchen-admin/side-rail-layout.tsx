@@ -56,6 +56,7 @@ export function SideRailLayout({
             <View
                 testID={`${testID}-main`}
                 className="z-auto min-w-0 flex-col gap-base"
+                // eslint-disable-next-line no-restricted-syntax -- the main column *is* the row: every pixel of slack beside the fixed rail goes here.
                 style={{ flexBasis: mainBasis, flexGrow: 1, flexShrink: 1 }}
             >
                 {main}
@@ -66,6 +67,7 @@ export function SideRailLayout({
                     'z-auto min-w-0 flex-col gap-base',
                     sticky && !stacked ? 'web:sticky web:top-0 self-start' : null,
                 )}
+                // eslint-disable-next-line no-restricted-syntax -- flexGrow 0 is the guarantee the rail never takes slack.
                 style={{ flexBasis: stacked ? '100%' : asideWidth, flexGrow: 0, flexShrink: 0 }}
             >
                 {rail}

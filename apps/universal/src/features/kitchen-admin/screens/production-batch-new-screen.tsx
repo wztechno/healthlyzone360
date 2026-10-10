@@ -554,7 +554,7 @@ function ProductionBatchNew() {
                                      * hints: the summary beside the form names the version and what
                                      * the figure makes.
                                      */}
-                                    <FormGrid fit track="half">
+                                    <FormGrid track="half">
                                         <Select
                                             span={2}
                                             testID="kitchen-production-batch-new-recipe"
@@ -695,7 +695,7 @@ function ProductionBatchNew() {
                                         </GridCell>
                                     </FormGrid>
 
-                                    <FormGrid fit track="half">
+                                    <FormGrid track="half">
                                         <TextInputField
                                             span={4}
                                             testID="kitchen-production-batch-new-notes"
@@ -1021,9 +1021,11 @@ function NextSteps() {
                                     }
                                 />
                                 {last ? null : (
+                                    // eslint-disable-next-line no-restricted-syntax -- the timeline connector fills the step's height, not a width.
                                     <View className="mt-1 w-px flex-1 bg-stroke-subtle" />
                                 )}
                             </View>
+                            {/* eslint-disable-next-line no-restricted-syntax -- the step's text column is the row's filler beside the timeline. */}
                             <View className="min-w-0 flex-1 flex-col pb-tight">
                                 <Text variant="label" tone={current ? 'primary' : 'secondary'}>
                                     {t(productionStatusKey(status))}

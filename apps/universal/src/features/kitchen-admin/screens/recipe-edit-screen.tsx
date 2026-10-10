@@ -1951,6 +1951,7 @@ function RecipeEditor({
                                 <View
                                     className="z-auto"
                                     style={{
+                                        // eslint-disable-next-line no-restricted-syntax -- the field region *is* the row beside the photo; the FormGrid inside keeps its fixed tracks.
                                         flexGrow: 1,
                                         flexShrink: 1,
                                         flexBasis: spanWidth(4, HALF_TRACK_WIDTH),
@@ -1958,7 +1959,6 @@ function RecipeEditor({
                                     }}
                                 >
                                     <FormGrid
-                                        fit
                                         track="half"
                                         maxColumns={4}
                                         testID="kitchen-recipe-identity-grid"
@@ -2257,7 +2257,7 @@ function RecipeEditor({
                             testID="kitchen-recipe-yield"
                             title={t('kitchen:forms.yieldAndWaste')}
                         >
-                            <FormGrid fit track="half" testID="kitchen-recipe-yield-grid">
+                            <FormGrid track="half" testID="kitchen-recipe-yield-grid">
                                 {/*
                                  * The unit rides on the field as a suffix rather than sitting in a
                                  * picker beside it. Every recipe in this kitchen yields a mass, the cost
@@ -2353,7 +2353,7 @@ function RecipeEditor({
                             testID="kitchen-recipe-packaging-coefficients"
                             title={t('kitchen:forms.expiryAndWaste')}
                         >
-                            <FormGrid fit track="half" testID="kitchen-recipe-packaging-waste-grid">
+                            <FormGrid track="half" testID="kitchen-recipe-packaging-waste-grid">
                                 {/*
                                  * How long a packed batch keeps — a property of the pack as much as of
                                  * the formulation, so it sits with the packaging. The recipe's, so it
@@ -2553,11 +2553,7 @@ function RecipeEditor({
                                     />
                                 ) : null}
 
-                                <FormGrid
-                                    fit
-                                    track="half"
-                                    testID="kitchen-recipe-coefficients-grid"
-                                >
+                                <FormGrid track="half" testID="kitchen-recipe-coefficients-grid">
                                     <QuantityInput
                                         testID="kitchen-recipe-b2b-price"
                                         id="kitchen-recipe-b2b-price"
@@ -2899,6 +2895,7 @@ function RecipeEditor({
                                                         : 'text-warning-strong'
                                                 }
                                             />
+                                            {/* eslint-disable-next-line no-restricted-syntax -- the check's text column is the row's filler beside its icon. */}
                                             <View className="min-w-0 flex-1 flex-col">
                                                 <Text variant="label">{check.label}</Text>
                                                 <Text
@@ -3408,7 +3405,7 @@ function CostCascade({
     const drawn = [...cards, ...packagingCards];
 
     return (
-        <FormGrid fit testID={testID}>
+        <FormGrid testID={testID}>
             {drawn.map((card) => (
                 <CostCard
                     key={card.key}
@@ -3616,7 +3613,7 @@ function PackageCosts({
 
     return (
         <Stack space="sm">
-            <FormGrid fit testID={`${testID}-grid`}>
+            <FormGrid testID={`${testID}-grid`}>
                 {cards.map((card) => (
                     <CostCard
                         key={card.key}

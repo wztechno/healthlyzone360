@@ -998,7 +998,7 @@ function ProductEditor({
     );
 
     const identityFields = (
-        <FormGrid fit track="half" maxColumns={4} testID="kitchen-product-identity-grid">
+        <FormGrid track="half" maxColumns={4} testID="kitchen-product-identity-grid">
             {/*
              * One `BilingualField` rather than two inputs, because that component owns the
              * per-language writing direction; `row` puts the halves side by side inside the four
@@ -1260,6 +1260,7 @@ function ProductEditor({
                             <View
                                 className="z-auto"
                                 style={{
+                                    // eslint-disable-next-line no-restricted-syntax -- the field region *is* the row beside the photo; the FormGrid inside keeps its fixed tracks.
                                     flexGrow: 1,
                                     flexShrink: 1,
                                     flexBasis: spanWidth(4, HALF_TRACK_WIDTH),
@@ -1346,7 +1347,7 @@ function ProductEditor({
                          */}
                         {canReadUnits ? (
                             <Stack space="xs">
-                                <FormGrid fit track="half" testID="kitchen-product-sale-grid">
+                                <FormGrid track="half" testID="kitchen-product-sale-grid">
                                     <QuantityInput
                                         testID="kitchen-product-net-content"
                                         id="kitchen-product-net-content"

@@ -353,6 +353,7 @@ function SupplyOrderBuilder() {
                 render: (row) => {
                     const testID = supplyOrderRowTestId(String(row.stockItemId));
                     return (
+                        // eslint-disable-next-line no-restricted-syntax -- the cell's content *is* its DataList track; the column's declared width sizes it.
                         <View className="min-w-0 flex-1 flex-col py-1">
                             <View className="min-w-0 flex-row items-center gap-hair">
                                 <Text variant="strong" numberOfLines={1} testID={`${testID}-name`}>
@@ -425,6 +426,7 @@ function SupplyOrderBuilder() {
                         reading.issue !== null && ERROR_ISSUES.has(reading.issue) && value !== '';
 
                     return (
+                        // eslint-disable-next-line no-restricted-syntax -- the cell's content *is* its DataList track; the column's declared width (grow: false) is the input's width.
                         <View className="min-w-0 flex-1">
                             <QuantityInput
                                 testID={`${testID}-quantity`}
@@ -524,7 +526,9 @@ function SupplyOrderBuilder() {
                 );
 
                 return (
+                    // eslint-disable-next-line no-restricted-syntax -- the cell's content *is* its DataList track; the column's declared width sizes it.
                     <View className="min-w-0 flex-1 flex-row items-center gap-hair py-hair">
+                        {/* eslint-disable-next-line no-restricted-syntax -- the picker takes the supplier cell's remainder beside its badge; the DataList column sizes the cell. */}
                         <View className="min-w-0 flex-1">
                             <Select
                                 testID={`${testID}-supplier-select`}
@@ -585,6 +589,7 @@ function SupplyOrderBuilder() {
                 );
 
                 return (
+                    // eslint-disable-next-line no-restricted-syntax -- the cell's content *is* its DataList track; the column's declared width sizes it.
                     <View className="min-w-0 flex-1 flex-col gap-hair py-1">
                         {/*
                          * The two reasons get different words because they have different fixes: a
@@ -751,7 +756,7 @@ function SupplyOrderBuilder() {
                              */}
                             <View
                                 testID="kitchen-supply-order-add"
-                                className="z-tooltip w-full max-w-field"
+                                className="z-tooltip w-field max-w-full"
                             >
                                 <Select
                                     testID="kitchen-supply-order-add-select"

@@ -859,7 +859,6 @@ function PostReceipt() {
                                         )
                                     ) : null}
                                     <FormGrid
-                                        fit
                                         maxColumns={2}
                                         testID="kitchen-post-receipt-details-grid"
                                     >
@@ -951,6 +950,7 @@ function PostReceipt() {
                                 testID="kitchen-post-receipt-lines"
                                 title={t('kitchen:ops.procurement.linesSection')}
                                 aside={
+                                    // eslint-disable-next-line no-restricted-syntax -- the header aside *is* the row: it spreads the count and badge over the header's remaining width.
                                     <View className="min-w-0 flex-1 flex-row items-center justify-between gap-tight">
                                         <Text
                                             variant="caption"
@@ -1209,7 +1209,7 @@ function PostReceipt() {
                      * picker whose answer changes nothing is a question that should not be asked.
                      * The line under the fields says so instead.
                      */}
-                    <FormGrid fit maxColumns={2} testID="kitchen-procurement-supplier-grid">
+                    <FormGrid maxColumns={2} testID="kitchen-procurement-supplier-grid">
                         <TextInputField
                             testID="kitchen-procurement-supplier-name"
                             label={t('kitchen:ops.procurement.fieldSupplierName')}
