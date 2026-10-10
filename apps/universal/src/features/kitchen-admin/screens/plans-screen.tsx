@@ -217,6 +217,8 @@ function PlansList() {
             label: t('kitchen:plans.columnDurations'),
             width: 130,
             priority: 60,
+            // A count, not prose; `prices` below is a coverage count too.
+            grow: false,
             value: (row) => durationsText(row, t),
             sort: (left, right, direction) =>
                 compareNumber(
@@ -238,6 +240,7 @@ function PlansList() {
             label: t('kitchen:plans.columnPrices'),
             width: 150,
             priority: 80,
+            grow: false,
             value: pricesText,
             // By how much is confirmed. A plan still "checking" is not "nothing priced", so while
             // the price lists are loading it sorts last either way rather than as a zero.
@@ -303,6 +306,7 @@ function PlansList() {
             label: t('kitchen:list.columnUpdated'),
             width: 160,
             priority: 20,
+            grow: false,
             value: (row) => updatedText(row),
             sort: (left, right, direction) =>
                 compareText(left.meta.updatedAt, right.meta.updatedAt, direction),

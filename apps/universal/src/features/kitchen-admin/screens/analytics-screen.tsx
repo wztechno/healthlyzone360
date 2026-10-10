@@ -169,6 +169,8 @@ function AnalyticsDashboard() {
             label: t('kitchen:analytics.table.completion'),
             width: 64,
             priority: 50,
+            // A figure, frozen as `metric` columns are; `avg` below too.
+            grow: false,
             sort: (left, right, direction) =>
                 compareNumber(left.completionPercent, right.completionPercent, direction),
             render: (row) => (
@@ -182,6 +184,7 @@ function AnalyticsDashboard() {
             label: t('kitchen:analytics.table.avgMinutes'),
             width: 76,
             priority: 45,
+            grow: false,
             sort: (left, right, direction) =>
                 compareNumber(left.avgMinutes, right.avgMinutes, direction),
             render: (row) => <Text variant="mono">{formatter.formatNumber(row.avgMinutes)}</Text>,
@@ -191,6 +194,7 @@ function AnalyticsDashboard() {
             label: t('kitchen:analytics.table.updated'),
             width: 110,
             priority: 20,
+            grow: false,
             // Oldest first when ascending, as a timestamp sorts: the label is "5h ago", so the
             // larger the hours, the earlier the change.
             sort: (left, right, direction) =>

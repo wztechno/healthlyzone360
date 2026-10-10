@@ -183,6 +183,7 @@ function PriceListsList() {
             label: t('kitchen:priceLists.columnCurrency'),
             width: 80,
             priority: 70,
+            grow: false,
             value: (row) => row.currency,
             sort: (left, right, direction) => compareText(left.currency, right.currency, direction),
             render: (row) => (
@@ -290,6 +291,7 @@ function PriceListsList() {
             label: t('kitchen:list.columnUpdated'),
             width: 110,
             priority: 20,
+            grow: false,
             value: (row) => formatter.formatRelativeTime(row.meta.updatedAt),
             sort: (left, right, direction) =>
                 compareText(left.meta.updatedAt, right.meta.updatedAt, direction),

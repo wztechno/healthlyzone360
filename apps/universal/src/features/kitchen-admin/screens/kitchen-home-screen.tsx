@@ -964,7 +964,7 @@ export function KitchenHomeScreen() {
                                         <Heading level={3} className="text-content-secondary">
                                             {t(GROUP_LABEL_KEYS[group])}
                                         </Heading>
-                                        <View className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+                                        <View className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
                                             {groupFamilies.map((family) => (
                                                 <View key={family.key} className="min-w-0">
                                                     {renderFamilyCard(family, summaries)}

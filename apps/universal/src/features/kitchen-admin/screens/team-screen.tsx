@@ -192,6 +192,7 @@ function PendingInvitations({ invitations }: { readonly invitations: readonly St
             label: t('accessAdmin:team.invitations.columnExpires'),
             width: 140,
             priority: 60,
+            grow: false,
             value: (row) => formatter.formatDate(row.expiresAt, { dateStyle: 'medium' }),
             render: (row) => (
                 <Text tone="secondary" testID={`kitchen-team-invitation-${row.id}-expires`}>
@@ -439,6 +440,7 @@ function TeamList() {
             label: t('accessAdmin:team.columns.joined'),
             width: 130,
             priority: 40,
+            grow: false,
             value: joinedText,
             sort: (left, right, direction) => compareText(left.joinedAt, right.joinedAt, direction),
             render: (row) => (

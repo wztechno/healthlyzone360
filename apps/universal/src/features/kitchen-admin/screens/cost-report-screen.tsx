@@ -218,6 +218,8 @@ function CostReport() {
                 label: t(`kitchen:ops.costReport.${labelKey}`),
                 width: 110,
                 priority,
+                // Figures, frozen as `metric` columns are; the two margins below too.
+                grow: false,
                 sort: (left, right, direction) =>
                     compareNumber(Number(read(left) ?? 0), Number(read(right) ?? 0), direction),
                 render: (row) => <Text variant="mono">{amount(read(row))}</Text>,
@@ -261,6 +263,7 @@ function CostReport() {
             label: t('kitchen:ops.costReport.columnEstimatedMargin'),
             width: 110,
             priority: 55,
+            grow: false,
             sort: (left, right, direction) =>
                 compareNumber(
                     Number(left.estimatedMarginAmount ?? 0),
@@ -282,6 +285,7 @@ function CostReport() {
             label: t('kitchen:ops.costReport.columnMarginPercent'),
             width: 90,
             priority: 50,
+            grow: false,
             sort: (left, right, direction) =>
                 compareNumber(
                     Number(left.grossMarginPercent ?? 0),

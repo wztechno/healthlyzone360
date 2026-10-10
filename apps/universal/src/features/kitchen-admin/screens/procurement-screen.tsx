@@ -208,6 +208,7 @@ function Procurement() {
             label: t('kitchen:ops.procurement.columnRefs'),
             width: 190,
             priority: 60,
+            grow: false,
             value: (row) => refsText(row, t),
             // The delivery note first, then the invoice number — the order the cell reads in.
             sort: (left, right, direction) => {

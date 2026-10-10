@@ -191,6 +191,7 @@ function OrderDeskCashReport() {
             label: t('kitchen:ops.cashReport.columnCurrency'),
             width: 80,
             priority: 70,
+            grow: false,
             filter: {
                 values: (loaded) =>
                     [...new Set(loaded.map((row) => row.currencyCode))].map((code) => ({
@@ -210,6 +211,8 @@ function OrderDeskCashReport() {
             label: t('kitchen:ops.cashReport.columnCount'),
             width: 80,
             priority: 60,
+            // A figure, frozen as `metric` columns are.
+            grow: false,
             sort: (left, right, direction) =>
                 compareNumber(left.receiptCount, right.receiptCount, direction),
             render: (row) => (

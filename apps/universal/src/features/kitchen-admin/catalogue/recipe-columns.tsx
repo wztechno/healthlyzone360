@@ -62,19 +62,19 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
  *
  * ## The tracks, and where the numbers come from
  *
- * | column          | track | floor | priority | note                                              |
- * | --------------- | ----: | ----: | -------: | ------------------------------------------------- |
- * | Id              |    96 |    84 |       88 | mono; the seller's `SAC-` handle, else the `RC-`  |
- * | Production item |   200 |   150 |      100 | the title; never dropped; Not formulated mark     |
- * | Kind            |   120 |    96 |       75 | every kind it is sold as; no sort, no filter      |
- * | Category        |   150 |   112 |       40 | the recipe's filing word, else the seller's pair  |
- * | Allergens       |   168 |   132 |       30 | secondary, comma run, derived per row             |
- * | On sale         |   110 |    78 |       74 | badge; Published when any seller is               |
- * | Status          |   110 |    78 |       80 | badge; the recipe's own version state             |
- * | Channels        |   150 |   110 |       50 | the sellers' channels, one comma run              |
- * | Packs           |   160 |   118 |       49 | the lead pack and how many; No pack flagged       |
- * | Flags           |   132 |    96 |       29 | market-priced, assorted, import findings          |
- * | Kitchen         |   140 |   120 |       20 | sorts; the lowest rung, so it drops first         |
+ * | column          | track | floor | priority | grows | note                                              |
+ * | --------------- | ----: | ----: | -------: | :---: | ------------------------------------------------- |
+ * | Id              |    96 |    84 |       88 |    no | mono; the seller's `SAC-` handle, else the `RC-`  |
+ * | Production item |   200 |   150 |      100 |   yes | the title; never dropped; Not formulated mark     |
+ * | Kind            |   120 |    96 |       75 |   yes | every kind it is sold as; no sort, no filter      |
+ * | Category        |   150 |   112 |       40 |   yes | the recipe's filing word, else the seller's pair  |
+ * | Allergens       |   168 |   132 |       30 |   yes | secondary, comma run, derived per row             |
+ * | On sale         |   110 |    78 |       74 |    no | badge; Published when any seller is               |
+ * | Status          |   110 |    78 |       80 |    no | badge; the recipe's own version state             |
+ * | Channels        |   150 |   110 |       50 |   yes | the sellers' channels, one comma run              |
+ * | Packs           |   160 |   118 |       49 |    no | the lead pack and how many; No pack flagged       |
+ * | Flags           |   132 |    96 |       29 |    no | market-priced, assorted, import findings          |
+ * | Kitchen         |   140 |   120 |       20 |   yes | sorts; the lowest rung, so it drops first         |
  *
  * Six are drawn until the reader chooses — Id, Production item, Kind, Allergens, On sale and Status
  * (the screen states them) — and the rest are a tick in the column picker away. Kind and On sale sit
@@ -337,6 +337,7 @@ export function recipeColumns({
         width: 96,
         min: 84,
         priority: CATALOGUE_PRIORITY.reference,
+        grow: false,
         role: 'meta',
         mono: true,
         sortable: true,
@@ -487,6 +488,8 @@ export function recipeColumns({
         width: 110,
         min: 78,
         priority: CATALOGUE_PRIORITY.unitPrice - 1,
+        // A badge in `meta`, so it is frozen here rather than by the `status` role.
+        grow: false,
         role: 'meta',
         badge: true,
         value: onSaleLabel,
@@ -553,6 +556,8 @@ export function recipeColumns({
         width: 160,
         min: 118,
         priority: CATALOGUE_PRIORITY.unit - 1,
+        // A figure (the product list's `metric`), so it never takes slack.
+        grow: false,
         role: 'meta',
         value: packLabel,
         render: (row) => {
@@ -594,6 +599,8 @@ export function recipeColumns({
         width: 132,
         min: 96,
         priority: CATALOGUE_PRIORITY.allergens - 1,
+        // Badges, so it holds its track as `status` does.
+        grow: false,
         value: (row) => {
             const notes = flagNotes(row.soldAs?.[0]);
             return notes.length === 0 ? dash : notes.join(', ');

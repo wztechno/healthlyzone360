@@ -175,6 +175,7 @@ function Quotations() {
             label: t('kitchen:ops.quotations.columnCurrency'),
             width: 90,
             priority: 70,
+            grow: false,
             value: (row) => row.currencyCode,
             // The currencies the queue actually carries: a code is its own label, and offering
             // one no quotation is in would be a choice that can only ever empty the list.
@@ -201,6 +202,7 @@ function Quotations() {
             label: t('kitchen:ops.quotations.columnSubmitted'),
             width: 130,
             priority: 75,
+            grow: false,
             value: (row) => submittedText(row, t, formatter),
             sort: (left, right, direction) =>
                 compareText(left.submittedAt ?? '', right.submittedAt ?? '', direction),

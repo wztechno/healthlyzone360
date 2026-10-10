@@ -286,6 +286,7 @@ function SuppliersList() {
             label: t('kitchen:ops.suppliers.fieldCurrency'),
             width: 110,
             priority: 40,
+            grow: false,
             value: (row) => row.currencyCode ?? t('kitchen:ops.suppliers.noCurrency'),
             filter: {
                 values: (rows) =>

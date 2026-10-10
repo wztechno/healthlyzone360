@@ -313,6 +313,7 @@ function Stock() {
             label: t('kitchen:ops.stock.columnUnit'),
             width: 80,
             priority: 60,
+            grow: false,
             value: (row) => row.item.unitCode,
             // The units this book actually counts in. A code is its own label — it is what the
             // cell prints.
@@ -331,6 +332,8 @@ function Stock() {
             label: t('kitchen:ops.stock.columnReorderPar'),
             width: 130,
             priority: 50,
+            // Threshold and par are figures.
+            grow: false,
             value: reorderText,
             // By the threshold, the figure that raises the alarm; par breaks a tie. A shelf with no
             // threshold sorts last both ways — it is unset, not zero.
