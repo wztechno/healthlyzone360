@@ -82,8 +82,7 @@ final class SimulateStockCommand extends Command
             return self::FAILURE;
         }
 
-        /** @var array{currency: string, not_bought: list<string>, fallback_by_category: array<string, array{0: float, 1: float}>, items: array<string, array{0: float, 1: float}>} $data */
-        $data = json_decode((string) file_get_contents(__DIR__.'/../../database/data/simulation-prices.json'), true, 512, JSON_THROW_ON_ERROR);
+        $data = $this->data();
         $currency = (string) ($organisation->default_currency_code ?? $data['currency']);
 
         if ($currency !== $data['currency']) {
@@ -185,6 +184,32 @@ final class SimulateStockCommand extends Command
     }
 
     /**
+     * The reorder point and par this command seeds for each shelf it would stock, keyed by stock item
+     * id — what a broken pair is put back to (`2026_10_10_000001_repair_stock_levels_before_checks`).
+     *
+     * @return array<string, array{threshold: numeric-string, par: numeric-string}>
+     */
+    public function seededLevels(string $organisationId): array
+    {
+        $levels = [];
+
+        foreach ($this->plan($organisationId, $this->data()) as $row) {
+            $levels[(string) $row['item']->getKey()] = ['threshold' => $row['threshold'], 'par' => $row['par']];
+        }
+
+        return $levels;
+    }
+
+    /**
+     * @return array{currency: string, not_bought: list<string>, fallback_by_category: array<string, array{0: float, 1: float}>, items: array<string, array{0: float, 1: float}>}
+     */
+    private function data(): array
+    {
+        /** @var array{currency: string, not_bought: list<string>, fallback_by_category: array<string, array{0: float, 1: float}>, items: array<string, array{0: float, 1: float}>} */
+        return json_decode((string) file_get_contents(__DIR__.'/../../database/data/simulation-prices.json'), true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    /**
      * One row per costable shelf: who supplies it, what it is received at, and where it should sit.
      *
      * @param  array{not_bought: list<string>, fallback_by_category: array<string, array{0: float, 1: float}>, items: array<string, array{0: float, 1: float}>}  $data
@@ -243,6 +268,14 @@ final class SimulateStockCommand extends Command
             $short = $hash % 8 === 0;
             $received = $short ? $onHand * 0.2 : $onHand;
             $countable = in_array($unit->dimension, ['count', 'package'], true);
+            $threshold = $this->quantity($onHand * 0.3, $countable);
+            $par = $this->quantity($onHand, $countable);
+
+            // Par must sit above the threshold. Rounding a small shelf can land both on the same
+            // figure — one piece, or the 0.001 floor — so par takes one step more.
+            if (bccomp($par, $threshold, 3) <= 0) {
+                $par = bcadd($threshold, $countable ? '1' : '0.001', $countable ? 0 : 3);
+            }
 
             $plan[] = [
                 'item' => $item,
@@ -251,8 +284,8 @@ final class SimulateStockCommand extends Command
                 'low' => $this->money($price * $drift),
                 'high' => $this->money($price * ($drift + 0.06)),
                 'half' => $this->quantity($received / 2, $countable),
-                'threshold' => $this->quantity($onHand * 0.3, $countable),
-                'par' => $this->quantity($onHand, $countable),
+                'threshold' => $threshold,
+                'par' => $par,
                 'short' => $short,
                 'guessed' => $guessed,
                 'unit' => $unit->code,
@@ -307,7 +340,10 @@ final class SimulateStockCommand extends Command
         );
     }
 
-    /** Filled only where empty, so a threshold somebody tuned survives a re-run. */
+    /**
+     * Filled only where empty, so a threshold somebody tuned survives a re-run — unless the filled pair
+     * would put par at or below the threshold, which the table refuses; then the row is left alone.
+     */
     private function thresholds(OrganisationBranch $branch, StockItem $item, string $threshold, string $par): void
     {
         $level = StockLevel::withoutTenancy()
@@ -319,10 +355,17 @@ final class SimulateStockCommand extends Command
             return;
         }
 
-        $level->forceFill([
-            'reorder_threshold' => $level->reorder_threshold ?? $threshold,
-            'par_level' => $level->par_level ?? $par,
-        ])->save();
+        $filled = [
+            'reorder_threshold' => (string) ($level->reorder_threshold ?? $threshold),
+            'par_level' => (string) ($level->par_level ?? $par),
+        ];
+
+        if (! is_numeric($filled['reorder_threshold']) || ! is_numeric($filled['par_level'])
+            || bccomp($filled['par_level'], $filled['reorder_threshold'], 4) <= 0) {
+            return;
+        }
+
+        $level->forceFill($filled)->save();
     }
 
     private function branch(string $organisationId): ?OrganisationBranch

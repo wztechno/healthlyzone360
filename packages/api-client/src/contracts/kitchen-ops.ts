@@ -148,6 +148,15 @@ export interface StockWasteRequest {
     readonly notes?: string | null | undefined;
 }
 
+/** A stock count: what the shelf holds. The server posts the difference from the ledger. */
+export interface StockCountRequest {
+    readonly branchId: BranchId;
+    readonly stockItemId: StockItemId;
+    /** Never negative, in the item's own unit. */
+    readonly countedQuantity: number;
+    readonly notes?: string | null | undefined;
+}
+
 /* ------------------------------------------------------------------------------------------------
  * Procurement (O2) — receipts-only
  * ---------------------------------------------------------------------------------------------- */
@@ -1996,6 +2005,8 @@ export interface KitchenOpsRepository {
     listStockLevels(): Promise<readonly StockLevel[]>;
     recordStockAdjustment(request: StockAdjustmentRequest): Promise<StockMovement>;
     recordStockWaste(request: StockWasteRequest): Promise<StockMovement>;
+    /** Sets the shelf to what was counted; the movement carries the difference. */
+    recordStockCount(request: StockCountRequest): Promise<StockMovement>;
     /** Sets or clears a level's reorder threshold; returns the updated level with its computed `isLow`. */
     setStockThreshold(request: SetStockThresholdRequest): Promise<StockLevel>;
     /**

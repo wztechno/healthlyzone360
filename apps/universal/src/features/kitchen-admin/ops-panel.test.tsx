@@ -269,6 +269,85 @@ describe('ops panels', () => {
         expect(repositories.kitchenOps.setStockThreshold).not.toHaveBeenCalled();
     });
 
+    it('never lets a movement take the shelf below zero, and posts a count as what was counted', async () => {
+        const { repositories } = await renderStubScreen(<StockScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    listStockItems: async () => [stockItem(1)],
+                    listStockLevels: async () => [stockLevel(1, { quantity: '4.000' })],
+                    listItemLatestPurchases: async () => [],
+                    recordStockCount: async () => ({
+                        id: 'movement-1',
+                        quantityDelta: '2.5000',
+                        reason: 'adjust' as const,
+                    }),
+                },
+                kitchenAdmin: { listIngredients: async () => page([]) },
+            },
+        });
+
+        const row = stockItemRowTestId(String(stockItem(1).id));
+        await waitFor(() => {
+            expect(screen.getByTestId(`${row}-adjust`)).toBeTruthy();
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${row}-adjust`));
+        });
+
+        const choose = async (direction: string) => {
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-stock-movement-direction-trigger'));
+            });
+            await act(async () => {
+                fireEvent.press(
+                    screen.getByTestId(`kitchen-stock-movement-direction-option-${direction}`),
+                );
+            });
+        };
+        const type = async (testID: string, text: string) => {
+            await act(async () => {
+                fireEvent.changeText(screen.getByTestId(testID), text);
+            });
+        };
+
+        // Wasting more than the four kilograms on the shelf is refused before it is posted.
+        await choose('waste');
+        await type('kitchen-stock-movement-quantity-input', '5');
+        expect(screen.getByTestId('kitchen-stock-movement-quantity-error')).toHaveTextContent(
+            /Only 4 kg is on the shelf/,
+        );
+        expect(screen.getByTestId('kitchen-stock-editor-save')).toBeDisabled();
+
+        // A restock level at or below the threshold is refused too.
+        await type('kitchen-stock-threshold-value-input', '10');
+        await type('kitchen-stock-threshold-par-input', '10');
+        expect(screen.getByTestId('kitchen-stock-threshold-par-error')).toHaveTextContent(
+            /must be above the reorder threshold/,
+        );
+        await type('kitchen-stock-threshold-value-input', '');
+        await type('kitchen-stock-threshold-par-input', '');
+
+        // A count states the shelf; the server posts the difference.
+        await choose('count');
+        await type('kitchen-stock-movement-quantity-input', '6.5');
+        expect(screen.queryByTestId('kitchen-stock-movement-quantity-error')).toBeNull();
+        expect(screen.getByTestId('kitchen-stock-editor-summary-movement')).toHaveTextContent(
+            /\+2\.5 kg/,
+        );
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-stock-editor-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenOps.recordStockCount).toHaveBeenCalledWith(
+                expect.objectContaining({ stockItemId: stockItem(1).id, countedQuantity: 6.5 }),
+            );
+        });
+        expect(repositories.kitchenOps.recordStockWaste).not.toHaveBeenCalled();
+        expect(repositories.kitchenOps.recordStockAdjustment).not.toHaveBeenCalled();
+    });
+
     it('shows an honest empty state for each book when the world has neither', async () => {
         await renderStubScreen(<StockScreen />, {
             session: kitchenManagerSession(),

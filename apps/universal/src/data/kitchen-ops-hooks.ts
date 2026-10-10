@@ -42,6 +42,7 @@ import type {
     StockLevel,
     StockMovement,
     StockWasteRequest,
+    StockCountRequest,
     Supplier,
     SupplierContact,
     SupplierDetail,
@@ -193,6 +194,22 @@ export function useRecordStockWasteMutation(): UseMutationResult<
     return useMutation({
         mutationFn: (request: StockWasteRequest) =>
             repositories.kitchenOps.recordStockWaste(request),
+        onSuccess: onWritten,
+    });
+}
+
+/** A stock count: the shelf is set to what was counted, and the movement carries the difference. */
+export function useRecordStockCountMutation(): UseMutationResult<
+    StockMovement,
+    unknown,
+    StockCountRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: StockCountRequest) =>
+            repositories.kitchenOps.recordStockCount(request),
         onSuccess: onWritten,
     });
 }

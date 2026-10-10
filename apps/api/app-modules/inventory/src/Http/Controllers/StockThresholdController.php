@@ -11,6 +11,7 @@ use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 /**
  * PATCH /api/v1/catalogue/inventory/threshold.
@@ -42,7 +43,7 @@ final class StockThresholdController
             'par_level' => ['sometimes', 'nullable', 'numeric', 'min:0'],
         ]);
 
-        $level = StockLevel::query()->firstOrCreate(
+        $level = StockLevel::query()->firstOrNew(
             ['branch_id' => $validated['branch_id'], 'stock_item_id' => $validated['stock_item_id']],
             ['organisation_id' => $context->organisationId(), 'quantity' => '0'],
         );
@@ -57,6 +58,18 @@ final class StockThresholdController
             $rawParLevel = $validated['par_level'];
             $level->par_level = is_numeric($rawParLevel) ? (string) $rawParLevel : null;
         }
+
+        // Par is what a supply order restocks to, so it must sit above the point
+        // that raised the alarm — restocking to the threshold itself leaves the
+        // shelf low again the moment it is booked in. Checked against the stored
+        // par when the request leaves it out; the CHECK on the table backs it.
+        $par = is_numeric($level->par_level) ? (string) $level->par_level : null;
+        if ($threshold !== null && $par !== null && bccomp($par, $threshold, 4) <= 0) {
+            throw ValidationException::withMessages([
+                'par_level' => 'The restock level must be above the reorder threshold.',
+            ]);
+        }
+
         $level->save();
 
         $this->audit->record(
@@ -68,6 +81,7 @@ final class StockThresholdController
                 'branch_id' => $level->branch_id,
                 'stock_item_id' => $level->stock_item_id,
                 'reorder_threshold' => $threshold,
+                'par_level' => $par,
             ],
         );
 

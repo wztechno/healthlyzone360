@@ -14,6 +14,8 @@ use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Tenancy\TenantContext;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 
 /*
 |--------------------------------------------------------------------------
@@ -119,12 +121,34 @@ it('lets a consume take the level to exactly zero, then refuses the next crumb',
     expect(fn () => move($this, 'consume', '-0.0001'))->toThrow(InsufficientStock::class);
 });
 
-it('permits adjust and waste to go negative — they are corrections, not consumption', function (): void {
-    move($this, 'waste', '-3');
-    expect(currentLevel($this))->toBe('-3.0000');
+it('refuses adjust and waste below zero too — a short shelf is recorded as a count', function (): void {
+    move($this, 'receipt', '4');
 
-    move($this, 'adjust', '-2');
-    expect(currentLevel($this))->toBe('-5.0000');
+    expect(fn () => move($this, 'waste', '-4.0001'))->toThrow(InsufficientStock::class)
+        ->and(fn () => move($this, 'adjust', '-5'))->toThrow(InsufficientStock::class)
+        ->and(currentLevel($this))->toBe('4.0000')
+        ->and(StockMovement::withoutTenancy()->where('stock_item_id', $this->item->getKey())->count())->toBe(1);
+
+    $count = $this->service->recordCount(
+        (string) $this->organisation->getKey(),
+        (string) $this->branch->getKey(),
+        (string) $this->item->getKey(),
+        '1.25',
+    );
+
+    expect((string) $count->quantity_delta)->toBe('-2.7500')
+        ->and($count->reason)->toBe('adjust')
+        ->and(currentLevel($this))->toBe('1.2500');
+});
+
+it('refuses a negative level at the table, whatever writes it', function (): void {
+    move($this, 'receipt', '1');
+
+    // Inside its own savepoint, so the refused statement does not abort the test's transaction.
+    expect(fn () => DB::transaction(
+        fn () => StockLevel::query()->where('stock_item_id', $this->item->getKey())->update(['quantity' => '-1']),
+    ))->toThrow(QueryException::class)
+        ->and(currentLevel($this))->toBe('1.0000');
 });
 
 it('reads the current persisted balance on every movement and keeps fractional quantities exact', function (): void {

@@ -3402,6 +3402,13 @@ export const zStockAdjustmentRequest = z.object({
     notes: z.string().max(255).nullish()
 });
 
+export const zStockCountRequest = z.object({
+    branch_id: zUuid,
+    stock_item_id: zUuid,
+    counted_quantity: z.number().gte(0),
+    notes: z.string().max(255).nullish()
+});
+
 export const zStockWasteRequest = z.object({
     branch_id: zUuid,
     stock_item_id: zUuid,
@@ -12431,6 +12438,18 @@ export const zRecordStockWasteHeaders = z.object({
  * The waste was recorded and the level reduced.
  */
 export const zRecordStockWasteResponse = zStockMovementEnvelope;
+
+export const zRecordStockCountBody = zStockCountRequest;
+
+export const zRecordStockCountHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The count was recorded and the level set to it.
+ */
+export const zRecordStockCountResponse = zStockMovementEnvelope;
 
 export const zListSuppliersHeaders = z.object({
     'X-Organisation-Id': zUuid,

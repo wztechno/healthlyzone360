@@ -9026,6 +9026,10 @@ paths:
         POST because it edits a level's property in place and is idempotent,
         where an adjustment or a waste appends a movement.
 
+        When both are set, `par_level` must be above `reorder_threshold` —
+        checked against the stored par when the request leaves it out —
+        or the request is refused `422` on `par_level`.
+
         Requires `inventory.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -9066,6 +9070,10 @@ paths:
         than `X-Branch-Id`, because the movement this writes is
         organisation data, not a header-scoped read.
 
+        A lowering correction may not take the shelf below zero:
+        `409 inventory.insufficient_stock`. A shelf that holds less than
+        the ledger says is recorded with `POST .../inventory/counts`.
+
         Requires `inventory.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -9090,6 +9098,8 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '429':
@@ -9106,6 +9116,10 @@ paths:
         split as `POST .../production/orders/{productionOrder}/complete`'s
         `consumes`.
 
+        Waste may not exceed what is on the shelf:
+        `409 inventory.insufficient_stock`. If the shelf really held more
+        than the ledger says, record a count first.
+
         Requires `inventory.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -9119,6 +9133,49 @@ paths:
       responses:
         '201':
           description: The waste was recorded and the level reduced.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/counts:
+    post:
+      operationId: recordStockCount
+      tags:
+        - Kitchen inventory & production
+      summary: Record a stock count
+      description: |
+        States what the shelf holds. The server takes the difference from
+        the ledger under the level's row lock and posts it as an `adjust`
+        movement, so the shelf ends on the counted figure even if a sale
+        landed while the count was being typed. A count that matches the
+        ledger posts a zero movement — the stock-take is still recorded.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockCountRequest'
+      responses:
+        '201':
+          description: The count was recorded and the level set to it.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/XCorrelationId'
@@ -32436,6 +32493,27 @@ components:
         quantity_delta:
           type: number
           description: Signed — a correction that raises the level is positive, one that lowers it is negative.
+        notes:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+      additionalProperties: false
+    StockCountRequest:
+      type: object
+      required:
+        - branch_id
+        - stock_item_id
+        - counted_quantity
+      properties:
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        counted_quantity:
+          type: number
+          minimum: 0
+          description: What the shelf holds, in the item's own unit. The server posts the difference from the ledger.
         notes:
           type:
             - string

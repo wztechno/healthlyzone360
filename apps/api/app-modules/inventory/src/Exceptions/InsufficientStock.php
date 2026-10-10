@@ -8,17 +8,15 @@ use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 
 /**
- * A `consume` movement would drive a branch stock level below zero (INV1.0).
+ * A movement would drive a branch stock level below zero (INV1.0).
  *
- * The guard is on `consume` alone. `adjust` and `waste` are explicit human
- * corrections that may legitimately take a level negative — a stock count that
- * comes up short is a real negative, and refusing to record it would hide the
- * discrepancy rather than surface it. A consume is different: it is the system
- * asserting that stock left the shelf to make something, and asserting that
- * more left than was ever there is not a correction, it is a wrong number that
- * would then be valued as COGS. So it is refused, and the caller is told the
- * arithmetic — what was available and what was asked for — rather than a bare
- * "no".
+ * A `consume` is held to available stock (on hand less other holders' claims);
+ * every other movement — an adjustment, a waste — to on-hand. Taking more off a
+ * shelf than was ever on it is a wrong number that would then be valued as COGS
+ * or as waste, so it is refused, and the caller is told the arithmetic — what
+ * was available and what was asked for — rather than a bare "no". A count that
+ * comes up short is recorded as a count, which states the shelf rather than
+ * subtracting from it.
  */
 final class InsufficientStock extends ApiException
 {
@@ -36,10 +34,11 @@ final class InsufficientStock extends ApiException
         string $available,
         string $requested,
         ?string $reserved = null,
+        string $message = 'There is not enough stock to record this consumption.',
     ) {
         parent::__construct(
             ErrorCode::InventoryInsufficientStock,
-            'There is not enough stock to record this consumption.',
+            $message,
             [
                 'branch_id' => $branchId,
                 'stock_item_id' => $stockItemId,
