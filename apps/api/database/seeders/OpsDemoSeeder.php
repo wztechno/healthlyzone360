@@ -710,6 +710,15 @@ class OpsDemoSeeder extends Seeder
             return;
         }
 
+        // A par typed at or below the threshold this would restore is a pair the table refuses.
+        $filledThreshold = (string) ($fill['reorder_threshold'] ?? $level->reorder_threshold);
+        $filledPar = $fill['par_level'] ?? $level->par_level;
+
+        if ($filledPar !== null && is_numeric($filledThreshold) && is_numeric((string) $filledPar)
+            && bccomp((string) $filledPar, $filledThreshold, 4) <= 0) {
+            return;
+        }
+
         $level->forceFill($fill)->save();
     }
 

@@ -575,9 +575,10 @@ it('buys up to par, and falls back to the bare shortfall when the par is below w
 
     // Par set well above the window: buy up to it after the week is cooked.
     ($this->level)($onionShelf, '10.0000', parLevel: '20.0000');
-    // Par written below the reorder threshold and below the window's own
-    // demand — the state H12 warns about. It must never *reduce* the buy.
-    ($this->level)($carrotShelf, '1.0000', parLevel: '2.0000', threshold: '8.0000');
+    // Par written below the window's own demand — the state H12 warns about.
+    // It must never *reduce* the buy. (Below the threshold too, it used to be;
+    // the table now refuses that half.)
+    ($this->level)($carrotShelf, '1.0000', parLevel: '2.0000');
     // No par at all: the bare shortfall.
     ($this->level)($flourShelf, '1.0000');
 

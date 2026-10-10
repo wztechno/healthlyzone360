@@ -304,6 +304,7 @@ export const REPOSITORY_SURFACE = {
         'listUnpricedReceipts',
         'postGoodsReceipt',
         'recordStockAdjustment',
+        'recordStockCount',
         'recordStockWaste',
         'releaseQualityCheck',
         'replaceSupplierContacts',

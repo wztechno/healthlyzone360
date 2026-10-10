@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8260 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8267 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4823,15 +4823,21 @@ export interface NamespaceKeys {
     | 'ops.stock.columnQuantity'
     | 'ops.stock.columnReorderPar'
     | 'ops.stock.columnUnit'
+    | 'ops.stock.countInvalid'
+    | 'ops.stock.countedToast'
     | 'ops.stock.direction'
+    | 'ops.stock.directionCount'
     | 'ops.stock.directionDecrease'
     | 'ops.stock.directionIncrease'
+    | 'ops.stock.effectCount'
     | 'ops.stock.effectDecrease'
     | 'ops.stock.effectIncrease'
     | 'ops.stock.effectThreshold'
     | 'ops.stock.effectWaste'
     | 'ops.stock.emptyShelf'
+    | 'ops.stock.exceedsShelf'
     | 'ops.stock.fieldAdjustQuantity'
+    | 'ops.stock.fieldCountedQuantity'
     | 'ops.stock.fieldNotes'
     | 'ops.stock.fieldNotesPlaceholder'
     | 'ops.stock.fieldParLevel'
@@ -4860,6 +4866,7 @@ export interface NamespaceKeys {
     | 'ops.stock.noThreshold'
     | 'ops.stock.numberInvalid'
     | 'ops.stock.parLevelPlaceholder'
+    | 'ops.stock.parNotAboveThreshold'
     | 'ops.stock.productsEmptyBody'
     | 'ops.stock.productsEmptyTitle'
     | 'ops.stock.quantityInvalid'
@@ -13101,15 +13108,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.columnQuantity',
   'kitchen:ops.stock.columnReorderPar',
   'kitchen:ops.stock.columnUnit',
+  'kitchen:ops.stock.countInvalid',
+  'kitchen:ops.stock.countedToast',
   'kitchen:ops.stock.direction',
+  'kitchen:ops.stock.directionCount',
   'kitchen:ops.stock.directionDecrease',
   'kitchen:ops.stock.directionIncrease',
+  'kitchen:ops.stock.effectCount',
   'kitchen:ops.stock.effectDecrease',
   'kitchen:ops.stock.effectIncrease',
   'kitchen:ops.stock.effectThreshold',
   'kitchen:ops.stock.effectWaste',
   'kitchen:ops.stock.emptyShelf',
+  'kitchen:ops.stock.exceedsShelf',
   'kitchen:ops.stock.fieldAdjustQuantity',
+  'kitchen:ops.stock.fieldCountedQuantity',
   'kitchen:ops.stock.fieldNotes',
   'kitchen:ops.stock.fieldNotesPlaceholder',
   'kitchen:ops.stock.fieldParLevel',
@@ -13138,6 +13151,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.noThreshold',
   'kitchen:ops.stock.numberInvalid',
   'kitchen:ops.stock.parLevelPlaceholder',
+  'kitchen:ops.stock.parNotAboveThreshold',
   'kitchen:ops.stock.productsEmptyBody',
   'kitchen:ops.stock.productsEmptyTitle',
   'kitchen:ops.stock.quantityInvalid',

@@ -30,6 +30,7 @@ import { toFailure } from '../../../data/hooks.ts';
 import {
     useItemLatestPurchasesQuery,
     useRecordStockAdjustmentMutation,
+    useRecordStockCountMutation,
     useRecordStockWasteMutation,
     useSetStockThresholdMutation,
     useStockItemsQuery,
@@ -836,7 +837,7 @@ function statCards(
     ];
 }
 
-type MovementDirection = 'increase' | 'decrease' | 'waste';
+type MovementDirection = 'increase' | 'decrease' | 'waste' | 'count';
 
 /** The shelf aside's column, and the narrowest the two form tracks fold to beside it. */
 const ASIDE_WIDTH = 300;
@@ -847,6 +848,7 @@ const MOVEMENT_LABEL: Readonly<Record<MovementDirection, string>> = {
     increase: 'kitchen:ops.stock.effectIncrease',
     decrease: 'kitchen:ops.stock.effectDecrease',
     waste: 'kitchen:ops.stock.effectWaste',
+    count: 'kitchen:ops.stock.effectCount',
 };
 
 /**
@@ -887,6 +889,7 @@ function StockMovementEditor({
 
     const adjustment = useRecordStockAdjustmentMutation();
     const waste = useRecordStockWasteMutation();
+    const count = useRecordStockCountMutation();
     const threshold = useSetStockThresholdMutation();
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
@@ -913,31 +916,49 @@ function StockMovementEditor({
     const parInvalid = parTrimmed !== '' && parMagnitude === null;
     const thresholdChanged =
         thresholdTrimmed !== initialThreshold.trim() || parTrimmed !== initialPar.trim();
+    // The restock level is what a supply order fills to, so it sits above the alarm, never on it.
+    const parNotAbove =
+        thresholdMagnitude !== null && parMagnitude !== null && parMagnitude <= thresholdMagnitude;
 
+    const name = row.item.nameEn;
+    const unit = row.item.unitCode;
+    const onHand = row.level === null ? 0 : Number(row.level.quantity);
+    const amount = (value: number) => `${formatter.formatNumber(value)} ${unit}`;
+
+    // A count states the shelf, so zero is a real answer; every other direction moves a quantity.
+    const isCount = direction === 'count';
     const quantityTrimmed = quantity.trim();
     const movementMagnitude = quantityTrimmed === '' ? null : parseQuantity(quantityTrimmed);
     const quantityInvalid =
-        quantityTrimmed !== '' && (movementMagnitude === null || movementMagnitude <= 0);
-    const hasMovement = movementMagnitude !== null && movementMagnitude > 0;
+        quantityTrimmed !== '' &&
+        (movementMagnitude === null || (isCount ? movementMagnitude < 0 : movementMagnitude <= 0));
+    const hasMovement =
+        movementMagnitude !== null && (isCount ? movementMagnitude >= 0 : movementMagnitude > 0);
+    // No movement takes the shelf below zero; the server refuses it too.
+    const exceedsShelf =
+        hasMovement &&
+        (direction === 'decrease' || direction === 'waste') &&
+        movementMagnitude > onHand;
 
     const canSave =
         branchId !== null &&
         !thresholdInvalid &&
         !parInvalid &&
+        !parNotAbove &&
         !quantityInvalid &&
+        !exceedsShelf &&
         (thresholdChanged || hasMovement);
 
-    const name = row.item.nameEn;
-    const unit = row.item.unitCode;
-    const onHand = row.level === null ? 0 : Number(row.level.quantity);
-    // What the posted movement adds to the shelf: increase is positive, decrease and waste take away.
+    // What the posted movement adds to the shelf: increase is positive, decrease and waste take
+    // away, and a count is the difference between what was counted and what the ledger holds.
     const delta =
         movementMagnitude === null || !hasMovement
             ? 0
-            : direction === 'increase'
-              ? movementMagnitude
-              : -movementMagnitude;
-    const amount = (value: number) => `${formatter.formatNumber(value)} ${unit}`;
+            : isCount
+              ? movementMagnitude - onHand
+              : direction === 'increase'
+                ? movementMagnitude
+                : -movementMagnitude;
     const levelsText = (reorder: number | null, par: number | null) =>
         reorder === null && par === null
             ? t('kitchen:ops.stock.noThreshold')
@@ -970,7 +991,14 @@ function StockMovementEditor({
                 });
             }
             const note = notes.trim() === '' ? null : notes.trim();
-            if (movementMagnitude !== null && hasMovement && direction === 'waste') {
+            if (movementMagnitude !== null && hasMovement && isCount) {
+                await count.mutateAsync({
+                    branchId,
+                    stockItemId: row.item.id,
+                    countedQuantity: movementMagnitude,
+                    notes: note,
+                });
+            } else if (movementMagnitude !== null && hasMovement && direction === 'waste') {
                 await waste.mutateAsync({
                     branchId,
                     stockItemId: row.item.id,
@@ -991,9 +1019,11 @@ function StockMovementEditor({
                 testID: 'kitchen-stock-movement-toast',
                 tone: 'success',
                 message: hasMovement
-                    ? direction === 'waste'
-                        ? t('kitchen:ops.stock.wastedToast', { name })
-                        : t('kitchen:ops.stock.adjustedToast', { name })
+                    ? isCount
+                        ? t('kitchen:ops.stock.countedToast', { name })
+                        : direction === 'waste'
+                          ? t('kitchen:ops.stock.wastedToast', { name })
+                          : t('kitchen:ops.stock.adjustedToast', { name })
                     : thresholdMagnitude === null
                       ? t('kitchen:ops.stock.thresholdClearedToast', { name })
                       : t('kitchen:ops.stock.thresholdSetToast', { name }),
@@ -1019,11 +1049,16 @@ function StockMovementEditor({
                       testID: 'kitchen-stock-editor-summary-movement',
                       name: t(MOVEMENT_LABEL[direction]),
                       value: `${formatter.formatNumber(delta, { signDisplay: 'exceptZero' })} ${unit}`,
-                      tone: delta > 0 ? ('success' as const) : ('danger' as const),
+                      tone:
+                          delta > 0
+                              ? ('success' as const)
+                              : delta < 0
+                                ? ('danger' as const)
+                                : undefined,
                   },
               ]
             : []),
-        ...(thresholdChanged && !thresholdInvalid && !parInvalid
+        ...(thresholdChanged && !thresholdInvalid && !parInvalid && !parNotAbove
             ? [
                   {
                       key: 'threshold',
@@ -1119,7 +1154,11 @@ function StockMovementEditor({
                                 label={t('kitchen:ops.stock.fieldParLevel')}
                                 placeholder={t('kitchen:ops.stock.parLevelPlaceholder')}
                                 error={
-                                    parInvalid ? t('kitchen:ops.stock.numberInvalid') : undefined
+                                    parInvalid
+                                        ? t('kitchen:ops.stock.numberInvalid')
+                                        : parNotAbove
+                                          ? t('kitchen:ops.stock.parNotAboveThreshold')
+                                          : undefined
                                 }
                                 value={parLevelValue}
                                 onChangeText={edit(setParLevelValue)}
@@ -1150,6 +1189,10 @@ function StockMovementEditor({
                                         label: t('kitchen:ops.stock.directionDecrease'),
                                     },
                                     { value: 'waste', label: t('kitchen:ops.stock.waste') },
+                                    {
+                                        value: 'count',
+                                        label: t('kitchen:ops.stock.directionCount'),
+                                    },
                                 ]}
                                 value={direction}
                                 onChange={(next) => {
@@ -1159,13 +1202,23 @@ function StockMovementEditor({
                             />
                             <TextInputField
                                 testID="kitchen-stock-movement-quantity"
-                                label={t('kitchen:ops.stock.fieldAdjustQuantity')}
+                                label={
+                                    isCount
+                                        ? t('kitchen:ops.stock.fieldCountedQuantity')
+                                        : t('kitchen:ops.stock.fieldAdjustQuantity')
+                                }
                                 hint={t('kitchen:ops.stock.quantityUnitHint', { unit })}
                                 placeholder={t('kitchen:fields.quantityPlaceholder')}
                                 error={
                                     quantityInvalid
-                                        ? t('kitchen:ops.stock.quantityInvalid')
-                                        : undefined
+                                        ? isCount
+                                            ? t('kitchen:ops.stock.countInvalid')
+                                            : t('kitchen:ops.stock.quantityInvalid')
+                                        : exceedsShelf
+                                          ? t('kitchen:ops.stock.exceedsShelf', {
+                                                amount: amount(onHand),
+                                            })
+                                          : undefined
                                 }
                                 value={quantity}
                                 onChangeText={edit(setQuantity)}

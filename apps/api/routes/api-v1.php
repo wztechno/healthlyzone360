@@ -185,6 +185,7 @@ use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionRetryController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskRequirementsController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskShortfallCountController;
 use Healthy360\Inventory\Http\Controllers\StockAdjustController;
+use Healthy360\Inventory\Http\Controllers\StockCountController;
 use Healthy360\Inventory\Http\Controllers\StockItemIndexController;
 use Healthy360\Inventory\Http\Controllers\StockLevelIndexController;
 use Healthy360\Inventory\Http\Controllers\StockLowStockCountController;
@@ -1560,6 +1561,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 */
                 Route::post('/inventory/adjustments', StockAdjustController::class)->name('catalogue.inventory.adjustments.store');
                 Route::post('/inventory/waste', StockWasteController::class)->name('catalogue.inventory.waste.store');
+                Route::post('/inventory/counts', StockCountController::class)->name('catalogue.inventory.counts.store');
                 Route::patch('/inventory/threshold', StockThresholdController::class)->name('catalogue.inventory.threshold.update');
                 Route::post('/inventory/consumption-exceptions/{exception}/resolve', ConsumptionExceptionResolveController::class)->name('catalogue.inventory.consumption-exceptions.resolve');
                 Route::post('/inventory/consumption-exceptions/{exception}/retry', ConsumptionExceptionRetryController::class)->name('catalogue.inventory.consumption-exceptions.retry');

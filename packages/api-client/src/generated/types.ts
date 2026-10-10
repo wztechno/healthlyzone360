@@ -5136,6 +5136,16 @@ export type StockAdjustmentRequest = {
     notes?: string | null;
 };
 
+export type StockCountRequest = {
+    branch_id: Uuid;
+    stock_item_id: Uuid;
+    /**
+     * What the shelf holds, in the item's own unit. The server posts the difference from the ledger.
+     */
+    counted_quantity: number;
+    notes?: string | null;
+};
+
 export type StockWasteRequest = {
     branch_id: Uuid;
     stock_item_id: Uuid;
@@ -24776,6 +24786,14 @@ export type RecordStockAdjustmentErrors = {
      */
     403: ErrorEnvelope;
     /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
      * The submitted data is invalid.
      */
     422: ErrorEnvelope;
@@ -24831,6 +24849,14 @@ export type RecordStockWasteErrors = {
      */
     403: ErrorEnvelope;
     /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
      * The submitted data is invalid.
      */
     422: ErrorEnvelope;
@@ -24850,6 +24876,61 @@ export type RecordStockWasteResponses = {
 };
 
 export type RecordStockWasteResponse = RecordStockWasteResponses[keyof RecordStockWasteResponses];
+
+export type RecordStockCountData = {
+    body: StockCountRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/counts';
+};
+
+export type RecordStockCountErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RecordStockCountError = RecordStockCountErrors[keyof RecordStockCountErrors];
+
+export type RecordStockCountResponses = {
+    /**
+     * The count was recorded and the level set to it.
+     */
+    201: StockMovementEnvelope;
+};
+
+export type RecordStockCountResponse = RecordStockCountResponses[keyof RecordStockCountResponses];
 
 export type ListSuppliersData = {
     body?: never;

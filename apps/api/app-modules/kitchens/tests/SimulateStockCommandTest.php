@@ -11,6 +11,7 @@ use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\IngredientStockCost;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
+use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Procurement\Models\GoodsReceipt;
@@ -112,4 +113,38 @@ it('writes nothing on a dry run', function (): void {
     expect($this->artisan('kitchen:simulate-stock', ['--org' => $this->kitchen->organisation->slug, '--dry-run' => true])->run())->toBe(0)
         ->and(GoodsReceipt::withoutTenancy()->count())->toBe(0)
         ->and(IngredientStockCost::withoutTenancy()->count())->toBe(0);
+});
+
+it('repairs shelves written before the checks: negative back to zero, a broken pair back to its seed', function (): void {
+    expect($this->artisan('kitchen:simulate-stock', ['--org' => $this->kitchen->organisation->slug])->run())->toBe(0);
+
+    $migration = require base_path('app-modules/kitchens/database/migrations/2026_10_10_000001_repair_stock_levels_before_checks.php');
+    $migration->down();
+
+    $chicken = simulatedLevel($this->chicken);
+    $chicken->forceFill(['quantity' => '-5', 'reorder_threshold' => '56323', 'par_level' => '12'])->save();
+
+    // A shelf the command never stocks was never seeded a pair, so it goes back to none.
+    $sauceItem = StockItem::withoutTenancy()->where('ingredient_id', $this->houseSauce->getKey())->sole();
+    $sauce = StockLevel::withoutTenancy()->create([
+        'organisation_id' => (string) $this->kitchen->organisation->getKey(),
+        'branch_id' => $chicken->branch_id,
+        'stock_item_id' => (string) $sauceItem->getKey(),
+        'quantity' => '1',
+        'reorder_threshold' => '5',
+        'par_level' => '5',
+    ]);
+
+    $migration->up();
+
+    $chicken->refresh();
+    $sauce->refresh();
+
+    expect($chicken->quantity)->toBe('0.0000')
+        ->and($chicken->reorder_threshold)->toBe('18.0000')
+        ->and($chicken->par_level)->toBe('60.0000')
+        ->and(StockMovement::withoutTenancy()
+            ->where('stock_item_id', $chicken->stock_item_id)->where('reason', 'adjust')->value('quantity_delta'))->toBe('5.0000')
+        ->and($sauce->reorder_threshold)->toBeNull()
+        ->and($sauce->par_level)->toBeNull();
 });

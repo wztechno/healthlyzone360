@@ -65,12 +65,108 @@ it('records waste as a negative movement', function (): void {
         'name_en' => 'Flour',
     ]);
 
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', [
+        'branch_id' => (string) $this->branch->getKey(),
+        'stock_item_id' => (string) $item->getKey(),
+        'quantity_delta' => 5,
+    ], $this->headers)->assertCreated();
+
     $this->postJson('/api/v1/catalogue/inventory/waste', [
         'branch_id' => (string) $this->branch->getKey(),
         'stock_item_id' => (string) $item->getKey(),
         'quantity' => 3,
     ], $this->headers)->assertCreated()
         ->assertJsonPath('data.movement.quantity_delta', '-3.0000');
+});
+
+it('refuses waste or a decrease that would take the shelf below zero, and posts nothing', function (): void {
+    $item = StockItem::query()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'code' => 'flour-01',
+        'name_en' => 'Flour',
+    ]);
+    $shelf = ['branch_id' => (string) $this->branch->getKey(), 'stock_item_id' => (string) $item->getKey()];
+
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 2], $this->headers)->assertCreated();
+
+    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => 2.5], $this->headers)
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'inventory.insufficient_stock');
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => -2.5], $this->headers)
+        ->assertStatus(409);
+
+    expect(StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity'))->toBe('2.0000');
+
+    // Exactly what is on the shelf is fine: it empties, it does not go under.
+    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => 2], $this->headers)->assertCreated();
+
+    expect(StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity'))->toBe('0.0000');
+});
+
+it('records a count as the difference from the ledger, in either direction and at zero', function (): void {
+    $item = StockItem::query()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'code' => 'oil-01',
+        'name_en' => 'Oil',
+        'unit_code' => 'l',
+    ]);
+    $shelf = ['branch_id' => (string) $this->branch->getKey(), 'stock_item_id' => (string) $item->getKey()];
+    $level = fn (): string => (string) StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity');
+
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 10], $this->headers)->assertCreated();
+
+    $this->postJson('/api/v1/catalogue/inventory/counts', $shelf + ['counted_quantity' => 7.5, 'notes' => 'Weekly count'], $this->headers)
+        ->assertCreated()
+        ->assertJsonPath('data.movement.quantity_delta', '-2.5000')
+        ->assertJsonPath('data.movement.reason', 'adjust');
+    expect($level())->toBe('7.5000');
+
+    $this->postJson('/api/v1/catalogue/inventory/counts', $shelf + ['counted_quantity' => 12], $this->headers)
+        ->assertCreated()
+        ->assertJsonPath('data.movement.quantity_delta', '4.5000');
+
+    // A count that agrees still posts: the stock-take happened.
+    $this->postJson('/api/v1/catalogue/inventory/counts', $shelf + ['counted_quantity' => 12], $this->headers)
+        ->assertCreated()
+        ->assertJsonPath('data.movement.quantity_delta', '0.0000');
+
+    $this->postJson('/api/v1/catalogue/inventory/counts', $shelf + ['counted_quantity' => 0], $this->headers)->assertCreated();
+    expect($level())->toBe('0.0000');
+
+    $this->postJson('/api/v1/catalogue/inventory/counts', $shelf + ['counted_quantity' => -1], $this->headers)
+        ->assertStatus(422);
+});
+
+it('keeps the restock level above the reorder threshold, against the stored one too', function (): void {
+    $item = StockItem::query()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'code' => 'salt-01',
+        'name_en' => 'Salt',
+    ]);
+    $shelf = ['branch_id' => (string) $this->branch->getKey(), 'stock_item_id' => (string) $item->getKey()];
+
+    $this->patchJson('/api/v1/catalogue/inventory/threshold', $shelf + ['reorder_threshold' => 5, 'par_level' => 5], $this->headers)
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed');
+    $this->patchJson('/api/v1/catalogue/inventory/threshold', $shelf + ['reorder_threshold' => 56323, 'par_level' => 12], $this->headers)
+        ->assertStatus(422);
+
+    // A refused pair leaves no level behind.
+    expect(StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->exists())->toBeFalse();
+
+    $this->patchJson('/api/v1/catalogue/inventory/threshold', $shelf + ['reorder_threshold' => 3, 'par_level' => 10], $this->headers)
+        ->assertOk();
+
+    // Leaving par out compares against the stored ten.
+    $this->patchJson('/api/v1/catalogue/inventory/threshold', $shelf + ['reorder_threshold' => 10], $this->headers)
+        ->assertStatus(422);
+    $this->patchJson('/api/v1/catalogue/inventory/threshold', $shelf + ['reorder_threshold' => 4], $this->headers)
+        ->assertOk()
+        ->assertJsonPath('data.level.par_level', '10.0000');
+
+    // Either one alone is still fine.
+    $this->patchJson('/api/v1/catalogue/inventory/threshold', $shelf + ['reorder_threshold' => null, 'par_level' => 10], $this->headers)
+        ->assertOk();
 });
 
 /*

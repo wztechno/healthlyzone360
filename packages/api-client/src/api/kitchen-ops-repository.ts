@@ -74,6 +74,7 @@ import type {
     StockLevel,
     StockMovement,
     StockWasteRequest,
+    StockCountRequest,
     ReplaceSupplierContactsRequest,
     SuppliedItem,
     Supplier,
@@ -1061,6 +1062,22 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     branch_id: String(request.branchId),
                     stock_item_id: String(request.stockItemId),
                     quantity: request.quantity,
+                    ...(request.notes === undefined ? {} : { notes: request.notes }),
+                },
+            });
+            return mapStockMovement(envelope.data.movement);
+        },
+
+        async recordStockCount(request: StockCountRequest): Promise<StockMovement> {
+            const envelope = await transport.requestEnvelope<{
+                readonly movement: WireStockMovement;
+            }>({
+                method: 'POST',
+                path: '/catalogue/inventory/counts',
+                body: {
+                    branch_id: String(request.branchId),
+                    stock_item_id: String(request.stockItemId),
+                    counted_quantity: request.countedQuantity,
                     ...(request.notes === undefined ? {} : { notes: request.notes }),
                 },
             });

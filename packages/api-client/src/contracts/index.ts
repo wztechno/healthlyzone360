@@ -498,6 +498,7 @@ export type {
     StockMovement,
     StockMovementReason,
     StockWasteRequest,
+    StockCountRequest,
     ReplaceSupplierContactsRequest,
     SuppliedItem,
     SuppliedStockItem,
