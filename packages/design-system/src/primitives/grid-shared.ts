@@ -21,10 +21,14 @@ export type GridColumnCount = (typeof GRID_COLUMNS)[number];
 /**
  * The responsive ladder: one column on a phone, two on a tablet, three from `lg` up.
  *
- * `lg` is the top of the ladder on purpose. A fourth 280px column plus gaps needs ~1200px of
- * *content* box, and the Catalogue's forms sit inside a shell with a 224px rail — so a four-column
- * form would appear only on the widest desks and would read as a different layout rather than the
- * same one, wider. Callers that genuinely want four pass `columns` explicitly.
+ * `lg` is the top of the ladder on purpose, and a measured (`fit`) grid is capped by it too. Three
+ * tracks is what a bounded form card holds (`formWidth`), and a fourth would read as a different
+ * layout rather than the same one, wider. Callers that genuinely want four pass `columns`
+ * explicitly.
+ *
+ * The ladder reads the *window*, and the kitchen's content area is narrower by the shell's nav (a
+ * 56px module rail plus a 232px panel, collapsible) and by any rail beside the form — which is why
+ * a grid that has to fit its own box sets `fit` instead.
  */
 export const RESPONSIVE_COLUMNS = { sm: 1, md: 2, lg: 3 } as const;
 
@@ -76,21 +80,47 @@ export interface GridProps {
      * room for four tracks at most, and should still fall to two on a phone.
      */
     readonly maxColumns?: number | undefined;
+    /**
+     * Measure the grid's own box and fit the track count to it ({@link fitTracks}), still capped by
+     * the ladder's top and by `maxColumns`. Default false until the kitchen migration flips it.
+     * Web only; native ignores it.
+     */
+    readonly fit?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
 
 /**
- * The column count a grid resolves to at this breakpoint: the fixed count when one is stated,
- * otherwise the track's ladder, capped by `maxColumns`.
+ * How many tracks fit a measured width: `n` tracks need `n × track + (n − 1) × gap`. Never zero.
+ */
+export function fitTracks(width: number, track: GridTrack = 'field'): number {
+    // ponytail: +1 absorbs sub-pixel widths (871.99 for 872); a real half-pixel layout would need rounding instead
+    return Math.max(
+        1,
+        Math.floor((width + GRID_GAP.column + 1) / (trackWidthOf(track) + GRID_GAP.column)),
+    );
+}
+
+/**
+ * The column count a grid resolves to: the fixed count when one is stated; otherwise, when the
+ * grid's own box has been measured (`portWidth > 0`), the tracks that fit it, never more than the
+ * ladder's top; otherwise the track's ladder at this breakpoint. `maxColumns` caps either.
  */
 export function resolveColumns(
     atLeast: (name: 'md' | 'lg') => boolean,
     { columns, track = 'field', maxColumns }: Pick<GridProps, 'columns' | 'track' | 'maxColumns'>,
+    portWidth = 0,
 ): number {
     if (columns !== undefined) return columns;
     const ladder = track === 'half' ? HALF_TRACK_COLUMNS : RESPONSIVE_COLUMNS;
-    const laddered = atLeast('lg') ? ladder.lg : atLeast('md') ? ladder.md : ladder.sm;
+    const laddered =
+        portWidth > 0
+            ? Math.min(ladder.lg, fitTracks(portWidth, track))
+            : atLeast('lg')
+              ? ladder.lg
+              : atLeast('md')
+                ? ladder.md
+                : ladder.sm;
     return maxColumns === undefined ? laddered : Math.max(1, Math.min(laddered, maxColumns));
 }
 

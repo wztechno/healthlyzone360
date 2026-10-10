@@ -6,6 +6,7 @@ import {
     HALF_TRACK_COLUMNS,
     HALF_TRACK_WIDTH,
     RESPONSIVE_COLUMNS,
+    fitTracks,
     resolveColumns,
     resolveSpan,
     spanWidth,
@@ -53,6 +54,39 @@ describe('the half track', () => {
         expect(resolveColumns(at('sm'), { track: 'half', maxColumns: 4 })).toBe(2);
         expect(resolveColumns(at('lg'), { track: 'half', columns: 2 })).toBe(2);
         expect(resolveColumns(at('lg'), {})).toBe(3);
+    });
+});
+
+describe('a measured (fit) grid', () => {
+    const at = (breakpoint: 'sm' | 'md' | 'lg') => (name: 'md' | 'lg') =>
+        breakpoint === 'lg' || (breakpoint === 'md' && name === 'md');
+
+    it('fits as many tracks as the box holds, never zero', () => {
+        // 3 × 280 + 2 × 16 = 872: exactly three, and a sub-pixel short of it still three.
+        expect(fitTracks(872)).toBe(3);
+        expect(fitTracks(871.99)).toBe(3);
+        expect(fitTracks(586)).toBe(2);
+        expect(fitTracks(279)).toBe(1);
+        expect(fitTracks(0)).toBe(1);
+        expect(fitTracks(586, 'half')).toBe(4);
+    });
+
+    it('caps the measured count at the top of the ladder', () => {
+        expect(resolveColumns(at('sm'), {}, 1920)).toBe(RESPONSIVE_COLUMNS.lg);
+        expect(resolveColumns(at('sm'), { track: 'half' }, 1920)).toBe(HALF_TRACK_COLUMNS.lg);
+        // The window says three; the box holds two.
+        expect(resolveColumns(at('lg'), {}, 600)).toBe(2);
+    });
+
+    it('still lets maxColumns cap and a stated count win', () => {
+        expect(resolveColumns(at('lg'), { track: 'half', maxColumns: 4 }, 1920)).toBe(4);
+        expect(resolveColumns(at('lg'), { track: 'half', maxColumns: 4 }, 300)).toBe(2);
+        expect(resolveColumns(at('sm'), { columns: 2 }, 1920)).toBe(2);
+    });
+
+    it('keeps the ladder until the box has been measured', () => {
+        expect(resolveColumns(at('lg'), {}, 0)).toBe(3);
+        expect(resolveColumns(at('md'), {}, 0)).toBe(2);
     });
 });
 

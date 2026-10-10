@@ -2,8 +2,9 @@ import { Children, isValidElement, useMemo } from 'react';
 import type { CSSProperties, ReactElement, ReactNode } from 'react';
 
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
+import { usePortWidth } from '../hooks/use-port-width.ts';
 import { cx } from '../internal/class-names.ts';
-import { GRID_GAP, resolveColumns, resolveSpan, trackWidthOf } from './grid-shared.ts';
+import { GRID_GAP, fitTracks, resolveColumns, resolveSpan, trackWidthOf } from './grid-shared.ts';
 import type { GridProps, GridSpanProps } from './grid-shared.ts';
 
 export type { GridColumnCount, GridProps, GridSpanProps, GridTrack } from './grid-shared.ts';
@@ -57,12 +58,17 @@ function GridBase({
     columns,
     track,
     maxColumns,
+    fit = false,
     className,
     testID,
     template,
 }: GridProps & { readonly template: string }) {
     const { atLeast } = useBreakpoint();
-    const resolved = resolveColumns(atLeast, { columns, track, maxColumns });
+    // Always called (hooks are unconditional); its width is only read when `fit` is set. A grid is a
+    // block-level div, so its own box is the region it was allocated. The bucket is the track
+    // count, so a sliding panel re-renders the grid only when a track appears or goes.
+    const port = usePortWidth({ bucket: (width) => fitTracks(width, track) });
+    const resolved = resolveColumns(atLeast, { columns, track, maxColumns }, fit ? port.width : 0);
 
     const style = useMemo<CSSProperties>(
         () => ({
@@ -76,7 +82,12 @@ function GridBase({
     );
 
     return (
-        <div data-testid={testID} className={cx(className)} style={style}>
+        <div
+            ref={fit ? port.ref : undefined}
+            data-testid={testID}
+            className={cx(className)}
+            style={style}
+        >
             {cells(children, resolved)}
         </div>
     );

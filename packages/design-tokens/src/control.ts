@@ -81,6 +81,22 @@ export const rowHeight: Readonly<Record<RowDensity, number>> = {
  */
 export const fieldWidth = 280;
 
+/**
+ * The widest a bounded form card draws, in dp: three field tracks, the two column gaps between
+ * them, the card's padding on both sides and its 1px border on both sides (React Native Web views
+ * are border-box, so the border is inside the width). 3×280 + 2×16 + 2×16 + 2 = 906.
+ */
+export const formWidth = 3 * fieldWidth + 2 * 16 + 2 * 16 + 2;
+
+/**
+ * The narrowest a bounded form card is laid out at before sections stop sitting side by side, in
+ * dp: the same card holding two tracks. 2×280 + 16 + 2×16 + 2 = 610.
+ */
+export const formMinWidth = 2 * fieldWidth + 16 + 2 * 16 + 2;
+
+/** A record's side rail beside its main column, in dp. Fixed beside, full width once it wraps. */
+export const asideWidth = 300;
+
 /** Card grid track bounds, in dp. `minmax(min, max)` with `justify-content: start`, never `1fr`. */
 export const cardWidth = {
     min: 200,

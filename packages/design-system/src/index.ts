@@ -27,6 +27,8 @@ export type { Breakpoint, UseBreakpointResult } from './hooks/use-breakpoint.ts'
 export { useReducedMotion } from './hooks/use-reduced-motion.ts';
 export { POINTER_KINDS, useIsCoarsePointer, usePointerKind } from './hooks/use-pointer.ts';
 export type { PointerKind } from './hooks/use-pointer.ts';
+export { usePortWidth } from './hooks/use-port-width.ts';
+export type { UsePortWidthOptions, UsePortWidthResult } from './hooks/use-port-width.ts';
 
 export {
     DIRECTIONAL_ICON_NAMES,
@@ -123,6 +125,9 @@ export {
 export type { InputSize, TextInputFieldProps } from './forms/text-input.tsx';
 export { FormSection } from './forms/form-section.tsx';
 export type { FormSectionProps } from './forms/form-section.tsx';
+/** Extensionless for the reason `grid` is: Metro picks the `.web` or `.native` half. */
+export { SectionGrid } from './forms/section-grid';
+export type { SectionGridProps } from './forms/section-grid-shared.ts';
 export {
     FormIssueScope,
     useFieldSummarised,

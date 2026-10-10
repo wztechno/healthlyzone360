@@ -53,6 +53,13 @@ export interface FormSectionProps {
      * dropdown opened in the last field still has to escape the panel.
      */
     readonly variant?: 'divided' | 'underlined' | 'card' | undefined;
+    /**
+     * How the section sits in a `SectionGrid`: `bounded` (the default) stops at `formWidth` and may
+     * pair with a neighbour; `full` spans every column — the lines table, the plan matrix. Read by
+     * `SectionGrid`'s cells exactly as `FormGrid` reads `span`; no effect on this component's own
+     * rendering.
+     */
+    readonly flow?: 'bounded' | 'full' | undefined;
     readonly children: ReactNode;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;

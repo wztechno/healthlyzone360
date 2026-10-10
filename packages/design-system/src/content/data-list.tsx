@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { RowDensity } from '@healthy360/design-tokens';
 import { Platform, Pressable, Text as RNText, View } from 'react-native';
-import type { LayoutChangeEvent } from 'react-native';
 
+import { usePortWidth } from '../hooks/use-port-width.ts';
 import { cx } from '../internal/class-names.ts';
 import { truncationHoverProps } from '../internal/truncation-hover.ts';
 import { CascadeItem } from '../motion/cascade.tsx';
@@ -162,12 +162,13 @@ export function fitColumns<Row>(
  * first is charged against the port and the widths it keeps almost never add up to it: on a 1440px
  * window with the nav open that is roughly 400px still to place.
  *
- * ## The slack goes to the long text, not to every column
+ * ## The slack goes where the columns allow it
  *
  * Every column is drawn at its declared width — what its content needs — and what the row has left
- * goes to the column that fills: the ones marked `fill`, sharing equally, or the widest growable
- * column when none is marked. A `Unit` stays as narrow as `kg`, a status as wide as its badge, and a
- * name gets the room it was being denied.
+ * goes to the columns that may grow: the ones marked `fill`, sharing equally, or — when none is
+ * marked — every column not marked `grow: false`, in proportion to its declared width (see
+ * {@link growWeights}). A column that must stay as narrow as its value (a unit, a badge) says so
+ * with `grow: false`.
  *
  * Earlier answers gave every growable column an equal share (and before that, an equal total), on
  * the reasoning that boundaries on a constant pitch read as a grid. They did, and the grid was mostly
@@ -362,90 +363,28 @@ export function DataList<Row>({
     testID,
 }: DataListProps<Row>) {
     // Measured rather than derived from the breakpoint: the list's port is the shell's content
-    // area, not the window, and the two differ by the 224px nav rail — which is itself
-    // collapsible. §4.2's warning applies here.
-    const [available, setAvailable] = useState(0);
+    // area, not the window, and the two differ by the nav (module rail plus panel) — which is
+    // itself collapsible. §4.2's warning applies here.
+    //
+    // The port is measured only to decide *which* columns fit. *How wide* each one is drawn is the
+    // browser's job: every track is `flex-basis: width` and the growable ones take a share of the
+    // leftover (see `trackStyle`) — the same arithmetic as `spreadColumns`, run by the layout engine
+    // instead of by React. That split keeps a width change smooth: when the shell's panel slides,
+    // flex tracks follow the port inside the browser's own layout pass, and React re-renders only
+    // when a column actually has to be dropped or brought back — the fit signature is the bucket.
+    const columnsRef = useRef(columns);
+    columnsRef.current = columns;
+    const port = usePortWidth({
+        bucket: (width) =>
+            fitColumns(columnsRef.current, width)
+                .map((column) => column.key)
+                .join('|'),
+    });
+    const available = port.width;
     const visible = fitColumns(columns, available);
     const trackSum = visible.reduce((sum, column) => sum + column.width, 0);
     // Chosen from what is drawn, so a dropped column hands its share to the ones that remain.
     const fills = growWeights(visible);
-
-    /*
-     * The port is measured only to decide *which* columns fit. *How wide* each one is drawn is the
-     * browser's job: every track is `flex-basis: width` and the filling ones grow by an equal share of
-     * the leftover (see `trackStyle`) — the same arithmetic as `spreadColumns`, run by the layout
-     * engine instead of by React.
-     *
-     * That split is what keeps a width change smooth. When the shell's page panel slides open or
-     * shut, the port changes width on every frame. Pixel tracks computed here were either stale for
-     * the whole slide and then snapped, or recomputed by re-rendering every row on every frame; both
-     * read as the columns lagging behind the cards around them. Flex tracks follow the port inside
-     * the browser's own layout pass, and React is asked to re-render only when a column actually has
-     * to be dropped or brought back.
-     */
-    const columnsRef = useRef(columns);
-    columnsRef.current = columns;
-    const fitSignature = (width: number) =>
-        fitColumns(columnsRef.current, width)
-            .map((column) => column.key)
-            .join('|');
-
-    // A zero is never a port. It is what a node reports before it has been laid out, and taking it
-    // would fit every column against nothing and then need a second pass to undo that. A width
-    // that fits the same columns as the one in hand changes nothing on screen, so it is not stored.
-    const measure = (width: number) => {
-        if (width <= 0) return;
-        setAvailable((current) =>
-            current === width || fitSignature(current) === fitSignature(width) ? current : width,
-        );
-    };
-
-    /**
-     * Native's measurement, and the only one it needs — `onLayout` is the real layout system there
-     * and fires on mount, on rotation and in split view.
-     */
-    const onLayout = (event: LayoutChangeEvent) => {
-        measure(event.nativeEvent.layout.width);
-    };
-
-    /*
-     * The web's measurement, read from the node rather than waited for.
-     *
-     * `onLayout` is the wrong instrument on this platform, which is the same conclusion
-     * `useCataloguePort` reached and this component had not: react-native-web implements it as a
-     * `ResizeObserver`, and here it never delivered a usable observation at all. The list sat on
-     * `available = 0` — every column at its declared track, no fitting pass, no share of the port —
-     * and stayed there through a window resize.
-     *
-     * So the node is held and read on demand, at the two moments the port can have changed: after
-     * every commit, which covers mount and the nav rail's width transition (the shell re-renders
-     * across it), and on `resize`. `measure` ignores an unchanged width, so a layout effect with no
-     * dependency list settles after one pass instead of looping.
-     */
-    const port = useRef<View | null>(null);
-
-    const readPort = useCallback(() => {
-        const node = port.current as unknown as {
-            getBoundingClientRect?: () => { width: number };
-        } | null;
-        const rect = node?.getBoundingClientRect?.();
-        if (rect === undefined) return;
-        measure(rect.width);
-        // `measure` reads the columns through a ref, so this callback never needs to change.
-    }, []);
-
-    useLayoutEffect(() => {
-        if (Platform.OS !== 'web') return;
-        readPort();
-    });
-
-    useEffect(() => {
-        if (Platform.OS !== 'web' || typeof window === 'undefined') return undefined;
-        window.addEventListener('resize', readPort);
-        return () => {
-            window.removeEventListener('resize', readPort);
-        };
-    }, [readPort]);
 
     return (
         <View
@@ -453,10 +392,8 @@ export function DataList<Row>({
             role="table"
             aria-label={label}
             accessibilityLabel={label}
-            ref={port}
-            // Native only: on the web `onLayout` is a ResizeObserver that fires on every frame of a
-            // width transition, and the node is read directly instead (see `readPort`).
-            {...(Platform.OS === 'web' ? {} : { onLayout })}
+            // Web reads the node; native measures with `onLayout` (see `usePortWidth`).
+            {...(Platform.OS === 'web' ? { ref: port.ref } : { onLayout: port.onLayout })}
             className={cx('flex-col', className)}
         >
             <View
