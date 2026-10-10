@@ -4717,7 +4717,6 @@ export function ShowcaseScreen() {
                     <RecordSummaryAside
                         testID="showcase-kitchen-summary"
                         title="Ready to order"
-                        width={300}
                         rows={[
                             { key: 'out', label: 'Out of stock', value: '2' },
                             { key: 'lines', label: 'Lines to order', value: '5' },

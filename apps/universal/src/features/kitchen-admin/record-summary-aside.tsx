@@ -27,12 +27,6 @@ export interface RecordSummaryAsideProps {
      */
     readonly testID: string;
     readonly title: string;
-    /**
-     * Legacy sizing, for the screens that still measure their own body: a fixed column beside the
-     * form, or `null` to run the full width under it. Omit it inside a `SideRailLayout` rail, which
-     * owns the width, the sticky offset and the alignment; the prop goes once the last caller does.
-     */
-    readonly width?: number | null | undefined;
     readonly rows: readonly RecordSummaryRow[];
     /** The record's bottom line, or `null` when there is none to show this reader. */
     readonly total: { readonly label: string; readonly value: string } | null;
@@ -68,26 +62,19 @@ export interface RecordSummaryAsideProps {
  * ```
  *
  * One card rather than three, its parts divided by hairlines, because it is read top to bottom as
- * one statement. Sticky on the web, so the summary stays beside a long form; the offset resolves
- * against the shell's scroll port, which pins it just under the top bar.
+ * one statement. It sizes nothing itself: a `SideRailLayout` rail owns the width, the sticky
+ * offset and the alignment, so the card is the same card beside a form and stacked under one.
  */
 export function RecordSummaryAside({
     testID,
     title,
-    width,
     rows,
     total,
     list,
     note,
 }: RecordSummaryAsideProps) {
     return (
-        <View
-            testID={testID}
-            role="complementary"
-            aria-label={title}
-            style={typeof width === 'number' ? { width } : undefined}
-            className={width === undefined ? 'z-auto' : 'z-auto self-start web:sticky web:top-0'}
-        >
+        <View testID={testID} role="complementary" aria-label={title} className="z-auto">
             <FormSection first variant="card" testID={`${testID}-card`} title={title}>
                 <View className="flex-col gap-base">
                     <View className="flex-col gap-snug">
