@@ -52,6 +52,7 @@ final class PriceListEntryReplaceController
         $updated = $this->entries->replace($record, $request->entries(), $this->requiredLockVersion($request));
 
         $rows = PriceListItem::query()
+            ->with(['catalogueItem', 'variant'])
             ->where('price_list_id', $updated->getKey())
             ->openRows()
             ->orderBy('catalogue_item_id')

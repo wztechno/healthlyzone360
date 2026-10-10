@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Animated, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 
+import { AnimatedView } from '../internal/animated-view.ts';
 import { cx } from '../internal/class-names.ts';
 import { useMotion } from './use-motion.ts';
 import type { DurationName } from './use-motion.ts';
@@ -84,7 +85,7 @@ export function Collapse({
             : null;
 
     return (
-        <Animated.View
+        <AnimatedView
             testID={testID}
             nativeID={nativeID}
             role={role}
@@ -101,6 +102,6 @@ export function Collapse({
                     {children}
                 </View>
             ) : null}
-        </Animated.View>
+        </AnimatedView>
     );
 }

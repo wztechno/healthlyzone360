@@ -8,7 +8,8 @@ import type {
     Supplier,
 } from '@healthy360/api-client/contracts';
 import { GoodsReceiptId, StockItemId, SupplierId } from '@healthy360/domain-types';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import type { RepositoryOverrides } from '../../testing/stub-repositories.ts';
@@ -92,7 +93,7 @@ function stockItem(): StockItem {
     };
 }
 
-function ledgerLine(): PurchaseLedgerLine {
+function ledgerLine(overrides: Partial<PurchaseLedgerLine> = {}): PurchaseLedgerLine {
     return {
         id: '01935f6d-0000-7000-8000-0000000000c1',
         goodsReceiptId: GoodsReceiptId.unsafe('01935f6d-0000-7000-8000-0000000000d1'),
@@ -113,8 +114,20 @@ function ledgerLine(): PurchaseLedgerLine {
         costCurrencyCode: 'USD',
         valuationPendingFx: false,
         costsRedacted: false,
+        ...overrides,
     };
 }
+
+/** A second line: more of a dearer item, at a smaller total, so each column orders differently. */
+const SUGAR_LINE = ledgerLine({
+    id: '01935f6d-0000-7000-8000-0000000000c2',
+    stockItemId: StockItemId.unsafe('01935f6d-0000-7000-8000-0000000000b2'),
+    itemCode: 'SGR-1',
+    itemNameEn: 'Sugar',
+    quantity: '40.0000',
+    unitPriceAmount: '0.400000',
+    lineTotalAmount: '16.000000',
+});
 
 function totals(overrides: Partial<SpendSummaryCurrencyTotals> = {}): SpendSummaryCurrencyTotals {
     return {
@@ -188,9 +201,94 @@ describe('purchases ledger detail mode', () => {
         await untilVisible('kitchen-purchases-ledger-table');
 
         expect(harness.repositories.kitchenOps.getSpendSummary).not.toHaveBeenCalled();
+
+        // The ledger is the valuation, and says so above the figures.
+        expect(screen.getByTestId('kitchen-purchases-ledger-cost-note')).toBeTruthy();
     });
 
-    it('offers a price-completeness chip per state and asks the server for exactly one', async () => {
+    it('keeps its filters on one row: the dates beside the search, and no panel under it', async () => {
+        await renderStubScreen(<PurchasesLedgerScreen />, {
+            session: kitchenManagerSession(),
+            repositories: overrides(),
+        });
+
+        await untilVisible('kitchen-purchases-ledger-table');
+
+        const toolbar = screen.getByTestId('kitchen-ledger-toolbar');
+        expect(within(toolbar).getByTestId('kitchen-ledger-filter-from')).toBeTruthy();
+        expect(within(toolbar).getByTestId('kitchen-ledger-filter-to')).toBeTruthy();
+        // Supplier, item and price state are header filters now; nothing repeats them.
+        expect(screen.queryByTestId('kitchen-ledger-filters')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ledger-filter-supplier')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ledger-filter-item')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ledger-cost-status-unpriced')).toBeNull();
+    });
+
+    it('pages like every other table, from the cursors the server hands back', async () => {
+        const harness = await renderStubScreen(<PurchasesLedgerScreen />, {
+            session: kitchenManagerSession(),
+            repositories: overrides({
+                listPurchasesLedger: async (filter) =>
+                    filter?.cursor === 'page-2'
+                        ? {
+                              items: [SUGAR_LINE],
+                              nextCursor: null,
+                              hasMore: false,
+                              totalCount: null,
+                          }
+                        : {
+                              items: [ledgerLine()],
+                              nextCursor: 'page-2',
+                              hasMore: true,
+                              totalCount: null,
+                          },
+            }),
+        });
+
+        await untilVisible('kitchen-purchases-ledger-pagination-pages-page-2');
+        expect(harness.repositories.kitchenOps.listPurchasesLedger).toHaveBeenCalledWith(
+            expect.objectContaining({ limit: 18 }),
+        );
+        // There is no button promising a page the server has not said exists.
+        expect(screen.queryByTestId('kitchen-purchases-ledger-pagination-pages-page-3')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-purchases-ledger-pagination-pages-page-2'));
+        });
+        await waitFor(() => {
+            expect(screen.getByText('Sugar')).toBeTruthy();
+        });
+        expect(harness.repositories.kitchenOps.listPurchasesLedger).toHaveBeenCalledWith(
+            expect.objectContaining({ cursor: 'page-2', limit: 18 }),
+        );
+
+        // Back to the first page: no cursor at all.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-purchases-ledger-pagination-pages-page-1'));
+        });
+        await waitFor(() => {
+            expect(screen.getByText('Flour')).toBeTruthy();
+        });
+    });
+});
+
+describe('purchases ledger column headers', () => {
+    // Above `md` the Catalogue draws tracks with headers; Jest's default 750px window is below it.
+    const narrowWindow = Dimensions.get('window');
+    const narrowScreen = Dimensions.get('screen');
+
+    beforeAll(() => {
+        Dimensions.set({
+            window: { ...narrowWindow, width: 1440, height: 900 },
+            screen: { ...narrowScreen, width: 1440, height: 900 },
+        });
+    });
+
+    afterAll(() => {
+        Dimensions.set({ window: narrowWindow, screen: narrowScreen });
+    });
+
+    it('sends the Supplier and State header filters with the request, since the ledger is paged', async () => {
         const harness = await renderStubScreen(<PurchasesLedgerScreen />, {
             session: kitchenManagerSession(),
             repositories: overrides(),
@@ -198,20 +296,115 @@ describe('purchases ledger detail mode', () => {
 
         await untilVisible('kitchen-purchases-ledger-table');
 
-        // The three states are a closed set, so all three are offered and none is invented.
-        expect(screen.getByTestId('kitchen-ledger-cost-status-unpriced')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-ledger-cost-status-partial')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-ledger-cost-status-complete')).toBeTruthy();
-
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ledger-cost-status-unpriced'));
+            fireEvent.press(screen.getByTestId('kitchen-purchases-ledger-column-supplier-trigger'));
+        });
+        await untilVisible(`kitchen-purchases-ledger-column-supplier-${String(SUPPLIER_A)}`);
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId(
+                    `kitchen-purchases-ledger-column-supplier-${String(SUPPLIER_A)}`,
+                ),
+            );
         });
 
         await waitFor(() => {
             expect(harness.repositories.kitchenOps.listPurchasesLedger).toHaveBeenCalledWith(
-                expect.objectContaining({ costStatus: 'unpriced' }),
+                expect.objectContaining({ supplierId: SUPPLIER_A }),
             );
         });
+
+        await untilVisible('kitchen-purchases-ledger-column-state-trigger');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-purchases-ledger-column-state-trigger'));
+        });
+        await untilVisible('kitchen-purchases-ledger-column-state-partial');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-purchases-ledger-column-state-partial'));
+        });
+
+        await waitFor(() => {
+            expect(harness.repositories.kitchenOps.listPurchasesLedger).toHaveBeenCalledWith(
+                expect.objectContaining({ supplierId: SUPPLIER_A, costStatus: 'partial' }),
+            );
+        });
+    });
+
+    it('filters by item from its header, and sends it with the request', async () => {
+        const harness = await renderStubScreen(<PurchasesLedgerScreen />, {
+            session: kitchenManagerSession(),
+            repositories: overrides(),
+        });
+
+        await untilVisible('kitchen-purchases-ledger-column-item-trigger');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-purchases-ledger-column-item-trigger'));
+        });
+        await untilVisible(`kitchen-purchases-ledger-column-item-${String(ITEM_A)}`);
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId(`kitchen-purchases-ledger-column-item-${String(ITEM_A)}`),
+            );
+        });
+
+        await waitFor(() => {
+            expect(harness.repositories.kitchenOps.listPurchasesLedger).toHaveBeenCalledWith(
+                expect.objectContaining({ stockItemId: ITEM_A }),
+            );
+        });
+    });
+
+    it('shows the item by name, the price in its own column, and sorts every figure', async () => {
+        await renderStubScreen(<PurchasesLedgerScreen />, {
+            session: kitchenManagerSession(),
+            repositories: overrides({
+                listPurchasesLedger: async () => ({
+                    items: [ledgerLine(), SUGAR_LINE],
+                    nextCursor: null,
+                    hasMore: false,
+                    totalCount: null,
+                }),
+            }),
+        });
+
+        await untilVisible('kitchen-purchases-ledger-table');
+        // The name alone — the code is the name's slug, and the price is a column of its own.
+        expect(screen.queryByText('FLR-1', { exact: false })).toBeNull();
+        expect(
+            screen.getByTestId('kitchen-ledger-01935f6d-0000-7000-8000-0000000000c1-unit-price'),
+        ).toHaveTextContent('2.50 USD');
+
+        const order = () =>
+            screen
+                .getAllByTestId(/^kitchen-ledger-.*-total$/)
+                .map((cell) => String(cell.props.testID).slice(-7, -6));
+
+        // Quantity, ascending: Flour (10) before Sugar (40).
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-purchases-ledger-column-quantity-trigger'));
+        });
+        expect(order()).toEqual(['1', '2']);
+
+        // Line total, ascending: Sugar (16.00) before Flour (25.00).
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-purchases-ledger-column-lineTotal-trigger'),
+            );
+        });
+        expect(order()).toEqual(['2', '1']);
+
+        // Unit price, descending on the second press: Flour (2.50) before Sugar (0.40).
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-purchases-ledger-column-unitPrice-trigger'),
+            );
+        });
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-purchases-ledger-column-unitPrice-trigger'),
+            );
+        });
+        expect(order()).toEqual(['1', '2']);
     });
 });
 
@@ -228,7 +421,7 @@ describe('purchases ledger summary modes', () => {
         await untilVisible('kitchen-purchases-ledger-table');
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ledger-mode-weekly'));
+            fireEvent.press(screen.getByTestId('kitchen-ledger-toolbar-status-weekly'));
         });
 
         await untilVisible('kitchen-ledger-period-2026-W31');
@@ -263,7 +456,7 @@ describe('purchases ledger summary modes', () => {
         await untilVisible('kitchen-ledger-period-2026-W31-USD-charges');
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ledger-mode-monthly'));
+            fireEvent.press(screen.getByTestId('kitchen-ledger-toolbar-status-monthly'));
         });
 
         await waitFor(() => {

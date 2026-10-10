@@ -1,25 +1,30 @@
-import { Pagination, Text } from '@healthy360/design-system';
+import { Pagination } from '@healthy360/design-system';
 import { View } from 'react-native';
 
 /**
- * Part six (§4.1): the range on one side, compact page buttons on the other.
+ * Part six (§4.1): the page buttons, centred under the list.
  *
  * ```
- * Showing 1–25 of 248                                        [ ‹ 1 2 3 … 10 › ]
+ *                          [ ‹ 1 2 3 … 10 › ]
  * ```
  *
- * The range is a caption and the buttons come from `Pagination`, which already owns the slot maths
- * (`paginationSlots`), the ellipsis and the direction-aware chevrons. Nothing is re-derived here:
- * the caller states the range because it is the only party that knows whether the 248 is the
- * filtered total or the unfiltered one, and on a catalogue those differ constantly.
+ * The buttons come from `Pagination`, which already owns the slot maths (`paginationSlots`), the
+ * ellipsis and the direction-aware chevrons. Nothing is re-derived here.
  *
- * The range text arrives translated and interpolated for the reason the summary bar gives — a
- * range written as `{{from}}–{{to}}` in the catalogue can put the dash where the script wants it,
- * and one assembled here cannot.
+ * ## No range beside them
+ *
+ * This used to open with a "Showing 18 of 306" box at the start edge and push the buttons to the
+ * end. The count said nothing the page did not already say — the summary card above every list
+ * carries the same figure — and splitting the row to both edges left the pager hanging off the
+ * table's corner. With the range gone the buttons are the whole row, and centred they sit under the
+ * table they turn rather than beside one column of it.
+ *
+ * A list that fits on one page draws nothing: there is nowhere to go.
  */
+/** Rows on one page of any admin table — the server's `perPage` and every client-side slice. */
+export const CATALOGUE_PAGE_SIZE = 18;
+
 export interface CataloguePagerProps {
-    /** Translated and interpolated — "Showing 1–25 of 248". */
-    readonly range: string;
     readonly page: number;
     readonly totalPages: number;
     readonly onPageChange: (page: number) => void;
@@ -29,27 +34,23 @@ export interface CataloguePagerProps {
 }
 
 export function CataloguePager({
-    range,
     page,
     totalPages,
     onPageChange,
     label,
     testID,
 }: CataloguePagerProps) {
+    if (totalPages <= 1) return null;
+
     return (
-        <View testID={testID} className="flex-row flex-wrap items-center justify-between gap-tight">
-            <Text variant="caption" tone="secondary" testID={`${testID}-range`}>
-                {range}
-            </Text>
-            {totalPages <= 1 ? null : (
-                <Pagination
-                    page={page}
-                    totalPages={totalPages}
-                    onPageChange={onPageChange}
-                    label={label}
-                    testID={`${testID}-pages`}
-                />
-            )}
+        <View testID={testID} className="flex-row justify-center">
+            <Pagination
+                page={page}
+                totalPages={totalPages}
+                onPageChange={onPageChange}
+                label={label}
+                testID={`${testID}-pages`}
+            />
         </View>
     );
 }

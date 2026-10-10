@@ -4,26 +4,33 @@ import {
     Badge,
     Button,
     Callout,
-    Card,
-    DateField,
+    Cascade,
+    DatePickerButton,
     Dialog,
     ErrorState,
     FilterChip,
-    Heading,
+    FormGrid,
+    FormIssueBanner,
+    FormSection,
+    FormSkeleton,
     Inline,
-    NumberStepper,
     Skeleton,
+    spanWidth,
     Stack,
+    Tabs,
     Text,
     TextInputField,
+    useFormSteps,
     useToast,
 } from '@healthy360/design-system';
+import type { FormIssueItem } from '@healthy360/design-system';
 import { DIET_CLASSIFICATIONS, SubscriptionPlanId } from '@healthy360/domain-types';
 import type { DietClassification } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -40,25 +47,27 @@ import {
     usePublishPlanMutation,
     useReplacePlanMenuMutation,
     useRetirePlanMutation,
-    useSetPlanCombinationsMutation,
     useSetPlanDurationsMutation,
     useSetPlanVariantsMutation,
     useUpdatePlanMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
-import { weekdayKey } from '../../marketplace/format.ts';
 import { BilingualField } from '../bilingual-field.tsx';
-import { EditorFrame } from '../editor-frame.tsx';
+import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
+import { PlanMatrixGrid } from '../commercial/plan-matrix-grid.tsx';
+import { TabStepNavigation } from '../editor-steps.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import { focusField } from '../field-focus.ts';
 import {
-    ISO_WEEKDAYS,
     dietClassificationKey,
     displayName,
     humaniseCode,
     isTranslationIncomplete,
+    statusKey,
+    statusTone,
     summarisePlanDurations,
-    summarisePlanMatrix,
     summarisePlanPrices,
 } from '../format.ts';
+import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import {
     EMPTY_MENU,
     MENU_CYCLE_DAY_MAX,
@@ -74,25 +83,16 @@ import {
 } from '../plan-menu.ts';
 import type { MenuDraft } from '../plan-menu.ts';
 import { PlanMenuDays } from '../plan-menu-row-editors.tsx';
-import {
-    PlanBandAdder,
-    PlanCombinationRows,
-    PlanDurationRows,
-    PlanVariantMatrix,
-    PlanVariantRows,
-} from '../plan-row-editors.tsx';
+import { PlanDurationRows, PlanVariantRows } from '../plan-row-editors.tsx';
 import {
     combinationDraft,
-    combinationErrors,
-    combinationRequest,
     durationDraft,
     durationErrors,
     durationRequest,
-    emptyCombination,
+    emptyVariant,
     emptyDuration,
     matrixBands,
     matrixRows,
-    toggleCell,
     variantDraft,
     variantErrors,
     variantRequest,
@@ -114,6 +114,10 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * second one failed — is the first one still applied?", which is a question a screen should never
  * have to ask. All five carry the **catalogue item's** version, including the menu, whose own table
  * is not lock-versioned at all.
+ *
+ * A **new** plan is the exception, and only because there is nothing to lock yet: its one `Save the
+ * plan` creates the record and then chains the configurations, the durations and the menu on each
+ * other's echo (see `createPlan`).
  *
  * ## The menu is the one section that changes what a kitchen cooks
  *
@@ -158,7 +162,6 @@ interface DetailsDraft {
     readonly categorySlugs: readonly string[];
     readonly dietClassifications: readonly DietClassification[];
     readonly changeCutOffHours: number | null;
-    readonly deliveryWeekdays: readonly number[];
 }
 
 /** The 24-hour rule the source material states, as the default a new plan starts from. */
@@ -171,7 +174,6 @@ const EMPTY_DETAILS: DetailsDraft = {
     categorySlugs: [],
     dietClassifications: [],
     changeCutOffHours: DEFAULT_CUT_OFF_HOURS,
-    deliveryWeekdays: [1, 2, 3, 4, 5],
 };
 
 function detailsFrom(plan: PlanAdmin): DetailsDraft {
@@ -182,9 +184,54 @@ function detailsFrom(plan: PlanAdmin): DetailsDraft {
         categorySlugs: plan.categorySlugs,
         dietClassifications: plan.dietClassifications,
         changeCutOffHours: plan.changeCutOffHours,
-        deliveryWeekdays: plan.deliveryWeekdays,
     };
 }
+
+/* ------------------------------------------------------------------------------------------------
+ * Steps
+ * ---------------------------------------------------------------------------------------------- */
+
+/*
+ * The plan first — its name, summary and cut-off, which is what a new plan is asked before anything
+ * else — then Configurations · Matrix · Durations, the design's three (Commercial §3.3), then the
+ * fixed menu. A new plan walks the same five steps, because the design's `New plan` is the same
+ * editor with nothing in it, and its one Save writes all of them. The menu is optional there as
+ * everywhere: left empty, the plan is created with no menu.
+ */
+const PLAN_STEPS = ['plan', 'variants', 'matrix', 'durations', 'menu'] as const;
+type PlanStep = (typeof PLAN_STEPS)[number];
+
+/*
+ * The rows a new plan opens with: one configuration and one duration, because a plan is not
+ * written without either, and an empty section with an Add button makes the reader discover that.
+ * More are added from the section heading. Their keys are fixed so the form can tell a starter row
+ * nobody has touched — whose blanks wait for Save, like any required field — from one being typed.
+ */
+const STARTER_VARIANT_KEY = 'variant-starter';
+const STARTER_DURATION_KEY = 'duration-starter';
+
+function isBlankVariant(row: VariantDraft): boolean {
+    return (
+        row.name.en.trim() === '' &&
+        row.name.ar.trim() === '' &&
+        row.mealsPerDay === null &&
+        row.snacksPerDay === null &&
+        row.energyMin === null &&
+        row.energyMax === null
+    );
+}
+
+function isBlankDuration(row: DurationDraft): boolean {
+    return row.days === null && row.discountPercent === null;
+}
+
+const PLAN_STEP_LABELS: Record<PlanStep, string> = {
+    variants: 'kitchen:plans.tabVariants',
+    matrix: 'kitchen:plans.tabMatrix',
+    durations: 'kitchen:plans.sectionDurations',
+    plan: 'kitchen:plans.sectionDetails',
+    menu: 'kitchen:plans.sectionMenu',
+};
 
 /* ------------------------------------------------------------------------------------------------
  * Screen
@@ -215,6 +262,15 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
 
     const isCreating = plan === undefined || plan === 'new';
+    // Every plan, new or saved, opens on the plan itself and walks the same five steps.
+    const planSteps: readonly PlanStep[] = PLAN_STEPS;
+    const form = useFormSteps(planSteps);
+    /*
+     * The record a create has already minted, held while the sections after it are still being
+     * written. If one of those writes fails the screen is still at `/new`, and without this a second
+     * press would create a second plan instead of finishing the first.
+     */
+    const [created, setCreated] = useState<PlanAdmin | null>(null);
     const parsed = isCreating ? null : SubscriptionPlanId.safeParse(plan);
 
     const record = useAdminPlanQuery(parsed);
@@ -227,13 +283,13 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
      * Published only, because the server refuses anything else with `422` — "a menu entry is a
      * promise to serve the dish" — and a picker that offered a draft would turn that promise into a
      * refusal after the fact. Whole listing rather than a page, for the reason every editor here
-     * takes one: a page control on a select is nonsense.
+     * takes one: a page control on a select is nonsense. A new plan needs it too — its menu is
+     * written in the same pass as everything else.
      */
-    const meals = useAdminMealsQuery({ limit: 100, statuses: ['published'] }, !isCreating);
+    const meals = useAdminMealsQuery({ limit: 100, statuses: ['published'] });
 
     const create = useCreatePlanMutation();
     const update = useUpdatePlanMutation();
-    const saveCombinationsMutation = useSetPlanCombinationsMutation();
     const saveVariantsMutation = useSetPlanVariantsMutation();
     const saveDurationsMutation = useSetPlanDurationsMutation();
     const saveMenuMutation = useReplacePlanMenuMutation();
@@ -250,11 +306,14 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     const [combinations, setCombinations] = useState<readonly CombinationDraft[]>([]);
     const [combinationsDirty, setCombinationsDirty] = useState(false);
 
-    const [variants, setVariants] = useState<readonly VariantDraft[]>([]);
+    const [variants, setVariants] = useState<readonly VariantDraft[]>(
+        isCreating ? [emptyVariant(STARTER_VARIANT_KEY)] : [],
+    );
     const [variantsDirty, setVariantsDirty] = useState(false);
-    const [removedCell, setRemovedCell] = useState<readonly VariantDraft[]>([]);
 
-    const [durations, setDurations] = useState<readonly DurationDraft[]>([]);
+    const [durations, setDurations] = useState<readonly DurationDraft[]>(
+        isCreating ? [emptyDuration(STARTER_DURATION_KEY)] : [],
+    );
     const [durationsDirty, setDurationsDirty] = useState(false);
 
     const [menu, setMenu] = useState<MenuDraft>(EMPTY_MENU);
@@ -263,15 +322,27 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     const [showWithdrawMenu, setShowWithdrawMenu] = useState(false);
 
     const [matrixKey, setMatrixKey] = useState<string | null>(null);
-    const [declaredBands, setDeclaredBands] = useState<
-        readonly { readonly min: number; readonly max: number }[]
-    >([]);
     const [ordinal, setOrdinal] = useState(1);
 
     const [showPublish, setShowPublish] = useState(false);
     const [showRetire, setShowRetire] = useState(false);
+    /** Whether Save has been pressed — what lets an empty required field call itself out. */
+    const [attempted, setAttempted] = useState(false);
 
     const data = record.data;
+
+    /*
+     * The trail's last crumb — what makes `Plans` above it a link back. The create form names
+     * itself; a saved plan waits for its record rather than showing a placeholder for a frame.
+     */
+    useKitchenTrailLeaf(
+        isCreating
+            ? t('kitchen:plans.createTitle')
+            : data === undefined
+              ? null
+              : displayName(data.name, locale).value || t('kitchen:plans.editTitle'),
+    );
+
     const serverKey =
         data === undefined ? null : `${String(data.id)}:${String(data.meta.lockVersion)}`;
 
@@ -292,8 +363,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
         setCombinations(data.combinations.map(combinationDraft));
         setVariants(data.variants.map(variantDraft));
         setDurations(data.durations.map(durationDraft));
-        setDeclaredBands([]);
-        setRemovedCell([]);
     }
 
     /*
@@ -389,7 +458,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
         return [...slugs].sort((left, right) => left.localeCompare(right));
     }, [allPlans.data, details.categorySlugs]);
 
-    const bands = useMemo(() => matrixBands(variants, declaredBands), [variants, declaredBands]);
+    const bands = useMemo(() => matrixBands(variants, []), [variants]);
     const rows = useMemo(() => matrixRows(combinations, variants), [combinations, variants]);
 
     const lists = priceListsFromPages(priceLists.data?.pages);
@@ -410,17 +479,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 energyReversed: t('kitchen:plans.energyReversed'),
             }),
         [variants, t],
-    );
-
-    const combinationRowErrors = useMemo(
-        () =>
-            combinationErrors(combinations, {
-                codeRequired: t('kitchen:plans.combinationCodeRequired'),
-                codeDuplicate: t('kitchen:plans.combinationCodeDuplicate'),
-                labelRequired: t('kitchen:plans.combinationLabelRequired'),
-                servingsRequired: t('kitchen:plans.servingsRequired'),
-            }),
-        [combinations, t],
     );
 
     const durationRowErrors = useMemo(
@@ -460,6 +518,138 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     const nameMissing = details.name.en.trim() === '';
     const cutOffInvalid = details.changeCutOffHours === null || details.changeCutOffHours < 0;
     const detailsBlocked = nameMissing || cutOffInvalid;
+
+    /** A starter row still exactly as the form opened it — its blanks are required, not wrong. */
+    const untouchedVariant = (key: string): boolean =>
+        variants.some(
+            (row) => row.key === key && key === STARTER_VARIANT_KEY && isBlankVariant(row),
+        );
+    const untouchedDuration = (key: string): boolean =>
+        durations.some(
+            (row) => row.key === key && key === STARTER_DURATION_KEY && isBlankDuration(row),
+        );
+    const variantsRequiredOnly = [...variantRowErrors.keys()].every(untouchedVariant);
+    const durationsRequiredOnly = [...durationRowErrors.keys()].every(untouchedDuration);
+
+    /*
+     * Everything on the form that needs the reader, in step order, each naming the step it is on
+     * and the field that fixes it — the recipe editor's list, on the plan's five steps.
+     *
+     * `required` separates a blank, which waits for Save to be pressed, from something already
+     * typed wrong, which is named at once. `blocksSave` is what stops *this* header's Save: the
+     * plan's own fields always, and the configuration and duration rows only while creating, when
+     * that one button writes them too. On a saved plan those rows have their own save, which refuses
+     * them in the same way; they are still named here, because the tab row and the banner are where a
+     * reader looks for what is wrong.
+     */
+    const issues: readonly {
+        readonly key: string;
+        readonly label: string;
+        readonly step: PlanStep;
+        readonly fieldId: string | null;
+        readonly required: boolean;
+        readonly blocksSave: boolean;
+    }[] = [
+        ...(variantRowErrors.size > 0
+            ? [
+                  {
+                      key: 'variants',
+                      label: t('kitchen:plans.variantsTitle'),
+                      step: 'variants' as const,
+                      fieldId: null,
+                      required: variantsRequiredOnly,
+                      blocksSave: isCreating,
+                  },
+              ]
+            : []),
+        ...(durationRowErrors.size > 0
+            ? [
+                  {
+                      key: 'durations',
+                      label: t('kitchen:plans.sectionDurations'),
+                      step: 'durations' as const,
+                      fieldId: null,
+                      required: durationsRequiredOnly,
+                      blocksSave: isCreating,
+                  },
+              ]
+            : []),
+        ...(nameMissing
+            ? [
+                  {
+                      key: 'name',
+                      label: t('kitchen:bilingual.englishShort', {
+                          field: t('kitchen:fields.name'),
+                      }),
+                      step: 'plan' as const,
+                      fieldId: 'kitchen-plan-name-en',
+                      required: true,
+                      blocksSave: true,
+                  },
+              ]
+            : []),
+        ...(cutOffInvalid
+            ? [
+                  {
+                      key: 'cut-off',
+                      label: t('kitchen:plans.cutOffLabel'),
+                      step: 'plan' as const,
+                      fieldId: 'kitchen-plan-cut-off',
+                      required: true,
+                      blocksSave: true,
+                  },
+              ]
+            : []),
+        /*
+         * The menu's rows always, and its document rule too while creating — then the one Save
+         * writes the menu, so a half-written one (a cycle with no dishes, dishes with no anchor)
+         * has to stop it here rather than be refused by the server after the plan already exists.
+         * On a saved plan the section's own Save refuses the document and its Callout says why.
+         */
+        ...(menuRowErrors.size > 0 || (isCreating && menuBlockers.length > 0)
+            ? [
+                  {
+                      key: 'menu',
+                      label: t('kitchen:plans.sectionMenu'),
+                      step: 'menu' as const,
+                      fieldId: null,
+                      required: false,
+                      blocksSave: isCreating,
+                  },
+              ]
+            : []),
+    ];
+
+    /* Before the first Save, only what has already been typed wrong; after it, everything. */
+    const shownIssues = attempted ? issues : issues.filter((entry) => !entry.required);
+    const shows = (key: string): boolean => shownIssues.some((entry) => entry.key === key);
+    const saveBlockers = issues.filter((entry) => entry.blocksSave);
+
+    const goTo = (step: PlanStep, fieldId: string | null) => {
+        form.goTo(step);
+        if (fieldId !== null) focusField(fieldId);
+    };
+
+    const issueItems: readonly FormIssueItem[] = shownIssues.map((entry) => ({
+        key: entry.key,
+        label: entry.label,
+        // The row sections carry no field id, so their rows keep saying what is wrong with them.
+        fieldId: entry.fieldId ?? undefined,
+        onPress: () => {
+            goTo(entry.step, entry.fieldId);
+        },
+    }));
+
+    /** The solid pill a step's tab carries while something on it needs attention. */
+    const stepIssues = (step: PlanStep) => {
+        const count = shownIssues.filter((entry) => entry.step === step).length;
+        if (count === 0) return undefined;
+        return {
+            count,
+            tone: 'danger' as const,
+            label: t('kitchen:forms.toFixCount', { count }),
+        };
+    };
 
     /**
      * Everything standing between this plan and a public listing.
@@ -504,39 +694,87 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
 
     /* ── saving ──────────────────────────────────────────────────────────────────────────────── */
 
+    /**
+     * The new-plan save (Commercial §3.3, `New plan`): the record, then its configurations, its
+     * durations and its menu, from the one `Save the plan` button the design draws.
+     *
+     * Four lock-versioned methods still, so this is up to four writes chained on each other's echo —
+     * each carries the `lockVersion` the previous one returned, and a section with nothing in it is
+     * skipped (an empty menu is no menu, which is what every plan starts with). A later write can
+     * fail with the earlier ones applied: the failing section keeps its rows and says why, `created`
+     * keeps the minted record, and pressing Save again finishes that plan rather than creating
+     * another. The menu is last because it is the only write that leaves the item's version behind
+     * it unread — nothing follows it but the navigation. The address moves to the record only once
+     * every write has landed, so nothing typed is discarded by a navigation.
+     */
+    const createPlan = (changeCutOffHours: number) => {
+        void (async () => {
+            try {
+                let record =
+                    created ??
+                    (await create.mutateAsync({
+                        name: details.name,
+                        summary: details.summary,
+                        description: details.description,
+                        categorySlugs: details.categorySlugs,
+                        dietClassifications: details.dietClassifications,
+                        changeCutOffHours,
+                    }));
+                setCreated(record);
+
+                if (record.variants.length === 0 && variants.length > 0) {
+                    record = await saveVariantsMutation.mutateAsync({
+                        planId: record.id,
+                        request: {
+                            lockVersion: record.meta.lockVersion,
+                            variants: variantRequest(variants),
+                        },
+                    });
+                    setCreated(record);
+                }
+                if (record.durations.length === 0 && durations.length > 0) {
+                    record = await saveDurationsMutation.mutateAsync({
+                        planId: record.id,
+                        request: {
+                            lockVersion: record.meta.lockVersion,
+                            durations: durationRequest(durations),
+                        },
+                    });
+                    setCreated(record);
+                }
+                if (!isMenuWithdrawal(menu)) {
+                    const body = menuRequest(menu);
+                    await saveMenuMutation.mutateAsync({
+                        planId: record.id,
+                        request: {
+                            lockVersion: record.meta.lockVersion,
+                            entries: body.entries,
+                            cycleDays: body.cycleDays,
+                            anchorDate: body.anchorDate,
+                        },
+                    });
+                }
+
+                settle({ details: false, variants: false, durations: false, menu: false });
+                toast.show({
+                    testID: 'kitchen-plan-created-toast',
+                    tone: 'success',
+                    message: t('kitchen:plans.createdToast', {
+                        name: displayName(record.name, locale).value,
+                    }),
+                });
+                router.replace(`/kitchen/plans/${String(record.id)}` as never);
+            } catch (error) {
+                concurrency.capture(error);
+            }
+        })();
+    };
+
     const saveDetails = () => {
         if (detailsBlocked || details.changeCutOffHours === null) return;
 
         if (isCreating) {
-            create.mutate(
-                {
-                    name: details.name,
-                    summary: details.summary,
-                    description: details.description,
-                    categorySlugs: details.categorySlugs,
-                    dietClassifications: details.dietClassifications,
-                    changeCutOffHours: details.changeCutOffHours,
-                    deliveryWeekdays: details.deliveryWeekdays,
-                },
-                {
-                    onSuccess: (created) => {
-                        settle({
-                            details: false,
-                            combinations: false,
-                            variants: false,
-                            durations: false,
-                        });
-                        toast.show({
-                            testID: 'kitchen-plan-created-toast',
-                            tone: 'success',
-                            message: t('kitchen:plans.createdToast', {
-                                name: displayName(created.name, locale).value,
-                            }),
-                        });
-                        router.replace(`/kitchen/plans/${String(created.id)}` as never);
-                    },
-                },
-            );
+            createPlan(details.changeCutOffHours);
             return;
         }
 
@@ -552,7 +790,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     categorySlugs: details.categorySlugs,
                     dietClassifications: details.dietClassifications,
                     changeCutOffHours: details.changeCutOffHours,
-                    deliveryWeekdays: details.deliveryWeekdays,
                 },
             },
             {
@@ -571,34 +808,20 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
         );
     };
 
-    const saveCombinations = () => {
-        if (data === undefined || combinationRowErrors.size > 0) return;
-        saveCombinationsMutation.mutate(
-            {
-                planId: data.id,
-                request: {
-                    lockVersion: data.meta.lockVersion,
-                    combinations: combinationRequest(combinations),
-                },
-            },
-            {
-                onSuccess: (saved) => {
-                    // Rebased on the server's echo rather than left as the local draft. See the
-                    // note on `saveVariants`: the whole-record rebuild is skipped while any *other*
-                    // section is still dirty, so each save has to rebase its own rows.
-                    setCombinations(saved.combinations.map(combinationDraft));
-                    settle({ combinations: false });
-                    toast.show({
-                        testID: 'kitchen-plan-combinations-saved-toast',
-                        tone: 'success',
-                        message: t('kitchen:plans.combinationsSavedToast'),
-                    });
-                },
-                onError: (error) => {
-                    concurrency.capture(error);
-                },
-            },
-        );
+    /*
+     * Save the plan is pressable over an incomplete form, as on the ingredient and recipe editors.
+     * The press marks the form attempted — the blank required fields say so, the banner names each
+     * — and takes the reader to the first thing that stops it, switching step on the way.
+     */
+    const attemptSave = () => {
+        if (!canManage) return;
+        setAttempted(true);
+        const first = saveBlockers[0];
+        if (first !== undefined) {
+            goTo(first.step, first.fieldId);
+            return;
+        }
+        saveDetails();
     };
 
     const saveVariants = () => {
@@ -623,7 +846,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                      */
                     setVariants(saved.variants.map(variantDraft));
                     settle({ variants: false });
-                    setRemovedCell([]);
                     toast.show({
                         testID: 'kitchen-plan-variants-saved-toast',
                         tone: 'success',
@@ -746,11 +968,11 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
 
     if (!isCreating && record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-plan-editor-loading">
-                <Skeleton testID="kitchen-plan-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-plan-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-plan-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-plan-editor-loading"
+                partTestID="kitchen-plan"
+                sections={3}
+            />
         );
     }
 
@@ -772,7 +994,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     }
 
     const saveFailure = toFailure(update.error ?? create.error);
-    const matrixFailure = toFailure(saveVariantsMutation.error ?? saveCombinationsMutation.error);
+    const matrixFailure = toFailure(saveVariantsMutation.error);
     const durationsFailure = toFailure(saveDurationsMutation.error);
     const menuFailure = toFailure(saveMenuMutation.error);
     const menuLoadFailure = toFailure(menuRecord.error);
@@ -781,8 +1003,16 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
      * The cutover question, asked of the *server's* menu rather than the draft's origin: has this
      * plan ever had one, and is this draft about to give it one?
      */
-    const menuCutover = menuRecord.data !== undefined && isFirstPublication(menuRecord.data, menu);
+    /*
+     * Never on a new plan: the warning is about orders that have been generated without dishes
+     * until now, and a plan that does not exist yet has none.
+     */
+    const menuCutover =
+        !isCreating && menuRecord.data !== undefined && isFirstPublication(menuRecord.data, menu);
     const menuOnServer = menuRecord.data !== undefined && isMenuPublished(menuRecord.data);
+    // A saved plan's menu waits for its own read; a new plan's has nothing to read.
+    const menuLoading = !isCreating && menuRecord.isPending;
+    const menuLoadBlocked = !isCreating && menuLoadFailure !== null;
     const publishFailure = toFailure(publish.error);
     const publishFields =
         publishFailure !== null && isValidationFailure(publishFailure) ? publishFailure.fields : {};
@@ -790,247 +1020,382 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     const publishRefusedByPrice = Object.keys(publishFields).includes('price');
     const quarantined = data?.meta.status === 'review_required';
     const isPublished = data?.meta.status === 'published';
-    /*
-     * The live summary of what is on screen — not of what the server holds. The counts are how a
-     * person checks their own work before saving, so they are computed from the draft, put through
-     * the same request builders the save uses so the two can never disagree.
-     */
-    const matrixSummary =
-        data === undefined
-            ? null
-            : summarisePlanMatrix({
-                  variants: variantRequest(variants),
-                  combinations: combinationRequest(combinations),
-              });
-    const draftDurations = summarisePlanDurations(durationRequest(durations));
+
+    const busy =
+        create.isPending ||
+        update.isPending ||
+        (isCreating &&
+            (saveVariantsMutation.isPending ||
+                saveDurationsMutation.isPending ||
+                saveMenuMutation.isPending));
+    const status = data?.meta.status ?? 'draft';
+
+    const title = isCreating
+        ? t('kitchen:plans.createTitle')
+        : data === undefined
+          ? t('kitchen:plans.editTitle')
+          : displayName(data.name, locale).value;
+
+    /** Each step, numbered, with what it holds and — once there is something — what needs fixing. */
+    const tabItems = planSteps.map((key) => ({
+        value: key,
+        label: t(PLAN_STEP_LABELS[key]),
+        ...(key === 'variants'
+            ? { count: variants.length }
+            : key === 'durations'
+              ? { count: durations.length }
+              : key === 'menu'
+                ? { count: menu.entries.length }
+                : {}),
+        issues: stepIssues(key),
+        // The ids the progress row used to carry, so a suite that walks the steps still can.
+        testID: `kitchen-plan-editor-screen-steps-${key}`,
+    }));
+
+    const goBack = () => {
+        router.push('/kitchen/plans' as never);
+    };
 
     return (
-        <EditorFrame
-            testID="kitchen-plan-editor-screen"
-            title={
-                isCreating
-                    ? t('kitchen:plans.createTitle')
-                    : data === undefined
-                      ? t('kitchen:plans.editTitle')
-                      : displayName(data.name, locale).value
-            }
-            meta={data?.meta ?? null}
-            guard={guard}
-            concurrency={concurrency}
-            onSaveDraft={saveDetails}
-            saveLabel={t('kitchen:common.saveDraft')}
-            saving={create.isPending || update.isPending}
-            saveDisabled={!canManage || detailsBlocked}
-            backLabel={t('kitchen:plans.backToList')}
-            onBack={() => {
-                router.push('/kitchen/plans' as never);
-            }}
-            primaryAction={
-                isCreating || !canManage ? null : (
-                    <Inline space="xs" wrap justify="end">
-                        {isPublished ? (
+        <Cascade space="md" testID="kitchen-plan-editor-screen">
+            {/*
+             * The opening, as the recipe editor draws it: the title with its status beside it, the
+             * actions at the inline end, the banner naming what needs fixing, and the steps as
+             * numbered tabs on a sunken track — each carrying its count and, when something on it
+             * needs attention, a solid pill. The row is how a reader jumps; the Previous/Next footer
+             * under the form is how they walk it. No trail here — `KitchenOpsShell` draws it.
+             */}
+            <Stack space="sm">
+                <CataloguePageHeader
+                    testID="kitchen-plan-editor-screen-header"
+                    titleTestID="kitchen-plan-editor-screen-title"
+                    title={title}
+                    titleAside={
+                        <Inline
+                            space="xs"
+                            align="center"
+                            wrap
+                            testID="kitchen-plan-editor-screen-meta"
+                        >
+                            <Badge
+                                variant="caps"
+                                testID="kitchen-plan-editor-screen-status"
+                                tone={statusTone(status)}
+                                icon={null}
+                                label={t(statusKey(status))}
+                            />
+                            <Badge
+                                variant="label"
+                                testID="kitchen-plan-editor-screen-chip"
+                                tone="brand"
+                                icon={null}
+                                label={t('kitchen:plans.createChip')}
+                            />
+                            {guard.isDirty ? (
+                                <Badge
+                                    variant="label"
+                                    testID="kitchen-plan-editor-screen-dirty"
+                                    tone="warning"
+                                    icon="warning"
+                                    label={t('kitchen:editor.unsaved')}
+                                />
+                            ) : null}
+                        </Inline>
+                    }
+                    primaryAction={
+                        <Inline space="xs" align="center" wrap justify="end">
                             <Button
-                                testID="kitchen-plan-retire"
+                                testID="kitchen-plan-editor-screen-back"
                                 variant="secondary"
-                                label={t('kitchen:plans.retire')}
+                                label={t('kitchen:editor.cancel')}
                                 onPress={() => {
-                                    setShowRetire(true);
+                                    guard.intercept(goBack);
                                 }}
                             />
-                        ) : (
-                            <Button
-                                testID="kitchen-plan-publish"
-                                variant="secondary"
-                                label={t('kitchen:publish.action')}
-                                onPress={() => {
-                                    setShowPublish(true);
-                                }}
-                            />
-                        )}
-                    </Inline>
-                )
-            }
-            banner={
-                <Stack space="sm">
-                    {quarantined ? (
-                        <Callout
-                            testID="kitchen-plan-quarantine"
-                            role="alert"
-                            tone="warning"
-                            title={t('kitchen:publish.quarantineTitle')}
-                            body={t('kitchen:publish.quarantineBody')}
-                        />
-                    ) : null}
-
-                    {isPublished && data !== undefined ? (
-                        <Callout
-                            testID="kitchen-plan-published"
-                            role="note"
-                            tone="success"
-                            title={t('kitchen:plans.publishedTitle')}
-                            body={t('kitchen:plans.publishedBody')}
-                            actions={
+                            {/*
+                             * Publication is never offered before the plan exists. Save is not
+                             * here: it is the last step's Next, under the form.
+                             */}
+                            {isCreating || !canManage ? null : isPublished ? (
                                 <Button
-                                    testID="kitchen-plan-view-public"
-                                    size="sm"
+                                    testID="kitchen-plan-retire"
                                     variant="secondary"
-                                    label={t('kitchen:plans.viewPublic')}
+                                    label={t('kitchen:plans.retire')}
                                     onPress={() => {
-                                        guard.intercept(() => {
-                                            router.push(`/plans/${String(data.id)}` as never);
-                                        });
+                                        setShowRetire(true);
                                     }}
                                 />
-                            }
-                        />
-                    ) : null}
+                            ) : (
+                                <Button
+                                    testID="kitchen-plan-publish"
+                                    label={t('kitchen:publish.action')}
+                                    onPress={() => {
+                                        setShowPublish(true);
+                                    }}
+                                />
+                            )}
+                        </Inline>
+                    }
+                />
 
-                    {data?.meta.status === 'retired' ? (
-                        <Callout
-                            testID="kitchen-plan-retired"
-                            role="note"
-                            tone="info"
-                            title={t('kitchen:plans.retiredTitle')}
-                            body={t('kitchen:plans.retiredBody')}
-                        />
-                    ) : null}
-
-                    {saveFailure === null ? null : (
-                        <Callout
-                            testID="kitchen-plan-save-error"
-                            role="alert"
-                            tone="danger"
-                            title={t('kitchen:editor.saveError')}
-                            body={saveFailure.message}
-                        />
-                    )}
-                </Stack>
-            }
-        >
-            {/* ── the record ───────────────────────────────────────────────────────────────── */}
-            <Card testID="kitchen-plan-details" padding="md">
-                <Stack space="md">
-                    <Heading level={3}>{t('kitchen:plans.sectionDetails')}</Heading>
-
-                    <BilingualField
-                        testID="kitchen-plan-name"
-                        fieldLabel={t('kitchen:fields.name')}
-                        value={details.name}
-                        requiredEnglish
-                        {...(nameMissing ? { englishError: t('kitchen:plans.nameRequired') } : {})}
-                        onChange={(next) => {
-                            markDirty(() => {
-                                setDetails({ ...details, name: next });
-                                setDetailsDirty(true);
-                            });
-                        }}
-                    />
-
-                    <BilingualField
-                        testID="kitchen-plan-summary"
-                        fieldLabel={t('kitchen:plans.summaryLabel')}
-                        value={details.summary}
-                        onChange={(next) => {
-                            markDirty(() => {
-                                setDetails({ ...details, summary: next });
-                                setDetailsDirty(true);
-                            });
-                        }}
-                    />
-
-                    <BilingualField
-                        testID="kitchen-plan-description"
-                        fieldLabel={t('kitchen:plans.descriptionLabel')}
-                        multiline
-                        value={details.description}
-                        onChange={(next) => {
-                            markDirty(() => {
-                                setDetails({ ...details, description: next });
-                                setDetailsDirty(true);
-                            });
-                        }}
-                    />
-
-                    <Stack space="xs">
-                        <Text variant="label" testID="kitchen-plan-categories-label">
-                            {t('kitchen:plans.categoriesLabel')}
-                        </Text>
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:plans.categoriesHint')}
-                        </Text>
-                        {categoryOptions.length === 0 ? (
-                            <Text
-                                testID="kitchen-plan-categories-none"
-                                variant="caption"
-                                tone="secondary"
-                            >
-                                {t('kitchen:plans.categoriesNone')}
-                            </Text>
-                        ) : (
-                            <Inline space="xs" wrap testID="kitchen-plan-categories">
-                                {categoryOptions.map((slug) => (
-                                    <FilterChip
-                                        key={slug}
-                                        testID={`kitchen-plan-category-${slug}`}
-                                        label={humaniseCode(slug)}
-                                        selected={details.categorySlugs.includes(slug)}
-                                        disabled={!canManage}
-                                        onChange={(selected) => {
-                                            markDirty(() => {
-                                                setDetails({
-                                                    ...details,
-                                                    categorySlugs: selected
-                                                        ? [...details.categorySlugs, slug]
-                                                        : details.categorySlugs.filter(
-                                                              (entry) => entry !== slug,
-                                                          ),
-                                                });
-                                                setDetailsDirty(true);
-                                            });
-                                        }}
-                                    />
-                                ))}
-                            </Inline>
+                {issueItems.length === 0 ? null : (
+                    <FormIssueBanner
+                        testID="kitchen-plan-issues"
+                        tone="danger"
+                        summary={t(
+                            shownIssues.every((entry) => entry.required)
+                                ? 'kitchen:forms.requiredCount'
+                                : 'kitchen:forms.toFixCount',
+                            { count: issueItems.length },
                         )}
+                        items={issueItems}
+                    />
+                )}
 
-                        <Inline space="sm" align="end" wrap>
-                            <TextInputField
-                                testID="kitchen-plan-category-new"
-                                id="kitchen-plan-category-new"
-                                label={t('kitchen:plans.categoryAddLabel')}
-                                hint={t('kitchen:plans.categoryAddHint')}
-                                value={newCategory}
-                                autoCapitalize="none"
-                                autoCorrect={false}
+                <Tabs<PlanStep>
+                    testID="kitchen-plan-steps"
+                    label={t('kitchen:plans.stepsLabel')}
+                    items={tabItems}
+                    value={form.current}
+                    onChange={form.goTo}
+                    variant="steps"
+                />
+            </Stack>
+
+            {quarantined ? (
+                <Callout
+                    testID="kitchen-plan-quarantine"
+                    role="alert"
+                    tone="warning"
+                    title={t('kitchen:publish.quarantineTitle')}
+                    body={t('kitchen:publish.quarantineBody')}
+                />
+            ) : null}
+
+            {isPublished && data !== undefined ? (
+                <Callout
+                    testID="kitchen-plan-published"
+                    role="note"
+                    tone="success"
+                    title={t('kitchen:plans.publishedTitle')}
+                    body={t('kitchen:plans.publishedBody')}
+                    actions={
+                        <Button
+                            testID="kitchen-plan-view-public"
+                            size="sm"
+                            variant="secondary"
+                            label={t('kitchen:plans.viewPublic')}
+                            onPress={() => {
+                                guard.intercept(() => {
+                                    router.push(`/plans/${String(data.id)}` as never);
+                                });
+                            }}
+                        />
+                    }
+                />
+            ) : null}
+
+            {saveFailure === null ? null : (
+                <Callout
+                    testID="kitchen-plan-save-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('kitchen:editor.saveError')}
+                    body={saveFailure.message}
+                />
+            )}
+
+            {/* ── the plan itself ──────────────────────────────────────────────────────────── */}
+            {/*
+             * Its own step, drawn the way the ingredient editor draws a record: sections, each a
+             * title and a hairline, and the fields on the half track — a name and its translation are
+             * one answer in two boxes across four tracks, and the cut-off is a figure in two.
+             */}
+            {form.current !== 'plan' ? null : (
+                <View testID="kitchen-plan-details" className="z-auto flex-col gap-loose">
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-plan-identity"
+                        title={t('kitchen:forms.description')}
+                    >
+                        <FormGrid track="half" maxColumns={4} testID="kitchen-plan-identity-grid">
+                            <BilingualField
+                                span={4}
+                                layout="row"
+                                testID="kitchen-plan-name"
+                                fieldLabel={t('kitchen:fields.name')}
+                                placeholder={{
+                                    en: t('kitchen:fields.planNamePlaceholderEn'),
+                                    ar: t('kitchen:fields.planNamePlaceholderAr'),
+                                }}
+                                value={details.name}
+                                requiredEnglish
                                 disabled={!canManage}
-                                onChangeText={setNewCategory}
+                                {...(shows('name')
+                                    ? { englishError: t('kitchen:forms.required') }
+                                    : {})}
+                                onChange={(next) => {
+                                    markDirty(() => {
+                                        setDetails({ ...details, name: next });
+                                        setDetailsDirty(true);
+                                    });
+                                }}
                             />
-                            <Button
-                                testID="kitchen-plan-category-add"
+
+                            <BilingualField
+                                span={4}
+                                layout="row"
+                                testID="kitchen-plan-summary"
+                                fieldLabel={t('kitchen:plans.summaryLabel')}
+                                placeholder={{
+                                    en: t('kitchen:plans.summaryPlaceholderEn'),
+                                    ar: t('kitchen:plans.summaryPlaceholderAr'),
+                                }}
+                                value={details.summary}
+                                disabled={!canManage}
+                                onChange={(next) => {
+                                    markDirty(() => {
+                                        setDetails({ ...details, summary: next });
+                                        setDetailsDirty(true);
+                                    });
+                                }}
+                            />
+
+                            <BilingualField
+                                span={4}
+                                layout="row"
+                                testID="kitchen-plan-description"
+                                fieldLabel={t('kitchen:plans.descriptionLabel')}
+                                placeholder={{
+                                    en: t('kitchen:plans.descriptionPlaceholderEn'),
+                                    ar: t('kitchen:plans.descriptionPlaceholderAr'),
+                                }}
+                                multiline
+                                value={details.description}
+                                disabled={!canManage}
+                                onChange={(next) => {
+                                    markDirty(() => {
+                                        setDetails({ ...details, description: next });
+                                        setDetailsDirty(true);
+                                    });
+                                }}
+                            />
+
+                            <TextInputField
+                                span={2}
+                                testID="kitchen-plan-cut-off"
+                                id="kitchen-plan-cut-off"
+                                label={t('kitchen:plans.cutOffLabel')}
+                                placeholder={t('kitchen:plans.cutOffUnit')}
                                 size="sm"
-                                variant="secondary"
-                                label={t('kitchen:plans.categoryAddAction')}
-                                disabled={!canManage || newCategory.trim() === ''}
-                                onPress={() => {
-                                    const slug = newCategory.trim().toLocaleLowerCase();
-                                    if (slug === '' || details.categorySlugs.includes(slug)) return;
+                                inputMode="numeric"
+                                autoCorrect={false}
+                                required
+                                disabled={!canManage}
+                                value={
+                                    details.changeCutOffHours === null
+                                        ? ''
+                                        : String(details.changeCutOffHours)
+                                }
+                                {...(shows('cut-off')
+                                    ? { error: t('kitchen:plans.cutOffRequired') }
+                                    : {})}
+                                onChangeText={(text) => {
+                                    const digits = text.replace(/[^0-9]/g, '');
                                     markDirty(() => {
                                         setDetails({
                                             ...details,
-                                            categorySlugs: [...details.categorySlugs, slug],
+                                            changeCutOffHours:
+                                                digits === '' ? null : Number.parseInt(digits, 10),
                                         });
                                         setDetailsDirty(true);
                                     });
-                                    setNewCategory('');
                                 }}
                             />
-                        </Inline>
-                    </Stack>
+                        </FormGrid>
+                    </FormSection>
 
-                    <Stack space="xs">
-                        <Text variant="label" testID="kitchen-plan-diets-label">
-                            {t('kitchen:plans.dietsLabel')}
-                        </Text>
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-plan-categories-section"
+                        title={t('kitchen:plans.categoriesLabel')}
+                    >
+                        <Stack space="xs">
+                            {categoryOptions.length === 0 ? null : (
+                                <Inline space="xs" wrap testID="kitchen-plan-categories">
+                                    {categoryOptions.map((slug) => (
+                                        <FilterChip
+                                            key={slug}
+                                            testID={`kitchen-plan-category-${slug}`}
+                                            label={humaniseCode(slug)}
+                                            selected={details.categorySlugs.includes(slug)}
+                                            disabled={!canManage}
+                                            onChange={(selected) => {
+                                                markDirty(() => {
+                                                    setDetails({
+                                                        ...details,
+                                                        categorySlugs: selected
+                                                            ? [...details.categorySlugs, slug]
+                                                            : details.categorySlugs.filter(
+                                                                  (entry) => entry !== slug,
+                                                              ),
+                                                    });
+                                                    setDetailsDirty(true);
+                                                });
+                                            }}
+                                        />
+                                    ))}
+                                </Inline>
+                            )}
+                            {canManage ? (
+                                <Inline space="xs" align="center" wrap>
+                                    <View style={{ width: spanWidth(1) }}>
+                                        <TextInputField
+                                            testID="kitchen-plan-category-new"
+                                            id="kitchen-plan-category-new"
+                                            label={t('kitchen:plans.categoryAddLabel')}
+                                            labelHidden
+                                            placeholder={t('kitchen:plans.categoryAddLabel')}
+                                            size="sm"
+                                            value={newCategory}
+                                            autoCapitalize="none"
+                                            autoCorrect={false}
+                                            onChangeText={setNewCategory}
+                                        />
+                                    </View>
+                                    <Button
+                                        testID="kitchen-plan-category-add"
+                                        size="sm"
+                                        variant="secondary"
+                                        label={t('kitchen:plans.categoryAddAction')}
+                                        disabled={newCategory.trim() === ''}
+                                        onPress={() => {
+                                            const slug = newCategory.trim().toLocaleLowerCase();
+                                            if (slug === '' || details.categorySlugs.includes(slug))
+                                                return;
+                                            markDirty(() => {
+                                                setDetails({
+                                                    ...details,
+                                                    categorySlugs: [...details.categorySlugs, slug],
+                                                });
+                                                setDetailsDirty(true);
+                                            });
+                                            setNewCategory('');
+                                        }}
+                                    />
+                                </Inline>
+                            ) : null}
+                        </Stack>
+                    </FormSection>
+
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-plan-diets-section"
+                        title={t('kitchen:plans.dietsLabel')}
+                    >
                         <Inline space="xs" wrap testID="kitchen-plan-diets">
                             {DIET_CLASSIFICATIONS.map((diet) => (
                                 <FilterChip
@@ -1055,103 +1420,21 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 />
                             ))}
                         </Inline>
-                    </Stack>
+                    </FormSection>
+                </View>
+            )}
 
-                    <NumberStepper
-                        testID="kitchen-plan-cut-off"
-                        id="kitchen-plan-cut-off"
-                        label={t('kitchen:plans.cutOffLabel')}
-                        hint={t('kitchen:plans.cutOffHint')}
-                        unit={t('kitchen:plans.cutOffUnit')}
-                        min={0}
-                        max={168}
-                        disabled={!canManage}
-                        value={details.changeCutOffHours}
-                        {...(cutOffInvalid ? { error: t('kitchen:plans.cutOffRequired') } : {})}
-                        onChange={(next) => {
-                            markDirty(() => {
-                                setDetails({ ...details, changeCutOffHours: next });
-                                setDetailsDirty(true);
-                            });
-                        }}
-                    />
-
-                    <Stack space="xs">
-                        <Text variant="label" testID="kitchen-plan-weekdays-label">
-                            {t('kitchen:plans.weekdaysLabel')}
-                        </Text>
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:plans.weekdaysHint')}
-                        </Text>
-                        <Inline space="xs" wrap testID="kitchen-plan-weekdays">
-                            {ISO_WEEKDAYS.map((weekday) => (
-                                <FilterChip
-                                    key={weekday}
-                                    testID={`kitchen-plan-weekday-${String(weekday)}`}
-                                    label={t(weekdayKey(weekday))}
-                                    selected={details.deliveryWeekdays.includes(weekday)}
-                                    disabled={!canManage}
-                                    onChange={(selected) => {
-                                        markDirty(() => {
-                                            setDetails({
-                                                ...details,
-                                                deliveryWeekdays: selected
-                                                    ? [...details.deliveryWeekdays, weekday].sort(
-                                                          (left, right) => left - right,
-                                                      )
-                                                    : details.deliveryWeekdays.filter(
-                                                          (entry) => entry !== weekday,
-                                                      ),
-                                            });
-                                            setDetailsDirty(true);
-                                        });
-                                    }}
-                                />
-                            ))}
-                        </Inline>
-                    </Stack>
-                </Stack>
-            </Card>
-
-            {isCreating ? (
-                <Card testID="kitchen-plan-matrix-unavailable" padding="md">
-                    <Stack space="sm">
-                        <Heading level={3}>{t('kitchen:plans.sectionMatrix')}</Heading>
-                        <Text tone="secondary">{t('kitchen:plans.createFirst')}</Text>
-                    </Stack>
-                </Card>
-            ) : (
-                <>
-                    {/* ── the matrix ───────────────────────────────────────────────────────── */}
-                    <Card testID="kitchen-plan-matrix" padding="md">
+            {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
+            <View className="z-auto flex-col gap-loose">
+                {/* ── the matrix ───────────────────────────────────────────────────────── */}
+                {form.current !== 'matrix' ? null : (
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-plan-matrix"
+                        title={t('kitchen:plans.tabMatrix')}
+                    >
                         <Stack space="md">
-                            <Stack space="xs">
-                                <Heading level={3}>{t('kitchen:plans.sectionMatrix')}</Heading>
-                                <Text tone="secondary" variant="caption">
-                                    {t('kitchen:plans.matrixHelp')}
-                                </Text>
-                            </Stack>
-
-                            {matrixSummary === null ? null : (
-                                <Inline space="xs" wrap testID="kitchen-plan-matrix-summary">
-                                    <Badge
-                                        testID="kitchen-plan-matrix-coverage"
-                                        tone={matrixSummary.filled === 0 ? 'warning' : 'info'}
-                                        label={t('kitchen:plans.coverage', {
-                                            filled: matrixSummary.filled,
-                                            cells: matrixSummary.cells,
-                                        })}
-                                    />
-                                    <Badge
-                                        testID="kitchen-plan-matrix-variants"
-                                        tone="neutral"
-                                        label={t('kitchen:plans.variantCount', {
-                                            count: matrixSummary.variants,
-                                        })}
-                                    />
-                                </Inline>
-                            )}
-
                             {matrixFailure === null ? null : (
                                 <Callout
                                     testID="kitchen-plan-matrix-error"
@@ -1162,91 +1445,72 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 />
                             )}
 
-                            <PlanVariantMatrix
+                            <PlanMatrixGrid
                                 testID="kitchen-plan-matrix-grid"
                                 rows={rows}
                                 bands={bands}
                                 variants={variants}
-                                canManage={canManage}
-                                onToggle={(row, band) => {
-                                    const before = variants;
-                                    const next = toggleCell(before, row, band, {
-                                        key: takeKey('variant'),
-                                        name: {
-                                            en:
-                                                row.combination === null
-                                                    ? t('kitchen:plans.newVariantName')
-                                                    : row.combination.label.en,
-                                            ar:
-                                                row.combination === null
-                                                    ? ''
-                                                    : row.combination.label.ar,
-                                        },
-                                    });
-                                    // A cell can hold more than one configuration, so switching one
-                                    // off can discard several rows at once. They are kept for undo
-                                    // rather than assumed to be re-typable.
-                                    setRemovedCell(
-                                        next.length < before.length
-                                            ? before.filter(
-                                                  (variant) =>
-                                                      !next.some(
-                                                          (entry) => entry.key === variant.key,
-                                                      ),
-                                              )
-                                            : [],
-                                    );
-                                    markDirty(() => {
-                                        setVariants(next);
-                                        setVariantsDirty(true);
-                                    });
-                                }}
                             />
+                        </Stack>
+                    </FormSection>
+                )}
 
-                            {removedCell.length === 0 ? null : (
-                                <Inline space="sm" align="center" wrap>
-                                    <Text testID="kitchen-plan-matrix-removed" variant="caption">
-                                        {t('kitchen:plans.cellRemoved', {
-                                            count: removedCell.length,
-                                        })}
-                                    </Text>
+                {/* ── every configuration in full ──────────────────────────────────────── */}
+                {form.current !== 'variants' ? null : (
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-plan-variants-section"
+                        title={t('kitchen:plans.variantsTitle')}
+                        actions={
+                            canManage ? (
+                                <Inline space="xs" wrap>
                                     <Button
-                                        testID="kitchen-plan-matrix-undo"
+                                        testID="kitchen-plan-variants-add"
                                         size="sm"
-                                        variant="ghost"
-                                        label={t('kitchen:common.undo')}
+                                        variant="secondary"
+                                        label={t('kitchen:plans.addVariant')}
                                         onPress={() => {
                                             markDirty(() => {
-                                                setVariants([...variants, ...removedCell]);
+                                                setVariants([
+                                                    ...variants,
+                                                    emptyVariant(takeKey('variant')),
+                                                ]);
                                                 setVariantsDirty(true);
                                             });
-                                            setRemovedCell([]);
                                         }}
                                     />
+                                    {isCreating ? null : (
+                                        <Button
+                                            testID="kitchen-plan-variants-save"
+                                            size="sm"
+                                            label={t('kitchen:plans.saveVariants')}
+                                            loading={saveVariantsMutation.isPending}
+                                            disabled={
+                                                saveVariantsMutation.isPending ||
+                                                variantRowErrors.size > 0
+                                            }
+                                            onPress={saveVariants}
+                                        />
+                                    )}
                                 </Inline>
-                            )}
-
-                            {canManage ? (
-                                <PlanBandAdder
-                                    testID="kitchen-plan-band-adder"
-                                    canManage={canManage}
-                                    onAdd={(band) => {
-                                        setDeclaredBands([...declaredBands, band]);
-                                    }}
-                                />
-                            ) : null}
-
-                            <Stack space="xs">
-                                <Heading level={4}>{t('kitchen:plans.variantsTitle')}</Heading>
-                                <Text tone="secondary" variant="caption">
-                                    {t('kitchen:plans.variantsHelp')}
-                                </Text>
-                            </Stack>
-
+                            ) : undefined
+                        }
+                    >
+                        <Stack space="md">
                             <PlanVariantRows
                                 testID="kitchen-plan-variants"
                                 rows={variants}
-                                errors={variantRowErrors}
+                                errors={
+                                    attempted
+                                        ? variantRowErrors
+                                        : new Map(
+                                              [...variantRowErrors].filter(
+                                                  ([key]) => !untouchedVariant(key),
+                                              ),
+                                          )
+                                }
+                                keepOne={isCreating}
                                 canManage={canManage}
                                 onChange={(next) => {
                                     markDirty(() => {
@@ -1255,137 +1519,20 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                     });
                                 }}
                             />
-
-                            {canManage ? (
-                                <Inline space="sm" wrap justify="end">
-                                    <Button
-                                        testID="kitchen-plan-variants-save"
-                                        variant="secondary"
-                                        label={t('kitchen:plans.saveVariants')}
-                                        loading={saveVariantsMutation.isPending}
-                                        disabled={
-                                            saveVariantsMutation.isPending ||
-                                            variantRowErrors.size > 0
-                                        }
-                                        onPress={saveVariants}
-                                    />
-                                </Inline>
-                            ) : null}
                         </Stack>
-                    </Card>
+                    </FormSection>
+                )}
 
-                    {/* ── combinations ─────────────────────────────────────────────────────── */}
-                    <Card testID="kitchen-plan-combinations" padding="md">
-                        <Stack space="md">
-                            <Stack space="xs">
-                                <Heading level={3}>
-                                    {t('kitchen:plans.sectionCombinations')}
-                                </Heading>
-                                <Text tone="secondary" variant="caption">
-                                    {t('kitchen:plans.combinationsHelp')}
-                                </Text>
-                            </Stack>
-
-                            <PlanCombinationRows
-                                testID="kitchen-plan-combination-rows"
-                                rows={combinations}
-                                errors={combinationRowErrors}
-                                canManage={canManage}
-                                onChange={(next) => {
-                                    markDirty(() => {
-                                        setCombinations(next);
-                                        setCombinationsDirty(true);
-                                    });
-                                }}
-                            />
-
-                            {canManage ? (
-                                <Inline space="sm" wrap justify="between">
-                                    <Button
-                                        testID="kitchen-plan-combinations-add"
-                                        size="sm"
-                                        variant="secondary"
-                                        label={t('kitchen:plans.addCombination')}
-                                        onPress={() => {
-                                            markDirty(() => {
-                                                setCombinations([
-                                                    ...combinations,
-                                                    emptyCombination(takeKey('combination')),
-                                                ]);
-                                                setCombinationsDirty(true);
-                                            });
-                                        }}
-                                    />
-                                    <Button
-                                        testID="kitchen-plan-combinations-save"
-                                        variant="secondary"
-                                        label={t('kitchen:plans.saveCombinations')}
-                                        loading={saveCombinationsMutation.isPending}
-                                        disabled={
-                                            saveCombinationsMutation.isPending ||
-                                            combinationRowErrors.size > 0
-                                        }
-                                        onPress={saveCombinations}
-                                    />
-                                </Inline>
-                            ) : null}
-                        </Stack>
-                    </Card>
-
-                    {/* ── durations ────────────────────────────────────────────────────────── */}
-                    <Card testID="kitchen-plan-durations" padding="md">
-                        <Stack space="md">
-                            <Stack space="xs">
-                                <Heading level={3}>{t('kitchen:plans.sectionDurations')}</Heading>
-                                <Text tone="secondary" variant="caption">
-                                    {t('kitchen:plans.durationsHelp')}
-                                </Text>
-                            </Stack>
-
-                            <Inline space="xs" wrap testID="kitchen-plan-durations-summary">
-                                <Badge
-                                    testID="kitchen-plan-durations-count"
-                                    tone="neutral"
-                                    label={t('kitchen:plans.durationCount', {
-                                        count: draftDurations.total,
-                                    })}
-                                />
-                                {draftDurations.undecidedDiscounts === 0 ? null : (
-                                    <Badge
-                                        testID="kitchen-plan-durations-undecided"
-                                        tone="info"
-                                        label={t('kitchen:plans.undecidedDiscountCount', {
-                                            count: draftDurations.undecidedDiscounts,
-                                        })}
-                                    />
-                                )}
-                            </Inline>
-
-                            {durationsFailure === null ? null : (
-                                <Callout
-                                    testID="kitchen-plan-durations-error"
-                                    role="alert"
-                                    tone="danger"
-                                    title={t('kitchen:plans.durationsSaveError')}
-                                    body={durationsFailure.message}
-                                />
-                            )}
-
-                            <PlanDurationRows
-                                testID="kitchen-plan-duration-rows"
-                                rows={durations}
-                                errors={durationRowErrors}
-                                canManage={canManage}
-                                onChange={(next) => {
-                                    markDirty(() => {
-                                        setDurations(next);
-                                        setDurationsDirty(true);
-                                    });
-                                }}
-                            />
-
-                            {canManage ? (
-                                <Inline space="sm" wrap justify="between">
+                {/* ── durations ────────────────────────────────────────────────────────── */}
+                {form.current !== 'durations' ? null : (
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-plan-durations"
+                        title={t('kitchen:plans.sectionDurations')}
+                        actions={
+                            canManage ? (
+                                <Inline space="xs" wrap>
                                     <Button
                                         testID="kitchen-plan-durations-add"
                                         size="sm"
@@ -1401,38 +1548,142 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                             });
                                         }}
                                     />
+                                    {isCreating ? null : (
+                                        <Button
+                                            testID="kitchen-plan-durations-save"
+                                            size="sm"
+                                            label={t('kitchen:plans.saveDurations')}
+                                            loading={saveDurationsMutation.isPending}
+                                            disabled={
+                                                saveDurationsMutation.isPending ||
+                                                durationRowErrors.size > 0
+                                            }
+                                            onPress={saveDurations}
+                                        />
+                                    )}
+                                </Inline>
+                            ) : undefined
+                        }
+                    >
+                        <Stack space="md">
+                            {durationsFailure === null ? null : (
+                                <Callout
+                                    testID="kitchen-plan-durations-error"
+                                    role="alert"
+                                    tone="danger"
+                                    title={t('kitchen:plans.durationsSaveError')}
+                                    body={durationsFailure.message}
+                                />
+                            )}
+
+                            <PlanDurationRows
+                                testID="kitchen-plan-duration-rows"
+                                rows={durations}
+                                errors={
+                                    attempted
+                                        ? durationRowErrors
+                                        : new Map(
+                                              [...durationRowErrors].filter(
+                                                  ([key]) => !untouchedDuration(key),
+                                              ),
+                                          )
+                                }
+                                keepOne={isCreating}
+                                canManage={canManage}
+                                onChange={(next) => {
+                                    markDirty(() => {
+                                        setDurations(next);
+                                        setDurationsDirty(true);
+                                    });
+                                }}
+                            />
+                        </Stack>
+                    </FormSection>
+                )}
+
+                {/* ── the fixed menu ───────────────────────────────────────────────────── */}
+                {/*
+                 * Drawn the way the durations are: the section's own Withdraw and Save at the
+                 * heading's inline end on a saved plan (a new plan has one Save, under the form),
+                 * the state as two badges beside the title, the two document fields on the half
+                 * track, then the days as a table.
+                 */}
+                {form.current !== 'menu' ? null : (
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-plan-menu"
+                        title={t('kitchen:plans.sectionMenu')}
+                        aside={
+                            menuLoading || menuLoadBlocked ? undefined : (
+                                <Inline space="xs" wrap testID="kitchen-plan-menu-summary">
+                                    <Badge
+                                        testID="kitchen-plan-menu-entry-count"
+                                        variant="label"
+                                        tone={menu.entries.length === 0 ? 'neutral' : 'info'}
+                                        icon={null}
+                                        label={t('kitchen:plans.menuEntryCount', {
+                                            count: menu.entries.length,
+                                        })}
+                                    />
+                                    {isCreating ? null : (
+                                        <Badge
+                                            testID="kitchen-plan-menu-state"
+                                            variant="label"
+                                            tone={menuOnServer ? 'success' : 'neutral'}
+                                            icon={null}
+                                            label={
+                                                menuOnServer
+                                                    ? t('kitchen:plans.menuStatePublished')
+                                                    : t('kitchen:plans.menuStateNone')
+                                            }
+                                        />
+                                    )}
+                                </Inline>
+                            )
+                        }
+                        actions={
+                            canManage && !isCreating && !menuLoading && !menuLoadBlocked ? (
+                                <Inline space="xs" wrap>
+                                    {menuOnServer ? (
+                                        <Button
+                                            testID="kitchen-plan-menu-withdraw"
+                                            size="sm"
+                                            variant="ghost"
+                                            label={t('kitchen:plans.menuWithdraw')}
+                                            onPress={() => {
+                                                setShowWithdrawMenu(true);
+                                            }}
+                                        />
+                                    ) : null}
                                     <Button
-                                        testID="kitchen-plan-durations-save"
-                                        variant="secondary"
-                                        label={t('kitchen:plans.saveDurations')}
-                                        loading={saveDurationsMutation.isPending}
+                                        testID="kitchen-plan-menu-save"
+                                        size="sm"
+                                        label={t('kitchen:plans.saveMenu')}
+                                        loading={saveMenuMutation.isPending}
                                         disabled={
-                                            saveDurationsMutation.isPending ||
-                                            durationRowErrors.size > 0
+                                            saveMenuMutation.isPending ||
+                                            menuRowErrors.size > 0 ||
+                                            menuBlockers.length > 0
                                         }
-                                        onPress={saveDurations}
+                                        onPress={() => {
+                                            if (menuRowErrors.size > 0 || menuBlockers.length > 0) {
+                                                return;
+                                            }
+                                            saveMenu(menu);
+                                        }}
                                     />
                                 </Inline>
-                            ) : null}
-                        </Stack>
-                    </Card>
-
-                    {/* ── the fixed menu ───────────────────────────────────────────────────── */}
-                    <Card testID="kitchen-plan-menu" padding="md">
+                            ) : undefined
+                        }
+                    >
                         <Stack space="md">
-                            <Stack space="xs">
-                                <Heading level={3}>{t('kitchen:plans.sectionMenu')}</Heading>
-                                <Text tone="secondary" variant="caption">
-                                    {t('kitchen:plans.menuHelp')}
-                                </Text>
-                            </Stack>
-
-                            {menuRecord.isPending ? (
+                            {menuLoading ? (
                                 <Skeleton
                                     testID="kitchen-plan-menu-skeleton"
                                     heightClassName="h-32"
                                 />
-                            ) : menuLoadFailure !== null ? (
+                            ) : menuLoadBlocked && menuLoadFailure !== null ? (
                                 /*
                                  * The editing controls are withheld rather than rendered empty. An
                                  * empty menu is a *legitimate save* — the one that withdraws it —
@@ -1471,58 +1722,117 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                         />
                                     )}
 
-                                    <Inline space="sm" wrap>
-                                        <NumberStepper
-                                            testID="kitchen-plan-menu-cycle-days"
-                                            id="kitchen-plan-menu-cycle-days"
-                                            label={t('kitchen:plans.menuCycleDaysLabel')}
-                                            hint={t('kitchen:plans.menuCycleDaysHint')}
-                                            unit={t('kitchen:plans.daysUnit')}
-                                            min={1}
-                                            max={MENU_CYCLE_DAY_MAX}
-                                            disabled={!canManage}
-                                            value={menu.cycleDays}
-                                            onChange={(next) => {
-                                                markDirty(() => {
-                                                    setMenu(withCycleDays(menu, next));
-                                                    setMenuDirty(true);
-                                                });
-                                            }}
-                                        />
-                                        <DateField
-                                            testID="kitchen-plan-menu-anchor"
-                                            id="kitchen-plan-menu-anchor"
-                                            label={t('kitchen:plans.menuAnchorLabel')}
-                                            hint={t('kitchen:plans.menuAnchorHint')}
-                                            disabled={!canManage}
-                                            value={menu.anchorDate}
-                                            onChange={(next) => {
-                                                markDirty(() => {
-                                                    setMenu(withAnchorDate(menu, next));
-                                                    setMenuDirty(true);
-                                                });
-                                            }}
-                                        />
-                                    </Inline>
-
-                                    <Inline space="xs" wrap testID="kitchen-plan-menu-summary">
-                                        <Badge
-                                            testID="kitchen-plan-menu-entry-count"
-                                            tone={menu.entries.length === 0 ? 'neutral' : 'info'}
-                                            label={t('kitchen:plans.menuEntryCount', {
-                                                count: menu.entries.length,
-                                            })}
-                                        />
-                                        <Badge
-                                            testID="kitchen-plan-menu-state"
-                                            tone={menuOnServer ? 'success' : 'neutral'}
-                                            label={
-                                                menuOnServer
-                                                    ? t('kitchen:plans.menuStatePublished')
-                                                    : t('kitchen:plans.menuStateNone')
-                                            }
-                                        />
-                                    </Inline>
+                                    {/*
+                                     * The two fields that make the menu a rotation, and under them
+                                     * the one sentence that keeps them apart from the step before:
+                                     * a cycle is how often the *dishes* repeat, not how long
+                                     * anybody subscribes, and day 1 is fixed for the plan, not for
+                                     * each subscriber. One line under both rather than a hint on
+                                     * each, because the picker carries no hint and two fields whose
+                                     * boxes start at different heights read as misaligned.
+                                     */}
+                                    <View className="z-auto flex-row flex-wrap items-start gap-x-base gap-y-snug">
+                                        <View style={{ width: spanWidth(1) }}>
+                                            <TextInputField
+                                                testID="kitchen-plan-menu-cycle-days"
+                                                id="kitchen-plan-menu-cycle-days"
+                                                label={t('kitchen:plans.menuCycleDaysLabel')}
+                                                /*
+                                                 * The day number counts calendar days from day 1,
+                                                 * so only a whole number of weeks keeps Monday's
+                                                 * dishes on a Monday. Anything else is allowed —
+                                                 * a cycle of 1 is every day the same — and said.
+                                                 */
+                                                {...(menu.cycleDays !== null &&
+                                                menu.cycleDays > 1 &&
+                                                menu.cycleDays % 7 !== 0
+                                                    ? {
+                                                          warning: t(
+                                                              'kitchen:plans.menuCycleNotWeekly',
+                                                          ),
+                                                      }
+                                                    : {})}
+                                                size="sm"
+                                                inputMode="numeric"
+                                                autoCorrect={false}
+                                                disabled={!canManage}
+                                                trailing={
+                                                    <Text variant="caption" tone="secondary">
+                                                        {t('kitchen:plans.daysUnit')}
+                                                    </Text>
+                                                }
+                                                value={
+                                                    menu.cycleDays === null
+                                                        ? ''
+                                                        : String(menu.cycleDays)
+                                                }
+                                                onChangeText={(text) => {
+                                                    const digits = text.replace(/[^0-9]/g, '');
+                                                    const next =
+                                                        digits === ''
+                                                            ? null
+                                                            : Math.min(
+                                                                  Number.parseInt(digits, 10),
+                                                                  MENU_CYCLE_DAY_MAX,
+                                                              );
+                                                    markDirty(() => {
+                                                        setMenu(withCycleDays(menu, next));
+                                                        setMenuDirty(true);
+                                                    });
+                                                }}
+                                            />
+                                        </View>
+                                        <View style={{ width: spanWidth(1) }} className="z-auto">
+                                            {/*
+                                             * Picked from a month, as every date on the desk is.
+                                             * Clearable, because an empty anchor is half of the one
+                                             * legal empty menu. Read-only without the permission:
+                                             * the picker has no disabled state to fall back on.
+                                             */}
+                                            {canManage ? (
+                                                <DatePickerButton
+                                                    testID="kitchen-plan-menu-anchor"
+                                                    label={t('kitchen:plans.menuAnchorLabel')}
+                                                    labelVisible
+                                                    placeholder={t(
+                                                        'kitchen:plans.menuAnchorPlaceholder',
+                                                    )}
+                                                    value={menu.anchorDate ?? ''}
+                                                    onChange={(next) => {
+                                                        markDirty(() => {
+                                                            setMenu(withAnchorDate(menu, next));
+                                                            setMenuDirty(true);
+                                                        });
+                                                    }}
+                                                    onClear={() => {
+                                                        markDirty(() => {
+                                                            setMenu(withAnchorDate(menu, null));
+                                                            setMenuDirty(true);
+                                                        });
+                                                    }}
+                                                />
+                                            ) : (
+                                                <Stack
+                                                    space="none"
+                                                    testID="kitchen-plan-menu-anchor"
+                                                >
+                                                    <Text variant="label">
+                                                        {t('kitchen:plans.menuAnchorLabel')}
+                                                    </Text>
+                                                    <Text tone="secondary">
+                                                        {menu.anchorDate ?? '—'}
+                                                    </Text>
+                                                </Stack>
+                                            )}
+                                        </View>
+                                    </View>
+                                    <Text
+                                        testID="kitchen-plan-menu-explainer"
+                                        variant="caption"
+                                        tone="secondary"
+                                    >
+                                        {t('kitchen:plans.menuExplainer')}
+                                    </Text>
 
                                     {menuBlockers.length === 0 ? null : (
                                         <Callout
@@ -1556,63 +1866,21 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                             });
                                         }}
                                     />
-
-                                    {canManage ? (
-                                        <Inline space="sm" wrap justify="between">
-                                            {menuOnServer ? (
-                                                <Button
-                                                    testID="kitchen-plan-menu-withdraw"
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    label={t('kitchen:plans.menuWithdraw')}
-                                                    onPress={() => {
-                                                        setShowWithdrawMenu(true);
-                                                    }}
-                                                />
-                                            ) : (
-                                                <Text
-                                                    testID="kitchen-plan-menu-no-withdrawal"
-                                                    variant="caption"
-                                                    tone="secondary"
-                                                >
-                                                    {t('kitchen:plans.menuNothingToWithdraw')}
-                                                </Text>
-                                            )}
-                                            <Button
-                                                testID="kitchen-plan-menu-save"
-                                                variant="secondary"
-                                                label={t('kitchen:plans.saveMenu')}
-                                                loading={saveMenuMutation.isPending}
-                                                disabled={
-                                                    saveMenuMutation.isPending ||
-                                                    menuRowErrors.size > 0 ||
-                                                    menuBlockers.length > 0
-                                                }
-                                                onPress={() => {
-                                                    if (
-                                                        menuRowErrors.size > 0 ||
-                                                        menuBlockers.length > 0
-                                                    ) {
-                                                        return;
-                                                    }
-                                                    saveMenu(menu);
-                                                }}
-                                            />
-                                        </Inline>
-                                    ) : null}
                                 </>
                             )}
                         </Stack>
-                    </Card>
+                    </FormSection>
+                )}
 
-                    {/* ── prices, stated rather than edited ────────────────────────────────── */}
-                    <Card testID="kitchen-plan-prices" padding="md">
+                {/* ── prices, stated rather than edited ────────────────────────────────── */}
+                {form.current !== 'plan' || isCreating ? null : (
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-plan-prices"
+                        title={t('kitchen:plans.sectionPrices')}
+                    >
                         <Stack space="sm">
-                            <Heading level={3}>{t('kitchen:plans.sectionPrices')}</Heading>
-                            <Text tone="secondary" variant="caption">
-                                {t('kitchen:plans.pricesHelp')}
-                            </Text>
-
                             {coverage === null ? (
                                 <Text testID="kitchen-plan-prices-pending" tone="secondary">
                                     {t('kitchen:plans.pricesPending')}
@@ -1658,9 +1926,26 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 }}
                             />
                         </Stack>
-                    </Card>
-                </>
-            )}
+                    </FormSection>
+                )}
+            </View>
+
+            <TabStepNavigation<PlanStep>
+                testID="kitchen-plan-steps-nav"
+                items={tabItems}
+                value={form.current}
+                onChange={form.goTo}
+                finalAction={
+                    <Button
+                        testID="kitchen-plan-editor-screen-save"
+                        // The design's own word for this button (Commercial §3.3).
+                        label={t('kitchen:plans.savePlan')}
+                        loading={busy}
+                        disabled={!canManage || busy}
+                        onPress={attemptSave}
+                    />
+                }
+            />
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog
@@ -1883,6 +2168,66 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     {t('kitchen:plans.retireConsequence')}
                 </Text>
             </Dialog>
-        </EditorFrame>
+
+            {/* ── the two guards ───────────────────────────────────────────────────────────── */}
+            <Dialog
+                testID="kitchen-plan-editor-screen-unsaved-dialog"
+                open={guard.isPrompting}
+                onClose={guard.cancelDiscard}
+                title={t('kitchen:unsaved.title')}
+                description={t('kitchen:unsaved.body')}
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-plan-editor-screen-unsaved-keep"
+                            variant="quiet"
+                            label={t('kitchen:unsaved.keepEditing')}
+                            onPress={guard.cancelDiscard}
+                        />
+                        <Button
+                            testID="kitchen-plan-editor-screen-unsaved-discard"
+                            variant="danger"
+                            label={t('kitchen:unsaved.discard')}
+                            onPress={guard.confirmDiscard}
+                        />
+                    </>
+                }
+            />
+
+            <Dialog
+                testID="kitchen-plan-editor-screen-conflict-dialog"
+                open={concurrency.conflict !== null}
+                onClose={concurrency.keepEditing}
+                dismissOnBackdrop={false}
+                title={t('kitchen:conflict.title')}
+                description={t('kitchen:conflict.body')}
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-plan-editor-screen-conflict-keep"
+                            variant="quiet"
+                            label={t('kitchen:conflict.keepEditing')}
+                            onPress={concurrency.keepEditing}
+                        />
+                        <Button
+                            testID="kitchen-plan-editor-screen-conflict-reload"
+                            variant="danger"
+                            label={t('kitchen:conflict.reload')}
+                            onPress={concurrency.reload}
+                        />
+                    </>
+                }
+            >
+                {concurrency.conflict === null ? null : (
+                    <Text
+                        testID="kitchen-plan-editor-screen-conflict-detail"
+                        tone="secondary"
+                        variant="caption"
+                    >
+                        {concurrency.conflict.failure.message}
+                    </Text>
+                )}
+            </Dialog>
+        </Cascade>
     );
 }

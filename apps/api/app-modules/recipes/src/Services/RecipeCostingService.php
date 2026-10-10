@@ -7,12 +7,16 @@ namespace Healthy360\Recipes\Services;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Recipes\Enums\CostBasis;
 use Healthy360\Recipes\Exceptions\MixedCostCurrency;
 use Healthy360\Recipes\Models\RecipeCostSnapshot;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\Recipes\Models\RecipeVersionPackaging;
+use Healthy360\ReferenceData\Exceptions\UnitConversionUnsupported;
+use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Healthy360\ReferenceData\Services\UnitConversionService;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Collection;
 use RuntimeException;
@@ -74,6 +78,7 @@ final readonly class RecipeCostingService
     public function __construct(
         private TenantContext $context,
         private AuditRecorder $audit,
+        private UnitConversionService $conversion,
     ) {}
 
     /**
@@ -312,6 +317,172 @@ final readonly class RecipeCostingService
             $this->numeric($packaging->costPerYieldUnitWithWasteAmount ?? '0'),
             self::WORKING_SCALE,
         ));
+    }
+
+    /**
+     * Each line's unit cost and line cost, in line order, for a table to draw beside its rows.
+     *
+     * The recipe editor's line tables — raw materials on one tab, packaging on the next — draw a
+     * unit price and a line total on every row. They used to compute both in JavaScript from the
+     * ingredient's *list* price, while the cost cascade two tabs over is priced from the *purchase*
+     * price. Two bases on one record is exactly the kind of disagreement that reads as a bug to the
+     * person looking at it, so the rows take their figures from the same place the totals do.
+     *
+     * Read straight off the prepared rows, which carry what `prepareLines()` / `preparePackaging()`
+     * resolved — the same resolution a save performs. A row nothing could price comes back with
+     * nulls rather than zeroes: a zero is a measurement, and an unpriced line is not one.
+     *
+     * Each entry names its ingredient as well as its line number, as `costPerPackage()` does. A
+     * client matches these to rows it is still editing, and a number alone cannot tell it that the
+     * row it is looking at is no longer the one that was priced.
+     *
+     * @param  Collection<int, RecipeVersionLine>|Collection<int, RecipeVersionPackaging>  $rows
+     * @return list<array{line_number: int, ingredient_id: string, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null}>
+     */
+    public function lineCostsOf(Collection $rows): array
+    {
+        $out = [];
+
+        foreach ($rows->sortBy('line_number') as $row) {
+            $out[] = [
+                'line_number' => (int) $row->line_number,
+                'ingredient_id' => (string) $row->ingredient_id,
+                'unit_cost_amount' => $row->unit_cost_amount === null ? null : $this->numeric((string) $row->unit_cost_amount),
+                'line_cost_amount' => $row->line_cost_amount === null ? null : $this->numeric((string) $row->line_cost_amount),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * What one filled package costs, for each packaging line whose item states what it holds.
+     *
+     * The third figure a kitchen asks of a sauce, after per kilogram and per piece: *what does the
+     * 300 cc bottle cost to put on the shelf*. It used to exist only in the recipe editor's own
+     * JavaScript, in floats, priced from the ingredient's list price — so the one number an operator
+     * sets a retail price against was the one number the server never computed. This is that
+     * figure, on the same basis as everything else in the cascade.
+     *
+     * One entry per packaging line, in line order, including the lines it cannot answer for. A
+     * line whose item records no capacity is not a package — a cap holds nothing — and a line whose
+     * capacity cannot be expressed in the recipe's yield unit (a `piece` against a kilogram yield)
+     * is a question this arithmetic cannot answer. Both come back with a null amount rather than
+     * being dropped, so a client can say *which* bottle it could not cost.
+     *
+     * Null throughout until the production half is complete, for the reason
+     * {@see totalCostPerYieldUnit()} gives: a package cost built on a formulation missing a line
+     * reads exactly like a complete one.
+     *
+     * @param  Collection<int, RecipeVersionPackaging>  $packagingRows
+     * @return list<array{line_number: int, ingredient_id: string, cost_per_package_amount: numeric-string|null}>
+     */
+    public function costPerPackage(
+        RecipeVersion $version,
+        CostComputation $production,
+        PackagingCostComputation $packaging,
+        Collection $packagingRows,
+    ): array {
+        if ($packagingRows->isEmpty()) {
+            return [];
+        }
+
+        $productionPerUnit = $production->isComplete() ? $production->costPerYieldUnitWithWasteAmount : null;
+        $yieldUnit = $version->yield_unit_id === null
+            ? null
+            : MeasurementUnit::query()->whereKey($version->yield_unit_id)->first();
+
+        /** @var \Illuminate\Support\Collection<string, Ingredient> $items */
+        $items = Ingredient::withoutTenancy()
+            ->whereIn('id', $packagingRows->pluck('ingredient_id')->unique()->values()->all())
+            ->get(['id', 'capacity_quantity', 'capacity_unit_id'])
+            ->keyBy(static fn (Ingredient $item): string => (string) $item->getKey());
+
+        $capacityUnits = MeasurementUnit::query()
+            ->whereIn('id', $items->pluck('capacity_unit_id')->filter()->unique()->values()->all())
+            ->get()
+            ->keyBy(static fn (MeasurementUnit $unit): string => (string) $unit->getKey());
+
+        $packages = [];
+
+        foreach ($packagingRows->sortBy('line_number') as $row) {
+            $item = $items->get((string) $row->ingredient_id);
+            $capacityUnit = $item?->capacity_unit_id === null ? null : $capacityUnits->get((string) $item->capacity_unit_id);
+
+            $amount = null;
+
+            if (
+                $productionPerUnit !== null
+                && $yieldUnit instanceof MeasurementUnit
+                && $item instanceof Ingredient
+                && $item->capacity_quantity !== null
+                && $capacityUnit instanceof MeasurementUnit
+            ) {
+                $amount = $this->packageCost(
+                    $this->numeric($productionPerUnit),
+                    $this->numeric((string) $item->capacity_quantity),
+                    $capacityUnit,
+                    $yieldUnit,
+                    $row->unit_cost_amount === null ? null : $this->numeric((string) $row->unit_cost_amount),
+                    $this->numeric($packaging->wastePercent),
+                );
+            }
+
+            $packages[] = [
+                'line_number' => (int) $row->line_number,
+                'ingredient_id' => (string) $row->ingredient_id,
+                'cost_per_package_amount' => $amount,
+            ];
+        }
+
+        return $packages;
+    }
+
+    /**
+     * The contents of one package at the production cost, plus the container at its own waste rate.
+     *
+     *     contents  = production per yield unit (with waste) × capacity, in the yield's unit
+     *     container = unit cost × (1 + packaging waste ÷ 100)
+     *
+     * The waste coefficient applies to the container alone, and that is deliberate rather than an
+     * omission: a carton is crushed in the stack, the sauce inside it is not, and the production
+     * figure has already carried its own loss.
+     *
+     * An unpriced container contributes nothing rather than nulling the whole figure — the contents
+     * are still a real cost, and "the bottle is not priced yet" is what the uncosted lines on the
+     * packaging half already say. A capacity that will not convert into the yield unit is null: a
+     * count of somethings is not a quantity of sauce.
+     *
+     * @param  numeric-string  $productionPerYieldUnit
+     * @param  numeric-string  $capacity
+     * @param  numeric-string|null  $containerUnitCost
+     * @param  numeric-string  $packagingWastePercent
+     * @return numeric-string|null
+     */
+    public function packageCost(
+        string $productionPerYieldUnit,
+        string $capacity,
+        MeasurementUnit $capacityUnit,
+        MeasurementUnit $yieldUnit,
+        ?string $containerUnitCost,
+        string $packagingWastePercent,
+    ): ?string {
+        try {
+            $held = $this->conversion->convert($capacity, $capacityUnit, $yieldUnit);
+        } catch (UnitConversionUnsupported) {
+            return null;
+        }
+
+        $contents = bcmul($productionPerYieldUnit, $held, self::WORKING_SCALE);
+        $container = $containerUnitCost === null
+            ? '0'
+            : bcmul(
+                $containerUnitCost,
+                bcadd('1', bcdiv($packagingWastePercent, '100', self::WORKING_SCALE), self::WORKING_SCALE),
+                self::WORKING_SCALE,
+            );
+
+        return $this->round(bcadd($contents, $container, self::WORKING_SCALE));
     }
 
     /**

@@ -11,15 +11,18 @@ import type {
     DietClassification,
     RecipeVersionId,
 } from '@healthy360/domain-types';
-import { isDietClassification } from '@healthy360/domain-types';
+import { DeliveryWindowId, isDietClassification } from '@healthy360/domain-types';
 
 import type {
     BranchOperating,
+    DeliveryWindow,
     DeliveryZoneAdmin,
     DeliveryZoneAdminFilter,
     IngredientAdmin,
     IngredientAdminFilter,
+    IngredientAdminSort,
     IngredientCategoryAdmin,
+    ItemChannelPrices,
     KitchenAdminRepository,
     MealAdmin,
     MealAdminFilter,
@@ -57,6 +60,7 @@ import type {
     MealCombinationOption,
     NumberedPaginationMeta,
     PaginatedOrNumberedMeta,
+    PlanDurationAssignment,
     PlanDurationOption,
     PlanMenuCycle as WirePlanMenuCycle,
     PlanMenuEntry as WirePlanMenuEntry,
@@ -85,7 +89,6 @@ import {
     mapMealAdminFromItem,
     mapPlanAdminFromItem,
     mapPlanCombination,
-    mapPlanDuration,
     mapPlanMenu,
     mapPlanVariantsFromCells,
     mapPriceListAdmin,
@@ -98,9 +101,12 @@ import {
     mapRecipeVersionAdmin,
     mapServiceAreaFromDeliveryArea,
     pickCurrentRecipeVersion,
+    planDurationsFromAssignments,
     priceListChannelsFromAssignments,
+    mapItemChannelPrices,
     type CategoryLookup,
     type SalesChannelLookup,
+    type WireItemChannelPrices,
 } from './kitchen-admin-mappers.ts';
 import type { Transport } from './transport.ts';
 
@@ -205,6 +211,7 @@ export type ApiKitchenAdminReads = Pick<
     | 'getRecipeTechnicalSheet'
     | 'listProducts'
     | 'getProduct'
+    | 'getItemChannelPrices'
     | 'listMeals'
     | 'getMeal'
     | 'listPlans'
@@ -214,8 +221,13 @@ export type ApiKitchenAdminReads = Pick<
     | 'getPriceList'
     | 'listZones'
     | 'getZone'
+    | 'getZoneWindows'
+    | 'listDeliveryWindows'
     | 'getBranchOperating'
 >;
+
+/** A price list's entries per page — the endpoint's `CursorPage::MAX_LIMIT`, so a list is few reads. */
+const PRICE_LIST_ENTRY_PAGE = 100;
 
 function cursorQuery(
     filter?: CursorQueryFilter,
@@ -260,6 +272,24 @@ function cursorQuery(
  */
 function soleAllergen(codes?: readonly AllergenCode[] | undefined): string | undefined {
     return codes === undefined || codes.length === 0 ? undefined : codes[0];
+}
+
+/**
+ * A sort key's wire spelling.
+ *
+ * The map is stated rather than derived from the key's own text because two of the seven are not
+ * named after the column they sort by: `unitPrice` is `unit_price_amount` on the row, and `name`
+ * is whichever of the two name columns the interface is reading. A `camelCase` → `snake_case`
+ * transform would be right five times out of seven, which is the worst kind of right.
+ */
+function ingredientSortParameter(
+    sort: IngredientAdminSort,
+    language: 'en' | 'ar' | undefined,
+): string {
+    if (sort === 'name') return language === 'ar' ? 'name_ar' : 'name_en';
+    if (sort === 'unitPrice') return 'unit_price';
+    if (sort === 'updatedAt') return 'updated_at';
+    return sort;
 }
 
 export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdminReads {
@@ -358,7 +388,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         return mapAdminCursorPage(envelope.data, meta, (wire) => wire);
     }
 
-    return {
+    const reads: ApiKitchenAdminReads = {
         async nextReference(prefix: ReferenceSeries): Promise<string> {
             const envelope = await transport.requestEnvelope<{ readonly reference: string }>({
                 method: 'GET',
@@ -481,6 +511,19 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 search.set('allergen', serverAllergen);
             }
 
+            /*
+             * The order, for every page rather than the one in hand.
+             *
+             * `name` is the only key whose wire spelling is a decision: the list draws the
+             * reader's own language and sorts on what it draws, so the column it names depends on
+             * the interface, not on the row. The endpoint takes `name_en` / `name_ar` and does not
+             * guess — see `IngredientAdminFilter.sortLanguage`.
+             */
+            if (filter?.sort !== undefined) {
+                search.set('sort', ingredientSortParameter(filter.sort, filter.sortLanguage));
+                search.set('direction', filter.sortDirection ?? 'asc');
+            }
+
             const rendered = search.toString();
             const path =
                 rendered === '' ? '/catalogue/ingredients' : `/catalogue/ingredients?${rendered}`;
@@ -553,21 +596,36 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         },
 
         async listRecipes(filter?: RecipeAdminFilter): Promise<CursorPage<RecipeAdminSummary>> {
+            /*
+             * The status filter, sent as the caller asked for it.
+             *
+             * This used to translate into the recipe identity's own vocabulary — `published` became
+             * `active`, `retired` became `archived` — and **silently dropped `draft` and
+             * `review_required`**, because the identity has no such states. Picking either in the
+             * list's Status column therefore sent no filter at all and the page answered with
+             * everything, which read as a filter that did not work.
+             *
+             * The endpoint now accepts all six and narrows the version ones against the *current*
+             * version, which is the one the row displays. Still one value: the column's menu is
+             * single-select, and a union is not a query this endpoint expresses.
+             */
             const status =
                 filter?.statuses !== undefined && filter.statuses.length === 1
-                    ? filter.statuses[0] === 'retired'
-                        ? 'archived'
-                        : filter.statuses[0] === 'published'
-                          ? 'active'
-                          : undefined
+                    ? filter.statuses[0]
                     : undefined;
 
             const envelope = await transport.requestEnvelope<AdminRecipe[]>({
                 method: 'GET',
                 path: `/catalogue/recipes${cursorQuery(pickCursorFilter(filter), {
-                    status: status === 'active' ? undefined : status,
+                    status,
                     stale_only: filter?.staleOnly === true ? '1' : undefined,
                     allergen: soleAllergen(filter?.allergenCodes),
+                    // The recipe book's own axes. `kind` and `selling_status` are refused for a
+                    // caller who cannot see the catalogue, so the list hook only sets them when
+                    // the reader holds that permission.
+                    kind: filter?.kind,
+                    selling_status: filter?.sellingStatus,
+                    category: filter?.category,
                 })}`,
             });
 
@@ -620,6 +678,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                         status: 'draft',
                         completeness: 'indicative',
                         waste_coefficient_percent: '3.00',
+                        packaging_waste_percent: '0.00',
                         derivation_state: 'current',
                         lock_version: 1,
                     },
@@ -686,6 +745,14 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     (code): code is DietClassification => isDietClassification(code),
                 ),
             });
+        },
+
+        async getItemChannelPrices(itemId: ProductId | MealId): Promise<ItemChannelPrices> {
+            const data = await transport.request<WireItemChannelPrices>({
+                method: 'GET',
+                path: `/catalogue/items/${encodeURIComponent(String(itemId))}/channel-prices`,
+            });
+            return mapItemChannelPrices(data);
         },
 
         async listMeals(filter?: MealAdminFilter): Promise<CursorPage<MealAdmin>> {
@@ -798,6 +865,21 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 })
                 .catch((): PlanDurationOption[] => []);
 
+            /*
+             * What this plan actually offers — its configurations' duration assignments — rather
+             * than the kitchen's whole duration vocabulary, which is shared by every plan. Reading
+             * the vocabulary made each plan show every length any plan had ever used, so replacing
+             * 20 days with 28 read back as both; and it carried no discount, so a stated one read
+             * back as "not set".
+             */
+            const assignments = await transport
+                .requestEnvelope<{ assignments: PlanDurationAssignment[] }>({
+                    method: 'GET',
+                    path: `/catalogue/plans/${encodeURIComponent(id)}/variant-durations`,
+                })
+                .then((envelope) => envelope.data.assignments)
+                .catch((): PlanDurationAssignment[] => []);
+
             const combinations = await transport
                 .request<MealCombinationOption[]>({
                     method: 'GET',
@@ -817,7 +899,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             return mapPlanAdminFromItem(profileEnvelope.data.item, {
                 profile: profileEnvelope.data.profile,
                 variants: mapPlanVariantsFromCells(cells, bandMap),
-                durations: durations.map(mapPlanDuration),
+                durations: planDurationsFromAssignments(assignments, durations),
                 combinations: combinations.map(mapPlanCombination),
             });
         },
@@ -850,53 +932,78 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             });
 
             const meta = envelope.meta as PaginatedOrNumberedMeta;
-            return mapAdminCursorPage(envelope.data, meta, (wire) => mapPriceListAdmin(wire));
+            const page = mapAdminCursorPage(envelope.data, meta, (wire) => mapPriceListAdmin(wire));
+
+            /*
+             * Whole records, entries and channels included — the contract every caller reads this
+             * with. The plan editor's publish gate counts a plan's confirmed prices from it, and the
+             * price-list screen its entry counts; the index endpoint carries neither, and mapping
+             * it alone drew every list as "Nothing priced yet" and refused to publish any plan.
+             * One full read per list, in parallel: a kitchen has a handful of lists, not hundreds.
+             */
+            const items = await Promise.all(page.items.map((list) => reads.getPriceList(list.id)));
+            return { ...page, items };
         },
 
         async getPriceList(priceListId: PriceListId): Promise<PriceListAdmin> {
-            const lookup = await loadSalesChannelLookup();
             const id = String(priceListId);
 
-            const showEnvelope = await transport.requestEnvelope<{
-                price_list: AdminPriceList;
-                channels: PriceListChannelAssignment[];
-            }>({
-                method: 'GET',
-                path: `/catalogue/price-lists/${encodeURIComponent(id)}`,
-            });
+            /*
+             * **Every** page of entries. The endpoint is cursor-paged at 25 by default, and the
+             * editor saves with `PUT …/entries`, which replaces the whole set — so a list read one
+             * page short was a list whose save deleted every price past the 25th.
+             */
+            const readEntries = (cursor: string | undefined) =>
+                transport.requestEnvelope<AdminPriceListEntry[]>({
+                    method: 'GET',
+                    path: `/catalogue/price-lists/${encodeURIComponent(id)}/entries${cursorQuery({
+                        limit: PRICE_LIST_ENTRY_PAGE,
+                        cursor,
+                    })}`,
+                });
+            const nextCursor = (meta: unknown): string | undefined => {
+                const paging = meta as { has_more?: boolean; next_cursor?: string | null };
+                return paging.has_more === true && typeof paging.next_cursor === 'string'
+                    ? paging.next_cursor
+                    : undefined;
+            };
 
-            const entriesWire = await transport.request<AdminPriceListEntry[]>({
-                method: 'GET',
-                path: `/catalogue/price-lists/${encodeURIComponent(id)}/entries`,
-            });
+            // The channel vocabulary, the list and its first page of entries depend on nothing
+            // of each other, so they are one round rather than three in a row.
+            const [lookup, showEnvelope, firstPage] = await Promise.all([
+                loadSalesChannelLookup(),
+                transport.requestEnvelope<{
+                    price_list: AdminPriceList;
+                    channels: PriceListChannelAssignment[];
+                }>({
+                    method: 'GET',
+                    path: `/catalogue/price-lists/${encodeURIComponent(id)}`,
+                }),
+                readEntries(undefined),
+            ]);
 
-            const itemTypes = new Map<string, AdminCatalogueItem['item_type']>();
-            const variantCodes = new Map<string, string>();
-
-            for (const entry of entriesWire) {
-                if (!itemTypes.has(entry.catalogue_item_id)) {
-                    try {
-                        const show = await fetchCatalogueItemShow(entry.catalogue_item_id);
-                        itemTypes.set(entry.catalogue_item_id, show.item.item_type);
-                        for (const variant of show.variants) {
-                            variantCodes.set(variant.id, variant.code);
-                        }
-                    } catch {
-                        itemTypes.set(entry.catalogue_item_id, 'product');
-                    }
-                }
+            const entriesWire: AdminPriceListEntry[] = [...firstPage.data];
+            let cursor = nextCursor(firstPage.meta);
+            while (cursor !== undefined) {
+                const page = await readEntries(cursor);
+                entriesWire.push(...page.data);
+                cursor = nextCursor(page.meta);
             }
 
-            const entries = entriesWire.map((entry) => {
-                const itemType = itemTypes.get(entry.catalogue_item_id) ?? 'product';
-                const variantCode =
-                    entry.catalogue_item_variant_id === null ||
-                    entry.catalogue_item_variant_id === undefined
-                        ? null
-                        : (variantCodes.get(entry.catalogue_item_variant_id) ?? null);
-
-                return mapPriceListEntry(entry, itemType, entry.catalogue_item_id, variantCode);
-            });
+            /*
+             * Each row says what it prices — the article's type and the variant's code — so the
+             * mapping needs nothing else. It used to read every article behind the list one
+             * request at a time, and the editor showed a skeleton until the last one answered: a
+             * minute and more on a list of thirty.
+             */
+            const entries = entriesWire.map((entry) =>
+                mapPriceListEntry(
+                    entry,
+                    entry.catalogue_item_type ?? 'product',
+                    entry.catalogue_item_id,
+                    entry.catalogue_item_variant_code ?? null,
+                ),
+            );
 
             const channels = priceListChannelsFromAssignments(showEnvelope.data.channels, lookup);
 
@@ -931,19 +1038,27 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 path: `/catalogue/delivery-zones/${encodeURIComponent(id)}/areas`,
             });
 
-            // Optional, on the same terms as the plan vocabulary above: a zone is still worth
-            // showing when the shared window list cannot be reached.
-            const windowsWire = await transport
-                .request<WireDeliveryWindow[]>({
-                    method: 'GET',
-                    path: '/catalogue/delivery-windows',
-                })
-                .catch((): WireDeliveryWindow[] => []);
-
             return mapDeliveryZoneAdmin(showEnvelope.data.delivery_zone, {
                 areas: areasWire.map(mapServiceAreaFromDeliveryArea),
-                deliveryWindows: windowsWire.map(mapDeliveryWindow),
             });
+        },
+
+        async getZoneWindows(zoneId: DeliveryZoneId): Promise<readonly DeliveryWindowId[]> {
+            const envelope = await transport.requestEnvelope<{
+                readonly delivery_window_ids: readonly string[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/delivery-zones/${encodeURIComponent(String(zoneId))}/windows`,
+            });
+            return envelope.data.delivery_window_ids.map((id) => DeliveryWindowId.unsafe(id));
+        },
+
+        async listDeliveryWindows(): Promise<readonly DeliveryWindow[]> {
+            const windows = await transport.request<WireDeliveryWindow[]>({
+                method: 'GET',
+                path: '/catalogue/delivery-windows',
+            });
+            return windows.map(mapDeliveryWindow);
         },
 
         async getBranchOperating(branchId: KitchenBranchId): Promise<BranchOperating> {
@@ -955,4 +1070,6 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             return mapBranchOperating(branchId, daysWire);
         },
     };
+
+    return reads;
 }

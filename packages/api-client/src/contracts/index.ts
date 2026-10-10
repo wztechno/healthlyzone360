@@ -15,6 +15,7 @@ import type { MarketplaceRepository } from './marketplace.ts';
 import type { NutritionRepository } from './nutrition.ts';
 import type { OrderDeskRepository } from './order-desk.ts';
 import type { MealPlanRepository } from './planner.ts';
+import type { AccessAdminRepository } from './access-admin.ts';
 import type { PlatformAdminRepository } from './platform-admin.ts';
 import type { ProfessionalRepository } from './professional.ts';
 import type { ContextRepository, DeviceRepository, SessionRepository } from './session.ts';
@@ -71,6 +72,7 @@ export type {
     ResendVerificationResult,
     TwoFactorChallengeRequest,
     TwoFactorSetup,
+    UpdatePasswordRequest,
 } from './auth.ts';
 
 export { createMemoryTokenStore, createTokenListeners } from './session.ts';
@@ -110,6 +112,7 @@ export type {
     MealFilter,
     MealSort,
     OpeningHours,
+    PackSize,
     PlanDurationOption,
     PlanFilter,
     PlanVariant,
@@ -214,6 +217,7 @@ export type {
     DeliveryAddress,
     DeliverySlot,
     MealChoiceSource,
+    MyOrderFilter,
     OrderReference,
     OrderState,
     PauseSubscriptionRequest,
@@ -269,11 +273,14 @@ export {
     PACKAGING_BASES,
     PLAN_MENU_SLOTS,
     PRICE_STATUSES,
+    PRODUCTION_MODES,
     PRODUCT_FAMILY_CATEGORY_CODES,
     PUBLISHABLE_STATUSES,
+    RECIPE_KINDS,
     isConsumerVisible,
     isPlanDurationConsistent,
     isPriceEntryConsistent,
+    isRecipeKind,
 } from './kitchen-admin.ts';
 export type {
     AdminEntityMeta,
@@ -295,7 +302,7 @@ export type {
     CreateProductRequest,
     CreateRecipeRequest,
     DeliveryWindow,
-    DeliveryWindowInput,
+    CreateDeliveryWindowRequest,
     DeliveryZoneAdmin,
     DeliveryZoneAdminFilter,
     IngredientAdmin,
@@ -327,12 +334,17 @@ export type {
     PriceStatus,
     ProductAdmin,
     ProductAdminFilter,
+    ProductionMode,
     ProductPackVariant,
     PublishableStatus,
     RecipeAdmin,
     RecipeAdminFilter,
     RecipeAdminSummary,
     RecipeAllergenDeclaration,
+    RecipeKind,
+    RecipeSellerKind,
+    RecipeSoldAs,
+    RecipeSoldAsPack,
     RecipeLine,
     RecipePackagingLine,
     RecipePackagingLineInput,
@@ -346,6 +358,10 @@ export type {
     RecipeVersionAdmin,
     RecipeVersionSummary,
     RecipeCostFigures,
+    RecipeComputedCost,
+    RecipeCostHalf,
+    RecipeLineCost,
+    RecipePackageCost,
     TechnicalSheetAdmin,
     TechnicalSheetLineAdmin,
     ReferenceSeries,
@@ -355,7 +371,13 @@ export type {
     ServiceAreaFilter,
     SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
-    SetDeliveryWindowsRequest,
+    SetZoneWindowsRequest,
+    UpdateDeliveryWindowRequest,
+    SetItemChannelOffer,
+    SetItemChannelPricesRequest,
+    ItemChannelOffer,
+    ItemChannelPrices,
+    TradeChannel,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
     SetPlanCombinationsRequest,
@@ -377,6 +399,9 @@ export type {
 
 export {
     CONSUMPTION_EXCEPTION_REASON_CODES,
+    PRODUCTION_COST_SOURCES,
+    PRODUCTION_COST_STATUSES,
+    PRODUCTION_LINE_KINDS,
     PRODUCTION_ORDER_STATUSES,
     PURCHASE_ORDER_STATUSES,
     RECEIPT_COST_STATUSES,
@@ -387,6 +412,7 @@ export {
     STOCK_MOVEMENT_REASONS,
 } from './kitchen-ops.ts';
 export type {
+    AbandonProductionOrderRequest,
     CompleteProductionOrderRequest,
     CompleteReceiptPriceLine,
     CompleteReceiptPricesRequest,
@@ -407,6 +433,8 @@ export type {
     GoodsReceiptResult,
     ItemLatestPurchase,
     KitchenOpsRepository,
+    InventoryValue,
+    InventoryValueRow,
     LastPurchase,
     MeasurementUnitOption,
     MonthlyCostReportFilter,
@@ -416,10 +444,21 @@ export type {
     OrderProposalOrigin,
     PostGoodsReceiptRequest,
     ProcurementReference,
-    ProductionMovementInput,
+    ProductionBatchYield,
+    ProductionCostSource,
+    ProductionCostStatus,
+    ProductionLineKind,
     ProductionOrder,
-    ProductionOrderResult,
+    ProductionOrderDetail,
+    ProductionOrderFilters,
+    ProductionOrderLine,
+    ProductionOrderPage,
     ProductionOrderStatus,
+    ProductionPlan,
+    ProductionPlanHole,
+    ProductionPlanLine,
+    ProductionSheetBasis,
+    ProductionTechnicalSheet,
     PurchaseLedgerFilter,
     PurchaseLedgerLine,
     PurchaseOrder,
@@ -459,6 +498,7 @@ export type {
     StockMovement,
     StockMovementReason,
     StockWasteRequest,
+    StockCountRequest,
     ReplaceSupplierContactsRequest,
     SuppliedItem,
     SuppliedStockItem,
@@ -542,6 +582,7 @@ export type {
     OrderDeskCustomerOrigin,
     OrderDeskCustomerSearch,
     OrderDeskDeliveryJob,
+    OrderDeskDeliveryWindow,
     OrderDeskDriver,
     OrderDeskDrivers,
     OrderDeskFulfilmentType,
@@ -573,6 +614,7 @@ export type {
     DriverJobDelivery,
     DriverJobStatus,
     DriverJobsRepository,
+    DriverRunSheet,
     DriverJobTrackingStatus,
 } from './driver-jobs.ts';
 
@@ -805,6 +847,42 @@ export type {
     SuspendKitchenRequest,
 } from './platform-admin.ts';
 
+export {
+    STAFF_INVITATION_STATUSES,
+    TEAM_MEMBER_STATUSES,
+    isDeletableRole,
+    isEditableRole,
+    isReactivatableMember,
+    isWorkingMember,
+} from './access-admin.ts';
+export type {
+    AccessAdminRepository,
+    CreateRoleRequest,
+    CreateStaffAccountRequest,
+    CreatedRole,
+    CreatedStaffAccount,
+    InviteStaffRequest,
+    LockedMemberRequest,
+    MembershipRoleAssignment,
+    OrganisationRole,
+    OrganisationRoleSummary,
+    PermissionDefinition,
+    PermissionDomain,
+    SetMemberRolesRequest,
+    SetMemberScopeRequest,
+    StaffInvitation,
+    StaffInvitationStatus,
+    StaffSignInDomain,
+    TeamFilter,
+    TeamMember,
+    TeamMemberBranch,
+    TeamMemberResult,
+    TeamMemberRole,
+    TeamMemberStatus,
+    TeamMemberSummary,
+    UpdateRoleRequest,
+} from './access-admin.ts';
+
 /**
  * The complete data surface a screen may reach. Nothing else is exported to the application: a
  * screen depends on this bundle, never on a transport (plan §18).
@@ -959,4 +1037,20 @@ export interface Repositories {
      * `./invitations.ts` for the full argument.
      */
     readonly invitations: InvitationsRepository;
+
+    /**
+     * A kitchen administering itself (AA1) — the twenty-first field.
+     *
+     * Required like the rest. `/kitchen/team` and `/kitchen/roles` are ordinary screens inside a
+     * route area that already exists, and an optional repository would put a `?.` in front of every
+     * call and stop the compiler proving that the surface is covered.
+     *
+     * Not a branch of `platformAdmin`, whose subject is somebody else's tenant behind a platform
+     * gate, and not a branch of `kitchenAdmin`, whose records all carry a publication status a role
+     * does not have. See `./access-admin.ts` for the full argument.
+     *
+     * It carries `listStaffSignInDomains`, which is the one call on this repository answered with no
+     * credential at all — the sign-in screen reads it before anybody has signed in.
+     */
+    readonly accessAdmin: AccessAdminRepository;
 }

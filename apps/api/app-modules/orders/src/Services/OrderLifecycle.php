@@ -12,6 +12,7 @@ use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\OrderStatus;
+use Healthy360\Orders\Enums\PaymentMethod;
 use Healthy360\Orders\Exceptions\TransitionRejected;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Support\Api\ErrorCode;
@@ -54,6 +55,7 @@ final readonly class OrderLifecycle
         private TenantContext $context,
         private OrderStockConsumption $consumption,
         private DeliveryJobProjection $jobs,
+        private OrderPaymentReceipts $receipts,
     ) {}
 
     /**
@@ -97,7 +99,39 @@ final readonly class OrderLifecycle
      */
     public function fulfil(Order $order, ?int $expectedLockVersion = null): Order
     {
-        return $this->transition($order, OrderStatus::Fulfilled, $expectedLockVersion, ['fulfilled_at' => CarbonImmutable::now()]);
+        return $this->transition(
+            $order,
+            OrderStatus::Fulfilled,
+            $expectedLockVersion,
+            ['fulfilled_at' => CarbonImmutable::now()],
+            function (Order $fulfilled): void {
+                $this->takeCashRemainder($fulfilled);
+            },
+        );
+    }
+
+    /**
+     * A cash order handed over is a cash order paid: the driver took it at the
+     * door, the counter took it on collection. Whatever is still outstanding is
+     * receipted to whoever fulfilled it, so the cash report sees it. WISH is left
+     * alone — a transfer is only paid once somebody has checked its reference.
+     * A counter sale arrives here already settled, so nothing is written twice.
+     */
+    private function takeCashRemainder(Order $order): void
+    {
+        $userId = $this->context->userId();
+
+        if ($order->payment_method === PaymentMethod::Wish || $userId === null) {
+            return;
+        }
+
+        $outstanding = $order->total_minor - (int) $order->paymentReceipts()->sum('amount_minor');
+
+        if ($outstanding <= 0) {
+            return;
+        }
+
+        $this->receipts->audit($this->receipts->write($order, $order->payment_method, $outstanding, $userId));
     }
 
     /**

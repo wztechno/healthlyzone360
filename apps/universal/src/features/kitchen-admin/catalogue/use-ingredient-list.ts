@@ -18,15 +18,19 @@ import { useMemo, useState } from 'react';
 
 import { toFailure } from '../../../data/hooks.ts';
 import {
+    KITCHEN_PAGE_SIZE,
     pagesInResult,
     topLevelCategories,
     useAllergenClassesQuery,
     useArchiveIngredientMutation,
     useIngredientCategoriesQuery,
     useIngredientPageQuery,
+    useIngredientWholeSetQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
+import { useCatalogueFilters } from './use-catalogue-filters.ts';
+import { useDestructiveRow } from './use-destructive-row.ts';
 
 /**
  * Everything `/kitchen/ingredients` knows that is not a pixel — handoff §4.6.
@@ -38,18 +42,23 @@ import { useListPage } from '../use-list-page.ts';
  * redesign that also quietly changed which version a write is based on is a redesign nobody can
  * review.
  *
- * ## Sorting is client-side, and that is a stated limitation rather than a hidden one
+ * ## Sorting is the server's, and so it orders the catalogue rather than the page
  *
- * `IngredientAdminFilter` publishes no sort parameter, so the list sorts the rows it has. With
- * numbered pages that means *within the page* — press "Name" on page 3 and the twenty-five rows on
- * page 3 reorder, not the catalogue.
+ * It was client-side while `IngredientAdminFilter` published no sort parameter, and the cost was
+ * exactly what that implies: pressing "Name" on page 3 reordered the eighteen rows in front of the
+ * reader and left the other three hundred where they were. A header that reorders a page is not a
+ * sort of the list, and reads as one — a reader pressing "Unit price" to find the dearest
+ * ingredient got the dearest of *these eighteen*.
  *
- * That is narrower than it sounds. The cursor list this replaced sorted "within what you have
- * fetched", which was the same page-local answer until somebody pressed Load more forty times, and
- * a sort that is only correct after forty presses is not a sort anybody relied on. What changed is
- * that the limitation is now the same on every page instead of drifting with how far the reader
- * scrolled. A real `?sort=name` on the listing endpoint makes this a server concern and this
- * comment goes away.
+ * The filter now carries `sort`, `sortDirection` and `sortLanguage`, so the order is decided
+ * beside the `COUNT` and the other filters. Two consequences follow. The sort is part of the
+ * query key, so changing it is a request rather than a re-render; and it is part of the filter
+ * object `useListPage` resets on, so changing it lands on page one — which is right, since every
+ * row has just moved and page 3 of the old order names nothing.
+ *
+ * The language goes with it because the list draws the reader's own name and sorts on what it
+ * draws: a catalogue ordered by `name_en` under an Arabic interface is in no order the reader can
+ * see.
  *
  * ## The counts are over the loaded page, deliberately
  *
@@ -83,8 +92,22 @@ export type IngredientSortDirection = 'asc' | 'desc';
  */
 const INGREDIENT_SERIES: IngredientReferenceSeries = 'ING-';
 
+/** One frozen empty page, so "no rows yet" keeps the same identity across renders. */
+const NO_ROWS: readonly IngredientAdmin[] = [];
+
+/**
+ * Which name column the `name` sort orders by, from the resolved locale.
+ *
+ * Arabic is the only script with a column of its own; everything else reads the English name, so
+ * everything else sorts by it. Matched on the language subtag rather than the whole tag, because
+ * the locale that arrives here is `ar-LB` as often as `ar`.
+ */
+function sortLanguageFor(locale: string): 'en' | 'ar' {
+    return locale.toLowerCase().split('-')[0] === 'ar' ? 'ar' : 'en';
+}
+
 export interface IngredientListState {
-    /** The rows for the current page, sorted. Never undefined — empty while pending. */
+    /** The current page, in the order the request asked for. Empty while pending, never undefined. */
     readonly rows: readonly IngredientAdmin[];
     readonly isPending: boolean;
     readonly isFetching: boolean;
@@ -147,6 +170,8 @@ export interface IngredientListState {
     /** The server's count for the whole filtered set, or `null` before the first answer. */
     readonly total: number | null;
     readonly shown: number;
+    /** The whole-set read behind the other cards has not landed yet. */
+    readonly countsPending: boolean;
     readonly draftCount: number;
     readonly missingArabicCount: number;
     /** Rows with no unit price on file, so no cost per kilo can resolve downstream. */
@@ -178,8 +203,15 @@ export function useIngredientList(): IngredientListState {
     const router = useRouter();
     const { locale } = useLocale();
 
-    const [query, setQuery] = useState('');
-    const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
+    const {
+        query,
+        setQuery,
+        trimmed,
+        statuses,
+        setStatuses,
+        isUnfiltered: searchAndStatusUnset,
+        clear: clearSearchAndStatus,
+    } = useCatalogueFilters();
     const [category, setCategory] = useState<string | null>(null);
     const [allergen, setAllergen] = useState<AllergenCode | null>(null);
     // Reference ascending, which is the order the codes were issued in and so the order a
@@ -187,10 +219,8 @@ export function useIngredientList(): IngredientListState {
     // that changes with the language.
     const [sortKey, setSortKey] = useState<IngredientSortKey>('reference');
     const [sortDirection, setSortDirection] = useState<IngredientSortDirection>('asc');
-    const [archiving, setArchiving] = useState<IngredientAdmin | null>(null);
     const [viewing, setViewing] = useState<IngredientAdmin | null>(null);
 
-    const trimmed = query.trim();
     const filter = useMemo(
         () => ({
             /*
@@ -227,74 +257,44 @@ export function useIngredientList(): IngredientListState {
             ...(statuses.length === 0 ? {} : { statuses }),
             ...(category === null ? {} : { categoryCode: category }),
             ...(allergen === null ? {} : { allergenCodes: [allergen] }),
+            sort: sortKey,
+            sortDirection,
+            sortLanguage: sortLanguageFor(locale),
         }),
-        [trimmed, statuses, category, allergen],
+        [trimmed, statuses, category, allergen, sortKey, sortDirection, locale],
     );
 
     const [page, setPage] = useListPage(filter);
     const ingredients = useIngredientPageQuery(filter, page);
+    const wholeSet = useIngredientWholeSetQuery(filter);
     const categories = useIngredientCategoriesQuery();
     const allergenClasses = useAllergenClassesQuery();
-    const archive = useArchiveIngredientMutation();
+    const archive = useDestructiveRow(useArchiveIngredientMutation(), (row: IngredientAdmin) => ({
+        ingredientId: row.id,
+        request: { lockVersion: row.meta.lockVersion },
+    }));
 
-    // Left possibly-undefined rather than defaulted to `[]` here: `?? []` is a fresh array on
-    // every render, which would re-run the sort below whether or not the data changed.
     const rows = ingredients.data?.items;
     const total = ingredients.data?.totalCount ?? null;
     const totalPages = pagesInResult(ingredients.data) ?? 0;
 
-    const sorted = useMemo(() => {
-        const factor = sortDirection === 'asc' ? 1 : -1;
-        return [...(rows ?? [])].sort((left, right) => {
-            if (sortKey === 'reference') {
-                // A row with no reference sorts to the end in both directions rather than
-                // clustering under the empty string, which would put every unreferenced row above
-                // "A-001" ascending and hide them at the bottom descending. `missingLast` below
-                // is the same rule, generalised — the price column needs it too.
-                return missingLast(
-                    left.reference,
-                    right.reference,
-                    (a, b) => factor * a.localeCompare(b),
-                );
-            }
-            if (sortKey === 'category') {
-                return factor * left.categoryCode.localeCompare(right.categoryCode, locale);
-            }
-            if (sortKey === 'unit') {
-                return factor * left.measurementUnit.localeCompare(right.measurementUnit);
-            }
-            if (sortKey === 'unitPrice') {
-                // Numeric, not lexical — the design's `sortType: 'number'`. Lexically, 11.00 sorts
-                // between 1.90 and 2.00, which is exactly the bug a price column cannot afford.
-                return missingLast(
-                    left.unitPrice,
-                    right.unitPrice,
-                    (a, b) => factor * (a.amount - b.amount),
-                );
-            }
-            if (sortKey === 'status')
-                return factor * left.meta.status.localeCompare(right.meta.status);
-            if (sortKey === 'updatedAt') {
-                return factor * left.meta.updatedAt.localeCompare(right.meta.updatedAt);
-            }
-            return (
-                factor *
-                displayName(left.name, locale).value.localeCompare(
-                    displayName(right.name, locale).value,
-                    locale,
-                )
-            );
-        });
-    }, [rows, sortKey, sortDirection, locale]);
+    /*
+     * The page as the server ordered it. Frozen empty while there is none, so "no rows yet" keeps
+     * one identity across renders — `?? []` would be a fresh array each time, and so a fresh
+     * identity for the three counts below and for everything downstream memoising on `rows`.
+     */
+    const pageRows = rows ?? NO_ROWS;
 
-    const draftCount = sorted.filter((row) => row.meta.status === 'draft').length;
-    const missingArabicCount = sorted.filter(
+    // The cards count every page the filters match, not the eighteen rows on this one.
+    const everyRow = wholeSet.data ?? NO_ROWS;
+    const draftCount = everyRow.filter((row) => row.meta.status === 'draft').length;
+    const missingArabicCount = everyRow.filter(
         (row) => displayName(row.name, locale).isFallback,
     ).length;
-    const uncostedCount = sorted.filter((row) => row.unitPrice === null).length;
+    const uncostedCount = everyRow.filter((row) => row.unitPrice === null).length;
 
     return {
-        rows: sorted,
+        rows: pageRows,
         isPending: ingredients.isPending,
         isFetching: ingredients.isFetching,
         failure: toFailure(ingredients.error),
@@ -312,11 +312,9 @@ export function useIngredientList(): IngredientListState {
         allergen,
         setAllergen,
         allergenClasses: allergenClasses.data ?? [],
-        isUnfiltered:
-            trimmed === '' && statuses.length === 0 && category === null && allergen === null,
+        isUnfiltered: searchAndStatusUnset && category === null && allergen === null,
         clearFilters: () => {
-            setQuery('');
-            setStatuses([]);
+            clearSearchAndStatus();
             setCategory(null);
             setAllergen(null);
         },
@@ -338,7 +336,9 @@ export function useIngredientList(): IngredientListState {
         setPage,
         totalPages,
         total,
-        shown: sorted.length,
+        countsPending: wholeSet.isPending,
+        // Rows up to the end of this page: 18 of 306 on the first, 36 on the second.
+        shown: Math.min(page * KITCHEN_PAGE_SIZE, total ?? pageRows.length),
         draftCount,
         missingArabicCount,
         uncostedCount,
@@ -356,44 +356,11 @@ export function useIngredientList(): IngredientListState {
             setViewing(null);
         },
 
-        archiving,
-        askToArchive: setArchiving,
-        cancelArchive: () => {
-            setArchiving(null);
-        },
-        confirmArchive: (onArchived) => {
-            const row = archiving;
-            if (row === null) return;
-            archive.mutate(
-                {
-                    ingredientId: row.id,
-                    request: { lockVersion: row.meta.lockVersion },
-                },
-                {
-                    onSuccess: () => {
-                        setArchiving(null);
-                        onArchived(displayName(row.name, locale).value);
-                    },
-                },
-            );
-        },
+        archiving: archive.target,
+        askToArchive: archive.ask,
+        cancelArchive: archive.cancel,
+        confirmArchive: archive.confirm,
         isArchivePending: archive.isPending,
-        archiveFailure: toFailure(archive.error),
+        archiveFailure: archive.failure,
     };
-}
-
-/**
- * Orders two possibly-absent values, always sinking the absent ones.
- *
- * The nulls do **not** flip with the direction. A reader sorting by price wants the cheapest first
- * or the dearest first; in neither case do they want the rows that have no price at all — which is
- * the set the Uncosted card is separately pointing at. Sinking them in both directions keeps the
- * top of the list answering the question that was asked.
- */
-function missingLast<T>(left: T | null, right: T | null, compare: (a: T, b: T) => number): number {
-    if (left === null || right === null) {
-        if (left === right) return 0;
-        return left === null ? 1 : -1;
-    }
-    return compare(left, right);
 }

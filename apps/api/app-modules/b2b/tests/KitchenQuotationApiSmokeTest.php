@@ -7,6 +7,7 @@ use Healthy360\B2b\Models\CorporateProgramme;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Organisations\Models\Organisation;
+use Tests\SeedDatabaseOnce;
 
 /**
  * The kitchen's side of a quotation (B4), over HTTP.
@@ -17,9 +18,9 @@ use Healthy360\Organisations\Models\Organisation;
  * `B2bProgrammesDemoSeeder` and `DemoTenantSeeder`. A test that hand-built
  * that grant would be asserting against its own fixture.
  */
-beforeEach(function (): void {
-    $this->seed();
+pest()->use(SeedDatabaseOnce::class);
 
+beforeEach(function (): void {
     $this->buyerUser = User::query()->where('email', 'buyer@acme-wellness.test')->sole();
     $this->buyer = Organisation::query()->where('slug', 'acme-wellness')->sole();
     $this->kitchenUser = User::query()->where('email', 'owner@verdant.test')->sole();

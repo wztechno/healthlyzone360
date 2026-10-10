@@ -1,11 +1,11 @@
 import { apiFailure } from '@healthy360/api-client/contracts';
 import {
     Button,
+    Cascade,
     EmptyState,
     ErrorState,
-    RecordWindow,
-    Skeleton,
     Stack,
+    TableSkeleton,
     Text,
 } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -21,11 +21,12 @@ import { useReviewQueueQuery } from '../../../data/kitchen-admin-hooks.ts';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, statusKey } from '../format.ts';
-import { ReviewFamilySection } from '../review/review-family-section.tsx';
+import { ReviewTable } from '../review/review-table.tsx';
 import { buildReviewQueue, isBlocked, reviewFamilyKey, reviewReasonKey } from '../review-queue.ts';
 import type { ReviewItem, ReviewQueue, ReviewSection } from '../review-queue.ts';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
 /**
  * `/kitchen/review` — the publication review queue (K1.8), as `Workbench.dc.html` draws it.
@@ -33,18 +34,18 @@ import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
  * ```
  * Needs review  [ READ ONLY ]
  * ┌ SHOWN ┐ ┌ BLOCKED ┐ ┌ TO FINISH ┐
- * [ ⌕ Designation or name ]  [ All | Blocked | To finish ]
- * ── INGREDIENTS  3 records  [ 1 BLOCKED ] ─────────────────────────
- * DESIGNATION         WHY IT IS HERE          LAST CHANGED          ◉ ✎
- * ── RECIPES … ─────────────────────────────────────────────────────
- * Checked: …   Not checked here: …
+ * [ ⌕ Item ]             [ All | Blocked | To finish ]
+ * ID        ITEM                WHY IT IS HERE          LAST CHANGED          ◉ ✎
+ * ING-0142  …
+ * RC-0007   …
  * ```
  *
  * ## The one screen in this workspace that is not about a family
  *
  * Every other kitchen screen answers "show me the ingredients". This one answers **what is stopping
- * anything from going out?** — a question across six families at once, which is why it is a section
- * per family, and why a family with nothing to report gets no heading at all.
+ * anything from going out?** — a question across five families at once. They share one table, and
+ * the ID column (`ING-`, `RC-`, `RSL-`, or the family's name where it has no series) says which
+ * family a row is; its header filters by family.
  *
  * ## It states what it checked, and it never claims more
  *
@@ -55,7 +56,7 @@ import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
  *
  * ## Nothing is written from here
  *
- * No resolve, no publish-anyway, no bulk action. The row body opens a read-only `RecordWindow`, and
+ * No resolve, no publish-anyway, no bulk action. The row body opens the read-only record page, and
  * both its primary and the row's pen go to the family's own editor, where the lock version, the unsaved
  * guard and the publish confirmation already live.
  *
@@ -113,6 +114,8 @@ function ReviewQueueBody() {
         () => (queue === null ? [] : narrow(queue, search, scope, locale)),
         [queue, search, scope, locale],
     );
+    /** One list for the one table, memoised so the table's page survives an unrelated render. */
+    const items = useMemo(() => sections.flatMap((section) => section.items), [sections]);
 
     /**
      * Derived from `isError`, not from `toFailure` alone: an unclassifiable rejection would otherwise
@@ -128,19 +131,37 @@ function ReviewQueueBody() {
         router.push(item.href as never);
     };
 
+    if (viewing !== null) {
+        return (
+            <ReviewWindow
+                item={viewing.item}
+                onBack={() => {
+                    setViewing(null);
+                }}
+                onOpen={open}
+            />
+        );
+    }
+
     return (
-        <Stack space="md" testID="kitchen-review-screen">
-            {queue === null || queue.total === 0 || failure !== null ? null : (
+        <Cascade space="md" testID="kitchen-review-screen">
+            {(queue !== null && queue.total === 0) || failure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-review-summary"
                     cards={statCards(queue, sections, t, (next) => {
                         setScope(next);
                         setViewing(null);
                     })}
+                    pending={sources.isPending}
                 />
             )}
 
-            {queue === null || queue.total === 0 || failure !== null ? null : (
+            {/*
+             * Drawn while the queue loads, on the cards' own terms: a toolbar that waited for the
+             * data would push the list down a row the moment it landed. It goes only with the
+             * cards — an empty queue has nothing to search.
+             */}
+            {(queue !== null && queue.total === 0) || failure !== null ? null : (
                 <CatalogueToolbar<ReviewScope>
                     testID="kitchen-review-toolbar"
                     search={search}
@@ -166,17 +187,7 @@ function ReviewQueueBody() {
 
             {sources.isPending ? (
                 <View testID="kitchen-review-loading" className="flex-col">
-                    {Array.from({ length: 6 }, (_, index) => (
-                        <View
-                            key={index}
-                            className="h-row-md flex-row items-center border-b border-stroke-subtle"
-                        >
-                            <Skeleton
-                                testID={`kitchen-review-skeleton-${String(index + 1)}`}
-                                heightClassName="h-2"
-                            />
-                        </View>
-                    ))}
+                    <TableSkeleton partTestID="kitchen-review" rows={6} />
                     <Text variant="caption" tone="secondary" className="pt-2.5">
                         {t('kitchen:review.loadingCaption')}
                     </Text>
@@ -223,42 +234,28 @@ function ReviewQueueBody() {
                             }
                         />
                     ) : (
-                        <View testID="kitchen-review-sections" className="flex-col gap-base">
-                            {sections.map((section) => (
-                                <ReviewFamilySection
-                                    key={section.familyKey}
-                                    section={section}
-                                    onView={(item) => {
-                                        setViewing({ item });
-                                    }}
-                                    onOpen={open}
-                                />
-                            ))}
-                        </View>
+                        <ReviewTable
+                            testID="kitchen-review-table"
+                            items={items}
+                            onView={(item) => {
+                                setViewing({ item });
+                            }}
+                            onOpen={open}
+                        />
                     )}
                 </Stack>
             )}
-
-            {viewing === null ? null : (
-                <ReviewWindow
-                    item={viewing.item}
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    onOpen={open}
-                />
-            )}
-        </Stack>
+        </Cascade>
     );
 }
 
 function ReviewWindow({
     item,
-    onClose,
+    onBack,
     onOpen,
 }: {
     readonly item: ReviewItem;
-    readonly onClose: () => void;
+    readonly onBack: () => void;
     readonly onOpen: (item: ReviewItem) => void;
 }) {
     const { t } = useTranslation();
@@ -267,10 +264,9 @@ function ReviewWindow({
     const blocked = isBlocked(item);
 
     return (
-        <RecordWindow
+        <RecordViewPage
             testID="kitchen-review-window"
-            open
-            onClose={onClose}
+            onBack={onBack}
             title={displayName(item.name, locale).value}
             kind={t(reviewFamilyKey(item.familyKey))}
             status={
@@ -319,6 +315,7 @@ function ReviewWindow({
             }))}
             primaryAction={{
                 label: t('kitchen:review.open'),
+                icon: null,
                 onPress: () => {
                     onOpen(item);
                 },
@@ -352,9 +349,15 @@ function narrow(
         .filter((section) => section.items.length > 0);
 }
 
-/** The admin's standard figure cards — each one also narrows the queue to what it counts. */
+/**
+ * The admin's standard figure cards — each one also narrows the queue to what it counts.
+ *
+ * `queue` is null while the sources are in flight. The cards are drawn then with their figures
+ * held, and the Shown caption is the only other line that counts anything, so it says "—" rather
+ * than "0 families" about a queue nobody has read yet.
+ */
 function statCards(
-    queue: ReviewQueue,
+    queue: ReviewQueue | null,
     sections: readonly ReviewSection[],
     t: TFunction,
     setScope: (scope: ReviewScope) => void,
@@ -369,9 +372,12 @@ function statCards(
             key: 'shown',
             label: t('kitchen:review.statShown'),
             value: String(shown),
-            unit: t('kitchen:list.statShownUnit', { total: queue.total }),
-            caption: t('kitchen:review.statShownCaption', { count: sections.length }),
-            mark: 'calendar',
+            unit: t('kitchen:list.statShownUnit', { total: queue?.total ?? 0 }),
+            caption:
+                queue === null
+                    ? t('kitchen:list.noValue')
+                    : t('kitchen:review.statShownCaption', { count: sections.length }),
+            mark: 'list',
             tone: 'brand',
             onPress: () => {
                 setScope('all');
@@ -384,7 +390,7 @@ function statCards(
             value: String(blocked),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:review.statBlockedCaption'),
-            mark: 'warning',
+            mark: 'alert',
             tone: blocked === 0 ? 'default' : 'danger',
             onPress: () => {
                 setScope('blocked');
@@ -397,7 +403,7 @@ function statCards(
             value: String(shown - blocked),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:review.statToFinishCaption'),
-            mark: 'eyeOff',
+            mark: 'lockOpen',
             tone: shown - blocked === 0 ? 'default' : 'warning',
             onPress: () => {
                 setScope('unblocked');

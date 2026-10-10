@@ -27,12 +27,21 @@ if (Test-Path "storage/app/v6-recipes.json") {
 } else {
     Write-Host "v6-recipes.json not staged - skipping technical sheets (regenerate with scripts/convert-v6-workbook.py --recipes)."
 }
+# Every meal, sauce, dressing and frozen meal the sheets did not formulate gets a
+# placeholder draft recipe, so the whole kitchen appears in the recipe book.
+php artisan kitchen:formulate-unlinked --org=healthzone360-kitchen
+if ($LASTEXITCODE -ne 0) { Pop-Location; throw "kitchen:formulate-unlinked failed" }
 # After the recipes: they mint ingredients, and the determinations file carries the
 # owner's readings for them. Then publish whatever now clears its gates.
 php artisan kitchen:apply-allergen-determinations --org=healthzone360-kitchen
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw "kitchen:apply-allergen-determinations failed" }
 php artisan kitchen:publish-ready --org=healthzone360-kitchen
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw "kitchen:publish-ready failed" }
+# The workbook prices no frozen row, so the shelf imports unpriced and on no channel;
+# this prices it (placeholder figures in database/data/frozen-shelf-prices.json) and
+# lists it on the web shop.
+php artisan kitchen:price-frozen-shelf --org=healthzone360-kitchen
+if ($LASTEXITCODE -ne 0) { Pop-Location; throw "kitchen:price-frozen-shelf failed" }
 php artisan inventory:derive-stock-items
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw "inventory:derive-stock-items failed" }
 # The way in: owner@/staff@/customer@healthzone360.test, all "password".

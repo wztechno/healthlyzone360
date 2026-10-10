@@ -9,8 +9,8 @@ use Healthy360\Ingredients\Services\IngredientNutritionImportReport;
 use Illuminate\Database\Seeder;
 
 /**
- * Per-100 g nutrition for the 306 platform ingredients, and the 20 densities
- * that make a volume or per-piece line weighable.
+ * Per-100 g nutrition for the 306 platform ingredients, and the 13 densities
+ * that make a line stated in litres weighable.
  *
  * The figures come from the owner's reference table
  * (`scripts/convert-nutrition-table.py` → `data/platform-ingredient-nutrition.json`),

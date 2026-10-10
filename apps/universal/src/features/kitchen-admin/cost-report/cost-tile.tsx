@@ -12,8 +12,8 @@ import { View } from 'react-native';
  * ```
  *
  * Replaces `kpi-tile.tsx` on Cost report and Analytics, where the figures *are* the content and so
- * earn a tile rather than the Catalogue's one summary line. Flat: a hairline on the raised fill and no
- * shadow, the same card as the header's summary strip at a larger figure.
+ * earn a tile rather than the Catalogue's one summary line. A hairline on the raised fill and the card
+ * cast, the same card as the header's summary strip at a larger figure.
  *
  * `emphasis: 'brand'` is spent once per screen — on the margin, the figure a reader is looking for.
  * `trend` is Analytics' inline-end delta, which says its direction in words.
@@ -32,7 +32,7 @@ export function CostTile({ label, value, unit, hint, trend, emphasis, testID }: 
     return (
         <View
             testID={testID}
-            className="flex-col gap-0.5 rounded border border-stroke-subtle bg-surface-raised px-2.5 py-2"
+            className="flex-col gap-0.5 rounded border border-stroke-subtle bg-surface-raised px-2.5 py-2 shadow-elevation-card"
         >
             <View className="flex-row items-baseline justify-between gap-tight">
                 <Text variant="micro" tone="secondary" numberOfLines={1}>

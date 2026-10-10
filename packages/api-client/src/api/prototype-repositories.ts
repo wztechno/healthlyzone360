@@ -1,6 +1,7 @@
 import type {
     CartId,
     CorporateProgrammeId,
+    DeliveryWindowId,
     DeliveryZoneId,
     DietitianId,
     IngredientId,
@@ -8,6 +9,7 @@ import type {
     MealId,
     MealPlanEntryId,
     MealPlanId,
+    OrderId,
     PriceListId,
     ProductId,
     QuotationId,
@@ -38,6 +40,7 @@ import type {
     CancelSubscriptionRequest,
     CommerceRepository,
     CreateSubscriptionRequest,
+    MyOrderFilter,
     PauseSubscriptionRequest,
     PlaceOrderRequest,
     PlacedOrder,
@@ -103,7 +106,12 @@ import type {
     ServiceAreaFilter,
     SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
-    SetDeliveryWindowsRequest,
+    SetZoneWindowsRequest,
+    UpdateDeliveryWindowRequest,
+    CreateDeliveryWindowRequest,
+    DeliveryWindow,
+    ItemChannelPrices,
+    SetItemChannelPricesRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
     SetPlanCombinationsRequest,
@@ -532,6 +540,17 @@ export const apiCommerceRepository: CommerceRepository = {
         return notImplemented(`POST ${BASE}/orders`);
     },
     /**
+     * The order history and one order of it, both served — implemented in
+     * `./order-repository.ts` and spread over this object by `createApiRepositories`, so they have
+     * no rows in `PROTOTYPE_ENDPOINTS`.
+     */
+    listMyOrders(_filter?: MyOrderFilter): Promise<CursorPage<PlacedOrder>> {
+        return notImplemented(`GET ${BASE}/me/orders`);
+    },
+    getMyOrder(_orderId: OrderId): Promise<PlacedOrder> {
+        return notImplemented(`GET ${BASE}/me/orders/{order}`);
+    },
+    /**
      * Subscription lifecycle (quote preview, create, reads, pause/resume/skip, address/window) is
      * served — implemented in `./subscription-repository.ts` and spread over this object by
      * `createApiRepositories`, so none of these have rows in `PROTOTYPE_ENDPOINTS`.
@@ -773,6 +792,9 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     createRecipe(_request: CreateRecipeRequest): Promise<RecipeAdmin> {
         return notImplemented(`POST ${BASE}/catalogue/recipes`);
     },
+    createRecipeVersion(_recipeId: RecipeId, _copyFromVersion: number): Promise<RecipeAdmin> {
+        return notImplemented(`POST ${BASE}/catalogue/recipes/{recipe}/versions`);
+    },
     updateRecipe(_recipeId: RecipeId, _request: UpdateRecipeRequest): Promise<RecipeAdmin> {
         return notImplemented(`PATCH ${BASE}/catalogue/recipes/{recipe}`);
     },
@@ -816,6 +838,9 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     updateProduct(_productId: ProductId, _request: UpdateProductRequest): Promise<ProductAdmin> {
         return notImplemented(`PATCH ${BASE}/catalogue/items/{item}`);
     },
+    publishProduct(_productId: ProductId, _request: LockedRequest): Promise<ProductAdmin> {
+        return notImplemented(`POST ${BASE}/catalogue/items/{item}/publish`);
+    },
     archiveProduct(_productId: ProductId, _request: LockedRequest): Promise<ProductAdmin> {
         return notImplemented(`POST ${BASE}/catalogue/items/{item}/retire`);
     },
@@ -824,6 +849,15 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         _request: SetChannelAvailabilityRequest,
     ): Promise<ProductAdmin> {
         return notImplemented(`PUT ${BASE}/catalogue/items/{item}/channels`);
+    },
+    getItemChannelPrices(_itemId: ProductId | MealId): Promise<ItemChannelPrices> {
+        return notImplemented(`GET ${BASE}/catalogue/items/{item}/channel-prices`);
+    },
+    setItemChannelPrices(
+        _itemId: ProductId | MealId,
+        _request: SetItemChannelPricesRequest,
+    ): Promise<ItemChannelPrices> {
+        return notImplemented(`PUT ${BASE}/catalogue/items/{item}/channel-prices`);
     },
 
     listPriceLists(_filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {
@@ -934,11 +968,26 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     ): Promise<DeliveryZoneAdmin> {
         return notImplemented(`PUT ${BASE}/catalogue/delivery-zones/{zone}/areas`);
     },
-    setDeliveryWindows(
+    getZoneWindows(_zoneId: DeliveryZoneId): Promise<readonly DeliveryWindowId[]> {
+        return notImplemented(`GET ${BASE}/catalogue/delivery-zones/{zone}/windows`);
+    },
+    setZoneWindows(
         _zoneId: DeliveryZoneId,
-        _request: SetDeliveryWindowsRequest,
+        _request: SetZoneWindowsRequest,
     ): Promise<DeliveryZoneAdmin> {
-        return notImplemented(`PUT ${BASE}/catalogue/delivery-windows`);
+        return notImplemented(`PUT ${BASE}/catalogue/delivery-zones/{zone}/windows`);
+    },
+    listDeliveryWindows(): Promise<readonly DeliveryWindow[]> {
+        return notImplemented(`GET ${BASE}/catalogue/delivery-windows`);
+    },
+    createDeliveryWindow(_request: CreateDeliveryWindowRequest): Promise<DeliveryWindow> {
+        return notImplemented(`POST ${BASE}/catalogue/delivery-windows`);
+    },
+    updateDeliveryWindow(
+        _windowId: DeliveryWindowId,
+        _request: UpdateDeliveryWindowRequest,
+    ): Promise<DeliveryWindow> {
+        return notImplemented(`PATCH ${BASE}/catalogue/delivery-windows/{window}`);
     },
 
     getBranchOperating(_branchId: KitchenBranchId): Promise<BranchOperating> {

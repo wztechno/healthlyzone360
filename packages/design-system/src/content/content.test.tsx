@@ -235,18 +235,40 @@ describe('Badge', () => {
         expect(screen.getByTestId('badge').props.accessibilityLabel).toBe('Suspended');
     });
 
-    /** WCAG 1.4.1: colour must never be the only carrier of meaning. */
     it.each(BADGE_TONES.filter((tone) => tone !== 'neutral'))(
-        'pairs the %s tone with an icon, not just a colour',
+        'marks the %s tone with a dot that assistive technology skips',
         async (tone) => {
             await renderWithI18n(<Badge testID={`b-${tone}`} label="Status" tone={tone} />);
-            expect(screen.getByTestId(`b-${tone}-icon`)).toBeTruthy();
+            const mark = screen.getByTestId(`b-${tone}-mark`);
+            expect(mark.props['aria-hidden']).toBe(true);
+            expect(screen.queryByTestId(`b-${tone}-icon`)).toBeNull();
         },
     );
 
-    it('lets a caller drop the icon explicitly when the label is unambiguous', async () => {
+    it('leaves a neutral tag unmarked, so greyscale still separates a state from a tag', async () => {
+        await renderWithI18n(<Badge testID="tag" label="Vegan" />);
+        expect(screen.queryByTestId('tag-mark')).toBeNull();
+    });
+
+    it('draws a passed icon in the dot’s place', async () => {
+        await renderWithI18n(<Badge testID="shaped" label="Late" tone="danger" icon="circleX" />);
+        expect(screen.getByTestId('shaped-icon')).toBeTruthy();
+        expect(screen.queryByTestId('shaped-mark')).toBeNull();
+    });
+
+    it('lets a caller drop the mark explicitly when the tone is decoration', async () => {
         await renderWithI18n(<Badge testID="plain" label="3 branches" tone="info" icon={null} />);
+        expect(screen.queryByTestId('plain-mark')).toBeNull();
         expect(screen.queryByTestId('plain-icon')).toBeNull();
+    });
+
+    it('is a soft tag — the subtle fill, no border, the small corner', async () => {
+        await renderWithI18n(<Badge testID="soft" label="Overdue" tone="danger" />);
+        const classes: string = screen.getByTestId('soft').props.className;
+        expect(classes).toContain('bg-danger-subtle');
+        expect(classes).toContain('rounded-sm');
+        expect(classes).not.toMatch(/(^|\s)border(\s|$)/);
+        expect(classes).not.toContain('rounded-full');
     });
 
     it.each(NUTRITION_LEVELS)(
@@ -677,6 +699,24 @@ describe('ImagePlaceholder', () => {
             <ImagePlaceholder testID="wide-aspect" seed="meal-01" label="Meal" aspect="wide" />,
         );
         expect(screen.getByTestId('wide-aspect').props.className).toContain('aspect-video');
+    });
+
+    it('hides itself when decorative, and still takes the size its caller gives it', async () => {
+        await renderWithI18n(
+            <ImagePlaceholder
+                testID="deco"
+                seed="meal-01"
+                label="Meal"
+                decorative
+                className="h-full"
+            />,
+        );
+        const node = screen.getByTestId('deco');
+        expect(node.props['aria-hidden']).toBe(true);
+        expect(node.props.accessibilityRole).toBeUndefined();
+        expect(node.props.accessibilityLabel).toBeUndefined();
+        // The sizing class lands on the frame itself — there is no wrapper for it to stop at.
+        expect(node.props.className).toContain('h-full');
     });
 
     it('drops its own radius when flush, so media meets a clipped card corner cleanly', async () => {

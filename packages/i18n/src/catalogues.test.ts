@@ -58,6 +58,7 @@ describe('catalogue structure', () => {
             'b2bApplication',
             'platformAdmin',
             'invitations',
+            'accessAdmin',
         ]);
         expect(DEFAULT_NAMESPACE).toBe('common');
         for (const locale of LOCALES) {

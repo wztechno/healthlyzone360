@@ -211,10 +211,15 @@ export interface UseDismissOptions {
     readonly open: boolean;
     readonly onClose: () => void;
     readonly containerRef: NodeRef;
+    /**
+     * The panel, when it is not inside `containerRef` — on the web it is lifted onto `body`
+     * (`anchored-layer.web.tsx`), and a press inside it is not an outside press.
+     */
+    readonly panelRef?: NodeRef | undefined;
 }
 
 /** Escape from anywhere, plus the outside-press half of the same contract. */
-export function useDismiss({ open, onClose, containerRef }: UseDismissOptions): void {
+export function useDismiss({ open, onClose, containerRef, panelRef }: UseDismissOptions): void {
     const closeRef = useRef(onClose);
     closeRef.current = onClose;
 
@@ -228,6 +233,8 @@ export function useDismiss({ open, onClose, containerRef }: UseDismissOptions): 
         const onPointerDown = (event: Event) => {
             const node = asNode(containerRef);
             if (node?.contains?.(event.target) === true) return;
+            const panel = panelRef === undefined ? null : asNode(panelRef);
+            if (panel?.contains?.(event.target) === true) return;
             closeRef.current();
         };
 
@@ -237,7 +244,7 @@ export function useDismiss({ open, onClose, containerRef }: UseDismissOptions): 
             document.removeEventListener('keydown', onKey);
             document.removeEventListener('pointerdown', onPointerDown);
         };
-    }, [open, containerRef]);
+    }, [open, containerRef, panelRef]);
 }
 
 export interface SwallowedPointerEvent {
@@ -266,6 +273,13 @@ export function usePointerSwallow(): PointerSwallowProps {
 }
 
 /**
+ * The frame alone — border, fill, radius, elevation — for a panel that positions itself, as the
+ * lifted web panel does (`anchored-layer.web.tsx`).
+ */
+export const ANCHORED_PANEL_FRAME_CLASS =
+    'flex-col rounded-md border border-stroke-subtle bg-surface-raised shadow-elevation-3';
+
+/**
  * The panel frame every anchored surface shares, at the one popover elevation §1.3 allows.
  *
  * `end-0` is the logical opt-in the flip resolves to; the `start` case states no inset at all,
@@ -275,6 +289,6 @@ export function usePointerSwallow(): PointerSwallowProps {
  */
 export function anchoredPanelClass(align: AnchorAlign): string {
     return align === 'end'
-        ? 'absolute top-full z-tooltip mt-1 end-0 flex-col rounded-md border border-stroke-subtle bg-surface-raised shadow-elevation-3'
-        : 'absolute top-full z-tooltip mt-1 flex-col rounded-md border border-stroke-subtle bg-surface-raised shadow-elevation-3';
+        ? `absolute top-full z-tooltip mt-1 end-0 ${ANCHORED_PANEL_FRAME_CLASS}`
+        : `absolute top-full z-tooltip mt-1 ${ANCHORED_PANEL_FRAME_CLASS}`;
 }

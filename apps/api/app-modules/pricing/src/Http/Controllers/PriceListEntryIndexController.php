@@ -51,7 +51,11 @@ final class PriceListEntryIndexController
         $record = $this->locator->priceList($priceList);
         $withHistory = $this->wantsHistory($request);
 
-        $query = PriceListItem::query()->where('price_list_id', $record->getKey());
+        // The item and variant ride along so each row can say what it prices — its type and its
+        // pack code — without the client asking for every article one request at a time.
+        $query = PriceListItem::query()
+            ->with(['catalogueItem', 'variant'])
+            ->where('price_list_id', $record->getKey());
 
         if (! $withHistory) {
             $query->openRows();

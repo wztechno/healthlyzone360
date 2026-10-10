@@ -1,5 +1,6 @@
 import { ApiError, apiFailure } from '@healthy360/api-client';
-import { otpInvalidFailure } from '@healthy360/api-client/contracts';
+import type { Repositories } from '@healthy360/api-client';
+import { orderPlacementRefusedFailure, otpInvalidFailure } from '@healthy360/api-client/contracts';
 import type {
     Cart,
     CartItem,
@@ -19,6 +20,7 @@ import type { ReactNode } from 'react';
 
 import { appGuestTokenStore } from '../../session/guest-storage.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { zoneWindowCodes } from '../commerce/delivery.ts';
 import { validateGuestContact } from './contact.ts';
 import { GuestCheckoutScreen } from './screens/guest-checkout-screen.tsx';
 import { GuestDeletionScreen } from './screens/guest-deletion-screen.tsx';
@@ -127,13 +129,23 @@ function testPreview(overrides: Partial<CheckoutPreview> = {}): CheckoutPreview 
         total: money(5000),
         earliestDeliveryDate: '2026-08-13',
         warnings: [],
+        offeredWindowCodes: null,
         paymentDeferred: true,
         ...overrides,
     };
 }
 
-/** A kitchen whose one active branch publishes exactly the areas the caller names. */
-function testKitchen(areas: readonly string[] = [SERVED_AREA]): Kitchen {
+/** Every fallback slot, so a zone that names them all filters nothing. */
+const ALL_SLOTS = ['morning', 'midday', 'evening'] as const;
+
+/**
+ * A kitchen whose one active branch publishes exactly the areas the caller names, every zone
+ * offering the slots named.
+ */
+function testKitchen(
+    areas: readonly string[] = [SERVED_AREA],
+    windowCodes: readonly string[] = ALL_SLOTS,
+): Kitchen {
     const branch: KitchenBranch = {
         id: 'kitchen-branch-0001' as KitchenBranch['id'],
         kitchenId: 'kitchen-0001' as KitchenBranch['kitchenId'],
@@ -149,6 +161,7 @@ function testKitchen(areas: readonly string[] = [SERVED_AREA]): Kitchen {
             deliveryFee: money(800),
             minimumOrder: null,
             estimatedMinutes: 45,
+            windowCodes,
         })),
         openingHours: [],
         supportsPickup: false,
@@ -319,18 +332,30 @@ function testDeletionOutcome(overrides: Partial<GuestDeletionOutcome> = {}): Gue
 }
 
 /** The three reads every checkout render makes before a person touches anything. */
-function checkoutBackdrop(areas: readonly string[] = [SERVED_AREA]) {
+function checkoutBackdrop(
+    areas: readonly string[] = [SERVED_AREA],
+    windowCodes: readonly string[] = ALL_SLOTS,
+) {
     return {
         commerce: {
             getCart: async () => testCart(),
             previewCheckout: async () => testPreview(),
         },
-        marketplace: { getKitchen: async () => testKitchen(areas) },
+        marketplace: { getKitchen: async () => testKitchen(areas, windowCodes) },
     };
 }
 
-/** Contact step → address step. Shared by every checkout case that gets past step one. */
-async function fillContactStep(): Promise<void> {
+/**
+ * Card 1: name and email, then "Send me a code" — the code panel opens inside the same card.
+ *
+ * It ends on the panel's own read of the challenge, not on the first frame that shows the input.
+ * The mutation seeds the challenge into the cache before the panel's query observes it, and under
+ * the harness's `gcTime: 0` the entry can be collected in that gap: the input is drawn, then drops
+ * back to its skeleton while the panel re-reads. Whether a wait happens to land on that first frame
+ * is timing — it did on CI. The read is issued only once the observer holds the live entry, and
+ * from then on the panel stays put.
+ */
+async function fillContactStep(repositories: Repositories): Promise<void> {
     await waitFor(() => screen.getByTestId('guest-checkout-contact'));
     await fireEvent.changeText(
         screen.getByTestId('guest-checkout-contact-fullName'),
@@ -341,29 +366,32 @@ async function fillContactStep(): Promise<void> {
         'rana@example.com',
     );
     await fireEvent.press(screen.getByTestId('guest-checkout-contact-continue'));
-    await waitFor(() => screen.getByTestId('guest-checkout-address'));
+    await waitFor(() => expect(repositories.guest.getChallenge).toHaveBeenCalled());
+    await screen.findByTestId('guest-checkout-challenge-code-input');
 }
 
-/** Address step → verify step, with an area the authored kitchen delivers to. */
+/**
+ * Card 2, with an area the authored kitchen delivers to. The country is not typed: it defaults to
+ * the kitchen's own, and the name on the address is the screen's.
+ */
 async function fillAddressStep(area: string = SERVED_AREA): Promise<void> {
     for (const [field, value] of [
-        ['label', 'Home'],
         ['line1', '12 Sunset Street'],
         ['area', area],
         ['city', 'Dubai'],
-        ['countryCode', 'AE'],
     ] as const) {
         await fireEvent.changeText(screen.getByTestId(`guest-checkout-address-${field}`), value);
     }
-    await fireEvent.press(screen.getByTestId('guest-checkout-address-continue'));
-    await waitFor(() => screen.getByTestId('guest-checkout-challenge-code-input'));
 }
 
-/** Verify step → review step. The passcode gate; until it is answered there is no review. */
+/** The passcode gate, answered in card 1; a proven contact collapses to its confirmed line. */
 async function answerPasscode(): Promise<void> {
-    await fireEvent.changeText(screen.getByTestId('guest-checkout-challenge-code-input'), CODE);
-    await fireEvent.press(screen.getByTestId('guest-checkout-challenge-submit'));
-    await waitFor(() => screen.getByTestId('guest-checkout-marketing'));
+    await fireEvent.changeText(
+        await screen.findByTestId('guest-checkout-challenge-code-input'),
+        CODE,
+    );
+    await fireEvent.press(await screen.findByTestId('guest-checkout-challenge-submit'));
+    await waitFor(() => screen.getByTestId('guest-checkout-contact-summary'));
 }
 
 /* ══ the pure rule ═════════════════════════════════════════════════════════════════════════════ */
@@ -435,7 +463,7 @@ describe('the guest session', () => {
             },
         });
 
-        await fillContactStep();
+        await fillContactStep(repositories);
         await fillAddressStep();
         await answerPasscode();
 
@@ -481,7 +509,7 @@ describe('the guest session', () => {
 
 describe('the guest checkout', () => {
     it('will not carry on to an area the kitchen does not deliver to', async () => {
-        await renderStubScreen(<GuestCheckoutScreen />, {
+        const { repositories } = await renderStubScreen(<GuestCheckoutScreen />, {
             repositories: {
                 ...checkoutBackdrop([SERVED_AREA]),
                 guest: {
@@ -490,22 +518,35 @@ describe('the guest checkout', () => {
                         contact: testGuestContact(),
                         challenge: testChallenge(),
                     }),
+                    getChallenge: async () => testChallenge(),
+                    confirmContact: async () => promotedSession(),
                 },
             },
         });
 
-        await fillContactStep();
+        // A proven contact, so the only thing standing between this person and an order is the
+        // area they typed.
+        await fillContactStep(repositories);
+        await answerPasscode();
+        await fillAddressStep();
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('guest-checkout-place').props.accessibilityState,
+            ).toMatchObject({ disabled: false });
+        });
         await fireEvent.changeText(
             screen.getByTestId('guest-checkout-address-area'),
             UNSERVED_AREA,
         );
 
-        // A hard stop: the notice appears and the only way on is disabled. There is deliberately no
-        // "continue anyway" control to look for.
+        // A hard stop: the notice appears in the address card and "Place order" is disabled.
+        // There is deliberately no "continue anyway" control to look for.
         await waitFor(() => screen.getByTestId('guest-checkout-out-of-zone'));
-        expect(
-            screen.getByTestId('guest-checkout-address-continue').props.accessibilityState,
-        ).toMatchObject({ disabled: true });
+        expect(screen.getByTestId('guest-checkout-place').props.accessibilityState).toMatchObject({
+            disabled: true,
+        });
+        await fireEvent.press(screen.getByTestId('guest-checkout-place'));
+        expect(repositories.guest.placeOrder).not.toHaveBeenCalled();
     });
 
     it('places the order with marketing off unless it was turned on, and confirms with a reference', async () => {
@@ -525,7 +566,7 @@ describe('the guest checkout', () => {
             },
         });
 
-        await fillContactStep();
+        await fillContactStep(repositories);
         await fillAddressStep();
         await answerPasscode();
 
@@ -547,7 +588,7 @@ describe('the guest checkout', () => {
         expect(repositories.guest.placeOrder).toHaveBeenCalledWith({
             cartId: 'cart-0001',
             address: {
-                label: 'Home',
+                label: 'Delivery address',
                 line1: '12 Sunset Street',
                 line2: null,
                 area: SERVED_AREA,
@@ -559,6 +600,257 @@ describe('the guest checkout', () => {
             deliveryDate: expect.any(String),
             paymentMethod: 'cash_on_delivery',
             marketingOptIn: false,
+        });
+    });
+
+    /**
+     * The design's drop-off chips write the driver's instruction — and only once somebody chose
+     * one. None is chosen to begin with, which is what the case above sends (`instructions: null`).
+     */
+    it('sends the drop-off instruction somebody chose, and takes it back when pressed again', async () => {
+        const { repositories } = await renderStubScreen(<GuestCheckoutScreen />, {
+            repositories: {
+                ...checkoutBackdrop(),
+                guest: {
+                    startSession: async () => draftSession(),
+                    updateContact: async () => ({
+                        contact: testGuestContact(),
+                        challenge: testChallenge(),
+                    }),
+                    getChallenge: async () => testChallenge(),
+                    confirmContact: async () => promotedSession(),
+                    placeOrder: async () => testOrder(),
+                },
+            },
+        });
+
+        await fillContactStep(repositories);
+        await fillAddressStep();
+        await answerPasscode();
+
+        await fireEvent.press(screen.getByTestId('guest-checkout-drop-off-hand'));
+        expect(
+            screen.getByTestId('guest-checkout-drop-off-hand').props.accessibilityState,
+        ).toMatchObject({ checked: true });
+        await fireEvent.press(screen.getByTestId('guest-checkout-drop-off-call'));
+        await fireEvent.press(screen.getByTestId('guest-checkout-drop-off-call'));
+        await fireEvent.press(screen.getByTestId('guest-checkout-drop-off-leave'));
+
+        await fireEvent.press(screen.getByTestId('guest-checkout-place'));
+        await waitFor(() => {
+            expect(repositories.guest.placeOrder).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    address: expect.objectContaining({ instructions: 'Leave at door' }),
+                }),
+            );
+        });
+    });
+
+    /**
+     * The design draws the four cards open at once, and so does the screen. What has to hold is
+     * that every gate survives inside its card: the contact locks while a code is live, a proven
+     * contact collapses to one confirmed line with a way back, and the rail's button stays shut
+     * until the server says the order may be placed.
+     */
+    it('draws all four cards open and keeps placing shut until the contact is proven', async () => {
+        const { repositories } = await renderStubScreen(<GuestCheckoutScreen />, {
+            repositories: {
+                ...checkoutBackdrop(),
+                guest: {
+                    startSession: async () => draftSession(),
+                    updateContact: async () => ({
+                        contact: testGuestContact(),
+                        challenge: testChallenge(),
+                    }),
+                    getChallenge: async () => testChallenge(),
+                    confirmContact: async () => promotedSession(),
+                },
+            },
+        });
+
+        await waitFor(() => screen.getByTestId('guest-checkout-contact'));
+        // All four cards are on the page, and every one of them is already asking.
+        for (const block of [1, 2, 3, 4]) {
+            expect(screen.getByTestId(`guest-checkout-block-${String(block)}`)).toBeTruthy();
+        }
+        expect(screen.getByTestId('guest-checkout-address')).toBeTruthy();
+        expect(screen.getByTestId('guest-checkout-slot')).toBeTruthy();
+        expect(screen.getByTestId('guest-checkout-marketing')).toBeTruthy();
+        // One payment method, and it is the chosen one.
+        expect(
+            screen.getByTestId('guest-checkout-payment-cash').props.accessibilityState,
+        ).toMatchObject({ checked: true });
+        expect(screen.getByTestId('guest-checkout-unverified')).toBeTruthy();
+        expect(screen.getByTestId('guest-checkout-place').props.accessibilityState).toMatchObject({
+            disabled: true,
+        });
+
+        await fillContactStep(repositories);
+
+        // A live code proves the contact it was sent to, so the contact is locked while it is.
+        expect(screen.getByTestId('guest-checkout-contact-email-input').props.editable).toBe(false);
+        // The basket is in the rail beside the form, priced by the preview.
+        await waitFor(() => screen.getByTestId('guest-checkout-summary-total-amount'));
+        expect(screen.getByTestId('guest-checkout-items')).toHaveTextContent(
+            /Grilled halloumi bowl/,
+        );
+        expect(screen.getByTestId('guest-checkout-place').props.accessibilityState).toMatchObject({
+            disabled: true,
+        });
+
+        await answerPasscode();
+
+        // The proven contact says so, and offers the way back to it.
+        expect(screen.getByTestId('guest-checkout-contact-summary')).toHaveTextContent(
+            /Rana Haddad/,
+        );
+        await fireEvent.press(screen.getByTestId('guest-checkout-block-1-change'));
+        await waitFor(() => screen.getByTestId('guest-checkout-contact-continue'));
+        expect(screen.getByTestId('guest-checkout-contact-email-input').props.editable).toBe(true);
+    });
+
+    /**
+     * Slots follow the zone the typed area falls in: placement refuses any other
+     * (`window_not_offered`), so the chips never offer one. An unmatched area filters nothing.
+     */
+    it('offers only the matched zone’s slots and falls back to the first when midday is not one', async () => {
+        const { repositories } = await renderStubScreen(<GuestCheckoutScreen />, {
+            repositories: {
+                ...checkoutBackdrop([SERVED_AREA], ['morning', 'evening']),
+                guest: {
+                    startSession: async () => draftSession(),
+                    updateContact: async () => ({
+                        contact: testGuestContact(),
+                        challenge: testChallenge(),
+                    }),
+                    getChallenge: async () => testChallenge(),
+                    confirmContact: async () => promotedSession(),
+                    placeOrder: async () => testOrder(),
+                },
+            },
+        });
+
+        await fillContactStep(repositories);
+        await answerPasscode();
+
+        // An area no zone covers filters nothing: every slot, the house default chosen.
+        await fillAddressStep(UNSERVED_AREA);
+        await waitFor(() => screen.getByTestId('guest-checkout-slot-evening'));
+        for (const code of ALL_SLOTS) {
+            expect(screen.getByTestId(`guest-checkout-slot-${code}`)).toBeTruthy();
+        }
+        expect(
+            screen.getByTestId('guest-checkout-slot-midday').props.accessibilityState,
+        ).toMatchObject({ checked: true });
+
+        // The zone's area: only its slots, and midday - which it does not run - gives way to the first.
+        await fireEvent.changeText(screen.getByTestId('guest-checkout-address-area'), SERVED_AREA);
+        await waitFor(() => {
+            expect(screen.queryByTestId('guest-checkout-slot-midday')).toBeNull();
+        });
+        expect(screen.getByTestId('guest-checkout-slot-evening')).toBeTruthy();
+        expect(
+            screen.getByTestId('guest-checkout-slot-morning').props.accessibilityState,
+        ).toMatchObject({ checked: true });
+
+        await fireEvent.press(screen.getByTestId('guest-checkout-place'));
+        await waitFor(() => {
+            expect(repositories.guest.placeOrder).toHaveBeenCalledWith(
+                expect.objectContaining({ slotCode: 'morning' }),
+            );
+        });
+    });
+
+    it('says so and will not place when the matched zone offers no slot', async () => {
+        const { repositories } = await renderStubScreen(<GuestCheckoutScreen />, {
+            repositories: {
+                ...checkoutBackdrop([SERVED_AREA], []),
+                guest: {
+                    startSession: async () => draftSession(),
+                    updateContact: async () => ({
+                        contact: testGuestContact(),
+                        challenge: testChallenge(),
+                    }),
+                    getChallenge: async () => testChallenge(),
+                    confirmContact: async () => promotedSession(),
+                },
+            },
+        });
+
+        await fillContactStep(repositories);
+        await answerPasscode();
+        await fillAddressStep();
+
+        await waitFor(() => screen.getByTestId('guest-checkout-slot-none'));
+        expect(screen.getByTestId('guest-checkout-slot-none')).toHaveTextContent(/Business Bay/);
+        expect(screen.queryByTestId('guest-checkout-slot')).toBeNull();
+        expect(screen.getByTestId('guest-checkout-place').props.accessibilityState).toMatchObject({
+            disabled: true,
+        });
+        await fireEvent.press(screen.getByTestId('guest-checkout-place'));
+        expect(repositories.guest.placeOrder).not.toHaveBeenCalled();
+    });
+
+    it('offers the union when the area matches more than one zone', () => {
+        const kitchen = testKitchen([SERVED_AREA, SERVED_AREA]);
+        const [branch] = kitchen.branches;
+        if (branch === undefined) throw new Error('the test kitchen has a branch');
+        const [first, second] = branch.deliveryZones;
+        if (first === undefined || second === undefined) throw new Error('two zones');
+        const twoZones: Kitchen = {
+            ...kitchen,
+            branches: [
+                {
+                    ...branch,
+                    deliveryZones: [
+                        { ...first, windowCodes: ['morning'] },
+                        { ...second, windowCodes: ['evening'] },
+                    ],
+                },
+            ],
+        };
+
+        expect(zoneWindowCodes(twoZones, ' business bay ')).toEqual(['morning', 'evening']);
+        expect(zoneWindowCodes(twoZones, UNSERVED_AREA)).toBeNull();
+        expect(zoneWindowCodes(twoZones, '')).toBeNull();
+    });
+
+    it('names a window_not_offered refusal in words', async () => {
+        const { repositories } = await renderStubScreen(<GuestCheckoutScreen />, {
+            repositories: {
+                ...checkoutBackdrop(),
+                guest: {
+                    startSession: async () => draftSession(),
+                    updateContact: async () => ({
+                        contact: testGuestContact(),
+                        challenge: testChallenge(),
+                    }),
+                    getChallenge: async () => testChallenge(),
+                    confirmContact: async () => promotedSession(),
+                    placeOrder: () =>
+                        Promise.reject(
+                            new ApiError(
+                                orderPlacementRefusedFailure([
+                                    {
+                                        reason: 'window_not_offered',
+                                        context: { delivery_window_code: 'midday' },
+                                    },
+                                ]),
+                            ),
+                        ),
+                },
+            },
+        });
+
+        await fillContactStep(repositories);
+        await fillAddressStep();
+        await answerPasscode();
+        await fireEvent.press(screen.getByTestId('guest-checkout-place'));
+
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('guest-checkout-place-error-reason-window_not_offered'),
+            ).toHaveTextContent(/does not offer that delivery slot/);
         });
     });
 
@@ -607,12 +899,71 @@ describe('the confirmation', () => {
 
         await waitFor(() => screen.getByTestId('guest-order-reference'));
         expect(screen.getByTestId('guest-order-reference').props.children).toBe(order.reference);
-        expect(screen.getByTestId('guest-order-payment')).toBeTruthy();
+        expect(screen.getByTestId('guest-order-timeline-placed-detail')).toHaveTextContent(
+            /^Cash on delivery · /,
+        );
 
         // The refusal is a visible button, not an X in a corner.
         await waitFor(() => screen.getByTestId('guest-order-conversion-decline'));
         await fireEvent.press(screen.getByTestId('guest-order-conversion-decline'));
         await waitFor(() => screen.getByTestId('guest-order-conversion-declined'));
+    });
+
+    it('heads the page with the server’s state and walks the timeline up to it', async () => {
+        // A shared link: no guest token, so no conversion prompt and nothing else to stub.
+        const order = testOrder({ state: 'preparing' });
+
+        await renderStubScreen(<GuestOrderScreen reference={order.reference} />, {
+            repositories: { guest: { getOrder: async () => order } },
+        });
+
+        expect(await screen.findByTestId('guest-order-title')).toHaveTextContent('Cooking now');
+        expect(screen.getByTestId('guest-order-lead')).toHaveTextContent(/cooking/);
+
+        // Each row says where it stands in words, so the dots are never the only signal.
+        expect(screen.getByTestId('guest-order-timeline-placed').props.accessibilityLabel).toBe(
+            'Order placed, done',
+        );
+        expect(
+            screen.getByTestId('guest-order-timeline-confirmed').props.accessibilityLabel,
+        ).toMatch(/, done$/);
+        expect(
+            screen.getByTestId('guest-order-timeline-preparing').props.accessibilityLabel,
+        ).toMatch(/, in progress$/);
+        expect(
+            screen.getByTestId('guest-order-timeline-ready_for_pickup').props.accessibilityLabel,
+        ).toMatch(/, still to come$/);
+        expect(
+            screen.getByTestId('guest-order-timeline-delivered').props.accessibilityLabel,
+        ).toMatch(/, still to come$/);
+
+        // Only the placement has a time; the contract publishes no other, and none is invented.
+        expect(screen.getAllByTestId('guest-order-timeline-time')).toHaveLength(1);
+
+        // The lines, and the total the server charged — not a client sum — on the first step.
+        expect(screen.getByTestId('guest-order-line-guest-order-line-1')).toHaveTextContent(
+            /1 × Grilled halloumi bowl/,
+        );
+        expect(screen.getByTestId('guest-order-timeline-placed-detail')).toHaveTextContent(/50/);
+        // The window the guest chose, on the canopy panel.
+        expect(screen.getByTestId('guest-order-slot')).toHaveTextContent(/Midday/);
+
+        // The reference is repeated where a guest is told to keep it.
+        expect(screen.getByTestId('guest-order-reference-keep').props.children).toBe(
+            order.reference,
+        );
+    });
+
+    it('reports a cancelled order instead of drawing a timeline it never finished', async () => {
+        const order = testOrder({ state: 'cancelled' });
+
+        await renderStubScreen(<GuestOrderScreen reference={order.reference} />, {
+            repositories: { guest: { getOrder: async () => order } },
+        });
+
+        expect(await screen.findByTestId('guest-order-cancelled')).toBeTruthy();
+        expect(screen.getByTestId('guest-order-title')).toHaveTextContent('Order cancelled');
+        expect(screen.queryByTestId('guest-order-timeline')).toBeNull();
     });
 });
 

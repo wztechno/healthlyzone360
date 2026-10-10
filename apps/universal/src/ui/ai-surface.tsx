@@ -1,4 +1,5 @@
 import { Button } from '@healthy360/design-system';
+import { gradients } from '@healthy360/design-tokens';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text as RNText, View } from 'react-native';
@@ -45,18 +46,7 @@ import { StyleSheet, Text as RNText, View } from 'react-native';
  * carried by colour alone. Somebody who cannot see the violet must still be told.
  */
 
-/**
- * §4 Rule 5: `linear-gradient(120deg, #6D28D9 0%, #4C1D95 62%, #157043 160%)`.
- *
- * The third stop is written at 1 rather than 1.6 because that is what actually renders — the
- * library clamps it — and a constant that says 1.6 while the browser draws 1.0 is a lie that
- * costs somebody an afternoon.
- */
-const BAND_COLOURS = ['#6d28d9', '#4c1d95', '#157043'] as const;
-const BAND_LOCATIONS = [0, 0.62, 1] as const;
-
-/** The rail's own sweep — steeper, and only the two violets. */
-const RAIL_COLOURS = ['#6d28d9', '#4c1d95'] as const;
+/* The band is `gradients.aiBand` (§4 Rule 5) and the rail `gradients.aiRail`, from the token set. */
 
 function OriginPill({ testID }: { readonly testID: string }) {
     const { t } = useTranslation();
@@ -93,8 +83,8 @@ export function AiBand({ title, body, actionLabel, onAction, testID = 'ai-band' 
             className="overflow-hidden rounded-xl shadow-elevation-card-hover"
         >
             <LinearGradient
-                colors={BAND_COLOURS}
-                locations={BAND_LOCATIONS}
+                colors={gradients.aiBand.colours}
+                locations={gradients.aiBand.locations}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0.6 }}
                 style={StyleSheet.absoluteFill}
@@ -153,7 +143,7 @@ export function AiRailCard({
     return (
         <View testID={testID} className="overflow-hidden rounded-xl shadow-elevation-card">
             <LinearGradient
-                colors={RAIL_COLOURS}
+                colors={gradients.aiRail.colours}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}

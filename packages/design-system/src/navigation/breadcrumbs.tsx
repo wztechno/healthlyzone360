@@ -39,7 +39,11 @@ export interface BreadcrumbsProps {
  * announced landmarks.
  *
  * The last crumb is *not* a link — it is the page you are already on — and carries
- * `aria-current="page"`. The separators are direction-aware chevrons that resolve their glyph from
+ * `aria-current="page"`. The ancestors are links, underlined on the customer ladder; on the compact
+ * one they are not — the admin draws its trail in the top bar, where a row of underlined words reads
+ * as a rule under the bar's text — and take a hover tint instead. They stay muted against the
+ * current crumb's weight, which is what says which words go somewhere. The separators are
+ * direction-aware chevrons that resolve their glyph from
  * the active locale, so the trail points the right way in Arabic without a transform.
  */
 export function Breadcrumbs({
@@ -122,13 +126,18 @@ export function Breadcrumbs({
                                 className={cx(
                                     'justify-center',
                                     density === 'compact'
-                                        ? 'h-control-xs px-control-xs'
+                                        ? 'h-control-xs rounded-sm px-control-xs hover:bg-surface-sunken'
                                         : 'min-h-touch px-1',
                                 )}
                             >
                                 <RNText
                                     numberOfLines={1}
-                                    className={cx(sizeClass, 'underline text-start', mutedClass)}
+                                    className={cx(
+                                        sizeClass,
+                                        density === 'compact' ? null : 'underline',
+                                        'text-start',
+                                        mutedClass,
+                                    )}
                                 >
                                     {item.label}
                                 </RNText>

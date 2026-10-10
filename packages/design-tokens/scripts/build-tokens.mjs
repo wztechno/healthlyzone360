@@ -17,12 +17,15 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const generatorsUrl = pathToFileURL(join(packageRoot, 'src', 'generators', 'index.ts')).href;
 
-const { renderTailwindPreset, renderTokensCss, renderTokensNative } = await import(generatorsUrl);
+const { renderFontManifest, renderTailwindPreset, renderTokensCss, renderTokensNative } = await import(
+    generatorsUrl
+);
 
 const artefacts = [
     ['generated/tailwind-preset.cjs', renderTailwindPreset()],
     ['generated/tokens.css', renderTokensCss()],
     ['generated/tokens.native.ts', renderTokensNative()],
+    ['generated/fonts.ts', renderFontManifest()],
 ];
 
 const check = process.argv.includes('--check');

@@ -22,7 +22,11 @@ import { useOrderDeskCalendarQuery } from '../../../data/order-desk-hooks.ts';
 import { addDays, dateInstant, todayIso } from '../../planner/format.ts';
 import { ORDER_VIEW_PERMISSION, SUBSCRIPTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import { humaniseCode } from '../format.ts';
-import type { CalendarReading, CalendarSlotDescriptor } from '../order-desk-calendar.ts';
+import type {
+    CalendarMeal,
+    CalendarReading,
+    CalendarSlotDescriptor,
+} from '../order-desk-calendar.ts';
 import {
     CALENDAR_WEEK_DAYS,
     calendarDayFor,
@@ -144,15 +148,11 @@ const BASIS_LABEL_KEYS: Readonly<Record<CalendarBasis, string>> = {
     projected: 'kitchen:calendar.basis.projected',
 };
 
-/** The kitchen's own words for the day's three slots; any other code is humanised as sent. */
-const SLOT_LABEL_KEYS: Readonly<Record<string, string>> = {
-    morning: 'kitchen:calendar.slot.breakfast',
+/** The kitchen's own words for the four sittings; any other code is humanised as sent. */
+const MEAL_LABEL_KEYS: Readonly<Record<CalendarMeal, string>> = {
     breakfast: 'kitchen:calendar.slot.breakfast',
-    midday: 'kitchen:calendar.slot.lunch',
     lunch: 'kitchen:calendar.slot.lunch',
-    afternoon: 'kitchen:calendar.slot.snack',
     snack: 'kitchen:calendar.slot.snack',
-    evening: 'kitchen:calendar.slot.dinner',
     dinner: 'kitchen:calendar.slot.dinner',
 };
 
@@ -240,12 +240,13 @@ function CalendarSquare({
     return (
         <View
             testID={testID}
-            // No outline: structure comes from alignment and the gap between squares. Today's
-            // column takes the brand tint so the eye finds it without reading a date.
+            // A raised card, like the stat cards on every other admin page: border, fill and the
+            // card cast. Today's column takes the brand tint so the eye finds it without reading a
+            // date.
             className={
                 today
-                    ? 'rounded bg-surface-brand-subtle px-tight py-tight'
-                    : 'rounded bg-surface-raised px-tight py-tight'
+                    ? 'rounded-panel border border-brand-100 bg-surface-brand-subtle px-tight py-tight shadow-elevation-card'
+                    : 'rounded-panel border border-brand-100 bg-surface-raised px-tight py-tight shadow-elevation-card'
             }
         >
             <View className="flex-col gap-hair">
@@ -404,8 +405,8 @@ function OrderDeskCalendarWeek() {
                 testID={testID}
                 className={
                     isToday
-                        ? 'rounded bg-surface-brand-subtle px-tight py-tight'
-                        : 'rounded bg-surface-sunken px-tight py-tight'
+                        ? 'rounded-panel border border-brand-100 bg-surface-brand-subtle px-tight py-tight shadow-elevation-card'
+                        : 'rounded-panel border border-brand-100 bg-surface-raised px-tight py-tight shadow-elevation-card'
                 }
             >
                 <Text variant="section" tone={isToday ? 'brand' : 'primary'}>
@@ -425,7 +426,7 @@ function OrderDeskCalendarWeek() {
         return (
             <CalendarSquare
                 label={cell.slot.label}
-                readings={slotReadings(day, descriptor.code)}
+                readings={slotReadings(day, descriptor.codes)}
                 today={cell.day.today === true}
                 testID={`kitchen-order-desk-calendar-${cell.day.key}-${cell.slot.key}`}
             />
@@ -454,7 +455,7 @@ function OrderDeskCalendarWeek() {
             {/* One 28px row: the week stepper and the range it is on. */}
             <View
                 testID="kitchen-order-desk-calendar-toolbar"
-                className="min-h-control-sm flex-row flex-wrap items-center gap-tight"
+                className="min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
             >
                 <View className="flex-row items-center gap-hair">
                     <IconButton
@@ -549,11 +550,11 @@ function OrderDeskCalendarWeek() {
                                 : slots.map((slot) => ({
                                       key: slot.key,
                                       label:
-                                          slot.code === null
-                                              ? t('kitchen:calendar.noSlot')
-                                              : slot.code in SLOT_LABEL_KEYS
-                                                ? t(SLOT_LABEL_KEYS[slot.code] as string)
-                                                : humaniseCode(slot.code),
+                                          slot.meal !== null
+                                              ? t(MEAL_LABEL_KEYS[slot.meal])
+                                              : slot.codes[0] == null
+                                                ? t('kitchen:calendar.noSlot')
+                                                : humaniseCode(slot.codes[0]),
                                   }))
                         }
                         showSlotLegend={false}

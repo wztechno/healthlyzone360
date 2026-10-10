@@ -5,6 +5,7 @@
     },
     "action": {
         "continue": "Continue",
+        "viewBasket": "View basket",
         "back": "Back",
         "cancel": "Cancel",
         "save": "Save",
@@ -68,6 +69,23 @@
         "workspace": "Workspace",
         "profile": "Profile",
         "devices": "Devices and sessions",
-        "showcase": "Design system"
+        "showcase": "Design system",
+        "sectionWorkspaces": "Workspaces",
+        "sectionAccount": "Account",
+        "current": "Current"
+    },
+    "photoCredit": {
+        "byline": "Photo: {{creator}}",
+        "via": "via",
+        "modified": "cropped and resized",
+        "provider": {
+            "wikimedia": "Wikimedia Commons",
+            "flickr": "Flickr",
+            "rawpixel": "rawpixel",
+            "stocksnap": "StockSnap",
+            "nappy": "Nappy",
+            "unsplash": "Unsplash",
+            "other": "the original publisher"
+        }
     }
 }

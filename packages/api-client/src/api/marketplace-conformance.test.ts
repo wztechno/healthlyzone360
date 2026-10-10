@@ -62,6 +62,7 @@ const RECORDED_KITCHENS = {
                             delivery_fee: { amount: 1500, currency: 'USD' },
                             minimum_order: { amount: 5000, currency: 'USD' },
                             estimated_minutes: 90,
+                            window_codes: ['morning', 'midday'],
                         },
                         {
                             id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1bb2',
@@ -71,6 +72,7 @@ const RECORDED_KITCHENS = {
                             delivery_fee: { amount: 2500, currency: 'USD' },
                             minimum_order: { amount: 3000, currency: 'USD' },
                             estimated_minutes: 30,
+                            window_codes: [],
                         },
                     ],
                     opening_hours: [
@@ -137,6 +139,7 @@ const RECORDED_MEALS = {
             serving: null,
             nutrition: null,
             price: { amount: 4200, currency: 'USD' },
+            pack: null,
             preparation_minutes: null,
             image_placeholder_id: 'meal-grilled-chicken-freekeh',
             availability: [
@@ -177,6 +180,7 @@ const RECORDED_MEALS = {
             serving: null,
             nutrition: null,
             price: { amount: 3800, currency: 'USD' },
+            pack: { size: '0.3', unit: 'kg' },
             preparation_minutes: null,
             image_placeholder_id: 'meal-mezze-plate',
             availability: [],
@@ -268,6 +272,10 @@ describe('the api marketplace repository', () => {
             amount: 1500,
             currency: 'USD',
         });
+        expect(kitchen?.branches[0]?.deliveryZones.map((zone) => zone.windowCodes)).toEqual([
+            ['morning', 'midday'],
+            [],
+        ]);
 
         // A closed day is a row with no times, and it survives the mapping as one.
         expect(kitchen?.branches[0]?.openingHours[1]).toEqual({
@@ -283,6 +291,9 @@ describe('the api marketplace repository', () => {
 
         const meal = page.items[0];
         expect(meal?.price).toEqual({ amount: 4200, currency: 'USD' });
+        // Priced as itself, so no size; the second row's price buys a 300 g pack.
+        expect(meal?.pack).toBeNull();
+        expect(page.items[1]?.pack).toEqual({ quantity: 0.3, unit: 'kg' });
         expect(meal?.allergens).toEqual(['gluten']);
         expect(meal?.availability[0]?.orderCutOffAt).toBe('2026-08-02T18:00:00+04:00');
         expect(meal?.availability[0]?.remaining).toBeNull();
@@ -294,6 +305,15 @@ describe('the api marketplace repository', () => {
         expect(meal?.serving).toBe(UNSTATED_SERVING);
         expect(page.hasMore).toBe(true);
         expect(page.nextCursor).toBe('eyJpIjoyfQ');
+    });
+
+    it('keeps a frozen meal a frozen meal rather than folding it into the meals', async () => {
+        const frozen = { ...RECORDED_MEALS.data[1], item_type: 'frozen_meal' };
+        expect(wire.zMarketplaceMeal.parse(frozen)).toBeTruthy();
+
+        const page = await repositoryReturning({ ...RECORDED_MEALS, data: [frozen] }).listMeals();
+
+        expect(page.items[0]?.itemType).toBe('frozen_meal');
     });
 
     it('sends the filters the endpoints publish, and nothing else', async () => {

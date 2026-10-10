@@ -19,6 +19,7 @@ import type {
     ResendVerificationResult,
     TwoFactorChallengeRequest,
     TwoFactorSetup,
+    UpdatePasswordRequest,
 } from '../contracts/auth.ts';
 import { ApiError, apiFailure } from '../contracts/failure.ts';
 import type { Repositories } from '../contracts/index.ts';
@@ -38,6 +39,7 @@ import { generateRequestId } from './config.ts';
 import { createApiAccountRepository } from './account-repository.ts';
 import { createApiB2bApplicationRepository } from './b2b-repository.ts';
 import { createApiGuestRepository } from './guest-repository.ts';
+import { createApiAccessAdminRepository } from './access-admin-repository.ts';
 import { createApiPlatformAdminRepository } from './platform-admin-repository.ts';
 import { createApiMarketplaceRepository } from './marketplace-repository.ts';
 import { createApiBusinessRepository } from './business-repository.ts';
@@ -45,7 +47,7 @@ import { createApiInvitationsRepository } from './invitations-repository.ts';
 import { createApiCartSurface } from './cart-repository.ts';
 import { createApiDriverJobsRepository } from './driver-jobs-repository.ts';
 import { createApiOrderDeskRepository } from './order-desk-repository.ts';
-import { createApiOrderPlacement } from './order-repository.ts';
+import { createApiMyOrderReads, createApiOrderPlacement } from './order-repository.ts';
 import {
     API_PROTOTYPE_REPOSITORIES,
     apiCommerceRepository,
@@ -306,6 +308,21 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
             });
         },
 
+        async updatePassword(request: UpdatePasswordRequest): Promise<void> {
+            // Not anonymous, and not a reset: Fortify replaces the password on the *authenticated*
+            // user and leaves the session standing, which is what lets a forced first change walk
+            // straight into the workspace instead of back to the sign-in form.
+            await transport.request({
+                method: 'PUT',
+                path: '/auth/user/password',
+                body: {
+                    current_password: request.currentPassword,
+                    password: request.password,
+                    password_confirmation: request.passwordConfirmation,
+                },
+            });
+        },
+
         async verifyEmailStatus(): Promise<EmailVerificationStatus> {
             const payload = await transport.request<WireMePayload>({ method: 'GET', path: '/me' });
             return {
@@ -510,6 +527,7 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
             ...apiCommerceRepository,
             ...createApiCartSurface(transport),
             placeOrder: createApiOrderPlacement(transport),
+            ...createApiMyOrderReads(transport),
             ...createApiSubscriptionReads(transport),
         },
         kitchenAdmin: {
@@ -526,5 +544,6 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         driverJobs: createApiDriverJobsRepository(transport),
         invitations: createApiInvitationsRepository(transport),
         platformAdmin: createApiPlatformAdminRepository(transport),
+        accessAdmin: createApiAccessAdminRepository(transport),
     };
 }

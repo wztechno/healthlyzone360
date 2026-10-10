@@ -174,7 +174,25 @@ export interface MealRangeFiltersProps {
     readonly state: MealRangeState;
     /** Currency the price range is typed in, shown as the field's unit. */
     readonly currency: string;
+    /**
+     * Which of the six ranges to draw, in their declared order. All six by default.
+     *
+     * The catalogue splits them: calories sit on the rail, the way HealthZone draws its one slider,
+     * and the other five live in the "More filters" drawer. Two instances over one
+     * state rather than one instance and a second, hand-rolled slider, so every range keeps the
+     * same ceiling, step, direction and readout wherever it is drawn.
+     */
+    readonly keys?: readonly MealRangeKey[] | undefined;
+    /** The "slide back to lift a limit" line. Worth saying once per group, not once per slider. */
+    readonly showHint?: boolean | undefined;
+    /** The group's own handle. */
     readonly testID?: string | undefined;
+    /**
+     * Prefix for each slider's handle — `meals-ranges` yields `meals-ranges-energy`. Defaults to
+     * `testID`; set apart from it when two groups share one prefix, so neither duplicates the
+     * other's container handle.
+     */
+    readonly rowTestID?: string | undefined;
 }
 
 /**
@@ -218,7 +236,10 @@ const MEAL_RANGE_DIRECTIONS: Readonly<Record<MealRangeKey, SliderDirection>> = {
 export function MealRangeFilters({
     state,
     currency,
+    keys = MEAL_RANGE_KEYS,
+    showHint = true,
     testID = 'meal-ranges',
+    rowTestID = testID,
 }: MealRangeFiltersProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -264,66 +285,71 @@ export function MealRangeFilters({
 
     return (
         /*
-         * No card and no heading of its own any more: this now renders inside an accordion panel
-         * that supplies both. A titled card inside a titled section is a box in a box, and it said
-         * "Narrow it by the numbers" twice, once in the header and once four pixels below it.
+         * No card and no heading of its own: the rail group or the drawer section around it
+         * supplies the heading, and a titled card inside a titled section is a box in a box.
          */
         <Stack space="md" testID={testID}>
-            <Text tone="secondary" variant="caption">
-                {t('catalogue:filters.rangesHint')}
-            </Text>
+            {showHint ? (
+                <Text tone="secondary" variant="caption">
+                    {t('catalogue:filters.rangesHint')}
+                </Text>
+            ) : null}
 
-            {rows.map((row) => {
-                const direction = MEAL_RANGE_DIRECTIONS[row.key];
-                const bound =
-                    direction === 'atLeast' ? state.values[row.key].min : state.values[row.key].max;
-                /*
-                 * Composed here rather than inside the control, for the reason every other
-                 * figure on this screen is: only a screen knows the locale's numbering system,
-                 * and a sentence split around its number does not survive Arabic. "Under 700
-                 * kcal" is one interpolated string, not a word, a figure and a word.
-                 */
-                const readout =
-                    bound === null
-                        ? t('catalogue:filters.anyValue')
-                        : t(
-                              direction === 'atLeast'
-                                  ? 'catalogue:filters.atLeast'
-                                  : 'catalogue:filters.atMost',
-                              { value: formatter.formatNumber(bound), unit: row.unit },
-                          );
+            {rows
+                .filter((row) => keys.includes(row.key))
+                .map((row) => {
+                    const direction = MEAL_RANGE_DIRECTIONS[row.key];
+                    const bound =
+                        direction === 'atLeast'
+                            ? state.values[row.key].min
+                            : state.values[row.key].max;
+                    /*
+                     * Composed here rather than inside the control, for the reason every other
+                     * figure on this screen is: only a screen knows the locale's numbering system,
+                     * and a sentence split around its number does not survive Arabic. "Under 700
+                     * kcal" is one interpolated string, not a word, a figure and a word.
+                     */
+                    const readout =
+                        bound === null
+                            ? t('catalogue:filters.anyValue')
+                            : t(
+                                  direction === 'atLeast'
+                                      ? 'catalogue:filters.atLeast'
+                                      : 'catalogue:filters.atMost',
+                                  { value: formatter.formatNumber(bound), unit: row.unit },
+                              );
 
-                return (
-                    <SliderField
-                        key={row.key}
-                        testID={`${testID}-${row.key}`}
-                        id={`${testID}-${row.key}`}
-                        label={row.label}
-                        direction={direction}
-                        value={bound}
-                        min={0}
-                        max={MEAL_RANGE_MAXIMUMS[row.key]}
-                        step={row.step}
-                        unit={row.unit}
-                        readout={readout}
-                        onChange={(next) => {
-                            /*
-                             * The slider owns one end, so the other is cleared rather than left
-                             * standing: a stale `energyMin` off a shared link would go on
-                             * narrowing the grid with nothing on screen able to show it or undo
-                             * it. Both parameters are still written, so `?proteinMin=45` and
-                             * `?energyMax=500` keep meaning exactly what they always did.
-                             */
-                            state.set(
-                                row.key,
-                                direction === 'atLeast'
-                                    ? { min: next, max: null }
-                                    : { min: null, max: next },
-                            );
-                        }}
-                    />
-                );
-            })}
+                    return (
+                        <SliderField
+                            key={row.key}
+                            testID={`${rowTestID}-${row.key}`}
+                            id={`${rowTestID}-${row.key}`}
+                            label={row.label}
+                            direction={direction}
+                            value={bound}
+                            min={0}
+                            max={MEAL_RANGE_MAXIMUMS[row.key]}
+                            step={row.step}
+                            unit={row.unit}
+                            readout={readout}
+                            onChange={(next) => {
+                                /*
+                                 * The slider owns one end, so the other is cleared rather than left
+                                 * standing: a stale `energyMin` off a shared link would go on
+                                 * narrowing the grid with nothing on screen able to show it or undo
+                                 * it. Both parameters are still written, so `?proteinMin=45` and
+                                 * `?energyMax=500` keep meaning exactly what they always did.
+                                 */
+                                state.set(
+                                    row.key,
+                                    direction === 'atLeast'
+                                        ? { min: next, max: null }
+                                        : { min: null, max: next },
+                                );
+                            }}
+                        />
+                    );
+                })}
         </Stack>
     );
 }

@@ -15,6 +15,7 @@ use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\Recipes\Services\CostComputation;
 use Healthy360\Recipes\Services\RecipeCostingService;
+use Healthy360\Recipes\Services\RecipeService;
 use Illuminate\Support\Str;
 
 /**
@@ -233,7 +234,9 @@ final readonly class TechnicalSheetWriter
         $recipe = new Recipe;
         $recipe->organisation_id = $organisationId;
         $recipe->branch_id = null;
-        $recipe->slug = Str::slug($designation);
+        // Unique rather than `Str::slug()` verbatim: a hand-made or placeholder recipe may already
+        // hold the designation's slug, and the sheet is found again by `source_ref`, not by slug.
+        $recipe->slug = RecipeService::uniqueSlug($designation, $organisationId);
         $recipe->name_en = $designation;
         $recipe->name_ar = $designation;
         $recipe->recipe_category = null;

@@ -358,6 +358,52 @@ enum ErrorCode: string
     case InventoryInsufficientStock = 'inventory.insufficient_stock';
 
     /**
+     * A production order was asked to do something its current state does not
+     * permit (PROD1) — starting a draft, completing a batch nobody started,
+     * confirming one that is already confirmed.
+     *
+     * A 409 rather than a 422, on the `SubscriptionChangeRefused` reasoning: the
+     * request is perfectly well formed and what refuses it is the state of the
+     * thing, which may have moved between the screen being drawn and the button
+     * being pressed. `details.status` says where the batch actually is, so a
+     * client can re-render rather than guess.
+     */
+    case ProductionStateInvalid = 'production.state_invalid';
+
+    /**
+     * A batch cannot be planned or confirmed as asked (PROD1): its recipe version
+     * states no output, or states more than one, or the explosion could not turn
+     * part of the formulation into a quantity.
+     *
+     * A 422 — this is the request naming something that cannot be made sense of,
+     * and the fix is to change what was asked for rather than to retry it.
+     * `details.reason` carries the specific refusal (`no_output`,
+     * `multiple_outputs`, `plan_incomplete`) and `details.failures` names the
+     * ingredients where there are any, because "we could not work out what this
+     * batch needs" is only useful if it says which part.
+     *
+     * **Multiple outputs are refused rather than allocated.** Splitting one
+     * batch's cost across co-products needs a policy — by mass, by value, by a
+     * stated ratio — that nobody has chosen, and the three give materially
+     * different unit costs. Guessing one would put a made-up margin on a
+     * screen (OQ-050).
+     */
+    case ProductionPlanRefused = 'production.plan_refused';
+
+    /**
+     * A cancellation was asked for on a batch that has already taken stock off a
+     * shelf (PROD1). The route is `abandon`, and the error names it.
+     *
+     * The distinction is the whole reason both verbs exist: `cancelled` never
+     * carries stock movements and `abandoned` always may, so a reader can trust
+     * the status without opening the ledger. Recording a batch that ate four
+     * kilos of flour as cancelled would leave four kilos missing with nothing on
+     * the order to explain it. A 409: the request is well formed and the batch's
+     * own history is what refuses it.
+     */
+    case ProductionConsumptionRecorded = 'production.consumption_recorded';
+
+    /**
      * Two measurement units cannot be converted between (INV1.0). A 422, and
      * the sibling of `validation.failed`'s use for mixed cost currencies: the
      * request shape is fine, but the combination is not a thing that can be
@@ -368,6 +414,28 @@ enum ErrorCode: string
      * `dimension_not_convertible`, with the two unit codes and their dimensions.
      */
     case UnitConversionUnsupported = 'unit.conversion_unsupported';
+
+    /**
+     * An access change was refused because it would have locked the caller out
+     * of the console they are standing in (AA1) — removing
+     * `role.manage_organisation` from the only role they hold, or ending or
+     * suspending their own membership.
+     *
+     * A 409 rather than a 403, and the distinction carries the whole meaning.
+     * `authz.permission_denied` says the caller may not do this; this says they
+     * may, and that doing it to *themselves* would leave the organisation with
+     * one fewer way in than it needs. The remedy is to grant somebody else the
+     * authority first, which is a different next screen from "ask for
+     * permission".
+     *
+     * It is deliberately the *only* refusal of its kind. Removing the last
+     * **other** administrator is permitted and merely reported, through
+     * `meta.remaining_role_administrators` — the shape PA1's `remaining_owners`
+     * established, and for its reason: a console that refuses the one thing the
+     * operator opened it to do is a control that has made itself unusable.
+     * `details.reason` names which of the two cases fired.
+     */
+    case AccessSelfLockout = 'access.self_lockout';
 
     case RateLimitExceeded = 'rate_limit.exceeded';
 
@@ -410,7 +478,10 @@ enum ErrorCode: string
             self::OffboardingSettlementOutstanding,
             self::RecordExportUnavailable,
             self::PaymentRefundExceedsCapture,
-            self::InventoryInsufficientStock => 409,
+            self::InventoryInsufficientStock,
+            self::ProductionStateInvalid,
+            self::ProductionConsumptionRecorded,
+            self::AccessSelfLockout => 409,
             self::RequestPreconditionRequired => 428,
             self::AuthCsrfTokenMismatch => 419,
             self::ValidationFailed,
@@ -424,7 +495,8 @@ enum ErrorCode: string
             self::CartLineRefused,
             self::B2bDocumentsIncomplete,
             self::B2bQuotationEmpty,
-            self::UnitConversionUnsupported => 422,
+            self::UnitConversionUnsupported,
+            self::ProductionPlanRefused => 422,
             self::RateLimitExceeded,
             self::OtpAttemptsExceeded,
             self::OtpCooldownActive,
@@ -490,7 +562,11 @@ enum ErrorCode: string
             self::RecordExportUnavailable => 'This records bundle is not available to download.',
             self::PaymentRefundExceedsCapture => 'This refund is larger than the amount still refundable on this payment.',
             self::InventoryInsufficientStock => 'There is not enough stock to record this consumption.',
+            self::ProductionStateInvalid => 'This production order is not in a state that allows that.',
+            self::ProductionPlanRefused => 'This batch cannot be planned as asked.',
+            self::ProductionConsumptionRecorded => 'This batch has already taken stock off a shelf, so it cannot be cancelled. Abandon it instead.',
             self::UnitConversionUnsupported => 'These measurement units cannot be converted between.',
+            self::AccessSelfLockout => 'This change would remove your own access to the administration console.',
             self::RateLimitExceeded => 'Too many requests. Please retry later.',
             self::ServerInternalError => 'An unexpected error occurred. The correlation identifier can be quoted to support.',
         };

@@ -18,11 +18,12 @@
     }
 
     /* Tailwind preflight sets ::placeholder to gray-400 (#9ca3af, 2.5:1 on white), which fails
-       WCAG AA and overrides react-native-web's placeholderTextColor. 104 97 90 is neutral.600 —
-       the same value the native TextInput uses — at ~6.1:1 on the base surface. */
+       WCAG AA and overrides react-native-web's placeholderTextColor. `text-disabled` is the token
+       for demoted text, AA on every surface in both themes — and a role, so it follows the palette
+       and the dark theme instead of being a colour typed here. */
     input::placeholder,
     textarea::placeholder {
-        color: rgb(104 97 90);
+        color: rgb(var(--h360-color-text-disabled));
         opacity: 1;
     }
 
@@ -72,15 +73,31 @@
         `@layer base` would silently undo it. It has to sit here.
 
    `html:lang(en) *` is (0,1,1) against react-native-web's (0,1,0), which is the smallest margin
-   that holds. The universal selector is safe *because* there is now exactly one family per script:
-   there is no second face for it to stamp on. Reintroduce a family role and this rule has to learn
-   about it — which is the point, and is asserted in packages/design-tokens/src/scales.test.ts.
+   that holds.
 
-   Figures line up on `tabular-nums`, which this does not touch.
+   The display face is the one exception, and it is the mood board's own rule: `h1, h2, h3` are
+   Space Grotesk, and so is anything carrying `font-display` (KPI values, one-number displays). At
+   (0,1,2) and (0,2,1) both outrank the body rule above — and a heading's children follow it, so a
+   heading built from nested text does not flip back to the body face mid-line. Arabic has no display
+   face of its own, so it has no exception.
+
+   The families themselves live in packages/design-tokens/src/typography.ts; this file only says
+   which elements take which role. Figures line up on `tabular-nums`, which this does not touch.
    ================================================================================================ */
 html:lang(en) *,
 html:lang(en-XA) * {
     font-family: var(--h360-font-family-latin);
+}
+
+html:lang(en) :is(h1, h2, h3),
+html:lang(en) :is(h1, h2, h3) *,
+html:lang(en) .font-display,
+html:lang(en) .font-display *,
+html:lang(en-XA) :is(h1, h2, h3),
+html:lang(en-XA) :is(h1, h2, h3) *,
+html:lang(en-XA) .font-display,
+html:lang(en-XA) .font-display * {
+    font-family: var(--h360-font-family-display);
 }
 
 html:lang(ar) * {
@@ -90,9 +107,9 @@ html:lang(ar) * {
 /* ================================================================================================
    The workspace rail's own scrollbar.
 
-   The rail is a canopy panel and its navigation scrolls inside it — AppShell's sidebar ScrollView,
+   The rail is a green panel and its navigation scrolls inside it — AppShell's sidebar ScrollView,
    which carries the `…-sidebar-scroll` id. Left to the browser, that scroller wears the platform's
-   stock scrollbar: on Windows a light grey slab with arrow buttons, cut into a deep green panel.
+   stock scrollbar: on Windows a grey slab with arrow buttons, cut into the green panel.
 
    The standard properties thin it and paint it in the rail's own ink; the WebKit pseudo-elements do
    the same for engines that predate them (an engine that honours `scrollbar-color` ignores them).
@@ -108,7 +125,7 @@ html:lang(ar) * {
 
 [data-testid$='-sidebar-scroll']:hover,
 [data-testid$='-sidebar-scroll']:focus-within {
-    scrollbar-color: rgb(var(--h360-color-on-canopy-muted) / 0.45) transparent;
+    scrollbar-color: rgb(var(--h360-color-on-sidebar-muted) / 0.45) transparent;
 }
 
 [data-testid$='-sidebar-scroll']::-webkit-scrollbar {
@@ -126,7 +143,7 @@ html:lang(ar) * {
 
 [data-testid$='-sidebar-scroll']:hover::-webkit-scrollbar-thumb,
 [data-testid$='-sidebar-scroll']:focus-within::-webkit-scrollbar-thumb {
-    background: rgb(var(--h360-color-on-canopy-muted) / 0.45);
+    background: rgb(var(--h360-color-on-sidebar-muted) / 0.45);
 }
 
 /* ================================================================================================
@@ -154,6 +171,13 @@ input[data-picker-field]::-webkit-clear-button {
     display: none;
 }
 
+/* A field that draws its own words (`displayValue`): the input lies invisibly over the whole frame,
+   so its indicator is stretched over all of it and a press anywhere opens the picker. */
+input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
+    inset-inline-start: 0;
+    width: 100%;
+}
+
 /* ================================================================================================
    Print / Save PDF — the Phase 1 export (supplier plan §7, SUP7).
 
@@ -163,11 +187,14 @@ input[data-picker-field]::-webkit-clear-button {
    and cannot be renamed silently. The ids are the real ones:
 
      kitchen-shell-topbar / -sidebar / -navigation / -drawer  →  AppShell (variant `workspace`)
+     kitchen-shell-dock                                       →  AppShell's docked bar (form steps)
      offline-indicator                                        →  AreaShell's banner
-     kitchen-breadcrumbs                                      →  KitchenOpsShell
+     kitchen-breadcrumbs                                      →  KitchenTrail, in the top bar
      toast-region-polite / -assertive                         →  ToastProvider
+     kitchen-shell-rail-panel                                 →  AppShell's module rail
      kitchen-supply-print-toolbar                             →  the print screen's own controls
      kitchen-supply-print-sheets                              →  the box holding one sheet per order
+     kitchen-production-label-toolbar / -sheets               →  the batch label screen, the same way
 
    ## One sheet is a child of the sheets box, not a prefix match
 
@@ -188,6 +215,13 @@ input[data-picker-field]::-webkit-clear-button {
     @page {
         size: A4;
         margin: 14mm 12mm;
+    }
+
+    /* Calibration knob: the label stock. 58 × 40 mm until the printer is chosen — this is the only
+       place the size lives. Each label copy opts into it with `page: production-label`. */
+    @page production-label {
+        size: 58mm 40mm;
+        margin: 0;
     }
 
     html,
@@ -213,7 +247,9 @@ input[data-picker-field]::-webkit-clear-button {
     [data-testid='kitchen-ops-shell'],
     [data-testid='kitchen-ops-content'],
     [data-testid='kitchen-supply-print-screen'],
-    [data-testid='kitchen-supply-print-sheets'] {
+    [data-testid='kitchen-supply-print-sheets'],
+    [data-testid='kitchen-production-label-screen'],
+    [data-testid='kitchen-production-label-sheets'] {
         display: block !important;
         height: auto !important;
         max-height: none !important;
@@ -230,7 +266,8 @@ input[data-picker-field]::-webkit-clear-button {
        sheet's own prefix, so `:has([data-testid^='…-sheet-'])` would also match the sheet and half
        the boxes within it, flatten them all to `display: block` and take every gap on the page
        with it. */
-    body :has([data-testid='kitchen-supply-print-sheets']) {
+    body :has([data-testid='kitchen-supply-print-sheets']),
+    body :has([data-testid='kitchen-production-label-sheets']) {
         display: block !important;
         height: auto !important;
         max-height: none !important;
@@ -244,11 +281,14 @@ input[data-picker-field]::-webkit-clear-button {
     [data-testid='kitchen-shell-sidebar'],
     [data-testid='kitchen-shell-navigation'],
     [data-testid='kitchen-shell-drawer'],
+    [data-testid='kitchen-shell-dock'],
+    [data-testid='kitchen-shell-rail-panel'],
     [data-testid='kitchen-breadcrumbs'],
     [data-testid='offline-indicator'],
     [data-testid='toast-region-polite'],
     [data-testid='toast-region-assertive'],
-    [data-testid='kitchen-supply-print-toolbar'] {
+    [data-testid='kitchen-supply-print-toolbar'],
+    [data-testid='kitchen-production-label-toolbar'] {
         display: none !important;
     }
 
@@ -284,7 +324,9 @@ input[data-picker-field]::-webkit-clear-button {
        prints as grey wash and costs toner for nothing. Descendants are included by `*` because most
        of the text on a sheet carries no test id of its own. */
     [data-testid='kitchen-supply-print-sheets'] > [data-testid^='kitchen-supply-print-sheet-'],
-    [data-testid='kitchen-supply-print-sheets'] > [data-testid^='kitchen-supply-print-sheet-'] * {
+    [data-testid='kitchen-supply-print-sheets'] > [data-testid^='kitchen-supply-print-sheet-'] *,
+    [data-testid='kitchen-production-label-sheets'],
+    [data-testid='kitchen-production-label-sheets'] * {
         color: #000 !important;
         background-color: transparent !important;
         background-image: none !important;
@@ -297,5 +339,59 @@ input[data-picker-field]::-webkit-clear-button {
     [data-testid='kitchen-supply-print-sheets'] [role='row'] {
         break-inside: avoid;
         page-break-inside: avoid;
+    }
+
+    /* One label per page on the label stock. `#root`-prefixed to outrank
+       `#root * { overflow: visible !important }` above: a label that grew past 40 mm must be
+       clipped, never spill onto a second label. A **child** selector for the same reason as the
+       supply-order sheets: every id inside a copy shares its prefix (`…-copy-1-dates`). The sheets
+       box holds nothing but copies, so the last child is the only break that is not printed. */
+    #root [data-testid='kitchen-production-label-sheets'] {
+        gap: 0 !important;
+    }
+
+    #root
+        [data-testid='kitchen-production-label-sheets']
+        > [data-testid^='kitchen-production-label-copy-'] {
+        page: production-label;
+        break-after: page;
+        page-break-after: always; /* Legacy alias — Safari and older WebKit ignore `break-after`. */
+        break-inside: avoid;
+        overflow: hidden !important;
+        width: auto !important;
+        max-height: 40mm;
+        padding: 1.5mm !important;
+        margin: 0 !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+    }
+
+    #root
+        [data-testid='kitchen-production-label-sheets']
+        > [data-testid^='kitchen-production-label-copy-']:last-child {
+        break-after: auto;
+        page-break-after: auto;
+    }
+
+    /* Calibration knob: label type. 7pt for everything, 10pt for the dates a cook reads first. */
+    #root
+        [data-testid='kitchen-production-label-sheets']
+        > [data-testid^='kitchen-production-label-copy-']
+        * {
+        font-size: 7pt !important;
+        line-height: 1.2 !important;
+    }
+
+    #root
+        [data-testid='kitchen-production-label-sheets']
+        > [data-testid^='kitchen-production-label-copy-']
+        [data-testid$='-dates'],
+    #root
+        [data-testid='kitchen-production-label-sheets']
+        > [data-testid^='kitchen-production-label-copy-']
+        [data-testid$='-dates']
+        * {
+        font-size: 10pt !important;
     }
 }

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { COLOUR_STOPS, NUTRITION_LEVELS, RAMPS, SEMANTIC_ROLES, THEMES, themes } from './colour.ts';
 import type { SemanticRole, ThemeName } from './colour.ts';
 import {
+    WCAG_AA_LARGE_TEXT,
     WCAG_AA_NON_TEXT,
     WCAG_AA_NORMAL_TEXT,
     contrastRatio,
@@ -93,8 +94,17 @@ describe('surface and text pairs meet WCAG AA for normal text', () => {
             pairs.push([theme, `textPrimary/${role}-subtle`, c.textPrimary, subtle]);
             pairs.push([theme, `textSecondary/${role}-subtle`, c.textSecondary, subtle]);
         }
+        // Light theme: white on the #16A34A panel — see "brand green, as chosen" below.
+        if (theme === 'dark') {
+            pairs.push([theme, 'onSidebar/surfaceSidebar', c.onSidebar, c.surfaceSidebar]);
+            pairs.push([theme, 'onSidebarMuted/surfaceSidebar', c.onSidebarMuted, c.surfaceSidebar]);
+            pairs.push([theme, 'onSidebarActive/sidebarActive', c.onSidebarActive, c.sidebarActive]);
+        }
         pairs.push([theme, 'textInverse/surfaceInverse', c.textInverse, c.surfaceInverse]);
-        pairs.push([theme, 'textOnBrand/brandSurface', c.textOnBrand, c.brandSurface]);
+        // Light theme: white on the mood board's #16A34A — see "brand green, as chosen" below.
+        if (theme === 'dark') {
+            pairs.push([theme, 'textOnBrand/brandSurface', c.textOnBrand, c.brandSurface]);
+        }
         pairs.push([
             theme,
             'onBrandSurfaceSubtle/brandSurfaceSubtle',
@@ -115,6 +125,33 @@ describe('surface and text pairs meet WCAG AA for normal text', () => {
     it.each(pairs)('%s %s', (_theme, _label, foreground, background) => {
         const ratio = contrastRatio(foreground, background);
         expect(ratio, `only ${formatContrast(ratio)}`).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
+    });
+});
+
+/**
+ * Brand green, as chosen.
+ *
+ * The product owner chose the mood board's primary exactly — `#16A34A` with white text on buttons,
+ * the module panel filled with it in white text, and its active item a white pill in `#16A34A` —
+ * knowing these sit near 3:1, below AA for normal-size text. They are held to the 3:1 large-text /
+ * UI floor instead, so the exception is written down and a value that drifts *below* even that
+ * still fails.
+ */
+describe('brand green, as chosen (light theme)', () => {
+    const c = themes.light.colours;
+
+    it('white on the primary clears the 3:1 floor', () => {
+        const ratio = contrastRatio(c.textOnBrand, c.brandSurface);
+        expect(ratio, `only ${formatContrast(ratio)}`).toBeGreaterThanOrEqual(WCAG_AA_LARGE_TEXT);
+    });
+
+    it.each([
+        ['items on the panel', c.onSidebar, c.surfaceSidebar],
+        ['headings and icons on the panel', c.onSidebarMuted, c.surfaceSidebar],
+        ['the active item on its pill', c.onSidebarActive, c.sidebarActive],
+    ] as const)('%s clear the 3:1 floor', (_label, foreground, background) => {
+        const ratio = contrastRatio(foreground, background);
+        expect(ratio, `only ${formatContrast(ratio)}`).toBeGreaterThanOrEqual(WCAG_AA_LARGE_TEXT);
     });
 });
 

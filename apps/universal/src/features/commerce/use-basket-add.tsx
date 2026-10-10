@@ -53,12 +53,21 @@ export interface UseBasketAddOptions {
 
 export interface BasketAdd {
     /** Signed in: add and confirm. Signed out: open the guest-entry dialog. */
-    readonly add: (meal: MarketplaceMeal) => void;
+    /**
+     * `quantity` defaults to one — a grid's Add. The meal page passes its stepper's count, so
+     * "three of these" is one request, and a guest who chose three arrives at checkout with three.
+     */
+    readonly add: (meal: MarketplaceMeal, quantity?: number) => void;
     readonly pending: boolean;
     /** True when the last add failed, for a surface that reports it beside the control. */
     readonly errored: boolean;
     /** Render once per screen. It is `null` until a signed-out person presses Add. */
     readonly dialog: ReactNode;
+}
+
+interface PendingAdd {
+    readonly meal: MarketplaceMeal;
+    readonly quantity: number;
 }
 
 export function useBasketAdd({ labelKey, testID }: UseBasketAddOptions): BasketAdd {
@@ -70,26 +79,36 @@ export function useBasketAdd({ labelKey, testID }: UseBasketAddOptions): BasketA
     const addToBasket = useAddCartItemMutation();
 
     const signedIn = me !== null;
-    const [pendingMeal, setPendingMeal] = useState<MarketplaceMeal | null>(null);
+    const [pendingAdd, setPendingAdd] = useState<PendingAdd | null>(null);
 
-    const add = (meal: MarketplaceMeal) => {
+    const add = (meal: MarketplaceMeal, quantity = 1) => {
         if (!signedIn) {
-            setPendingMeal(meal);
+            setPendingAdd({ meal, quantity });
             return;
         }
         addToBasket.mutate(
-            { mealId: meal.id, quantity: 1 },
+            { mealId: meal.id, quantity },
             {
                 onSuccess: (cart) => {
                     /*
                      * Confirmed by a toast carrying the new basket count. Adding from a grid gives
                      * no other feedback — the card does not change, and the basket pill is up in the
                      * chrome — so without it the press looks like it did nothing.
+                     *
+                     * It carries the way on, as HealthZone's does: a person who adds from a grid
+                     * is usually one press from the basket, and the pill is across the page.
                      */
                     toast.show({
                         testID: 'basket-added',
                         tone: 'success',
                         message: t('catalogue:meal.addedToBasket', { items: cart.itemCount }),
+                        action: {
+                            label: t('common:action.viewBasket'),
+                            testID: 'basket-added-view',
+                            onPress: () => {
+                                router.push('/customer/cart' as never);
+                            },
+                        },
                     });
                 },
             },
@@ -99,9 +118,9 @@ export function useBasketAdd({ labelKey, testID }: UseBasketAddOptions): BasketA
     const dialog = (
         <Dialog
             testID={`${testID}-guest-entry-dialog`}
-            open={pendingMeal !== null}
+            open={pendingAdd !== null}
             onClose={() => {
-                setPendingMeal(null);
+                setPendingAdd(null);
             }}
             title={t('guest:entry.title')}
             description={t('guest:entry.body')}
@@ -112,7 +131,7 @@ export function useBasketAdd({ labelKey, testID }: UseBasketAddOptions): BasketA
                         variant="secondary"
                         label={t('guest:entry.signIn')}
                         onPress={() => {
-                            setPendingMeal(null);
+                            setPendingAdd(null);
                             recordResumeIntent({ href: pathname, labelKey });
                             router.push('/sign-in');
                         }}
@@ -122,11 +141,11 @@ export function useBasketAdd({ labelKey, testID }: UseBasketAddOptions): BasketA
                         label={t('guest:entry.continueAsGuest')}
                         loading={addToBasket.isPending}
                         onPress={() => {
-                            const meal = pendingMeal;
-                            if (meal === null) return;
-                            setPendingMeal(null);
+                            const pending = pendingAdd;
+                            if (pending === null) return;
+                            setPendingAdd(null);
                             addToBasket.mutate(
-                                { mealId: meal.id, quantity: 1 },
+                                { mealId: pending.meal.id, quantity: pending.quantity },
                                 {
                                     onSuccess: () => {
                                         router.push('/guest-checkout');

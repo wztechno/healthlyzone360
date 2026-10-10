@@ -5,18 +5,22 @@ import { useMemo, useState } from 'react';
 
 import { toFailure } from '../../../data/hooks.ts';
 import {
+    KITCHEN_PAGE_SIZE,
     pagesInResult,
     useArchiveProductMutation,
     useProductCategoriesQuery,
     useProductPageQuery,
+    useProductWholeSetQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import type { ProductCategory } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
+import { missingLast } from './catalogue-column-spec.ts';
+import { useCatalogueFilters } from './use-catalogue-filters.ts';
+import { useDestructiveRow } from './use-destructive-row.ts';
 
 /**
- * Everything `/kitchen/products` — and `/kitchen/sauces`, and `/kitchen/dressings` — knows that is
- * not a pixel.
+ * Everything `/kitchen/products` knows that is not a pixel.
  *
  * The same split `use-ingredient-list.ts` makes and for the same reason: the list's *behaviour*
  * survives the move to the Catalogue shell untouched while its presentation is rewritten from §4.1.
@@ -25,12 +29,12 @@ import { useListPage } from '../use-list-page.ts';
  * Nothing was improved on the way across. A redesign that also quietly changed which version a
  * write is based on is a redesign nobody can review.
  *
- * ## One hook, three pages, and `itemType` is what makes them different
+ * ## `itemType` is a parameter, not a second hook
  *
- * Sauces and dressings are products in apparatus — same packs, same channels, same lifecycle — so
- * they are the same rows filtered by kind rather than three hooks. The kind is a *parameter* and
- * not a second hook because it is part of the filter the query key is built from: change it and the
- * page, the categories and the archive target all follow, which is exactly what a parameter is for.
+ * Sauces and dressings are products in apparatus — same packs, same channels, same lifecycle — and
+ * were listed through this hook by kind until they joined the recipe book. The kind stays a
+ * *parameter* because it is part of the filter the query key is built from: change it and the page,
+ * the categories and the archive target all follow, which is exactly what a parameter is for.
  *
  * ## Sorting is client-side, and that is a stated limitation rather than a hidden one
  *
@@ -47,7 +51,7 @@ import { useListPage } from '../use-list-page.ts';
  * Shown reads "18 of 240" rather than claiming the three beside it are catalogue-wide.
  */
 
-export type ProductItemType = 'product' | 'sauce' | 'dressing';
+export type ProductItemType = 'product' | 'sauce' | 'dressing' | 'frozen_meal';
 
 /**
  * The columns a header menu can order by.
@@ -89,6 +93,8 @@ export interface ProductListState {
     /** The server's count for the whole filtered set, or `null` before the first answer. */
     readonly total: number | null;
     readonly shown: number;
+    /** The whole-set read behind the other cards has not landed yet. */
+    readonly countsPending: boolean;
     readonly draftCount: number;
     readonly missingArabicCount: number;
     /** Rows with no pack at all, so nothing on them can be priced. */
@@ -121,8 +127,15 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
     const router = useRouter();
     const { locale } = useLocale();
 
-    const [query, setQuery] = useState('');
-    const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
+    const {
+        query,
+        setQuery,
+        trimmed,
+        statuses,
+        setStatuses,
+        isUnfiltered: searchAndStatusUnset,
+        clear: clearSearchAndStatus,
+    } = useCatalogueFilters();
     const [category, setCategory] = useState<string | null>(null);
     // Reference ascending, which is the order the codes were issued in and so the order a
     // kitchen already knows the library by. Sorting by name instead put the list in an order
@@ -130,9 +143,6 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
     const [sortKey, setSortKey] = useState<ProductSortKey>('reference');
     const [sortDirection, setSortDirection] = useState<ProductSortDirection>('asc');
     const [viewing, setViewing] = useState<ProductAdmin | null>(null);
-    const [archiving, setArchiving] = useState<ProductAdmin | null>(null);
-
-    const trimmed = query.trim();
 
     /*
      * The vocabulary is read before the filter is built, because the filter needs its ids.
@@ -159,7 +169,13 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
 
     const [page, setPage] = useListPage(filter);
     const products = useProductPageQuery(filter, page);
-    const archive = useArchiveProductMutation();
+    // The cards count every page the filters match, not the eighteen rows on this one.
+    const wholeSet = useProductWholeSetQuery(filter);
+    const everyRow = wholeSet.data ?? [];
+    const archive = useDestructiveRow(useArchiveProductMutation(), (row: ProductAdmin) => ({
+        productId: row.id,
+        request: { lockVersion: row.meta.lockVersion },
+    }));
 
     // Left possibly-undefined rather than defaulted to `[]`: `?? []` is a fresh array on every
     // render, which would re-run the sort below whether or not the data changed.
@@ -169,12 +185,11 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
         const factor = sortDirection === 'asc' ? 1 : -1;
         return [...(rows ?? [])].sort((left, right) => {
             if (sortKey === 'reference') {
-                // Missing last in both directions, so the unnumbered rows cluster at the end
-                // rather than at whichever end the direction happens to point.
-                if (left.reference === null && right.reference === null) return 0;
-                if (left.reference === null) return 1;
-                if (right.reference === null) return -1;
-                return factor * left.reference.localeCompare(right.reference);
+                return missingLast(
+                    left.reference,
+                    right.reference,
+                    (a, b) => factor * a.localeCompare(b),
+                );
             }
             if (sortKey === 'category') {
                 return factor * left.categoryCode.localeCompare(right.categoryCode, locale);
@@ -210,10 +225,9 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
         setStatuses,
         category,
         setCategory,
-        isUnfiltered: trimmed === '' && statuses.length === 0 && category === null,
+        isUnfiltered: searchAndStatusUnset && category === null,
         clearFilters: () => {
-            setQuery('');
-            setStatuses([]);
+            clearSearchAndStatus();
             setCategory(null);
         },
         categories: categories.data ?? [],
@@ -229,10 +243,13 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
         setPage,
         totalPages: pagesInResult(products.data) ?? 0,
         total: products.data?.totalCount ?? null,
-        shown: sorted.length,
-        draftCount: sorted.filter((row) => row.meta.status === 'draft').length,
-        missingArabicCount: sorted.filter((row) => displayName(row.name, locale).isFallback).length,
-        noPackCount: sorted.filter((row) => row.packVariants.length === 0).length,
+        countsPending: wholeSet.isPending,
+        // Rows up to the end of this page: 18 of 306 on the first, 36 on the second.
+        shown: Math.min(page * KITCHEN_PAGE_SIZE, products.data?.totalCount ?? sorted.length),
+        draftCount: everyRow.filter((row) => row.meta.status === 'draft').length,
+        missingArabicCount: everyRow.filter((row) => displayName(row.name, locale).isFallback)
+            .length,
+        noPackCount: everyRow.filter((row) => row.packVariants.length === 0).length,
 
         openEditor: (productId) => {
             router.push(`${routeBase}/${productId}` as never);
@@ -247,28 +264,11 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
             setViewing(null);
         },
 
-        archiving,
-        askToArchive: setArchiving,
-        cancelArchive: () => {
-            setArchiving(null);
-        },
-        confirmArchive: (onArchived) => {
-            const row = archiving;
-            if (row === null) return;
-            archive.mutate(
-                {
-                    productId: row.id,
-                    request: { lockVersion: row.meta.lockVersion },
-                },
-                {
-                    onSuccess: () => {
-                        setArchiving(null);
-                        onArchived(displayName(row.name, locale).value);
-                    },
-                },
-            );
-        },
+        archiving: archive.target,
+        askToArchive: archive.ask,
+        cancelArchive: archive.cancel,
+        confirmArchive: archive.confirm,
         isArchivePending: archive.isPending,
-        archiveFailure: toFailure(archive.error),
+        archiveFailure: archive.failure,
     };
 }

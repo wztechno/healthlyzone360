@@ -8,13 +8,13 @@ import { EntityImage } from '../../media/entity-image.tsx';
 /**
  * The comparison tray.
  *
- * ## Why it is always here, even empty
+ * ## When it is here
  *
- * The comparison action cannot appear and disappear: a person who has selected nothing still needs
- * to be told that comparing is possible and why the button is dormant, and the tests — and screen
- * readers — expect `plans-compare-open` to exist and report itself disabled rather than to be missing
- * (a control that vanishes is a control a keyboard user cannot find). So the tray is persistent; it
- * is *slim* when empty and fills with what you have chosen, rather than materialising from nowhere.
+ * `/plans` mounts the tray once at least one plan is selected. HealthZone's plan screen has no tray,
+ * and each card's own "Compare" chip is what tells a person comparing is possible, so an empty tray
+ * would be a standing panel with nothing to say. Once mounted, the open action stays put and reports
+ * itself disabled until there are two plans to set side by side, rather than vanishing (a control
+ * that vanishes is a control a keyboard user cannot find).
  *
  * The count is a live region, so adding or removing a plan is announced, not merely redrawn. Each
  * chosen plan keeps its own remove control — one target that both opened and removed would be
@@ -53,7 +53,7 @@ export function PlanComparisonTray({
             testID="plans-compare-tray"
             role="region"
             aria-label={t('catalogue:plans.compareTrayLabel')}
-            className="rounded-panel border border-stroke-default bg-surface-raised p-4 shadow-elevation-1"
+            className="rounded-panel border border-stroke bg-surface-raised p-5"
         >
             <Stack space="sm">
                 <Inline space="sm" align="center" justify="between" wrap>

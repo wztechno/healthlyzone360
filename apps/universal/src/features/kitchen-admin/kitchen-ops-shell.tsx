@@ -1,7 +1,15 @@
 import { Breadcrumbs, DensityProvider } from '@healthy360/design-system';
 import type { BreadcrumbItem } from '@healthy360/design-system';
 import { usePathname, useRouter } from 'expo-router';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import {
+    createContext,
+    useContext,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -15,7 +23,8 @@ import {
 } from './kitchen-nav.ts';
 
 /**
- * Kitchen area content chrome — the density, a trail back to the hub, and the gap between them.
+ * Kitchen area chrome — the density around every page, and the trail back to the hub that the top
+ * bar draws.
  *
  * ## This is where the admin becomes compact
  *
@@ -37,10 +46,7 @@ import {
  *
  * `AppShell`'s content container already insets the page (`p-4 lg:p-7`). This component used to add
  * `p-4 md:p-5` on top, so every kitchen route sat ~48px from the rail instead of ~28px and the fold
- * lost a row and a half to gutters. The inset belongs to the shell that owns the scroll port; this
- * one contributes the gap between the trail and the page, and nothing else — and that gap is one
- * 4px step, because the trail is an 11px line rather than a heading and anything larger reads as a
- * band of nothing between the page's name and the page.
+ * lost a row and a half to gutters. The inset belongs to the shell that owns the scroll port.
  *
  * ## Why there is a trail at all
  *
@@ -50,8 +56,21 @@ import {
  * `/kitchen`. Editors had "back to list" and lists had nothing, so the hub was reachable only by the
  * browser's back button, which native does not have at all.
  *
- * It sits here rather than in the thirteen screens because this component already wraps every
- * kitchen route, so a family added tomorrow gets its trail without anybody remembering to add one.
+ * It sits here rather than in the thirteen screens because the kitchen layout wraps every kitchen
+ * route in {@link KitchenTrailProvider}, so a family added tomorrow gets its trail without anybody
+ * remembering to add one.
+ *
+ * ## In the top bar, not above the page
+ *
+ * The trail used to be its own line at the head of the content, which spent a row of every page on
+ * an 11px line and put the page's location below the bar whose job is to say where you are. It is
+ * now {@link KitchenTrail}, drawn in the bar in place of the area title. Its state therefore lives
+ * in a provider above `AreaShell` rather than in `KitchenOpsShell`, which is only the content: a
+ * screen deep in the content names the leaf, and the bar — a sibling of the content, not an
+ * ancestor — reads it.
+ *
+ * The trail keeps `DensityProvider value="compact"` of its own, because the bar sits outside
+ * `KitchenOpsShell`'s provider. Its links are not underlined on the compact ladder (`Breadcrumbs`).
  * The labels come from the same entity registry the hub cards and the `<Gate>`s read, which is what
  * stops a crumb naming a page differently from the card that led to it.
  *
@@ -77,6 +96,16 @@ import {
  * The leaf arrives on the render *after* the record lands, so the trail grows a crumb once per
  * navigation. That is honest — the name is genuinely not known before then — and it is the same
  * moment the page title fills in.
+ *
+ * ## A view page is not a route, so it hands the trail its way back
+ *
+ * The Catalogue's View pages (`RecordViewPage`) open *inside* their list — `/kitchen/ingredients`
+ * showing one record instead of the table — so that Back keeps the list's page, sort and filters.
+ * On that path the family crumb *is* the current route, and pushing it again would go nowhere. So a
+ * view page names its leaf together with the callback that closes it, and while one is registered
+ * the trail draws the leaf and makes the family crumb that callback. That is what lets the view
+ * pages drop their own Back button: the trail is the one way back, on every page that has a record
+ * open, whether the record is a route of its own or not.
  */
 
 export interface KitchenOpsShellProps {
@@ -92,7 +121,15 @@ export interface KitchenOpsShellProps {
  */
 interface KitchenTrailState {
     readonly leaf: string | null;
-    readonly setLeaf: (leaf: string | null) => void;
+    /**
+     * Closes the open record, where the record is not a route of its own. `null` on a real route,
+     * where the family crumb navigates instead.
+     */
+    readonly back: (() => void) | null;
+    readonly setTrail: (next: {
+        readonly leaf: string | null;
+        readonly back: (() => void) | null;
+    }) => void;
 }
 
 const KitchenTrailContext = createContext<KitchenTrailState | undefined>(undefined);
@@ -104,33 +141,72 @@ const KitchenTrailContext = createContext<KitchenTrailState | undefined>(undefin
  * stays two crumbs until then. Calling this is what makes the family crumb above it a link, so a
  * detail screen that wants a way back to its list wants this hook.
  *
- * Outside `KitchenOpsShell` it does nothing at all rather than throwing: every one of these screens
+ * Outside `KitchenTrailProvider` it does nothing at all rather than throwing: every one of these screens
  * also renders in unit tests with no shell around it, and a screen that will not mount is a worse
  * failure than a trail that is not there to update.
  */
-export function useKitchenTrailLeaf(leaf: string | null): void {
+export function useKitchenTrailLeaf(leaf: string | null, onBack?: () => void): void {
     const trail = useContext(KitchenTrailContext);
-    const setLeaf = trail?.setLeaf;
+    const setTrail = trail?.setTrail;
+
+    /*
+     * The callback is held in a ref and the trail is handed a stable wrapper around it.
+     *
+     * Callers pass an inline closure — `list.closeView` is a fresh function every render — and
+     * putting it in the effect's dependencies would re-register the trail on every render, which
+     * re-renders the provider, which re-renders the caller: a loop. Only *whether* there is a way
+     * back is a dependency; *which* function it calls is read at press time.
+     */
+    const backRef = useRef(onBack);
+    useLayoutEffect(() => {
+        backRef.current = onBack;
+    });
+    const hasBack = onBack !== undefined;
 
     useEffect(() => {
-        if (setLeaf === undefined) return undefined;
-        setLeaf(leaf);
+        if (setTrail === undefined) return undefined;
+        setTrail({
+            leaf,
+            back: hasBack
+                ? () => {
+                      backRef.current?.();
+                  }
+                : null,
+        });
         return () => {
-            setLeaf(null);
+            setTrail({ leaf: null, back: null });
         };
-    }, [setLeaf, leaf]);
+    }, [setTrail, leaf, hasBack]);
 }
 
-export function KitchenOpsShell({ children }: KitchenOpsShellProps) {
+/** Holds the trail's leaf for everything under the kitchen layout — the top bar and the page. */
+export function KitchenTrailProvider({ children }: { readonly children: ReactNode }) {
+    const [state, setTrail] = useState<{
+        readonly leaf: string | null;
+        readonly back: (() => void) | null;
+    }>({ leaf: null, back: null });
+    const trail = useMemo<KitchenTrailState>(
+        () => ({ leaf: state.leaf, back: state.back, setTrail }),
+        [state],
+    );
+
+    return <KitchenTrailContext.Provider value={trail}>{children}</KitchenTrailContext.Provider>;
+}
+
+/**
+ * The crumbs for the current kitchen route. Empty on the hub, where a trail naming the page you
+ * are on is furniture — which is the caller's signal to draw the area title instead.
+ */
+export function useKitchenTrail(): readonly BreadcrumbItem[] {
     const { t } = useTranslation();
     const router = useRouter();
     const pathname = usePathname();
     const accessState = useAccessState();
+    const context = useContext(KitchenTrailContext);
+    const leaf = context?.leaf ?? null;
+    const back = context?.back ?? null;
 
-    const [leaf, setLeaf] = useState<string | null>(null);
-    const trail = useMemo<KitchenTrailState>(() => ({ leaf, setLeaf }), [leaf]);
-
-    const crumbs = useMemo<readonly BreadcrumbItem[]>(() => {
+    return useMemo<readonly BreadcrumbItem[]>(() => {
         // The hub is its own page; a trail that says "Kitchen workspace" on the kitchen workspace
         // is furniture.
         if (isKitchenNavActive(pathname, OVERVIEW_HREF)) return [];
@@ -149,6 +225,9 @@ export function KitchenOpsShell({ children }: KitchenOpsShellProps) {
         }
 
         const onFamilyRoute = pathname === family.href;
+        // A record open *inside* the list: the family route is the page, but the list is not
+        // what is showing, so the crumb is a link again — to the list, by closing the record.
+        const viewOpen = onFamilyRoute && leaf !== null && back !== null;
         return [
             {
                 key: 'hub',
@@ -165,32 +244,40 @@ export function KitchenOpsShell({ children }: KitchenOpsShellProps) {
                 // A link unless it *is* the page. Note the second condition: with a leaf below it
                 // the family crumb is no longer last, and `Breadcrumbs` only strips the press from
                 // the final item — so this is what actually restores the way back to the list.
-                ...(onFamilyRoute
-                    ? {}
-                    : {
-                          onPress: () => {
-                              router.push(family.href as never);
-                          },
-                      }),
+                ...(viewOpen
+                    ? { onPress: back }
+                    : onFamilyRoute
+                      ? {}
+                      : {
+                            onPress: () => {
+                                router.push(family.href as never);
+                            },
+                        }),
             },
-            ...(leaf === null || onFamilyRoute
+            ...(leaf === null || (onFamilyRoute && !viewOpen)
                 ? []
                 : [{ key: 'leaf', label: leaf, testID: 'kitchen-crumb-leaf' }]),
         ];
-    }, [accessState, pathname, router, t, leaf]);
+    }, [accessState, pathname, router, t, leaf, back]);
+}
 
+/** The trail as the top bar draws it. `kitchen-breadcrumbs` is a print-stylesheet contract. */
+export function KitchenTrail({ crumbs }: { readonly crumbs: readonly BreadcrumbItem[] }) {
     return (
         <DensityProvider value="compact">
-            <KitchenTrailContext.Provider value={trail}>
-                <View testID="kitchen-ops-shell" className="min-h-0 flex-1 gap-hair">
-                    {crumbs.length === 0 ? null : (
-                        <Breadcrumbs testID="kitchen-breadcrumbs" items={crumbs} />
-                    )}
-                    <View testID="kitchen-ops-content" className="min-h-0 min-w-0 flex-1">
-                        {children}
-                    </View>
+            <Breadcrumbs testID="kitchen-breadcrumbs" items={crumbs} />
+        </DensityProvider>
+    );
+}
+
+export function KitchenOpsShell({ children }: KitchenOpsShellProps) {
+    return (
+        <DensityProvider value="compact">
+            <View testID="kitchen-ops-shell" className="min-h-0 flex-1">
+                <View testID="kitchen-ops-content" className="min-h-0 min-w-0 flex-1">
+                    {children}
                 </View>
-            </KitchenTrailContext.Provider>
+            </View>
         </DensityProvider>
     );
 }

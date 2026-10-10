@@ -13,7 +13,52 @@
  * Every semantic role ships as a background plus a matching `on*` foreground, and the pair is
  * contrast-tested (`colour.test.ts`) at WCAG AA in both themes — the ramps are the accessibility
  * budget, not decoration.
+ *
+ * ## Changing a colour
+ *
+ * Edit {@link palette}, then `pnpm build:tokens`. Every ramp stop, theme role and gradient that *is*
+ * a mood board colour reads it from there by name, so one edit re-colours every screen. The values
+ * written as literals further down are the ones that are *not* a mood board colour: tints, dark-theme
+ * counterparts, and stops darkened for contrast — edit those in place. `colour.test.ts` fails the
+ * build if a change drops any pair below AA.
  */
+
+import { withAlpha } from './contrast.ts';
+
+/**
+ * The mood board's palette — Option 02, "Wellness Green + AI" — as the board itself writes it.
+ *
+ * **The one place a brand colour is typed.** The names follow the board's own `:root` variables so
+ * the two can be read side by side. Two of the board's colours are deliberately absent because no
+ * role carries them yet, and an entry that changes nothing when edited is a trap: Sky Blue
+ * (`#38bdf8`, "supporting") and the dark ink it puts on the lime (`#0f172a`).
+ */
+export const palette = {
+    /** Emerald Green — primary buttons, the sidebar, the active pill, the brand ramp's `500`. */
+    primary: '#16a34a',
+    /** Sage/lime — the hero gradient's bright middle. */
+    secondary: '#84cc16',
+    /** Deep Violet — the AI / premium accent, and the far end of both signature gradients. */
+    ai: '#6d28d9',
+    /** Status colours at full strength — chart strokes and indicator dots, never small text. */
+    success: '#22c55e',
+    warning: '#f59e0b',
+    error: '#ef4444',
+    /** Mint White — the light page canvas. */
+    background: '#f7fcf9',
+    /** White — cards, panels, the top bar. */
+    surface: '#ffffff',
+    /** Forest Charcoal — primary text. */
+    textPrimary: '#1f2937',
+    /** Grey — the board's secondary text. The light theme's role is darkened from it; see there. */
+    textSecondary: '#6b7280',
+    /** Soft Green Grey — hairlines and card borders. */
+    border: '#d1fae5',
+    /** Text and icons on `primary`. */
+    onPrimary: '#ffffff',
+    /** Text and icons on `ai`. */
+    onAi: '#ffffff',
+} as const;
 
 export type ColourRamp = Readonly<Record<ColourStop, string>>;
 
@@ -21,15 +66,15 @@ export const COLOUR_STOPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 95
 export type ColourStop = (typeof COLOUR_STOPS)[number];
 
 /** Brand — vital green: fresh lime at the light end (`300`), emerald in the middle (`500`, the mood
- * board's `#16a34a`), deep forest at the dark end. `brandSurface` sits below `500` so white text on it
- * clears AA. */
+ * board's `#16a34a`), deep forest at the dark end. `brandSurface` is `500` itself, the mood board's
+ * primary, with white text on it by choice — see `colour.test.ts`. */
 export const brand: ColourRamp = {
     50: '#f2fcf4',
     100: '#dcf7e1',
     200: '#bbedc6',
     300: '#8ad79b',
     400: '#49b264',
-    500: '#16a34a',
+    500: palette.primary,
     600: '#158043',
     700: '#146a3a',
     800: '#11532e',
@@ -47,7 +92,7 @@ export const violet: ColourRamp = {
     400: '#a78bfa',
     500: '#8b5cf6',
     600: '#7c3aed',
-    700: '#6d28d9',
+    700: palette.ai,
     800: '#5b21b6',
     900: '#4c1d95',
     950: '#2e1065',
@@ -61,10 +106,10 @@ export const neutral: ColourRamp = {
     200: '#e2e8f0',
     300: '#cbd5e1',
     400: '#94a3b8',
-    500: '#6b7280',
+    500: palette.textSecondary,
     600: '#4b5563',
     700: '#374151',
-    800: '#1f2937',
+    800: palette.textPrimary,
     900: '#111827',
     950: '#030712',
 };
@@ -305,6 +350,19 @@ export interface ThemeColours {
      * 0.82–0.86.
      */
     readonly onCanopyMuted: string;
+    /**
+     * The app shell's sidebar — the panel the modules live in. The primary green in light mode, with
+     * white items on it and the active item as a white pill in green text.
+     */
+    readonly surfaceSidebar: string;
+    /** Item text on the sidebar. */
+    readonly onSidebar: string;
+    /** Group headings, icons and quiet controls on the sidebar. */
+    readonly onSidebarMuted: string;
+    /** The active item's pill. */
+    readonly sidebarActive: string;
+    /** The active item's text and icon. */
+    readonly onSidebarActive: string;
     /** Violet tint for AI surfaces. Pairs with `onAccentSubtle`, never with `textPrimary`. */
     readonly accentSubtle: string;
     readonly onAccentSubtle: string;
@@ -314,28 +372,35 @@ export interface ThemeColours {
 }
 
 export const themeLight: ThemeColours = {
-    surfaceBase: '#f7fcf9', // mint-white page canvas
-    surfaceRaised: '#ffffff', // cards and the top bar sit white on the mint page
+    surfaceBase: palette.background, // mint-white page canvas
+    surfaceRaised: palette.surface, // cards and the top bar sit white on the mint page
     surfaceSunken: '#edf6f0',
     surfaceInverse: '#14231c',
-    textPrimary: '#1f2937', // forest charcoal (mood board #1f2937)
-    textSecondary: '#5b6673', // slate grey, darkened from the mood board's #6b7280 so it clears AA on the semantic-subtle panels too
+    textPrimary: palette.textPrimary, // forest charcoal
+    textSecondary: '#5b6673', // slate grey, darkened from `palette.textSecondary` so it clears AA on the semantic-subtle panels too
     textDisabled: '#646e7c', // slate, still AA on white/mint/sunken — axe flags muted text even where the control is not marked disabled
-    textInverse: '#f7fcf9',
-    textOnBrand: '#ffffff',
-    borderSubtle: '#cceeda',
+    textInverse: palette.background,
+    textOnBrand: palette.onPrimary,
+    borderSubtle: palette.border, // the mood board's soft green grey — card borders and hairlines
     borderDefault: '#aaddc0',
     borderStrong: '#5f8f76',
     focusRing: '#157043',
-    brandSurface: '#157043', // emerald — primary buttons, active nav (below brand.500 so white text clears AA)
+    // The mood board's primary, exactly: buttons, selected tabs, the active pill. White text on it is
+    // 3.05:1 — below AA for 12–14px labels, and a decision taken knowingly (see `colour.test.ts`).
+    brandSurface: palette.primary,
     brandSurfaceSubtle: '#dcfce7', // soft green — panels, active pill
     onBrandSurfaceSubtle: '#14532d',
-    accentSurface: '#6d28d9', // violet — the AI / premium accent, white-text-safe
-    onAccentSurface: '#ffffff',
+    accentSurface: palette.ai, // violet — the AI / premium accent, white-text-safe
+    onAccentSurface: palette.onAi,
     surfaceCanopy: '#0b3b26', // deep forest band
     surfaceCanopyDeep: '#124f33', // gradient partner
     onCanopy: '#ffffff',
     onCanopyMuted: '#dcfce7',
+    surfaceSidebar: palette.primary, // the primary green
+    onSidebar: palette.onPrimary, // 3.05:1 — see "brand green, as chosen" in colour.test.ts
+    onSidebarMuted: palette.onPrimary, // headings differ by weight and size, not by a fainter ink
+    sidebarActive: palette.onPrimary, // white pill
+    onSidebarActive: palette.primary, // green text on it, 3.05:1
     accentSubtle: '#f1ebfd', // violet tint, AI surfaces
     onAccentSubtle: '#4c1d95',
     ratingStar: '#b57d0d', // gold, AA on mint and white
@@ -369,6 +434,11 @@ export const themeDark: ThemeColours = {
     // every role needs a value per theme, not because these two change.
     onCanopy: '#ffffff',
     onCanopyMuted: '#dcfce7',
+    surfaceSidebar: '#16241b',
+    onSidebar: '#bcc7be',
+    onSidebarMuted: '#8b968c',
+    sidebarActive: '#153a26',
+    onSidebarActive: '#86efac',
     accentSubtle: '#251b3d', // the pale violet tint inverts; a lavender panel on a dark page does not
     onAccentSubtle: '#cdbcf7',
     ratingStar: '#e0a92a', // gold, brighter for dark surfaces
@@ -387,4 +457,93 @@ export interface ThemeTokens {
 export const themes: Readonly<Record<ThemeName, ThemeTokens>> = {
     light: { colours: themeLight, semantic: semanticLight, nutrition: nutritionLight },
     dark: { colours: themeDark, semantic: semanticDark, nutrition: nutritionDark },
+};
+
+/**
+ * A multi-stop gradient, in the shape `expo-linear-gradient` takes: colours, and where each one sits
+ * along the sweep. The direction is the caller's — it depends on the surface, not on the palette.
+ */
+export interface GradientToken {
+    readonly colours: readonly [string, string, ...string[]];
+    readonly locations: readonly [number, number, ...number[]];
+}
+
+export const GRADIENT_NAMES = [
+    'hero',
+    'accent',
+    'aiBand',
+    'aiRail',
+    'canopy',
+    'heroScrim',
+    'accentScrim',
+    'canopyScrim',
+] as const;
+export type GradientName = (typeof GRADIENT_NAMES)[number];
+
+/**
+ * The signature gradients.
+ *
+ * They are the same in both themes: each one is a brand surface carrying its own light text, not a
+ * page colour that has to invert. A gradient cannot be a CSS custom property that a class swap
+ * re-themes the way the roles above are, so these are read from here as values — never re-typed at
+ * a call site, which is how two heroes drift a shade apart.
+ *
+ * Each `*Scrim` is the dark → transparent layer laid along the reading direction over the gradient
+ * of the same name, so light text lands on the dark side and clears AA. axe cannot measure contrast
+ * over a gradient; the scrim is for the reader.
+ */
+export const gradients: Readonly<Record<GradientName, GradientToken>> = {
+    /** Emerald → lime → violet: the mood board's hero / brand gradient. */
+    hero: { colours: [palette.primary, palette.secondary, palette.ai], locations: [0, 0.52, 1] },
+    /** Violet → emerald: the AI / premium accent — brand marks and AI entry points. */
+    accent: { colours: [palette.ai, palette.primary], locations: [0, 1] },
+    /**
+     * The AI surface's band — §4 Rule 5, `linear-gradient(120deg, #6D28D9 0%, #4C1D95 62%, #157043
+     * 160%)`: two violets settling into a deep green foot. The third stop sits at 1 rather than 1.6
+     * because that is what renders — the library clamps it — and a token that says 1.6 while the
+     * browser draws 1.0 costs somebody an afternoon.
+     */
+    aiBand: { colours: [palette.ai, violet[900], '#157043'], locations: [0, 0.62, 1] },
+    /** The AI surface's leading rail — steeper, and only the two violets. */
+    aiRail: { colours: [palette.ai, violet[900]], locations: [0, 1] },
+    /** Deep forest into a brighter green: the page-hero and storefront band, and the auth aside. */
+    canopy: {
+        colours: [themeLight.surfaceCanopy, themeLight.surfaceCanopyDeep, '#0e6b41'],
+        locations: [0, 0.58, 1],
+    },
+    heroScrim: { colours: ['rgba(6,20,12,0.82)', 'rgba(6,20,12,0.28)'], locations: [0, 1] },
+    accentScrim: { colours: ['rgba(12,10,34,0.72)', 'rgba(6,20,12,0.42)'], locations: [0, 1] },
+    canopyScrim: {
+        colours: [withAlpha(themeLight.surfaceCanopy, 0.92), withAlpha(themeLight.surfaceCanopy, 0.35)],
+        locations: [0, 1],
+    },
+};
+
+/**
+ * Chart inks — the few graphic colours a chart needs that no surface role covers.
+ *
+ * Per theme, because a gridline that reads on the mint page vanishes on the dark one. Fills and
+ * gridlines are translucent on purpose: they sit *under* a stroke and must let the surface through.
+ */
+export interface ChartColours {
+    readonly stroke: string;
+    readonly areaFill: string;
+    readonly grid: string;
+    /** The unfilled remainder of a ring. */
+    readonly track: string;
+}
+
+export const chartColours: Readonly<Record<ThemeName, ChartColours>> = {
+    light: {
+        stroke: palette.primary,
+        areaFill: withAlpha(palette.primary, 0.14),
+        grid: withAlpha(neutral[900], 0.08),
+        track: withAlpha(neutral[400], 0.25),
+    },
+    dark: {
+        stroke: palette.primary,
+        areaFill: withAlpha(palette.primary, 0.22),
+        grid: withAlpha(pureWhite, 0.08),
+        track: withAlpha(neutral[400], 0.25),
+    },
 };

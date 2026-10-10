@@ -4,11 +4,11 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Callout,
+    Cascade,
     DatePickerButton,
     EmptyState,
     ErrorState,
-    Skeleton,
-    Stack,
+    TableSkeleton,
     Text,
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
@@ -32,6 +32,8 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
 
 /**
  * `/kitchen/order-desk/cash-report` — who took what, on one day.
@@ -208,7 +210,6 @@ function OrderDeskCashReport() {
             label: t('kitchen:ops.cashReport.columnCount'),
             width: 80,
             priority: 60,
-            align: 'end',
             sort: (left, right, direction) =>
                 compareNumber(left.receiptCount, right.receiptCount, direction),
             render: (row) => (
@@ -223,7 +224,6 @@ function OrderDeskCashReport() {
             label: t('kitchen:ops.cashReport.columnAmount'),
             width: 140,
             priority: 95,
-            align: 'end',
             sort: (left, right, direction) =>
                 compareNumber(left.amountMinorSum, right.amountMinorSum, direction),
             render: (row) => (
@@ -239,11 +239,53 @@ function OrderDeskCashReport() {
     const controls = useColumnControls(rows, columns, 'kitchen-order-desk-cash-report-table');
 
     return (
-        <Stack space="md" testID="kitchen-order-desk-cash-report-screen">
-            {/* One 28px row: the day, and the clock it was cut on. */}
-            <View
+        <Cascade space="md" testID="kitchen-order-desk-cash-report-screen">
+            {/*
+             * The figures first. While the day is in flight each card holds a placeholder where its
+             * figure goes — a zero there would claim an answer the screen does not have yet — and a
+             * day that answers with no rows keeps none: the empty table below says so.
+             */}
+            {filters === null ||
+            failure !== null ||
+            (!report.isPending && rows.length === 0) ? null : (
+                <CatalogueStatCards
+                    testID="kitchen-order-desk-cash-report-figures"
+                    cards={[
+                        {
+                            key: 'receipts',
+                            label: t('kitchen:ops.cashReport.kpiReceipts'),
+                            value: formatter.formatNumber(
+                                rows.reduce((sum, row) => sum + row.receiptCount, 0),
+                            ),
+                            caption: t('kitchen:ops.cashReport.kpiReceiptsCaption'),
+                            mark: 'receipt',
+                            tone: 'brand',
+                        },
+                        {
+                            key: 'rows',
+                            label: t('kitchen:ops.cashReport.kpiRows'),
+                            value: formatter.formatNumber(rows.length),
+                            caption: t('kitchen:ops.cashReport.kpiRowsCaption'),
+                            mark: 'list',
+                        },
+                        {
+                            key: 'currencies',
+                            label: t('kitchen:ops.cashReport.kpiCurrencies'),
+                            value: formatter.formatNumber(
+                                new Set(totals.map((total) => total.currencyCode)).size,
+                            ),
+                            caption: t('kitchen:ops.cashReport.kpiCurrenciesCaption'),
+                            mark: 'coins',
+                        },
+                    ]}
+                    pending={report.isPending}
+                />
+            )}
+
+            {/* The day, below the figures, with the column picker at the row's inline end. */}
+            <ToolbarPanel
                 testID="kitchen-order-desk-cash-report-toolbar"
-                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight"
+                end={rows.length === 0 ? undefined : <ColumnPicker {...controls.picker} />}
             >
                 <DatePickerButton
                     testID="kitchen-order-desk-cash-report-date"
@@ -256,7 +298,7 @@ function OrderDeskCashReport() {
                         {t('kitchen:ops.cashReport.dateHint')}
                     </Text>
                 ) : null}
-            </View>
+            </ToolbarPanel>
 
             {filters === null ? (
                 <Callout
@@ -266,16 +308,7 @@ function OrderDeskCashReport() {
                     body={t('kitchen:ops.cashReport.dateInvalidBody')}
                 />
             ) : report.isPending ? (
-                <View testID="kitchen-order-desk-cash-report-loading" className="flex-col">
-                    {Array.from({ length: 6 }, (_, index) => (
-                        <View
-                            key={index}
-                            className="h-row-md flex-row items-center border-b border-stroke-subtle"
-                        >
-                            <Skeleton heightClassName="h-2" />
-                        </View>
-                    ))}
-                </View>
+                <TableSkeleton testID="kitchen-order-desk-cash-report-loading" rows={6} />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-order-desk-cash-report-error"
@@ -294,38 +327,6 @@ function OrderDeskCashReport() {
                 />
             ) : (
                 <View className="flex-col gap-loose">
-                    <CatalogueStatCards
-                        testID="kitchen-order-desk-cash-report-figures"
-                        cards={[
-                            {
-                                key: 'receipts',
-                                label: t('kitchen:ops.cashReport.kpiReceipts'),
-                                value: formatter.formatNumber(
-                                    rows.reduce((sum, row) => sum + row.receiptCount, 0),
-                                ),
-                                caption: t('kitchen:ops.cashReport.kpiReceiptsCaption'),
-                                mark: 'basket',
-                                tone: 'brand',
-                            },
-                            {
-                                key: 'rows',
-                                label: t('kitchen:ops.cashReport.kpiRows'),
-                                value: formatter.formatNumber(rows.length),
-                                caption: t('kitchen:ops.cashReport.kpiRowsCaption'),
-                                mark: 'user',
-                            },
-                            {
-                                key: 'currencies',
-                                label: t('kitchen:ops.cashReport.kpiCurrencies'),
-                                value: formatter.formatNumber(
-                                    new Set(totals.map((total) => total.currencyCode)).size,
-                                ),
-                                caption: t('kitchen:ops.cashReport.kpiCurrenciesCaption'),
-                                mark: 'calendar',
-                            },
-                        ]}
-                    />
-
                     <CatalogueList<OrderDeskCashReportRow>
                         testID="kitchen-order-desk-cash-report-table"
                         label={t('kitchen:ops.cashReport.caption')}
@@ -345,10 +346,12 @@ function OrderDeskCashReport() {
                     <View
                         testID="kitchen-order-desk-cash-report-totals"
                         style={{ maxWidth: TOTALS_MAX_WIDTH }}
-                        className="flex-col rounded border border-stroke bg-surface-sunken"
+                        // The green card: the brand's subtle ground, raised like the figures.
+                        className="flex-col rounded-panel border border-brand-100 bg-surface-brand-subtle shadow-elevation-card"
                     >
-                        <View className="px-snug pb-hair pt-tight">
-                            <Text variant="micro" tone="secondary" accessibilityRole="header">
+                        {/* A heading a step above the pairs under it, so it reads as their title. */}
+                        <View className="px-snug pb-hair pt-snug">
+                            <Text variant="section" tone="brand" accessibilityRole="header">
                                 {t('kitchen:ops.cashReport.totalsHeading')}
                             </Text>
                         </View>
@@ -380,19 +383,10 @@ function OrderDeskCashReport() {
                                 </Text>
                             </View>
                         ))}
-                        <View className="border-t border-stroke-subtle px-snug py-tight">
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                testID="kitchen-order-desk-cash-report-totals-note"
-                            >
-                                {t('kitchen:ops.cashReport.totalsNote')}
-                            </Text>
-                        </View>
                     </View>
                 </View>
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

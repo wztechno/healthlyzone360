@@ -1,28 +1,31 @@
-import type { CostAmount, IngredientAdmin, LocalisedText } from '@healthy360/api-client/contracts';
+import type {
+    CostAmount,
+    IngredientAdmin,
+    LocalisedText,
+    RecipeCostHalf,
+    RecipeLineCost,
+} from '@healthy360/api-client/contracts';
 import { PACKAGING_CATEGORY_CODE } from '@healthy360/api-client/contracts';
 import {
+    DataList,
     Icon,
     IconButton,
     Text,
+    UNDROPPABLE_PRIORITY,
+    growWeights,
     inputControlClass,
     inputFrameClassName,
 } from '@healthy360/design-system';
-import type { CurrencyCode } from '@healthy360/domain-types';
+import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { MeasureUnit } from '@healthy360/nutrition';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { ingredientsFromPages, useIngredientsQuery } from '../../data/kitchen-admin-hooks.ts';
-import {
-    displayName,
-    formatMoney,
-    humaniseCode,
-    lineCost,
-    parseQuantity,
-    unitShortKey,
-} from './format.ts';
+import { displayName, formatMoney, humaniseCode, parseQuantity, unitShortKey } from './format.ts';
 
 /**
  * One row of a recipe's line table, as typed.
@@ -51,7 +54,11 @@ export interface PickerEntry {
     readonly name: LocalisedText;
     /** The unit a new line starts in, and the one {@link unitPrice} is quoted against. */
     readonly unit: MeasureUnit;
-    /** What one {@link unit} costs, for the row's own arithmetic. `null` where nothing is recorded. */
+    /**
+     * What one {@link unit} is listed at, drawn beside each option while picking. `null` where
+     * nothing is recorded. A drawn row never reads it: its figures are the server's (see
+     * {@link RecipeLineTableProps.costs}).
+     */
     readonly unitPrice: CostAmount | null;
     /**
      * How much product one item holds, in the recipe's own unit. `null` on everything but packaging
@@ -117,8 +124,8 @@ export interface LineDraft {
  * | Designation| the resolved ingredient                   | picker   |
  * | Unit       | `RecipeLine.unit`                         | no       |
  * | Qty        | `RecipeLine.quantity`                     | yes      |
- * | Unit price | the *entry's* `unitPrice`, per its `unit`  | no       |
- * | Total      | qty converted to that unit, × unit price   | derived  |
+ * | Unit price | the server's unit cost, per the line's unit | no       |
+ * | Total      | the server's line cost                     | derived  |
  * | Comments   | `RecipeLine.sourceDesignation`            | yes      |
  *
  * **Unit price is read, not typed**, and that is a contract fact rather than a design deviation.
@@ -127,6 +134,11 @@ export interface LineDraft {
  * because its prototype holds its own array, and typing into it here would edit a number that has
  * nowhere to be saved and would silently disagree with the ingredient record on the next reload.
  * So it renders as a figure on the sunken fill: same track, same alignment, no false affordance.
+ *
+ * **Both money columns are the server's figures, never this table's arithmetic.** They were computed
+ * here from the ingredient's list price while the Costing tab's totals came from its purchase price,
+ * so a row and the total it rolled into could disagree about what an ingredient costs. The server
+ * prices the draft once (`RecipeCostingService::lineCostsOf`) and this draws what it said.
  *
  * **The unit follows the ingredient.** A line's unit has to be convertible to the ingredient's own
  * dimension or the roll-up cannot resolve it, so picking an ingredient sets the unit from its
@@ -141,6 +153,19 @@ export interface LineDraft {
  * *Dried* there — a note about this line's use of the ingredient, kept verbatim beside the resolved
  * record. It is the field the import fills and the one thing on a row that cannot be re-derived.
  */
+
+/**
+ * Whether a row is complete enough to send: something picked, and a quantity that parses.
+ *
+ * One definition for the editor and this table, because the server numbers the lines it is sent from
+ * 1 in the order they arrive. A table matching those numbers back to rows has to skip exactly the
+ * rows the editor left out of the request, or every figure after an unfinished row lands one row low.
+ */
+export function isSendableLine(
+    row: LineDraft,
+): row is LineDraft & { readonly ingredientId: string } {
+    return row.ingredientId !== null && parseQuantity(row.quantity) !== null;
+}
 
 export interface RecipeLineTableProps {
     readonly rows: readonly LineDraft[];
@@ -166,6 +191,21 @@ export interface RecipeLineTableProps {
      * same piece of information rather than two lists a reader has to cross-reference.
      */
     readonly flaggedIngredientIds?: readonly string[] | undefined;
+    /**
+     * Mark a line whose quantity is zero — the Catalogue Forms packaging warning. The row takes the
+     * warning fill, its Qty cell the warning border, and the designation a mark whose accessible
+     * name says why. Packaging only in practice: a sleeve label at `0` is a line that costs nothing
+     * and ships nothing, which is almost always a count somebody meant to type. A zero raw material
+     * is refused outright on save, so it needs no second signal here.
+     */
+    readonly warnZeroQuantity?: boolean | undefined;
+    /**
+     * The server's figures for these rows — the half of the draft's `computedCost` this table lists.
+     *
+     * `null` draws a dash in every money cell: nothing costed yet, nothing to divide by, or costs this
+     * member may not see. A dash and not a zero, because a zero is a measurement.
+     */
+    readonly costs: RecipeCostHalf | null;
     readonly canManage: boolean;
     /** Mints a stable row key. The editor owns the counter so keys never collide across tables. */
     readonly nextKey: () => string;
@@ -255,6 +295,8 @@ export function RecipeLineTable({
     ingredients,
     source = 'ingredients',
     flaggedIngredientIds = [],
+    warnZeroQuantity = false,
+    costs,
     canManage,
     nextKey,
     onChange,
@@ -327,39 +369,35 @@ export function RecipeLineTable({
         [wantsIngredients, search.data?.pages],
     );
 
-    const unitPriceOf = (row: LineDraft): CostAmount | null => {
-        if (row.ingredientId === null) return null;
-        return byId.get(String(row.ingredientId))?.unitPrice ?? null;
-    };
-
     /*
-     * Quantity converted into the unit the price is quoted against, *then* multiplied — see
-     * {@link lineCost}. A 300 g line against a per-kilogram price used to read as three hundred
-     * kilograms. `null` is an uncosted line and draws the dash, never a zero.
+     * Each row's figures, matched by line number *and* ingredient.
+     *
+     * The n-th sendable row is line n (see {@link isSendableLine}). The ingredient check covers the
+     * moment between an edit and its answer: remove row 2 and, until the refetch lands, line 2 is
+     * still the ingredient that was removed. A dash for that moment beats a neighbour's price.
      */
-    const lineTotal = (row: LineDraft): number | null => {
-        const quantity = parseQuantity(row.quantity);
-        const entry = row.ingredientId === null ? undefined : byId.get(String(row.ingredientId));
-        if (quantity === null || entry === undefined) return null;
-        return lineCost(quantity, row.unit, entry.unitPrice, entry.unit);
-    };
+    const figures = useMemo(() => {
+        const byKey = new Map<string, RecipeLineCost>();
+        if (costs === null) return byKey;
+        let lineNumber = 0;
+        for (const row of rows) {
+            if (!isSendableLine(row)) continue;
+            lineNumber += 1;
+            const figure = costs.lines.find((line) => line.lineNumber === lineNumber);
+            if (figure !== undefined && String(figure.ingredientId) === row.ingredientId) {
+                byKey.set(row.key, figure);
+            }
+        }
+        return byKey;
+    }, [rows, costs]);
 
     const totalQuantity = rows.reduce((sum, row) => sum + (parseQuantity(row.quantity) ?? 0), 0);
-    const totalCost = rows.reduce((sum, row) => sum + (lineTotal(row) ?? 0), 0);
 
-    /*
-     * The one currency every priced row is in, or `null`.
-     *
-     * A total only carries a currency mark when every figure under it is in that currency. Two rows
-     * priced in two currencies do not add up to either, so the sum renders as a bare number rather
-     * than claiming the currency of whichever row happened to be first.
-     */
-    const pricedCurrencies = new Set<CurrencyCode>();
-    for (const row of rows) {
-        const price = unitPriceOf(row);
-        if (price !== null) pricedCurrencies.add(price.currency);
-    }
-    const sharedCurrency = pricedCurrencies.size === 1 ? ([...pricedCurrencies][0] ?? null) : null;
+    const money = (amount: CostAmount | null, digits: Intl.NumberFormatOptions): string =>
+        amount === null
+            ? t('kitchen:list.noValue')
+            : // Each figure in its own currency: the server states one per amount.
+              formatMoney(formatter, amount.amount, amount.currency, digits);
 
     const add = (entry: PickerEntry) => {
         onChange([
@@ -388,14 +426,190 @@ export function RecipeLineTable({
         onChange(rows.filter((row) => row.key !== key));
     };
 
+    const rowTestId = (row: LineDraft) => `${testID}-row-${row.key}`;
+    const isZero = (row: LineDraft) => warnZeroQuantity && parseQuantity(row.quantity) === 0;
+    const removeLabel = t('kitchen:recipes.removeLine');
+
+    /*
+     * Every column is pinned (priority >= `UNDROPPABLE_PRIORITY`): a recipe line with its unit or
+     * its total dropped is a line that can no longer be checked against the sheet it came from, so
+     * a narrow port scrolls the table rather than thinning it.
+     *
+     * The two cell inputs are padded off the row's edges, as every DataList control is: a cell has
+     * no vertical padding of its own, so a 24px box in the 28px `sm` row sat on both hairlines.
+     * `py-hair` makes it the 32px row the design draws.
+     */
+    const columns: readonly DataListColumn<LineDraft>[] = [
+        {
+            key: 'name',
+            label: t('kitchen:list.columnName'),
+            width: COLUMN_WIDTH.name,
+            priority: 100,
+            render: (row) => {
+                const entry =
+                    row.ingredientId === null ? undefined : byId.get(String(row.ingredientId));
+                return (
+                    <View className="min-w-0 flex-1 flex-row items-baseline gap-hair">
+                        <Text variant="label" numberOfLines={1} testID={`${rowTestId(row)}-name`}>
+                            {entry === undefined
+                                ? t('kitchen:recipes.unnamedLine')
+                                : displayName(entry.name, locale).value}
+                        </Text>
+                        {entry?.reference == null ? null : (
+                            <Text variant="micro" tone="secondary">
+                                {entry.reference}
+                            </Text>
+                        )}
+                        {row.ingredientId !== null &&
+                        flaggedIngredientIds.includes(String(row.ingredientId)) ? (
+                            <Icon
+                                testID={`${rowTestId(row)}-flag`}
+                                name="warning"
+                                size="sm"
+                                className="text-warning-strong"
+                            />
+                        ) : null}
+                        {isZero(row) ? (
+                            <Icon
+                                testID={`${rowTestId(row)}-zero`}
+                                name="warning"
+                                size="sm"
+                                label={t('kitchen:forms.zeroQuantity')}
+                                className="text-warning-strong"
+                            />
+                        ) : null}
+                    </View>
+                );
+            },
+        },
+        {
+            key: 'unit',
+            label: t('kitchen:list.columnUnit'),
+            width: COLUMN_WIDTH.unit,
+            priority: UNDROPPABLE_PRIORITY,
+            grow: false,
+            render: (row) => (
+                <Text tone="secondary" numberOfLines={1}>
+                    {t(unitShortKey(row.unit))}
+                </Text>
+            ),
+        },
+        {
+            key: 'quantity',
+            label: t('kitchen:recipes.sheetColQuantityShort'),
+            width: COLUMN_WIDTH.quantity,
+            priority: UNDROPPABLE_PRIORITY,
+            grow: false,
+            mono: true,
+            render: (row) => (
+                <View className="w-full py-hair">
+                    <CellInput
+                        testID={`${rowTestId(row)}-qty`}
+                        value={row.quantity}
+                        disabled={!canManage}
+                        align="center"
+                        mono
+                        // The zero warning lives here and on the designation's mark: `DataList`
+                        // draws its own row, so the old row-wide fill has nowhere to go.
+                        caution={isZero(row)}
+                        label={t('kitchen:recipes.lineQuantity')}
+                        placeholder={t('kitchen:fields.quantityPlaceholder')}
+                        onChangeText={(next) => {
+                            patch(row.key, { quantity: next });
+                        }}
+                    />
+                </View>
+            ),
+        },
+        {
+            /*
+             * A figure, not a field. See the note above: a line carries no price of its own on this
+             * contract, so a box here would be a control with nowhere to write.
+             */
+            key: 'unitPrice',
+            label: t('kitchen:list.columnUnitPrice'),
+            width: COLUMN_WIDTH.unitPrice,
+            priority: UNDROPPABLE_PRIORITY,
+            grow: false,
+            mono: true,
+            render: (row) => (
+                <Text variant="mono" numberOfLines={1} testID={`${rowTestId(row)}-unit-price`}>
+                    {money(figures.get(row.key)?.unitCost ?? null, UNIT_COST)}
+                </Text>
+            ),
+        },
+        {
+            key: 'total',
+            label: t('kitchen:recipes.sheetColLineTotalLong'),
+            width: COLUMN_WIDTH.total,
+            priority: UNDROPPABLE_PRIORITY,
+            grow: false,
+            mono: true,
+            render: (row) => (
+                <Text variant="mono" numberOfLines={1} testID={`${rowTestId(row)}-total`}>
+                    {money(figures.get(row.key)?.lineCost ?? null, LINE_TOTAL)}
+                </Text>
+            ),
+        },
+        {
+            key: 'comments',
+            label: t('kitchen:recipes.sheetColComments'),
+            width: COLUMN_WIDTH.comments,
+            priority: UNDROPPABLE_PRIORITY,
+            render: (row) => (
+                <View className="w-full py-hair">
+                    <CellInput
+                        testID={`${rowTestId(row)}-comment`}
+                        value={row.note}
+                        disabled={!canManage}
+                        quiet
+                        placeholder={t('kitchen:list.noValue')}
+                        label={t('kitchen:recipes.lineNote')}
+                        onChangeText={(next) => {
+                            patch(row.key, { note: next });
+                        }}
+                    />
+                </View>
+            ),
+        },
+        {
+            key: 'remove',
+            label: removeLabel,
+            width: COLUMN_WIDTH.remove,
+            priority: UNDROPPABLE_PRIORITY,
+            grow: false,
+            align: 'end',
+            // No visible header: the ✕ says what it does, and "Remove" in a 44px track clips to a
+            // letter. The column is still named for a screen reader.
+            renderHeader: () => <View accessibilityLabel={removeLabel} />,
+            render: (row) =>
+                canManage ? (
+                    <IconButton
+                        testID={`${rowTestId(row)}-remove`}
+                        label={removeLabel}
+                        variant="ghost"
+                        tone="danger"
+                        size="sm"
+                        icon={<Icon name="close" size="sm" />}
+                        onPress={() => {
+                            remove(row.key);
+                        }}
+                    />
+                ) : null,
+        },
+    ];
+
     return (
-        <View testID={testID} className="flex-col gap-tight">
+        <View className="flex-col gap-tight">
             {canManage ? (
                 <Picker
                     testID={`${testID}-picker`}
                     placeholder={pickerPlaceholder}
                     query={query}
-                    loading={search.isFetching && term !== ''}
+                    // Only while there is no answer for *this* term. `isFetching` is also true of a
+                    // background refetch, and swapping a list the reader is scrolling for
+                    // "Searching…" threw them back to the top of it.
+                    loading={(search.isPending || search.isPlaceholderData) && term !== ''}
                     onQueryChange={(next) => {
                         setQuery(next);
                         setHighlighted(0);
@@ -416,158 +630,40 @@ export function RecipeLineTable({
             ) : null}
 
             <View>
-                <LineHeaderRow t={t} />
-
-                {rows.map((row) => {
-                    const entry =
-                        row.ingredientId === null ? undefined : byId.get(String(row.ingredientId));
-                    const price = unitPriceOf(row);
-                    const total = lineTotal(row);
-                    const rowTestId = `${testID}-row-${row.key}`;
-
-                    return (
+                {/*
+                 * `testID` goes on the list itself rather than on a wrapper, so a row is still
+                 * `${testID}-row-${key}` — the id `DataList` mints from its own id and the row key.
+                 */}
+                <DataList<LineDraft>
+                    testID={testID}
+                    label={t(
+                        wantsIngredients
+                            ? 'kitchen:recipes.sectionRawMaterials'
+                            : 'kitchen:recipes.sectionPackaging',
+                    )}
+                    columns={columns}
+                    rows={rows}
+                    rowKey={(row) => row.key}
+                    density="sm"
+                    emptyState={
                         <View
-                            key={row.key}
-                            testID={rowTestId}
-                            className="min-h-row-md flex-row items-center gap-tight border-b border-stroke-subtle px-tight py-hair"
+                            testID={`${testID}-empty`}
+                            className="border-b border-stroke-subtle px-control-sm py-snug"
                         >
-                            <View
-                                style={DESIGNATION_TRACK}
-                                className="flex-row items-baseline gap-hair"
-                            >
-                                <Text
-                                    variant="label"
-                                    numberOfLines={1}
-                                    testID={`${rowTestId}-name`}
-                                >
-                                    {entry === undefined
-                                        ? t('kitchen:recipes.unnamedLine')
-                                        : displayName(entry.name, locale).value}
-                                </Text>
-                                {entry?.reference == null ? null : (
-                                    <Text variant="micro" tone="secondary">
-                                        {entry.reference}
-                                    </Text>
-                                )}
-                                {row.ingredientId !== null &&
-                                flaggedIngredientIds.includes(String(row.ingredientId)) ? (
-                                    <Icon
-                                        testID={`${rowTestId}-flag`}
-                                        name="warning"
-                                        size="sm"
-                                        className="text-warning-strong"
-                                    />
-                                ) : null}
-                            </View>
-
-                            <View style={{ width: TRACK.unit }}>
-                                <Text tone="secondary" numberOfLines={1}>
-                                    {t(unitShortKey(row.unit))}
-                                </Text>
-                            </View>
-
-                            <View style={{ width: TRACK.qty }}>
-                                <CellInput
-                                    testID={`${rowTestId}-qty`}
-                                    value={row.quantity}
-                                    disabled={!canManage}
-                                    align="start"
-                                    mono
-                                    label={t('kitchen:recipes.lineQuantity')}
-                                    onChangeText={(next) => {
-                                        patch(row.key, { quantity: next });
-                                    }}
-                                />
-                            </View>
-
-                            {/*
-                             * A figure, not a field. See the note above: a line carries no price of
-                             * its own on this contract, so a box here would be a control with
-                             * nowhere to write.
-                             */}
-                            <View style={{ width: TRACK.unitPrice }}>
-                                <Text
-                                    variant="mono"
-                                    align="start"
-                                    tone={price === null ? 'secondary' : 'primary'}
-                                    numberOfLines={1}
-                                    testID={`${rowTestId}-unit-price`}
-                                >
-                                    {price === null
-                                        ? t('kitchen:list.noValue')
-                                        : // Each row in its **own** currency: the pool can hold two,
-                                          // and a mark borrowed from a neighbour is worse than none.
-                                          formatMoney(
-                                              formatter,
-                                              price.amount,
-                                              price.currency,
-                                              MONEY,
-                                          )}
-                                </Text>
-                            </View>
-
-                            <View style={{ width: TRACK.total }}>
-                                <Text
-                                    variant="mono"
-                                    align="start"
-                                    numberOfLines={1}
-                                    testID={`${rowTestId}-total`}
-                                >
-                                    {total === null || price === null
-                                        ? t('kitchen:list.noValue')
-                                        : // In the row's own currency, like the unit price it multiplies.
-                                          formatMoney(formatter, total, price.currency, LINE_TOTAL)}
-                                </Text>
-                            </View>
-
-                            <View style={COMMENTS_TRACK}>
-                                <CellInput
-                                    testID={`${rowTestId}-comment`}
-                                    value={row.note}
-                                    disabled={!canManage}
-                                    quiet
-                                    placeholder={t('kitchen:list.noValue')}
-                                    label={t('kitchen:recipes.lineNote')}
-                                    onChangeText={(next) => {
-                                        patch(row.key, { note: next });
-                                    }}
-                                />
-                            </View>
-
-                            <View style={{ width: TRACK.action }}>
-                                {canManage ? (
-                                    <IconButton
-                                        testID={`${rowTestId}-remove`}
-                                        label={t('kitchen:recipes.removeLine')}
-                                        variant="ghost"
-                                        tone="danger"
-                                        size="sm"
-                                        icon={<Icon name="close" size="sm" />}
-                                        onPress={() => {
-                                            remove(row.key);
-                                        }}
-                                    />
-                                ) : null}
-                            </View>
+                            <Text tone="secondary" variant="caption">
+                                {t('kitchen:recipes.linesEmpty')}
+                            </Text>
                         </View>
-                    );
-                })}
+                    }
+                />
 
-                {rows.length === 0 ? (
-                    <View
-                        testID={`${testID}-empty`}
-                        className="border-b border-stroke-subtle px-tight py-snug"
-                    >
-                        <Text tone="secondary" variant="caption">
-                            {t('kitchen:recipes.linesEmpty')}
-                        </Text>
-                    </View>
-                ) : (
+                {rows.length === 0 ? null : (
                     <TotalsRow
                         testID={`${testID}-totals`}
+                        columns={columns}
                         label={t('kitchen:recipes.sheetTotalRow')}
                         quantity={formatter.formatNumber(totalQuantity, LINE_TOTAL)}
-                        cost={formatMoney(formatter, totalCost, sharedCurrency, LINE_TOTAL)}
+                        cost={money(costs?.total ?? null, LINE_TOTAL)}
                     />
                 )}
             </View>
@@ -580,112 +676,97 @@ export function RecipeLineTable({
  * ---------------------------------------------------------------------------------------------- */
 
 /**
- * The design's tracks, in dp.
+ * The design's tracks, in dp, as `DataList` widths — each the design's content width plus the
+ * cell's `px-control-sm` either side (16), which stands in for the 8px gap the hand-drawn row put
+ * between tracks.
  *
- * Designation and Comments are the two that flex (`1.7fr` / `1.3fr` in the design, `flex-[1.7]` /
- * `flex-[1.3]` here); everything between them is fixed, because a Qty box that changed width with
- * the window is a column the eye cannot run down. The action track is one `sm` icon button.
+ * Designation and Comments are the two that flex, `1.7fr` / `1.3fr` in the design: they are the
+ * only growable columns, and `DataList` shares a row's slack between growable columns in proportion
+ * to their widths, so 170 : 130 is that ratio. Everything between them is `grow: false`, because a
+ * Qty box that changed width with the window is a column the eye cannot run down. The action track
+ * is one `sm` icon button.
  */
-const TRACK = { unit: 52, qty: 68, unitPrice: 80, total: 80, action: 28 } as const;
+const COLUMN_WIDTH = {
+    name: 170,
+    unit: 68,
+    quantity: 84,
+    unitPrice: 96,
+    total: 96,
+    comments: 130,
+    remove: 44,
+} as const;
 
-/**
- * The two flexible tracks, as inline styles rather than classes.
- *
- * `flex-[1.7]` is an arbitrary Tailwind value and NativeWind does not emit a fractional `flexGrow`
- * for it, so both columns silently collapsed to their content width and every fixed track bunched
- * against the inline start. A fraction of the leftover space is geometry rather than theme, and
- * `style` is the one route to it that both platforms honour.
- *
- * `flexBasis: 0` with `minWidth: 0` is what makes the ratio hold: without a zero basis the tracks
- * divide only the space *left over* after their content, so a long designation would win a share it
- * was never given, and without `minWidth: 0` a long one refuses to truncate at all.
- */
-const DESIGNATION_TRACK = { flexGrow: 1.7, flexShrink: 1, flexBasis: 0, minWidth: 0 } as const;
-const COMMENTS_TRACK = { flexGrow: 1.3, flexShrink: 1, flexBasis: 0, minWidth: 0 } as const;
-
-/** Unit prices read at two decimals; a line total at three — the source sheets' own precision. */
+/** A picker's list price reads at two decimals; a line total at three — the source sheets' own. */
 const MONEY: Intl.NumberFormatOptions = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+/**
+ * A row's unit cost, to four. It is per the *line's* unit, so a line written in grams against a
+ * per-kilogram price costs 0.0079 a gram — which two decimals would print as 0.01.
+ */
+const UNIT_COST: Intl.NumberFormatOptions = { minimumFractionDigits: 2, maximumFractionDigits: 4 };
 const LINE_TOTAL: Intl.NumberFormatOptions = {
     minimumFractionDigits: 3,
     maximumFractionDigits: 3,
 };
 
-function LineHeaderRow({ t }: { readonly t: (key: string) => string }) {
-    return (
-        <View className="h-control-xs flex-row items-center gap-tight border-b border-stroke px-tight">
-            <View style={DESIGNATION_TRACK}>
-                <HeaderCell label={t('kitchen:list.columnName')} />
-            </View>
-            <View style={{ width: TRACK.unit }}>
-                <HeaderCell label={t('kitchen:list.columnUnit')} />
-            </View>
-            <View style={{ width: TRACK.qty }}>
-                <HeaderCell label={t('kitchen:recipes.sheetColQuantityShort')} align="center" />
-            </View>
-            <View style={{ width: TRACK.unitPrice }}>
-                <HeaderCell label={t('kitchen:list.columnUnitPrice')} align="center" />
-            </View>
-            <View style={{ width: TRACK.total }}>
-                <HeaderCell label={t('kitchen:recipes.sheetColLineTotalLong')} align="center" />
-            </View>
-            <View style={COMMENTS_TRACK}>
-                <HeaderCell label={t('kitchen:recipes.sheetColComments')} />
-            </View>
-            <View style={{ width: TRACK.action }} />
-        </View>
-    );
-}
-
-function HeaderCell({
-    label,
-    align,
-}: {
-    readonly label: string;
-    /** `end` for a figure, `center` for a short code. Numbers read against the end edge. */
-    readonly align?: 'start' | 'end' | 'center' | undefined;
-}) {
-    return (
-        <Text variant="micro" tone="secondary" numberOfLines={1} align={align}>
-            {label}
-        </Text>
-    );
-}
-
+/**
+ * The totals line under the list — the one row `DataList` has no slot for.
+ *
+ * Drawn on the list's own tracks so each total sits under its column: every cell is based on the
+ * column's width and grows by the weight `growWeights` gives it, with the same `px-control-sm`
+ * inset — the arithmetic `DataList` runs on its header and rows, over the same content width. All
+ * columns are pinned, so none is ever dropped there and missing here.
+ */
 function TotalsRow({
+    columns,
     label,
     quantity,
     cost,
     testID,
 }: {
+    readonly columns: readonly DataListColumn<LineDraft>[];
     readonly label: string;
     readonly quantity: string;
     readonly cost: string;
     readonly testID: string;
 }) {
+    const weights = growWeights(columns);
+    const trackSum = columns.reduce((sum, column) => sum + column.width, 0);
+    const content: Readonly<Record<string, ReactNode>> = {
+        name: <Text variant="bodyStrong">{label}</Text>,
+        quantity: (
+            <Text variant="mono" testID={`${testID}-quantity`}>
+                {quantity}
+            </Text>
+        ),
+        total: (
+            <Text variant="mono" testID={`${testID}-cost`}>
+                {cost}
+            </Text>
+        ),
+    };
+
     return (
         <View
             testID={testID}
+            style={{ minWidth: trackSum }}
             // The design's 2px rule under the totals: the one place in the table where a border
             // carries emphasis rather than separation.
-            className="h-control-md flex-row items-center gap-tight border-b-2 border-stroke px-tight"
+            className="h-control-md flex-row items-center border-b-2 border-stroke"
         >
-            <View style={DESIGNATION_TRACK}>
-                <Text variant="bodyStrong">{label}</Text>
-            </View>
-            <View style={{ width: TRACK.unit }} />
-            <View style={{ width: TRACK.qty }}>
-                <Text variant="mono" align="center" testID={`${testID}-quantity`}>
-                    {quantity}
-                </Text>
-            </View>
-            <View style={{ width: TRACK.unitPrice }} />
-            <View style={{ width: TRACK.total }}>
-                <Text variant="mono" align="center" testID={`${testID}-cost`}>
-                    {cost}
-                </Text>
-            </View>
-            <View style={COMMENTS_TRACK} />
-            <View style={{ width: TRACK.action }} />
+            {columns.map((column) => (
+                <View
+                    key={column.key}
+                    style={{
+                        flexBasis: column.width,
+                        flexGrow: weights.get(column.key) ?? 0,
+                        flexShrink: 0,
+                        minWidth: 0,
+                    }}
+                    className="px-control-sm"
+                >
+                    {content[column.key] ?? null}
+                </View>
+            ))}
         </View>
     );
 }
@@ -706,6 +787,8 @@ interface CellInputProps {
     readonly mono?: boolean | undefined;
     /** The Comments column: no frame until it is hovered or focused. */
     readonly quiet?: boolean | undefined;
+    /** The warning border — a quantity that is legal and almost certainly wrong. */
+    readonly caution?: boolean | undefined;
     readonly testID: string;
 }
 
@@ -726,6 +809,7 @@ function CellInput({
     align,
     mono,
     quiet,
+    caution = false,
     testID,
 }: CellInputProps) {
     const [focused, setFocused] = useState(false);
@@ -739,6 +823,7 @@ function CellInput({
                       'h-control-xs flex-row items-center gap-control-xs rounded-sm border border-transparent px-control-xs'
                     : inputFrameClassName({
                           invalid: false,
+                          caution,
                           focused,
                           disabled,
                           density: 'compact',
@@ -835,6 +920,14 @@ const PICKER_WIDTH = 320;
 const PANEL_WIDTH = 360;
 /** One option row, `h-control-sm`. What the keyboard's scroll arithmetic counts in. */
 const PANEL_ROW_HEIGHT = 28;
+/**
+ * The list's own height ceiling: the panel's `max-h-80` less its 4px inset top and bottom.
+ *
+ * Stated on the `ScrollView` itself, not only on the panel around it. A scroll view with no bound
+ * of its own grows to its content, so the panel clipped it and the wheel went to the page behind —
+ * which is what made the list feel as though it scrolled far too fast.
+ */
+const PANEL_LIST_HEIGHT = 312;
 
 function Picker({
     placeholder,
@@ -855,6 +948,10 @@ function Picker({
     const formatter = useFormatter();
     const [focused, setFocused] = useState(false);
     const panel = useRef<ScrollView>(null);
+    /** Where the list is scrolled to, so the keyboard can tell whether a row is already in view. */
+    const scrolledTo = useRef(0);
+    /** Set by the arrow keys only — the one kind of highlight the list should move for. */
+    const movedByKey = useRef(false);
 
     const commit = (index: number) => {
         const entry = results[index];
@@ -863,18 +960,28 @@ function Picker({
 
     /*
      * The panel scrolls, so the arrow keys have to carry it — a highlight the reader cannot see is a
-     * cursor that has gone missing. Three rows of lead-in keeps the highlighted row off the top edge
-     * while walking down, which is what makes the next few matches readable.
+     * cursor that has gone missing.
+     *
+     * **Only the arrow keys.** A row also highlights on hover, and this used to scroll on every
+     * highlight change: wheeling through the list passed the pointer over row after row, each one
+     * re-positioned the list under it, and the list lurched ahead of the wheel and then snapped back
+     * to the top whenever the highlight returned to the first row. Hover now highlights and nothing
+     * more, and a key moves the list only as far as it takes to bring the row into view.
      *
      * ponytail: assumes uniform 28px rows (`h-control-sm`). Measure with `onLayout` per row if an
      * option ever wraps to two lines.
      */
     useEffect(() => {
-        if (!open) return;
-        panel.current?.scrollTo({
-            y: Math.max(0, (highlighted - 3) * PANEL_ROW_HEIGHT),
-            animated: false,
-        });
+        if (!open || !movedByKey.current) return;
+        movedByKey.current = false;
+
+        const top = highlighted * PANEL_ROW_HEIGHT;
+        const bottom = top + PANEL_ROW_HEIGHT;
+        if (top < scrolledTo.current) {
+            panel.current?.scrollTo({ y: top, animated: false });
+        } else if (bottom > scrolledTo.current + PANEL_LIST_HEIGHT) {
+            panel.current?.scrollTo({ y: bottom - PANEL_LIST_HEIGHT, animated: false });
+        }
     }, [highlighted, open]);
 
     /*
@@ -903,10 +1010,12 @@ function Picker({
                   onKeyDown: (event: { key: string; preventDefault: () => void }) => {
                       if (event.key === 'ArrowDown') {
                           event.preventDefault();
+                          movedByKey.current = true;
                           onHighlight(Math.min(highlighted + 1, Math.max(results.length - 1, 0)));
                           onOpen();
                       } else if (event.key === 'ArrowUp') {
                           event.preventDefault();
+                          movedByKey.current = true;
                           onHighlight(Math.max(highlighted - 1, 0));
                       } else if (event.key === 'Enter') {
                           event.preventDefault();
@@ -983,7 +1092,15 @@ function Picker({
                      * what keeps a tap on a row from being eaten by the keyboard dismissing first,
                      * the same pairing `Select`'s own panel uses.
                      */}
-                    <ScrollView ref={panel} keyboardShouldPersistTaps="handled">
+                    <ScrollView
+                        ref={panel}
+                        keyboardShouldPersistTaps="handled"
+                        style={{ maxHeight: PANEL_LIST_HEIGHT }}
+                        scrollEventThrottle={16}
+                        onScroll={(event) => {
+                            scrolledTo.current = event.nativeEvent.contentOffset.y;
+                        }}
+                    >
                         {loading ? (
                             /*
                              * "Searching…" rather than "no match", while a request is in flight.

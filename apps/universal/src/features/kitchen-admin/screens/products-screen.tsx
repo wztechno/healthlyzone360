@@ -2,12 +2,10 @@ import type { ProductAdmin, PublishableStatus } from '@healthy360/api-client/con
 import {
     Badge,
     Button,
+    Cascade,
     Dialog,
-    EmptyState,
-    ErrorState,
     Icon,
     Inline,
-    Skeleton,
     Stack,
     Text,
     useToast,
@@ -23,16 +21,18 @@ import { useTranslation } from 'react-i18next';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
-import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
-import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
+import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
+import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
+import { RecordPhoto } from '../catalogue/record-photo.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { productColumns } from '../catalogue/product-columns.tsx';
 import type {
@@ -54,10 +54,12 @@ import {
     statusTone,
     unitShortKey,
 } from '../format.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
- * `/kitchen/products` — what this kitchen sells as goods rather than as a dish on a menu — and the
- * same page again at `/kitchen/sauces` and `/kitchen/dressings`.
+ * `/kitchen/products` — what this kitchen buys in and sells on as goods, rather than cooks. The
+ * cooked kinds that were listed here too — sauces, dressings, frozen meals — are recipes in the
+ * recipe book now.
  *
  * ```
  * Kitchen workspace › Products                    <- drawn by the shell, not here
@@ -81,12 +83,14 @@ import {
  * its own. That is worth stating because the recipe list's N+1 is written down as a limitation, and
  * a reader comparing the two files should see immediately that the difference is the contract's.
  *
- * ## There is no publish control here, and that is the contract's doing
+ * ## Publishing is the editor's, not the list's
  *
- * `ProductAdmin.meta` carries the full publication lifecycle, and `KitchenAdminRepository` publishes
- * `archiveProduct` and nothing else — no `publishProduct`, no `retireProduct`. So the row menu is
- * View · Edit · Archive; the status column renders whatever the record's state is; and no control
- * here implies a transition the server has no endpoint for.
+ * `publishProduct` exists now — the route always did, only the client method was missing — but it
+ * stays off the row menu. Publication has a gate (`CatalogueItemReadiness`) whose refusals are
+ * specific and fixable, and a row menu has nowhere to show them: pressing Publish on a row that
+ * cannot pass would be a toast saying no, with the four things to fix one screen away. The editor
+ * draws that gate as a rail and puts the button beside it. So the row menu stays
+ * View · Edit · Archive, and the status column renders whatever the record's state is.
  *
  * ## Where each control lives
  *
@@ -105,20 +109,19 @@ import {
 type SortKey = ProductSortKey;
 
 /**
- * The three packaged-goods families this one screen serves. Sauces and dressings are products in
- * apparatus — same packs, same channels, same lifecycle — listed on their own pages by `item_type`.
- * Copy that names the family is looked up here (literal keys, so extraction sees them); copy about
- * the apparatus stays under `kitchen:products.*`.
+ * The goods family this screen serves: its `item_type`, its address and the copy that names it.
+ *
+ * It served three once — sauces and dressings are products in apparatus, and were listed on their
+ * own pages by `item_type` — until the cooked kinds joined the recipe book. Copy that names the
+ * family is looked up here (literal keys, so extraction sees them); copy about the apparatus stays
+ * under `kitchen:products.*`.
  */
 export interface GoodsFamily {
     readonly itemType: ProductItemType;
-    readonly routeBase: '/kitchen/products' | '/kitchen/sauces' | '/kitchen/dressings';
+    readonly routeBase: '/kitchen/products';
     readonly gateTestID: string;
-    readonly title: string;
-    readonly subtitle: string;
     readonly create: string;
     readonly caption: string;
-    readonly resultCount: string;
     readonly emptyTitle: string;
     readonly emptyBody: string;
     /** The eyebrow over the View drawer — "Product", "Sauce", "Dressing". */
@@ -130,45 +133,12 @@ export const PRODUCTS_FAMILY: GoodsFamily = {
     itemType: 'product',
     routeBase: '/kitchen/products',
     gateTestID: 'kitchen-products',
-    title: 'kitchen:products.title',
-    subtitle: 'kitchen:products.subtitle',
     create: 'kitchen:products.create',
     caption: 'kitchen:products.caption',
-    resultCount: 'kitchen:products.resultCount',
     emptyTitle: 'kitchen:products.emptyTitle',
     emptyBody: 'kitchen:products.emptyBody',
     viewKind: 'kitchen:products.viewKind',
     searchPlaceholder: 'kitchen:products.searchPlaceholder',
-};
-
-export const SAUCES_FAMILY: GoodsFamily = {
-    itemType: 'sauce',
-    routeBase: '/kitchen/sauces',
-    gateTestID: 'kitchen-sauces',
-    title: 'kitchen:sauces.title',
-    subtitle: 'kitchen:sauces.subtitle',
-    create: 'kitchen:sauces.create',
-    caption: 'kitchen:sauces.caption',
-    resultCount: 'kitchen:sauces.resultCount',
-    emptyTitle: 'kitchen:sauces.emptyTitle',
-    emptyBody: 'kitchen:sauces.emptyBody',
-    viewKind: 'kitchen:sauces.viewKind',
-    searchPlaceholder: 'kitchen:sauces.searchPlaceholder',
-};
-
-export const DRESSINGS_FAMILY: GoodsFamily = {
-    itemType: 'dressing',
-    routeBase: '/kitchen/dressings',
-    gateTestID: 'kitchen-dressings',
-    title: 'kitchen:dressings.title',
-    subtitle: 'kitchen:dressings.subtitle',
-    create: 'kitchen:dressings.create',
-    caption: 'kitchen:dressings.caption',
-    resultCount: 'kitchen:dressings.resultCount',
-    emptyTitle: 'kitchen:dressings.emptyTitle',
-    emptyBody: 'kitchen:dressings.emptyBody',
-    viewKind: 'kitchen:dressings.viewKind',
-    searchPlaceholder: 'kitchen:dressings.searchPlaceholder',
 };
 
 export function ProductsScreen({ family = PRODUCTS_FAMILY }: { readonly family?: GoodsFamily }) {
@@ -182,17 +152,6 @@ export function ProductsScreen({ family = PRODUCTS_FAMILY }: { readonly family?:
         </Gate>
     );
 }
-
-/**
- * The status segments, as the design draws them: All · Live · Draft · Review.
- *
- * Four, not five. Archived is reachable from the Status column's own filter, and putting it on the
- * toolbar would spend a fifth of a primary control on the one state a catalogue is almost never
- * browsed in.
- */
-const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'review_required'];
-
-type StatusSegmentValue = PublishableStatus | 'all';
 
 function ProductsList({ family }: { readonly family: GoodsFamily }) {
     const { t } = useTranslation();
@@ -232,22 +191,57 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
         },
     );
 
-    // A status the segments do not name — Archived, reached from the Status column's own filter —
-    // leaves the set on "all" rather than lighting a segment that is not on the row.
-    const active = list.statuses[0];
-    const segmentValue: StatusSegmentValue =
-        active !== undefined && SEGMENT_STATUSES.includes(active) ? active : 'all';
+    const segments = statusSegments(list.statuses, list.setStatuses, t);
 
-    const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
-        { value: 'all', label: t('kitchen:toolbar.statusAll') },
-        ...SEGMENT_STATUSES.map((status) => ({
-            value: status,
-            label: t(statusShortKey(status)),
-        })),
-    ];
+    /*
+     * View takes the whole page (`IngredientView.dc.html`), in place of the list rather than on a
+     * route of its own — Back is a state change, so the list's page, sort and filters survive it.
+     */
+    const viewing = list.viewing;
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-products-view"
+                media={
+                    <RecordPhoto
+                        assetId={viewing.imagePlaceholderId}
+                        label={displayName(viewing.name, locale).value}
+                        shape="wide"
+                        testID="kitchen-products-view-photo"
+                    />
+                }
+                kind={t(family.viewKind)}
+                title={displayName(viewing.name, locale).value}
+                status={{
+                    tone: statusTone(viewing.meta.status),
+                    label: t(statusShortKey(viewing.meta.status)),
+                }}
+                fields={viewFields(viewing, t, formatter, locale, categoryName)}
+                onBack={list.closeView}
+                primaryAction={{
+                    label: t('kitchen:catalogue.edit'),
+                    testID: 'kitchen-products-view-edit',
+                    onPress: () => {
+                        list.closeView();
+                        list.openEditor(String(viewing.id));
+                    },
+                }}
+                /*
+                 * The channels as badges, and drawn even when the set is empty. On the row they are
+                 * a comma run — twenty-five rows of coloured pills drown the names beside them —
+                 * but here there is one record and room to look at it. An empty set says so in
+                 * words, because "on no channel" and "nobody has looked" are the two answers a
+                 * reader most needs told apart.
+                 */
+                chipsLabel={t('kitchen:products.columnChannels')}
+                chipsCaption={t('kitchen:products.viewChannelsCaption')}
+                chipsContent={channelChips(viewing, t)}
+            />
+        );
+    }
 
     return (
-        <Stack space="md" testID="kitchen-products-screen">
+        <Cascade space="md" testID="kitchen-products-screen">
             {/*
              * The opening — the actions and the four figures — is one block at 4px, nested inside
              * the page's 16px rhythm. The reasoning is the ingredient list's: with no trail and no
@@ -255,12 +249,12 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
              * 16px it read as two empty bands stacked above the first thing worth looking at.
              */}
             <Stack space="xs">
-                {list.isPending ? null : (
-                    <CatalogueStatCards
-                        testID="kitchen-products-stats"
-                        cards={statCards(list, t)}
-                    />
-                )}
+                <CatalogueStatCards
+                    testID="kitchen-products-stats"
+                    cards={statCards(list, t)}
+                    pending={list.isPending}
+                    countsPending={list.countsPending}
+                />
             </Stack>
 
             <CatalogueToolbar<StatusSegmentValue>
@@ -270,13 +264,11 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t(family.searchPlaceholder)}
                 statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={statusSegments}
-                // Single-select, so "all" is the absence of a status rather than a status of its own.
-                status={segmentValue}
-                onStatusChange={(status) => {
-                    list.setStatuses(status === 'all' ? [] : [status]);
-                }}
+                statusSegments={segments.segments}
+                status={segments.value}
+                onStatusChange={segments.onChange}
             >
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Inline space="xs" align="center">
                         <CatalogueTransferActions testID="kitchen-products-toolbar" />
@@ -290,166 +282,71 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                 ) : undefined}
             </CatalogueToolbar>
 
-            {list.isPending ? (
-                <Stack space="xs" testID="kitchen-products-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-products-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
-            ) : list.failure !== null ? (
-                <ErrorState
-                    testID="kitchen-products-error"
-                    failure={list.failure}
-                    onRetry={list.refetch}
-                    retrying={list.isFetching}
-                />
-            ) : list.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-products-empty"
-                    title={
-                        list.isUnfiltered
-                            ? t(family.emptyTitle)
-                            : t('kitchen:products.filteredEmptyTitle')
-                    }
-                    body={
-                        list.isUnfiltered
-                            ? t(family.emptyBody)
-                            : t('kitchen:products.filteredEmptyBody')
-                    }
-                    actions={
-                        <Inline space="sm" wrap>
-                            <Button
-                                testID="kitchen-products-clear"
-                                variant="secondary"
-                                label={t('kitchen:toolbar.clearFilters')}
-                                onPress={list.clearFilters}
-                            />
-                            {canManage ? (
-                                <Button
-                                    testID="kitchen-products-empty-create"
-                                    label={t(family.create)}
-                                    onPress={list.createNew}
-                                />
-                            ) : null}
-                        </Inline>
-                    }
-                />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList
-                        testID="kitchen-products-table"
-                        label={t(family.caption)}
-                        columns={controls.columns}
-                        rows={list.rows}
-                        rowKey={(row) => String(row.id)}
-                        // Fixed, not switchable: the S/M/L control is gone.
-                        density="sm"
-                        onRowPress={(row) => {
-                            list.openEditor(String(row.id));
-                        }}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        // View, Edit, Archive, in the design's order. Above `md` these are flat
-                        // icon buttons on the row; below it the same array becomes the overflow
-                        // menu, because a narrow row has space for exactly one control.
-                        rowActions={(row): readonly MenuItem[] => [
-                            {
-                                key: 'view',
-                                label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
-                                testID: `${productRowTestId(String(row.id))}-view`,
-                                onSelect: () => {
-                                    list.openView(row);
-                                },
-                            },
-                            {
-                                key: 'edit',
-                                label: t('kitchen:list.open'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
-                                testID: `${productRowTestId(String(row.id))}-open`,
-                                onSelect: () => {
-                                    list.openEditor(String(row.id));
-                                },
-                            },
-                            // Archive is offered only where it would be accepted: the permission,
-                            // and a row that is not already archived.
-                            ...(canManage && row.meta.status !== 'retired'
-                                ? [
-                                      {
-                                          key: 'archive',
-                                          label: t('kitchen:list.archive'),
-                                          icon: CATALOGUE_ROW_ICONS.archive,
-                                          tone: 'danger' as const,
-                                          testID: `${productRowTestId(String(row.id))}-archive`,
-                                          onSelect: () => {
-                                              list.askToArchive(row);
-                                          },
-                                      },
-                                  ]
-                                : []),
-                        ]}
-                    />
-
-                    <CataloguePager
-                        testID="kitchen-products-pagination"
-                        range={t('kitchen:toolbar.showing', {
-                            shown: list.shown,
-                            total: list.total ?? list.shown,
-                        })}
-                        page={list.page}
-                        totalPages={list.totalPages}
-                        onPageChange={list.setPage}
-                        label={t('kitchen:catalogue.pagerLabel')}
-                    />
-                </Stack>
-            )}
-
-            <CatalogueViewDrawer
-                testID="kitchen-products-view"
-                open={list.viewing !== null}
-                onClose={list.closeView}
-                kindLabel={t(family.viewKind)}
-                fieldsLabel={t('kitchen:list.viewFields')}
-                closeLabel={t('kitchen:catalogue.close')}
-                editLabel={t('kitchen:catalogue.edit')}
-                onEdit={() => {
-                    const viewed = list.viewing;
-                    if (viewed === null) return;
-                    list.closeView();
-                    list.openEditor(String(viewed.id));
+            <CatalogueListBody
+                testID="kitchen-products"
+                list={list}
+                empty={{ title: t(family.emptyTitle), body: t(family.emptyBody) }}
+                filteredEmpty={{
+                    title: t('kitchen:products.filteredEmptyTitle'),
+                    body: t('kitchen:products.filteredEmptyBody'),
                 }}
-                title={list.viewing === null ? '' : displayName(list.viewing.name, locale).value}
-                status={
-                    list.viewing === null ? undefined : (
-                        <Badge
-                            tone={statusTone(list.viewing.meta.status)}
-                            label={t(statusShortKey(list.viewing.meta.status))}
-                        />
-                    )
+                create={
+                    canManage ? { label: t(family.create), onPress: list.createNew } : undefined
                 }
-                fields={
-                    list.viewing === null
-                        ? []
-                        : viewFields(list.viewing, t, formatter, locale, categoryName)
-                }
-                /*
-                 * The channels as badges, and drawn even when the set is empty. On the row they are
-                 * a comma run — twenty-five rows of coloured pills drown the names beside them —
-                 * but here there is one record and room to look at it. An empty set says so in
-                 * words, because "on no channel" and "nobody has looked" are the two answers a
-                 * reader most needs told apart.
-                 */
-                {...(list.viewing === null
-                    ? {}
-                    : {
-                          chipsLabel: t('kitchen:products.columnChannels'),
-                          chipsCaption: t('kitchen:products.viewChannelsCaption'),
-                          chips: channelChips(list.viewing, t),
-                      })}
-            />
+            >
+                <CatalogueList
+                    testID="kitchen-products-table"
+                    label={t(family.caption)}
+                    columns={controls.columns}
+                    rows={list.rows}
+                    rowKey={(row) => String(row.id)}
+                    // Fixed, not switchable: the S/M/L control is gone.
+                    density="sm"
+                    onRowPress={(row) => {
+                        list.openEditor(String(row.id));
+                    }}
+                    rowActionsLabel={t('kitchen:list.rowActions')}
+                    // View, Edit, Archive, in the design's order. Above `md` these are flat
+                    // icon buttons on the row; below it the same array becomes the overflow
+                    // menu, because a narrow row has space for exactly one control.
+                    rowActions={(row): readonly MenuItem[] => [
+                        {
+                            key: 'view',
+                            label: t('kitchen:list.view'),
+                            icon: CATALOGUE_ROW_ICONS.view,
+                            testID: `${productRowTestId(String(row.id))}-view`,
+                            onSelect: () => {
+                                list.openView(row);
+                            },
+                        },
+                        {
+                            key: 'edit',
+                            label: t('kitchen:catalogue.edit'),
+                            icon: CATALOGUE_ROW_ICONS.edit,
+                            testID: `${productRowTestId(String(row.id))}-open`,
+                            onSelect: () => {
+                                list.openEditor(String(row.id));
+                            },
+                        },
+                        // Archive is offered only where it would be accepted: the permission,
+                        // and a row that is not already archived.
+                        ...(canManage && row.meta.status !== 'retired'
+                            ? [
+                                  {
+                                      key: 'archive',
+                                      label: t('kitchen:list.archive'),
+                                      icon: CATALOGUE_ROW_ICONS.archive,
+                                      tone: 'danger' as const,
+                                      testID: `${productRowTestId(String(row.id))}-archive`,
+                                      onSelect: () => {
+                                          list.askToArchive(row);
+                                      },
+                                  },
+                              ]
+                            : []),
+                    ]}
+                />
+            </CatalogueListBody>
 
             {/*
              * Archiving is the only lifecycle action the contract gives this family. The dialog says
@@ -494,7 +391,7 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                     </Text>
                 )}
             </Dialog>
-        </Stack>
+        </Cascade>
     );
 }
 
@@ -515,7 +412,7 @@ function statCards(list: ProductListState, t: TFunction): readonly CatalogueStat
             caption: list.isUnfiltered
                 ? t('kitchen:list.statShownUnfiltered')
                 : t('kitchen:list.statShownFiltered'),
-            mark: 'calendar',
+            mark: 'list',
             tone: 'brand',
             onPress: list.clearFilters,
             accessibilityLabel: t('kitchen:list.statShownAction'),
@@ -526,7 +423,7 @@ function statCards(list: ProductListState, t: TFunction): readonly CatalogueStat
             value: String(list.draftCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:list.statDraftCaption'),
-            mark: 'eyeOff',
+            mark: 'fileDraft',
             // Amber only while there is something to act on.
             tone: list.draftCount === 0 ? 'default' : 'warning',
             onPress: () => {
@@ -540,7 +437,7 @@ function statCards(list: ProductListState, t: TFunction): readonly CatalogueStat
             value: String(list.missingArabicCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:list.statMissingArabicCaption'),
-            mark: 'warning',
+            mark: 'languages',
             tone: list.missingArabicCount === 0 ? 'default' : 'danger',
         },
         {
@@ -549,7 +446,7 @@ function statCards(list: ProductListState, t: TFunction): readonly CatalogueStat
             value: String(list.noPackCount),
             unit: t('kitchen:list.statRecords'),
             caption: t('kitchen:products.statNoPackCaption'),
-            mark: 'warning',
+            mark: 'package',
             tone: list.noPackCount === 0 ? 'default' : 'warning',
         },
     ];
@@ -690,6 +587,7 @@ function columnControl(
 ): ColumnControl<ProductAdmin> {
     if (key === 'status') {
         return {
+            sort: 'external',
             filter: {
                 values: () =>
                     PRODUCT_STATUS_FILTERS.map((status: PublishableStatus) => ({
@@ -707,6 +605,7 @@ function columnControl(
     }
     if (key === 'category') {
         return {
+            sort: 'external',
             filter: {
                 // A value with no id is not offered: the endpoint narrows by id, so a code the read
                 // could not pair with one would send no constraint while the header claimed a filter.

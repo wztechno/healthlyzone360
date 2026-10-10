@@ -127,6 +127,25 @@ export function durationDraft(duration: PlanDurationAdmin, index: number): Durat
     };
 }
 
+/**
+ * A blank configuration, as the Configurations tab's add button creates it.
+ *
+ * Active, and every coordinate `null`: a configuration has no cell until its meals, snacks and band
+ * are typed, and the row's errors say so rather than a zero standing in for an answer.
+ */
+export function emptyVariant(key: string): VariantDraft {
+    return {
+        key,
+        id: null,
+        name: { en: '', ar: '' },
+        mealsPerDay: null,
+        snacksPerDay: null,
+        energyMin: null,
+        energyMax: null,
+        isActive: true,
+    };
+}
+
 /** A blank combination row. Meals default to one because a combination of nothing is not one. */
 export function emptyCombination(key: string): CombinationDraft {
     return {

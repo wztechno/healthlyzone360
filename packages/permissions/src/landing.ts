@@ -8,6 +8,7 @@ import type { AccessState } from './state.ts';
 export const LANDING_REASONS = [
     'session_restoring',
     'unauthenticated',
+    'password_change_required',
     'email_unverified',
     'no_organisation_context',
     'no_branch_context',
@@ -52,6 +53,15 @@ export function resolveLandingRoute(state: AccessState): LandingRoute {
     }
     if (state.session !== 'authenticated') {
         return { href: ROUTE_PATHS.signIn, reason: 'unauthenticated' };
+    }
+    // Before the mailbox, deliberately. A provisioned account is carrying a password its
+    // administrator also knows, and replacing it is the one step the person can finish without
+    // leaving the application — where verifying an address may need a mailbox a new employee has
+    // not been given yet. Holding them here is a client policy, not a boundary: the server does
+    // not refuse a session over this flag, because a flag that blocked every endpoint would block
+    // the endpoint that clears it.
+    if (state.mustChangePassword === true) {
+        return { href: ROUTE_PATHS.changePassword, reason: 'password_change_required' };
     }
     if (!state.emailVerified) {
         return { href: ROUTE_PATHS.verifyEmail, reason: 'email_unverified' };

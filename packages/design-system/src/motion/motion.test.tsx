@@ -1,7 +1,10 @@
-import { screen } from '@testing-library/react-native';
-import { Text as RNText } from 'react-native';
+import { act, screen } from '@testing-library/react-native';
+import { Animated, Text as RNText } from 'react-native';
 
-import { flattenStyle, renderWithI18n } from '../testing/render.tsx';
+import { DataList } from '../content/data-list.tsx';
+import type { DataListColumn } from '../content/data-list.tsx';
+import { flattenStyle, renderWithI18n, withI18n } from '../testing/render.tsx';
+import { Cascade, CascadeItem } from './cascade.tsx';
 import { Collapse } from './collapse.tsx';
 import { FadeIn } from './fade-in.tsx';
 import { PageTransition } from './page-transition.tsx';
@@ -233,6 +236,237 @@ describe('useAnimatedNumber', () => {
         await renderWithI18n(<NumberProbe value={1850} />);
 
         expect(screen.getByTestId('figure')).toHaveTextContent('1850');
+    });
+});
+
+interface EntranceRow {
+    readonly id: string;
+    readonly name: string;
+}
+
+const ENTRANCE_ROWS: readonly EntranceRow[] = [
+    { id: 'a', name: 'Tahini' },
+    { id: 'b', name: 'Sumac' },
+];
+
+const ENTRANCE_COLUMNS: readonly DataListColumn<EntranceRow>[] = [
+    { key: 'name', label: 'Designation', width: 240, priority: 100, value: (row) => row.name },
+];
+
+function EntranceList({
+    rows = ENTRANCE_ROWS,
+    rowEntrance,
+}: {
+    readonly rows?: readonly EntranceRow[];
+    readonly rowEntrance?: boolean;
+}) {
+    return (
+        <DataList
+            testID="list"
+            label="Ingredients"
+            rows={rows}
+            rowKey={(row) => row.id}
+            columns={ENTRANCE_COLUMNS}
+            rowEntrance={rowEntrance}
+        />
+    );
+}
+
+describe("DataList's row entrance", () => {
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
+    it('wraps nothing unless the list asks for it', async () => {
+        await renderWithI18n(<EntranceList />);
+
+        expect(screen.queryByTestId('list-row-a-entrance')).toBeNull();
+    });
+
+    it('brings each row up from below, leaving the row its own element', async () => {
+        await renderWithI18n(<EntranceList rowEntrance />);
+
+        expect(styleOf('list-row-a-entrance')['opacity']).not.toBe(1);
+        expect(Object.keys(firstTransform('list-row-a-entrance'))).toEqual(['translateY']);
+        // Only the box around the row moves. The row keeps its role and its id, so everything that
+        // finds a row — a test, a screen reader, the hover tint — finds the same element as before.
+        expect(screen.getByTestId('list-row-a').props.role).toBe('row');
+    });
+
+    it('draws every row in place under reduced motion, with no style of its own', async () => {
+        mockReducedMotion = true;
+        await renderWithI18n(<EntranceList rowEntrance />);
+
+        for (const id of ['a', 'b']) {
+            expect(styleOf(`list-row-${id}-entrance`)).toEqual({});
+        }
+    });
+
+    /**
+     * A row's index changes on every sort, and `SlideIn` replays when its delay changes — so a
+     * delay read from the index on each render would start every moved row's entrance again.
+     * Counted at `Animated.timing` because that is the replay itself: the animation clock does not
+     * advance under Jest, so "the row stayed visible" cannot be observed directly.
+     */
+    it('does not send a row back through its entrance when the list is re-sorted', async () => {
+        const timing = jest.spyOn(Animated, 'timing');
+        const view = await renderWithI18n(<EntranceList rowEntrance />);
+        const entrances = timing.mock.calls.length;
+        expect(entrances).toBeGreaterThanOrEqual(ENTRANCE_ROWS.length);
+
+        await act(async () => {
+            view.rerender(
+                withI18n(<EntranceList rowEntrance rows={[...ENTRANCE_ROWS].reverse()} />),
+            );
+        });
+
+        expect(timing.mock.calls.length).toBe(entrances);
+    });
+
+    it('brings in a row that joins the list', async () => {
+        const timing = jest.spyOn(Animated, 'timing');
+        const view = await renderWithI18n(<EntranceList rowEntrance />);
+        const entrances = timing.mock.calls.length;
+
+        await act(async () => {
+            view.rerender(
+                withI18n(
+                    <EntranceList
+                        rowEntrance
+                        rows={[...ENTRANCE_ROWS, { id: 'c', name: 'Za’atar' }]}
+                    />,
+                ),
+            );
+        });
+
+        expect(timing.mock.calls.length).toBe(entrances + 1);
+        expect(screen.getByTestId('list-row-c-entrance')).toBeTruthy();
+    });
+});
+
+/** The `delay` each started entrance was given, in the order they were created. */
+function entranceDelays(timing: jest.SpyInstance): number[] {
+    return timing.mock.calls.map((call) => (call[1] as Animated.TimingAnimationConfig).delay ?? 0);
+}
+
+describe('Cascade', () => {
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
+    it('makes a band of each child, dropping nothing-children and opening fragments', async () => {
+        const error = jest.spyOn(console, 'error');
+        await renderWithI18n(
+            <Cascade testID="page">
+                <RNText testID="a">A</RNText>
+                {null}
+                {false}
+                <>
+                    <RNText testID="b">B</RNText>
+                    <RNText testID="c">C</RNText>
+                </>
+            </Cascade>,
+        );
+
+        // Three bands: the fragment's two children are bands of their own, so they keep the
+        // Stack's gap between them exactly as they did before the page cascaded.
+        expect(screen.getByTestId('page').children).toHaveLength(3);
+        for (const id of ['a', 'b', 'c']) expect(screen.getByTestId(id)).toBeTruthy();
+        // A fragment's first child is not keyed `.0` alongside the cascade's own first child.
+        expect(error.mock.calls.some((call) => String(call[0]).includes('same key'))).toBe(false);
+    });
+
+    it('staggers the bands down the page', async () => {
+        const timing = jest.spyOn(Animated, 'timing');
+        await renderWithI18n(
+            <Cascade>
+                <RNText>A</RNText>
+                <RNText>B</RNText>
+                <RNText>C</RNText>
+            </Cascade>,
+        );
+
+        expect(entranceDelays(timing)).toEqual([0, 40, 80]);
+    });
+
+    it('lets a nested cascade continue the count instead of rising as a band itself', async () => {
+        const timing = jest.spyOn(Animated, 'timing');
+        await renderWithI18n(
+            <Cascade>
+                <RNText>Header</RNText>
+                <RNText>Figures</RNText>
+                <Cascade testID="grid">
+                    <RNText>Group one</RNText>
+                    <RNText>Group two</RNText>
+                </Cascade>
+            </Cascade>,
+        );
+
+        // Four entrances, not five: the grid is not wrapped, and its groups follow the figures.
+        expect(entranceDelays(timing)).toEqual([0, 40, 80, 120]);
+    });
+
+    it('brings in a band that appears above the others without replaying them', async () => {
+        const timing = jest.spyOn(Animated, 'timing');
+        const page = (banner: boolean) => (
+            <Cascade>
+                {banner ? <RNText key="banner">Saved</RNText> : null}
+                <RNText key="toolbar">Toolbar</RNText>
+                <RNText key="list">List</RNText>
+            </Cascade>
+        );
+        const view = await renderWithI18n(page(false));
+        expect(timing).toHaveBeenCalledTimes(2);
+
+        await act(async () => {
+            view.rerender(withI18n(page(true)));
+        });
+
+        expect(timing).toHaveBeenCalledTimes(3);
+        // It answers something that just happened, so it rises in at once rather than waiting
+        // behind a delay meant for the page's first arrival.
+        expect(entranceDelays(timing)).toEqual([0, 40, 0]);
+    });
+
+    it('keeps a band passed as its own CascadeItem, placing it in the count', async () => {
+        const timing = jest.spyOn(Animated, 'timing');
+        await renderWithI18n(
+            <Cascade>
+                <RNText>Opening</RNText>
+                <CascadeItem index={99} testID="selling" className="hidden">
+                    <RNText>Selling</RNText>
+                </CascadeItem>
+            </Cascade>,
+        );
+
+        // Not wrapped a second time, and its own number is replaced by its place on the page.
+        expect(screen.getByTestId('selling')).toBeTruthy();
+        expect(entranceDelays(timing)).toEqual([0, 40]);
+    });
+
+    it('settles into a plain, depth-neutral box under reduced motion', async () => {
+        mockReducedMotion = true;
+        await renderWithI18n(
+            <CascadeItem index={2} testID="band">
+                <RNText>Band</RNText>
+            </CascadeItem>,
+        );
+
+        // No transform, no opacity: a transform would be a stacking context, and an inline
+        // popover inside the band would be trapped under the band below it. (Its `z-auto` is a
+        // class, which NativeWind resolves only in a real stylesheet, so it is checked there.)
+        expect(styleOf('band')).toEqual({});
+    });
+
+    it('moves while it enters when motion is allowed', async () => {
+        await renderWithI18n(
+            <CascadeItem index={0} testID="band">
+                <RNText>Band</RNText>
+            </CascadeItem>,
+        );
+
+        expect(styleOf('band')['opacity']).not.toBe(1);
+        expect(Object.keys(firstTransform('band'))).toEqual(['translateY']);
     });
 });
 

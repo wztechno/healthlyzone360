@@ -1,9 +1,10 @@
-import { fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { useWindowDimensions } from 'react-native';
 
+import { FormNavigation } from '../forms/form-navigation.tsx';
 import { Text } from '../primitives/text.tsx';
 import { OfflineIndicator } from '../status/offline-indicator.tsx';
-import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
+import { assertSubtreeIsLogical, renderWithI18n, withI18n } from '../testing/render.tsx';
 import { APP_SHELL_VARIANTS, AppShell } from './app-shell.tsx';
 import type { NavigationItem } from './app-shell.tsx';
 
@@ -103,6 +104,326 @@ describe('AppShell — workspace', () => {
 
         expect(screen.getByTestId('shell-sidebar')).toBeTruthy();
         expect(screen.queryByTestId('shell-menu')).toBeNull();
+    });
+
+    it('slides the page panel shut from the hamburger and open again, keeping the module rail', async () => {
+        setViewport(1280);
+        await renderWithI18n(
+            <AppShell testID="shell" variant="workspace" navigation={navigation}>
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        expect(screen.getByTestId('shell-rail')).toBeTruthy();
+        expect(screen.getByTestId('nav-overview')).toBeTruthy();
+        const toggle = screen.getByTestId('shell-sidebar-toggle');
+        expect(toggle.props.accessibilityLabel).toBe('Close the pages panel');
+
+        await fireEvent.press(toggle);
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 0 });
+        expect(screen.getByTestId('shell-sidebar-toggle').props.accessibilityLabel).toBe(
+            'Open the pages panel',
+        );
+        // The rail stays; the shut panel's links leave the tree once the slide has finished.
+        expect(screen.getByTestId('nav-overview-rail')).toBeTruthy();
+        await waitFor(() => {
+            expect(screen.queryByTestId('nav-overview')).toBeNull();
+        });
+
+        await fireEvent.press(screen.getByTestId('shell-sidebar-toggle'));
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+        expect(screen.getByTestId('nav-overview')).toBeTruthy();
+    });
+
+    it('lists a module’s pages from its rail icon, and shuts the panel on the same icon', async () => {
+        setViewport(1280);
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="workspace"
+                navigation={[
+                    {
+                        key: 'home',
+                        label: 'Home',
+                        icon: 'home',
+                        onPress: jest.fn(),
+                        testID: 'nav-home',
+                    },
+                    {
+                        key: 'meals',
+                        label: 'Meals',
+                        group: 'Catalogue',
+                        groupIcon: 'leaf',
+                        active: true,
+                        onPress: jest.fn(),
+                        testID: 'nav-meals',
+                    },
+                    {
+                        key: 'plans',
+                        label: 'Plans',
+                        group: 'Catalogue',
+                        onPress: jest.fn(),
+                        testID: 'nav-plans',
+                    },
+                    {
+                        key: 'orders',
+                        label: 'Orders',
+                        group: 'Operations',
+                        onPress: jest.fn(),
+                        testID: 'nav-orders',
+                    },
+                ]}
+            >
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        // The panel follows the page: the module holding the active item is listed and lit.
+        expect(screen.getByTestId('nav-home-rail')).toBeTruthy();
+        expect(
+            screen.getByTestId('shell-rail-group-Catalogue').props.accessibilityState,
+        ).toMatchObject({
+            selected: true,
+            expanded: true,
+        });
+        expect(screen.getByTestId('nav-meals')).toBeTruthy();
+        expect(screen.queryByTestId('nav-orders')).toBeNull();
+
+        // Another module's icon lists its pages instead.
+        await fireEvent.press(screen.getByTestId('shell-rail-group-Operations'));
+        expect(screen.getByTestId('nav-orders')).toBeTruthy();
+        expect(screen.queryByTestId('nav-meals')).toBeNull();
+
+        // One icon lit: the picked module, not the page's module beside it.
+        expect(
+            screen.getByTestId('shell-rail-group-Operations').props.accessibilityState,
+        ).toMatchObject({ selected: true });
+        expect(
+            screen.getByTestId('shell-rail-group-Catalogue').props.accessibilityState,
+        ).toMatchObject({ selected: false });
+
+        // The listed module's icon again slides the panel shut; any module icon opens it.
+        await fireEvent.press(screen.getByTestId('shell-rail-group-Operations'));
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 0 });
+        await fireEvent.press(screen.getByTestId('shell-rail-group-Catalogue'));
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+        expect(screen.getByTestId('nav-meals')).toBeTruthy();
+    });
+
+    it('orders the rail as the caller lists it, and labels runs inside a module panel', async () => {
+        setViewport(1280);
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="workspace"
+                navigation={[
+                    {
+                        key: 'kitchen',
+                        label: 'Kitchen',
+                        group: 'Workspace',
+                        section: 'Workspaces',
+                        onPress: jest.fn(),
+                        testID: 'nav-kitchen',
+                    },
+                    {
+                        key: 'kds',
+                        label: 'Kitchen display',
+                        group: 'Workspace',
+                        section: 'Workspaces',
+                        onPress: jest.fn(),
+                        testID: 'nav-kds',
+                    },
+                    {
+                        key: 'profile',
+                        label: 'Profile',
+                        group: 'Workspace',
+                        section: 'Account',
+                        active: true,
+                        onPress: jest.fn(),
+                        testID: 'nav-profile',
+                    },
+                    {
+                        key: 'overview',
+                        label: 'Overview',
+                        icon: 'dashboard',
+                        onPress: jest.fn(),
+                        testID: 'nav-overview',
+                    },
+                ]}
+            >
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        // Workspace is listed before Overview, so it sits above it on the rail.
+        const order = within(screen.getByTestId('shell-rail'))
+            .getAllByTestId(/^(shell-rail-group-|nav-.*-rail$)/)
+            .map((entry) => entry.props.testID as string);
+        expect(order.indexOf('shell-rail-group-Workspace')).toBeGreaterThanOrEqual(0);
+        expect(order.indexOf('shell-rail-group-Workspace')).toBeLessThan(
+            order.indexOf('nav-overview-rail'),
+        );
+
+        // One label per run, not one per item.
+        expect(screen.getAllByText('Workspaces')).toHaveLength(1);
+        expect(screen.getAllByText('Account')).toHaveLength(1);
+        expect(screen.getByTestId('nav-kds')).toBeTruthy();
+    });
+
+    it('follows the page to its module when it is reached from outside the panel', async () => {
+        setViewport(1280);
+        const items = (active: string): readonly NavigationItem[] => [
+            {
+                key: 'meals',
+                label: 'Meals',
+                group: 'Catalogue',
+                groupIcon: 'leaf',
+                active: active === 'meals',
+                onPress: jest.fn(),
+                testID: 'nav-meals',
+            },
+            {
+                key: 'orders',
+                label: 'Orders',
+                group: 'Operations',
+                active: active === 'orders',
+                onPress: jest.fn(),
+                testID: 'nav-orders',
+            },
+            {
+                key: 'stock',
+                label: 'Stock',
+                group: 'Inventory',
+                active: active === 'stock',
+                onPress: jest.fn(),
+                testID: 'nav-stock',
+            },
+        ];
+        const shell = (active: string) => (
+            <AppShell testID="shell" variant="workspace" navigation={items(active)}>
+                <Text>Body</Text>
+            </AppShell>
+        );
+        const { rerender } = await renderWithI18n(shell('meals'));
+
+        // The reader browses Operations in the panel, then the page search opens Stock.
+        await fireEvent.press(screen.getByTestId('shell-rail-group-Operations'));
+        expect(screen.getByTestId('nav-orders')).toBeTruthy();
+        await rerender(withI18n(shell('stock')));
+
+        expect(screen.getByTestId('nav-stock')).toBeTruthy();
+        expect(screen.queryByTestId('nav-orders')).toBeNull();
+        expect(
+            screen.getByTestId('shell-rail-group-Inventory').props.accessibilityState,
+        ).toMatchObject({ selected: true });
+
+        // And from a shut panel it slides open on the page's module.
+        await fireEvent.press(screen.getByTestId('shell-rail-group-Inventory'));
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 0 });
+        await rerender(withI18n(shell('meals')));
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+        expect(screen.getByTestId('nav-meals')).toBeTruthy();
+    });
+
+    it('lights one rail icon: Overview on its page, a picked module once one is picked', async () => {
+        setViewport(1280);
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="workspace"
+                navigation={[
+                    {
+                        key: 'overview',
+                        label: 'Overview',
+                        icon: 'home',
+                        active: true,
+                        onPress: jest.fn(),
+                        testID: 'nav-overview',
+                    },
+                    {
+                        key: 'desk',
+                        label: 'Order desk',
+                        group: 'Order desk',
+                        onPress: jest.fn(),
+                        testID: 'nav-desk',
+                    },
+                    {
+                        key: 'meals',
+                        label: 'Meals',
+                        group: 'Catalogue',
+                        onPress: jest.fn(),
+                        testID: 'nav-meals',
+                    },
+                ]}
+            >
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        const selected = (id: string) =>
+            (screen.getByTestId(id).props.accessibilityState as { selected?: boolean }).selected;
+
+        expect(selected('nav-overview-rail')).toBe(true);
+        expect(selected('shell-rail-group-Order desk')).toBe(false);
+
+        await fireEvent.press(screen.getByTestId('shell-rail-group-Catalogue'));
+        expect(selected('shell-rail-group-Catalogue')).toBe(true);
+        expect(selected('nav-overview-rail')).toBe(false);
+    });
+
+    it('says Overview has nothing under it, and opens the first module from there rather than shutting', async () => {
+        setViewport(1280);
+        const overviewPress = jest.fn();
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="workspace"
+                navigation={[
+                    {
+                        key: 'overview',
+                        label: 'Overview',
+                        icon: 'dashboard',
+                        active: true,
+                        onPress: overviewPress,
+                        testID: 'nav-overview',
+                    },
+                    {
+                        key: 'desk',
+                        label: 'Order desk',
+                        group: 'Order desk',
+                        onPress: jest.fn(),
+                        testID: 'nav-desk',
+                    },
+                    {
+                        key: 'meals',
+                        label: 'Meals',
+                        group: 'Catalogue',
+                        onPress: jest.fn(),
+                        testID: 'nav-meals',
+                    },
+                ]}
+            >
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        // No module's pages borrowed: the panel names the page and points at the rail.
+        expect(screen.getByTestId('shell-sidebar-empty')).toHaveTextContent(
+            /Overview has no pages under it/,
+        );
+        expect(screen.queryByTestId('nav-desk')).toBeNull();
+
+        // The first module — the one the panel used to borrow — opens instead of shutting.
+        await fireEvent.press(screen.getByTestId('shell-rail-group-Order desk'));
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+        expect(screen.getByTestId('nav-desk')).toBeTruthy();
+
+        // Back to Overview: the note again, and the panel reopens if it was shut.
+        await fireEvent.press(screen.getByTestId('shell-sidebar-toggle'));
+        await fireEvent.press(screen.getByTestId('nav-overview-rail'));
+        expect(overviewPress).toHaveBeenCalled();
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+        expect(screen.getByTestId('shell-sidebar-empty')).toBeTruthy();
     });
 
     /**
@@ -214,9 +535,8 @@ describe('AppShell — rail', () => {
 
         const sidebar = screen.getByTestId('shell-sidebar');
         expect(sidebar.props.className).toContain('w-[88px]');
-        // The rail is separated from the page by its own fill rather than by a hairline. A border
-        // on the canopy would be a second edge drawn over an edge that is already there.
-        expect(sidebar.props.className).toContain('bg-surface-canopy');
+        // The rail is separated from the page by its own green fill rather than by a hairline.
+        expect(sidebar.props.className).toContain('bg-surface-sidebar');
         expect(sidebar.props.className).not.toContain('border-e');
     });
 });
@@ -241,7 +561,7 @@ describe('AppShell — sidebar navigation', () => {
         { key: 'orders', label: 'Orders', group: 'Operations', onPress: () => {}, testID: 'nav-o' },
     ];
 
-    it('draws a heading per group, keeps caller order, and leads with the ungrouped items', async () => {
+    it('lists one module under its heading in the panel, and every module on the rail', async () => {
         setViewport(1280);
         await renderWithI18n(
             <AppShell testID="shell" variant="workspace" navigation={grouped}>
@@ -249,20 +569,26 @@ describe('AppShell — sidebar navigation', () => {
             </AppShell>,
         );
 
+        // Home is ungrouped and active: the panel says there is nothing under it rather than
+        // borrowing the first module, and the first module's icon then lists that module.
+        expect(screen.getByTestId('shell-sidebar-empty')).toHaveTextContent(
+            /Home has no pages under it/,
+        );
+        await fireEvent.press(screen.getByTestId('shell-rail-group-Catalogue'));
         expect(screen.getByTestId('shell-navigation-group-Catalogue')).toHaveTextContent(
             'Catalogue',
         );
-        expect(screen.getByTestId('shell-navigation-group-Operations')).toHaveTextContent(
-            'Operations',
-        );
-        // Every item still renders exactly once — grouping must not drop or duplicate a
-        // destination, which is the failure mode that would strand somebody.
-        for (const id of ['nav-home', 'nav-meals', 'nav-plans', 'nav-o']) {
+        expect(screen.queryByTestId('shell-navigation-group-Operations')).toBeNull();
+        for (const id of ['nav-meals', 'nav-plans']) {
             expect(screen.getAllByTestId(id)).toHaveLength(1);
         }
+        // Every module and every ungrouped destination is reachable from the rail.
+        expect(screen.getByTestId('nav-home-rail')).toBeTruthy();
+        expect(screen.getByTestId('shell-rail-group-Catalogue')).toBeTruthy();
+        expect(screen.getByTestId('shell-rail-group-Operations')).toBeTruthy();
     });
 
-    it('fills the active item rather than tinting it, because it carries white text', async () => {
+    it('draws the active item as the sidebar pill', async () => {
         setViewport(1280);
         await renderWithI18n(
             <AppShell testID="shell" variant="workspace" navigation={grouped}>
@@ -270,10 +596,10 @@ describe('AppShell — sidebar navigation', () => {
             </AppShell>,
         );
 
-        // `surface-brand` (#157043), never `brand-500` (#16A34A) — white on the latter is 3.05:1
-        // and this pill carries a 14px label (§1.3).
-        const active = screen.getByTestId('nav-home');
-        expect(active.props.className).toContain('bg-surface-brand');
+        // The sidebar roles, not a raw ramp stop: the pill and its #16A34A text are theme tokens,
+        // so dark mode swaps both.
+        const active = screen.getByTestId('nav-home-rail');
+        expect(active.props.className).toContain('bg-surface-sidebar-active');
         expect(active.props.className).not.toContain('bg-brand-500');
     });
 
@@ -562,5 +888,50 @@ describe('AppShell — consumer', () => {
 
         expect(screen.queryByTestId('shell-sidebar')).toBeNull();
         expect(screen.queryByTestId('shell-tabs')).toBeNull();
+    });
+});
+
+describe('AppShell — the docked bar', () => {
+    it('draws a sticky form footer on its own bottom edge, outside the scroll port', async () => {
+        await renderWithI18n(
+            <AppShell testID="shell" variant="workspace" title="Healthy360" navigation={navigation}>
+                <Text testID="content">Body</Text>
+                <FormNavigation
+                    testID="steps"
+                    previousLabel="Previous"
+                    onPrevious={jest.fn()}
+                    counter="Step 1 of 3"
+                    actions={null}
+                    sticky
+                />
+            </AppShell>,
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('shell-dock')).toBeTruthy();
+        });
+        const dock = screen.getByTestId('shell-dock');
+        const content = screen.getByTestId('shell-content');
+
+        expect(screen.getByTestId('steps')).toBeTruthy();
+        expect(within(dock).getByTestId('steps')).toBeTruthy();
+        expect(within(content).queryByTestId('steps')).toBeNull();
+        // Docked, so none of the in-place sticky fallback.
+        expect(screen.getByTestId('steps').props.className).not.toContain('web:sticky');
+    });
+
+    it('renders the footer in place when there is no shell to dock into', async () => {
+        await renderWithI18n(
+            <FormNavigation
+                testID="steps"
+                previousLabel="Previous"
+                onPrevious={jest.fn()}
+                counter="Step 1 of 3"
+                actions={null}
+                sticky
+            />,
+        );
+
+        expect(screen.getByTestId('steps').props.className).toContain('web:sticky');
     });
 });

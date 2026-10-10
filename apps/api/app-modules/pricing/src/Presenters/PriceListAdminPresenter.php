@@ -84,7 +84,9 @@ final class PriceListAdminPresenter
      * @return array{
      *     id: string,
      *     catalogue_item_id: string,
+     *     catalogue_item_type: string|null,
      *     catalogue_item_variant_id: string|null,
+     *     catalogue_item_variant_code: string|null,
      *     min_quantity: string|null,
      *     unit_amount_minor: int|null,
      *     currency_code: string,
@@ -94,13 +96,20 @@ final class PriceListAdminPresenter
      *     superseded_by_id: string|null,
      *     created_at: string|null
      * }
+     *
+     * The item's type and the variant's code say what the row prices — a product's pack, a meal,
+     * a plan's configuration — so an editor can draw the row without asking for every article
+     * one request at a time. Callers eager-load `catalogueItem` and `variant`; both are null
+     * when the article is out of the caller's reach.
      */
     public function entry(PriceListItem $entry, string $currencyCode): array
     {
         return [
             'id' => (string) $entry->getKey(),
             'catalogue_item_id' => $entry->catalogue_item_id,
+            'catalogue_item_type' => $entry->catalogueItem?->item_type->value,
             'catalogue_item_variant_id' => $entry->catalogue_item_variant_id,
+            'catalogue_item_variant_code' => $entry->variant?->code,
             'min_quantity' => $entry->min_quantity,
             // Null whenever the status says there is no price. The pair is a
             // single fact and the database CHECK guarantees it, so a client may

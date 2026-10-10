@@ -1,0 +1,24 @@
+{
+	"name": "healthy360/access-administration",
+	"description": "",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"Healthy360\\AccessAdministration\\": "src/",
+			"Healthy360\\AccessAdministration\\Tests\\": "tests/",
+			"Healthy360\\AccessAdministration\\Database\\Factories\\": "database/factories/",
+			"Healthy360\\AccessAdministration\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"Healthy360\\AccessAdministration\\Providers\\AccessAdministrationServiceProvider"
+			]
+		}
+	}
+}

@@ -14,7 +14,6 @@ import type {
     ReceiptCostStatus,
     QualityCheckStatus,
     QualityCheckSubjectType,
-    StockItem,
 } from '@healthy360/api-client/contracts';
 import type { BadgeTone } from '@healthy360/design-system';
 
@@ -32,11 +31,6 @@ import { ticketAgeTone } from '../kds/kds-board.ts';
 
 /* ── stock items ─────────────────────────────────────────────────────────────────────────────── */
 
-/** `CODE — Name`, the one line a picker or a table cell needs to identify a stock item. */
-export function stockItemLabel(item: StockItem): string {
-    return `${item.code} — ${item.nameEn}`;
-}
-
 /** `true` when a level's quantity is at or below zero — a live count, not a stored flag. */
 export function isOutOfStock(quantity: string): boolean {
     return Number(quantity) <= 0;
@@ -44,31 +38,73 @@ export function isOutOfStock(quantity: string): boolean {
 
 /* ── production orders ──────────────────────────────────────────────────────────────────────── */
 
+/**
+ * A ledger decimal as a cook reads it: to three places at most, with its unit, or the fallback.
+ *
+ * The ledger sends `"1.804906"` and `"0.0000"` — exact, and unreadable down a column. Three places
+ * is the batch sheet's own precision (`BATCH_QUANTITY_FORMAT`), so a figure here matches the figure
+ * the planner printed. A string that is not a number comes back as it arrived rather than as `NaN`.
+ */
+export function ledgerQuantity(
+    formatNumber: (value: number) => string,
+    value: string | null,
+    unitCode: string | null,
+    fallback: string,
+): string {
+    if (value === null) return fallback;
+    const parsed = Number(value);
+    const figure = Number.isFinite(parsed) ? formatNumber(parsed) : value;
+    return unitCode === null ? figure : `${figure} ${unitCode}`;
+}
+
 const PRODUCTION_STATUS_KEYS: Readonly<Record<ProductionOrderStatus, string>> = {
-    planned: 'kitchen:ops.production.status.planned',
-    in_progress: 'kitchen:ops.production.status.inProgress',
+    draft: 'kitchen:ops.production.status.draft',
+    confirmed: 'kitchen:ops.production.status.confirmed',
+    in_production: 'kitchen:ops.production.status.inProduction',
     completed: 'kitchen:ops.production.status.completed',
     cancelled: 'kitchen:ops.production.status.cancelled',
+    abandoned: 'kitchen:ops.production.status.abandoned',
 };
 
 export function productionStatusKey(status: ProductionOrderStatus): string {
     return PRODUCTION_STATUS_KEYS[status];
 }
 
+/**
+ * The tones say what a reader should feel about the state, not what stage it is.
+ *
+ * `abandoned` is `danger` and `cancelled` is `neutral`, and the difference is the whole point of the
+ * two words: a cancelled batch took nothing and cost nothing, while an abandoned one ate stock and
+ * produced something less than it should have. Giving them the same tone would hide the loss.
+ */
 const PRODUCTION_STATUS_TONES: Readonly<Record<ProductionOrderStatus, BadgeTone>> = {
-    planned: 'neutral',
-    in_progress: 'info',
+    draft: 'neutral',
+    confirmed: 'info',
+    in_production: 'brand',
     completed: 'success',
     cancelled: 'neutral',
+    abandoned: 'danger',
 };
 
 export function productionStatusTone(status: ProductionOrderStatus): BadgeTone {
     return PRODUCTION_STATUS_TONES[status];
 }
 
-/** `true` for a status a "complete" action may still be sent for. */
+/** `true` while the batch is still moving — what the desk queue shows by default. */
 export function isProductionOrderOpen(status: ProductionOrderStatus): boolean {
-    return status === 'planned' || status === 'in_progress';
+    return status === 'draft' || status === 'confirmed' || status === 'in_production';
+}
+
+/**
+ * The edge a batch takes next, or `null` when it is terminal or needs a form.
+ *
+ * `in_production` returns null deliberately: finishing a batch needs what actually came out, and a
+ * one-click "complete" would have to invent a produced quantity. The batch detail screen asks.
+ */
+export function nextProductionEdge(status: ProductionOrderStatus): 'confirm' | 'start' | null {
+    if (status === 'draft') return 'confirm';
+    if (status === 'confirmed') return 'start';
+    return null;
 }
 
 /* ── quality checks ──────────────────────────────────────────────────────────────────────────── */
@@ -743,8 +779,16 @@ export function goodsReceiptRowTestId(goodsReceiptId: string): string {
     return `kitchen-goods-receipt-${goodsReceiptId}`;
 }
 
-export function productionOrderRowTestId(productionOrderId: string): string {
-    return `kitchen-production-order-${productionOrderId}`;
+/**
+ * The stem every id on a batch row and on the batch screen is built from.
+ *
+ * One helper rather than a template literal per call site, for the reason its siblings exist: three
+ * surfaces render the same batch — the desk queue, the register and the batch screen — and a suite
+ * that pointed at two of the three spellings would go green while one of them had quietly stopped
+ * rendering.
+ */
+export function productionBatchTestId(productionOrderId: string): string {
+    return `kitchen-production-batch-${productionOrderId}`;
 }
 
 export function qualityCheckRowTestId(qualityCheckId: string): string {

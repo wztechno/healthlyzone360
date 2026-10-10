@@ -8,6 +8,7 @@ use Healthy360\Audit\Enums\PurposeOfUse;
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Catalogues\Enums\ProductionMode;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Kitchens\Import\Runtime\BackfillStub;
 use Healthy360\Kitchens\Import\Runtime\DesignationDictionary;
 use Healthy360\Kitchens\Import\Runtime\DesignationResolver;
 use Healthy360\Kitchens\Import\Runtime\ImportOptions;
@@ -15,8 +16,10 @@ use Healthy360\Kitchens\Import\Runtime\ImportReport;
 use Healthy360\Kitchens\Import\Runtime\IngredientWriter;
 use Healthy360\Kitchens\Import\Runtime\TechnicalSheetWriter;
 use Healthy360\Organisations\Models\Organisation;
+use Healthy360\Recipes\Enums\RecipeStatus;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Services\RecipeCostingService;
+use Healthy360\Recipes\Services\RecipeService;
 use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Console\Command;
@@ -65,6 +68,7 @@ final class ImportV6RecipesCommand extends Command
         private readonly DatabaseTenantContext $database,
         private readonly RecipeCostingService $costing,
         private readonly AuditRecorder $audit,
+        private readonly RecipeService $recipes,
     ) {
         parent::__construct();
     }
@@ -198,6 +202,15 @@ final class ImportV6RecipesCommand extends Command
      * Tie each catalogue item to the technical sheet that produces it, by the
      * dictionary's curated links — and strip the `recipe_library_unlinked`
      * flag the catalogue import left on the row, because it is no longer true.
+     *
+     * An item may already carry a recipe, and what happens then depends on
+     * whose it is. The sheet itself: nothing to do. A recipe somebody chose:
+     * theirs, left alone. A placeholder `kitchen:formulate-unlinked` wrote
+     * ({@see BackfillStub}) that nobody has touched: the sheet takes its place
+     * and the placeholder is archived — so the two commands can run in either
+     * order. A placeholder somebody *has* started on: kept, with the sheet
+     * imported beside it and both named under `deferred_edited_stub`, because
+     * nothing a person wrote is archived or deleted by a batch job.
      */
     private function linkRecipes(DesignationDictionary $dictionary, string $organisationId, ImportReport $report): void
     {
@@ -238,10 +251,48 @@ final class ImportV6RecipesCommand extends Command
                 continue;
             }
 
-            if ($item->recipe_id !== null) {
+            if ($item->recipe_id === (string) $recipe->getKey()) {
                 $report->skipped('catalogue_item_recipe_link');
 
                 continue;
+            }
+
+            // The placeholder this sheet takes over, when the item carries one nobody has touched.
+            $replaced = null;
+
+            if ($item->recipe_id !== null) {
+                $current = Recipe::withoutTenancy()
+                    ->where('organisation_id', $organisationId)
+                    ->whereKey($item->recipe_id)
+                    ->first();
+
+                // A recipe somebody chose for this item is theirs to keep.
+                if (! $current instanceof Recipe || $current->source_system !== BackfillStub::SOURCE_SYSTEM) {
+                    $report->skipped('catalogue_item_recipe_link');
+
+                    continue;
+                }
+
+                // A placeholder somebody has started on is theirs too. The sheet is still imported —
+                // it reads as a preparation in the book — and both are named for a person to
+                // reconcile, because merging a formulation somebody typed is not a batch job's call.
+                if (! BackfillStub::query($organisationId)->whereKey($current->getKey())->exists()) {
+                    $report->skipped('catalogue_item_recipe_link');
+                    $report->finding(
+                        'deferred_edited_stub',
+                        sprintf(
+                            '"%s" keeps its placeholder recipe %s, which somebody has edited; sheet "%s" was imported beside it as a recipe of its own. Reconcile the two by hand.',
+                            $item->name_en,
+                            $current->source_ref ?? $current->slug,
+                            $designation,
+                        ),
+                        (string) $item->source_ref,
+                    );
+
+                    continue;
+                }
+
+                $replaced = $current;
             }
 
             $item->recipe_id = (string) $recipe->getKey();
@@ -249,6 +300,10 @@ final class ImportV6RecipesCommand extends Command
             $item->save();
 
             $report->created('catalogue_item_recipe_link');
+
+            if ($replaced !== null) {
+                $this->archiveReplacedPlaceholder($replaced, $organisationId, $report);
+            }
         }
 
         foreach ($dictionary->declinedRecipeLinks() as $declined) {
@@ -257,6 +312,40 @@ final class ImportV6RecipesCommand extends Command
                 sprintf('%s ↛ %s — %s', $declined['product'], $declined['candidate'], $declined['reason']),
             );
         }
+    }
+
+    /**
+     * Archive a placeholder the sheet has just taken over.
+     *
+     * After the relink, so the item never points at an archived recipe — and only when nothing
+     * else still points at it and it is not archived already: `archive()` refuses a recipe that is,
+     * and a refusal here would roll the whole import back. Archived rather than deleted because the
+     * import is not the place a recipe disappears from; `kitchen:formulate-unlinked --undo` is, and
+     * only for a placeholder that is still untouched.
+     */
+    private function archiveReplacedPlaceholder(Recipe $placeholder, string $organisationId, ImportReport $report): void
+    {
+        $current = Recipe::withoutTenancy()
+            ->where('organisation_id', $organisationId)
+            ->whereKey($placeholder->getKey())
+            ->first();
+
+        if (! $current instanceof Recipe || $current->status === RecipeStatus::Archived) {
+            return;
+        }
+
+        $stillSold = CatalogueItem::withoutTenancy()
+            ->where('organisation_id', $organisationId)
+            ->where('recipe_id', $current->getKey())
+            ->exists();
+
+        if ($stillSold) {
+            return;
+        }
+
+        $this->recipes->archive($current, $current->lock_version);
+
+        $report->created('backfill_placeholder_archived');
     }
 
     /**

@@ -14,6 +14,8 @@ use Healthy360\Catalogues\Services\CatalogueItemReadiness;
 use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Models\DeliveryZoneArea;
+use Healthy360\Delivery\Services\ZoneWindowService;
+use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Kitchens\Import\Runtime\ImportOptions;
 use Healthy360\Kitchens\Import\Runtime\ImportReport;
@@ -132,7 +134,7 @@ function importedRowCounts(): array
         'catalogue_items', 'catalogue_item_variants', 'catalogue_item_pack_variants',
         'catalogue_item_ingredients', 'channel_catalogue_items', 'price_list_items',
         'meal_combination_options', 'energy_bands', 'plan_durations', 'subscription_plan_profiles',
-        'plan_variant_profiles', 'plan_variant_durations', 'delivery_zones', 'delivery_zone_areas',
+        'plan_variant_profiles', 'plan_variant_durations', 'delivery_zones', 'delivery_zone_areas', 'delivery_zone_windows',
         'delivery_windows',
     ];
 
@@ -534,6 +536,10 @@ it('claims every Lebanese area in one zone with no fee and no minimum', function
                 ->and($window->ends_at)->toBeNull()
                 ->and($window->weekdays)->toBe([]);
         }
+
+        // The zone offers all three, or every imported delivery would be
+        // refused `window_not_offered`.
+        expect(app(ZoneWindowService::class)->offeredCodes($zone))->toEqualCanonicalizing(['afternoon', 'evening', 'morning']);
     });
 });
 
@@ -662,7 +668,31 @@ it('reports findings without touching the database in validate-only mode', funct
         ->and($report->countsSnapshot())->toBe([]);
 });
 
-it('surfaces the allergen escalation and the burghul contradiction', function (): void {
+it('surfaces the allergen escalation for an ingredient under review', function (): void {
+    /*
+     * The escalation needs a quarantined row, and the seed no longer has one.
+     *
+     * This test used to rely on the burghul and pita contradiction arriving
+     * quarantined from the platform library — the v1 workbook tagged both
+     * allergen class "None" beside an allergen key that listed them under
+     * Cereals/Gluten. The v6 source resolved that upstream (D-074, D-091; R-019
+     * records the half of the risk that closed), both rows now declare gluten
+     * outright, and `DatabaseSeederTest` pins exactly that: zero rows under
+     * review, so "a regression to the silent reading cannot pass unnoticed".
+     *
+     * So the precondition is arranged here rather than assumed. That is the
+     * point of doing it this way instead of deleting the assertion: nothing in
+     * the application writes `RequiresReview` any more — every writer sets
+     * `Unverified` or `Verified` and `StoreIngredientRequest` refuses a
+     * client-supplied value — so without this the escalation would be live code
+     * no test reaches. Whether a state only a direct database write can produce
+     * should still gate publication is a governance question, and it is filed
+     * as one rather than answered by quietly dropping the coverage.
+     */
+    $burghul = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-132')->sole();
+    $burghul->verification_status = IngredientVerificationStatus::RequiresReview;
+    $burghul->save();
+
     $report = runImport();
 
     $review = $report->allergenReviewSnapshot();
@@ -676,6 +706,17 @@ it('surfaces the allergen escalation and the burghul contradiction', function ()
 
     expect($contradiction['detail'])->toContain('requires_review')
         ->and($contradiction['detail'])->toContain('Cereals/Gluten');
+});
+
+it('raises no ingredient escalation when the library has nothing under review', function (): void {
+    // The other half, and the one that matches the shipped seed: the v6 source
+    // resolved the contradiction, so an ordinary run escalates no ingredient at
+    // all. Pinned so that a row arriving quarantined again is a visible change
+    // rather than a quiet one.
+    $report = runImport();
+
+    expect(array_column($report->allergenReviewSnapshot(), 'code'))
+        ->not->toContain('ingredient_requires_review');
 });
 
 it('separates imported drafts from quarantine in the report', function (): void {

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Animated, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 
+import { AnimatedView } from '../internal/animated-view.ts';
 import { cx } from '../internal/class-names.ts';
 import { useMotion } from './use-motion.ts';
 
@@ -62,7 +63,7 @@ export function Shimmer({ children, cycleMs = DEFAULT_CYCLE_MS, className, testI
         >
             {children}
             {enabled && width > 0 ? (
-                <Animated.View
+                <AnimatedView
                     testID={testID === undefined ? undefined : `${testID}-band`}
                     accessibilityElementsHidden
                     importantForAccessibility="no-hide-descendants"

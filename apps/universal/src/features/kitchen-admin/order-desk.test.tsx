@@ -21,6 +21,7 @@ import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { KDS_LATE_MINUTES, KDS_WARNING_MINUTES } from '../kds/kds-board.ts';
 import { minutesPastDue, orderDeskDeliveryState, orderDeskDueTone } from './ops-format.ts';
 import { OrderDeskScreen } from './screens/order-desk-screen.tsx';
+import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
 import { Dimensions } from 'react-native';
 
 /**
@@ -137,7 +138,7 @@ function deliveryJob(overrides: Partial<OrderDeskDeliveryJob> = {}): OrderDeskDe
     };
 }
 
-/** The detail read behind the drawer. The same order, without the desk's two extra blocks. */
+/** The detail read behind the record page. The same order, without the desk's two extra blocks. */
 function detailOrder(row: OrderDeskQueueRow, overrides: Partial<KitchenOrder> = {}): KitchenOrder {
     const {
         dueAt: _dueAt,
@@ -176,7 +177,7 @@ async function renderDesk(listQueue: (filters?: OrderDeskQueueFilters) => Promis
 }
 
 /**
- * The desk with its drawer wired: the queue, the detail read behind it, and the two transitions.
+ * The desk with its record page wired: the queue, the detail read behind it, and the two transitions.
  *
  * The detail read is a *separate* stub from the queue on purpose — that separation is the screen's
  * whole argument about lock versions, and a harness that answered both from one object could not
@@ -350,11 +351,8 @@ describe('order desk queue — the four-state ladder', () => {
         expect(screen.getByTestId(rowTestId(3, 'number'))).toHaveTextContent('H360-2026-0148');
         // 16 000 minor units through the currency's own exponent, exactly once.
         expect(screen.getByTestId(rowTestId(1, 'total'))).toHaveTextContent('AED 160.00');
-        // Pages are cut from the loaded queue, eighteen rows each; three rows need no page buttons.
-        expect(screen.getByTestId('kitchen-order-desk-pagination-range')).toHaveTextContent(
-            'Showing 3 of 3',
-        );
-        expect(screen.queryByTestId('kitchen-order-desk-pagination-pages')).toBeNull();
+        // Pages are cut from the loaded queue, eighteen rows each; three rows need no pager at all.
+        expect(screen.queryByTestId('kitchen-order-desk-pagination')).toBeNull();
     });
 });
 
@@ -420,23 +418,36 @@ describe('order desk queue — ageing against the due instant', () => {
             { timeout: 5000 },
         );
 
-        // `Badge` pairs every non-neutral tone with its own glyph, so the band survives greyscale
-        // and colour blindness — which is what these assertions are actually checking. The glyph is
-        // `aria-hidden` on purpose (the badge's own label is the interval, spelled out), so it is
-        // only reachable with `includeHiddenElements` — and that must be passed on the *negative*
-        // assertion too, or it would pass whatever the tone was.
+        // `Badge` marks every non-neutral tone with a dot and leaves neutral bare, so "has come
+        // due" and "not yet" still differ in greyscale; the interval itself is spelled out in the
+        // label. The dot is `aria-hidden` on purpose, so it is only reachable with
+        // `includeHiddenElements` — and that must be passed on the *negative* assertion too, or it
+        // would pass whatever the tone was.
         const hidden = { includeHiddenElements: true } as const;
         expect(screen.getByTestId(rowTestId(1, 'due-age'))).toHaveTextContent(/ago$/);
-        expect(screen.getByTestId(`${rowTestId(1, 'due-age')}-icon`, hidden)).toBeTruthy();
-        expect(screen.getByTestId(`${rowTestId(2, 'due-age')}-icon`, hidden)).toBeTruthy();
-        // Neutral carries no glyph, because there is nothing yet to warn about.
+        expect(screen.getByTestId(`${rowTestId(1, 'due-age')}-mark`, hidden)).toBeTruthy();
+        expect(screen.getByTestId(`${rowTestId(2, 'due-age')}-mark`, hidden)).toBeTruthy();
+        // Neutral carries no mark, because there is nothing yet to warn about.
         expect(screen.getByTestId(rowTestId(3, 'due-age'))).toHaveTextContent(/^in /);
-        expect(screen.queryByTestId(`${rowTestId(3, 'due-age')}-icon`, hidden)).toBeNull();
+        expect(screen.queryByTestId(`${rowTestId(3, 'due-age')}-mark`, hidden)).toBeNull();
     });
 });
 
 describe('order desk queue — the customer column', () => {
+    afterEach(() => {
+        forgetColumnChoice('kitchen-order-desk');
+    });
+
     it('renders an em dash when the field is absent and when the name is null', async () => {
+        // Phone ranks below the six a first visit draws; the reader has picked it.
+        rememberColumnChoice('kitchen-order-desk', [
+            'number',
+            'customer',
+            'phone',
+            'due',
+            'ageing',
+            'total',
+        ]);
         await renderDesk(async () => queue(seedQueue()));
 
         await waitFor(
@@ -600,7 +611,7 @@ describe('order desk queue — the delivery column', () => {
         expect(orderDeskDeliveryState(at(4))).toBe('assigned');
     });
 
-    it('carries no delivery column — the run is read in the drawer', async () => {
+    it('carries no delivery column — the run is read in the record page', async () => {
         await renderDesk(async () => queue(deliveryStateQueue()));
 
         await waitFor(
@@ -674,7 +685,7 @@ describe('order desk queue — the payment cell', () => {
             'Cash on delivery',
         );
         expect(screen.getByTestId(rowTestId(2, 'payment-method'))).toHaveTextContent(
-            'WISH transfer',
+            'Whish transfer',
         );
 
         expect(screen.getByTestId(rowTestId(3, 'payment-method'))).toHaveTextContent(
@@ -689,7 +700,7 @@ describe('order desk queue — the payment cell', () => {
     });
 });
 
-describe('order desk queue — the detail drawer', () => {
+describe('order desk queue — the order record page', () => {
     it('stays shut until a row is opened, then re-reads the order rather than trusting the row', async () => {
         const row = deskRow({ id: orderIdAt(1), status: 'placed', lockVersion: 1 });
         // The queue row is a poll or two old; the detail read is the current truth.
@@ -709,7 +720,7 @@ describe('order desk queue — the detail drawer', () => {
         expect(screen.queryByTestId('kitchen-order-desk-detail-body')).toBeNull();
         expect(repositories.kitchenOrders.getOrder).not.toHaveBeenCalled();
 
-        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
 
         await waitFor(
             () => {
@@ -736,7 +747,7 @@ describe('order desk queue — the detail drawer', () => {
             },
             { timeout: 5000 },
         );
-        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-order-desk-detail-confirm')).toBeTruthy();
         });
@@ -761,7 +772,7 @@ describe('order desk queue — the detail drawer', () => {
      *
      * The desk is deliberately not blocked on `tracking_status === 'delivered'` — an agent on the
      * telephone to a customer holding the food knows something the board does not, and a driver's
-     * phone in a pocket in a lift knows nothing at all. What the drawer owes instead is the tracking
+     * phone in a pocket in a lift knows nothing at all. What the record page owes instead is the tracking
      * status *beside* the button, which is what makes the close informed rather than blind.
      */
     it('offers Fulfil on a confirmed delivery whose driver is still on the way, and says so', async () => {
@@ -790,7 +801,7 @@ describe('order desk queue — the detail drawer', () => {
             },
             { timeout: 5000 },
         );
-        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-order-desk-detail-fulfil')).toBeTruthy();
@@ -801,7 +812,7 @@ describe('order desk queue — the detail drawer', () => {
         expect(screen.getByTestId('kitchen-order-desk-detail-fulfil-tracking')).toHaveTextContent(
             'On the way',
         );
-        // The run's own facts are in the drawer's delivery block, from the queue row — the detail
+        // The run's own facts are in the record page's delivery block, from the queue row — the detail
         // endpoint serves none of them.
         expect(screen.getByTestId('kitchen-order-desk-detail-delivery-status')).toHaveTextContent(
             'On the road',
@@ -817,7 +828,49 @@ describe('order desk queue — the detail drawer', () => {
         });
     });
 
-    it('keeps the payment position and the run in the drawer, from the row the detail cannot serve', async () => {
+    it('reads a fulfilled cash order as settled, and stops offering to record the same money', async () => {
+        const row = deskRow({
+            id: orderIdAt(1),
+            status: 'confirmed',
+            lockVersion: 2,
+            totalMinor: 16_000,
+            payment: { method: 'cash_on_delivery', receivedMinor: 0, receipted: false },
+        });
+        const fresh = detailOrder(row, { lockVersion: 2 });
+        let fulfilled = false;
+
+        await renderDeskWithDetail({
+            // Fulfilled orders leave the queue, which is why the screen falls back to its own copy.
+            listQueue: async () => queue(fulfilled ? [] : [row]),
+            getOrder: async () => fresh,
+            fulfilOrder: async () => {
+                fulfilled = true;
+                return { ...fresh, status: 'fulfilled', lockVersion: 3 };
+            },
+        });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-table')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-order-desk-detail-record-payment')).toBeTruthy();
+        });
+
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-fulfil'));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-order-desk-detail-payment-state')).toHaveTextContent(
+                'Settled',
+            );
+        });
+        expect(screen.queryByTestId('kitchen-order-desk-detail-record-payment')).toBeNull();
+    });
+
+    it('keeps the payment position and the run in the record page, from the row the detail cannot serve', async () => {
         const row = deskRow({
             id: orderIdAt(1),
             status: 'confirmed',
@@ -837,13 +890,13 @@ describe('order desk queue — the detail drawer', () => {
             },
             { timeout: 5000 },
         );
-        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-order-desk-detail-body')).toBeTruthy();
         });
 
         expect(screen.getByTestId('kitchen-order-desk-detail-payment-method')).toHaveTextContent(
-            'WISH transfer',
+            'Whish transfer',
         );
         expect(screen.getByTestId('kitchen-order-desk-detail-payment-received')).toHaveTextContent(
             'AED 100.00',
@@ -874,7 +927,7 @@ describe('order desk queue — the detail drawer', () => {
             },
             { timeout: 5000 },
         );
-        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-order-desk-detail-body')).toBeTruthy();
         });
@@ -913,7 +966,7 @@ describe('order desk queue — the detail drawer', () => {
             },
             { timeout: 5000 },
         );
-        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-order-desk-detail-confirm')).toBeTruthy();
         });
@@ -940,7 +993,7 @@ describe('order desk queue — the detail drawer', () => {
             },
             { timeout: 5000 },
         );
-        // Re-read, and the drawer now shows what the other tablet did rather than a stale offer:
+        // Re-read, and the record page now shows what the other tablet did rather than a stale offer:
         // a confirmed order has no Confirm button.
         await waitFor(() => {
             expect(screen.queryByTestId('kitchen-order-desk-detail-confirm')).toBeNull();
@@ -964,7 +1017,7 @@ describe('order desk queue — the detail drawer', () => {
             },
             { timeout: 5000 },
         );
-        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-order-desk-detail-confirm')).toBeTruthy();
         });
@@ -1050,7 +1103,7 @@ describe('order desk queue — the driver picker', () => {
             },
             { timeout: 5000 },
         );
-        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
         await waitFor(
             () => {
                 expect(screen.getByTestId('kitchen-order-desk-detail-assign')).toBeTruthy();
@@ -1079,11 +1132,11 @@ describe('order desk queue — the driver picker', () => {
         // polls every fifteen seconds and may never assign anything.
         expect(repositories.orderDesk.listDrivers).not.toHaveBeenCalled();
 
-        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-order-desk-detail-assign')).toBeTruthy();
         });
-        // Still not: the drawer is a reading surface.
+        // Still not: the record page is a reading surface.
         expect(repositories.orderDesk.listDrivers).not.toHaveBeenCalled();
 
         fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-assign'));
@@ -1177,7 +1230,7 @@ describe('order desk queue — the driver picker', () => {
             },
             { timeout: 5000 },
         );
-        // The decision is made, so the dialog is gone; the drawer stays on the order.
+        // The decision is made, so the dialog is gone; the record page stays on the order.
         expect(screen.queryByTestId('kitchen-order-desk-assign-list')).toBeNull();
     });
 
@@ -1268,7 +1321,7 @@ describe('order desk queue — the driver picker', () => {
             },
             { timeout: 5000 },
         );
-        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-order-desk-detail-delivery')).toBeTruthy();
         });
@@ -1285,7 +1338,7 @@ describe('order desk queue — the driver picker', () => {
             },
             { timeout: 5000 },
         );
-        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-order-desk-detail-assign')).toBeTruthy();
         });
@@ -1369,7 +1422,7 @@ describe('order desk queue — the fulfilment-type filter', () => {
 });
 
 /**
- * Recording money that arrived — the drawer's one write that changes nothing on the order.
+ * Recording money that arrived — the record page's one write that changes nothing on the order.
  *
  * A counter sale settles itself; a delivery is paid at the door and a pickup on collection, both
  * after placement. So the action is offered while an order is unsettled and not cancelled, it
@@ -1425,7 +1478,7 @@ describe('order desk queue — recording a payment', () => {
             },
             { timeout: 5000 },
         );
-        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
         await waitFor(
             () => {
                 expect(screen.getByTestId('kitchen-order-desk-detail-record-payment')).toBeTruthy();
@@ -1568,7 +1621,7 @@ describe('order desk queue — recording a payment', () => {
             },
             { timeout: 5000 },
         );
-        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
         await waitFor(
             () => {
                 expect(screen.getByTestId('kitchen-order-desk-detail-payment')).toBeTruthy();
@@ -1589,7 +1642,7 @@ describe('order desk queue — recording a payment', () => {
             },
             { timeout: 5000 },
         );
-        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
         await waitFor(
             () => {
                 expect(screen.getByTestId('kitchen-order-desk-detail-payment')).toBeTruthy();

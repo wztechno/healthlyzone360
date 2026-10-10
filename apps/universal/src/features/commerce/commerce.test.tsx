@@ -125,6 +125,7 @@ import {
 import {
     ALLERGEN_CONFLICT_WARNING,
     CHECKOUT_ADDRESS_MISSING,
+    CHECKOUT_WINDOW_NOT_OFFERED,
     CHECKOUT_EMPTY_CART,
     SUBSCRIPTION_DAY_UNAVAILABLE,
     displayableWarnings,
@@ -244,6 +245,7 @@ const KITCHEN_BRANCH: KitchenBranch = {
         deliveryFee: { amount: 1500, currency: AED },
         minimumOrder: null,
         estimatedMinutes: 45,
+        windowCodes: [],
     })),
     openingHours: [],
     supportsPickup: false,
@@ -341,6 +343,7 @@ function testMeal(seed: MealSeed): MarketplaceMeal {
             },
         },
         price: { amount: seed.priceMinorUnits, currency: AED },
+        pack: null,
         preparationMinutes: 25,
         imagePlaceholderId: `meal-${String(seed.ordinal)}`,
         availability: [{ date: '2026-08-20', available: true, remaining: 8, orderCutOffAt: null }],
@@ -661,6 +664,7 @@ function checkoutPreview(cart: Cart, request: PreviewCheckoutRequest): CheckoutP
         total: { amount: cart.subtotal.amount + (deliveryFee?.amount ?? 0), currency: AED },
         earliestDeliveryDate: '2026-08-12',
         warnings: [],
+        offeredWindowCodes: null,
         paymentDeferred: true,
     };
 }
@@ -1469,11 +1473,23 @@ describe('what each subscription state permits', () => {
 
 /* ══ screens: the basket ═══════════════════════════════════════════════════════════════════════ */
 
-function renderCart(basket: Basket, options: { readonly latencyMs?: number } = {}) {
+function renderCart(
+    basket: Basket,
+    options: {
+        readonly latencyMs?: number;
+        readonly addresses?: readonly CustomerAddress[];
+    } = {},
+) {
     return renderStubScreen(<CartScreen />, {
         session: testMeResponse(),
         ...(options.latencyMs === undefined ? {} : { latencyMs: options.latencyMs }),
-        repositories: { commerce: basketRepository(basket) },
+        repositories: {
+            commerce: basketRepository(basket),
+            // A line's photograph is the meal's own, read by id — `CartItem` carries none.
+            marketplace: { getMeal: async (mealId: MealId) => mealById(mealId) },
+            // The line under the title, and the delivery figure, come from the default address.
+            account: { listAddresses: async () => options.addresses ?? [] },
+        },
     });
 }
 
@@ -1501,16 +1517,60 @@ describe('CartScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('cart-lines')).toBeTruthy();
         });
-        expect(screen.getByTestId('cart-count')).toBeTruthy();
+        expect(screen.getByTestId('cart-title')).toHaveTextContent('Your cart');
         // Two of a 45.00 meal: the line total is the repository's, and so is the priced total.
         expect(screen.getByTestId(`cart-line-${BASKET_LINE_ID}-total`)).toHaveTextContent(
             'AED 90.00',
+        );
+        // A line has no modifiers in the contract, which is the design's own "No changes" case.
+        expect(screen.getByTestId(`cart-line-${BASKET_LINE_ID}-mods`)).toHaveTextContent(
+            'No changes',
         );
         await waitFor(() => {
             expect(screen.getByTestId('cart-price-total-amount')).toHaveTextContent('AED 90.00');
         });
         expect(screen.getByTestId('cart-price-subtotal-amount')).toHaveTextContent('AED 90.00');
-        expect(screen.getByTestId('cart-price-no-payment')).toBeTruthy();
+        // No saved address, so nothing to price delivery from yet — said, not shown as zero.
+        expect(screen.getByTestId('cart-price-delivery-amount')).toHaveTextContent('At checkout');
+        // No tax figure exists, and no discount was quoted: neither row is drawn.
+        expect(screen.queryByTestId('cart-price-discount')).toBeNull();
+        expect(screen.getByTestId('cart-fine-print')).toHaveTextContent(/cash/);
+    });
+
+    it('names the default saved address and prices delivery to it', async () => {
+        const harness = await renderCart(basketOf(2), {
+            addresses: [testAddress({ id: 'address-office', isDefault: false }), HOME_ADDRESS],
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('cart-subtitle')).toHaveTextContent(/12 Sunset Street/);
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId('cart-price-delivery-amount')).toHaveTextContent('AED 15.00');
+        });
+        expect(screen.getByTestId('cart-price-total-amount')).toHaveTextContent('AED 105.00');
+        // The preview was asked about the default address, not the first one in the list.
+        expect(harness.repositories.commerce.previewCheckout).toHaveBeenCalledWith(
+            expect.objectContaining({ addressId: HOME_ADDRESS.id }),
+        );
+    });
+
+    /**
+     * There is no promotion operation, so the design's promo field and "Apply" are the prototype
+     * notice: drawn, and honest about doing nothing.
+     */
+    it('answers "Apply" on a promo code with the prototype notice and changes nothing', async () => {
+        const basket = basketOf(1);
+        await renderCart(basket);
+        await waitFor(() => {
+            expect(screen.getByTestId('cart-promo-apply')).toBeTruthy();
+        });
+
+        await fireEvent.changeText(screen.getByTestId('cart-promo-input'), 'SUMMER');
+        await fireEvent.press(screen.getByTestId('cart-promo-apply'));
+
+        expect(await screen.findByTestId('prototype-notice')).toHaveTextContent(/Not built yet/);
+        expect(screen.getByTestId('cart-price-total-amount')).toHaveTextContent('AED 45.00');
     });
 
     it('raises a quantity for real, and the total moves with it', async () => {
@@ -1590,6 +1650,53 @@ describe('CartScreen', () => {
         await fireEvent.press(screen.getByTestId('cart-checkout'));
         expect(routerMock.__push).toHaveBeenCalledWith('/customer/checkout');
     });
+
+    /**
+     * The design's compact stepper replaced a labelled number field, so what the field's label used
+     * to say now has to be said by the controls: each button names the meal it changes, and the
+     * floor is a disabled minus rather than a line that silently refuses to drop below one.
+     */
+    it('names the meal on each quantity control and will not step below one portion', async () => {
+        await renderCart(basketOf(1));
+        await waitFor(() => {
+            expect(screen.getByTestId('cart-lines')).toBeTruthy();
+        });
+
+        const decrement = screen.getByTestId(`cart-line-${BASKET_LINE_ID}-quantity-decrement`);
+        const increment = screen.getByTestId(`cart-line-${BASKET_LINE_ID}-quantity-increment`);
+        expect(decrement.props.accessibilityLabel).toContain(BASKET_MEAL.name);
+        expect(increment.props.accessibilityLabel).toContain(BASKET_MEAL.name);
+        expect(decrement.props.accessibilityState).toMatchObject({ disabled: true });
+        expect(screen.getByTestId(`cart-line-${BASKET_LINE_ID}-quantity-value`)).toHaveTextContent(
+            '1',
+        );
+        // The photograph slot is there — decorative, since the name beside it is what is announced.
+        expect(
+            screen.getByTestId(`cart-line-${BASKET_LINE_ID}-image`, {
+                includeHiddenElements: true,
+            }),
+        ).toBeTruthy();
+    });
+
+    it('offers the menu again from under the lines, as a way to add rather than to leave', async () => {
+        await renderCart(basketOf(1));
+        await waitFor(() => {
+            expect(screen.getByTestId('cart-add-more')).toBeTruthy();
+        });
+        await fireEvent.press(screen.getByTestId('cart-add-more'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/meals');
+        // The summary rail is a sibling of the lines, not nested inside them, so it can sit beside
+        // them on a desk and after them on a phone.
+        expect(screen.getByTestId('cart-layout-main')).toContainElement(
+            screen.getByTestId('cart-lines'),
+        );
+        expect(screen.getByTestId('cart-layout-main')).not.toContainElement(
+            screen.getByTestId('cart-summary'),
+        );
+        expect(screen.getByTestId('cart-layout-aside')).toContainElement(
+            screen.getByTestId('cart-summary'),
+        );
+    });
 });
 
 /* ══ screens: checkout ═════════════════════════════════════════════════════════════════════════ */
@@ -1599,30 +1706,52 @@ interface CheckoutOptions {
     readonly commerce?: Partial<CommerceRepository> | undefined;
 }
 
+/**
+ * Settles once the checkout's kitchen query has been answered. Review records the kitchen's name
+ * as it reads at that moment, so committing before the answer lands leaves the confirmation saying
+ * "The kitchen" — a race a slow CI runner loses.
+ */
+let kitchenServed: Promise<void> = Promise.resolve();
+
 function renderCheckout(basket: Basket, options: CheckoutOptions = {}) {
+    let served = () => {};
+    kitchenServed = new Promise((resolve) => {
+        served = resolve;
+    });
     return renderStubScreen(<CheckoutScreen />, {
         session: testMeResponse(),
         repositories: {
             commerce: { ...basketRepository(basket), ...options.commerce },
             account: { listAddresses: async () => options.addresses ?? [] },
-            marketplace: { getKitchen: async () => KITCHEN },
+            marketplace: {
+                getKitchen: async () => {
+                    served();
+                    return KITCHEN;
+                },
+            },
         },
     });
 }
 
 /** Choose the one saved address and commit the delivery details, which reveals "place order". */
 async function reviewCheckout(addressId: string): Promise<void> {
+    await act(async () => {
+        await kitchenServed;
+    });
     await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
     await fireEvent.press(await screen.findByTestId(`checkout-address-picker-option-${addressId}`));
-    // Choosing an address re-prices, so the review control goes away and comes back.
     await waitFor(() => {
         expect(screen.getByTestId('checkout-review')).toBeTruthy();
     });
     await act(async () => {
         fireEvent.press(screen.getByTestId('checkout-review'));
     });
+    // Choosing an address re-prices, and "place order" waits for that price: no confirmed total,
+    // no placement.
     await waitFor(() => {
-        expect(screen.getByTestId('checkout-place-order')).toBeTruthy();
+        expect(screen.getByTestId('checkout-place-order').props.accessibilityState).toMatchObject({
+            disabled: false,
+        });
     });
 }
 
@@ -1656,12 +1785,40 @@ describe('CheckoutScreen', () => {
 
         expect(screen.getByTestId('checkout-slot-picker')).toBeTruthy();
         expect(screen.getByTestId('checkout-date-field')).toBeTruthy();
-        // Cash on delivery, stated on the summary once the basket has been priced.
-        expect(await screen.findByTestId('checkout-payment-notice')).toBeTruthy();
+        // Delivery is the real fulfilment and is chosen; this kitchen publishes no pickup, so the
+        // design's Pickup card is drawn and refuses rather than pretending.
+        expect(screen.getByTestId('checkout-mode-delivery').props.accessibilityState).toMatchObject(
+            { checked: true },
+        );
+        expect(screen.getByTestId('checkout-mode-pickup').props.accessibilityState).toMatchObject({
+            checked: false,
+            disabled: true,
+        });
 
-        // The property that matters most on this screen is an absence.
+        // The property that matters most on this screen is an absence: nothing on the delivery
+        // step takes payment, and nowhere on the screen takes a card.
+        expect(screen.queryByTestId('checkout-payment-methods')).toBeNull();
         expect(screen.queryByTestId('checkout-card-number')).toBeNull();
-        expect(screen.queryByTestId('checkout-payment')).toBeNull();
+    });
+
+    it('shows the chosen saved address in the delivery grid, read from the address book', async () => {
+        const address = testAddress({ line2: 'Flat 4', notes: 'Ring twice' });
+        await renderCheckout(basketOf(1), { addresses: [address] });
+
+        await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
+        await fireEvent.press(
+            await screen.findByTestId(`checkout-address-picker-option-${address.id}`),
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('checkout-street-input').props.value).toBe(
+                '12 Sunset Street, Flat 4',
+            );
+        });
+        expect(screen.getByTestId('checkout-area-input').props.value).toBe('Business Bay');
+        expect(screen.getByTestId('checkout-note-input').props.value).toBe('Ring twice');
+        // Edited in the address book, not here.
+        expect(screen.getByTestId('checkout-street-input').props.editable).toBe(false);
     });
 
     it('refuses to review until an address has been chosen', async () => {
@@ -1675,7 +1832,7 @@ describe('CheckoutScreen', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('checkout-address-error')).toBeTruthy();
+            expect(screen.getByTestId('checkout-address-picker-error')).toBeTruthy();
         });
         // Still collecting: no place-order control has appeared.
         expect(screen.queryByTestId('checkout-place-order')).toBeNull();
@@ -1697,8 +1854,18 @@ describe('CheckoutScreen', () => {
 
         await reviewCheckout(HOME_ADDRESS.id);
 
-        expect(screen.getByTestId('checkout-committed-address')).toBeTruthy();
+        expect(screen.getByTestId('checkout-committed-address')).toHaveTextContent(
+            /12 Sunset Street/,
+        );
         expect(screen.getByTestId('checkout-committed-slot')).toBeTruthy();
+        // The payment step is the design's radio list with the one method there is, chosen.
+        expect(screen.getByTestId('checkout-payment-methods').props.accessibilityRole).toBe(
+            'radiogroup',
+        );
+        expect(screen.getByTestId('checkout-payment-cod').props.accessibilityState).toMatchObject({
+            checked: true,
+        });
+        expect(screen.queryByTestId('checkout-card-number')).toBeNull();
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('checkout-place-order'));
@@ -1707,16 +1874,23 @@ describe('CheckoutScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('checkout-success-screen')).toBeTruthy();
         });
-        expect(screen.getByTestId('checkout-success-reference')).toHaveTextContent('H360-4821');
+        expect(screen.getByTestId('checkout-success-title')).toHaveTextContent(
+            'Order H360-4821 confirmed',
+        );
         // Cash on delivery, said out loud rather than implied by the absence of a receipt.
-        expect(screen.getByTestId('checkout-success-cod')).toBeTruthy();
+        expect(screen.getByTestId('checkout-success-body')).toHaveTextContent(/in cash/);
+        expect(screen.getByTestId('checkout-success-body')).toHaveTextContent(/Verdant Kitchen/);
+
+        // Tracking opens the signed-in order page by the order's identifier, never its reference.
+        fireEvent.press(screen.getByTestId('checkout-success-track'));
+        expect(routerMock.__push).toHaveBeenCalledWith(`/customer/orders/${String(ORDER_ID)}`);
 
         // The confirmation prices itself from the placed order — the preview query dies with the
         // emptied basket, and a price block fed from there rendered nothing.
-        expect(screen.getByTestId('checkout-success-price-subtotal-amount')).toHaveTextContent(
-            'AED 45.00',
+        expect(screen.getByTestId('checkout-success-total-amount')).toHaveTextContent('AED 60.00');
+        expect(screen.getByTestId('checkout-success-items')).toHaveTextContent(
+            new RegExp(BASKET_MEAL.name),
         );
-        expect(screen.getByTestId('checkout-success-price-total-amount')).toHaveTextContent(/\d/);
 
         // The placement carried the saved address identifier and no instrument of any kind.
         expect(harness.repositories.commerce.placeOrder).toHaveBeenCalledWith({
@@ -1729,6 +1903,66 @@ describe('CheckoutScreen', () => {
         // The basket became the order. Leaving the lines behind would let one screen place the
         // same basket twice.
         expect(basket.cart.items).toHaveLength(0);
+    });
+
+    /**
+     * The window is one choice among the kitchen's own, so it is a radio group — the chosen chip is
+     * *checked*, not merely pressed — and the choice is what the review repeats and what is sent.
+     */
+    it('takes one delivery window from the chips, reviews it, and sends exactly that', async () => {
+        const basket = basketOf(1);
+        const harness = await renderCheckout(basket, {
+            addresses: [HOME_ADDRESS],
+            commerce: {
+                placeOrder: async (request: PlaceOrderRequest): Promise<PlacedOrder> => {
+                    const placed = placedOrderFrom(basket.cart, request);
+                    basket.cart = cartOf([]);
+                    return placed;
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('checkout-slot-picker')).toBeTruthy();
+        });
+        expect(screen.getByTestId('checkout-slot-picker').props.accessibilityRole).toBe(
+            'radiogroup',
+        );
+        expect(
+            screen.getByTestId(`checkout-slot-${DEFAULT_SLOT_CODE}`).props.accessibilityState,
+        ).toMatchObject({ checked: true });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-slot-evening'));
+        });
+        expect(screen.getByTestId('checkout-slot-evening').props.accessibilityState).toMatchObject({
+            checked: true,
+        });
+        expect(
+            screen.getByTestId(`checkout-slot-${DEFAULT_SLOT_CODE}`).props.accessibilityState,
+        ).toMatchObject({ checked: false });
+
+        // The first segment of the bar is the current one until the details are committed.
+        expect(screen.getByTestId('checkout-stepper-delivery').props['aria-current']).toBe('step');
+
+        await reviewCheckout(HOME_ADDRESS.id);
+
+        expect(screen.getByTestId('checkout-stepper-payment').props['aria-current']).toBe('step');
+        expect(screen.getByTestId('checkout-committed-slot')).toHaveTextContent(/Evening/);
+        // The button states what it commits to: the priced total, not a bare "Place order".
+        await waitFor(() => {
+            expect(screen.getByTestId('checkout-place-order')).toHaveTextContent(/AED/);
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-place-order'));
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId('checkout-success-screen')).toBeTruthy();
+        });
+        expect(harness.repositories.commerce.placeOrder).toHaveBeenCalledWith(
+            expect.objectContaining({ slotCode: 'evening' }),
+        );
     });
 
     /**
@@ -1794,7 +2028,9 @@ describe('CheckoutScreen', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('checkout-place-error-reason-account_not_ready')).toBeTruthy();
+            expect(
+                screen.getByTestId('checkout-place-error-reason-account_not_ready'),
+            ).toBeTruthy();
         });
 
         await act(async () => {
@@ -1803,6 +2039,179 @@ describe('CheckoutScreen', () => {
         expect(routerMock.__push).toHaveBeenCalledWith('/customer/account');
     });
 
+    /**
+     * The server names every requirement the account is missing. Each becomes a row saying what it
+     * needs and opening the screen that does it — not one link to the top of the account page.
+     */
+    it('lists each missing setup step with a way straight to it', async () => {
+        await renderCheckout(basketOf(1), {
+            addresses: [HOME_ADDRESS],
+            commerce: {
+                placeOrder: () =>
+                    Promise.reject(
+                        new ApiError(
+                            orderPlacementRefusedFailure([
+                                {
+                                    reason: 'account_not_ready',
+                                    context: {
+                                        outstanding: 'account.no_served_address',
+                                        has_address: true,
+                                    },
+                                },
+                                {
+                                    reason: 'account_not_ready',
+                                    context: { outstanding: 'account.dietary_declaration_missing' },
+                                },
+                            ]),
+                        ),
+                    ),
+            },
+        });
+
+        await reviewCheckout(HOME_ADDRESS.id);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-place-order'));
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('checkout-setup-required')).toBeTruthy();
+        });
+        expect(screen.getByTestId('checkout-setup-required')).toHaveTextContent(/2 steps are left/);
+        // An address exists but is out of area, so the row says that, not "add an address".
+        expect(screen.getByTestId('checkout-setup-step-add_address-body')).toHaveTextContent(
+            /outside the areas we deliver to/,
+        );
+        expect(screen.getByTestId('checkout-setup-step-dietary_profile')).toBeTruthy();
+        // Nothing about the order itself was refused, so there is no second, generic error.
+        expect(screen.queryByTestId('checkout-place-error')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-setup-step-dietary_profile-open'));
+        });
+        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/allergies');
+    });
+});
+
+describe('CheckoutScreen — the slots the address zone offers', () => {
+    /** A preview whose zone offers `codes` once an address is chosen, and nothing filtered before. */
+    function zonePreview(basket: Basket, codes: readonly string[]) {
+        return {
+            previewCheckout: async (request: PreviewCheckoutRequest): Promise<CheckoutPreview> => ({
+                ...checkoutPreview(basket.cart, request),
+                offeredWindowCodes: request.addressId === undefined ? null : codes,
+            }),
+        };
+    }
+
+    async function chooseAddress(addressId: string): Promise<void> {
+        await act(async () => {
+            await kitchenServed;
+        });
+        await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
+        await fireEvent.press(
+            await screen.findByTestId(`checkout-address-picker-option-${addressId}`),
+        );
+    }
+
+    it('offers only the zone’s slots, moves off one it does not offer, and sends that', async () => {
+        const basket = basketOf(1);
+        const harness = await renderCheckout(basket, {
+            addresses: [HOME_ADDRESS],
+            commerce: {
+                ...zonePreview(basket, ['evening']),
+                placeOrder: async (request: PlaceOrderRequest): Promise<PlacedOrder> =>
+                    placedOrderFrom(basket.cart, request),
+            },
+        });
+
+        // No address yet: nothing to filter by, so the default is offered.
+        await waitFor(() => {
+            expect(screen.getByTestId(`checkout-slot-${DEFAULT_SLOT_CODE}`)).toBeTruthy();
+        });
+
+        await chooseAddress(HOME_ADDRESS.id);
+        await waitFor(() => {
+            expect(screen.queryByTestId(`checkout-slot-${DEFAULT_SLOT_CODE}`)).toBeNull();
+        });
+        expect(screen.getByTestId('checkout-slot-evening').props.accessibilityState).toMatchObject({
+            checked: true,
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-review'));
+        });
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('checkout-place-order').props.accessibilityState,
+            ).toMatchObject({ disabled: false });
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-place-order'));
+        });
+        await waitFor(() => {
+            expect(harness.repositories.commerce.placeOrder).toHaveBeenCalledWith(
+                expect.objectContaining({ slotCode: 'evening' }),
+            );
+        });
+    });
+
+    it('says so, and will not review, when the zone offers no slot', async () => {
+        const basket = basketOf(1);
+        await renderCheckout(basket, {
+            addresses: [HOME_ADDRESS],
+            commerce: zonePreview(basket, []),
+        });
+
+        await chooseAddress(HOME_ADDRESS.id);
+        await waitFor(() => {
+            expect(screen.getByTestId('checkout-slot-none')).toBeTruthy();
+        });
+        expect(screen.getByTestId('checkout-slot-none')).toHaveTextContent(
+            /offers no delivery slot/,
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-review'));
+        });
+        expect(screen.queryByTestId('checkout-place-order')).toBeNull();
+    });
+
+    it('names a window_not_offered refusal in words', async () => {
+        await renderCheckout(basketOf(1), {
+            addresses: [HOME_ADDRESS],
+            commerce: {
+                placeOrder: () =>
+                    Promise.reject(
+                        new ApiError(
+                            orderPlacementRefusedFailure([
+                                {
+                                    reason: 'window_not_offered',
+                                    context: { delivery_window_code: 'evening' },
+                                },
+                            ]),
+                        ),
+                    ),
+            },
+        });
+
+        await reviewCheckout(HOME_ADDRESS.id);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-place-order'));
+        });
+
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('checkout-place-error-reason-window_not_offered'),
+            ).toHaveTextContent(/does not offer that delivery slot/);
+        });
+    });
+
+    it('has written copy for the window_not_offered preview warning', () => {
+        expect(isKnownWarning(CHECKOUT_WINDOW_NOT_OFFERED)).toBe(true);
+        expect(warningMessageKey(CHECKOUT_WINDOW_NOT_OFFERED)).toBe(
+            'commerce:warnings.checkout_window_not_offered',
+        );
+    });
 });
 
 /* ══ screens: the configurator ═════════════════════════════════════════════════════════════════ */

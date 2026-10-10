@@ -1,19 +1,39 @@
-import { DataList, Icon, IconButton, fitColumns, useBreakpoint } from '@healthy360/design-system';
+import {
+    DataList,
+    Icon,
+    IconButton,
+    Inline,
+    Text,
+    fitColumns,
+    useBreakpoint,
+} from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { RowDensity } from '@healthy360/design-tokens';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
 import { CatalogueListItem } from './catalogue-list-item.tsx';
 import { CATALOGUE_PRIORITY, columnFloor, columnForRole } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 import { useCataloguePort } from './catalogue-nav.tsx';
+import { CATALOGUE_PAGE_SIZE, CataloguePager } from './catalogue-pager.tsx';
+import { RowThumbnail } from './row-thumbnail.tsx';
+
+/**
+ * The list's panel — the same surface as the toolbar above it and every other admin panel, so the
+ * rows read as one object on the page rather than lines drawn straight onto the ground. Only drawn
+ * around rows: an empty state is the caller's own block and brings its own layout.
+ */
+const FRAME_CLASS =
+    'flex-col rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card';
 
 /**
  * Part five (§4.1): the list.
  *
  * ```
- * 10px upper column labels · 32px rows · border-b hairline · hover tint
+ * 10px upper column labels · a rule under the header · 32px rows · hover tint
  * ```
  *
  * **Ingredients, Recipes and Sauces differ by `columns` and nothing else.** Everything a spec could
@@ -21,8 +41,8 @@ import { useCataloguePort } from './catalogue-nav.tsx';
  * `role`) what each column becomes when the grid collapses. Nothing entity-specific is written
  * here, and the third entity should be a spec file with no companion component.
  *
- * No card, no panel outline, no vertical rules, no zebra. `DataList` owns that geometry and this
- * component adds none of its own.
+ * One panel around the rows (`FRAME_CLASS`), and inside it no vertical rules and no zebra.
+ * `DataList` owns the row geometry; this component adds only the frame.
  *
  * ## Why the fitting happens here and not in `DataList`
  *
@@ -50,6 +70,14 @@ import { useCataloguePort } from './catalogue-nav.tsx';
  * them wrong. What an entity decides is which actions there are, which is exactly what the callback
  * returns.
  *
+ * ## The photograph is the shell's too
+ *
+ * A spec names a row's picture with `thumbnail` on its title column and nothing else. This file
+ * draws it in both shapes — 20px inside the wide table's title cell, avatar-sized on the narrow
+ * row's leading edge — for the same reason as the overflow column. When the specs drew their own,
+ * the three that had a picture all drew it in the wide table and none on the narrow row, because
+ * the narrow row reads a column's plain `value` and never calls its renderer.
+ *
  * ## The narrow branch
  *
  * Below `md` the tracks are gone and each record renders through `CatalogueListItem`. The branch is
@@ -72,10 +100,52 @@ export interface CatalogueListProps<Row> {
     /** Accessible name for the overflow trigger. */
     readonly rowActionsLabel: string;
     readonly emptyState?: ReactNode | undefined;
+    /**
+     * Rows cascade in as they mount — `DataList`'s `rowEntrance`. On by default: every admin list
+     * arrives the same way, and a list that should not (one redrawn on every keystroke of a form
+     * beside it) says so. Wide table only: below `md` the two-line rows arrive with the list's own
+     * band, because a phone shows four of them and a cascade down four rows reads as lag rather
+     * than arrival.
+     */
+    readonly rowEntrance?: boolean | undefined;
     readonly testID: string;
 }
 
-export function CatalogueList<Row>({
+/**
+ * Every admin table shows {@link CATALOGUE_PAGE_SIZE} rows a page, whoever fetched them.
+ *
+ * A screen that pages on the server hands over one page, which never exceeds the size, so nothing
+ * is drawn here and its own pager stays in charge. A screen that hands over the whole set is cut
+ * into pages here, with the same pager under it — so no table runs on past eighteen rows just
+ * because its screen never wrote a pager of its own.
+ */
+export function CatalogueList<Row>(props: CatalogueListProps<Row>) {
+    const { t } = useTranslation();
+    const { rows, testID } = props;
+    const [requested, setPage] = useState(1);
+
+    const totalPages = Math.max(1, Math.ceil(rows.length / CATALOGUE_PAGE_SIZE));
+    if (totalPages === 1) return <CatalogueTable {...props} />;
+
+    // Clamped rather than reset: a filter that shrinks the set lands on its last page, not past it.
+    const page = Math.min(requested, totalPages);
+    const from = (page - 1) * CATALOGUE_PAGE_SIZE;
+
+    return (
+        <View className="flex-col gap-3">
+            <CatalogueTable {...props} rows={rows.slice(from, from + CATALOGUE_PAGE_SIZE)} />
+            <CataloguePager
+                testID={`${testID}-pagination`}
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                label={t('kitchen:catalogue.pagerLabel')}
+            />
+        </View>
+    );
+}
+
+function CatalogueTable<Row>({
     columns,
     rows,
     rowKey,
@@ -85,6 +155,7 @@ export function CatalogueList<Row>({
     rowActions,
     rowActionsLabel,
     emptyState,
+    rowEntrance = true,
     testID,
 }: CatalogueListProps<Row>) {
     const { atLeast } = useBreakpoint();
@@ -97,14 +168,15 @@ export function CatalogueList<Row>({
                 role="list"
                 aria-label={label}
                 accessibilityLabel={label}
-                className="flex-col"
+                className={rows.length === 0 ? 'flex-col' : FRAME_CLASS}
             >
                 {rows.length === 0
                     ? emptyState
-                    : rows.map((row) => (
+                    : rows.map((row, index) => (
                           <CatalogueListItem
                               key={rowKey(row)}
                               title={cellText(columnForRole(columns, 'title'), row)}
+                              media={narrowThumbnail(columns, row, rowKey, testID)}
                               status={renderRole(columns, 'status', row)}
                               metric={renderRole(columns, 'metric', row)}
                               meta={metaEntries(columns, row)}
@@ -117,6 +189,7 @@ export function CatalogueList<Row>({
                                             onRowPress(row);
                                         }
                               }
+                              divider={index < rows.length - 1}
                               testID={`${testID}-row-${rowKey(row)}`}
                           />
                       ))}
@@ -124,10 +197,16 @@ export function CatalogueList<Row>({
         );
     }
 
+    /*
+     * No column is told to take the slack: `DataList` shares it across every column in proportion
+     * to its declared width, so the table ends where the page does without a hole after the names.
+     * A spec that wants one column to absorb it can still say `fill`.
+     */
+    const drawn = withTableThumbnail(columns, rowKey, testID);
     const withActions =
         rowActions === undefined
-            ? columns
-            : [...columns, actionColumn<Row>(rowActions, rows, rowActionsLabel, rowKey, testID)];
+            ? drawn
+            : [...drawn, actionColumn<Row>(rowActions, rows, rowActionsLabel, rowKey, testID)];
 
     // `columnFloor` is the fitting currency; the tracks `DataList` draws are still `width`. Fitting
     // on a floor and drawing on a width is the whole reason the spec carries both.
@@ -140,48 +219,126 @@ export function CatalogueList<Row>({
     );
 
     return (
-        <View
-            testID={`${testID}-port`}
-            // Both measurement paths, and each is inert on the other's platform: `onLayout` never
-            // fires with a useful width on web before the nav settles, and `ref` has no
-            // `getBoundingClientRect` on native.
-            ref={Platform.OS === 'web' ? port.ref : undefined}
-            onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
-            /*
-             * No scroll port of its own.
-             *
-             * This used to carry `web:overflow-x-auto` so a track sum wider than the port could be
-             * reached. Two things are wrong with that. The first is CSS: `overflow-x: auto` with
-             * `overflow-y: visible` computes `overflow-y: auto` as well, so the list grew its own
-             * *vertical* scrollbar inside the page's — the table scrolled independently of the
-             * screen it sits on, which is what the reader sees as a scrollbar appearing halfway
-             * down the page and a row list that will not move with the wheel.
-             *
-             * The second is that it should never be needed. §4.1 is explicit that columns are
-             * *dropped by priority, never scrolled away*, because a row that scrolls sideways
-             * hides its overflow menu. `fitColumns` runs twice — here against the measured port,
-             * again inside `DataList` — precisely so the track sum fits. A scroll port on top of
-             * that was a second answer to a question the fitter had already answered, and the two
-             * disagreed.
-             */
-            className="flex-col"
-        >
-            <DataList
-                columns={visible}
-                rows={rows}
-                rowKey={rowKey}
-                label={label}
-                density={density}
-                onRowPress={onRowPress}
-                emptyState={emptyState}
-                testID={testID}
-            />
+        /*
+         * The frame is outside the port, not on it: the port is measured with
+         * `getBoundingClientRect`, which includes a border, so a frame on the measured box would
+         * fit tracks two pixels wider than the space inside it.
+         */
+        <View className={rows.length === 0 ? 'flex-col' : FRAME_CLASS}>
+            <View
+                testID={`${testID}-port`}
+                // Both measurement paths, and each is inert on the other's platform: `onLayout` never
+                // fires with a useful width on web before the nav settles, and `ref` has no
+                // `getBoundingClientRect` on native.
+                ref={Platform.OS === 'web' ? port.ref : undefined}
+                onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
+                /*
+                 * No scroll port of its own.
+                 *
+                 * This used to carry `web:overflow-x-auto` so a track sum wider than the port could be
+                 * reached. Two things are wrong with that. The first is CSS: `overflow-x: auto` with
+                 * `overflow-y: visible` computes `overflow-y: auto` as well, so the list grew its own
+                 * *vertical* scrollbar inside the page's — the table scrolled independently of the
+                 * screen it sits on, which is what the reader sees as a scrollbar appearing halfway
+                 * down the page and a row list that will not move with the wheel.
+                 *
+                 * The second is that it should never be needed. §4.1 is explicit that columns are
+                 * *dropped by priority, never scrolled away*, because a row that scrolls sideways
+                 * hides its overflow menu. `fitColumns` runs twice — here against the measured port,
+                 * again inside `DataList` — precisely so the track sum fits. A scroll port on top of
+                 * that was a second answer to a question the fitter had already answered, and the two
+                 * disagreed.
+                 */
+                className="flex-col"
+            >
+                <DataList
+                    columns={visible}
+                    rows={rows}
+                    rowKey={rowKey}
+                    label={label}
+                    density={density}
+                    onRowPress={onRowPress}
+                    emptyState={emptyState}
+                    framed={rows.length > 0}
+                    rowEntrance={rowEntrance}
+                    testID={testID}
+                />
+            </View>
         </View>
     );
 }
 
 function cellText<Row>(column: CatalogueColumn<Row> | undefined, row: Row): string {
     return column?.value?.(row) ?? '';
+}
+
+/**
+ * The spec's columns with the row photograph drawn into the title cell, when the spec names one.
+ *
+ * The title's own renderer is kept and wrapped, not replaced, so a spec still owns how its title
+ * reads — the missing-Arabic badge, the weight — and only the picture is added in front of it.
+ */
+function withTableThumbnail<Row>(
+    columns: readonly CatalogueColumn<Row>[],
+    rowKey: (row: Row) => string,
+    testID: string,
+): readonly CatalogueColumn<Row>[] {
+    return columns.map((column) => {
+        const thumbnail = column.thumbnail;
+        if (column.role !== 'title' || thumbnail === undefined) return column;
+
+        const titleCell = (row: Row): ReactNode =>
+            column.render === undefined ? (
+                <Text variant="label">{cellText(column, row)}</Text>
+            ) : (
+                column.render(row)
+            );
+
+        /*
+         * Held to the cell's width, with the title beside the picture rather than under it. The
+         * title's track is the one that fills, but a name can still be longer than whatever is
+         * left: then it ends in an ellipsis, readable on hover. Left to its content width, the pair
+         * ran past the track and wrote the name over the next column.
+         */
+        return {
+            ...column,
+            render: (row: Row) => (
+                // eslint-disable-next-line no-restricted-syntax -- the list row's title column, not a control: it fills its track.
+                <Inline space="xs" align="center" wrap={false} className="min-w-0 flex-1">
+                    <RowThumbnail
+                        assetId={thumbnail(row)}
+                        seed={rowKey(row)}
+                        label={cellText(column, row)}
+                        size="table"
+                        testID={`${testID}-row-${rowKey(row)}-image`}
+                    />
+                    {/* eslint-disable-next-line no-restricted-syntax -- the title beside the picture takes the rest of the title track. */}
+                    <View className="min-w-0 flex-1">{titleCell(row)}</View>
+                </Inline>
+            ),
+        };
+    });
+}
+
+/** The same photograph for the two-line row below `md`, or nothing when the spec names none. */
+function narrowThumbnail<Row>(
+    columns: readonly CatalogueColumn<Row>[],
+    row: Row,
+    rowKey: (row: Row) => string,
+    testID: string,
+): ReactNode {
+    const title = columnForRole(columns, 'title');
+    if (title?.thumbnail === undefined) return undefined;
+
+    return (
+        <RowThumbnail
+            assetId={title.thumbnail(row)}
+            seed={rowKey(row)}
+            label={cellText(title, row)}
+            size="narrow"
+            testID={`${testID}-row-${rowKey(row)}-image`}
+        />
+    );
 }
 
 function renderRole<Row>(

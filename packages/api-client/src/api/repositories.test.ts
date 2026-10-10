@@ -1004,6 +1004,70 @@ describe('the guest challenge envelopes (G1)', () => {
     });
 });
 
+/* ── dietary profile: the diet travels by code ───────────────────────────────────────────────── */
+
+describe('dietary profile', () => {
+    const PROFILE = (code: string | null) => ({
+        status: 200,
+        body: {
+            data: {
+                dietary_profile: {
+                    id: 'profile-1',
+                    has_declared: true,
+                    declared_at: '2026-10-01T10:00:00Z',
+                    declares_no_allergens: true,
+                    diet_classification_id:
+                        code === null ? null : 'ab9c6e9e-0000-7000-8000-000000000001',
+                    diet_classification_code: code,
+                    religious_requirement: null,
+                    notes: null,
+                    allergens: [],
+                    exclusions: [],
+                    lock_version: 1,
+                    updated_at: '2026-10-01T10:00:00Z',
+                },
+            },
+            meta: { correlation_id: 'c-diet' },
+        },
+    });
+
+    /*
+     * The public diet list publishes codes and no identifiers, so the code is the only name a
+     * client can send back. Sending the code as `diet_classification_id` was refused as an invalid
+     * UUID, which is why every save with a diet chosen used to fail.
+     */
+    it('saves the diet as its code and reads the code back', async () => {
+        const { repositories, calls } = harness(
+            [PROFILE('vegetarian')],
+            createMemoryTokenStore('token'),
+        );
+
+        const saved = await repositories.account.saveDietaryProfile({
+            dietCategoryCode: 'vegetarian',
+            allergens: [],
+            excludedIngredientIds: [],
+        });
+
+        expect(calls[0]!.method).toBe('PUT');
+        expect(calls[0]!.body).toMatchObject({ diet_classification_code: 'vegetarian' });
+        expect(calls[0]!.body).not.toHaveProperty('diet_classification_id');
+        expect(saved.dietCategoryCode).toBe('vegetarian');
+    });
+
+    it('clears the diet with a null code', async () => {
+        const { repositories, calls } = harness([PROFILE(null)], createMemoryTokenStore('token'));
+
+        const saved = await repositories.account.saveDietaryProfile({
+            dietCategoryCode: null,
+            allergens: [],
+            excludedIngredientIds: [],
+        });
+
+        expect(calls[0]!.body).toMatchObject({ diet_classification_code: null });
+        expect(saved.dietCategoryCode).toBeNull();
+    });
+});
+
 /* ── J2: closure ─────────────────────────────────────────────────────────────────────────────── */
 
 const CLOSURE_BLOCKERS_MIXED = [
@@ -2062,6 +2126,7 @@ describe('subscriptions (S1)', () => {
             serving: null,
             nutrition: null,
             price: { amount: 4200, currency: 'USD' },
+            pack: null,
             preparation_minutes: null,
             image_placeholder_id: 'meal-grilled-chicken-freekeh',
             availability: [],
@@ -2156,6 +2221,7 @@ describe('subscriptions (S1)', () => {
             serving: null,
             nutrition: null,
             price: { amount: meal.price, currency: 'USD' },
+            pack: null,
             preparation_minutes: null,
             image_placeholder_id: null,
             availability: [],
@@ -2264,6 +2330,7 @@ describe('subscriptions (S1)', () => {
             serving: null,
             nutrition: null,
             price: { amount: 4200, currency: 'USD' },
+            pack: null,
             preparation_minutes: null,
             image_placeholder_id: null,
             availability: [],
@@ -2348,6 +2415,7 @@ describe('subscriptions (S1)', () => {
                                 seller_organisation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1df0',
                                 sales_channel_id: 'channel-wholesale',
                                 price: { amount_minor: 1800, currency_code: 'USD' },
+                                pack: null,
                             },
                         },
                         meta: {},

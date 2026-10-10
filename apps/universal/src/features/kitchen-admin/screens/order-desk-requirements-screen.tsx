@@ -1,11 +1,11 @@
 import type { OrderDeskRequirement } from '@healthy360/api-client/contracts';
 import {
     Callout,
+    Cascade,
     DatePickerButton,
     EmptyState,
     ErrorState,
-    Skeleton,
-    Stack,
+    TableSkeleton,
     Text,
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
@@ -28,6 +28,8 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
 
 /**
  * `/kitchen/order-desk/requirements` — what this branch must buy to cook the days ahead.
@@ -66,9 +68,17 @@ import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
  *
  * ## Em dashes, zeroes, and the one thing that must never be confused
  *
+ * `onHand`, `reserved` and `available` are three columns rather than one because the drop between
+ * the first and the third needs explaining: `available` is net of what confirmed production orders
+ * have claimed (PROD1), so a buyer looking at a full shelf and a buy suggestion beside it can see
+ * that the flour is spoken for rather than missing. `available` may arrive **negative** where more
+ * is claimed than is there, and is rendered as it arrives — an over-committed shelf is a real state
+ * and clamping it would hide it.
+ *
  * A zero in the table is a **true zero**: the server computed it. `available: 0` is a shelf holding
  * none of that thing, not an unknown. The em dash is reserved for what genuinely is not known — a
- * shelf with no resolved unit, and the ops metrics while they are still loading.
+ * shelf with no resolved unit. The figures above the table, while they load, hold a placeholder
+ * rather than any character at all.
  *
  * **What is emphatically not a zero is `not_computable`.** A dish with no recipe, a plan whose menu
  * was never written, a unit that will not convert — those days produce no quantity *and no row*, and
@@ -154,7 +164,6 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnRequired'),
             width: 100,
             priority: 95,
-            align: 'center',
             sort: (left, right, direction) =>
                 compareNumber(Number(left.required), Number(right.required), direction),
             render: (row) => (
@@ -164,11 +173,40 @@ function OrderDeskRequirements() {
             ),
         },
         {
+            key: 'onHand',
+            label: t('kitchen:ops.requirements.columnOnHand'),
+            width: 100,
+            priority: 55,
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.onHand), Number(right.onHand), direction),
+            render: (row) => (
+                <Text variant="mono" tone="secondary" testID={`${rowTestId(row)}-on-hand`}>
+                    {quantity(row.onHand)}
+                </Text>
+            ),
+        },
+        {
+            key: 'reserved',
+            label: t('kitchen:ops.requirements.columnReserved'),
+            width: 100,
+            priority: 60,
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.reserved), Number(right.reserved), direction),
+            render: (row) => (
+                <Text
+                    variant="mono"
+                    tone={Number(row.reserved) > 0 ? 'primary' : 'secondary'}
+                    testID={`${rowTestId(row)}-reserved`}
+                >
+                    {quantity(row.reserved)}
+                </Text>
+            ),
+        },
+        {
             key: 'available',
             label: t('kitchen:ops.requirements.columnAvailable'),
             width: 100,
             priority: 80,
-            align: 'center',
             sort: (left, right, direction) =>
                 compareNumber(Number(left.available), Number(right.available), direction),
             render: (row) => (
@@ -183,7 +221,6 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnShort'),
             width: 100,
             priority: 90,
-            align: 'center',
             sort: (left, right, direction) =>
                 compareNumber(Number(left.short), Number(right.short), direction),
             render: (row) => (
@@ -201,7 +238,6 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnSuggestedBuy'),
             width: 110,
             priority: 70,
-            align: 'center',
             sort: (left, right, direction) =>
                 compareNumber(Number(left.suggestedBuy), Number(right.suggestedBuy), direction),
             render: (row) => (
@@ -215,7 +251,6 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnUnit'),
             width: 70,
             priority: 60,
-            align: 'center',
             filter: {
                 values: (loaded) =>
                     [...new Set(loaded.map((row) => row.unitCode ?? EM_DASH))].map((unit) => ({
@@ -261,14 +296,75 @@ function OrderDeskRequirements() {
 
     const failure = toFailure(requirements.error);
     const rows = requirements.data?.requirements ?? [];
-    const controls = useColumnControls(rows, columns, 'kitchen-order-desk-requirements-table');
+    /*
+     * The catalogue's six, like every admin table. Reserved and Available are the two left out:
+     * Available is On hand less Reserved, so the row still reads, and a quantity without its Unit
+     * would not. The picker swaps them in.
+     */
+    const controls = useColumnControls(rows, columns, 'kitchen-order-desk-requirements-table', {
+        picker: {
+            defaults: ['ingredient', 'required', 'onHand', 'short', 'suggestedBuy', 'unit'],
+        },
+    });
 
     return (
-        <Stack space="md" testID="kitchen-order-desk-requirements-screen">
-            {/* One 28px row: the window. The branch is the workspace's — see the file header. */}
-            <View
+        <Cascade space="md" testID="kitchen-order-desk-requirements-screen">
+            {/*
+             * The figures as cards, from the first frame. While the window is in flight each card
+             * holds a placeholder where its figure goes — a zero there would claim an answer the
+             * screen does not have yet.
+             */}
+            {branchId === null || filters === null || failure !== null ? null : (
+                <CatalogueStatCards
+                    testID="kitchen-order-desk-requirements-figures"
+                    cards={[
+                        {
+                            key: 'ingredients',
+                            label: t('kitchen:ops.requirements.kpiIngredients'),
+                            value: formatter.formatNumber(rows.length),
+                            caption: t('kitchen:ops.requirements.kpiIngredientsCaption'),
+                            mark: 'wheat',
+                            tone: 'brand',
+                        },
+                        {
+                            key: 'short',
+                            label: t('kitchen:ops.requirements.kpiShort'),
+                            value: formatter.formatNumber(shortCount),
+                            caption: t('kitchen:ops.requirements.kpiShortCaption'),
+                            mark: 'alert',
+                            tone: shortCount > 0 ? 'danger' : 'default',
+                        },
+                        {
+                            key: 'notComputable',
+                            label: t('kitchen:ops.requirements.kpiNotComputable'),
+                            value: formatter.formatNumber(notComputable?.days ?? 0),
+                            // The one caption that is an answer rather than a description, so
+                            // while the window is in flight it says so instead of "every day was
+                            // worked out".
+                            caption: requirements.isPending
+                                ? t('common:state.loading')
+                                : notComputable !== null && notComputable.days > 0
+                                  ? reasonSummary(notComputable.reasons)
+                                  : t('kitchen:ops.requirements.kpiNotComputableNone'),
+                            mark: 'circleHelp',
+                            tone:
+                                notComputable !== null && notComputable.days > 0
+                                    ? 'warning'
+                                    : 'default',
+                        },
+                    ]}
+                    pending={requirements.isPending}
+                />
+            )}
+
+            {/*
+             * The window, below the figures it produces, on the raised toolbar panel — with the
+             * column picker at its inline end rather than floating above the table. The branch is
+             * the workspace's — see the file header.
+             */}
+            <ToolbarPanel
                 testID="kitchen-order-desk-requirements-content"
-                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight"
+                end={<ColumnPicker {...controls.picker} />}
             >
                 <DatePickerButton
                     testID="kitchen-order-desk-requirements-from"
@@ -287,55 +383,7 @@ function OrderDeskRequirements() {
                     onChange={setTo}
                     min={from}
                 />
-            </View>
-
-            {/*
-             * The figures as cards. Absent until something has answered — a zero here would claim
-             * an answer the screen does not have yet.
-             */}
-            {branchId === null || filters === null || failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-order-desk-requirements-figures"
-                    cards={[
-                        {
-                            key: 'ingredients',
-                            label: t('kitchen:ops.requirements.kpiIngredients'),
-                            value: requirements.isPending
-                                ? EM_DASH
-                                : formatter.formatNumber(rows.length),
-                            caption: t('kitchen:ops.requirements.kpiIngredientsCaption'),
-                            mark: 'basket',
-                            tone: 'brand',
-                        },
-                        {
-                            key: 'short',
-                            label: t('kitchen:ops.requirements.kpiShort'),
-                            value: requirements.isPending
-                                ? EM_DASH
-                                : formatter.formatNumber(shortCount),
-                            caption: t('kitchen:ops.requirements.kpiShortCaption'),
-                            mark: 'warning',
-                            tone: shortCount > 0 ? 'danger' : 'default',
-                        },
-                        {
-                            key: 'notComputable',
-                            label: t('kitchen:ops.requirements.kpiNotComputable'),
-                            value: requirements.isPending
-                                ? EM_DASH
-                                : formatter.formatNumber(notComputable?.days ?? 0),
-                            caption:
-                                notComputable !== null && notComputable.days > 0
-                                    ? reasonSummary(notComputable.reasons)
-                                    : t('kitchen:ops.requirements.kpiNotComputableNone'),
-                            mark: 'calendar',
-                            tone:
-                                notComputable !== null && notComputable.days > 0
-                                    ? 'warning'
-                                    : 'default',
-                        },
-                    ]}
-                />
-            )}
+            </ToolbarPanel>
 
             {branchId === null ? (
                 // Friendly rather than an error: the reader did nothing wrong, the list simply
@@ -353,16 +401,7 @@ function OrderDeskRequirements() {
                     body={t('kitchen:ops.requirements.windowInvalidBody')}
                 />
             ) : requirements.isPending ? (
-                <View testID="kitchen-order-desk-requirements-loading" className="flex-col">
-                    {Array.from({ length: 6 }, (_, index) => (
-                        <View
-                            key={index}
-                            className="h-row-md flex-row items-center border-b border-stroke-subtle"
-                        >
-                            <Skeleton heightClassName="h-2" />
-                        </View>
-                    ))}
-                </View>
+                <TableSkeleton testID="kitchen-order-desk-requirements-loading" rows={6} />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-order-desk-requirements-error"
@@ -392,7 +431,7 @@ function OrderDeskRequirements() {
                     )}
                 </View>
             )}
-        </Stack>
+        </Cascade>
     );
 }
 

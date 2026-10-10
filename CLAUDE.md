@@ -15,15 +15,19 @@ pnpm i18n:check     assert en / ar / en-XA catalogues agree
 ## The active design is HealthZone
 
 `HealthZone.dc.html` (repo root) is the current design direction and the source of truth for
-anything visual. When a request says "implement the navbar", "build the cart", "redo the KDS
-screen" with no other qualifier, it means **from HealthZone**. Do not ask which design.
+**structure** — layout, density, sizing, hierarchy, composition. When a request says "implement
+the navbar", "build the cart", "redo the KDS screen" with no other qualifier, it means **from
+HealthZone**. Do not ask which design.
 
-`design_handoff_wellness_green/` is the **previous** direction — mint/emerald/violet, Inter +
-Space Grotesk. It is superseded. Read it for its component and composition rules, which still
-hold (§2 and §4 of its README are good), but **not** for colour or type. Where the two disagree
-on a value, HealthZone wins.
+**Colour and type are not HealthZone's.** They follow the Wellness Green mood board, Option 02
+(`design_handoff_wellness_green/moodboard_option02_wellness.html`) — the user's decision on
+2026-09-29, "same fonts and colours across the webapp". See "Palette and type" below. HealthZone's
+own palette and Schibsted Grotesk are shelved; never pull a colour or a font out of it.
 
-**The whole product moves to HealthZone.** This is a full retheme, not a per-screen exception.
+`design_handoff_wellness_green/` is the direction the mood board belongs to — mint/emerald/violet,
+Inter + Space Grotesk. Read it for its component and composition rules (§2 and §4 of its README
+are good) and for colour and type. Where it and HealthZone disagree on layout, HealthZone wins;
+on a colour or a font, the mood board does.
 
 ### Opening it
 
@@ -67,9 +71,9 @@ unambiguous way to point at one.
 | `kitchen`    | Kitchen board            | `kitchen-admin/screens/production-screen.tsx`                                           |
 | `kds`        | Kitchen display          | `kds/kds-tickets-screen.tsx`                                                            |
 | `desk`       | Order desk               | `kitchen-admin/screens/order-desk-screen.tsx` (+ `-sale`, `-cash-report`, `-calendar`)  |
-| `catmgr`     | Catalogue manager        | `kitchen-admin/screens/meals-screen.tsx`, `products-screen.tsx`, `plans-screen.tsx`     |
+| `catmgr`     | Catalogue manager        | `kitchen-admin/screens/recipes-screen.tsx`, `products-screen.tsx`, `plans-screen.tsx`   |
 | `inventory`  | Inventory & stock        | `kitchen-admin/screens/stock-screen.tsx`, `ingredients-screen.tsx`                      |
-| `adminmeals` | Meals & recipes          | `kitchen-admin/screens/meals-screen.tsx`, `recipes-screen.tsx`                          |
+| `adminmeals` | Meals & recipes          | `kitchen-admin/screens/recipes-screen.tsx`                                              |
 | `production` | Production plan          | `kitchen-admin/screens/production-screen.tsx`                                           |
 | `quotes`     | Quotations               | `kitchen-admin/screens/quotations-screen.tsx`, `business/screens/quotations-screen.tsx` |
 | `corp`       | Corporate programmes     | `business/screens/corporate-dashboard-screen.tsx`, `corporate-catalogue-screen.tsx`     |
@@ -96,17 +100,34 @@ design.
 
 ---
 
-## Retheme mapping
+## Palette and type — one place each
+
+- **A colour:** edit `palette` in `packages/design-tokens/src/colour.ts` — it mirrors the mood
+  board's `:root` variables by name — then `pnpm build:tokens`. Ramps, theme roles, `gradients`
+  and `chartColours` read it by name, so one edit reaches every screen. Literals further down that
+  file are tints, dark counterparts and AA-darkened stops, edited in place.
+- **A font:** edit `typefaces` in `packages/design-tokens/src/typography.ts` (family name as Google
+  Fonts spells it, and weights), add its `@expo-google-fonts/*` package to
+  `packages/design-tokens/package.json`, then `pnpm build:tokens`. That regenerates
+  `generated/fonts.ts`, which `apps/universal/src/brand-fonts.ts` registers — on the web under the
+  real family name and weight, because expo-font's own loader registers loader keys the CSS never
+  asks for (that is why the app rendered the system font until 2026-09-29).
+- Type roles: **Inter** for body, UI, labels and data; **Space Grotesk** for `h1`–`h3`,
+  `font-display` and `Text variant="display"` (KPIs, numeric emphasis). `global.css` binds them;
+  Arabic is IBM Plex Sans Arabic everywhere.
+- **No colour literal outside the token package.** ESLint rejects a hex or `rgb()` string in
+  `apps/universal` and `packages/design-system` (tests exempt); `rgb(var(--h360-…))` is fine.
+- `colour.test.ts` contrast-tests every background/foreground pair at WCAG AA in both themes and is
+  the gate on any palette change.
+
+## The shelved HealthZone retheme
+
+> **Shelved 2026-09-29.** Colour and type follow the mood board above. What follows is kept for
+> reference only — do not apply the table, the five decisions or the type section.
 
 HealthZone is warm off-white and lime, not mint and emerald. Type is **Schibsted Grotesk**
 throughout — body _and_ display — with **IBM Plex Mono** for numerics, micro-labels and
 uppercase eyebrow text.
-
-Token architecture is unchanged: ramps and `ThemeColours` roles in
-`packages/design-tokens/src/colour.ts`, families in `typography.ts`, emitted to
-`generated/{tailwind-preset.cjs,tokens.css,tokens.native.ts}` by `pnpm build:tokens`.
-`colour.test.ts` contrast-tests every background/foreground pair at WCAG AA in both themes and is
-the gate on any value below.
 
 The design's CSS variables (`HealthZone.dc.html` lines 18–39) map onto the existing roles:
 
@@ -180,7 +201,8 @@ Those are mood-board artefacts. Snap to the nearest token — `text-xs` 12, `tex
 - **Logical utilities only.** `ms`/`me`, `ps`/`pe`, `start`/`end`, `text-start`/`text-end`.
   Physical utilities and NativeWind's `rtl:`/`ltr:` variants are banned by the root ESLint config.
 - **Dark mode is in scope now** and shipped — `hooks/use-theme.ts` and `shell/theme-toggle.tsx`.
-  Every new token needs both values. HealthZone specifies a full dark palette; use it.
+  Every new token needs both values. The mood board draws light only; the dark values are
+  `themeDark` in `colour.ts`, contrast-tested like the light ones.
 - **Contrast is a test, not a review note.** `colour.test.ts` fails the build on an AA violation.
 - **i18n**: no literal user-facing strings. Add to `packages/i18n/catalogues/{en,ar,en-XA}/` and
   run `pnpm gen:i18n-keys`.
@@ -213,23 +235,18 @@ Those are mood-board artefacts. Snap to the nearest token — `text-xs` 12, `tex
   against it, so `top-0` pins just under the top bar — never translate a design's `top:130px`
   literally.
 
-## Sequencing — structure first, colour later
+## Sequencing — HealthZone structure, mood board palette
 
-**Current decision: build HealthZone's structure, defer its palette.** Layout, density, sizing,
-hierarchy and composition land now; the token retheme in the table above is a later pass.
+**Build HealthZone's structure in the mood board's palette and type.** Layout, density, sizing,
+hierarchy and composition come from HealthZone; every colour and font comes from the tokens.
 
 This works because screens refer to colour _semantically_ (`surfaceCanopy`, `brandSurface`,
-`textSecondary`), never as hex. Build the admin rail with `surfaceCanopy` and it renders forest
-green today; when the palette lands it becomes HealthZone's olive-black with no screen edits.
-**So: never reach for a HealthZone hex during this pass.** A literal is what breaks the swap.
+`textSecondary`), never as hex. **Never reach for a HealthZone hex** — or any hex: a literal is
+a place a palette change does not reach, and ESLint rejects it.
 
-Consequences while this holds:
-
-- Type **family** stays Inter / Space Grotesk. Apply HealthZone's sizes, weights and hierarchy —
-  snapped to the token scale — but do not add the font dependency yet.
-- IBM Plex Mono is deferred. Carry numerics with weight and alignment for now.
-- The interim looks mismatched — HealthZone layout, wellness-green palette. Expected.
-- The five open colour decisions above stay open. Do not resolve them early.
+- Apply HealthZone's sizes, weights and hierarchy, snapped to the token scale — in Inter / Space
+  Grotesk, not in its Schibsted Grotesk.
+- IBM Plex Mono is not coming back. Figures line up on `tabular-nums` in Inter.
 
 ### The structural layer already exists
 

@@ -24,7 +24,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import {
-    ORGANISATION_OWNER_PERMISSIONS,
+    MEMBER_PERMISSIONS,
     TEST_BRANCH_ID,
     kitchenManagerSession,
     testActiveContext,
@@ -89,7 +89,8 @@ afterAll(() => {
  *    recipe can arrive twice and must be rendered once.
  * 3. **The deep link points at the right editor and the right record.** A queue whose links were
  *    built by string concatenation somewhere would be one refactor away from sending a person to
- *    `/kitchen/meals/<a-recipe-id>`, and this is the only screen where every link crosses families.
+ *    `/kitchen/products/<a-recipe-id>`, and this is the only screen where every link crosses
+ *    families. A meal is the sharp case: it is a recipe in the book, so its link is its recipe's.
  * 4. **All-clear is honest.** It names what was checked, because a green state whose scope is
  *    unstated is indistinguishable from a query that quietly returned nothing.
  * 5. **The permission boundary holds**, and the hub card and the screen agree — they read one cache
@@ -150,6 +151,7 @@ function ingredient(overrides: Partial<IngredientAdmin> = {}): IngredientAdmin {
         id: IngredientId.unsafe('01935f6d-0000-7000-8000-00000000a001'),
         meta: meta(),
         name: { en: 'Burghul', ar: 'برغل' },
+        slug: 'burghul',
         reference: null,
         subcategoryCode: null,
         categoryCode: 'store-cupboard',
@@ -196,6 +198,40 @@ function recipe(overrides: Partial<RecipeAdminSummary> = {}): RecipeAdminSummary
         kitchenId: '01935f6d-0000-7000-8000-00000000f000' as RecipeAdminSummary['kitchenId'],
         currentVersionNumber: 1,
         versionCount: 1,
+        lineCount: 1,
+        // The default mirrors `meta.status` above. A quarantined fixture overrides both, which is
+        // now the honest shape: the queue reads the identity's status and it is derived from this.
+        currentVersionStatus: 'published',
+        allergenCodes: [],
+        ...overrides,
+    };
+}
+
+function meal(overrides: Partial<MealAdmin> = {}): MealAdmin {
+    return {
+        id: MealId.unsafe('01935f6d-0000-7000-8000-00000000c001'),
+        meta: meta(),
+        name: { en: 'Herb garden bowl', ar: 'وعاء الأعشاب' },
+        description: { en: '', ar: '' },
+        kitchenCategory: null,
+        kitchenSubcategory: null,
+        composition: null,
+        kitchenId: '01935f6d-0000-7000-8000-00000000f000' as MealAdmin['kitchenId'],
+        recipeId: null,
+        recipeVersionId: null,
+        productionMode: null,
+        ingredientId: null,
+        sellsFromFinishedStock: false,
+        netContentQuantity: null,
+        netContentUnitId: null,
+        portionFactor: 1,
+        mealTypes: [],
+        dietClassifications: [],
+        allergens: [],
+        channelAvailability: [],
+        availability: [],
+        imagePlaceholderId: 'meal-1',
+        marginPercent: null,
         ...overrides,
     };
 }
@@ -342,11 +378,14 @@ describe('the review model', () => {
             kitchenId: '01935f6d-0000-7000-8000-00000000f000' as ProductAdmin['kitchenId'],
             isMarketPriced: false,
             isAssorted: true,
+            netContentQuantity: null,
+            netContentUnitId: null,
             packVariants: [],
             channelAvailability: [],
             recipeId: null,
             dietClassifications: [],
             dataQualityFlags: ['dual_pack_single_price', 'assorted_members_expanded'],
+            imagePlaceholderId: 'product-mixed-mezze-tray',
         };
 
         expect(productReviewItems([product])[0]?.reasons).toEqual([
@@ -396,31 +435,54 @@ describe('the review model', () => {
     it('drops a family with nothing to report rather than rendering an empty heading', () => {
         const queue = buildReviewQueue({
             ...emptySources(),
+            meals: [meal({ meta: meta({ status: 'review_required' }) })],
+        });
+
+        // A meal is filed under the recipe book, so Recipes is the one heading with a row in it.
+        expect(queue.sections.map((section) => section.familyKey)).toEqual(['recipes']);
+    });
+
+    /**
+     * A meal is a recipe in the book: its row is keyed and addressed by its recipe, so a meal and its
+     * own recipe arriving together are one row carrying both sets of reasons. A meal with no recipe
+     * keeps its own id, and its link is the item address that offers to start one.
+     */
+    it('files a meal under its recipe, one row with the recipe’s, or at its item address without one', () => {
+        const linked = recipe({ meta: meta({ status: 'draft' }), currentVersionStatus: 'draft' });
+        const unlinkedId = '01935f6d-0000-7000-8000-00000000c003';
+
+        const queue = buildReviewQueue({
+            ...emptySources(),
+            quarantinedRecipes: [linked],
             meals: [
-                {
-                    id: MealId.unsafe('01935f6d-0000-7000-8000-00000000c001'),
+                meal({
+                    id: MealId.unsafe('01935f6d-0000-7000-8000-00000000c002'),
+                    recipeId: linked.id,
                     meta: meta({ status: 'review_required' }),
-                    name: { en: 'Herb garden bowl', ar: 'وعاء الأعشاب' },
-                    description: { en: '', ar: '' },
-                    kitchenCategory: null,
-                    kitchenSubcategory: null,
-                    composition: null,
-                    kitchenId: '01935f6d-0000-7000-8000-00000000f000' as MealAdmin['kitchenId'],
-                    recipeId: null,
-                    recipeVersionId: null,
-                    portionFactor: 1,
-                    mealTypes: [],
-                    dietClassifications: [],
-                    allergens: [],
-                    channelAvailability: [],
-                    availability: [],
-                    imagePlaceholderId: 'meal-1',
-                    marginPercent: null,
-                },
+                    name: { en: 'Lamb bowl', ar: '' },
+                }),
+                meal({ id: MealId.unsafe(unlinkedId) }),
             ],
         });
 
-        expect(queue.sections.map((section) => section.familyKey)).toEqual(['meals']);
+        expect(queue.sections.map((section) => section.familyKey)).toEqual(['recipes']);
+        const items = queue.sections[0]?.items ?? [];
+        expect(items).toHaveLength(2);
+
+        // The recipe's row, at the recipe's address, with the meal's reasons after its own — once each.
+        const merged = items.find((item) => item.id === String(linked.id));
+        expect(merged?.name).toEqual(linked.name);
+        expect(merged?.href).toBe(`/kitchen/recipes/${String(linked.id)}`);
+        expect(merged?.reasons.map((reason) => reason.code)).toEqual([
+            'draft',
+            'quarantined',
+            'missingTranslation',
+        ]);
+        expect(isBlocked(merged!)).toBe(true);
+
+        const unlinked = items.find((item) => item.id === unlinkedId);
+        expect(unlinked?.href).toBe(`/kitchen/recipes/item/${unlinkedId}?kind=meal`);
+        expect(unlinked?.reasons).toEqual([{ code: 'draft', count: null }]);
     });
 
     it('is empty, and reports zero, when nothing needs review', () => {
@@ -429,7 +491,7 @@ describe('the review model', () => {
 
     /**
      * Deep links come from the registry rather than from a second table of paths, which is what
-     * keeps `/kitchen/meals/<a-recipe-id>` from ever being constructible.
+     * keeps `/kitchen/products/<a-recipe-id>` from ever being constructible.
      */
     it('builds every deep link from the entity registry', () => {
         for (const familyKey of REVIEWABLE_FAMILY_KEYS) {
@@ -575,8 +637,15 @@ function hubRepositories(world: AuthoredWorld = {}): RepositoryOverrides {
     };
 }
 
-/** An organisation owner: an organisation, a branch, and no catalogue permission at all. */
-function organisationOwnerSession() {
+/**
+ * Somebody who belongs to an organisation and may do nothing in it — the registry's `member` role.
+ *
+ * This was `organisationOwnerSession`, built from a nine-code `ORGANISATION_OWNER_PERMISSIONS` that
+ * happened to lack every catalogue code. An owner holds all forty-three, so the fixture was wrong
+ * and the refusal it proved was an accident of the wrongness. `member` is the role that genuinely
+ * cannot open a kitchen screen, which is what these tests were always reaching for.
+ */
+function organisationMemberSession() {
     return testMeResponse({
         memberships: [
             testMembership({
@@ -588,13 +657,13 @@ function organisationOwnerSession() {
                 roles: [
                     {
                         id: RoleId.unsafe('test-0000-role-0002'),
-                        key: 'organisation_owner',
-                        name: 'Owner',
+                        key: 'member',
+                        name: 'Member',
                     },
                 ],
             }),
         ],
-        activeContext: testActiveContext({ permissions: ORGANISATION_OWNER_PERMISSIONS }),
+        activeContext: testActiveContext({ permissions: MEMBER_PERMISSIONS }),
     });
 }
 
@@ -610,7 +679,7 @@ describe('the review queue screen', () => {
         });
 
         await untilVisible('kitchen-review-screen');
-        await untilVisible('kitchen-review-section-ingredients');
+        await untilVisible('kitchen-review-table-list');
 
         const row = reviewRowTestId('ingredients', String(QUARANTINED_INGREDIENT.id));
         await untilVisible(row);
@@ -629,7 +698,8 @@ describe('the review queue screen', () => {
             repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
         });
 
-        await untilVisible('kitchen-review-summary');
+        // The figures, not the cards: the cards are drawn while the queue is still in flight.
+        await untilVisible('kitchen-review-summary-shown-value');
         // Counted cards, not a sentence: one record shown, and that one is refused publication.
         expect(screen.getByTestId('kitchen-review-summary-shown-value')).toHaveTextContent('1');
         expect(screen.getByTestId('kitchen-review-summary-blocked-value')).toHaveTextContent('1');
@@ -688,7 +758,7 @@ describe('the review queue screen', () => {
             repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
         });
 
-        await untilVisible('kitchen-review-summary');
+        await untilVisible('kitchen-review-summary-shown-value');
         expect(screen.queryByTestId('kitchen-review-title')).toBeNull();
         expect(screen.queryByTestId('kitchen-review-scope')).toBeNull();
         expect(screen.queryByTestId('kitchen-review-not-checked')).toBeNull();
@@ -715,12 +785,18 @@ describe('the review queue screen', () => {
 
     /**
      * Aggregation across families, authored rather than assumed: two quarantined ingredients and a
-     * quarantined recipe, so both sections must render and the ingredient heading must count two.
+     * quarantined recipe, all in the one table and told apart by the ID column.
      */
-    it('aggregates several families at once, each under its own heading', async () => {
+    it('puts every family in one table and tells them apart by the ID column', async () => {
         const second = ingredient({
             id: IngredientId.unsafe('01935f6d-0000-7000-8000-00000000a0c2'),
+            reference: 'ING-0042',
             name: { en: 'Pita', ar: 'خبز' },
+            meta: meta({ status: 'review_required' }),
+        });
+        const quarantinedRecipe = recipe({
+            // An imported recipe's reference names its source file; only what follows `#` is shown.
+            reference: 'v6-recipes.json#bbq-sauce-dip',
             meta: meta({ status: 'review_required' }),
         });
 
@@ -728,17 +804,63 @@ describe('the review queue screen', () => {
             session: kitchenManagerSession(),
             repositories: reviewRepositories({
                 ingredients: [QUARANTINED_INGREDIENT, second],
-                quarantinedRecipes: [recipe({ meta: meta({ status: 'review_required' }) })],
+                quarantinedRecipes: [quarantinedRecipe],
             }),
         });
 
-        await untilVisible('kitchen-review-section-ingredients');
-        await untilVisible('kitchen-review-section-recipes');
+        await untilVisible('kitchen-review-table-list');
 
-        // Both authored ingredients land under one heading, and the heading says how many.
-        expect(screen.getByTestId('kitchen-review-section-ingredients-count')).toHaveTextContent(
-            /2 records/,
+        const secondRow = reviewRowTestId('ingredients', String(second.id));
+        const recipeRow = reviewRowTestId('recipes', String(quarantinedRecipe.id));
+        await untilVisible(secondRow);
+        await untilVisible(recipeRow);
+
+        // One table: no per-family headings.
+        expect(screen.queryByTestId('kitchen-review-section-ingredients')).toBeNull();
+        expect(screen.queryByTestId('kitchen-review-section-recipes')).toBeNull();
+
+        // The ID column is the record's own reference — and the family's name where it has none.
+        expect(screen.getByTestId(`${secondRow}-reference`)).toHaveTextContent('ING-0042');
+        expect(screen.getByTestId(`${recipeRow}-reference`)).toHaveTextContent(/^bbq-sauce-dip$/);
+        expect(
+            screen.getByTestId(
+                `${reviewRowTestId('ingredients', String(QUARANTINED_INGREDIENT.id))}-reference`,
+            ),
+        ).toHaveTextContent('Ingredients');
+    });
+
+    it('pages the table at 18 rows and turns to the rest', async () => {
+        const many = Array.from({ length: 19 }, (_, index) =>
+            ingredient({
+                id: IngredientId.unsafe(
+                    `01935f6d-0000-7000-8000-0000000b${String(index).padStart(4, '0')}`,
+                ),
+                name: { en: `Queued ${String(index + 1)}`, ar: `صف ${String(index + 1)}` },
+                meta: meta({ status: 'review_required' }),
+            }),
         );
+
+        await renderStubScreen(<ReviewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: reviewRepositories({ ingredients: many }),
+        });
+
+        await untilVisible('kitchen-review-table-pagination');
+
+        const shownFirst = many.filter((row) =>
+            screen.queryByTestId(reviewRowTestId('ingredients', String(row.id))),
+        );
+        expect(shownFirst).toHaveLength(18);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-review-table-pagination-pages-next'));
+        });
+
+        // The one row the first page could not hold, and none of the eighteen before it.
+        const shownSecond = many.filter((row) =>
+            screen.queryByTestId(reviewRowTestId('ingredients', String(row.id))),
+        );
+        expect(shownSecond).toHaveLength(1);
     });
 
     it('celebrates an all-clear queue only alongside what it measured', async () => {
@@ -753,21 +875,24 @@ describe('the review queue screen', () => {
         expect(screen.getByTestId('kitchen-review-clear')).toHaveTextContent(
             /Nothing is waiting for review/,
         );
-        expect(screen.queryByTestId('kitchen-review-sections')).toBeNull();
+        expect(screen.queryByTestId('kitchen-review-table-list')).toBeNull();
     });
 
     it('renders skeletons before the answer', async () => {
         // A visible latency, so the pending frame is deterministically observable rather than a
-        // race against a stub that resolves on a microtask.
+        // race against a stub that resolves on a microtask. It is 250ms rather than a few frames
+        // because the wait competes with every other worker for the machine: at 40ms a busy run
+        // resolved the query before this assertion looked, and the file failed only in the full
+        // suite. The test still finishes in well under a second.
         await renderStubScreen(<ReviewScreen />, {
             session: kitchenManagerSession(),
-            latencyMs: 40,
+            latencyMs: 250,
             repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
         });
 
         await untilVisible('kitchen-review-loading');
         await untilVisible('kitchen-review-screen');
-        await untilVisible('kitchen-review-section-ingredients');
+        await untilVisible('kitchen-review-table-list');
     });
 
     it('offers a retry rather than a dead end when the queue cannot be read', async () => {
@@ -786,17 +911,17 @@ describe('the review queue screen', () => {
         });
 
         await untilVisible('kitchen-review-error');
-        expect(screen.queryByTestId('kitchen-review-sections')).toBeNull();
+        expect(screen.queryByTestId('kitchen-review-table-list')).toBeNull();
         expect(screen.queryByTestId('kitchen-review-clear')).toBeNull();
     });
 
     it('refuses a signed-in person whose role carries no catalogue permission', async () => {
         // No repository overrides at all: the gate refuses before the queue can ask for anything.
-        await renderStubScreen(<ReviewScreen />, { session: organisationOwnerSession() });
+        await renderStubScreen(<ReviewScreen />, { session: organisationMemberSession() });
 
         await untilVisible('kitchen-review-forbidden');
         expect(screen.queryByTestId('kitchen-review-screen')).toBeNull();
-        expect(screen.queryByTestId('kitchen-review-sections')).toBeNull();
+        expect(screen.queryByTestId('kitchen-review-table-list')).toBeNull();
     });
 });
 

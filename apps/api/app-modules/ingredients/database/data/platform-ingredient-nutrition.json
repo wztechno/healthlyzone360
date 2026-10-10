@@ -271,10 +271,7 @@
       "estimated": false,
       "sources": [
         "https://fdc.nal.usda.gov/"
-      ],
-      "grams_per_unit": 1150,
-      "grams_per_unit_of": "l",
-      "grams_per_unit_note": "USDA: 1 tbsp = 17 g."
+      ]
     },
     {
       "source_ref": "ING-017",
@@ -290,10 +287,7 @@
       "estimated": false,
       "sources": [
         "https://fdc.nal.usda.gov/"
-      ],
-      "grams_per_unit": 930,
-      "grams_per_unit_of": "l",
-      "grams_per_unit_note": "USDA: 1 tbsp = 13.8 g."
+      ]
     },
     {
       "source_ref": "ING-018",
@@ -325,10 +319,7 @@
       "estimated": false,
       "sources": [
         "https://fdc.nal.usda.gov/"
-      ],
-      "grams_per_unit": 1010,
-      "grams_per_unit_of": "l",
-      "grams_per_unit_note": "USDA prepared mustard: 1 tsp = 5 g; Dijon and wholegrain take the same family figure (estimate)."
+      ]
     },
     {
       "source_ref": "ING-020",
@@ -344,10 +335,7 @@
       "estimated": false,
       "sources": [
         "https://fdc.nal.usda.gov/"
-      ],
-      "grams_per_unit": 1010,
-      "grams_per_unit_of": "l",
-      "grams_per_unit_note": "USDA prepared mustard: 1 tsp = 5 g; Dijon and wholegrain take the same family figure (estimate)."
+      ]
     },
     {
       "source_ref": "ING-021",
@@ -364,10 +352,7 @@
       "sources": [
         "https://fdc.nal.usda.gov/",
         "https://world.openfoodfacts.org/"
-      ],
-      "grams_per_unit": 1010,
-      "grams_per_unit_of": "l",
-      "grams_per_unit_note": "USDA prepared mustard: 1 tsp = 5 g; Dijon and wholegrain take the same family figure (estimate)."
+      ]
     },
     {
       "source_ref": "ING-022",
@@ -383,10 +368,7 @@
       "estimated": false,
       "sources": [
         "https://fdc.nal.usda.gov/"
-      ],
-      "grams_per_unit": 1010,
-      "grams_per_unit_of": "l",
-      "grams_per_unit_note": "USDA prepared mustard: 1 tsp = 5 g; Dijon and wholegrain take the same family figure (estimate)."
+      ]
     },
     {
       "source_ref": "ING-023",
@@ -3416,10 +3398,7 @@
       "estimated": false,
       "sources": [
         "https://fdc.nal.usda.gov/"
-      ],
-      "grams_per_unit": 50,
-      "grams_per_unit_of": "piece",
-      "grams_per_unit_note": "USDA large egg, edible portion 50 g; the sheets count eggs in pieces."
+      ]
     },
     {
       "source_ref": "ING-208",

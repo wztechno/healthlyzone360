@@ -2,7 +2,7 @@ import { fireEvent, screen } from '@testing-library/react-native';
 import { Platform } from 'react-native';
 
 import { Text } from '../primitives/text.tsx';
-import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
+import { assertSubtreeIsLogical, renderWithI18n, withI18n } from '../testing/render.tsx';
 import { Checkbox } from './checkbox.tsx';
 import {
     daysInMonth,
@@ -16,9 +16,12 @@ import { DateField } from './date-field.native.tsx';
 import { DateField as WebDateField } from './date-field.web.tsx';
 import { SliderField } from './slider-field.native.tsx';
 import { SliderField as WebSliderField } from './slider-field.web.tsx';
-import { FormField } from './form-field.tsx';
+import { FormField, NUMBER_MAX_LENGTH } from './form-field.tsx';
+import { FormIssueBanner } from './form-issue-banner.tsx';
+import { FormIssueScope } from './form-issue-scope.tsx';
 import { NumberStepper, clampToStep } from './number-stepper.tsx';
 import { PasswordInput } from './password-input.tsx';
+import { QuantityInput } from './quantity-input.tsx';
 import { RangeFilter, isInvertedRange } from './range-filter.tsx';
 import { Select } from './select.native.tsx';
 import { TextInputField, inputFrameClassName } from './text-input.tsx';
@@ -116,6 +119,161 @@ describe('FormField', () => {
             </FormField>,
         );
         assertSubtreeIsLogical(screen.getByTestId('field'));
+    });
+});
+
+describe('FormField — warning', () => {
+    it('states a caution without marking the control invalid', async () => {
+        await renderWithI18n(
+            <TextInputField testID="waste" label="Waste" value="12" warning="Above 10%" />,
+        );
+
+        expect(screen.getByTestId('waste-warning')).toHaveTextContent('Above 10%');
+        // A caution is news, not an interruption, and the value it describes is legal.
+        expect(screen.getByTestId('waste-warning').props.role).toBe('status');
+        expect(screen.getByTestId('waste-input').props['aria-invalid']).toBe(false);
+    });
+
+    it('yields to an error on the same field, which states one problem at a time', async () => {
+        await renderWithI18n(
+            <TextInputField
+                testID="waste"
+                label="Waste"
+                value="x"
+                error="Enter a number"
+                warning="Above 10%"
+            />,
+        );
+
+        expect(screen.getByTestId('waste-error')).toBeTruthy();
+        expect(screen.queryByTestId('waste-warning')).toBeNull();
+    });
+
+    it('gives the frame the warning border, and the invalid border still wins', () => {
+        const base = { focused: false, disabled: false } as const;
+        expect(inputFrameClassName({ ...base, invalid: false, caution: true })).toContain(
+            'border-warning-border',
+        );
+        expect(inputFrameClassName({ ...base, invalid: true, caution: true })).toContain(
+            'border-danger-border',
+        );
+        expect(inputFrameClassName({ ...base, invalid: true, caution: true })).not.toContain(
+            'border-warning-border',
+        );
+    });
+});
+
+describe('FormIssueBanner', () => {
+    it('names each field and takes the reader to it', async () => {
+        const toName = jest.fn();
+        await renderWithI18n(
+            <FormIssueBanner
+                testID="issues"
+                tone="danger"
+                summary="2 required"
+                items={[
+                    { key: 'name', label: 'Designation (EN)', onPress: toName },
+                    { key: 'category', label: 'Category', onPress: jest.fn() },
+                ]}
+            />,
+        );
+
+        // The one that blocks is an alert: it appears because a save was refused.
+        expect(screen.getByTestId('issues').props.role).toBe('alert');
+        expect(screen.getByTestId('issues-summary')).toHaveTextContent('2 required');
+        expect(screen.getByTestId('issues-name').props.accessibilityLabel).toBe('Designation (EN)');
+
+        fireEvent.press(screen.getByTestId('issues-name'));
+        expect(toName).toHaveBeenCalledTimes(1);
+        assertSubtreeIsLogical(screen.getByTestId('issues'));
+    });
+
+    it('waits its turn when it only warns', async () => {
+        await renderWithI18n(
+            <FormIssueBanner testID="issues" tone="warning" summary="1 at zero" items={[]} />,
+        );
+
+        expect(screen.getByTestId('issues').props.role).toBe('status');
+    });
+
+    it('is a soft strip — the tone’s fill, no border', async () => {
+        await renderWithI18n(
+            <FormIssueBanner testID="issues" tone="danger" summary="1 required" items={[]} />,
+        );
+
+        const classes: string = screen.getByTestId('issues').props.className;
+        expect(classes).toContain('bg-danger-subtle');
+        expect(classes).not.toMatch(/(^|\s)border(\s|$)/);
+    });
+});
+
+describe('FormIssueScope', () => {
+    const priceField = (
+        <TextInputField testID="price" id="price" label="Unit price" error="Required" />
+    );
+    const banner = (fieldId: string | undefined) => (
+        <FormIssueBanner
+            testID="issues"
+            tone="danger"
+            summary="1 required"
+            items={[{ key: 'price', label: 'Unit price', fieldId, onPress: jest.fn() }]}
+        />
+    );
+
+    it('quiets the field a chip names, and keeps its message for assistive technology', async () => {
+        await renderWithI18n(
+            <FormIssueScope>
+                {banner('price')}
+                {priceField}
+            </FormIssueScope>,
+        );
+
+        const message = screen.getByTestId('price-error');
+        // Still the control's description, still the same words…
+        expect(message).toHaveTextContent('Required');
+        expect(message.props.nativeID).toBe('price-error');
+        expect(screen.getByTestId('price-input').props['aria-describedby']).toBe('price-error');
+        expect(screen.getByTestId('price-input').props['aria-invalid']).toBe(true);
+        // …but drawn nowhere, and no second alert beside the banner's.
+        expect(message.props.className).toContain('opacity-0');
+        expect(message.props.role).toBeUndefined();
+        expect(message.props.accessibilityRole).toBeUndefined();
+    });
+
+    it('leaves a field no chip names saying what is wrong with it', async () => {
+        await renderWithI18n(
+            <FormIssueScope>
+                {banner(undefined)}
+                {priceField}
+            </FormIssueScope>,
+        );
+
+        const message = screen.getByTestId('price-error');
+        expect(message.props.accessibilityRole).toBe('alert');
+        expect(message.props.className).not.toContain('opacity-0');
+    });
+
+    it('changes nothing outside a scope', async () => {
+        await renderWithI18n(
+            <>
+                {banner('price')}
+                {priceField}
+            </>,
+        );
+
+        expect(screen.getByTestId('price-error').props.accessibilityRole).toBe('alert');
+    });
+
+    it('gives the message back when the banner goes', async () => {
+        const view = await renderWithI18n(
+            <FormIssueScope>
+                {banner('price')}
+                {priceField}
+            </FormIssueScope>,
+        );
+        await view.rerender(withI18n(<FormIssueScope>{priceField}</FormIssueScope>));
+
+        expect(screen.getByTestId('price-error').props.accessibilityRole).toBe('alert');
     });
 });
 
@@ -1294,5 +1452,37 @@ describe('SliderField — native (stepper, not a drag rail)', () => {
             'ar',
         );
         assertSubtreeIsLogical(screen.getByTestId('energy'));
+    });
+});
+
+describe('number fields', () => {
+    it("take a number's worth of characters, and a caller's own cap wins", async () => {
+        await renderWithI18n(
+            <>
+                <QuantityInput testID="qty" label="Quantity" value="" onChangeText={jest.fn()} />
+                <QuantityInput
+                    testID="code"
+                    label="Code"
+                    value=""
+                    onChangeText={jest.fn()}
+                    maxLength={4}
+                />
+                <NumberStepper testID="portion" label="Portion" value={2} onChange={jest.fn()} />
+                <TextInputField testID="yield" label="Yield" keyboardType="decimal-pad" />
+                <TextInputField testID="pin" label="PIN" inputMode="numeric" maxLength={6} />
+                <TextInputField testID="name" label="Name" />
+                <TextInputField testID="phone" label="Phone" keyboardType="phone-pad" />
+            </>,
+        );
+
+        expect(NUMBER_MAX_LENGTH).toBe(10);
+        expect(screen.getByTestId('qty-input').props.maxLength).toBe(NUMBER_MAX_LENGTH);
+        expect(screen.getByTestId('code-input').props.maxLength).toBe(4);
+        expect(screen.getByTestId('portion-input').props.maxLength).toBe(NUMBER_MAX_LENGTH);
+        expect(screen.getByTestId('yield-input').props.maxLength).toBe(NUMBER_MAX_LENGTH);
+        expect(screen.getByTestId('pin-input').props.maxLength).toBe(6);
+        // Not numbers: a name, and a telephone, which is a string of digits but not a figure.
+        expect(screen.getByTestId('name-input').props.maxLength).toBeUndefined();
+        expect(screen.getByTestId('phone-input').props.maxLength).toBeUndefined();
     });
 });

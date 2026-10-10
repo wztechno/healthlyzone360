@@ -16,7 +16,13 @@ use Healthy360\Catalogues\Models\CatalogueItemIngredient;
 use Healthy360\Catalogues\Models\ProductCategory;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Ingredients\Models\IngredientCategory;
+use Healthy360\Ingredients\Services\IngredientCatalogueService;
+use Healthy360\Inventory\Services\OrderConsumptionService;
+use Healthy360\Inventory\Services\StockItemDerivationService;
+use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\Recipe;
+use Healthy360\Recipes\Models\RecipeVersionOutput;
 use Healthy360\ReferenceData\Models\DietClassification;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Support\Api\ErrorCode;
@@ -25,6 +31,7 @@ use Healthy360\Support\Api\Exceptions\StaleLockVersion;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 /**
  * Every write to a catalogue item — the identity a kitchen sells.
@@ -79,6 +86,7 @@ final readonly class CatalogueItemService
     public function __construct(
         private TenantContext $context,
         private AuditRecorder $audit,
+        private IngredientCatalogueService $ingredients,
     ) {}
 
     /**
@@ -149,6 +157,11 @@ final readonly class CatalogueItemService
             // One sold unit is one yield piece unless the kitchen says
             // otherwise.
             $item->portion_factor = $this->portionFactor($attributes['portion_factor'] ?? '1');
+
+            $finished = $this->finishedStockDeclaration($type, $links, $attributes, $organisationId);
+            $item->sells_from_finished_stock = $finished['sells_from_finished_stock'];
+            $item->net_content_quantity = $finished['net_content_quantity'];
+            $item->net_content_unit_id = $finished['net_content_unit_id'];
             $item->status = CatalogueItemStatus::Draft;
             $item->image_placeholder_id = $this->trimmedOrNull($attributes['image_placeholder_id'] ?? null);
             $item->lock_version = 0;
@@ -157,6 +170,9 @@ final readonly class CatalogueItemService
             $prefix = self::REFERENCE_SERIES[$type->value] ?? null;
             if ($prefix !== null) {
                 $item->source_ref = $this->nextReferenceFor($organisationId, $prefix);
+            }
+            if ($item->ingredient_id === null && in_array($type, [CatalogueItemType::Sauce, CatalogueItemType::Dressing], true)) {
+                $item->ingredient_id = (string) $this->twinOf($item)->getKey();
             }
             $item->created_by = $this->context->userId();
             $item->updated_by = $this->context->userId();
@@ -176,6 +192,50 @@ final readonly class CatalogueItemService
 
             return $item;
         });
+    }
+
+    /**
+     * The ingredient a cooked item is used as inside other recipes — its twin.
+     *
+     * A sauce is sold *and* spooned into meals, and a meal's lines name ingredients, not catalogue
+     * items. Every sauce and dressing the v6 import wrote has one, carrying the item's own handle so
+     * a cook can quote it from either side. One created here gets the same, or it could be sold but
+     * never cooked with, and a batch of it would have no shelf to land on — derivation gives the
+     * twin its shelf the moment it exists.
+     *
+     * Created once, with the item. Renaming or retiring the item does not reach it: from then on it
+     * is the kitchen's ingredient, used by recipes the item knows nothing about.
+     *
+     * No allergen mapping is copied onto it. Unassessed is the honest state of a row nobody has
+     * looked at, and the publish gate refuses any recipe built on it until someone does; a copy of the
+     * sauce's allergens taken today would go stale with the next edit to its recipe, silently.
+     *
+     * @throws ApiException
+     */
+    private function twinOf(CatalogueItem $item): Ingredient
+    {
+        $category = IngredientCategory::withoutTenancy()
+            ->whereNull('organisation_id')
+            ->where('code', $item->item_type === CatalogueItemType::Sauce ? 'sauce' : 'dressings')
+            ->value('id');
+
+        // Kilograms whatever the item is sold in: every sauce and dressing is weighed, and a twin
+        // that followed the item's usage unit would hand a meal's line a bottle to convert.
+        $unitId = MeasurementUnit::query()->where('code', 'kg')->value('id');
+
+        if (! is_string($unitId)) {
+            throw new RuntimeException('The kilogram measurement unit is not seeded; seed reference data first.');
+        }
+
+        return $this->ingredients->create([
+            'name_en' => $item->name_en,
+            'name_ar' => $item->name_ar,
+            'slug' => $item->slug,
+            'ingredient_category_id' => is_string($category) ? $category : null,
+            'default_unit_id' => $unitId,
+            'composition' => $item->composition,
+            'source_ref' => $item->source_ref,
+        ]);
     }
 
     /**
@@ -238,6 +298,18 @@ final readonly class CatalogueItemService
             if (array_key_exists($field, $attributes)) {
                 $changes[$field] = $field === 'production_mode' ? $links[$field]?->value : $links[$field];
             }
+        }
+
+        // Re-checked on every edit rather than only on create: the flag can be set
+        // on an item that qualified and then have the production mode or the
+        // ingredient link changed underneath it. Validating the *resulting* state
+        // keeps the rule true rather than merely once-true.
+        if (array_intersect_key($attributes, array_flip(['sells_from_finished_stock', 'net_content_quantity', 'net_content_unit_id', 'production_mode', 'ingredient_id'])) !== []) {
+            $finished = $this->finishedStockDeclaration($item->item_type, $links, $attributes, (string) $item->organisation_id, $item);
+
+            $changes['sells_from_finished_stock'] = $finished['sells_from_finished_stock'];
+            $changes['net_content_quantity'] = $finished['net_content_quantity'];
+            $changes['net_content_unit_id'] = $finished['net_content_unit_id'];
         }
 
         if ($changes === []) {
@@ -721,5 +793,175 @@ final readonly class CatalogueItemService
             $message,
             ['fields' => [$field => [$message]]] + $extra,
         );
+    }
+
+    /**
+     * The finished-stock declaration on an item, validated (PROD1).
+     *
+     * Two fields and one rule between them.
+     *
+     * **The flag is refused unless the item is one the kitchen makes.** A meal
+     * flagged as selling from finished stock but produced by nobody would deduct
+     * from a shelf that does not exist, and the sale would fail at the counter
+     * rather than in the editor. So it requires a `production` or `both` mode and
+     * an `ingredient_id` that some published recipe version actually outputs.
+     *
+     * The types that always sell from finished stock — a product, a sauce, a
+     * dressing, a frozen meal — are not asked to set it. Their behaviour predates
+     * this column and is a property of what they are.
+     *
+     * **Net content is all-or-nothing, and required where the shelf is weighed.**
+     * A quantity with no unit is not a quantity; the database CHECK says the same
+     * thing from its side. And an item that sells from finished stock off a shelf
+     * counted in kilograms or litres *must* say what one sold unit is, because
+     * {@see OrderConsumptionService} refuses such
+     * a sale with `no_net_content` rather than guessing — so the write refuses
+     * exactly what the sale would, days earlier and in front of the person who
+     * can fix it. A shelf counted in pieces needs none: `portion_factor` already
+     * means something there.
+     *
+     * @param  array<string, mixed>  $links
+     * @param  array<string, mixed>  $attributes
+     * @return array{sells_from_finished_stock: bool, net_content_quantity: numeric-string|null, net_content_unit_id: string|null}
+     *
+     * @throws ApiException
+     */
+    private function finishedStockDeclaration(
+        CatalogueItemType $type,
+        array $links,
+        array $attributes,
+        string $organisationId,
+        ?CatalogueItem $existing = null,
+    ): array {
+        $flag = array_key_exists('sells_from_finished_stock', $attributes)
+            ? (bool) $attributes['sells_from_finished_stock']
+            : ($existing->sells_from_finished_stock ?? false);
+
+        $ingredientId = array_key_exists('ingredient_id', $links)
+            ? $links['ingredient_id']
+            : $existing?->ingredient_id;
+
+        $mode = array_key_exists('production_mode', $links)
+            ? $links['production_mode']
+            : $existing?->production_mode;
+
+        if ($flag && $type === CatalogueItemType::Meal) {
+            if (! in_array($mode, [ProductionMode::Production, ProductionMode::Both], true)) {
+                throw $this->invalid(
+                    'sells_from_finished_stock',
+                    'Only a meal this kitchen produces can sell from finished stock. Set its production mode first.',
+                );
+            }
+
+            if (! is_string($ingredientId) || ! $this->isProducedIngredient($organisationId, $ingredientId)) {
+                throw $this->invalid(
+                    'sells_from_finished_stock',
+                    'A meal that sells from finished stock must name an ingredient a published recipe produces, so there is a shelf to deduct from.',
+                );
+            }
+        }
+
+        $quantity = array_key_exists('net_content_quantity', $attributes)
+            ? $attributes['net_content_quantity']
+            : $existing?->net_content_quantity;
+
+        $unitId = array_key_exists('net_content_unit_id', $attributes)
+            ? $attributes['net_content_unit_id']
+            : $existing?->net_content_unit_id;
+
+        if ($quantity === null || $quantity === '' || $unitId === null || $unitId === '') {
+            $this->requireNetContentOnAWeighedShelf($type, $flag, $ingredientId);
+
+            return [
+                'sells_from_finished_stock' => $flag,
+                'net_content_quantity' => null,
+                'net_content_unit_id' => null,
+            ];
+        }
+
+        if (! is_numeric($quantity) || bccomp((string) $quantity, '0', 4) !== 1) {
+            throw $this->invalid('net_content_quantity', 'The net content of one sold unit must be a positive quantity.');
+        }
+
+        // Checked here rather than with an `exists` rule, for the reason stated on
+        // every other identifier in this service: a bare rule would happily accept
+        // an identifier this organisation cannot use. Units are reference data and
+        // therefore shared, so the check is plain existence — but it belongs in the
+        // same layer as its siblings, and without it a mistyped uuid is a 500 off
+        // the foreign key rather than a 422 naming the field.
+        if (! MeasurementUnit::query()->whereKey($unitId)->exists()) {
+            throw $this->invalid('net_content_unit_id', 'This measurement unit does not exist.');
+        }
+
+        return [
+            'sells_from_finished_stock' => $flag,
+            'net_content_quantity' => (string) $quantity,
+            'net_content_unit_id' => (string) $unitId,
+        ];
+    }
+
+    /**
+     * Refuse a finished-stock item that says nothing about how much one sold unit
+     * is, when its shelf is counted by weight or volume (PROD1).
+     *
+     * The shelf's unit is read off the ingredient's `default_unit_id`, which is
+     * what {@see StockItemDerivationService}
+     * gives the derived stock item. Reading the stock item itself would be the
+     * literal answer and would make Catalogues depend on Inventory for a guard;
+     * the ingredient is the same fact one step earlier, and the sale remains the
+     * authority if the two are ever moved apart by hand.
+     *
+     * Silent where the dimension is unknown — no ingredient, no default unit, a
+     * unit that has since gone. A write is not the place to refuse on a fact
+     * nobody can state, and the sale still records `no_net_content` if it comes
+     * to that.
+     *
+     * @throws ApiException
+     */
+    private function requireNetContentOnAWeighedShelf(
+        CatalogueItemType $type,
+        bool $flag,
+        mixed $ingredientId,
+    ): void {
+        if (! $type->sellsFromFinishedStock($flag) || ! is_string($ingredientId)) {
+            return;
+        }
+
+        $unit = MeasurementUnit::query()
+            ->whereKey(
+                Ingredient::withoutTenancy()->whereKey($ingredientId)->value('default_unit_id')
+            )
+            ->first(['code', 'dimension']);
+
+        // The sale's own test, from the other side: `count`, `package` and
+        // `serving` fall back to `portion_factor`; everything else refuses.
+        if ($unit === null || $unit->dimension === 'count' || $unit->dimension === 'package' || $unit->dimension === 'serving') {
+            return;
+        }
+
+        throw $this->invalid(
+            'net_content_quantity',
+            "This item sells from finished stock off a shelf counted in {$unit->code}, so it must say how much one sold unit is. Without it every sale is refused rather than guessed at.",
+        );
+    }
+
+    /**
+     * Whether some published recipe version of this organisation outputs the
+     * named ingredient.
+     *
+     * Read through the outputs table rather than through
+     * `ingredients.nutrition_derived_from_version_id`: that column records which
+     * version *claimed the facts*, and a version can legitimately produce
+     * something whose nutrition was entered by hand. Production is the question
+     * here, so the outputs are what answers it.
+     */
+    private function isProducedIngredient(string $organisationId, string $ingredientId): bool
+    {
+        return RecipeVersionOutput::withoutTenancy()
+            ->join('recipe_versions', 'recipe_versions.id', '=', 'recipe_version_outputs.recipe_version_id')
+            ->where('recipe_version_outputs.organisation_id', $organisationId)
+            ->where('recipe_version_outputs.ingredient_id', $ingredientId)
+            ->where('recipe_versions.status', RecipeVersionStatus::Published->value)
+            ->exists();
     }
 }

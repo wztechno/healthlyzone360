@@ -1,5 +1,9 @@
-import { ActivityIndicator, Pressable, Text as RNText } from 'react-native';
+import { themes } from '@healthy360/design-tokens';
+import type { ThemeTokens } from '@healthy360/design-tokens';
+import { useColorScheme } from 'nativewind';
+import { ActivityIndicator, Platform, Pressable, Text as RNText, View } from 'react-native';
 import type { PressableProps } from 'react-native';
+import { useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import { useDensity } from '../hooks/use-density.tsx';
@@ -12,6 +16,8 @@ import {
     LABEL_VARIANT,
 } from './button-shared.ts';
 import type { ButtonSize, ButtonVariant } from './button-shared.ts';
+import { showFloatingLabel } from './floating-label.ts';
+import type { FloatingLabel } from './floating-label.ts';
 
 /**
  * Button.
@@ -91,18 +97,16 @@ const LABEL_SIZE: Readonly<Record<Density, Readonly<Record<ButtonSize, string>>>
 };
 
 /**
- * The spinner cannot inherit `currentColor` through `ActivityIndicator`, so the colour is repeated
- * here — and it is repeated as a literal because this is a prop, not a class name.
- *
- * These were `#4e8a37`, an olive that belongs to no palette this product has ever shipped; against
- * the wellness green it read as a different brand mid-request. They are `brand-surface` now.
+ * The spinner cannot inherit `currentColor` through `ActivityIndicator`, so its colour is a prop —
+ * read from the theme's roles rather than typed here, so it follows the palette and the dark theme.
+ * The ink on a filled button, and the brand green on the outlined ones.
  */
-const SPINNER_COLOUR: Readonly<Record<ButtonVariant, string>> = {
-    primary: '#ffffff',
-    secondary: '#157043',
-    quiet: '#5b6673',
-    ghost: '#157043',
-    danger: '#ffffff',
+const SPINNER_COLOUR: Readonly<Record<ButtonVariant, (theme: ThemeTokens) => string>> = {
+    primary: (theme) => theme.colours.textOnBrand,
+    secondary: (theme) => theme.colours.brandSurface,
+    quiet: (theme) => theme.colours.textSecondary,
+    ghost: (theme) => theme.colours.brandSurface,
+    danger: (theme) => theme.semantic.danger.onDefault,
 };
 
 export interface ButtonProps extends Omit<
@@ -120,6 +124,14 @@ export interface ButtonProps extends Omit<
     readonly iconEnd?: ReactNode | undefined;
     /** Stretch to the container width. */
     readonly block?: boolean | undefined;
+    /**
+     * One sentence saying what the control is for, beyond its label — "Choose which columns
+     * appear in the table" under "Show columns · 6 of 6". On the web it floats under the button
+     * while the pointer rests on it, drawn the way `IconButton` draws its name
+     * (`floating-label.ts`); everywhere it is the control's `accessibilityHint`, so a screen reader
+     * reads it after the label instead of the reader having to hover.
+     */
+    readonly hint?: string | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -133,18 +145,39 @@ export function Button({
     iconStart,
     iconEnd,
     block = false,
+    hint,
     className,
     onPress,
+    onHoverIn,
+    onHoverOut,
     accessibilityLabel,
     testID,
     ...rest
 }: ButtonProps) {
     const density = useDensity();
+    const { colorScheme } = useColorScheme();
     // A loading button is not merely styled as busy — it must not fire again, or a double tap
     // submits the form twice while the first request is still in flight.
     const inert = disabled || loading;
 
-    return (
+    const floating = useRef<FloatingLabel | null>(null);
+    const hideHint = useCallback(() => {
+        floating.current?.hide();
+        floating.current = null;
+    }, []);
+    useEffect(() => hideHint, [hideHint]);
+
+    const showHint = (target: unknown) => {
+        if (hint === undefined || Platform.OS !== 'web') return;
+        hideHint();
+        floating.current = showFloatingLabel(
+            target,
+            hint,
+            testID === undefined ? undefined : `${testID}-hint`,
+        );
+    };
+
+    const button = (
         <Pressable
             {...rest}
             testID={testID}
@@ -155,7 +188,23 @@ export function Button({
             aria-disabled={inert}
             aria-busy={loading}
             disabled={inert}
-            onPress={inert ? undefined : onPress}
+            {...(hint === undefined ? {} : { accessibilityHint: hint })}
+            onPress={
+                inert || onPress === undefined || onPress === null
+                    ? undefined
+                    : (event) => {
+                          hideHint();
+                          onPress(event);
+                      }
+            }
+            onHoverIn={(event) => {
+                showHint((event as unknown as { currentTarget?: unknown }).currentTarget);
+                onHoverIn?.(event);
+            }}
+            onHoverOut={(event) => {
+                hideHint();
+                onHoverOut?.(event);
+            }}
             className={cx(
                 'flex-row items-center justify-center',
                 CONTAINER_VARIANT[variant],
@@ -171,7 +220,9 @@ export function Button({
                 <ActivityIndicator
                     testID={testID === undefined ? undefined : `${testID}-spinner`}
                     size="small"
-                    color={SPINNER_COLOUR[variant]}
+                    color={SPINNER_COLOUR[variant](
+                        themes[colorScheme === 'dark' ? 'dark' : 'light'],
+                    )}
                     accessibilityElementsHidden
                     aria-hidden
                 />
@@ -190,6 +241,34 @@ export function Button({
             {iconEnd}
         </Pressable>
     );
+
+    /*
+     * A disabled button still says what it is for — and, more usefully, why it cannot be pressed
+     * yet — when the pointer rests on it.
+     *
+     * React Native Web switches hover off on a disabled `Pressable` and gives it
+     * `pointer-events: box-none`, so `onHoverIn` never fires on the very buttons whose hint matters
+     * most. The pointer then lands on whatever is under the button's box, which is this wrapper:
+     * it listens instead, and the button keeps every other disabled behaviour — no press, no focus
+     * stop, no hover fill. Web only, and only when there is a hint to show; everywhere else the hint
+     * is the `accessibilityHint` either way.
+     */
+    if (inert && hint !== undefined && Platform.OS === 'web') {
+        return (
+            <View
+                testID={testID === undefined ? undefined : `${testID}-hint-target`}
+                className={block ? 'self-stretch' : 'self-start'}
+                onPointerEnter={(event) => {
+                    showHint(event.currentTarget);
+                }}
+                onPointerLeave={hideHint}
+            >
+                {button}
+            </View>
+        );
+    }
+
+    return button;
 }
 
 /**

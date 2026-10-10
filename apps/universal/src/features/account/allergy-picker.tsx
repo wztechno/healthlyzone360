@@ -139,6 +139,7 @@ export function AllergyPicker({
                     <TextInputField
                         testID={`${testID}-note-${entry.allergenCode}`}
                         label={t('account:dietary.noteLabel')}
+                        placeholder={t('account:dietary.notePlaceholder')}
                         value={entry.note ?? ''}
                         disabled={disabled}
                         onChangeText={(note: string) => {

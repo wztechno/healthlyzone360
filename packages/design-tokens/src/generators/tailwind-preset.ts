@@ -67,6 +67,8 @@ function colours(): Record<string, unknown> {
         'accent-subtle': variableReference('accent-subtle'),
         canopy: variableReference('surface-canopy'),
         'canopy-deep': variableReference('surface-canopy-deep'),
+        sidebar: variableReference('surface-sidebar'),
+        'sidebar-active': variableReference('sidebar-active'),
     };
 
     result['content'] = {
@@ -80,6 +82,9 @@ function colours(): Record<string, unknown> {
         'on-accent-subtle': variableReference('on-accent-subtle'),
         'on-canopy': variableReference('on-canopy'),
         'on-canopy-muted': variableReference('on-canopy-muted'),
+        'on-sidebar': variableReference('on-sidebar'),
+        'on-sidebar-muted': variableReference('on-sidebar-muted'),
+        'on-sidebar-active': variableReference('on-sidebar-active'),
     };
 
     result['stroke'] = {
@@ -168,9 +173,10 @@ export function renderTailwindPreset(): string {
                 fontFamily: {
                     latin: [fontFamilies.latin.regular, ...fontFamilies.latin.stack.split(', ')],
                     arabic: [fontFamilies.arabic.regular, ...fontFamilies.arabic.stack.split(', ')],
-                    // `display` and `mono` are roles, not families: both resolve to the Latin
-                    // stack above. They stay as keys so a caller that means "display type" or "a
-                    // figure" keeps saying so — see `displayFamilies` / `monoFamilies`.
+                    // `display` is Space Grotesk; `mono` is a role that resolves to the body stack,
+                    // kept so a caller that means "a figure" keeps saying so. The first entry is the
+                    // loader key React Native addresses; the web skips it (the web registers
+                    // families by name) and lands on the stack — see `displayFamilies`.
                     display: [displayFamilies.latin.bold, ...displayFamilies.latin.stack.split(', ')],
                     mono: [monoFamilies.latin.regular, ...monoFamilies.latin.stack.split(', ')],
                 },

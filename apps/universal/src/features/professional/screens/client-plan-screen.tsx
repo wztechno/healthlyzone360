@@ -200,6 +200,7 @@ export function ClientPlanScreen({ clientId, planId, weekStart }: ClientPlanScre
                     testID="client-plan-note-input"
                     id="client-plan-note-input"
                     label={t('professional:plan.noteLabel')}
+                    placeholder={t('professional:plan.notePlaceholder')}
                     hint={t('professional:plan.noteHint')}
                     value={note}
                     multiline

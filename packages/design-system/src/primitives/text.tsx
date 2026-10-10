@@ -1,9 +1,11 @@
+import { createContext, useContext } from 'react';
 import { Text as RNText } from 'react-native';
 import type { TextProps as RNTextProps } from 'react-native';
 
 import { useDensity } from '../hooks/use-density.tsx';
 import type { Density } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
+import { truncationHoverProps } from '../internal/truncation-hover.ts';
 
 /**
  * Typography.
@@ -69,7 +71,7 @@ const COMFORTABLE_VARIANT_CLASS: Readonly<Record<TextVariant, string>> = {
     strong: 'text-role-strong',
     section: 'text-role-section',
     title: 'text-role-title',
-    display: 'text-role-display',
+    display: 'text-role-display font-display',
     mono: 'text-sm tabular-nums',
 };
 
@@ -83,7 +85,7 @@ const COMPACT_VARIANT_CLASS: Readonly<Record<TextVariant, string>> = {
     strong: 'text-role-strong',
     section: 'text-role-section',
     title: 'text-role-title',
-    display: 'text-role-display',
+    display: 'text-role-display font-display',
     mono: 'text-role-body tabular-nums',
 };
 
@@ -141,6 +143,55 @@ export function densityFontClass(_density: Density, _variant: TextVariant = 'bod
     return null;
 }
 
+/**
+ * What a table cell asks of the text inside it.
+ *
+ * A table is read down its columns, and a column whose rows are set in three sizes and four inks
+ * cannot be read that way: a caption-sized reference beside a body-sized name beside a muted
+ * price reads as three kinds of thing where there is one row. So every text in a cell of
+ * `DataList` or `Table` is set at one size and in one ink, whatever variant or tone the
+ * column's renderer asked for.
+ *
+ * - **Size**: the body step, always. Weight survives — a name set strong stays strong — and a
+ *   figure keeps its fixed-advance digits, so a column of prices still lines up on its digits.
+ * - **Ink**: primary. `secondary`, `disabled`, `brand` and `info` are decoration in a cell and
+ *   are dropped; `danger`, `warning` and `success` are kept, because in a cell they are the
+ *   value's meaning — a negative margin, a shelf below its par — and a table that painted them
+ *   black would be saying something false.
+ *
+ * - **Lines**: one. A value longer than its column ends in an ellipsis rather than wrapping the
+ *   row onto a second line or running into the next column, and on the web hovering it shows the
+ *   whole value (`truncationHoverProps`). A renderer that passes its own `numberOfLines` keeps it.
+ *
+ * Badges, tags, buttons and inputs draw their own text and are untouched: their colour is what
+ * they are. `strong` is the table's `primary` column — the one figure a reader compares — which
+ * keeps its weight, not a larger size.
+ */
+export interface TableCellText {
+    readonly strong?: boolean | undefined;
+}
+
+export const TableCellTextContext = createContext<TableCellText | null>(null);
+
+/**
+ * Whether this text sits inside another `Text`. A nested text is a run inside its parent's line —
+ * a `<span>` on the web — so the one-line clamp and the hover belong to the outer text, and applying
+ * them to the inner one would break the line it is part of.
+ */
+const NestedTextContext = createContext(false);
+
+/** The tones a cell keeps, because each of them is part of the value rather than its styling. */
+const CELL_TONES: ReadonlySet<TextTone> = new Set(['danger', 'warning', 'success']);
+
+function cellVariantClass(density: Density, variant: TextVariant, strong: boolean): string {
+    return cx(
+        VARIANT_CLASS[density].body,
+        variant === 'mono' ? 'tabular-nums' : null,
+        strong || variant === 'bodyStrong' || variant === 'strong' ? 'font-semibold' : null,
+        variant === 'label' ? 'font-medium' : null,
+    );
+}
+
 export interface TextProps extends Omit<RNTextProps, 'className' | 'style'> {
     readonly variant?: TextVariant | undefined;
     readonly tone?: TextTone | undefined;
@@ -171,21 +222,41 @@ export function Text({
     ...rest
 }: TextProps) {
     const density = useDensity();
+    // Inside a table cell the column decides the size and the ink, not the renderer — see
+    // `TableCellTextContext`.
+    const cell = useContext(TableCellTextContext);
+    const nested = useContext(NestedTextContext);
+    // One line in a cell, clipped with an ellipsis and readable on hover — unless the renderer
+    // asked for its own clamp. `min-w-0 shrink` is what lets the text get narrower than its value
+    // inside the cell's row at all; without it the flex item keeps its content width and overruns.
+    const clip = cell !== null && !nested;
 
-    return (
+    const text = (
         <RNText
+            {...(clip ? { numberOfLines: 1, ...truncationHoverProps } : {})}
             {...rest}
-            // No family class: one Latin family, set on `html` per script. `mono` differs by
-            // asking for fixed-advance digits (`tabular-nums`), not by asking for another face.
+            // Only `display` names a family — Space Grotesk, the mood board's face for KPIs and
+            // numeric emphasis. Every other variant takes the body family `global.css` sets per
+            // script; `mono` differs by asking for fixed-advance digits, not for another face.
             className={cx(
-                VARIANT_CLASS[density][variant],
-                TONE_CLASS[tone],
+                cell === null
+                    ? VARIANT_CLASS[density][variant]
+                    : cellVariantClass(density, variant, cell.strong === true),
+                TONE_CLASS[cell === null || CELL_TONES.has(tone) ? tone : 'primary'],
                 ALIGN_CLASS[align],
+                clip ? 'min-w-0 shrink' : null,
                 className,
             )}
         >
             {children}
         </RNText>
+    );
+
+    // The provider only where it can matter: outside a table nothing reads it.
+    return cell === null || nested ? (
+        text
+    ) : (
+        <NestedTextContext.Provider value>{text}</NestedTextContext.Provider>
     );
 }
 
@@ -240,12 +311,11 @@ export function Heading({
             {...rest}
             accessibilityRole="header"
             aria-level={level}
-            // No family class at all. A heading used to carry `font-display` (Space Grotesk) on the
-            // customer surfaces and `font-admin` (Schibsted Grotesk) on the admin — two faces, and
-            // a third on the page under them. There is one family now, set on `html` per script, so
-            // a heading is the ramp's size and weight and nothing else. That also retires the
-            // hydration hazard the old comment described: no family class means no class that could
-            // differ between the static export and the client.
+            // No family class. Levels 1–3 render as `h1`–`h3`, and `global.css` sets those in the
+            // display face — the mood board's own heading rule — so every heading takes it, the
+            // hand-built ones included, and a component cannot disagree with it. Level 4 is a card
+            // title and stays in the body face, as the mood board's `h5` does. No family class
+            // also means none that could differ between the static export and the client.
             className={cx(
                 HEADING_CLASS[density][level],
                 TONE_CLASS[tone],

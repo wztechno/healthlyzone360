@@ -1,6 +1,7 @@
 import type { Locale } from '@healthy360/domain-types';
 
 import arAccess from '../catalogues/ar/access.json';
+import arAccessAdmin from '../catalogues/ar/accessAdmin.json';
 import arAccount from '../catalogues/ar/account.json';
 import arAuth from '../catalogues/ar/auth.json';
 import arB2bApplication from '../catalogues/ar/b2bApplication.json';
@@ -21,6 +22,7 @@ import arPlatformAdmin from '../catalogues/ar/platformAdmin.json';
 import arProfessional from '../catalogues/ar/professional.json';
 import arVirtualDietitian from '../catalogues/ar/virtualDietitian.json';
 import enAccess from '../catalogues/en/access.json';
+import enAccessAdmin from '../catalogues/en/accessAdmin.json';
 import enAccount from '../catalogues/en/account.json';
 import enAuth from '../catalogues/en/auth.json';
 import enB2bApplication from '../catalogues/en/b2bApplication.json';
@@ -104,6 +106,7 @@ export const TRANSLATION_NAMESPACES = [
     'b2bApplication',
     'platformAdmin',
     'invitations',
+    'accessAdmin',
 ] as const;
 export type TranslationNamespace = (typeof TRANSLATION_NAMESPACES)[number];
 
@@ -115,6 +118,7 @@ export const enResources = {
     common: enCommon,
     auth: enAuth,
     access: enAccess,
+    accessAdmin: enAccessAdmin,
     errors: enErrors,
     designSystem: enDesignSystem,
     marketplace: enMarketplace,
@@ -138,6 +142,7 @@ export const arResources = {
     common: arCommon,
     auth: arAuth,
     access: arAccess,
+    accessAdmin: arAccessAdmin,
     errors: arErrors,
     designSystem: arDesignSystem,
     marketplace: arMarketplace,

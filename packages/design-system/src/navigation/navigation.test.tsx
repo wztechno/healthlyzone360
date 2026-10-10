@@ -31,6 +31,58 @@ function pressKey(testID: string, key: string): void {
     handler?.({ key, preventDefault: () => undefined });
 }
 
+describe('Tabs — steps', () => {
+    const steps: readonly TabItem[] = [
+        {
+            value: 'description',
+            label: 'Description',
+            issues: { count: 1, tone: 'danger', label: '1 required' },
+            testID: 'step-description',
+        },
+        { value: 'production', label: 'Production', count: 9, testID: 'step-production' },
+        {
+            value: 'packaging',
+            label: 'Packaging',
+            issues: { count: 0, tone: 'warning', label: '0 warnings' },
+            testID: 'step-packaging',
+        },
+    ];
+
+    it('speaks the problems on a tab and draws them as a pill', async () => {
+        await renderWithI18n(
+            <Tabs
+                testID="steps"
+                variant="steps"
+                label="Recipe steps"
+                items={steps}
+                value="production"
+                onChange={jest.fn()}
+            />,
+        );
+
+        // A pill a screen reader cannot hear is not a signal at all.
+        expect(screen.getByTestId('step-description').props.accessibilityLabel).toBe(
+            'Description, 1 required',
+        );
+        expect(screen.getByTestId('step-description-issues')).toHaveTextContent('1');
+        // Zero is nothing to report, and the count stays out of the name as it always has.
+        expect(screen.queryByTestId('step-packaging-issues')).toBeNull();
+        expect(screen.getByTestId('step-production').props.accessibilityLabel).toBe('Production');
+        // Still a tab list: every step reachable, one selected.
+        expect(screen.getByTestId('steps').props.role).toBe('tablist');
+        expect(screen.getByTestId('step-production').props.accessibilityState.selected).toBe(true);
+    });
+
+    it('draws no pill on the other variants', async () => {
+        await renderWithI18n(
+            <Tabs label="Recipe" items={steps} value="production" onChange={jest.fn()} />,
+        );
+
+        expect(screen.queryByTestId('step-description-issues')).toBeNull();
+        expect(screen.getByTestId('step-description').props.accessibilityLabel).toBe('Description');
+    });
+});
+
 describe('Tabs', () => {
     it('is a named tab list of tabs', async () => {
         await renderWithI18n(

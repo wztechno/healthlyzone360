@@ -14,6 +14,7 @@ use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Services\ZoneResolver;
+use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Services\ComposedLine;
@@ -86,6 +87,7 @@ final readonly class DeskQuote
         private LineProbe $probe,
         private ChannelCurrency $currencies,
         private ZoneResolver $zones,
+        private ZoneWindowService $zoneWindows,
         private OrderSchedulingLookup $scheduling,
         private SellerContext $seller,
     ) {}
@@ -108,7 +110,8 @@ final readonly class DeskQuote
      *     total_minor: int,
      *     currency_code: string,
      *     refusals: list<array<string, mixed>>,
-     *     quotable: bool
+     *     quotable: bool,
+     *     offered_window_codes: list<string>|null
      * }
      */
     public function for(
@@ -119,11 +122,12 @@ final readonly class DeskQuote
         ?CustomerAddress $address = null,
         ?string $branchId = null,
         ?CarbonImmutable $requestedDate = null,
+        ?string $deliveryWindowCode = null,
     ): array {
         return $this->seller->during(
             (string) $channel->organisation_id,
             $branchId,
-            fn (): array => $this->quoteNow($channel, $fulfilmentType, $lines, $account, $address, $branchId, $requestedDate),
+            fn (): array => $this->quoteNow($channel, $fulfilmentType, $lines, $account, $address, $branchId, $requestedDate, $deliveryWindowCode),
         );
     }
 
@@ -136,7 +140,8 @@ final readonly class DeskQuote
      *     total_minor: int,
      *     currency_code: string,
      *     refusals: list<array<string, mixed>>,
-     *     quotable: bool
+     *     quotable: bool,
+     *     offered_window_codes: list<string>|null
      * }
      */
     private function quoteNow(
@@ -147,6 +152,7 @@ final readonly class DeskQuote
         ?CustomerAddress $address,
         ?string $branchId,
         ?CarbonImmutable $requestedDate,
+        ?string $deliveryWindowCode,
     ): array {
         $now = CarbonImmutable::now();
 
@@ -165,6 +171,7 @@ final readonly class DeskQuote
         $refusals = $this->shapeRefusals($fulfilmentType, $account, $address);
 
         $fee = null;
+        $offeredWindowCodes = null;
 
         if ($fulfilmentType->requiresAddress() && $address instanceof CustomerAddress) {
             // The one half of `addressReasons()` that survives explicit
@@ -182,6 +189,20 @@ final readonly class DeskQuote
 
             [$zone, $zoneRefusals] = $this->zoneFor($branchId, $address);
             $refusals = [...$refusals, ...$zoneRefusals];
+
+            // The slots this address may be given, and the placement's own
+            // `window_not_offered` when the agent picked one it does not run.
+            if ($zone instanceof DeliveryZone) {
+                $offeredWindowCodes = $this->zoneWindows->offeredCodes($zone);
+
+                if ($deliveryWindowCode !== null && ! in_array($deliveryWindowCode, $offeredWindowCodes, true)) {
+                    $refusals[] = [
+                        'reason' => 'window_not_offered',
+                        'delivery_window_code' => $deliveryWindowCode,
+                        'delivery_zone_id' => (string) $zone->getKey(),
+                    ];
+                }
+            }
 
             if ($zone instanceof DeliveryZone && $zone->delivery_fee_minor !== null) {
                 if ($zone->currency_code === $currencyCode) {
@@ -230,6 +251,8 @@ final readonly class DeskQuote
             'currency_code' => $currencyCode,
             'refusals' => $refusals,
             'quotable' => $refusals === [] && ! $lineRefused,
+            // Null unless a delivery address resolved to a serving zone.
+            'offered_window_codes' => $offeredWindowCodes,
         ];
     }
 

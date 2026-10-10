@@ -29,9 +29,8 @@ use Illuminate\Support\Facades\App;
  *
  * Split out of `DemoTenantSeeder` so a reset without the demo world still
  * produces a usable system: the operator account is the way in, not a demo.
- * `DemoTenantSeeder::seedPlatformOperator()` remains and converges on the
- * same rows (everything here is `updateOrCreate`), so a test run that seeds
- * the demo world does not conflict with this seeder having run first.
+ * It is the only writer of these rows, and everything here is
+ * `updateOrCreate`, so a second run converges.
  */
 class PlatformOperatorSeeder extends Seeder
 {

@@ -88,13 +88,15 @@ final readonly class StockItemDerivationService
     private const array RESOLD_MODES = [ProductionMode::Supplier->value, ProductionMode::Both->value];
 
     /**
-     * The sellable kinds a supplier-mode row of which is a shelf. A sauce or
-     * dressing a kitchen resells behaves exactly like a resold product; the
-     * usual production-mode ones are not stock — their ingredients are.
+     * The sellable kinds a supplier-mode row of which is a shelf. A sauce,
+     * dressing or frozen meal a kitchen resells behaves exactly like a resold
+     * product; the usual production-mode ones are not stock — their ingredients
+     * are, and what they *produce* reaches the shelf as the ingredient their
+     * recipe outputs rather than as a second row for the catalogue item.
      *
      * @var list<string>
      */
-    private const array RESOLD_ITEM_TYPES = ['product', 'sauce', 'dressing'];
+    private const array RESOLD_ITEM_TYPES = ['product', 'sauce', 'dressing', 'frozen_meal'];
 
     /**
      * Bring one organisation's stock items in line with its ingredients and its

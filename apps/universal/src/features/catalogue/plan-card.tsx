@@ -1,29 +1,40 @@
-import { Button, Card, Checkbox, Rating, Stack, TagRow, Text } from '@healthy360/design-system';
+import { Button, cx } from '@healthy360/design-system';
 import type { SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
+import { Text as RNText, View } from 'react-native';
 
-import { EntityImage } from '../../media/entity-image.tsx';
-import { PlanDurationSelector } from './plan-duration-selector.tsx';
+import { PillChip } from '../../ui/pill-chip.tsx';
+import { balanceDaysFor, maxDiscountPercent, mealsPerDayRange } from './plan-balance.ts';
+import { StatePill, SubtleButton } from './plan-controls.tsx';
 import { PlanPrice } from './plan-price.tsx';
 
 /**
- * A subscription plan in the catalogue.
+ * A subscription plan in the catalogue — HealthZone's plan card, element for element: the name and
+ * its line over a "Current" mark, the big per-day price with the balance under it, four bulleted
+ * facts, and the full-width action at the foot ("Choose …", or "Manage plan" on the one you hold).
  *
  * ## Why the card is not itself pressable
  *
  * Every other card on the marketplace is one big button, and that is right for a kitchen or a meal:
- * one target, one destination. A plan card carries *three* controls — the comparison checkbox, the
- * commitment picker and the open action — and a checkbox nested inside a button is unreachable by
- * keyboard on the web, ambiguous to a screen reader, and on touch it opens the plan when the person
- * meant to tick "compare". So the card is a plain grouping element with named controls inside it.
+ * one target, one destination. A plan card carries *two* controls — the comparison toggle and the
+ * main action — and a toggle nested inside a button is unreachable by keyboard on the web,
+ * ambiguous to a screen reader, and on touch it opens the plan when the person meant to tick
+ * "compare". So the card is a plain grouping element with named controls inside it.
  *
- * ## The reading order
+ * ## What the card adds to the drawing, and where
  *
- * Who cooked it, what it is called, what it is for, how well it is rated — then the two things a
- * person actually decides between, kept visually apart: the *calorie bands* it is built around, and
- * the *commitment* and its discount. The price closes the card because it is the last question, and
- * it is shown in both units at once so the same plan can never look cheaper here than on its page.
+ * The design's three cards are one kitchen's plans. Here the catalogue is many kitchens', so two
+ * things ride along in places the drawing already has: the kitchen's name leads the tagline line,
+ * and the comparison toggle is a `chip()` in the header's trailing slot — the slot the design gives
+ * the "Current" mark — so the card's vertical rhythm (name, price, facts, action) is untouched.
+ *
+ * ## Every line is a fact the plan publishes
+ *
+ * The design's bullets ("Under 550 calories", "Priority slots at 12:00") are sample copy. Here each
+ * one is derived from the plan record — the meals a day its configurations serve, the calorie
+ * bands, the balances it is sold in and the largest discount a longer one earns — so a plan never
+ * advertises something its kitchen did not configure.
  */
 export interface PlanCardProps {
     readonly plan: SubscriptionPlan;
@@ -39,115 +50,175 @@ export interface PlanCardProps {
               readonly disabled: boolean;
           }
         | undefined;
+    /** Present when the signed-in person holds a live subscription to this plan. */
+    readonly current?: { readonly onManage: () => void } | undefined;
     readonly testID?: string | undefined;
 }
 
-export function PlanCard({ plan, onOpen, kitchenName, comparison, testID }: PlanCardProps) {
+function Feature({ children, testID }: { readonly children: string; readonly testID?: string }) {
+    return (
+        <View testID={testID} className="flex-row items-start gap-2">
+            {/* The bullet is decoration; the line reads on its own. */}
+            <View
+                aria-hidden
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-content-on-brand-subtle"
+            />
+            <RNText className="flex-1 text-sm leading-normal text-content-primary text-start">
+                {children}
+            </RNText>
+        </View>
+    );
+}
+
+export function PlanCard({
+    plan,
+    onOpen,
+    kitchenName,
+    comparison,
+    current,
+    testID,
+}: PlanCardProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const resolvedTestID = testID ?? `plan-card-${plan.slug}`;
 
+    const meals = mealsPerDayRange(plan);
+    const discount = maxDiscountPercent(plan);
+    const balances = plan.durations.map((option) =>
+        formatter.formatNumber(balanceDaysFor(option.duration)),
+    );
+    const bands = plan.variants
+        .map((variant) =>
+            t('catalogue:plans.energyBand', {
+                min: formatter.formatNumber(variant.energyRange.min),
+                max: formatter.formatNumber(variant.energyRange.max),
+            }),
+        )
+        .join(' · ');
+    const tagline =
+        kitchenName === undefined || kitchenName === ''
+            ? plan.summary
+            : t('catalogue:plans.taglineWithKitchen', {
+                  kitchen: kitchenName,
+                  summary: plan.summary,
+              });
+
     return (
-        <Card
+        <View
             testID={resolvedTestID}
-            padding="none"
-            tone="raised"
-            /*
-             * `grow` is what makes the card fill its grid cell, and it is the reason the price
-             * closes every card in a row at the same height. `self-stretch` beside it only ever
-             * governed the *width*: `CardGridItem` is a column, so stretch is its cross axis. Left
-             * at that, a plan with a longer name or a fourth band stood taller than its neighbour
-             * and the `mt-auto` price block below had nothing to pin against. See the same note in
-             * `meal-card.tsx`.
-             */
-            className="grow self-stretch overflow-hidden hover:shadow-elevation-2"
+            className={cx(
+                // `grow` fills the grid cell, which is what lets the action below pin every card's
+                // foot to one baseline across a row.
+                'grow self-stretch flex-col rounded-panel bg-surface-raised px-5 pb-6 pt-5',
+                current === undefined ? 'border border-stroke' : 'border-2 border-surface-brand',
+            )}
         >
-            <EntityImage
-                testID={`${resolvedTestID}-image`}
-                assetId={plan.imagePlaceholderId}
-                variant="card"
-                seed={plan.slug}
-                label={t('catalogue:plan.imageLabel', { plan: plan.name })}
-                aspect="wide"
-            />
-
-            <Stack space="md" className="flex-1 p-4">
-                <Stack space="xs">
-                    {kitchenName === undefined ? null : (
-                        <Text tone="secondary" variant="caption">
-                            {t('catalogue:plans.byKitchen', { kitchen: kitchenName })}
-                        </Text>
-                    )}
-                    <Text variant="bodyStrong" className="text-lg leading-snug">
+            <View className="flex-row items-start justify-between gap-3">
+                <View className="min-w-0 flex-1 flex-col gap-1">
+                    <RNText
+                        accessibilityRole="header"
+                        aria-level={3}
+                        className="font-display text-xl font-bold tracking-display text-content-primary text-start"
+                    >
                         {plan.name}
-                    </Text>
-                    <Text tone="secondary" variant="caption" numberOfLines={2}>
-                        {plan.summary}
-                    </Text>
-                    {plan.rating === null ? null : (
-                        <Rating
-                            testID={`${resolvedTestID}-rating`}
-                            label={t('catalogue:plans.ratingLabel', { plan: plan.name })}
-                            value={plan.rating}
-                            count={plan.ratingCount}
-                            size="sm"
-                        />
-                    )}
-                </Stack>
-
-                <Stack space="xs" className="border-t border-stroke-subtle pt-3">
-                    <Text variant="label" tone="secondary">
-                        {t('catalogue:plans.bandsLabel')}
-                    </Text>
-                    {/*
-                     * `TagRow`, not a row of `Badge`s. A band is a label — "1,400–1,600 kcal" — and
-                     * `Badge` is the component that carries a *status*, with a tone and a mark to
-                     * say what the status means. Using it here made the bands look like four
-                     * warnings, and it is the shared tag row the cards elsewhere draw.
-                     */}
-                    <TagRow
-                        testID={`${resolvedTestID}-bands`}
-                        items={plan.variants.map((variant) => ({
-                            key: String(variant.id),
-                            label: t('catalogue:plans.energyBand', {
-                                min: formatter.formatNumber(variant.energyRange.min),
-                                max: formatter.formatNumber(variant.energyRange.max),
-                            }),
-                        }))}
-                    />
-                </Stack>
-
-                <PlanDurationSelector plan={plan} testID={`${resolvedTestID}-duration`} />
-
-                {/* The commercial block sits apart from the nutrition above it, and grows to the
-                    bottom so every card's price and actions line up on a shared baseline. */}
-                <Stack space="sm" className="mt-auto border-t border-stroke-subtle pt-3">
-                    <PlanPrice plan={plan} testID={`${resolvedTestID}-price`} />
-
-                    <Stack space="sm">
-                        {comparison === undefined ? null : (
-                            <Checkbox
-                                testID={`${resolvedTestID}-compare`}
-                                id={`${resolvedTestID}-compare`}
-                                label={t('catalogue:plans.compareLabel')}
-                                checked={comparison.selected}
-                                disabled={comparison.disabled}
-                                onChange={comparison.onChange}
+                    </RNText>
+                    <RNText
+                        testID={`${resolvedTestID}-tagline`}
+                        numberOfLines={2}
+                        className="text-sm text-content-secondary text-start"
+                    >
+                        {tagline}
+                    </RNText>
+                </View>
+                {current === undefined && comparison === undefined ? null : (
+                    <View className="shrink-0 flex-col items-end gap-2">
+                        {current === undefined ? null : (
+                            <StatePill
+                                testID={`${resolvedTestID}-current`}
+                                tone="brand"
+                                label={t('catalogue:plans.currentPlan')}
                             />
                         )}
-                        <Button
-                            testID={`${resolvedTestID}-open`}
-                            variant="primary"
-                            block
-                            label={t('catalogue:plans.viewPlan')}
-                            accessibilityLabel={t('catalogue:plans.viewPlanNamed', {
-                                plan: plan.name,
-                            })}
-                            onPress={onOpen}
-                        />
-                    </Stack>
-                </Stack>
-            </Stack>
-        </Card>
+                        {comparison === undefined ? null : (
+                            <PillChip
+                                size="sm"
+                                floor="coarse"
+                                testID={`${resolvedTestID}-compare`}
+                                label={t('catalogue:plans.compareLabel')}
+                                accessibilityLabel={t('catalogue:plans.compareNamed', {
+                                    plan: plan.name,
+                                })}
+                                selected={comparison.selected}
+                                disabled={comparison.disabled}
+                                onPress={() => {
+                                    comparison.onChange(!comparison.selected);
+                                }}
+                            />
+                        )}
+                    </View>
+                )}
+            </View>
+
+            <View className="mt-5">
+                <PlanPrice plan={plan} testID={`${resolvedTestID}-price`} />
+            </View>
+
+            <View className="mt-5 flex-col gap-2">
+                {meals === null ? null : (
+                    <Feature testID={`${resolvedTestID}-meals`}>
+                        {meals.min === meals.max
+                            ? t('catalogue:plans.featureMeals', { count: meals.min })
+                            : t('catalogue:plans.featureMealsRange', {
+                                  min: formatter.formatNumber(meals.min),
+                                  max: formatter.formatNumber(meals.max),
+                              })}
+                    </Feature>
+                )}
+                {bands === '' ? null : (
+                    <Feature testID={`${resolvedTestID}-bands`}>
+                        {t('catalogue:plans.featureBands', { bands })}
+                    </Feature>
+                )}
+                {balances.length === 0 ? null : (
+                    <Feature testID={`${resolvedTestID}-balances`}>
+                        {t('catalogue:plans.featureBalances', { sizes: balances.join(' · ') })}
+                    </Feature>
+                )}
+                {discount > 0 ? (
+                    <Feature testID={`${resolvedTestID}-discount`}>
+                        {t('catalogue:plans.featureDiscount', {
+                            discount: formatter.formatNumber(discount),
+                        })}
+                    </Feature>
+                ) : null}
+            </View>
+
+            {/* The action sits at the foot, so every card's button lines up across a row. */}
+            <View className="mt-auto pt-5">
+                {current === undefined ? (
+                    <Button
+                        testID={`${resolvedTestID}-open`}
+                        variant="primary"
+                        size="lg"
+                        block
+                        label={t('catalogue:plans.choosePlan', { plan: plan.name })}
+                        onPress={onOpen}
+                    />
+                ) : (
+                    <SubtleButton
+                        testID={`${resolvedTestID}-manage`}
+                        size="lg"
+                        block
+                        label={t('catalogue:plans.managePlan')}
+                        accessibilityLabel={t('catalogue:plans.managePlanNamed', {
+                            plan: plan.name,
+                        })}
+                        onPress={current.onManage}
+                    />
+                )}
+            </View>
+        </View>
     );
 }

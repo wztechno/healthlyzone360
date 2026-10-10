@@ -19,26 +19,27 @@
         "back": "Go back"
     },
     "meals": {
-        "title": "Every meal on the marketplace",
-        "searchLabel": "Search meals",
-        "showing": "Showing {{shown}} of {{total}} matching meals",
-        "showingUnknownTotal": "Showing {{shown}} meals",
+        "title": "Today's menu",
         "loadMore": "Show more meals",
         "loadingMore": "Loading more meals",
-        "allLoaded": "That is every meal that matches.",
-        "emptyTitle": "No meals match those filters",
-        "emptyBody": "Widen a range, remove an allergen exclusion, or clear the filters to see the whole marketplace.",
-        "sortLabel": "Order by",
+        "emptyTitle": "Nothing matches those filters",
+        "emptyBody": "Try widening the calorie range or clearing a dietary filter.",
+        "sortLabel": "Sort",
         "sort": {
-            "relevance": "Best match",
-            "price": "Price",
-            "energy": "Energy",
-            "protein": "Protein",
-            "rating": "Rating",
-            "preparation_time": "Time to prepare"
+            "relevance": "Recommended",
+            "price": "Price: low to high",
+            "protein": "Highest protein",
+            "rating": "Top rated"
         },
         "filters": "Filters",
-        "filtersActive": "Filters ({{n}})"
+        "filtersActive": "Filters ({{n}})",
+        "countAvailable_one": "{{count}} meal available to order from kitchens on the marketplace.",
+        "countAvailable_other": "{{count}} meals available to order from kitchens on the marketplace.",
+        "countSoFar_one": "{{count}} meal shown so far — more to load.",
+        "countSoFar_other": "{{count}} meals shown so far — more to load.",
+        "moreFilters": "More filters",
+        "moreFiltersActive": "More filters ({{n}})",
+        "moreFiltersDone": "Show meals"
     },
     "filters": {
         "kitchen": "Kitchen",
@@ -52,7 +53,7 @@
         "atMost": "Under {{value}} {{unit}}",
         "atLeast": "At least {{value}} {{unit}}",
         "anyValue": "Any",
-        "energy": "Energy per serving",
+        "energy": "Calories per serving",
         "protein": "Protein per serving",
         "carbohydrate": "Carbohydrate per serving",
         "fat": "Fat per serving",
@@ -62,8 +63,14 @@
         "unitGrams": "g",
         "unitMinutes": "min",
         "clear": "Clear filters",
+        "clearAll": "Clear all filters",
+        "category": "Category",
+        "dietary": "Dietary",
+        "allMeals": "All",
+        "optionWithCount": "{{label}} ({{count}})",
         "activeCount": "{{active}} filters applied",
-        "removeFilter": "Remove filter: {{filter}}"
+        "removeFilter": "Remove filter: {{filter}}",
+        "moreDiets": "More dietary needs"
     },
     "meal": {
         "loading": "Loading the meal",
@@ -71,46 +78,23 @@
         "notFoundBody": "It may have been withdrawn, or the link may be wrong. Browse the catalogue to find another.",
         "browseAll": "Browse every meal",
         "imageLabel": "Illustration standing in for a photograph of {{meal}}",
-        "cookedBy": "Cooked by {{kitchen}}",
-        "openKitchen": "Open the kitchen",
-        "servingTitle": "Serving",
         "servingLabel": "One serving is {{serving}}",
         "servingGrams": "about {{grams}} g",
-        "macrosTitle": "Macronutrients in one serving",
-        "macrosTitlePer100g": "Macronutrients in 100 g",
-        "macroRingCaption": "of the serving's energy",
-        "macroValue": "{{grams}} g",
-        "macroEnergy": "{{energy}} kcal from {{nutrient}}",
-        "ingredientsTitle": "What is in it",
-        "ingredientsBody": "The kitchen publishes the declared allergens and the full nutrient composition for this dish. The ingredient list itself is not part of the public meal record, so it is not shown rather than guessed at.",
-        "ingredientsContract": "A future GET /api/v1/marketplace/meals/{meal} should return the ingredient quantities the figures were computed from.",
-        "compositionTitle": "Composition and provenance",
+        "macroValue": "{{grams}}g",
+        "ingredientsBody": "The kitchen hasn't published an ingredient list for this dish yet.",
+        "ingredientsLabel": "Ingredients",
+        "stripPer100g": "Per 100 g",
+        "moreFromKitchen": "More from {{kitchen}}",
+        "quantityLabel": "Quantity",
+        "quantityDecrease": "One fewer",
+        "quantityIncrease": "One more",
         "allergensTitle": "Allergens",
         "allergensDeclared": "This dish declares the following allergens.",
         "allergensNone": "The kitchen declares no allergens in this dish.",
         "allergenItem": "Contains {{allergen}}",
-        "dietTagsTitle": "Dietary classification",
-        "availabilityTitle": "When you can order it",
-        "availableOn": "{{date}}",
-        "availableRemaining": "{{date}} — {{remaining}} left",
-        "unavailableOn": "{{date}} — not offered",
-        "orderCutOff": "Same-day orders close at {{time}}.",
-        "availabilityNone": "This kitchen has not published an availability window for this dish.",
-        "priceTitle": "Price",
-        "priceEach": "{{price}} per serving",
-        "channelsTitle": "How this dish is sold",
-        "b2cAvailable": "Available to households",
-        "b2cUnavailable": "Not sold to households",
-        "subscriptionEligible": "Can be part of a subscription",
-        "subscriptionIneligible": "Not offered inside a subscription",
-        "b2bAvailable": "This kitchen also supplies businesses",
-        "b2bNoPrice": "Business rates depend on volume, specification and delivery pattern, and are agreed per organisation. No business price is published here.",
-        "actionsTitle": "Order or plan it",
-        "addToBasket": "Add to basket",
         "addingToBasket": "Adding",
+        "pricePerPack": "{{price}} per {{size}}",
         "addedToBasket": "Added. Your basket now holds {{items}} items.",
-        "basketSignInTitle": "A basket needs an account",
-        "basketSignIn": "Sign in to start a basket",
         "actionErrorTitle": "That did not go through",
         "actionErrorBody": "Nothing was changed. Try again, and if it keeps failing the kitchen may have withdrawn the dish while this page was open.",
         "addToPlan": "Add to my meal plan",
@@ -129,9 +113,28 @@
         "quotationBody": "A quotation is priced against your organisation — volume, specification, sites and delivery pattern — so it starts with a business account rather than a published rate.",
         "quotationBusiness": "See the business programmes",
         "quotationSignIn": "Sign in",
-        "ratingLabel": "Average rating for {{meal}}",
         "notRatedYet": "Not rated yet",
-        "preparationMinutes": "{{minutes}} minutes to warm through"
+        "ratingSummary_one": "★ {{rating}} ({{reviews}} review)",
+        "ratingSummary_other": "★ {{rating}} ({{reviews}} reviews)",
+        "strip": {
+            "energy": "Calories",
+            "protein": "Protein",
+            "carbohydrate": "Carbs",
+            "fat": "Fat"
+        },
+        "allergensValue": "{{list}}.",
+        "allergensNoneShort": "None declared by the kitchen.",
+        "makeItYours": "Make it yours",
+        "optionsNone": "No add-ons for this dish yet — it's made the way the kitchen designed it.",
+        "instructionsLabel": "Special instructions",
+        "instructionsPlaceholder": "Special instructions for the kitchen (e.g. no cilantro)",
+        "instructionsNotSent": "Special instructions can't be sent to the kitchen yet — your meal was added without them.",
+        "addToCart": "Add to cart",
+        "addToCartLabel": "Add to cart, {{total}}",
+        "thumbEmpty": "No further photographs of this dish yet",
+        "thumbKitchen": "{{kitchen}}, where this dish is cooked — open the kitchen",
+        "factsTitle": "Nutrition facts",
+        "factsPanelTitle": "Full nutrient composition"
     },
     "macros": {
         "title": "Macronutrients",
@@ -169,61 +172,20 @@
         "prototypeFlag": "Produced by the prototype calculator"
     },
     "plans": {
-        "title": "Healthy eating, planned for real life",
-        "subtitle": "Subscription meal plans from verified kitchens — each with calorie bands, honest pricing and a dietitian consultation before you commit.",
-        "eyebrow": "Meal plans built around your goals",
-        "filters": "Filters",
-        "filtersActive": "Filters ({{n}})",
-        "showing": "Showing {{shown}} of {{total}} · {{kitchens}}",
-        "heroHowItWorks": "How plans work",
-        "heroSpeakToDietitian": "Speak to a dietitian",
-        "trust": {
-            "reviewed": "Dietitian consultation",
-            "kitchens": "Verified kitchens",
-            "flexible": "Flexible durations"
-        },
-        "categoryLabel": "Plan category",
-        "categoryAll": "All plans",
-        "searchLabel": "Search plans",
-        "searchPlaceholder": "A plan, a kitchen, a way of eating",
-        "kitchenFilter": "Kitchen",
-        "calorieFilter": "Calorie band",
-        "calorie": {
-            "lighter": "Lighter days",
-            "moderate": "Moderate days",
-            "higher": "Higher energy"
-        },
-        "sortLabel": "Sort",
-        "sort": {
-            "recommended": "Recommended",
-            "priceLowHigh": "Price: low to high",
-            "ratingHighLow": "Rating: high to low"
-        },
-        "resultSummary_one": "{{count}} meal plan from {{kitchens}}",
-        "resultSummary_other": "{{count}} meal plans from {{kitchens}}",
-        "kitchenCount_one": "{{count}} verified kitchen",
-        "kitchenCount_other": "{{count}} verified kitchens",
-        "fromPrice": "From {{price}} a week",
-        "priceFrom": "From",
-        "perWeekSuffix": "a week",
-        "perDayPrice": "about {{price}} a day",
+        "title": "Lunch decided for the whole week.",
+        "subtitle": "Buy a balance of delivery days, choose your weekdays, and change anything up to the cut-off — 24 hours before a delivery unless the plan sets its own.",
+        "eyebrow": "Weekly plans · Skip or cancel as you go",
         "energyBand": "{{min}}–{{max}} kcal",
-        "bandsLabel": "Calorie bands a day",
-        "byKitchen": "by {{kitchen}}",
         "durationsLabel": "Commitment",
         "durationsFor": "Commitment options for {{plan}}",
         "durationTotal": "{{price}} total",
         "durationSaves": "Save {{discount}}%",
         "durationNoDiscount": "No discount",
-        "viewPlan": "View plan",
-        "viewPlanNamed": "View {{plan}}",
         "mealsPerDay": "{{meals}} meals and {{snacks}} snacks a day",
         "mealsPerDayNoSnacks": "{{meals}} meals a day",
-        "durations": "{{durations}}",
         "compareLabel": "Compare",
         "compareTitle": "Compare plans",
         "compareTrayLabel": "Plan comparison tray",
-        "compareHint": "Select up to three plans, then open the comparison.",
         "compareEmpty": "Select up to three plans to compare them side by side.",
         "compareClear": "Clear",
         "compareRemove": "Remove {{plan}} from the comparison",
@@ -235,15 +197,242 @@
         "ctaBody": "Every plan starts with a dietitian consultation, so the calorie band and any restriction are set by a professional rather than guessed from a catalogue. If you would rather talk it through first, that is the place to start.",
         "ctaPrimary": "Speak to a dietitian",
         "ctaSecondary": "How plans work",
-        "emptyTitle": "No plans match those filters",
-        "emptyBody": "Widen the search, remove a filter, or clear them all to see every plan.",
+        "emptyTitle": "No plans to show yet",
+        "emptyBody": "Plans appear here as kitchens publish them. If you chose a kitchen, try all kitchens.",
         "ratingLabel": "Average rating for {{plan}}",
         "durationShort": {
             "1w": "1 wk",
             "2w": "2 wk",
             "4w": "4 wk",
             "12w": "12 wk"
-        }
+        },
+        "howItWorksLink": "How plans work →",
+        "perDaySuffix": "/ day",
+        "balancePrice_one": "{{price}} for {{count}} delivery day",
+        "balancePrice_other": "{{price}} for {{count}} delivery days",
+        "currentPlan": "Current",
+        "managePlan": "Manage plan",
+        "managePlanNamed": "Manage your {{plan}} subscription",
+        "featureMeals_one": "{{count}} meal a day",
+        "featureMeals_other": "{{count}} meals a day",
+        "featureMealsRange": "{{min}}–{{max}} meals a day",
+        "featureBands": "Calorie bands: {{bands}}",
+        "featureBalances": "Balances of {{sizes}} delivery days",
+        "featureDiscount": "Up to {{discount}}% off a larger balance",
+        "subscriber": {
+            "weekTitle": "Your week · {{range}}",
+            "deliveryDays": "Delivery days",
+            "nextDelivery": "Next delivery",
+            "noNextDelivery": "None scheduled",
+            "balance": "Balance",
+            "balanceValue": "{{remaining}} of {{total}} days left",
+            "weekCount_one": "{{count}} delivery day",
+            "weekCount_other": "{{count}} delivery days",
+            "day": {
+                "delivery": "{{day}}: delivery day",
+                "skipped": "{{day}}: delivery skipped",
+                "off": "{{day}}: no delivery"
+            },
+            "tile": {
+                "delivery": "Delivery",
+                "skipped": "Skipped",
+                "off": "No delivery"
+            },
+            "shuffle": "Shuffle my week",
+            "dietaryRules": "Set dietary rules",
+            "eyebrowActive": "Active subscription",
+            "eyebrowPaused": "Paused subscription",
+            "planTitle_one": "{{plan}} · {{count}} day",
+            "planTitle_other": "{{plan}} · {{count}} days",
+            "plan": "Plan",
+            "deliveryDaysValue_one": "{{count}} per week",
+            "deliveryDaysValue_other": "{{count}} per week",
+            "nextCharge": "Next charge",
+            "nextChargeValue": "None scheduled",
+            "cutoff": "Change cutoff",
+            "cutoffValue_one": "{{count}} hour before delivery",
+            "cutoffValue_other": "{{count}} hours before delivery",
+            "unknown": "—",
+            "note": "Skipping a delivery keeps your price locked. Cancelling stops deliveries after the change cut-off.",
+            "skipNext": "Skip next delivery",
+            "pause": "Pause",
+            "resume": "Resume",
+            "skippedToast": "Delivery on {{date}} skipped — no day used",
+            "pausedToast": "Plan paused — nothing is used until you resume",
+            "resumedToast": "Plan resumed"
+        },
+        "kitchenFilterLabel": "Show plans from",
+        "allKitchens": "All kitchens",
+        "taglineWithKitchen": "{{kitchen}} · {{summary}}",
+        "choosePlan": "Choose {{plan}}",
+        "compareNamed": "Compare {{plan}}",
+        "balancePriceFrom_one": "From {{price}} for {{count}} delivery day",
+        "balancePriceFrom_other": "From {{price}} for {{count}} delivery days"
+    },
+    "howPlans": {
+        "breadcrumbPlans": "Weekly plans",
+        "breadcrumbCurrent": "How plans work",
+        "eyebrow": "How plans work · Six rules, no small print",
+        "title": "A plan is a balance of delivery days, not a calendar.",
+        "lede": "Buy 7, 14, 28 or 84 delivery days. Choose the weekdays you want food. Each delivery uses one day — skipping uses none. That is the whole model.",
+        "choosePlan": "Choose a plan",
+        "tryCalculator": "Try the balance calculator",
+        "example": {
+            "eyebrow": "Example · a {{days}}-day balance",
+            "left_one": "{{count}} day left",
+            "left_other": "{{count}} days left",
+            "body": "{{delivered}} delivered. Skipped weeks cost nothing.",
+            "gridLabel": "{{delivered}} days delivered, {{remaining}} still in the balance",
+            "delivered": "Delivered",
+            "stillYours": "Still yours",
+            "priceLabel": "Per-day price",
+            "priceValue": "Locked at purchase",
+            "skipsLabel": "Skips",
+            "skipsValue": "Use no days"
+        },
+        "rulesTitle": "The rules",
+        "rulesMeta": "Apply to every plan",
+        "rules": {
+            "days": {
+                "title": "You buy days, not weeks",
+                "body": "A plan is sold as a number of delivery days. Pick the weekdays you want food; each delivery uses one day from your balance."
+            },
+            "skip": {
+                "title": "Skipping is free",
+                "body": "Skip a delivery or pause the plan, wherever the plan allows it. Nothing is used — your balance simply lasts longer."
+            },
+            "cutoff": {
+                "title": "The change cut-off",
+                "body": "Skips, pauses, address and window changes apply to deliveries outside the cut-off — 24 hours before, unless the plan sets its own. Inside it, the next delivery goes ahead."
+            },
+            "price": {
+                "title": "Your price is locked",
+                "body": "The per-day price you paid holds for your whole balance, even if the menu price changes. A renewal quotes today's price."
+            },
+            "allergies": {
+                "title": "Allergies are never overridden",
+                "body": "If a meal is unavailable it is swapped only within the same meal type and calorie band — never against your allergens. No safe swap? That day is skipped and not used."
+            },
+            "cancel": {
+                "title": "Cancel whenever",
+                "body": "Deliveries stop after the change cut-off. Unused days are credited back at the per-day price you actually paid."
+            }
+        },
+        "calculator": {
+            "eyebrow": "Balance calculator",
+            "title": "See how your balance plays out",
+            "body": "Change the plan, the balance or the weekdays, or skip a week — the end date moves, the price doesn't.",
+            "planLabel": "Plan",
+            "planOption": "{{plan}} · {{kitchen}}",
+            "sizeLabel": "Balance size",
+            "sizeOption_one": "{{count}} day",
+            "sizeOption_other": "{{count}} days",
+            "sizeOptionDiscount_one": "{{count}} day · −{{discount}}%",
+            "sizeOptionDiscount_other": "{{count}} days · −{{discount}}%",
+            "weekdaysLabel": "Delivery weekdays",
+            "perDay": "Per delivery day",
+            "perDayDiscount": "{{discount}}% balance discount, locked",
+            "perDayLocked": "Locked for the balance",
+            "total": "You pay",
+            "totalNote_one": "{{count}} day · {{plan}}",
+            "totalNote_other": "{{count}} days · {{plan}}",
+            "lasts": "Lasts",
+            "lastsValue_one": "{{count}} week",
+            "lastsValue_other": "{{count}} weeks",
+            "lastsNote": "{{perWeek}} a week · {{skipped}} skipped",
+            "lastDelivery": "Last delivery",
+            "lastDeliveryNote": "Moves if you skip",
+            "none": "—",
+            "weekLabel": "Week {{n}}",
+            "left": "Left",
+            "skipWeek": "Skip week",
+            "skipped": "Skipped",
+            "cellLabel": "{{date}}: {{state}}",
+            "cell": {
+                "delivery": "delivery, uses one day",
+                "skipped": "skipped, uses nothing",
+                "none": "no delivery",
+                "ended": "balance used up, no delivery"
+            },
+            "legendDelivery": "Delivery · uses 1 day",
+            "legendSkipped": "Skipped · free",
+            "legendNone": "No delivery",
+            "moreWeeks_one": "…and {{count}} more week before the balance runs out.",
+            "moreWeeks_other": "…and {{count}} more weeks before the balance runs out.",
+            "credit": "Cancel after week 2? You'd have used {{used}} days. The other {{unused}} are credited back at {{price}} each — {{credit}} in all. The discount on days already delivered is never taken back.",
+            "creditNone": "Cancel after week 2? You'd have used all {{used}} days by then, so there is nothing left to credit.",
+            "pickWeekday": "Pick at least one delivery weekday to see your schedule.",
+            "empty": "No plans are published yet, so there is nothing to calculate with.",
+            "leftValue_one": "{{count}}d",
+            "leftValue_other": "{{count}}d",
+            "skipWeekNamed": "Skip week {{n}}"
+        },
+        "cutoff": {
+            "eyebrow": "The change cut-off · for a Monday delivery",
+            "lock": {
+                "time": "Sunday, 24 hours before",
+                "title": "Changes lock for Monday",
+                "body": "Skips, pauses, address and delivery-window changes for Monday must be in before this."
+            },
+            "order": {
+                "time": "At the cut-off",
+                "title": "The order goes to the kitchen",
+                "body": "Orders are created one delivery ahead, so the kitchen cooks only what is really coming. This is when one day comes off your balance."
+            },
+            "delivered": {
+                "time": "Monday",
+                "title": "Delivered",
+                "body": "If the kitchen has to cancel the order instead, the day goes back into your balance."
+            }
+        },
+        "states": {
+            "eyebrow": "What state your plan can be in",
+            "active": {
+                "name": "Active",
+                "body": "Deliveries run on your weekdays and each one uses a day.",
+                "next": "Can pause · Can cancel"
+            },
+            "paused": {
+                "name": "Paused",
+                "body": "Nothing is delivered and nothing is used. Resume whenever you like.",
+                "next": "Can resume · Can cancel"
+            },
+            "completed": {
+                "name": "Completed",
+                "body": "Your balance is used up. You are asked whether to renew — at today's price.",
+                "next": "Renew to start again"
+            },
+            "cancelled": {
+                "name": "Cancelled",
+                "body": "Deliveries stop after the change cut-off and the unused days are credited back.",
+                "next": "Final"
+            }
+        },
+        "faqTitle": "Questions people ask",
+        "faq": {
+            "soldOut": {
+                "q": "What if a meal I picked sells out?",
+                "a": "It is swapped for a dish of the same meal type and calorie band that respects every allergen and exclusion on your profile. If there is no safe swap, that delivery is skipped and the day stays in your balance."
+            },
+            "chooseMeals": {
+                "q": "Can I choose every meal myself?",
+                "a": "On plans that offer free selection, yes — pick each day's meal any time before the change cut-off. If you don't, or the plan doesn't offer it, the kitchen sends its own pick for that day."
+            },
+            "expire": {
+                "q": "Do my days expire?",
+                "a": "No. Your balance stays yours until you use it, however many deliveries you skip."
+            },
+            "address": {
+                "q": "Can I change the address or delivery window?",
+                "a": "Yes. The change applies to every delivery outside the change cut-off; one already inside it goes ahead as arranged."
+            },
+            "priceRise": {
+                "q": "What happens if the price goes up?",
+                "a": "Nothing, for your current balance. The per-day price you paid is locked until it runs out. A renewal shows you the current price before you confirm."
+            }
+        },
+        "ctaTitle": "Ready to stop deciding lunch every day?",
+        "ctaBody": "Start with the smallest balance. Skip whenever you like."
     },
     "compare": {
         "title": "Compare plans",
@@ -290,8 +479,10 @@
         "macroRange": "{{min}} to {{max}} g",
         "macroBandLabel": "{{nutrient}} for the {{variant}} band",
         "combinationTitle": "What arrives each day",
-        "combinationMeals": "{{meals}} main meals",
-        "combinationSnacks": "{{snacks}} snacks",
+        "combinationMeals_one": "{{count}} main meal",
+        "combinationMeals_other": "{{count}} main meals",
+        "combinationSnacks_one": "{{count}} snack",
+        "combinationSnacks_other": "{{count}} snacks",
         "combinationNoSnacks": "No snacks in this band",
         "durationsTitle": "How long you commit for",
         "durationsBody": "The weekly price is the same in every option; the discount is what the longer commitment earns.",
@@ -451,5 +642,14 @@
         "incompleteTitle": "A few answers are still missing",
         "incompleteBody": "Fill in your age, height and weight and the estimate appears here.",
         "errorTitle": "That estimate could not be worked out"
+    },
+    "card": {
+        "calories": "{{value}} cal",
+        "protein": "{{value}}g P",
+        "rating": "★ {{value}}",
+        "notRated": "Not rated yet",
+        "noFigure": "—",
+        "soldOut": "Sold out",
+        "unavailable": "Unavailable"
     }
 }

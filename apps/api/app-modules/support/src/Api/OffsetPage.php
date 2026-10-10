@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Support\Api;
 
+use Closure;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -50,24 +51,50 @@ final class OffsetPage
     /**
      * Order, offset and limit the query for a page.
      *
-     * The ordering is `(created_at, id)` — the same pair the keyset walks — so a client that mixes
-     * `page` and `cursor` against one endpoint sees one order, not two. `reorder()` first, for the
-     * same reason {@see CursorPage::constrain()} does it: a caller's default scope ordering would
-     * otherwise sit in front and make the offset mean something else on every request.
+     * The default ordering is `(created_at, id)` — the same pair the keyset walks — so a client
+     * that mixes `page` and `cursor` against one endpoint sees one order, not two. `reorder()`
+     * first, for the same reason {@see CursorPage::constrain()} does it: a caller's default scope
+     * ordering would otherwise sit in front and make the offset mean something else on every
+     * request.
+     *
+     * ## `$order` is how a sortable list stays sortable across its pages
+     *
+     * A column header that only reorders the rows already on screen is not a sort — it is a
+     * shuffle of page 3. The endpoint has to do the ordering, because only it can see the other
+     * seventeen pages. So a controller that accepts a `sort` parameter hands the ordering in here
+     * rather than applying it itself: applied before this call it would be wiped by the
+     * `reorder()`, and applied after it would sit *behind* `created_at` and change nothing.
+     *
+     * The primary key is appended as a tiebreaker either way, and that is not decoration. Offset
+     * paging over a non-total order lets the database return equal rows in a different sequence
+     * per page, which drops some rows from the walk and repeats others — the exact failure
+     * {@see CursorPage} exists to avoid, reintroduced by a sort on a column with duplicates.
      *
      * @param  EloquentBuilder<covariant Model>  $query
+     * @param  (Closure(EloquentBuilder<covariant Model>): void)|null  $order  applied in place of
+     *                                                                         the `created_at` step
      */
-    public static function constrain(EloquentBuilder $query, int $page, int $perPage, bool $newestFirst = false): void
-    {
+    public static function constrain(
+        EloquentBuilder $query,
+        int $page,
+        int $perPage,
+        bool $newestFirst = false,
+        ?Closure $order = null,
+    ): void {
         $model = $query->getModel();
         $createdAt = $model->qualifyColumn($model->getCreatedAtColumn() ?? 'created_at');
         $key = $model->qualifyColumn($model->getKeyName());
         $direction = $newestFirst ? 'desc' : 'asc';
 
         $query->reorder();
-        $query->orderBy($createdAt, $direction)
-            ->orderBy($key, $direction)
-            ->forPage($page, $perPage);
+
+        if ($order === null) {
+            $query->orderBy($createdAt, $direction);
+        } else {
+            $order($query);
+        }
+
+        $query->orderBy($key, $direction)->forPage($page, $perPage);
     }
 
     /**

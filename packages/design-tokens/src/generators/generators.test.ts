@@ -1,9 +1,13 @@
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { NUTRITION_LEVELS, SEMANTIC_ROLES, themes } from '../colour.ts';
+import { TYPEFACE_ROLES, typefaces } from '../typography.ts';
+import { fontFaceEntries, renderFontManifest } from './fonts.ts';
 import { renderTokensCss } from './css.ts';
 import { renderTokensNative } from './native.ts';
 import { renderTailwindPreset } from './tailwind-preset.ts';
@@ -178,17 +182,18 @@ describe('renderTailwindPreset', () => {
     });
 
     /**
-     * One Latin family across every key, and no `admin` key at all.
-     *
-     * `display` and `mono` stay as *roles* so a caller can still say "this is display type" or
-     * "this is a figure", but both resolve to the body stack. `admin` is gone: it existed only to
-     * scope Schibsted Grotesk to the Catalogue while the customer surfaces were still on Inter.
+     * Body and figures in Inter, display in Space Grotesk — the mood board's pairing — and no `admin`
+     * key at all. Each list opens with the loader key React Native addresses and continues with the
+     * CSS stack the web resolves by name.
      */
-    it('resolves every Latin family key to the one face', () => {
-        for (const key of ['latin', 'display', 'mono'] as const) {
-            expect(preset.theme.extend.fontFamily[key]?.[0]).toContain('SchibstedGrotesk');
+    it('sets body and figures in Inter and display in Space Grotesk', () => {
+        for (const key of ['latin', 'mono'] as const) {
+            expect(preset.theme.extend.fontFamily[key]?.[0]).toBe('Inter_400Regular');
+            expect(preset.theme.extend.fontFamily[key]).toContain("'Inter'");
         }
-        expect(preset.theme.extend.fontFamily.arabic?.[0]).toContain('IBMPlexSansArabic');
+        expect(preset.theme.extend.fontFamily.display?.[0]).toBe('SpaceGrotesk_700Bold');
+        expect(preset.theme.extend.fontFamily.display).toContain("'Space Grotesk'");
+        expect(preset.theme.extend.fontFamily.arabic?.[0]).toBe('IBMPlexSansArabic_400Regular');
         expect(preset.theme.extend.fontFamily.admin).toBeUndefined();
     });
 
@@ -274,19 +279,18 @@ describe('renderTokensCss', () => {
     });
 
     /**
-     * The admin family is declared here and bound in no rule, which is the point: `global.css`
-     * applies `--h360-font-family-latin` to `html`, so a surface opts into Schibsted Grotesk and
-     * the customer app keeps the face it has.
+     * Body, Arabic and display families as variables `global.css` binds, and no `admin` variable at
+     * all. `mono` is still declared because it is a role a caller can name; it is never *bound* to
+     * an element, because a figure takes `tabular-nums` inside the body family, not a mono face.
      */
-    /**
-     * Two families, one per script, and no `admin` variable at all — it existed only to scope
-     * Schibsted Grotesk to the Catalogue while the customer surfaces were still on Inter. `mono` is
-     * still declared because it is a role a caller can name; it is never *bound* to an element,
-     * because a figure takes `tabular-nums` inside the one family rather than a mono face.
-     */
-    it('declares the mono role without binding it, and no admin family', () => {
-        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-font-family-latin`);
+    it('declares the display family, the mono role without binding it, and no admin family', () => {
+        expect(output).toContain(
+            `${CSS_VARIABLE_PREFIX}-font-family-latin: 'Inter', 'IBM Plex Sans Arabic',`,
+        );
         expect(output).toContain(`${CSS_VARIABLE_PREFIX}-font-family-arabic`);
+        expect(output).toContain(
+            `${CSS_VARIABLE_PREFIX}-font-family-display: 'Space Grotesk', 'Inter',`,
+        );
         expect(output).toContain(`${CSS_VARIABLE_PREFIX}-font-family-mono`);
         expect(output).not.toContain(`${CSS_VARIABLE_PREFIX}-font-family-admin`);
         expect(output).not.toMatch(/font-family:\s*var\(--h360-font-family-mono\)/);
@@ -326,11 +330,58 @@ describe('renderTokensNative', () => {
  * Drift detection: the committed artefacts must match what the source renders right now. This is
  * what makes "generated output is committed" safe.
  */
+describe('renderFontManifest', () => {
+    const output = renderFontManifest();
+    const faces = fontFaceEntries();
+
+    it('lists every weight of every typeface, once, by its CSS family name', () => {
+        const expected = TYPEFACE_ROLES.flatMap((role) =>
+            typefaces[role].weights.map((weight) => `${typefaces[role].family}@${weight}`),
+        );
+        expect(faces.map((face) => `${face.family}@${face.weight}`)).toEqual([
+            ...new Set(expected),
+        ]);
+    });
+
+    it('imports each file from its weight subpath, never from a package root', () => {
+        expect(output).toContain(
+            "import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk/700Bold';",
+        );
+        expect(output).toContain("import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';");
+        expect(output).not.toMatch(/from '@expo-google-fonts\/[a-z-]+';/);
+    });
+
+    /**
+     * The step "Changing a font" in `typography.ts` cannot enforce: the typeface's package has to
+     * be installed. This names the missing one instead of leaving it to a bundler error at runtime.
+     */
+    it.each(faces.map((face) => [face.module, face.key] as const))(
+        '%s resolves to an installed font file',
+        (module, key) => {
+            const require = createRequire(import.meta.url);
+            const resolve = (): string | null => {
+                try {
+                    return require.resolve(module);
+                } catch {
+                    return null;
+                }
+            };
+            const resolved = resolve();
+            expect(
+                resolved,
+                `${module} is not installed — add its package to packages/design-tokens/package.json`,
+            ).not.toBeNull();
+            expect(existsSync(join(dirname(resolved!), `${key}.ttf`))).toBe(true);
+        },
+    );
+});
+
 describe('committed artefacts are up to date', () => {
     it.each([
         ['generated/tailwind-preset.cjs', renderTailwindPreset],
         ['generated/tokens.css', renderTokensCss],
         ['generated/tokens.native.ts', renderTokensNative],
+        ['generated/fonts.ts', renderFontManifest],
     ])('%s', async (relativePath, render) => {
         const onDisk = await readFile(join(packageRoot, relativePath), 'utf8');
         expect(

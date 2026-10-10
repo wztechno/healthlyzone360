@@ -1,25 +1,16 @@
 import { PLAN_MENU_SLOTS } from '@healthy360/api-client/contracts';
 import type { MealAdmin, PlanMenuSlot } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    Heading,
-    Inline,
-    NumberStepper,
-    Select,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
-import type { SelectOption } from '@healthy360/design-system';
+import { Badge, Button, DataList, fieldWidth, Icon, Select, Text } from '@healthy360/design-system';
+import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { MealId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { addDays } from '../commerce/dates.ts';
 import { displayName } from './format.ts';
 import {
-    MENU_SEQUENCE_MAX,
     addMenuEntry,
     emptyMenuEntry,
     menuDays,
@@ -28,8 +19,9 @@ import {
     removeMenuEntry,
     restoreMenuEntry,
 } from './plan-menu.ts';
-import type { MenuDraft, MenuEntryDraft } from './plan-menu.ts';
-import { RowAnnouncer, RowShell, UndoBar } from './row-editor-shell.tsx';
+import type { MenuDay, MenuDraft, MenuEntryDraft } from './plan-menu.ts';
+import { CountField, RemoveButton } from './plan-row-editors.tsx';
+import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
 
 /**
  * The plan editor's fixed-menu rows (Order Desk, phase 5).
@@ -46,15 +38,20 @@ import { RowAnnouncer, RowShell, UndoBar } from './row-editor-shell.tsx';
  * which dish. Making the day an editable number on every row would have made "move Tuesday's lunch to
  * Wednesday" a typo away from "two lunches on Wednesday and nothing on Tuesday".
  *
- * ## No move buttons, and that is {@link RowShell}'s own rule
+ * ## A `DataList`, like every admin table
  *
- * The shell's `onMove` is documented as omittable "for a list whose array order carries no meaning —
- * a meal's availability days are keyed by calendar date, and a Move up button on a Tuesday would
- * offer to reorder something that is already ordered by what it is". A menu entry is keyed by
- * `(day, slot, sequence)` and rendered in that order, so a Move up would either do nothing visible or
- * silently rewrite the coordinate it claims to be preserving. The other two rules stand exactly as
- * written: removal is immediate and reversible through {@link UndoBar}, restored **to its old
- * position**, and keys are stable across both.
+ * The same table the catalogue lists and the opening hours use — its green header band, its row
+ * heights — with one row per dish. The day is drawn on its first row and its Add a dish on its last,
+ * so a day still reads as one block. Every control is the desk's `sm` rung, and the dish picker is
+ * one field wide; the row's controls column takes the slack, so the band still runs the card's
+ * width.
+ *
+ * ## No move buttons
+ *
+ * A menu entry is keyed by `(day, slot, sequence)` and rendered in that order, so a Move up would
+ * either do nothing visible or silently rewrite the coordinate it claims to be preserving. Removal is
+ * immediate and reversible through {@link UndoBar}, restored **to its old position**, and keys are
+ * stable across both.
  *
  * ## The picker is a searchable `Select`, over published meals only
  *
@@ -142,6 +139,10 @@ export function PlanMenuDays({
     /**
      * The date a cycle day first falls on — day 1 *is* the anchor, so the offset is `day - 1`.
      *
+     * With its weekday, because the weekday is what a kitchen plans around: on a seven-day rotation
+     * it is the same every time the day comes round, and on any other length it is the first of
+     * several, which the cycle field warns about.
+     *
      * An em dash while there is no anchor: the day exists, the date it lands on is genuinely not
      * known yet, and a caption that disappeared would make the row jump as soon as one is picked.
      */
@@ -149,13 +150,11 @@ export function PlanMenuDays({
         if (draft.anchorDate === null) return '—';
         const date = addDays(draft.anchorDate, cycleDay - 1);
         if (date === null) return '—';
-        return t('kitchen:plans.menuDayFalls', {
-            date: formatter.formatDate(`${date}T00:00:00.000Z`, {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-                timeZone: 'UTC',
-            }),
+        return formatter.formatDate(`${date}T00:00:00.000Z`, {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short',
+            timeZone: 'UTC',
         });
     };
 
@@ -181,201 +180,258 @@ export function PlanMenuDays({
         return label === '' ? t('kitchen:plans.menuEmptyDish') : label;
     };
 
+    const pickMeal = (row: MenuEntryDraft, next: string) => {
+        const meal = meals.find((candidate) => String(candidate.id) === next);
+        onChange(
+            patchMenuEntry(draft, row.key, {
+                mealId: MealId.unsafe(next),
+                mealName: meal?.name ?? row.mealName,
+            }),
+        );
+    };
+
+    const removeEntry = (row: MenuEntryDraft) => {
+        setRemoved({
+            row,
+            index: draft.entries.findIndex((entry) => entry.key === row.key),
+        });
+        onChange(removeMenuEntry(draft, row.key));
+    };
+
+    const addDish = (cycleDay: number) => {
+        const coordinate = nextCoordinate(draft, cycleDay);
+        onChange(addMenuEntry(draft, emptyMenuEntry(nextKey(), cycleDay, coordinate)));
+        setAnnouncement(
+            t('kitchen:plans.menuAddedAnnouncement', {
+                day: cycleDay,
+                slot: t(menuSlotKey(coordinate.slot)),
+            }),
+        );
+    };
+
+    /*
+     * One table row per dish, and one for a day with none. The day is the group, never a field: it
+     * is drawn on the day's first row only, and its Add a dish on its last, so a day still reads as
+     * one block down the table.
+     */
+    const rows = useMemo<readonly MenuRow[]>(
+        () =>
+            days.flatMap((day): MenuRow[] =>
+                day.entries.length === 0
+                    ? [
+                          {
+                              key: `day-${String(day.cycleDay)}`,
+                              day,
+                              entry: null,
+                              first: true,
+                              last: true,
+                          },
+                      ]
+                    : day.entries.map((entry, index) => ({
+                          key: entry.key,
+                          day,
+                          entry,
+                          first: index === 0,
+                          last: index === day.entries.length - 1,
+                      })),
+            ),
+        [days],
+    );
+
+    const columns: readonly DataListColumn<MenuRow>[] = [
+        {
+            key: 'day',
+            label: t('kitchen:plans.menuDayLabel'),
+            width: DAY_TRACK,
+            priority: 100,
+            grow: false,
+            render: (row) => {
+                if (!row.first) return null;
+                const dayTestId = `${testID}-day-${String(row.day.cycleDay)}`;
+                return (
+                    <View testID={dayTestId} className="flex-col gap-hair py-tight">
+                        <Text variant="label">
+                            {t('kitchen:plans.menuDayNumber', { number: row.day.cycleDay })}
+                        </Text>
+                        <Text testID={`${dayTestId}-date`} variant="caption" tone="secondary">
+                            {dayCaption(row.day.cycleDay)}
+                        </Text>
+                        {row.day.isBeyondCycle ? (
+                            <View className="flex-row">
+                                <Badge
+                                    testID={`${dayTestId}-beyond`}
+                                    tone="warning"
+                                    icon="warning"
+                                    label={t('kitchen:plans.menuDayBeyond')}
+                                />
+                            </View>
+                        ) : null}
+                    </View>
+                );
+            },
+        },
+        {
+            key: 'slot',
+            label: t('kitchen:plans.menuSlotLabel'),
+            width: SLOT_TRACK,
+            priority: 99,
+            grow: false,
+            render: (row) =>
+                row.entry === null ? null : (
+                    <View className="z-auto min-w-0 flex-1 py-tight">
+                        <Select<PlanMenuSlot>
+                            testID={`${testID}-row-${row.entry.key}-slot`}
+                            id={`${testID}-row-${row.entry.key}-slot`}
+                            label={t('kitchen:plans.menuSlotLabel')}
+                            labelHidden
+                            size="sm"
+                            disabled={!canManage}
+                            options={slotOptions}
+                            value={row.entry.slot}
+                            onChange={(next) => {
+                                if (row.entry === null) return;
+                                onChange(patchMenuEntry(draft, row.entry.key, { slot: next }));
+                            }}
+                        />
+                    </View>
+                ),
+        },
+        {
+            key: 'sequence',
+            label: t('kitchen:plans.menuSequenceShort'),
+            width: SEQUENCE_TRACK,
+            priority: 98,
+            grow: false,
+            render: (row) =>
+                row.entry === null ? null : (
+                    <View className="min-w-0 flex-1 py-tight">
+                        <CountField
+                            testID={`${testID}-row-${row.entry.key}-sequence`}
+                            label={t('kitchen:plans.menuSequenceLabel')}
+                            labelHidden
+                            placeholder="1"
+                            value={row.entry.sequence}
+                            disabled={!canManage}
+                            onChange={(next) => {
+                                if (row.entry === null) return;
+                                onChange(patchMenuEntry(draft, row.entry.key, { sequence: next }));
+                            }}
+                        />
+                    </View>
+                ),
+        },
+        {
+            key: 'dish',
+            label: t('kitchen:plans.menuMealLabel'),
+            // One field wide, like every other picker: the no-stretch rule.
+            width: DISH_TRACK,
+            priority: 97,
+            grow: false,
+            render: (row) => {
+                if (row.entry === null) {
+                    return (
+                        <Text
+                            testID={`${testID}-day-${String(row.day.cycleDay)}-empty`}
+                            variant="caption"
+                            tone="secondary"
+                        >
+                            {t('kitchen:plans.menuDayEmptyHint')}
+                        </Text>
+                    );
+                }
+                const entry = row.entry;
+                const error = errors.get(entry.key);
+                return (
+                    <View className="z-auto min-w-0 flex-1 flex-col gap-hair py-tight">
+                        <Select
+                            testID={`${testID}-row-${entry.key}-meal`}
+                            id={`${testID}-row-${entry.key}-meal`}
+                            label={t('kitchen:plans.menuMealLabel')}
+                            labelHidden
+                            size="sm"
+                            placeholder={
+                                mealsPending
+                                    ? t('kitchen:plans.menuMealsPending')
+                                    : t('kitchen:plans.menuMealPlaceholder')
+                            }
+                            searchable
+                            required
+                            disabled={!canManage}
+                            options={optionsFor(entry)}
+                            value={entry.mealId === null ? null : String(entry.mealId)}
+                            onChange={(next) => {
+                                pickMeal(entry, next);
+                            }}
+                        />
+                        {error === undefined ? null : (
+                            <Text
+                                testID={`${testID}-row-${entry.key}-error`}
+                                // A sentence, not a value: it wraps rather than ending in an ellipsis.
+                                numberOfLines={3}
+                                role="alert"
+                                tone="danger"
+                                variant="caption"
+                            >
+                                {error}
+                            </Text>
+                        )}
+                    </View>
+                );
+            },
+        },
+        {
+            key: 'actions',
+            label: t('kitchen:list.actionHeader'),
+            width: ACTIONS_TRACK,
+            priority: 96,
+            // Takes the row's slack, so the band runs the card's width and the picker stays one field.
+            fill: true,
+            render: (row) =>
+                !canManage ? null : (
+                    <View className="flex-row flex-wrap items-center gap-snug py-tight">
+                        {row.entry === null ? null : (
+                            <RemoveButton
+                                testID={`${testID}-row-${row.entry.key}`}
+                                onRemove={() => {
+                                    if (row.entry !== null) removeEntry(row.entry);
+                                }}
+                            />
+                        )}
+                        {row.last ? (
+                            <Button
+                                testID={`${testID}-day-${String(row.day.cycleDay)}-add`}
+                                size="sm"
+                                variant="ghost"
+                                iconStart={<Icon name="plus" size="sm" />}
+                                label={t('kitchen:plans.menuAddDish')}
+                                onPress={() => {
+                                    addDish(row.day.cycleDay);
+                                }}
+                            />
+                        ) : null}
+                    </View>
+                ),
+        },
+    ];
+
     return (
-        <Stack space="lg" testID={testID}>
+        // The table carries the component's id when it is drawn, so its rows are `{testID}-row-{key}`
+        // exactly as before; the wrapper takes it only while there is no table to carry it.
+        <View {...(days.length === 0 ? { testID } : {})} className="z-auto flex-col">
             {days.length === 0 ? (
-                <Text testID={`${testID}-empty`} tone="secondary">
+                <Text testID={`${testID}-empty`} variant="caption" tone="secondary">
                     {t('kitchen:plans.menuEmpty')}
                 </Text>
             ) : (
-                days.map((day) => {
-                    const dayTestId = `${testID}-day-${String(day.cycleDay)}`;
-
-                    return (
-                        <Stack space="sm" key={day.cycleDay} testID={dayTestId}>
-                            <Inline space="sm" align="center" justify="between" wrap>
-                                <Stack space="none">
-                                    <Heading level={3}>
-                                        {t('kitchen:plans.menuDayNumber', {
-                                            number: day.cycleDay,
-                                        })}
-                                    </Heading>
-                                    <Text
-                                        testID={`${dayTestId}-date`}
-                                        variant="caption"
-                                        tone="secondary"
-                                    >
-                                        {dayCaption(day.cycleDay)}
-                                    </Text>
-                                </Stack>
-                                {day.isBeyondCycle ? (
-                                    <Badge
-                                        testID={`${dayTestId}-beyond`}
-                                        tone="warning"
-                                        icon="warning"
-                                        label={t('kitchen:plans.menuDayBeyond')}
-                                    />
-                                ) : null}
-                            </Inline>
-
-                            {day.entries.length === 0 ? (
-                                <Text
-                                    testID={`${dayTestId}-empty`}
-                                    variant="caption"
-                                    tone="secondary"
-                                >
-                                    {t('kitchen:plans.menuDayEmptyHint')}
-                                </Text>
-                            ) : (
-                                day.entries.map((row, index) => {
-                                    const rowTestId = `${testID}-row-${row.key}`;
-                                    const error = errors.get(row.key);
-
-                                    return (
-                                        <RowShell
-                                            key={row.key}
-                                            testID={rowTestId}
-                                            title={t('kitchen:plans.menuEntryNumber', {
-                                                number: index + 1,
-                                            })}
-                                            position={index + 1}
-                                            total={day.entries.length}
-                                            canManage={canManage}
-                                            badge={
-                                                <Badge
-                                                    testID={`${rowTestId}-badge`}
-                                                    tone="neutral"
-                                                    label={t(menuSlotKey(row.slot))}
-                                                />
-                                            }
-                                            onRemove={() => {
-                                                setRemoved({
-                                                    row,
-                                                    index: draft.entries.findIndex(
-                                                        (entry) => entry.key === row.key,
-                                                    ),
-                                                });
-                                                onChange(removeMenuEntry(draft, row.key));
-                                            }}
-                                        >
-                                            <Stack space="sm">
-                                                <Select
-                                                    testID={`${rowTestId}-meal`}
-                                                    id={`${rowTestId}-meal`}
-                                                    label={t('kitchen:plans.menuMealLabel')}
-                                                    hint={
-                                                        mealsPending
-                                                            ? t('kitchen:plans.menuMealsPending')
-                                                            : t('kitchen:plans.menuMealHint')
-                                                    }
-                                                    searchable
-                                                    required
-                                                    disabled={!canManage}
-                                                    options={optionsFor(row)}
-                                                    value={
-                                                        row.mealId === null
-                                                            ? null
-                                                            : String(row.mealId)
-                                                    }
-                                                    onChange={(next) => {
-                                                        const meal = meals.find(
-                                                            (candidate) =>
-                                                                String(candidate.id) === next,
-                                                        );
-                                                        onChange(
-                                                            patchMenuEntry(draft, row.key, {
-                                                                mealId: MealId.unsafe(next),
-                                                                mealName:
-                                                                    meal?.name ?? row.mealName,
-                                                            }),
-                                                        );
-                                                    }}
-                                                />
-
-                                                <Inline space="sm" wrap>
-                                                    <Select<PlanMenuSlot>
-                                                        testID={`${rowTestId}-slot`}
-                                                        id={`${rowTestId}-slot`}
-                                                        label={t('kitchen:plans.menuSlotLabel')}
-                                                        disabled={!canManage}
-                                                        options={slotOptions}
-                                                        value={row.slot}
-                                                        onChange={(next) => {
-                                                            onChange(
-                                                                patchMenuEntry(draft, row.key, {
-                                                                    slot: next,
-                                                                }),
-                                                            );
-                                                        }}
-                                                    />
-                                                    <NumberStepper
-                                                        testID={`${rowTestId}-sequence`}
-                                                        id={`${rowTestId}-sequence`}
-                                                        label={t('kitchen:plans.menuSequenceLabel')}
-                                                        hint={t('kitchen:plans.menuSequenceHint')}
-                                                        min={1}
-                                                        max={MENU_SEQUENCE_MAX}
-                                                        required
-                                                        disabled={!canManage}
-                                                        value={row.sequence}
-                                                        onChange={(next) => {
-                                                            onChange(
-                                                                patchMenuEntry(draft, row.key, {
-                                                                    sequence: next,
-                                                                }),
-                                                            );
-                                                        }}
-                                                    />
-                                                </Inline>
-
-                                                {error === undefined ? null : (
-                                                    <Text
-                                                        testID={`${rowTestId}-error`}
-                                                        role="alert"
-                                                        tone="danger"
-                                                        variant="caption"
-                                                    >
-                                                        {error}
-                                                    </Text>
-                                                )}
-                                            </Stack>
-                                        </RowShell>
-                                    );
-                                })
-                            )}
-
-                            {canManage ? (
-                                <Inline space="sm" wrap>
-                                    <Button
-                                        testID={`${dayTestId}-add`}
-                                        size="sm"
-                                        variant="secondary"
-                                        label={t('kitchen:plans.menuAddDish')}
-                                        onPress={() => {
-                                            const coordinate = nextCoordinate(draft, day.cycleDay);
-                                            onChange(
-                                                addMenuEntry(
-                                                    draft,
-                                                    emptyMenuEntry(
-                                                        nextKey(),
-                                                        day.cycleDay,
-                                                        coordinate,
-                                                    ),
-                                                ),
-                                            );
-                                            setAnnouncement(
-                                                t('kitchen:plans.menuAddedAnnouncement', {
-                                                    day: day.cycleDay,
-                                                    slot: t(menuSlotKey(coordinate.slot)),
-                                                }),
-                                            );
-                                        }}
-                                    />
-                                </Inline>
-                            ) : null}
-                        </Stack>
-                    );
-                })
+                <DataList<MenuRow>
+                    testID={testID}
+                    label={t('kitchen:plans.sectionMenu')}
+                    columns={columns}
+                    rows={rows}
+                    rowKey={(row) => row.key}
+                    density="sm"
+                    framed
+                />
             )}
 
             {removed === null ? null : (
@@ -390,6 +446,29 @@ export function PlanMenuDays({
             )}
 
             <RowAnnouncer testID={`${testID}-announcer`} message={announcement} />
-        </Stack>
+        </View>
     );
 }
+
+/** One line of the menu table: a dish on a day, or a day with no dish yet (`entry: null`). */
+interface MenuRow {
+    readonly key: string;
+    readonly day: MenuDay;
+    readonly entry: MenuEntryDraft | null;
+    /** The day's first line — the one that names the day. */
+    readonly first: boolean;
+    /** The day's last line — the one that carries its Add a dish. */
+    readonly last: boolean;
+}
+
+/**
+ * The menu's column tracks: a day, a short select, a figure box, a picker, then the row's controls.
+ * Each is its content's width plus the cell's own `px-control-sm` (8 + 8), so the boxes inside keep
+ * the widths the design gives them — the dish picker is exactly one field.
+ */
+const CELL_PADDING = 16;
+const DAY_TRACK = 120 + CELL_PADDING;
+const SLOT_TRACK = 140 + CELL_PADDING;
+const SEQUENCE_TRACK = 64 + CELL_PADDING;
+const DISH_TRACK = fieldWidth + CELL_PADDING;
+const ACTIONS_TRACK = 160;

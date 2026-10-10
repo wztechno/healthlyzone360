@@ -2,7 +2,9 @@ import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { Animated } from 'react-native';
 
+import { AnimatedView } from '../internal/animated-view.ts';
 import { cx } from '../internal/class-names.ts';
+import { startAfterPaint } from './start-after-paint.ts';
 import { useMotion } from './use-motion.ts';
 
 export interface PageTransitionProps {
@@ -47,14 +49,11 @@ export function PageTransition({
             easing: easing.decelerate,
             useNativeDriver: true,
         });
-        animation.start();
-        return () => {
-            animation.stop();
-        };
+        return startAfterPaint(animation);
     }, [enabled, progress, durations, easing, transitionKey]);
 
     return (
-        <Animated.View
+        <AnimatedView
             testID={testID}
             className={cx('flex-1', className)}
             style={{
@@ -72,6 +71,6 @@ export function PageTransition({
             }}
         >
             {children}
-        </Animated.View>
+        </AnimatedView>
     );
 }

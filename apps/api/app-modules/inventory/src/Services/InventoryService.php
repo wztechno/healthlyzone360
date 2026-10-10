@@ -21,11 +21,13 @@ use RuntimeException;
  *    the transaction, so concurrent movements serialise on the row, and the
  *    arithmetic is bcmath on decimal strings, so `0.1 + 0.2` is `0.3` rather
  *    than a float's `0.30000000000000004`.
- * 2. **A consume cannot go negative.** Taking more off the shelf than was ever
- *    on it is not a correction, it is a wrong number that would later be valued
- *    as COGS, so it is refused with `inventory.insufficient_stock`. `adjust` and
- *    `waste` are exempt: those are explicit human corrections that a real
- *    negative count legitimately produces.
+ * 2. **No shelf goes below zero.** A consume is refused when it would take
+ *    more than is *available* (on hand less other holders' claims). Every other
+ *    movement — `adjust`, `waste`, a batch's discarded input — is refused when it
+ *    would take more than is *on hand*. Both answer `inventory.insufficient_stock`.
+ *    A count that comes up short is still recorded, through {@see recordCount()}:
+ *    the kitchen states what the shelf holds, which is never below zero, rather
+ *    than a delta that could be.
  */
 final readonly class InventoryService
 {
@@ -35,6 +37,8 @@ final readonly class InventoryService
      */
     private const int SCALE = 6;
 
+    public function __construct(private ReservationService $reservations) {}
+
     /**
      * @param  string  $quantityDelta  a signed decimal string; negative removes stock. Narrowed to a numeric-string by {@see numeric()} before any arithmetic.
      * @param  numeric-string|null  $unitCostAmount  the moving-average cost this movement is valued at, per the ingredient default unit — set only by the consume path (INV1.2), which captures COGS here because the order tables may not
@@ -42,8 +46,10 @@ final readonly class InventoryService
      * @param  string|null  $costCurrencyCode  required when either cost amount is given (the CHECK on the column enforces it)
      * @param  string|null  $orderLineId  the order line a consume served, so COGS attributes per line and kind (INV1.5); null on every non-consume movement
      * @param  string|null  $soldItemType  `meal` or `product`, denormalised from the sold catalogue item so the report splits COGS by line of business without a join (INV1.5)
+     * @param  string|null  $holderType  the claim this movement consumes against, so a batch is checked against everyone else's reservations rather than its own (PROD1)
+     * @param  string|null  $holderId  the holder id, paired with `$holderType`; both or neither
      *
-     * @throws InsufficientStock when a consume would drive the level below zero
+     * @throws InsufficientStock when a consume would drive available stock below zero, or any other movement would drive on-hand below zero
      */
     public function recordMovement(
         string $organisationId,
@@ -59,32 +65,59 @@ final readonly class InventoryService
         ?string $costCurrencyCode = null,
         ?string $orderLineId = null,
         ?string $soldItemType = null,
+        ?string $holderType = null,
+        ?string $holderId = null,
     ): StockMovement {
         $delta = $this->numeric($quantityDelta);
 
-        return DB::transaction(function () use ($organisationId, $branchId, $stockItemId, $reason, $delta, $referenceType, $referenceId, $notes, $unitCostAmount, $costAmount, $costCurrencyCode, $orderLineId, $soldItemType): StockMovement {
-            // Establish the row if this is the item's first movement at the
-            // branch, then take a row lock for the read-modify-write itself.
-            StockLevel::query()->firstOrCreate(
-                ['branch_id' => $branchId, 'stock_item_id' => $stockItemId],
-                ['organisation_id' => $organisationId, 'quantity' => '0'],
-            );
-
-            $level = StockLevel::query()
-                ->where('branch_id', $branchId)
-                ->where('stock_item_id', $stockItemId)
-                ->lockForUpdate()
-                ->firstOrFail();
+        return DB::transaction(function () use ($organisationId, $branchId, $stockItemId, $reason, $delta, $referenceType, $referenceId, $notes, $unitCostAmount, $costAmount, $costCurrencyCode, $orderLineId, $soldItemType, $holderType, $holderId): StockMovement {
+            $level = $this->lockLevel($organisationId, $branchId, $stockItemId);
 
             $currentQuantity = $this->numeric((string) $level->quantity);
             $newQuantity = bcadd($currentQuantity, $delta, self::SCALE);
 
-            if ($reason === 'consume' && bccomp($newQuantity, '0', self::SCALE) < 0) {
+            /*
+             * A consume is checked against **available** stock, not against what
+             * is physically on the shelf (PROD1).
+             *
+             * On-hand was the right question while nothing could claim stock in
+             * advance. Once a confirmed production order can, it stops being: the
+             * oil for Thursday's dressing is on the shelf on Wednesday, and a
+             * customer order that eats it leaves Thursday short with nothing
+             * visibly wrong anywhere. So a sale may take what is free, and what is
+             * spoken for stays spoken for.
+             *
+             * A batch consuming its **own** claim passes its holder and is checked
+             * against everyone else's — without that it would be refused by the
+             * very reservation it opened, which is the one thing that must never
+             * happen.
+             *
+             * Every other reason is held to on-hand alone, not to available: a
+             * stock count or a spill is a fact about the shelf, and it may
+             * legitimately leave a confirmed batch short —
+             * {@see ReservationService::isShort()} reports that rather than
+             * prevents it. What it may not do is leave less than nothing.
+             */
+            if ($reason === 'consume') {
+                $reserved = $this->reservations->reservedQuantity($branchId, $stockItemId, $holderType, $holderId);
+                $availableAfter = bcsub($newQuantity, $reserved, self::SCALE);
+
+                if (bccomp($availableAfter, '0', self::SCALE) < 0) {
+                    throw new InsufficientStock(
+                        $branchId,
+                        $stockItemId,
+                        bcsub($currentQuantity, $reserved, self::SCALE),
+                        bcmul($delta, '-1', self::SCALE),
+                        $reserved,
+                    );
+                }
+            } elseif (bccomp($delta, '0', self::SCALE) < 0 && bccomp($newQuantity, '0', self::SCALE) < 0) {
                 throw new InsufficientStock(
                     $branchId,
                     $stockItemId,
                     $currentQuantity,
                     bcmul($delta, '-1', self::SCALE),
+                    message: 'There is not that much on the shelf. Record a count first if the shelf holds more than the ledger says.',
                 );
             }
 
@@ -110,6 +143,39 @@ final readonly class InventoryService
     }
 
     /**
+     * Records a stock count: the kitchen states what the shelf holds and the
+     * ledger takes the difference as an `adjust`.
+     *
+     * The difference is taken under the same row lock the movement writes
+     * under, so a sale landing between the count being typed and posted cannot
+     * make it wrong — the shelf ends on the counted figure either way. A count
+     * that matches the ledger still posts, as a zero movement: "counted, and it
+     * agreed" is a stock-take worth keeping.
+     *
+     * @param  string  $countedQuantity  what is on the shelf, never negative
+     */
+    public function recordCount(
+        string $organisationId,
+        string $branchId,
+        string $stockItemId,
+        string $countedQuantity,
+        ?string $notes = null,
+    ): StockMovement {
+        $counted = $this->numeric($countedQuantity);
+
+        if (bccomp($counted, '0', self::SCALE) < 0) {
+            throw new RuntimeException("A stock count cannot be negative [{$counted}].");
+        }
+
+        return DB::transaction(function () use ($organisationId, $branchId, $stockItemId, $counted, $notes): StockMovement {
+            $level = $this->lockLevel($organisationId, $branchId, $stockItemId);
+            $delta = bcsub($counted, $this->numeric((string) $level->quantity), self::SCALE);
+
+            return $this->recordMovement($organisationId, $branchId, $stockItemId, 'adjust', $delta, notes: $notes);
+        });
+    }
+
+    /**
      * Whether a level is low: it has a threshold set and its quantity has
      * reached or fallen below it (INV1.3).
      *
@@ -131,6 +197,24 @@ final readonly class InventoryService
         }
 
         return bccomp($quantity, $reorderThreshold, self::SCALE) <= 0;
+    }
+
+    /**
+     * The level row, created if this is the item's first movement at the
+     * branch, then re-read under a row lock for the read-modify-write.
+     */
+    private function lockLevel(string $organisationId, string $branchId, string $stockItemId): StockLevel
+    {
+        StockLevel::query()->firstOrCreate(
+            ['branch_id' => $branchId, 'stock_item_id' => $stockItemId],
+            ['organisation_id' => $organisationId, 'quantity' => '0'],
+        );
+
+        return StockLevel::query()
+            ->where('branch_id', $branchId)
+            ->where('stock_item_id', $stockItemId)
+            ->lockForUpdate()
+            ->firstOrFail();
     }
 
     /**

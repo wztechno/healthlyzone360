@@ -12,6 +12,7 @@ use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\Procurement\Exceptions\MixedIngredientCostCurrency;
+use Healthy360\Procurement\Exceptions\StrandedIngredientCostUnit;
 use Healthy360\Procurement\Services\GoodsReceiptService;
 use Healthy360\Procurement\Services\IngredientCostService;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
@@ -153,6 +154,119 @@ it('refuses to value a purchase whose unit cannot convert to the ingredient unit
 
     expect($blendVolume)->toThrow(UnitConversionUnsupported::class);
     expect(IngredientStockCost::withoutTenancy()->count())->toBe(0);
+});
+
+/*
+|--------------------------------------------------------------------------
+| The held balance's own unit
+|--------------------------------------------------------------------------
+|
+| `quantity_on_hand` and `moving_average_cost_amount` are denominated in
+| `ingredient_stock_costs.unit_id`, which is the ingredient's default unit as it
+| was when the row was last written. That unit can move underneath the balance,
+| and until these three cases existed the blend simply added the new unit's
+| receipt to the old unit's balance, weighted the average across both, and then
+| overwrote `unit_id` — so nothing downstream could tell it had happened.
+|
+*/
+
+it('rebases a held balance when the ingredient moves to a convertible unit', function (): void {
+    $cost = $this->service->recordPurchase(
+        (string) $this->organisation->getKey(),
+        $this->ingredient,
+        '10',
+        $this->kg,
+        '2.00',
+        'USD',
+    );
+
+    expect((string) $cost->quantity_on_hand)->toBe('10.000000')
+        ->and((string) $cost->moving_average_cost_amount)->toBe('2.000000');
+
+    // The kitchen re-denominates the ingredient into grams, then receives again.
+    $this->ingredient->default_unit_id = (string) $this->g->getKey();
+    $this->ingredient->save();
+
+    $blended = $this->service->recordPurchase(
+        (string) $this->organisation->getKey(),
+        $this->ingredient,
+        '10000',
+        $this->g,
+        '0.003',
+        'USD',
+    );
+
+    /*
+     * 10 kg at 2.00/kg is 10,000 g at 0.002/g — the same twenty dollars on the
+     * same shelf, which is the invariant a rebase has to hold. Blended with
+     * 10,000 g at 0.003/g: 20,000 g, and (20.00 + 30.00) ÷ 20,000 = 0.0025.
+     */
+    expect((string) $blended->quantity_on_hand)->toBe('20000.000000')
+        ->and((string) $blended->moving_average_cost_amount)->toBe('0.002500')
+        ->and((string) $blended->unit_id)->toBe((string) $this->g->getKey());
+});
+
+it('refuses a receipt when the held balance cannot be re-denominated', function (): void {
+    $this->service->recordPurchase(
+        (string) $this->organisation->getKey(),
+        $this->ingredient,
+        '10',
+        $this->kg,
+        '2.00',
+        'USD',
+    );
+
+    // Kilograms to litres: no density anywhere in this system, so the 10 kg on
+    // the shelf cannot be restated and the twenty dollars against it cannot be
+    // carried. Refused, rather than added to a receipt measured in litres.
+    $this->ingredient->default_unit_id = (string) $this->litre->getKey();
+    $this->ingredient->save();
+
+    $blend = fn () => $this->service->recordPurchase(
+        (string) $this->organisation->getKey(),
+        $this->ingredient,
+        '5',
+        $this->litre,
+        '3.00',
+        'USD',
+    );
+
+    expect($blend)->toThrow(StrandedIngredientCostUnit::class);
+
+    // And nothing moved: the balance is still the kilograms it was.
+    $held = IngredientStockCost::withoutTenancy()->sole();
+    expect((string) $held->quantity_on_hand)->toBe('10.000000')
+        ->and((string) $held->moving_average_cost_amount)->toBe('2.000000')
+        ->and((string) $held->unit_id)->toBe((string) $this->kg->getKey());
+});
+
+it('adopts a new unit without complaint when the shelf is empty', function (): void {
+    IngredientStockCost::query()->create([
+        'organisation_id' => (string) $this->organisation->getKey(),
+        'ingredient_id' => (string) $this->ingredient->getKey(),
+        'unit_id' => (string) $this->kg->getKey(),
+        'quantity_on_hand' => '0',
+        'currency_code' => null,
+    ]);
+
+    // Nothing is being converted, because there is nothing there: no quantity to
+    // carry and no average to misapply. A row with no balance is not stranded by
+    // a unit change, and refusing here would block receipts for no reason.
+    $this->ingredient->default_unit_id = (string) $this->litre->getKey();
+    $this->ingredient->save();
+
+    $cost = $this->service->recordPurchase(
+        (string) $this->organisation->getKey(),
+        $this->ingredient,
+        '5',
+        $this->litre,
+        '3.00',
+        'USD',
+    );
+
+    expect((string) $cost->quantity_on_hand)->toBe('5.000000')
+        ->and((string) $cost->moving_average_cost_amount)->toBe('3.000000')
+        ->and((string) $cost->unit_id)->toBe((string) $this->litre->getKey());
 });
 
 it('raises stock but records no cost for a receipt line whose stock item has no ingredient', function (): void {

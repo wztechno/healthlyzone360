@@ -178,3 +178,97 @@ it('lets a draft listing keep a recipe version retirable', function (): void {
         CatalogueWorld::headers($this->a) + ['If-Match' => '"0"'],
     )->assertOk();
 });
+
+/*
+|--------------------------------------------------------------------------
+| Archiving a recipe a listing sells
+|--------------------------------------------------------------------------
+|
+| Archive used to ask only whether a version was published. A live listing
+| need not have one — its allergen basis may be its own ingredients — so a
+| recipe could be archived out of the recipe book while a customer could still
+| order the dish it describes. Both holds are now asked, and both are named.
+|
+*/
+
+it('refuses to archive a recipe a published listing sells, naming both holds', function (): void {
+    // No published version at all: the hold is the listing alone.
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 1,
+    ]);
+
+    $item = CatalogueItem::factory()->meal()->published()->create([
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_ar' => 'وجبة',
+        'recipe_id' => $recipe->getKey(),
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = CatalogueWorld::headers($this->a);
+    $archive = '/api/v1/catalogue/recipes/'.$recipe->getKey().'/archive';
+
+    $this->postJson($archive, [], $headers + ['If-Match' => '"0"'])
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'catalogue.in_use')
+        ->assertJsonPath('error.details.catalogue_item_ids', [(string) $item->getKey()])
+        // The version half is reported, empty, rather than missing — one shape
+        // whichever side refused.
+        ->assertJsonPath('error.details.published_version_ids', []);
+
+    // Retiring the listing releases the hold.
+    $this->postJson('/api/v1/catalogue/items/'.$item->getKey().'/retire', [], $headers + ['If-Match' => '"0"'])
+        ->assertOk();
+
+    $this->postJson($archive, [], $headers + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->assertJsonPath('data.recipe.status', 'archived');
+});
+
+it('still refuses to archive a recipe while a version is published', function (): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    $version = RecipeVersion::factory()->published()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 1,
+    ]);
+
+    $this->actingAs($this->a->user);
+
+    $this->postJson(
+        '/api/v1/catalogue/recipes/'.$recipe->getKey().'/archive',
+        [],
+        CatalogueWorld::headers($this->a) + ['If-Match' => '"0"'],
+    )
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'catalogue.in_use')
+        ->assertJsonPath('error.details.published_version_ids', [(string) $version->getKey()])
+        ->assertJsonPath('error.details.catalogue_item_ids', []);
+});
+
+it('lets a draft listing keep a recipe archivable', function (): void {
+    // The port's own rule, one level up: somebody drafting next month's menu
+    // must not stop this month's clean-up.
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    CatalogueItem::factory()->meal()->create([
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'recipe_id' => $recipe->getKey(),
+    ]);
+
+    $this->actingAs($this->a->user);
+
+    $this->postJson(
+        '/api/v1/catalogue/recipes/'.$recipe->getKey().'/archive',
+        [],
+        CatalogueWorld::headers($this->a) + ['If-Match' => '"0"'],
+    )
+        ->assertOk()
+        ->assertJsonPath('data.recipe.status', 'archived');
+});

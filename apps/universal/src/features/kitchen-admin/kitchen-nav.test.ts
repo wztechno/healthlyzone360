@@ -28,8 +28,34 @@ describe('kitchen nav', () => {
             'catalogue',
             'commercial',
             'operations',
+            // AA1. A kitchen manager reads the staff list — the registry has always granted
+            // `membership.view_organisation` to the role, and the fixture had simply never said so.
+            // Last, because the group order is "how immediate is this" and nobody is waiting on
+            // access administration.
+            'access',
         ]);
         expect(sections.every((section) => section.items.length > 0)).toBe(true);
+    });
+
+    it('withholds the access group from somebody who cannot read the staff list', () => {
+        const cook: AccessState = {
+            ...managerState,
+            permissions: new Set(['catalogue.view_organisation', 'recipe.view_organisation']),
+        };
+
+        expect(kitchenNavSections(cook).map((section) => section.group)).not.toContain('access');
+    });
+
+    it('shows a permissions administrator the access group and nothing else', () => {
+        const administrator: AccessState = {
+            ...managerState,
+            permissions: new Set(['role.view_organisation', 'membership.view_organisation']),
+        };
+
+        const sections = kitchenNavSections(administrator);
+
+        expect(sections.map((section) => section.group)).toEqual(['access']);
+        expect(sections[0]?.items.map((item) => item.key)).toEqual(['team', 'roles']);
     });
 
     it('marks list and editor paths active for the same family', () => {

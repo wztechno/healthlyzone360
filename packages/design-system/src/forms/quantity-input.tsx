@@ -4,7 +4,7 @@ import { TextInput as RNTextInput, Text as RNText, View } from 'react-native';
 
 import { useDensity } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
-import { FormField } from './form-field.tsx';
+import { FormField, NUMBER_MAX_LENGTH } from './form-field.tsx';
 import type { FieldControlProps } from './form-field.tsx';
 import { inputFrameClassName } from './text-input.tsx';
 import type { InputSize } from './text-input.tsx';
@@ -38,6 +38,8 @@ import type { InputSize } from './text-input.tsx';
 
 export interface QuantityInputProps {
     readonly label: string;
+    /** See `FormField`'s `labelHidden` — for a figure in a line table, named by its column header. */
+    readonly labelHidden?: boolean | undefined;
     readonly value: string;
     readonly onChangeText: (value: string) => void;
     /** Fires on blur with the parsed value, or `null` when the text does not parse. */
@@ -46,12 +48,16 @@ export interface QuantityInputProps {
     readonly unit?: string | undefined;
     readonly hint?: string | undefined;
     readonly error?: string | undefined;
+    /** A non-blocking caution under the field — `Above 10%`. See `FormField`. */
+    readonly warning?: string | undefined;
     readonly required?: boolean | undefined;
     readonly disabled?: boolean | undefined;
     /** Read-only, on the sunken fill — a derived total in the cost cascade (§6.2). */
     readonly readOnly?: boolean | undefined;
     readonly size?: InputSize | undefined;
     readonly placeholder?: string | undefined;
+    /** The most characters the field takes. Defaults to {@link NUMBER_MAX_LENGTH}. */
+    readonly maxLength?: number | undefined;
     readonly id?: string | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
@@ -67,17 +73,20 @@ export function parseQuantity(text: string): number | null {
 
 export function QuantityInput({
     label,
+    labelHidden = false,
     value,
     onChangeText,
     onCommit,
     unit,
     hint,
     error,
+    warning,
     required = false,
     disabled = false,
     readOnly = false,
     size = 'sm',
     placeholder,
+    maxLength = NUMBER_MAX_LENGTH,
     id,
     className,
     testID,
@@ -89,10 +98,13 @@ export function QuantityInput({
     return (
         <FormField
             label={label}
+            labelHidden={labelHidden}
             {...(hint === undefined ? {} : { hint })}
             {...(error === undefined ? {} : { error })}
+            {...(warning === undefined ? {} : { warning })}
             required={required}
             disabled={disabled}
+            numeric
             {...(id === undefined ? {} : { id })}
             {...(className === undefined ? {} : { className })}
             {...(testID === undefined ? {} : { testID })}
@@ -101,6 +113,7 @@ export function QuantityInput({
                 <View
                     className={inputFrameClassName({
                         invalid: error !== undefined,
+                        caution: warning !== undefined,
                         focused,
                         // A derived total takes the sunken fill and the lighter border for the same
                         // reason a disabled field does — it is not editable — but it is *not*
@@ -120,6 +133,7 @@ export function QuantityInput({
                         {...(readOnly ? { 'aria-readonly': true } : {})}
                         inputMode="decimal"
                         keyboardType="decimal-pad"
+                        maxLength={maxLength}
                         {...(placeholder === undefined ? {} : { placeholder })}
                         placeholderTextColor={neutral[600]}
                         // `text-end`, and no inline `textAlign` at all. React Native's own
@@ -128,7 +142,10 @@ export function QuantityInput({
                         // it would win over the class besides. The logical utility is the one route
                         // to "the trailing edge, whichever side that is today".
                         className={cx(
-                            'flex-1 border-0 bg-transparent tabular-nums text-end outline-none',
+                            // `min-w-0`: a web `<input>` has an intrinsic width of about twenty
+                            // characters, and without the floor released a narrow frame could not
+                            // shrink it — the unit suffix was pushed out past the border.
+                            'min-w-0 flex-1 border-0 bg-transparent tabular-nums text-end outline-none',
                             density === 'compact' ? 'text-role-body' : 'text-base',
                             inert ? 'text-content-secondary' : 'text-content-primary',
                         )}

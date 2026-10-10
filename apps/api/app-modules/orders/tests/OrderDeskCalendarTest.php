@@ -279,12 +279,11 @@ it('counts a cancelled order nowhere, and a fulfilled one on the day it left the
     calendarOrder($this, '2026-05-12', ['status' => OrderStatus::Fulfilled]);
     calendarOrder($this, '2026-05-13', ['status' => OrderStatus::Confirmed]);
 
-    // A day nobody named. It is the queue's *today* and it is nowhere on a
-    // calendar: there is no square for an order with no date, and putting it on
-    // today's would invent a commitment and then move it every midnight.
+    // A day nobody named — every desk sale. It sits on the day it was placed,
+    // which is fixed, so it does not move at midnight.
     calendarOrder($this, '2026-05-11', ['requested_delivery_date' => null]);
 
-    expect(calendarDay($this, '2026-05-11', '2026-05-13', '2026-05-11')['counts']['order'])->toBe(0)
+    expect(calendarDay($this, '2026-05-11', '2026-05-13', '2026-05-11')['counts']['order'])->toBe(1)
         ->and(calendarDay($this, '2026-05-11', '2026-05-13', '2026-05-12')['counts']['order'])->toBe(1)
         ->and(calendarDay($this, '2026-05-11', '2026-05-13', '2026-05-13')['counts']['order'])->toBe(1);
 });

@@ -1,18 +1,15 @@
 import {
     Badge,
     Button,
+    Cascade,
     Card,
     EmptyState,
-    FadeIn,
     Heading,
     Icon,
     Inline,
-    PageTransition,
     Skeleton,
     Stack,
     Text,
-    useAnimatedNumber,
-    useMotion,
 } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
@@ -23,7 +20,7 @@ import { View } from 'react-native';
 
 import type { UseQueryResult } from '@tanstack/react-query';
 
-import { Gate } from '../../../access/gate.tsx';
+import { Gate, useCan } from '../../../access/gate.tsx';
 import {
     useAllergenClassesQuery,
     useBranchOperatingQuery,
@@ -45,20 +42,36 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useOrderDeskShortfallCountQuery } from '../../../data/order-desk-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import { BrandGradient } from '../../../ui/brand-gradient.tsx';
 import { operatingDraftsFrom, summariseOperating } from '../delivery-model.ts';
-import { ENTITY_GROUPS, WORKSPACE_PERMISSIONS, permittedFamilies } from '../entity-registry.ts';
+import {
+    CATALOGUE_VIEW_PERMISSION,
+    ENTITY_GROUPS,
+    WORKSPACE_PERMISSIONS,
+    permittedFamilies,
+} from '../entity-registry.ts';
 import type { EntityFamily, EntityGroup } from '../entity-registry.ts';
-import { KpiTile as BaseKpiTile } from '../kpi-tile.tsx';
+import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
+import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { buildReviewQueue } from '../review-queue.ts';
 
 /**
- * `/kitchen` — mission-control hub (Mood Board Option 02).
+ * `/kitchen` — the overview: what needs someone today, then every module one press away.
  *
- * KPI strip + review insight band + sectioned module tiles. Counts stay honest: null totals stay
- * unavailable rather than inventing a zero.
+ * Figures as pressable stat cards, a "Needs attention" panel listing only what is waiting, and the
+ * modules as compact tiles — icon, name, counts. No descriptions and no "Open …" buttons: the rail
+ * names every module already. Counts stay honest: null totals stay unavailable, never a zero.
  */
 
+/**
+ * One module on the overview: its icon, its name and its figures, the whole tile one target.
+ *
+ * No description and no "Open …" button. The rail already names every module, so a tile that
+ * explained itself in three lines and then repeated its name on a button was most of the page's
+ * text and none of its news. What a tile says is the module and its numbers; pressing it opens it.
+ *
+ * The outer box keeps `kitchen-family-{key}` for the module and the pressable card carries
+ * `-open`, the id the old button had, so a test that opened a module still finds the same target.
+ */
 function FamilyCardShell({
     family,
     testID,
@@ -70,56 +83,38 @@ function FamilyCardShell({
 }) {
     const { t } = useTranslation();
     const router = useRouter();
+    const name = t(family.nameKey);
 
     return (
-        /*
-         * `grow` is what makes every tile in a row the same height, and `self-stretch` beside it is
-         * not the same thing: the grid cell above already stretches, but the cell is a *column*, so
-         * stretch governs the card's width and its height still came from its own content. A module
-         * with four count chips stood taller than one with none, and the "Open …" buttons landed at
-         * four different heights across a row.
-         *
-         * The body then takes the slack (`grow` on the stack) and the action is pushed to the
-         * bottom (`mt-auto`), so the buttons share one baseline however many chips a module has.
-         */
-        <Card
-            testID={testID}
-            padding="md"
-            tone="raised"
-            className="grow self-stretch border-brand-100"
-        >
-            <Stack space="sm" grow>
-                <Inline space="sm" align="center">
-                    <Icon name={family.icon} size="md" className="text-brand-600" />
-                    <Heading level={3} testID={`${testID}-name`} className="text-brand-600">
-                        {t(family.nameKey)}
-                    </Heading>
-                </Inline>
-
-                <Text
-                    tone="secondary"
-                    variant="caption"
-                    testID={`${testID}-description`}
-                    numberOfLines={3}
-                >
-                    {t(family.descriptionKey)}
-                </Text>
-
-                {children}
-
-                <Inline space="sm" wrap className="mt-auto">
-                    <Button
-                        testID={`${testID}-open`}
-                        variant="secondary"
-                        size="sm"
-                        label={t('kitchen:hub.open', { family: t(family.nameKey) })}
-                        onPress={() => {
-                            router.push(family.href as never);
-                        }}
-                    />
-                </Inline>
-            </Stack>
-        </Card>
+        <View testID={testID} className="grow flex-col self-stretch">
+            <Card
+                testID={`${testID}-open`}
+                padding="sm"
+                tone="raised"
+                interactive
+                accessibilityLabel={name}
+                onPress={() => {
+                    router.push(family.href as never);
+                }}
+                className="grow border-brand-100"
+            >
+                <Stack space="xs" grow>
+                    <Inline space="xs" align="center" wrap={false}>
+                        <Icon name={family.icon} size="md" className="text-brand-600" />
+                        <Text
+                            variant="label"
+                            testID={`${testID}-name`}
+                            numberOfLines={1}
+                            className="min-w-0 flex-1 text-brand-600"
+                        >
+                            {name}
+                        </Text>
+                        <Icon name="chevronEnd" size="sm" className="text-content-secondary" />
+                    </Inline>
+                    {children}
+                </Stack>
+            </Card>
+        </View>
     );
 }
 
@@ -273,7 +268,7 @@ function BranchOperatingCard({ family }: { readonly family: EntityFamily }) {
                         <Badge
                             testID={`${testID}-cut-offs`}
                             tone={summary.withCutOff === 0 ? 'warning' : 'info'}
-                            {...(summary.withCutOff === 0 ? { icon: 'warning' as const } : {})}
+                            {...(summary.withCutOff === 0 ? { icon: 'alert' as const } : {})}
                             label={t('kitchen:branchHours.cutOffDayCount', {
                                 count: summary.withCutOff,
                             })}
@@ -320,7 +315,7 @@ function ReviewCard({ family }: { readonly family: EntityFamily }) {
                     <Badge
                         testID={`${testID}-total`}
                         tone={queue === null || queue.total === 0 ? 'success' : 'warning'}
-                        icon={queue === null || queue.total === 0 ? 'check' : 'warning'}
+                        icon={queue === null || queue.total === 0 ? 'circleCheck' : 'alert'}
                         label={
                             queue === null
                                 ? t('kitchen:hub.countUnavailable')
@@ -333,7 +328,7 @@ function ReviewCard({ family }: { readonly family: EntityFamily }) {
                         <Badge
                             testID={`${testID}-blocked`}
                             tone="danger"
-                            icon="warning"
+                            icon="alert"
                             label={t('kitchen:review.blockedCount', { count: queue.blocked })}
                         />
                     )}
@@ -353,7 +348,7 @@ function AnalyticsCard({ family }: { readonly family: EntityFamily }) {
                 <Badge
                     testID={`${testID}-sample`}
                     tone="info"
-                    icon="info"
+                    icon="infoCircle"
                     label={t('kitchen:analytics.sampleBadge')}
                 />
             </Inline>
@@ -380,7 +375,7 @@ function ConsumptionExceptionsCard({ family }: { readonly family: EntityFamily }
                     <Badge
                         testID={`${testID}-total`}
                         tone={value === null || value === 0 ? 'success' : 'warning'}
-                        icon={value === null || value === 0 ? 'check' : 'warning'}
+                        icon={value === null || value === 0 ? 'circleCheck' : 'alert'}
                         label={
                             value === null
                                 ? t('kitchen:hub.countUnavailable')
@@ -520,9 +515,6 @@ function renderFamilyCard(
     summaries: {
         readonly recipe: UseQueryResult<PublishedFamilySummary>;
         readonly product: UseQueryResult<PublishedFamilySummary>;
-        readonly sauce: UseQueryResult<PublishedFamilySummary>;
-        readonly dressing: UseQueryResult<PublishedFamilySummary>;
-        readonly meal: UseQueryResult<PublishedFamilySummary>;
         readonly priceList: UseQueryResult<PublishedFamilySummary>;
         readonly plan: UseQueryResult<PublishedFamilySummary>;
         readonly zone: UseQueryResult<PublishedFamilySummary>;
@@ -541,17 +533,6 @@ function renderFamilyCard(
     }
     if (family.key === 'products') {
         return <PublishedFamilyCard key={family.key} family={family} summary={summaries.product} />;
-    }
-    if (family.key === 'sauces') {
-        return <PublishedFamilyCard key={family.key} family={family} summary={summaries.sauce} />;
-    }
-    if (family.key === 'dressings') {
-        return (
-            <PublishedFamilyCard key={family.key} family={family} summary={summaries.dressing} />
-        );
-    }
-    if (family.key === 'meals') {
-        return <PublishedFamilyCard key={family.key} family={family} summary={summaries.meal} />;
     }
     if (family.key === 'price-lists') {
         return (
@@ -583,31 +564,96 @@ function renderFamilyCard(
     );
 }
 
-function KpiTile({
-    testID,
-    label,
-    value,
-    hint,
+interface AttentionRow {
+    readonly key: string;
+    /** One sentence with its count — "4 records are waiting for review". */
+    readonly text: string;
+    readonly tone: 'warning' | 'danger';
+    readonly href: string;
+    /** The page the row opens, named on its link. */
+    readonly linkLabel: string;
+}
+
+/**
+ * What needs someone today: one line per non-zero alert, each opening the page that clears it.
+ *
+ * It replaced a full-width gradient band that spent a heading, a paragraph, a tag and a button on
+ * the review count alone. Every alert now gets one line of the same weight, and when nothing is
+ * waiting the panel says so once instead of drawing a row of zeros.
+ */
+function AttentionPanel({
+    rows,
     pending,
 }: {
-    readonly testID: string;
-    readonly label: string;
-    readonly value: number | null;
-    readonly hint?: string | undefined;
+    readonly rows: readonly AttentionRow[];
+    /** An alert's count is still in flight: "all clear" would be a guess until every one lands. */
     readonly pending: boolean;
 }) {
     const { t } = useTranslation();
-    const animated = useAnimatedNumber(value ?? 0);
+    const router = useRouter();
 
     return (
-        <BaseKpiTile
-            testID={testID}
-            label={label}
-            value={value === null ? null : String(animated)}
-            pending={pending}
-            hint={hint}
-            nullCaption={t('kitchen:hub.countUnavailable')}
-        />
+        <Card
+            testID="kitchen-home-attention"
+            tone="raised"
+            padding="md"
+            className="border-brand-100"
+        >
+            <Stack space="sm">
+                <Heading level={2}>{t('kitchen:hub.attentionTitle')}</Heading>
+                {rows.length === 0 && pending ? (
+                    <Skeleton
+                        testID="kitchen-home-attention-loading"
+                        heightClassName="h-5"
+                        widthClassName="w-1/2"
+                    />
+                ) : rows.length === 0 ? (
+                    <Inline space="xs" align="center" testID="kitchen-home-attention-clear">
+                        <Icon name="circleCheck" size="sm" className="text-success-strong" />
+                        <Text tone="secondary">{t('kitchen:hub.attentionClear')}</Text>
+                    </Inline>
+                ) : (
+                    rows.map((row) => (
+                        <Inline
+                            key={row.key}
+                            space="sm"
+                            align="center"
+                            justify="between"
+                            wrap
+                            testID={`kitchen-home-attention-${row.key}`}
+                        >
+                            <Inline
+                                space="xs"
+                                align="center"
+                                wrap={false}
+                                className="min-w-0 flex-1"
+                            >
+                                <Icon
+                                    name="alert"
+                                    size="sm"
+                                    className={
+                                        row.tone === 'danger'
+                                            ? 'text-danger-strong'
+                                            : 'text-warning-strong'
+                                    }
+                                />
+                                <Text className="min-w-0 flex-1">{row.text}</Text>
+                            </Inline>
+                            <Button
+                                testID={`kitchen-home-attention-${row.key}-open`}
+                                variant="ghost"
+                                size="sm"
+                                label={row.linkLabel}
+                                iconEnd={<Icon name="chevronEnd" size="sm" />}
+                                onPress={() => {
+                                    router.push(row.href as never);
+                                }}
+                            />
+                        </Inline>
+                    ))
+                )}
+            </Stack>
+        </Card>
     );
 }
 
@@ -617,21 +663,28 @@ const GROUP_LABEL_KEYS: Readonly<Record<EntityGroup, string>> = {
     catalogue: 'kitchen:nav.groups.catalogue',
     commercial: 'kitchen:nav.groups.commercial',
     operations: 'kitchen:nav.groups.operations',
+    access: 'kitchen:nav.groups.access',
 };
 
 export function KitchenHomeScreen() {
     const { t } = useTranslation();
     const router = useRouter();
     const state = useAccessState();
-    const { stagger } = useMotion();
     const families = permittedFamilies(state);
 
     const permitted = new Set(families.map((family) => family.key));
-    const recipeSummary = useRecipeSummaryQuery(permitted.has('recipes'));
+    const canViewCatalogue = useCan(CATALOGUE_VIEW_PERMISSION);
+    // The recipe card counts what is on sale as published — the menu's question, not the recipe's.
+    const recipeSummary = useRecipeSummaryQuery(permitted.has('recipes'), canViewCatalogue);
     const productSummary = useProductSummaryQuery(permitted.has('products'));
-    const sauceSummary = useProductSummaryQuery(permitted.has('sauces'), 'sauce');
-    const dressingSummary = useProductSummaryQuery(permitted.has('dressings'), 'dressing');
-    const mealSummary = useMealSummaryQuery(permitted.has('meals'));
+    /*
+     * The Drafts and Published-meals tiles still count sauces, dressings and meals as items. Their
+     * families went into the recipe book, so these reads are keyed on the code that lists the items
+     * rather than on a family that no longer exists — keyed on the family, they would never load.
+     */
+    const sauceSummary = useProductSummaryQuery(canViewCatalogue, 'sauce');
+    const dressingSummary = useProductSummaryQuery(canViewCatalogue, 'dressing');
+    const mealSummary = useMealSummaryQuery(canViewCatalogue);
     const priceListSummary = usePriceListSummaryQuery(permitted.has('price-lists'));
     const planSummary = usePlanSummaryQuery(permitted.has('plans'));
     const zoneSummary = useZoneSummaryQuery(permitted.has('delivery-zones'));
@@ -669,9 +722,6 @@ export function KitchenHomeScreen() {
     const summaries = {
         recipe: recipeSummary,
         product: productSummary,
-        sauce: sauceSummary,
-        dressing: dressingSummary,
-        meal: mealSummary,
         priceList: priceListSummary,
         plan: planSummary,
         zone: zoneSummary,
@@ -681,15 +731,19 @@ export function KitchenHomeScreen() {
     if (permitted.has('ingredients')) draftParts.push(ingredientSummary.data?.drafts);
     if (permitted.has('recipes')) draftParts.push(recipeSummary.data?.drafts);
     if (permitted.has('products')) draftParts.push(productSummary.data?.drafts);
-    if (permitted.has('sauces')) draftParts.push(sauceSummary.data?.drafts);
-    if (permitted.has('dressings')) draftParts.push(dressingSummary.data?.drafts);
-    if (permitted.has('meals')) draftParts.push(mealSummary.data?.drafts);
+    if (canViewCatalogue) {
+        draftParts.push(
+            sauceSummary.data?.drafts,
+            dressingSummary.data?.drafts,
+            mealSummary.data?.drafts,
+        );
+    }
     const knownDrafts = draftParts.filter((part): part is number => typeof part === 'number');
     const draftsPending =
         (permitted.has('ingredients') && ingredientSummary.isPending) ||
         (permitted.has('recipes') && recipeSummary.isPending) ||
         (permitted.has('products') && productSummary.isPending) ||
-        (permitted.has('meals') && mealSummary.isPending);
+        (canViewCatalogue && mealSummary.isPending);
     const draftTotal = draftsPending
         ? null
         : draftParts.length === 0
@@ -698,8 +752,6 @@ export function KitchenHomeScreen() {
             ? null
             : knownDrafts.reduce((sum, part) => sum + part, 0);
 
-    const publishedMeals = mealSummary.isPending ? null : (mealSummary.data?.published ?? null);
-    const zoneTotal = zoneSummary.isPending ? null : (zoneSummary.data?.total ?? null);
     // Low-stock count for the KPI strip (INV1.3): an operational fact computed from
     // records people created — quantities and the reorder points a manager set — so it
     // carries the green/operational tone (Rule 5 keeps violet for machine-generated
@@ -748,225 +800,184 @@ export function KitchenHomeScreen() {
             : (exceptionsCount.data ?? null)
         : null;
 
+    const open = (href: string) => () => {
+        router.push(href as never);
+    };
+    const figure = (value: number | null) =>
+        value === null ? t('kitchen:hub.countUnavailable') : String(value);
+    const warnWhen = (value: number | null) =>
+        value !== null && value > 0 ? ('warning' as const) : ('default' as const);
+
+    /*
+     * The figures, as the same pressable cards every list page opens with. No hint lines: the label
+     * says what the number counts, and the attention panel below says what to do about it.
+     */
+    const kpiCards: CatalogueStatCard[] = [];
+    if (permitted.has('review')) {
+        kpiCards.push({
+            key: 'review',
+            label: t('kitchen:hub.kpi.needsReview'),
+            value: figure(reviewQueue?.total ?? null),
+            pending: reviewSources.isPending,
+            mark: 'clipboardCheck',
+            tone: warnWhen(reviewQueue?.total ?? null),
+            onPress: open('/kitchen/review'),
+            accessibilityLabel: t('kitchen:hub.kpi.needsReview'),
+        });
+    }
+    if (permitted.has('consumption-exceptions')) {
+        kpiCards.push({
+            key: 'consumption-exceptions',
+            label: t('kitchen:hub.kpi.consumptionExceptions'),
+            value: figure(exceptionCount),
+            pending: exceptionsCount.isPending,
+            mark: 'alert',
+            tone: warnWhen(exceptionCount),
+            onPress: open('/kitchen/consumption-exceptions'),
+            accessibilityLabel: t('kitchen:hub.kpi.consumptionExceptions'),
+        });
+    }
+    if (permitted.has('stock')) {
+        kpiCards.push({
+            key: 'low-stock',
+            label: t('kitchen:hub.kpi.lowStock'),
+            value: figure(lowStockCount),
+            pending: lowStock.isPending,
+            mark: 'package',
+            tone: warnWhen(lowStockCount),
+            onPress: open('/kitchen/stock'),
+            accessibilityLabel: t('kitchen:hub.kpi.lowStock'),
+        });
+    }
+    if (showShortfallTile) {
+        kpiCards.push({
+            key: 'requirement-shortfalls',
+            label: t('kitchen:hub.kpi.requirementShortfalls'),
+            value: figure(shortfallCount),
+            pending: shortfalls.isPending,
+            mark: 'receipt',
+            tone: warnWhen(shortfallCount),
+            onPress: open('/kitchen/order-desk/requirements'),
+            accessibilityLabel: t('kitchen:hub.kpi.requirementShortfalls'),
+        });
+    }
+    kpiCards.push({
+        key: 'drafts',
+        label: t('kitchen:hub.kpi.drafts'),
+        value: figure(draftTotal),
+        pending: draftsPending,
+        mark: 'fileDraft',
+        tone: 'brand',
+    });
+
+    /*
+     * One line per thing waiting on someone, only when it is waiting. A count of nothing is not
+     * news, so the panel shrinks to a single "all clear" rather than listing four zeros.
+     */
+    const attention: AttentionRow[] = [];
+    if (reviewQueue !== null && reviewQueue.total > 0) {
+        attention.push({
+            key: 'review',
+            text: t('kitchen:review.summaryTitle', { count: reviewQueue.total }),
+            tone: reviewQueue.blocked > 0 ? 'danger' : 'warning',
+            href: '/kitchen/review',
+            linkLabel: t('kitchen:hub.kpi.needsReview'),
+        });
+    }
+    if (exceptionCount !== null && exceptionCount > 0) {
+        attention.push({
+            key: 'consumption-exceptions',
+            text: t('kitchen:ops.exceptions.unresolvedCount', { count: exceptionCount }),
+            tone: 'warning',
+            href: '/kitchen/consumption-exceptions',
+            linkLabel: t('kitchen:hub.kpi.consumptionExceptions'),
+        });
+    }
+    if (lowStockCount !== null && lowStockCount > 0) {
+        attention.push({
+            key: 'low-stock',
+            text: canOrderSupplies
+                ? t('kitchen:hub.kpi.lowStockReadyToOrder', { count: lowStockCount })
+                : t('kitchen:ops.stock.lowStockCount', { count: lowStockCount }),
+            tone: 'warning',
+            href: canOrderSupplies ? '/kitchen/supply-orders' : '/kitchen/stock',
+            linkLabel: t('kitchen:hub.kpi.lowStock'),
+        });
+    }
+    if (shortfallCount !== null && shortfallCount > 0) {
+        attention.push({
+            key: 'requirement-shortfalls',
+            text: t('kitchen:ops.requirements.shortfallCount', { count: shortfallCount }),
+            tone: 'warning',
+            href: '/kitchen/order-desk/requirements',
+            linkLabel: t('kitchen:hub.kpi.requirementShortfalls'),
+        });
+    }
+
     return (
         <Gate area="kitchen" requirement={{ anyOf: WORKSPACE_PERMISSIONS }} testID="kitchen-home">
-            <PageTransition testID="kitchen-home-screen" transitionKey="kitchen-home">
-                <Stack space="lg">
-                    <FadeIn delayMs={stagger(0)}>
-                        <Stack space="xs">
-                            <Heading level={1} testID="kitchen-home-title">
-                                {t('kitchen:hub.title')}
-                            </Heading>
-                            <Text tone="secondary" testID="kitchen-home-subtitle">
-                                {t('kitchen:hub.subtitle')}
-                            </Text>
-                        </Stack>
-                    </FadeIn>
+            <Cascade space="lg" testID="kitchen-home-screen">
+                <Heading level={1} testID="kitchen-home-title">
+                    {t('kitchen:hub.title')}
+                </Heading>
 
-                    {families.length === 0 ? (
-                        <EmptyState
-                            testID="kitchen-home-empty"
-                            title={t('kitchen:hub.emptyTitle')}
-                            body={t('kitchen:hub.emptyBody')}
+                {families.length === 0 ? (
+                    <EmptyState
+                        testID="kitchen-home-empty"
+                        title={t('kitchen:hub.emptyTitle')}
+                        body={t('kitchen:hub.emptyBody')}
+                    />
+                ) : (
+                    <>
+                        <View testID="kitchen-home-kpis">
+                            <CatalogueStatCards
+                                testID="kitchen-kpi"
+                                pending={false}
+                                cards={kpiCards}
+                            />
+                        </View>
+
+                        <AttentionPanel
+                            rows={attention}
+                            pending={
+                                (permitted.has('review') && reviewSources.isPending) ||
+                                (permitted.has('consumption-exceptions') &&
+                                    exceptionsCount.isPending) ||
+                                (permitted.has('stock') && lowStock.isPending) ||
+                                (showShortfallTile && shortfalls.isPending)
+                            }
                         />
-                    ) : (
-                        <>
-                            <FadeIn delayMs={stagger(1)} testID="kitchen-home-kpis">
-                                <View className="flex-row flex-wrap gap-3">
-                                    <KpiTile
-                                        testID="kitchen-kpi-review"
-                                        label={t('kitchen:hub.kpi.needsReview')}
-                                        value={reviewQueue?.total ?? null}
-                                        pending={reviewSources.isPending}
-                                        hint={
-                                            reviewQueue !== null && reviewQueue.blocked > 0
-                                                ? t('kitchen:review.blockedCount', {
-                                                      count: reviewQueue.blocked,
-                                                  })
-                                                : undefined
-                                        }
-                                    />
-                                    <KpiTile
-                                        testID="kitchen-kpi-drafts"
-                                        label={t('kitchen:hub.kpi.drafts')}
-                                        value={draftTotal}
-                                        pending={draftsPending}
-                                    />
-                                    <KpiTile
-                                        testID="kitchen-kpi-meals"
-                                        label={t('kitchen:hub.kpi.publishedMeals')}
-                                        value={publishedMeals}
-                                        pending={mealSummary.isPending}
-                                    />
-                                    <KpiTile
-                                        testID="kitchen-kpi-zones"
-                                        label={t('kitchen:hub.kpi.deliveryZones')}
-                                        value={zoneTotal}
-                                        pending={zoneSummary.isPending}
-                                    />
-                                    {permitted.has('stock') ? (
-                                        <KpiTile
-                                            testID="kitchen-kpi-low-stock"
-                                            label={t('kitchen:hub.kpi.lowStock')}
-                                            value={lowStockCount}
-                                            pending={lowStock.isPending}
-                                            /*
-                                             * SUP3 extends the hint rather than the tile. The
-                                             * number stays the low-stock count from its own
-                                             * endpoint — this is a stock warning and it keeps
-                                             * meaning that — but a viewer who may actually order
-                                             * supplies gets told the warning is actionable, which
-                                             * a viewer who may not would only find frustrating.
-                                             */
-                                            hint={
-                                                lowStockCount !== null && lowStockCount > 0
-                                                    ? canOrderSupplies
-                                                        ? t(
-                                                              'kitchen:hub.kpi.lowStockReadyToOrder',
-                                                              {
-                                                                  count: lowStockCount,
-                                                              },
-                                                          )
-                                                        : t('kitchen:ops.stock.lowStockCount', {
-                                                              count: lowStockCount,
-                                                          })
-                                                    : undefined
-                                            }
-                                        />
-                                    ) : null}
-                                    {showShortfallTile ? (
-                                        <KpiTile
-                                            testID="kitchen-kpi-requirement-shortfalls"
-                                            label={t('kitchen:hub.kpi.requirementShortfalls')}
-                                            value={shortfallCount}
-                                            pending={shortfalls.isPending}
-                                            hint={
-                                                shortfallCount !== null && shortfallCount > 0
-                                                    ? t('kitchen:ops.requirements.shortfallCount', {
-                                                          count: shortfallCount,
-                                                      })
-                                                    : undefined
-                                            }
-                                        />
-                                    ) : null}
-                                    {permitted.has('consumption-exceptions') ? (
-                                        <KpiTile
-                                            testID="kitchen-kpi-consumption-exceptions"
-                                            label={t('kitchen:hub.kpi.consumptionExceptions')}
-                                            value={exceptionCount}
-                                            pending={exceptionsCount.isPending}
-                                            hint={
-                                                exceptionCount !== null && exceptionCount > 0
-                                                    ? t('kitchen:ops.exceptions.unresolvedCount', {
-                                                          count: exceptionCount,
-                                                      })
-                                                    : undefined
-                                            }
-                                        />
-                                    ) : null}
-                                </View>
-                            </FadeIn>
 
-                            {/*
-                             * The review band carries the green sweep, not the violet one. It
-                             * counts what is waiting in the review queue — operational fact,
-                             * computed from records a person created. Rule 5 keeps violet for
-                             * machine-generated content, and a queue length is not that.
-                             */}
-                            <FadeIn delayMs={stagger(2)} testID="kitchen-home-review-band">
-                                {reviewQueue !== null && reviewQueue.total > 0 ? (
-                                    <BrandGradient
-                                        variant="hero"
-                                        testID="kitchen-review-insight"
-                                        className="p-5"
+                        {/* A cascade of its own: the groups continue the page's count. */}
+                        <Cascade space="lg" testID="kitchen-home-grid">
+                            {ENTITY_GROUPS.map((group) => {
+                                const groupFamilies = families.filter(
+                                    (family) => family.group === group,
+                                );
+                                if (groupFamilies.length === 0) return null;
+                                return (
+                                    <Stack
+                                        key={group}
+                                        space="sm"
+                                        testID={`kitchen-home-section-${group}`}
                                     >
-                                        <Stack space="sm">
-                                            <Badge
-                                                tone="info"
-                                                label={t('kitchen:hub.insightTag')}
-                                            />
-                                            <Heading level={2} tone="inverse">
-                                                {t('kitchen:review.summaryTitle', {
-                                                    count: reviewQueue.total,
-                                                })}
-                                            </Heading>
-                                            <Text tone="inverse">
-                                                {reviewQueue.blocked > 0
-                                                    ? t('kitchen:review.summaryBlocked', {
-                                                          count: reviewQueue.blocked,
-                                                      })
-                                                    : t('kitchen:review.summaryUnblocked')}
-                                            </Text>
-                                            <Inline>
-                                                <Button
-                                                    testID="kitchen-review-insight-open"
-                                                    variant="secondary"
-                                                    label={t('kitchen:hub.openReview')}
-                                                    onPress={() => {
-                                                        router.push('/kitchen/review' as never);
-                                                    }}
-                                                />
-                                            </Inline>
-                                        </Stack>
-                                    </BrandGradient>
-                                ) : (
-                                    <Card
-                                        testID="kitchen-review-clear"
-                                        tone="brand"
-                                        padding="md"
-                                        className="border-brand-100"
-                                    >
-                                        <Inline space="sm" align="center" justify="between" wrap>
-                                            <Stack space="xs" grow>
-                                                <Heading level={3}>
-                                                    {t('kitchen:review.clearTitle')}
-                                                </Heading>
-                                                <Text tone="secondary">
-                                                    {t('kitchen:review.clearBody')}
-                                                </Text>
-                                            </Stack>
-                                            <Badge
-                                                tone="success"
-                                                icon="check"
-                                                label={t('kitchen:review.clearBadge')}
-                                            />
-                                        </Inline>
-                                    </Card>
-                                )}
-                            </FadeIn>
-
-                            <Stack space="lg" testID="kitchen-home-grid">
-                                {ENTITY_GROUPS.map((group, groupIndex) => {
-                                    const groupFamilies = families.filter(
-                                        (family) => family.group === group,
-                                    );
-                                    if (groupFamilies.length === 0) return null;
-                                    return (
-                                        <FadeIn
-                                            key={group}
-                                            delayMs={stagger(groupIndex + 3)}
-                                            testID={`kitchen-home-section-${group}`}
-                                        >
-                                            <Stack space="sm">
-                                                <Heading level={2} className="text-brand-600">
-                                                    {t(GROUP_LABEL_KEYS[group])}
-                                                </Heading>
-                                                <View className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                                                    {groupFamilies.map((family) => (
-                                                        <View key={family.key} className="min-w-0">
-                                                            {renderFamilyCard(family, summaries)}
-                                                        </View>
-                                                    ))}
+                                        <Heading level={3} className="text-content-secondary">
+                                            {t(GROUP_LABEL_KEYS[group])}
+                                        </Heading>
+                                        <View className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+                                            {groupFamilies.map((family) => (
+                                                <View key={family.key} className="min-w-0">
+                                                    {renderFamilyCard(family, summaries)}
                                                 </View>
-                                            </Stack>
-                                        </FadeIn>
-                                    );
-                                })}
-                            </Stack>
-                        </>
-                    )}
-                </Stack>
-            </PageTransition>
+                                            ))}
+                                        </View>
+                                    </Stack>
+                                );
+                            })}
+                        </Cascade>
+                    </>
+                )}
+            </Cascade>
         </Gate>
     );
 }

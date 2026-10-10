@@ -5,14 +5,11 @@
  *
  * ```tsx
  * <CataloguePageHeader … />     // breadcrumb (with the ☰), optional title, the actions
- * <CatalogueStatCards … />      // the four figures — or `CatalogueSummaryBar` for the one line
+ * <CatalogueStatCards … />      // the four figures
  * <CatalogueToolbar … />        // one 28px row: search and the status segments
  * <CatalogueList … />           // the spec-driven grid, or two-line rows below `md`
  * <CataloguePager … />          // range + compact buttons
  * ```
- *
- * `CatalogueStatCards` and `CatalogueSummaryBar` are the same four figures at two densities. A page
- * draws one of them, never both.
  *
  * All of it wrapped once, high up, in `CatalogueNavProvider` — the open state has to outlive the
  * screen for the rail not to reappear on every navigation.
@@ -20,9 +17,6 @@
 
 export { CataloguePageHeader } from './catalogue-page-header.tsx';
 export type { CataloguePageHeaderProps } from './catalogue-page-header.tsx';
-
-export { CatalogueSummaryBar } from './catalogue-summary-bar.tsx';
-export type { CatalogueSummaryBarProps } from './catalogue-summary-bar.tsx';
 
 export { CATALOGUE_STAT_TONES, CatalogueStatCards } from './catalogue-stat-cards.tsx';
 export type {
@@ -43,11 +37,18 @@ export type { CatalogueListItemProps } from './catalogue-list-item.tsx';
 export { DerivedPanel } from './derived-panel.tsx';
 export type { DerivedFigure, DerivedPanelProps } from './derived-panel.tsx';
 
-export { CatalogueViewDrawer } from './catalogue-view-drawer.tsx';
-export type { CatalogueViewDrawerProps, CatalogueViewField } from './catalogue-view-drawer.tsx';
+export { RecordViewPage } from './record-view-page.tsx';
+export type {
+    CatalogueViewField,
+    RecordViewPageProps,
+    RecordViewSection,
+} from './record-view-page.tsx';
 
 export { CataloguePager } from './catalogue-pager.tsx';
 export type { CataloguePagerProps } from './catalogue-pager.tsx';
+
+export { CatalogueListBody } from './catalogue-list-body.tsx';
+export type { CatalogueListBodyProps, CatalogueListBodyState } from './catalogue-list-body.tsx';
 
 export {
     CATALOGUE_COLUMN_ROLES,
@@ -75,7 +76,7 @@ export type {
 
 /*
  * A Catalogue list page is one of these pairs plus the shell above. That is the claim §4.1 makes
- * and the reason five entities share one component set: the array says which tracks, the hook says
+ * and the reason four entities share one component set: the array says which tracks, the hook says
  * what the page knows, and neither knows anything about the other's entity.
  */
 
@@ -87,9 +88,6 @@ export type { RecipeColumnDeps } from './recipe-columns.tsx';
 
 export { productColumns } from './product-columns.tsx';
 export type { ProductColumnDeps } from './product-columns.tsx';
-
-export { mealColumns } from './meal-columns.tsx';
-export type { MealColumnDeps } from './meal-columns.tsx';
 
 export {
     packagingColumns,
@@ -116,9 +114,6 @@ export type {
     ProductSortDirection,
     ProductSortKey,
 } from './use-product-list.ts';
-
-export { useMealList } from './use-meal-list.ts';
-export type { MealListState, MealSortDirection, MealSortKey } from './use-meal-list.ts';
 
 export { PACKAGING_STATUS_FILTERS, usePackagingList } from './use-packaging-list.ts';
 export type {

@@ -566,8 +566,8 @@
       "name_en": "Croutons",
       "category_code": "baking-starch",
       "subcategory_code": "baking-starch-wheat-gluten",
-      "default_unit_code": "piece",
-      "purchase_unit_code": "bag",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -576,7 +576,10 @@
           "evidence": "Cereals/Gluten - bread (wheat)"
         }
       ],
-      "composition": "Bread, olive oil, garlic, dried herbs, salt"
+      "composition": "Bread, olive oil, garlic, dried herbs, salt",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-008",
@@ -620,8 +623,8 @@
       "name_en": "Rkakat dough",
       "category_code": "baking-starch",
       "subcategory_code": "baking-starch-wheat-gluten",
-      "default_unit_code": "piece",
-      "purchase_unit_code": "piece",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -630,7 +633,10 @@
           "evidence": "Cereals/Gluten - wheat flour"
         }
       ],
-      "composition": "Wheat flour, water, salt, oil"
+      "composition": "Wheat flour, water, salt, oil",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-011",
@@ -638,8 +644,8 @@
       "name_en": "Vermicelli (fine pasta)",
       "category_code": "baking-starch",
       "subcategory_code": "baking-starch-wheat-gluten",
-      "default_unit_code": "piece",
-      "purchase_unit_code": "bag",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -648,7 +654,10 @@
           "evidence": "Cereals/Gluten - durum wheat semolina"
         }
       ],
-      "composition": "Durum wheat semolina, water"
+      "composition": "Durum wheat semolina, water",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-012",
@@ -716,8 +725,8 @@
       "name_en": "Ketchup",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-condiment",
-      "default_unit_code": "l",
-      "purchase_unit_code": "gallon",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -728,7 +737,10 @@
           "evidence": "Sulphites~ - vinegar"
         }
       ],
-      "composition": "Tomato concentrate, sugar, vinegar, salt, spices"
+      "composition": "Tomato concentrate, sugar, vinegar, salt, spices",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-017",
@@ -736,8 +748,8 @@
       "name_en": "Mayonnaise",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-condiment",
-      "default_unit_code": "l",
-      "purchase_unit_code": "gallon",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -756,7 +768,10 @@
           "evidence": "Sulphites~ - vinegar"
         }
       ],
-      "composition": "Vegetable oil, egg yolk, vinegar, mustard, lemon, salt"
+      "composition": "Vegetable oil, egg yolk, vinegar, mustard, lemon, salt",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-018",
@@ -784,8 +799,8 @@
       "name_en": "Mustard",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-condiment",
-      "default_unit_code": "l",
-      "purchase_unit_code": "gallon",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -793,6 +808,9 @@
           "allergen_code": "mustard",
           "evidence": "Mustard - mustard"
         }
+      ],
+      "flags": [
+        "unit_from_overlay"
       ]
     },
     {
@@ -801,8 +819,8 @@
       "name_en": "Mustard, Dijon",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-condiment",
-      "default_unit_code": "l",
-      "purchase_unit_code": "gallon",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -817,7 +835,10 @@
           "evidence": "Sulphites~ - vinegar, white wine"
         }
       ],
-      "composition": "Water, mustard seed, vinegar, salt, white wine"
+      "composition": "Water, mustard seed, vinegar, salt, white wine",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-021",
@@ -825,8 +846,8 @@
       "name_en": "Mustard, wholegrain (a l'ancienne)",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-condiment",
-      "default_unit_code": "l",
-      "purchase_unit_code": "gallon",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -841,7 +862,10 @@
           "evidence": "Sulphites~ - vinegar"
         }
       ],
-      "composition": "Mustard seed, vinegar, water, salt"
+      "composition": "Mustard seed, vinegar, water, salt",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-022",
@@ -849,8 +873,8 @@
       "name_en": "Mustard, yellow (American)",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-condiment",
-      "default_unit_code": "l",
-      "purchase_unit_code": "gallon",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -865,7 +889,10 @@
           "evidence": "Sulphites~ - vinegar"
         }
       ],
-      "composition": "Water, vinegar, mustard seed, salt, turmeric, spices"
+      "composition": "Water, vinegar, mustard seed, salt, turmeric, spices",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-023",
@@ -920,7 +947,7 @@
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-condiment",
       "default_unit_code": "l",
-      "purchase_unit_code": "gallon",
+      "purchase_unit_code": "l",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -933,7 +960,10 @@
           "evidence": "Cereals/Gluten - wheat"
         }
       ],
-      "composition": "Water, soya beans, wheat, salt"
+      "composition": "Water, soya beans, wheat, salt",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-027",
@@ -941,12 +971,15 @@
       "name_en": "Tomato paste",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-condiment",
-      "default_unit_code": "piece",
-      "purchase_unit_code": "can",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Concentrated tomato, salt"
+      "composition": "Concentrated tomato, salt",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-028",
@@ -1076,12 +1109,15 @@
       "name_en": "Chocolate",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-sweetener",
-      "default_unit_code": "piece",
-      "purchase_unit_code": "pack",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Cocoa mass, sugar, cocoa butter, (milk solids, soy lecithin)"
+      "composition": "Cocoa mass, sugar, cocoa butter, (milk solids, soy lecithin)",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-037",
@@ -1137,8 +1173,8 @@
       "name_en": "Chocolate, dark",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-sweetener",
-      "default_unit_code": "piece",
-      "purchase_unit_code": "pack",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -1147,7 +1183,10 @@
           "evidence": "Soybeans - soy lecithin"
         }
       ],
-      "composition": "Cocoa mass, sugar, cocoa butter, soy lecithin"
+      "composition": "Cocoa mass, sugar, cocoa butter, soy lecithin",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-040",
@@ -1225,12 +1264,15 @@
       "name_en": "Sugar, brown",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-sweetener",
-      "default_unit_code": "piece",
-      "purchase_unit_code": "pack",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Cane sugar, molasses"
+      "composition": "Cane sugar, molasses",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-046",
@@ -1238,12 +1280,15 @@
       "name_en": "Sugar, powdered (icing)",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-sweetener",
-      "default_unit_code": "piece",
-      "purchase_unit_code": "pack",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Refined sugar, anti-caking starch"
+      "composition": "Refined sugar, anti-caking starch",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-047",
@@ -1251,12 +1296,15 @@
       "name_en": "Sugar, white",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-sweetener",
-      "default_unit_code": "piece",
-      "purchase_unit_code": "pack",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Refined cane/beet sugar"
+      "composition": "Refined cane/beet sugar",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-048",
@@ -1463,7 +1511,7 @@
       "category_code": "dairy",
       "subcategory_code": "dairy-cheese",
       "default_unit_code": "kg",
-      "purchase_unit_code": "piece",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -1472,7 +1520,10 @@
           "evidence": "Milk - fermented cow or sheep milk cheese"
         }
       ],
-      "composition": "Fermented cow or sheep milk cheese, salt, zaatar / chilli coating"
+      "composition": "Fermented cow or sheep milk cheese, salt, zaatar / chilli coating",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-060",
@@ -1481,7 +1532,7 @@
       "category_code": "dairy",
       "subcategory_code": "dairy-cream-butter",
       "default_unit_code": "kg",
-      "purchase_unit_code": "pack",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -1490,7 +1541,10 @@
           "evidence": "Milk - pasteurised cream"
         }
       ],
-      "composition": "Pasteurised cream, (salt)"
+      "composition": "Pasteurised cream, (salt)",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-061",
@@ -1535,7 +1589,7 @@
       "category_code": "dairy",
       "subcategory_code": "dairy-milk-yoghurt",
       "default_unit_code": "kg",
-      "purchase_unit_code": "pack",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -1548,7 +1602,10 @@
           "evidence": "Eggs - egg yolk"
         }
       ],
-      "composition": "Milk, cream, sugar, egg yolk, vanilla, stabiliser"
+      "composition": "Milk, cream, sugar, egg yolk, vanilla, stabiliser",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-064",
@@ -1668,8 +1725,8 @@
       "name_en": "Lady Finger Biscuits",
       "category_code": "desserts",
       "subcategory_code": "desserts-cakes-cream",
-      "default_unit_code": "piece",
-      "purchase_unit_code": "pack",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -1682,7 +1739,10 @@
           "evidence": "Eggs - egg"
         }
       ],
-      "composition": "Wheat flour, egg, sugar"
+      "composition": "Wheat flour, egg, sugar",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-071",
@@ -1772,8 +1832,8 @@
       "name_en": "Tuna",
       "category_code": "fish-seafood",
       "subcategory_code": "fish-seafood-fish",
-      "default_unit_code": "piece",
-      "purchase_unit_code": "can",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -1781,6 +1841,9 @@
           "allergen_code": "fish",
           "evidence": "Fish - tuna"
         }
+      ],
+      "flags": [
+        "unit_from_overlay"
       ]
     },
     {
@@ -1789,13 +1852,14 @@
       "name_en": "Calamari",
       "category_code": "fish-seafood",
       "subcategory_code": "fish-seafood-shelfish-squid",
-      "default_unit_code": "piece",
-      "purchase_unit_code": "piece",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "inactive",
       "kind": "supplier",
       "allergens": [],
       "flags": [
-        "status_blank_inactive"
+        "status_blank_inactive",
+        "unit_from_overlay"
       ]
     },
     {
@@ -1821,8 +1885,8 @@
       "name_en": "Crab sticks (surimi)",
       "category_code": "fish-seafood",
       "subcategory_code": "fish-seafood-shelfish-squid",
-      "default_unit_code": "piece",
-      "purchase_unit_code": "piece",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -1843,7 +1907,10 @@
           "evidence": "Eggs - egg white"
         }
       ],
-      "composition": "Fish surimi, water, starch, wheat, egg white, sugar, crab flavouring"
+      "composition": "Fish surimi, water, starch, wheat, egg white, sugar, crab flavouring",
+      "flags": [
+        "unit_from_overlay"
+      ]
     },
     {
       "source_ref": "ING-080",
@@ -1851,8 +1918,8 @@
       "name_en": "Shrimps",
       "category_code": "fish-seafood",
       "subcategory_code": "fish-seafood-shelfish-squid",
-      "default_unit_code": "piece",
-      "purchase_unit_code": "piece",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",
       "allergens": [
@@ -1860,6 +1927,9 @@
           "allergen_code": "crustaceans",
           "evidence": "Crustaceans - shrimps"
         }
+      ],
+      "flags": [
+        "unit_from_overlay"
       ]
     },
     {
@@ -3928,7 +3998,7 @@
       "name_en": "Eggs",
       "category_code": "meat-egg",
       "subcategory_code": "meat-egg-egg",
-      "default_unit_code": "piece",
+      "default_unit_code": "kg",
       "purchase_unit_code": "kg",
       "status": "active",
       "kind": "supplier",

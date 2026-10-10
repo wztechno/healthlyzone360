@@ -219,10 +219,9 @@ it('suggests par minus on hand and never threshold arithmetic', function (): voi
     $rice = proposalStockItem($organisationId, 'RIC-1', 'Rice');
     proposalLevel($organisationId, $this->world->branchId, $rice, '2.0000', '5.0000', '10.0000');
 
-    // A par at or below what is already there. Ordering zero is not an order,
-    // so there is no suggestion at all rather than a "0.0000" somebody submits.
-    $salt = proposalStockItem($organisationId, 'SAL-1', 'Salt');
-    proposalLevel($organisationId, $this->world->branchId, $salt, '10.0000', '12.0000', '10.0000');
+    // A low shelf with a par at or below what is already there was a case here;
+    // it no longer exists — `stock_levels_par_above_threshold` keeps par above
+    // the threshold, and a low shelf is at or below the threshold.
 
     // The §2 correction, pinned negatively. A threshold and no par must produce
     // *nothing* — `5 - 1 = 4` would replenish the shelf exactly back onto the
@@ -237,8 +236,6 @@ it('suggests par minus on hand and never threshold arithmetic', function (): voi
 
     expect($rows['RIC-1']['suggested_quantity'])->toBe('8.0000')
         ->and($rows['RIC-1']['suggested_quantity_basis'])->toBe('par')
-        ->and($rows['SAL-1']['suggested_quantity'])->toBeNull()
-        ->and($rows['SAL-1']['suggested_quantity_basis'])->toBe('none')
         ->and($rows['THY-1']['suggested_quantity'])->toBeNull()
         ->and($rows['THY-1']['suggested_quantity_basis'])->toBe('none')
         // The wrong answer, named so a future implementation cannot drift into it.
@@ -282,6 +279,16 @@ it('appends a requested shelf as a zero without writing a level row, and never t
         ->assertJsonPath('meta.requested_item_count', 1);
 
     expect(StockLevel::withoutTenancy()->count())->toBe($levelsBefore);
+});
+
+it('proposes a requested shelf when nothing at the branch is short', function (): void {
+    $vanilla = proposalStockItem($this->world->organisationId, 'VAN-1', 'Vanilla');
+
+    ($this->proposal)(['stock_item_ids' => [(string) $vanilla->getKey()]])
+        ->assertOk()
+        ->assertJsonPath('data.items.0.item_code', 'VAN-1')
+        ->assertJsonPath('data.items.0.origin', 'requested')
+        ->assertJsonPath('meta.requested_item_count', 1);
 });
 
 it('resolves the preferred supplier, then the sole one, then nobody — and tells archived apart from absent', function (): void {

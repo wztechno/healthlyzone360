@@ -17,6 +17,7 @@ import {
 import type { TableColumn } from '@healthy360/design-system';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
+import { PhotoCredit } from '../../../media/photo-credit.tsx';
 import { RecipeId } from '@healthy360/domain-types';
 import type { MealType } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -181,6 +182,10 @@ export function RecipeDetailScreen({ recipeId }: RecipeDetailScreenProps) {
                                 seed={item.slug}
                                 label={t('planner:recipe.imageLabel', { recipe: item.name })}
                                 aspect="wide"
+                            />
+                            <PhotoCredit
+                                assetId={item.imagePlaceholderId}
+                                testID="recipe-detail-photo-credit"
                             />
 
                             <Stack space="xs">

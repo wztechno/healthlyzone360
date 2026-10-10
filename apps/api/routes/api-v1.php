@@ -2,6 +2,20 @@
 
 declare(strict_types=1);
 
+use Healthy360\AccessAdministration\Http\Controllers\MembershipRoleReplaceController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationMembershipEndController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationMembershipIndexController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationMembershipReactivateController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationMembershipScopeUpdateController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationMembershipShowController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationMembershipSuspendController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationRoleDeleteController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationRoleIndexController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationRoleShowController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationRoleStoreController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationRoleUpdateController;
+use Healthy360\AccessAdministration\Http\Controllers\PermissionCatalogueIndexController;
+use Healthy360\AccessAdministration\Http\Controllers\StaffAccountStoreController;
 use Healthy360\Allergens\Http\Controllers\AllergenClassDeactivateController;
 use Healthy360\Allergens\Http\Controllers\AllergenClassStoreController;
 use Healthy360\Allergens\Http\Controllers\AllergenClassUpdateController;
@@ -140,6 +154,9 @@ use Healthy360\Delivery\Http\Controllers\DeliveryZoneIndexController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneShowController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneStoreController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneUpdateController;
+use Healthy360\Delivery\Http\Controllers\DeliveryZoneWindowIndexController;
+use Healthy360\Delivery\Http\Controllers\DeliveryZoneWindowReplaceController;
+use Healthy360\Delivery\Http\Controllers\DriverJobClaimController;
 use Healthy360\Delivery\Http\Controllers\DriverJobDeliverController;
 use Healthy360\Delivery\Http\Controllers\DriverJobIndexController;
 use Healthy360\Delivery\Http\Controllers\PublicDeliveryAreaIndexController;
@@ -168,6 +185,7 @@ use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionRetryController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskRequirementsController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskShortfallCountController;
 use Healthy360\Inventory\Http\Controllers\StockAdjustController;
+use Healthy360\Inventory\Http\Controllers\StockCountController;
 use Healthy360\Inventory\Http\Controllers\StockItemIndexController;
 use Healthy360\Inventory\Http\Controllers\StockLevelIndexController;
 use Healthy360\Inventory\Http\Controllers\StockLowStockCountController;
@@ -198,6 +216,7 @@ use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCashReportController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerStoreController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDeliveryWindowIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDriverIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlacementController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQueueController;
@@ -213,6 +232,8 @@ use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenReactivate
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenShowController;
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenStoreController;
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenSuspendController;
+use Healthy360\Pricing\Http\Controllers\ItemChannelPricesSetController;
+use Healthy360\Pricing\Http\Controllers\ItemChannelPricesShowController;
 use Healthy360\Pricing\Http\Controllers\PriceListArchiveController;
 use Healthy360\Pricing\Http\Controllers\PriceListChannelReplaceController;
 use Healthy360\Pricing\Http\Controllers\PriceListEntryIndexController;
@@ -225,6 +246,7 @@ use Healthy360\Pricing\Http\Controllers\PriceListUpdateController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptIndexController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptShowController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptStoreController;
+use Healthy360\Procurement\Http\Controllers\InventoryValueReportController;
 use Healthy360\Procurement\Http\Controllers\ItemLatestPurchaseIndexController;
 use Healthy360\Procurement\Http\Controllers\MonthlyCostReportController;
 use Healthy360\Procurement\Http\Controllers\OrderProposalController;
@@ -250,9 +272,15 @@ use Healthy360\Procurement\Http\Controllers\SupplierStoreController;
 use Healthy360\Procurement\Http\Controllers\SupplierUpdateController;
 use Healthy360\Procurement\Http\Controllers\SupplyNeedsCountController;
 use Healthy360\Procurement\Http\Controllers\UnpricedReceiptIndexController;
-use Healthy360\Production\Http\Controllers\ProductionOrderCompleteController;
+use Healthy360\Procurement\Http\Controllers\WeeklyPriceIndexController;
+use Healthy360\Procurement\Http\Controllers\WeeklyPricePublicationIndexController;
 use Healthy360\Production\Http\Controllers\ProductionOrderIndexController;
+use Healthy360\Production\Http\Controllers\ProductionOrderPlanController;
+use Healthy360\Production\Http\Controllers\ProductionOrderShowController;
 use Healthy360\Production\Http\Controllers\ProductionOrderStoreController;
+use Healthy360\Production\Http\Controllers\ProductionOrderTransitionController;
+use Healthy360\Production\Http\Controllers\ProductionTechnicalSheetController;
+use Healthy360\Production\Http\Controllers\ProductionValuationQueueController;
 use Healthy360\QualityControl\Http\Controllers\QualityCheckHoldController;
 use Healthy360\QualityControl\Http\Controllers\QualityCheckIndexController;
 use Healthy360\QualityControl\Http\Controllers\QualityCheckReleaseController;
@@ -660,6 +688,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         | `/delivery/jobs` is the dispatcher's view of the same table and is
         | scoped by the organisation alone.
         |
+        | `claim` is codeless for the same reason: there is no driver role, so
+        | any active member may take a run from the unassigned pool that
+        | `/driver/jobs` serves as `available`. The controller's conditional
+        | UPDATE (`driver_user_id IS NULL AND status = pending`) is the guard,
+        | and a run somebody else took first is `409`.
+        |
         | **`assign` is the exception, and it is the only write here that
         | somebody could be wrong to make** (C3). Deciding whose run this is
         | *is* authority — it commits a person's evening — so it carries
@@ -676,6 +710,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         Route::middleware('org.context')->group(function (): void {
             Route::get('/driver/jobs', DriverJobIndexController::class)->name('driver.jobs.index');
             Route::post('/driver/jobs/{job}/deliver', DriverJobDeliverController::class)->name('driver.jobs.deliver');
+            Route::post('/driver/jobs/{job}/claim', DriverJobClaimController::class)->name('driver.jobs.claim');
 
             Route::get('/delivery/jobs', DeliveryJobIndexController::class)->name('delivery.jobs.index');
 
@@ -1234,6 +1269,9 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/price-lists', PriceListIndexController::class)->name('catalogue.price-lists.index');
                 Route::get('/price-lists/{priceList}', PriceListShowController::class)->name('catalogue.price-lists.show');
                 Route::get('/price-lists/{priceList}/entries', PriceListEntryIndexController::class)->name('catalogue.price-lists.entries.index');
+
+                // An article's B2B and B2C weight and price, read as one pair.
+                Route::get('/items/{item}/channel-prices', ItemChannelPricesShowController::class)->name('catalogue.items.channel-prices.show');
             });
 
             Route::middleware(['org.trading', 'permission:price_list.manage_organisation'])->group(function (): void {
@@ -1250,6 +1288,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::put('/price-lists/{priceList}/channels', PriceListChannelReplaceController::class)
                     ->middleware('precondition')
                     ->name('catalogue.price-lists.channels.replace');
+
+                // The packs are the item's and the prices are the lists', so
+                // this write needs both permissions.
+                Route::put('/items/{item}/channel-prices', ItemChannelPricesSetController::class)
+                    ->middleware(['precondition', 'permission:catalogue.manage_organisation'])
+                    ->name('catalogue.items.channel-prices.set');
             });
 
             Route::middleware(['org.trading', 'permission:catalogue.publish_organisation'])->group(function (): void {
@@ -1439,6 +1483,14 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                     ->middleware('precondition')
                     ->name('catalogue.delivery-zones.areas.replace');
 
+                // Which windows the zone offers, versioned against the zone
+                // exactly as its areas are.
+                Route::get('/delivery-zones/{zone}/windows', DeliveryZoneWindowIndexController::class)->name('catalogue.delivery-zones.windows.index');
+
+                Route::put('/delivery-zones/{zone}/windows', DeliveryZoneWindowReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.delivery-zones.windows.replace');
+
                 Route::get('/delivery-windows', DeliveryWindowIndexController::class)->name('catalogue.delivery-windows.index');
                 Route::post('/delivery-windows', DeliveryWindowStoreController::class)->name('catalogue.delivery-windows.store');
                 Route::patch('/delivery-windows/{window}', DeliveryWindowUpdateController::class)->name('catalogue.delivery-windows.update');
@@ -1495,7 +1547,6 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/procurement/item-purchases/latest', ItemLatestPurchaseIndexController::class)->name('catalogue.procurement.item-purchases.latest');
                 Route::get('/procurement/reference', ProcurementReferenceController::class)->name('catalogue.procurement.reference.index');
                 Route::get('/procurement/goods-receipts', GoodsReceiptIndexController::class)->name('catalogue.procurement.goods-receipts.index');
-                Route::get('/production/orders', ProductionOrderIndexController::class)->name('catalogue.production.orders.index');
                 Route::get('/quality-control/checks', QualityCheckIndexController::class)->name('catalogue.quality-control.checks.index');
             });
 
@@ -1510,6 +1561,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 */
                 Route::post('/inventory/adjustments', StockAdjustController::class)->name('catalogue.inventory.adjustments.store');
                 Route::post('/inventory/waste', StockWasteController::class)->name('catalogue.inventory.waste.store');
+                Route::post('/inventory/counts', StockCountController::class)->name('catalogue.inventory.counts.store');
                 Route::patch('/inventory/threshold', StockThresholdController::class)->name('catalogue.inventory.threshold.update');
                 Route::post('/inventory/consumption-exceptions/{exception}/resolve', ConsumptionExceptionResolveController::class)->name('catalogue.inventory.consumption-exceptions.resolve');
                 Route::post('/inventory/consumption-exceptions/{exception}/retry', ConsumptionExceptionRetryController::class)->name('catalogue.inventory.consumption-exceptions.retry');
@@ -1571,11 +1623,86 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 */
                 Route::get('/procurement/receivable-orders', ReceivableOrderIndexController::class)->name('catalogue.procurement.receivable-orders.index');
                 Route::get('/procurement/goods-receipts/{goodsReceipt}', GoodsReceiptShowController::class)->name('catalogue.procurement.goods-receipts.show');
-                Route::post('/production/orders', ProductionOrderStoreController::class)->name('catalogue.production.orders.store');
-                Route::post('/production/orders/{productionOrder}/complete', ProductionOrderCompleteController::class)->name('catalogue.production.orders.complete');
                 Route::post('/quality-control/checks', QualityCheckStoreController::class)->name('catalogue.quality-control.checks.store');
                 Route::post('/quality-control/checks/{qualityCheck}/hold', QualityCheckHoldController::class)->name('catalogue.quality-control.checks.hold');
                 Route::post('/quality-control/checks/{qualityCheck}/release', QualityCheckReleaseController::class)->name('catalogue.quality-control.checks.release');
+            });
+
+            /*
+            |------------------------------------------------------------------
+            | Internal production — the batch desk (PROD1)
+            |------------------------------------------------------------------
+            |
+            | Off `inventory.*` and onto a `production` domain of its own. The two
+            | routes that used to live above were written when a production order
+            | was a row with a status; a batch now claims stock in advance,
+            | carries an estimated cost and blends a finished valuation into the
+            | basis every sale is costed against. Whoever may count a shelf is not
+            | thereby whoever may commit next Thursday's oil to a batch.
+            |
+            | **The old free-form `complete` is gone rather than aliased.** It took
+            | arbitrary consume and yield lines and wrote them straight into the
+            | ledger, with no reservation, no duplicate guard, no valuation and no
+            | idea what the batch was supposed to make. Keeping it as a second way
+            | in would keep every one of those holes open beside the door that
+            | closes them.
+            |
+            | `precondition` on all five writes: two people share a production desk
+            | and can both see the same batch, so every edge carries the version
+            | the caller last read. The service is idempotent underneath that as
+            | well — a redelivered request is a different failure from a stale
+            | screen, and both have to be safe.
+            |
+            | `idempotency` on the three edges that **move stock or money**:
+            | confirm, complete and abandon. Not on start or cancel, which carry
+            | no payload and whose second delivery the state machine already
+            | answers. The key is optional, as everywhere else it is offered: a
+            | client that sends none gets no replay protection and is told so by
+            | its absence rather than by a 400.
+            |
+            | Three guards rather than one, and each catches something the others
+            | do not. `If-Match` catches a **stale screen** — somebody else moved
+            | the batch. `Idempotency-Key` catches a **redelivered request** —
+            | the same call arriving twice. The service's own movement-existence
+            | check catches a **partial failure** — a completion that got half
+            | its lines through before something threw. A retry after that third
+            | case is a *different* request with a *different* key and a fresh
+            | lock version, so neither header would save it.
+            |
+            | Money is redacted **inside** the payload by
+            | `production.view_costs_organisation` rather than at the door. A chef
+            | holds view and manage and not costs; a 403 here would blank the whole
+            | desk for somebody entitled to every quantity on it.
+            */
+            Route::middleware('permission:production.view_organisation')->group(function (): void {
+                Route::get('/production/orders', ProductionOrderIndexController::class)->name('catalogue.production.orders.index');
+                Route::get('/production/orders/{productionOrder}', ProductionOrderShowController::class)->name('catalogue.production.orders.show');
+                Route::get('/production/orders/{productionOrder}/plan', ProductionOrderPlanController::class)->name('catalogue.production.orders.plan');
+                Route::get('/production/orders/{productionOrder}/technical-sheet', ProductionTechnicalSheetController::class)->name('catalogue.production.orders.technical-sheet');
+            });
+
+            Route::middleware('permission:production.manage_organisation')->group(function (): void {
+                Route::post('/production/orders', ProductionOrderStoreController::class)->name('catalogue.production.orders.store');
+
+                Route::post('/production/orders/{productionOrder}/confirm', [ProductionOrderTransitionController::class, 'confirm'])
+                    ->middleware(['precondition', 'idempotency'])
+                    ->name('catalogue.production.orders.confirm');
+
+                Route::post('/production/orders/{productionOrder}/start', [ProductionOrderTransitionController::class, 'start'])
+                    ->middleware('precondition')
+                    ->name('catalogue.production.orders.start');
+
+                Route::post('/production/orders/{productionOrder}/complete', [ProductionOrderTransitionController::class, 'complete'])
+                    ->middleware(['precondition', 'idempotency'])
+                    ->name('catalogue.production.orders.complete');
+
+                Route::post('/production/orders/{productionOrder}/abandon', [ProductionOrderTransitionController::class, 'abandon'])
+                    ->middleware(['precondition', 'idempotency'])
+                    ->name('catalogue.production.orders.abandon');
+
+                Route::post('/production/orders/{productionOrder}/cancel', [ProductionOrderTransitionController::class, 'cancel'])
+                    ->middleware('precondition')
+                    ->name('catalogue.production.orders.cancel');
             });
 
             /*
@@ -1620,12 +1747,51 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/procurement/spend-summary', ProcurementSpendSummaryController::class)->name('catalogue.procurement.spend-summary.index');
 
                 /*
+                | What a week's purchases averaged to, and the runs that
+                | published them (PROD1). The basis every batch estimate stands
+                | on, so it sits with the ledger it is computed from rather than
+                | with the production desk that consumes it — every row is a
+                | price, and there is nothing a redaction could usefully leave
+                | behind.
+                |
+                | The publications route is declared **before** the collection
+                | one so `/weekly-prices/publications` is never read as a price
+                | identifier.
+                */
+                Route::get('/procurement/weekly-prices/publications', WeeklyPricePublicationIndexController::class)->name('catalogue.procurement.weekly-prices.publications.index');
+                Route::get('/procurement/weekly-prices', WeeklyPriceIndexController::class)->name('catalogue.procurement.weekly-prices.index');
+
+                /*
                 | The monthly cost report (INV1.4) sits beside the ledger on the
                 | same cost permission: it exposes spend, COGS and the margin
                 | reconstructable from cost and revenue, so it takes the code that
                 | gates money everywhere in this domain, not the plain view code.
                 */
                 Route::get('/reports/monthly-cost', MonthlyCostReportController::class)->name('catalogue.reports.monthly-cost.index');
+
+                /*
+                | What the shelves are worth right now (PROD1). The one figure the
+                | finance requirement names that had nowhere to live: the monthly
+                | report says what a month bought, sold, wasted and made, and
+                | nothing said what is *left*.
+                |
+                | A **current** valuation, not a period-end one, and `meta.as_of`
+                | says so — there is no period close in this system and this does
+                | not invent one.
+                */
+                Route::get('/reports/inventory-value', InventoryValueReportController::class)->name('catalogue.reports.inventory-value.index');
+
+                /*
+                | Batches that finished without a cost (PROD1) — the work queue
+                | behind the monthly report's third completeness flag, on the
+                | money code rather than the production desk's view code because
+                | the queue is entirely about money.
+                |
+                | A read, and deliberately no companion write: re-valuing a batch
+                | later needs to know how much of it is still on the shelf, which
+                | nothing records. See the controller.
+                */
+                Route::get('/production/valuations-pending', ProductionValuationQueueController::class)->name('catalogue.production.valuations-pending.index');
             });
 
             /*
@@ -1881,6 +2047,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/order-desk/orders', OrderDeskPlacementController::class)
                     ->middleware('idempotency')
                     ->name('catalogue.order-desk.orders.store');
+
+                // The slots a sale can be booked into, for the agent who is
+                // booking it. The admin list needs `delivery_zone.manage_
+                // organisation`, which a desk agent need not hold.
+                Route::get('/order-desk/delivery-windows', OrderDeskDeliveryWindowIndexController::class)
+                    ->name('catalogue.order-desk.delivery-windows.index');
             });
 
             /*
@@ -2613,6 +2785,196 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::delete('/invitations/{invitation}', OrganisationInvitationRevokeController::class)
                 ->middleware('permission:membership.end_organisation')
                 ->name('organisations.invitations.revoke');
+        });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Access administration — roles, memberships and staff (AA1)
+        |--------------------------------------------------------------------------
+        |
+        | The other half of the screen the invitation block above serves. That one
+        | offers somebody a place; this one says what a place *is* — which roles a
+        | kitchen has defined, what each one may reach, who holds which, and how a
+        | person comes to have a login at all. They are adjacent here because they
+        | are adjacent in the product: one console, two tabs.
+        |
+        | Middleware: auth:sanctum + db.context + device.touch + verified +
+        | org.context + permission. The `{organisation}` in the path is checked
+        | against the organisation `org.context` validated a membership against,
+        | and a mismatch is **404** — "no such organisation, as far as you are
+        | concerned", the same answer and the same reason as next door.
+        |
+        | **No `branch.context`, anywhere in this block.** Roles and memberships
+        | are organisation-wide. A membership's `branch_id` is data these endpoints
+        | *write* — it is how a kitchen says "this person works the airport branch"
+        | — not context they read, and requiring a selected branch to edit it would
+        | make the organisation-wide case unreachable from a branch-scoped session.
+        |
+        | **No `org.trading`, anywhere in this block, and that is deliberate.**
+        | A suspended kitchen may not sell: `org.trading` guards every catalogue
+        | and publication write for exactly that reason. It must still be able to
+        | take somebody's access away. A suspension is often the moment a kitchen
+        | most needs to remove a login, and a gate that switched this console off
+        | precisely then would be the one control that stops working when it is
+        | needed.
+        |
+        | Reads are gated on `role.view_organisation` and
+        | `membership.view_organisation`; writes on `role.manage_organisation`,
+        | `membership.update_organisation`, `membership.end_organisation` and
+        | `user.manage_organisation`. Every one of those codes has been registered
+        | since the foundation and granted to `organisation_owner` since P0; AA1 is
+        | the phase that gives them endpoints, which is why the registry needed no
+        | new code for any of this.
+        |
+        | `GET /permissions` is gated on `role.view_organisation` rather than a
+        | code of its own: reading the vocabulary a role is written in is reading
+        | roles, and a `permission.view_organisation` nobody could hold separately
+        | would be bookkeeping. It serves organisation codes only — the registry is
+        | split so that no organisation role can acquire a platform code, and a
+        | catalogue that offered one would be a form with a trap in it.
+        |
+        */
+        Route::middleware('org.context')->prefix('/organisations/{organisation}')->group(function (): void {
+            Route::middleware('permission:role.view_organisation')->group(function (): void {
+                Route::get('/permissions', PermissionCatalogueIndexController::class)
+                    ->name('organisations.permissions.index');
+
+                Route::get('/roles', OrganisationRoleIndexController::class)
+                    ->name('organisations.roles.index');
+
+                // `visibleRole`, not `ownRole`: a platform template has to be
+                // readable, because Copy is the only supported way for a kitchen
+                // to change what one of them means inside its own walls.
+                Route::get('/roles/{role}', OrganisationRoleShowController::class)
+                    ->name('organisations.roles.show');
+            });
+
+            /*
+             * Role writes.
+             *
+             * No `idempotency` on the create, unlike the platform console's:
+             * a role has a natural key, and
+             * `roles_organisation_id_code_unique NULLS NOT DISTINCT` already
+             * turns a replayed create into a `resource.conflict` naming the
+             * field. Idempotency here would be machinery for a race the
+             * database settles with a better message.
+             *
+             * `precondition` on both writes, and it is not optional on this
+             * resource. Two administrators editing one role — one removing
+             * `order.manage_organisation` while the other adds a cost code — is
+             * the ordinary case on a console two people share, and
+             * last-write-wins would silently restore a permission somebody
+             * believes they revoked. DELETE carries it for the sharper version
+             * of the same problem: somebody may have granted the role to a new
+             * starter since the list was read.
+             *
+             * A platform template answers **404** here rather than 403 — from
+             * the writing side there is no role at that identifier belonging to
+             * you — and `RolePolicy` plus the `roles` RLS policy refuse it
+             * twice more behind that.
+             */
+            Route::middleware('permission:role.manage_organisation')->group(function (): void {
+                Route::post('/roles', OrganisationRoleStoreController::class)
+                    ->name('organisations.roles.store');
+
+                Route::patch('/roles/{role}', OrganisationRoleUpdateController::class)
+                    ->middleware('precondition')
+                    ->name('organisations.roles.update');
+
+                Route::delete('/roles/{role}', OrganisationRoleDeleteController::class)
+                    ->middleware('precondition')
+                    ->name('organisations.roles.destroy');
+            });
+
+            Route::middleware('permission:membership.view_organisation')->group(function (): void {
+                Route::get('/memberships', OrganisationMembershipIndexController::class)
+                    ->name('organisations.memberships.index');
+
+                Route::get('/memberships/{membership}', OrganisationMembershipShowController::class)
+                    ->name('organisations.memberships.show');
+            });
+
+            /*
+             * Membership writes.
+             *
+             * **Lifecycle is verbs, never `PATCH {status}`.** One call taking a
+             * string would let a console ship a dropdown in which `ended` — the
+             * one irreversible act — sits beside three reversible ones, and
+             * would need a state machine in a validator to stop it. `PATCH`
+             * carries branch scope alone, because where somebody works is an
+             * ordinary attribute that moves both ways.
+             *
+             * Role assignment is gated on `role.manage_organisation`, not
+             * `membership.update_organisation`, because that code's own
+             * description reads "roles **and role assignments**". Changing
+             * where somebody works and changing what they may do are different
+             * authorities, and a kitchen may reasonably grant the first alone.
+             *
+             * `precondition` everywhere, reading `organisation_memberships.
+             * lock_version`, which has existed since the foundation. Two
+             * administrators on one console is the ordinary case, and one
+             * reactivating while the other suspends is a coin flip that
+             * last-write-wins would settle silently — on the question of
+             * whether somebody may sign in.
+             *
+             * Ending a membership shares `membership.end_organisation` with
+             * revoking an invitation next door: withdrawing an offer somebody
+             * has not yet accepted and removing somebody who has are the same
+             * decision taken at two moments.
+             */
+            Route::middleware(['permission:membership.update_organisation', 'precondition'])->group(function (): void {
+                Route::patch('/memberships/{membership}', OrganisationMembershipScopeUpdateController::class)
+                    ->name('organisations.memberships.update');
+
+                Route::post('/memberships/{membership}/suspend', OrganisationMembershipSuspendController::class)
+                    ->name('organisations.memberships.suspend');
+
+                Route::post('/memberships/{membership}/reactivate', OrganisationMembershipReactivateController::class)
+                    ->name('organisations.memberships.reactivate');
+            });
+
+            Route::post('/memberships/{membership}/end', OrganisationMembershipEndController::class)
+                ->middleware(['permission:membership.end_organisation', 'precondition'])
+                ->name('organisations.memberships.end');
+
+            Route::put('/memberships/{membership}/roles', MembershipRoleReplaceController::class)
+                ->middleware(['permission:role.manage_organisation', 'precondition'])
+                ->name('organisations.memberships.roles.replace');
+
+            /*
+             * Opening an account for somebody who cannot open one themselves.
+             *
+             * The invitation flow's sibling, not its replacement: a colleague
+             * with a mailbox should still be invited, because they choose a
+             * password nobody else ever knows. This is for the kitchen hand who
+             * has no mailbox, and whose alternative is no account at all.
+             *
+             * **Two authorities, stacked.** The route gate is
+             * `user.manage_organisation`; the controller additionally demands
+             * `membership.invite_organisation`, because minting a login and
+             * granting it a seat are two decisions and a kitchen may want
+             * somebody who can do the second without the first. The shape
+             * `PlatformKycDocumentReviewController` uses.
+             *
+             * `idempotency`, unlike the role create. A role has a natural key
+             * and a person does not, and an administrator who does not know
+             * whether a password was issued must either create a second account
+             * or leave somebody unable to sign in — both discovered by whoever
+             * is standing at the counter.
+             *
+             * `step-up`, joining device revocation and the primary-contact
+             * change as the third act of its kind on this platform: a hijacked
+             * session minting itself a second, permanently-privileged account
+             * is exactly what password re-confirmation exists for.
+             *
+             * The initial password is in the response **once**, on the
+             * `InvitationService::issue()` model — never stored readable, never
+             * audited, never in a log. `users.must_change_password` is what
+             * makes that defensible.
+             */
+            Route::post('/staff', StaffAccountStoreController::class)
+                ->middleware(['permission:user.manage_organisation', 'idempotency', 'step-up'])
+                ->name('organisations.staff.store');
         });
 
         /*

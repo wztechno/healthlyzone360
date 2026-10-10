@@ -31,7 +31,7 @@ module.exports = {
     // Contention headroom only — a test that needs this long alone is a defect.
     testTimeout: 30000,
     transformIgnorePatterns: [
-        'node_modules/(?!(?:\\.pnpm/)?((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|react-native-svg|nativewind|react-native-css-interop|react-native-safe-area-context|@healthy360/.*))',
+        'node_modules/(?!(?:\\.pnpm/)?((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|react-native-svg|nativewind|react-native-css-interop|react-native-safe-area-context|standard-navigation|@healthy360/.*))',
     ],
     moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',

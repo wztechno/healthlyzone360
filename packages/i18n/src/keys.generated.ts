@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6748 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8267 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -54,6 +54,263 @@ export interface NamespaceKeys {
     | 'workspaceSelector.open'
     | 'workspaceSelector.subtitle'
     | 'workspaceSelector.title';
+  readonly "accessAdmin":
+    | 'add.back'
+    | 'add.branch'
+    | 'add.createHint'
+    | 'add.created'
+    | 'add.domain'
+    | 'add.email'
+    | 'add.familyName'
+    | 'add.generate'
+    | 'add.givenName'
+    | 'add.inviteHint'
+    | 'add.message'
+    | 'add.modes.create'
+    | 'add.modes.invite'
+    | 'add.password'
+    | 'add.passwordAcknowledge'
+    | 'add.passwordBody'
+    | 'add.passwordTitle'
+    | 'add.placeholders.email'
+    | 'add.placeholders.familyName'
+    | 'add.placeholders.givenName'
+    | 'add.placeholders.password'
+    | 'add.placeholders.signInName'
+    | 'add.role'
+    | 'add.roleInviteHint'
+    | 'add.roles'
+    | 'add.rolesCreateHint'
+    | 'add.sections.invitation'
+    | 'add.sections.person'
+    | 'add.sections.signIn'
+    | 'add.signInName'
+    | 'add.signInNameHint'
+    | 'add.signInNameInvalid'
+    | 'add.submitCreate'
+    | 'add.submitInvite'
+    | 'add.title'
+    | 'advanced.actions.manage'
+    | 'advanced.actions.other'
+    | 'advanced.actions.publish'
+    | 'advanced.actions.view'
+    | 'advanced.actions.viewCosts'
+    | 'advanced.cellLabel'
+    | 'advanced.columns.area'
+    | 'advanced.notHeld'
+    | 'advanced.selected'
+    | 'advanced.tableLabel'
+    | 'changePassword.confirmation'
+    | 'changePassword.current'
+    | 'changePassword.done'
+    | 'changePassword.password'
+    | 'changePassword.submit'
+    | 'changePassword.subtitle'
+    | 'changePassword.title'
+    | 'codes.audit.view_organisation.name'
+    | 'codes.b2b_quotation.quote_organisation.name'
+    | 'codes.b2b_quotation.view_organisation.name'
+    | 'codes.branch.manage_current.name'
+    | 'codes.branch.view_current.name'
+    | 'codes.catalogue.manage_organisation.name'
+    | 'codes.catalogue.publish_organisation.name'
+    | 'codes.catalogue.view_organisation.name'
+    | 'codes.consent.manage_own.name'
+    | 'codes.consent.view_own.name'
+    | 'codes.customer.create_on_behalf_organisation.name'
+    | 'codes.delivery_zone.manage_organisation.name'
+    | 'codes.device.manage_own.name'
+    | 'codes.entitlement.view_organisation.name'
+    | 'codes.inventory.manage_organisation.name'
+    | 'codes.inventory.order_supplies_organisation.name'
+    | 'codes.inventory.view_costs_organisation.name'
+    | 'codes.inventory.view_organisation.name'
+    | 'codes.membership.end_organisation.name'
+    | 'codes.membership.invite_organisation.name'
+    | 'codes.membership.update_organisation.name'
+    | 'codes.membership.view_organisation.name'
+    | 'codes.order.create_on_behalf_organisation.name'
+    | 'codes.order.manage_organisation.name'
+    | 'codes.order.view_customer_contact_organisation.name'
+    | 'codes.order.view_organisation.name'
+    | 'codes.organisation.update_current.name'
+    | 'codes.organisation.view_current.name'
+    | 'codes.plan.manage_organisation.name'
+    | 'codes.plan.publish_organisation.name'
+    | 'codes.price_list.manage_organisation.name'
+    | 'codes.price_list.view_organisation.name'
+    | 'codes.profile.update_own.name'
+    | 'codes.profile.view_own.name'
+    | 'codes.recipe.manage_organisation.name'
+    | 'codes.recipe.publish_organisation.name'
+    | 'codes.recipe.view_costs_organisation.name'
+    | 'codes.recipe.view_organisation.name'
+    | 'codes.role.manage_organisation.name'
+    | 'codes.role.view_organisation.name'
+    | 'codes.session.revoke_own.name'
+    | 'codes.subscription.view_organisation.name'
+    | 'codes.user.manage_organisation.name'
+    | 'extras.orderDeskCustomer'
+    | 'extras.orderDeskSale'
+    | 'extras.unpricedReceipts'
+    | 'member.assignmentExpired'
+    | 'member.assignmentFrom'
+    | 'member.assignmentScheduled'
+    | 'member.assignmentUntil'
+    | 'member.cancel'
+    | 'member.end'
+    | 'member.endBody'
+    | 'member.endConfirm'
+    | 'member.endTitle'
+    | 'member.ended'
+    | 'member.lastAdministrator'
+    | 'member.permissionsHeading'
+    | 'member.permissionsHint'
+    | 'member.permissionsNone'
+    | 'member.reactivate'
+    | 'member.reactivated'
+    | 'member.rolesHeading'
+    | 'member.rolesHint'
+    | 'member.save'
+    | 'member.saved'
+    | 'member.scopeHeading'
+    | 'member.scopeHint'
+    | 'member.scopeSingleBranch'
+    | 'member.scopeWholeKitchen'
+    | 'member.selfLockout'
+    | 'member.suspend'
+    | 'member.suspended'
+    | 'member.title'
+    | 'pages.alsoOpens'
+    | 'pages.cellLabel'
+    | 'pages.columns.extras'
+    | 'pages.columns.page'
+    | 'pages.levels.manage'
+    | 'pages.levels.none'
+    | 'pages.levels.view'
+    | 'pages.tableLabel'
+    | 'pages.unmappedCount'
+    | 'pages.unmappedHeading'
+    | 'pages.unmappedHint'
+    | 'role.back'
+    | 'role.cancel'
+    | 'role.code'
+    | 'role.codeInvalid'
+    | 'role.codePlaceholder'
+    | 'role.copyTitle'
+    | 'role.created'
+    | 'role.delete'
+    | 'role.deleteBlocked'
+    | 'role.deleteBody'
+    | 'role.deleteConfirm'
+    | 'role.deleteTitle'
+    | 'role.deleted'
+    | 'role.description'
+    | 'role.descriptionPlaceholderAr'
+    | 'role.descriptionPlaceholderEn'
+    | 'role.name'
+    | 'role.namePlaceholderAr'
+    | 'role.namePlaceholderEn'
+    | 'role.newTitle'
+    | 'role.save'
+    | 'role.saved'
+    | 'role.selfLockout'
+    | 'role.shadowsTemplate'
+    | 'role.tabs.advanced'
+    | 'role.tabs.details'
+    | 'role.tabs.pages'
+    | 'role.templateNotice'
+    | 'roles.caption'
+    | 'roles.columns.description'
+    | 'roles.columns.holders'
+    | 'roles.columns.kind'
+    | 'roles.columns.pages'
+    | 'roles.columns.role'
+    | 'roles.copy'
+    | 'roles.create'
+    | 'roles.edit'
+    | 'roles.emptyBody'
+    | 'roles.emptyTitle'
+    | 'roles.filteredEmptyBody'
+    | 'roles.filteredEmptyTitle'
+    | 'roles.holders'
+    | 'roles.holdersNone'
+    | 'roles.kindOwn'
+    | 'roles.kindTemplate'
+    | 'roles.noDescription'
+    | 'roles.open'
+    | 'roles.ownHeading'
+    | 'roles.ownHint'
+    | 'roles.permissionCount'
+    | 'roles.searchHint'
+    | 'roles.searchLabel'
+    | 'roles.segmentAll'
+    | 'roles.segmentLabel'
+    | 'roles.segmentOwn'
+    | 'roles.segmentTemplates'
+    | 'roles.statOwn'
+    | 'roles.statOwnCaption'
+    | 'roles.statRoles'
+    | 'roles.statTemplates'
+    | 'roles.statTemplatesCaption'
+    | 'roles.statUnheld'
+    | 'roles.statUnheldCaption'
+    | 'roles.subtitle'
+    | 'roles.templatesHeading'
+    | 'roles.templatesHint'
+    | 'roles.title'
+    | 'signIn.organisation'
+    | 'signIn.useFullEmail'
+    | 'status.active'
+    | 'status.ended'
+    | 'status.invited'
+    | 'status.suspended'
+    | 'team.add'
+    | 'team.caption'
+    | 'team.columns.email'
+    | 'team.columns.joined'
+    | 'team.columns.person'
+    | 'team.columns.roles'
+    | 'team.columns.scope'
+    | 'team.columns.status'
+    | 'team.columns.userEmail'
+    | 'team.emptyBody'
+    | 'team.emptyTitle'
+    | 'team.filteredEmptyBody'
+    | 'team.filteredEmptyTitle'
+    | 'team.invitations.caption'
+    | 'team.invitations.columnExpires'
+    | 'team.invitations.empty'
+    | 'team.invitations.expires'
+    | 'team.invitations.revoke'
+    | 'team.invitations.revoked'
+    | 'team.invitations.sent'
+    | 'team.invitations.subtitle'
+    | 'team.invitations.title'
+    | 'team.moreRoles'
+    | 'team.noRoles'
+    | 'team.notJoined'
+    | 'team.open'
+    | 'team.organisationWide'
+    | 'team.searchHint'
+    | 'team.searchLabel'
+    | 'team.searchPageHint'
+    | 'team.segmentEveryone'
+    | 'team.segmentLabel'
+    | 'team.segmentWorking'
+    | 'team.showEnded'
+    | 'team.statInvitations'
+    | 'team.statInvitationsCaption'
+    | 'team.statNoRoles'
+    | 'team.statNoRolesCaption'
+    | 'team.statOffers'
+    | 'team.statPeople'
+    | 'team.statWorking'
+    | 'team.statWorkingCaption'
+    | 'team.subtitle'
+    | 'team.title'
+    | 'team.unnamed'
+    | 'title';
   readonly "account":
     | 'addresses.add'
     | 'addresses.areaHint'
@@ -61,6 +318,7 @@ export interface NamespaceKeys {
     | 'addresses.areaPlaceholder'
     | 'addresses.backToList'
     | 'addresses.buildingLabel'
+    | 'addresses.buildingPlaceholder'
     | 'addresses.coverageBody'
     | 'addresses.coverageTitle'
     | 'addresses.default'
@@ -68,10 +326,13 @@ export interface NamespaceKeys {
     | 'addresses.empty'
     | 'addresses.emptyBody'
     | 'addresses.floorLabel'
+    | 'addresses.floorPlaceholder'
     | 'addresses.labelLabel'
     | 'addresses.labelPlaceholder'
     | 'addresses.line1Label'
+    | 'addresses.line1Placeholder'
     | 'addresses.line2Label'
+    | 'addresses.line2Placeholder'
     | 'addresses.makeDefault'
     | 'addresses.missingBody'
     | 'addresses.missingTitle'
@@ -79,6 +340,7 @@ export interface NamespaceKeys {
     | 'addresses.noAreasTitle'
     | 'addresses.notesHint'
     | 'addresses.notesLabel'
+    | 'addresses.notesPlaceholder'
     | 'addresses.partSeparator'
     | 'addresses.remove'
     | 'addresses.removeBody'
@@ -88,27 +350,24 @@ export interface NamespaceKeys {
     | 'addresses.subtitle'
     | 'addresses.title'
     | 'checklist.blocked'
-    | 'checklist.canActivate'
     | 'checklist.cannotActivate'
-    | 'checklist.done'
-    | 'checklist.optional'
     | 'checklist.outstanding'
-    | 'checklist.required'
-    | 'checklist.review'
-    | 'checklist.start'
+    | 'checklist.steps.add_address.action'
     | 'checklist.steps.add_address.body'
+    | 'checklist.steps.add_address.bodyOutsideArea'
     | 'checklist.steps.add_address.title'
+    | 'checklist.steps.consents.action'
     | 'checklist.steps.consents.body'
     | 'checklist.steps.consents.title'
+    | 'checklist.steps.dietary_profile.action'
     | 'checklist.steps.dietary_profile.body'
     | 'checklist.steps.dietary_profile.title'
+    | 'checklist.steps.verify_email.action'
     | 'checklist.steps.verify_email.body'
     | 'checklist.steps.verify_email.title'
+    | 'checklist.steps.verify_phone.action'
     | 'checklist.steps.verify_phone.body'
     | 'checklist.steps.verify_phone.title'
-    | 'checklist.subtitle'
-    | 'checklist.title'
-    | 'checklist.todo'
     | 'closure.acknowledge'
     | 'closure.back'
     | 'closure.blockedBody'
@@ -135,6 +394,7 @@ export interface NamespaceKeys {
     | 'closure.noChallenge'
     | 'closure.noteHint'
     | 'closure.noteLabel'
+    | 'closure.notePlaceholder'
     | 'closure.optOutConfirm'
     | 'closure.optOutDoneBody'
     | 'closure.optOutDoneTitle'
@@ -210,13 +470,10 @@ export interface NamespaceKeys {
     | 'contacts.add'
     | 'contacts.addEmail'
     | 'contacts.addPhone'
-    | 'contacts.emailLabel'
     | 'contacts.empty'
     | 'contacts.emptyBody'
-    | 'contacts.loginEmail'
     | 'contacts.loginEmailNote'
     | 'contacts.makePrimary'
-    | 'contacts.phoneLabel'
     | 'contacts.primary'
     | 'contacts.remove'
     | 'contacts.removeBody'
@@ -225,7 +482,6 @@ export interface NamespaceKeys {
     | 'contacts.title'
     | 'contacts.unverified'
     | 'contacts.verified'
-    | 'contacts.verify'
     | 'dietary.addAllergen'
     | 'dietary.allergenLabel'
     | 'dietary.allergensEmpty'
@@ -241,6 +497,7 @@ export interface NamespaceKeys {
     | 'dietary.hasAllergiesLabel'
     | 'dietary.noneBody'
     | 'dietary.noteLabel'
+    | 'dietary.notePlaceholder'
     | 'dietary.save'
     | 'dietary.saved'
     | 'dietary.severity.allergy'
@@ -253,15 +510,32 @@ export interface NamespaceKeys {
     | 'dietary.subtitle'
     | 'dietary.title'
     | 'dietary.unanswered'
-    | 'lifecycle.active'
-    | 'lifecycle.closed'
-    | 'lifecycle.closing'
-    | 'lifecycle.provisional'
-    | 'lifecycle.suspended'
-    | 'marketing.note'
+    | 'favorites.empty'
+    | 'favorites.emptyBody'
     | 'marketing.saveFailed'
-    | 'marketing.subtitle'
     | 'marketing.title'
+    | 'nav.addresses'
+    | 'nav.favorites'
+    | 'nav.label'
+    | 'nav.notifications'
+    | 'nav.orders'
+    | 'nav.payments'
+    | 'nav.profile'
+    | 'orders.backToHistory'
+    | 'orders.browse'
+    | 'orders.empty'
+    | 'orders.emptyBody'
+    | 'orders.lineLabel'
+    | 'orders.meta'
+    | 'orders.more'
+    | 'orders.newestFirst'
+    | 'orders.notFoundBody'
+    | 'orders.notFoundTitle'
+    | 'orders.openHint'
+    | 'orders.reorder'
+    | 'orders.title'
+    | 'payments.body'
+    | 'payments.cash'
     | 'phone.addNumber'
     | 'phone.backToAccount'
     | 'phone.countries.AE'
@@ -286,6 +560,7 @@ export interface NamespaceKeys {
     | 'phone.noNumberTitle'
     | 'phone.numberHint'
     | 'phone.numberLabel'
+    | 'phone.numberPlaceholder'
     | 'phone.otpFallback'
     | 'phone.pendingBody'
     | 'phone.sendCode'
@@ -294,7 +569,31 @@ export interface NamespaceKeys {
     | 'phone.title'
     | 'phone.verifiedBody'
     | 'phone.verifiedTitle'
-    | 'subtitle'
+    | 'privacy.closeAccount'
+    | 'privacy.reviewConsents'
+    | 'privacy.title'
+    | 'profile.allergiesDeclared'
+    | 'profile.allergiesNone'
+    | 'profile.answerAllergies'
+    | 'profile.cancel'
+    | 'profile.dietsEyebrow'
+    | 'profile.dietsLocked'
+    | 'profile.dietsUnavailable'
+    | 'profile.editAllergies'
+    | 'profile.emailLabel'
+    | 'profile.listSeparator'
+    | 'profile.manageAddresses'
+    | 'profile.mobileLabel'
+    | 'profile.nameLabel'
+    | 'profile.noPhone'
+    | 'profile.phoneAdd'
+    | 'profile.phoneChange'
+    | 'profile.phoneVerify'
+    | 'profile.save'
+    | 'profile.saved'
+    | 'profile.slotLabel'
+    | 'profile.slotUnset'
+    | 'profile.title'
     | 'title';
   readonly "auth":
     | 'aside.headline'
@@ -307,11 +606,27 @@ export interface NamespaceKeys {
     | 'branchPicker.openLabel'
     | 'branchPicker.subtitle'
     | 'branchPicker.title'
+    | 'changePassword.continueLabel'
+    | 'changePassword.currentHint'
+    | 'changePassword.currentLabel'
+    | 'changePassword.currentPlaceholder'
+    | 'changePassword.optionalSubtitle'
+    | 'changePassword.optionalTitle'
+    | 'changePassword.passwordConfirmationLabel'
+    | 'changePassword.passwordConfirmationPlaceholder'
+    | 'changePassword.passwordLabel'
+    | 'changePassword.passwordPlaceholder'
+    | 'changePassword.submit'
+    | 'changePassword.subtitle'
+    | 'changePassword.successBody'
+    | 'changePassword.successTitle'
+    | 'changePassword.title'
     | 'devices.current'
     | 'devices.empty'
     | 'devices.emptyBody'
     | 'devices.lastUsed'
     | 'devices.neverUsed'
+    | 'devices.otherSessions'
     | 'devices.platform.android'
     | 'devices.platform.ios'
     | 'devices.platform.web'
@@ -322,7 +637,10 @@ export interface NamespaceKeys {
     | 'devices.revokeTitle'
     | 'devices.revoked'
     | 'devices.subtitle'
+    | 'devices.thisSession'
     | 'devices.title'
+    | 'devices.unrecognisedBody'
+    | 'devices.unrecognisedTitle'
     | 'forgotPassword.backToSignIn'
     | 'forgotPassword.emailLabel'
     | 'forgotPassword.sentBody'
@@ -330,29 +648,39 @@ export interface NamespaceKeys {
     | 'forgotPassword.submit'
     | 'forgotPassword.subtitle'
     | 'forgotPassword.title'
+    | 'login.composedHint'
+    | 'login.domainFull'
+    | 'login.domainLabel'
     | 'login.emailLabel'
     | 'login.emailPlaceholder'
     | 'login.failed'
     | 'login.forgotLink'
     | 'login.guest'
     | 'login.passwordLabel'
+    | 'login.passwordPlaceholder'
     | 'login.rateLimited'
     | 'login.registerLink'
     | 'login.registerPrompt'
     | 'login.rememberLabel'
+    | 'login.signInNameLabel'
+    | 'login.signInNamePlaceholder'
     | 'login.submit'
     | 'login.subtitle'
     | 'login.title'
     | 'login.twoFactor.back'
     | 'login.twoFactor.codeHint'
     | 'login.twoFactor.codeLabel'
+    | 'login.twoFactor.codePlaceholder'
     | 'login.twoFactor.recoveryHint'
     | 'login.twoFactor.recoveryLabel'
+    | 'login.twoFactor.recoveryPlaceholder'
     | 'login.twoFactor.submit'
     | 'login.twoFactor.subtitle'
     | 'login.twoFactor.title'
     | 'login.twoFactor.useCode'
     | 'login.twoFactor.useRecovery'
+    | 'login.useFullEmail'
+    | 'login.useSignInName'
     | 'organisationPicker.branchCount'
     | 'organisationPicker.empty'
     | 'organisationPicker.emptyAction'
@@ -391,36 +719,57 @@ export interface NamespaceKeys {
     | 'otp.title'
     | 'profile.account'
     | 'profile.branch'
+    | 'profile.changePassword'
     | 'profile.consents'
+    | 'profile.consentsBody'
     | 'profile.consentsNone'
     | 'profile.context'
+    | 'profile.currentMembership'
+    | 'profile.devicesHint'
     | 'profile.displayName'
     | 'profile.email'
+    | 'profile.emailUnverified'
+    | 'profile.emailVerified'
     | 'profile.entitlements'
+    | 'profile.entitlementsTitle'
     | 'profile.locale'
     | 'profile.memberSince'
+    | 'profile.membershipStatus.active'
+    | 'profile.membershipStatus.expired'
+    | 'profile.membershipStatus.pending'
+    | 'profile.membershipStatus.revoked'
+    | 'profile.membershipStatus.suspended'
     | 'profile.memberships'
+    | 'profile.name'
     | 'profile.noBranch'
     | 'profile.noContext'
     | 'profile.none'
     | 'profile.organisation'
+    | 'profile.password'
+    | 'profile.passwordHint'
     | 'profile.permissions'
+    | 'profile.permissionsTitle'
     | 'profile.roles'
+    | 'profile.security'
     | 'profile.subtitle'
     | 'profile.timeZone'
     | 'profile.title'
     | 'profile.twoFactor'
     | 'profile.twoFactorDisabled'
     | 'profile.twoFactorEnabled'
+    | 'profile.twoFactorHint'
     | 'register.acceptPrivacy'
     | 'register.acceptTerms'
     | 'register.emailLabel'
     | 'register.loginLink'
     | 'register.loginPrompt'
     | 'register.nameLabel'
+    | 'register.namePlaceholder'
     | 'register.passwordConfirmationLabel'
+    | 'register.passwordConfirmationPlaceholder'
     | 'register.passwordHint'
     | 'register.passwordLabel'
+    | 'register.passwordPlaceholder'
     | 'register.privacyLink'
     | 'register.submit'
     | 'register.subtitle'
@@ -430,7 +779,9 @@ export interface NamespaceKeys {
     | 'resetPassword.missingLink'
     | 'resetPassword.missingLinkBody'
     | 'resetPassword.passwordConfirmationLabel'
+    | 'resetPassword.passwordConfirmationPlaceholder'
     | 'resetPassword.passwordLabel'
+    | 'resetPassword.passwordPlaceholder'
     | 'resetPassword.requestNew'
     | 'resetPassword.submit'
     | 'resetPassword.subtitle'
@@ -440,6 +791,7 @@ export interface NamespaceKeys {
     | 'stepUp.body'
     | 'stepUp.confirmed'
     | 'stepUp.passwordLabel'
+    | 'stepUp.passwordPlaceholder'
     | 'stepUp.submit'
     | 'stepUp.title'
     | 'verifyEmail.body'
@@ -478,6 +830,7 @@ export interface NamespaceKeys {
     | 'agreement.sign'
     | 'agreement.signTitle'
     | 'agreement.signatoryTitle'
+    | 'agreement.signatoryTitlePlaceholder'
     | 'agreement.signedOn'
     | 'agreement.signing'
     | 'agreement.startsOn'
@@ -486,6 +839,7 @@ export interface NamespaceKeys {
     | 'agreement.title'
     | 'agreement.typedName'
     | 'agreement.typedNameHint'
+    | 'agreement.typedNamePlaceholder'
     | 'agreement.verified'
     | 'agreement.verifyBody'
     | 'agreement.verifyFirst'
@@ -556,27 +910,43 @@ export interface NamespaceKeys {
     | 'errors.sectionRefused'
     | 'fields.businessType'
     | 'fields.commercialRegistrationNumber'
+    | 'fields.commercialRegistrationNumberPlaceholder'
     | 'fields.countryCode'
+    | 'fields.countryCodePlaceholder'
     | 'fields.currencyCode'
+    | 'fields.currencyCodePlaceholder'
     | 'fields.deliveryNotes'
+    | 'fields.deliveryNotesPlaceholder'
     | 'fields.expectedOrderFrequency'
     | 'fields.expectedVolumeBand'
     | 'fields.incorporatedOn'
+    | 'fields.incorporatedOnPlaceholder'
     | 'fields.leadTimeDays'
+    | 'fields.leadTimeDaysPlaceholder'
     | 'fields.legalName'
     | 'fields.legalNameAr'
+    | 'fields.legalNameArPlaceholder'
+    | 'fields.legalNamePlaceholder'
     | 'fields.preferredDeliveryWindow'
     | 'fields.productCategories'
     | 'fields.requestedCreditLimitMinor'
+    | 'fields.requestedCreditLimitMinorPlaceholder'
     | 'fields.requestedPaymentTerms'
     | 'fields.requiresInvoicePerLocation'
     | 'fields.signatoryEmail'
+    | 'fields.signatoryEmailPlaceholder'
     | 'fields.signatoryName'
+    | 'fields.signatoryNamePlaceholder'
     | 'fields.signatoryPhone'
+    | 'fields.signatoryPhonePlaceholder'
     | 'fields.signatoryTitle'
+    | 'fields.signatoryTitlePlaceholder'
     | 'fields.taxRegistrationNumber'
+    | 'fields.taxRegistrationNumberPlaceholder'
     | 'fields.tradingName'
+    | 'fields.tradingNamePlaceholder'
     | 'fields.website'
+    | 'fields.websitePlaceholder'
     | 'hints.deliveryNotes'
     | 'hints.leadTimeDays'
     | 'hints.legalName'
@@ -690,6 +1060,7 @@ export interface NamespaceKeys {
     | 'windDown.effectiveOn'
     | 'windDown.failedTitle'
     | 'windDown.nameLabel'
+    | 'windDown.namePlaceholder'
     | 'windDown.noEffectiveDate'
     | 'windDown.noneBody'
     | 'windDown.noneTitle'
@@ -740,6 +1111,7 @@ export interface NamespaceKeys {
     | 'windDown.timelineTitle'
     | 'windDown.title'
     | 'windDown.titleLabel'
+    | 'windDown.titlePlaceholder'
     | 'windDown.triggers.client_request'
     | 'windDown.triggers.contract_end'
     | 'windDown.triggers.non_renewal'
@@ -763,7 +1135,9 @@ export interface NamespaceKeys {
   readonly "business":
     | 'builder.back'
     | 'builder.contactEmail'
+    | 'builder.contactEmailPlaceholder'
     | 'builder.contactName'
+    | 'builder.contactNamePlaceholder'
     | 'builder.contactTitle'
     | 'builder.deliveryDate'
     | 'builder.deliveryDateHint'
@@ -781,6 +1155,7 @@ export interface NamespaceKeys {
     | 'builder.notFoundTitle'
     | 'builder.note'
     | 'builder.noteHint'
+    | 'builder.notePlaceholder'
     | 'builder.openList'
     | 'builder.quantityLabel'
     | 'builder.recurring'
@@ -805,6 +1180,7 @@ export interface NamespaceKeys {
     | 'catalogue.buildQuotation'
     | 'catalogue.clearFilters'
     | 'catalogue.contractPrice'
+    | 'catalogue.contractPricePerPack'
     | 'catalogue.emptyBody'
     | 'catalogue.emptyTitle'
     | 'catalogue.kindAll'
@@ -824,6 +1200,7 @@ export interface NamespaceKeys {
     | 'catalogue.quote'
     | 'catalogue.recurring'
     | 'catalogue.searchLabel'
+    | 'catalogue.searchPlaceholder'
     | 'catalogue.singleCurrency'
     | 'catalogue.title'
     | 'catalogue.unpriced'
@@ -843,6 +1220,7 @@ export interface NamespaceKeys {
     | 'dashboard.lookupHint'
     | 'dashboard.lookupLabel'
     | 'dashboard.lookupOpen'
+    | 'dashboard.lookupPlaceholder'
     | 'dashboard.lookupTitle'
     | 'dashboard.noQuotationsBody'
     | 'dashboard.noQuotationsTitle'
@@ -946,6 +1324,13 @@ export interface NamespaceKeys {
     | 'schedule.title'
     | 'title';
   readonly "catalogue":
+    | 'card.calories'
+    | 'card.noFigure'
+    | 'card.notRated'
+    | 'card.protein'
+    | 'card.rating'
+    | 'card.soldOut'
+    | 'card.unavailable'
     | 'common.back'
     | 'common.listSeparator'
     | 'common.loading'
@@ -1014,12 +1399,16 @@ export interface NamespaceKeys {
     | 'facts.title'
     | 'facts.version'
     | 'filters.activeCount'
+    | 'filters.allMeals'
     | 'filters.anyValue'
     | 'filters.atLeast'
     | 'filters.atMost'
     | 'filters.carbohydrate'
+    | 'filters.category'
     | 'filters.clear'
+    | 'filters.clearAll'
     | 'filters.diet'
+    | 'filters.dietary'
     | 'filters.energy'
     | 'filters.excludeAllergens'
     | 'filters.excludeAllergensHint'
@@ -1027,6 +1416,8 @@ export interface NamespaceKeys {
     | 'filters.groupWithCount'
     | 'filters.kitchen'
     | 'filters.mealType'
+    | 'filters.moreDiets'
+    | 'filters.optionWithCount'
     | 'filters.preparationMinutes'
     | 'filters.price'
     | 'filters.protein'
@@ -1036,6 +1427,112 @@ export interface NamespaceKeys {
     | 'filters.unitGrams'
     | 'filters.unitKcal'
     | 'filters.unitMinutes'
+    | 'howPlans.breadcrumbCurrent'
+    | 'howPlans.breadcrumbPlans'
+    | 'howPlans.calculator.body'
+    | 'howPlans.calculator.cell.delivery'
+    | 'howPlans.calculator.cell.ended'
+    | 'howPlans.calculator.cell.none'
+    | 'howPlans.calculator.cell.skipped'
+    | 'howPlans.calculator.cellLabel'
+    | 'howPlans.calculator.credit'
+    | 'howPlans.calculator.creditNone'
+    | 'howPlans.calculator.empty'
+    | 'howPlans.calculator.eyebrow'
+    | 'howPlans.calculator.lastDelivery'
+    | 'howPlans.calculator.lastDeliveryNote'
+    | 'howPlans.calculator.lasts'
+    | 'howPlans.calculator.lastsNote'
+    | 'howPlans.calculator.lastsValue'
+    | 'howPlans.calculator.left'
+    | 'howPlans.calculator.leftValue'
+    | 'howPlans.calculator.legendDelivery'
+    | 'howPlans.calculator.legendNone'
+    | 'howPlans.calculator.legendSkipped'
+    | 'howPlans.calculator.moreWeeks'
+    | 'howPlans.calculator.none'
+    | 'howPlans.calculator.perDay'
+    | 'howPlans.calculator.perDayDiscount'
+    | 'howPlans.calculator.perDayLocked'
+    | 'howPlans.calculator.pickWeekday'
+    | 'howPlans.calculator.planLabel'
+    | 'howPlans.calculator.planOption'
+    | 'howPlans.calculator.sizeLabel'
+    | 'howPlans.calculator.sizeOption'
+    | 'howPlans.calculator.sizeOptionDiscount'
+    | 'howPlans.calculator.skipWeek'
+    | 'howPlans.calculator.skipWeekNamed'
+    | 'howPlans.calculator.skipped'
+    | 'howPlans.calculator.title'
+    | 'howPlans.calculator.total'
+    | 'howPlans.calculator.totalNote'
+    | 'howPlans.calculator.weekLabel'
+    | 'howPlans.calculator.weekdaysLabel'
+    | 'howPlans.choosePlan'
+    | 'howPlans.ctaBody'
+    | 'howPlans.ctaTitle'
+    | 'howPlans.cutoff.delivered.body'
+    | 'howPlans.cutoff.delivered.time'
+    | 'howPlans.cutoff.delivered.title'
+    | 'howPlans.cutoff.eyebrow'
+    | 'howPlans.cutoff.lock.body'
+    | 'howPlans.cutoff.lock.time'
+    | 'howPlans.cutoff.lock.title'
+    | 'howPlans.cutoff.order.body'
+    | 'howPlans.cutoff.order.time'
+    | 'howPlans.cutoff.order.title'
+    | 'howPlans.example.body'
+    | 'howPlans.example.delivered'
+    | 'howPlans.example.eyebrow'
+    | 'howPlans.example.gridLabel'
+    | 'howPlans.example.left'
+    | 'howPlans.example.priceLabel'
+    | 'howPlans.example.priceValue'
+    | 'howPlans.example.skipsLabel'
+    | 'howPlans.example.skipsValue'
+    | 'howPlans.example.stillYours'
+    | 'howPlans.eyebrow'
+    | 'howPlans.faq.address.a'
+    | 'howPlans.faq.address.q'
+    | 'howPlans.faq.chooseMeals.a'
+    | 'howPlans.faq.chooseMeals.q'
+    | 'howPlans.faq.expire.a'
+    | 'howPlans.faq.expire.q'
+    | 'howPlans.faq.priceRise.a'
+    | 'howPlans.faq.priceRise.q'
+    | 'howPlans.faq.soldOut.a'
+    | 'howPlans.faq.soldOut.q'
+    | 'howPlans.faqTitle'
+    | 'howPlans.lede'
+    | 'howPlans.rules.allergies.body'
+    | 'howPlans.rules.allergies.title'
+    | 'howPlans.rules.cancel.body'
+    | 'howPlans.rules.cancel.title'
+    | 'howPlans.rules.cutoff.body'
+    | 'howPlans.rules.cutoff.title'
+    | 'howPlans.rules.days.body'
+    | 'howPlans.rules.days.title'
+    | 'howPlans.rules.price.body'
+    | 'howPlans.rules.price.title'
+    | 'howPlans.rules.skip.body'
+    | 'howPlans.rules.skip.title'
+    | 'howPlans.rulesMeta'
+    | 'howPlans.rulesTitle'
+    | 'howPlans.states.active.body'
+    | 'howPlans.states.active.name'
+    | 'howPlans.states.active.next'
+    | 'howPlans.states.cancelled.body'
+    | 'howPlans.states.cancelled.name'
+    | 'howPlans.states.cancelled.next'
+    | 'howPlans.states.completed.body'
+    | 'howPlans.states.completed.name'
+    | 'howPlans.states.completed.next'
+    | 'howPlans.states.eyebrow'
+    | 'howPlans.states.paused.body'
+    | 'howPlans.states.paused.name'
+    | 'howPlans.states.paused.next'
+    | 'howPlans.title'
+    | 'howPlans.tryCalculator'
     | 'macros.grams'
     | 'macros.inRange'
     | 'macros.kilocalories'
@@ -1050,8 +1547,8 @@ export interface NamespaceKeys {
     | 'macros.title'
     | 'meal.actionErrorBody'
     | 'meal.actionErrorTitle'
-    | 'meal.actionsTitle'
-    | 'meal.addToBasket'
+    | 'meal.addToCart'
+    | 'meal.addToCartLabel'
     | 'meal.addToPlan'
     | 'meal.addedToBasket'
     | 'meal.addedToPlan'
@@ -1060,32 +1557,22 @@ export interface NamespaceKeys {
     | 'meal.allergenItem'
     | 'meal.allergensDeclared'
     | 'meal.allergensNone'
+    | 'meal.allergensNoneShort'
     | 'meal.allergensTitle'
-    | 'meal.availabilityNone'
-    | 'meal.availabilityTitle'
-    | 'meal.availableOn'
-    | 'meal.availableRemaining'
-    | 'meal.b2bAvailable'
-    | 'meal.b2bNoPrice'
-    | 'meal.b2cAvailable'
-    | 'meal.b2cUnavailable'
-    | 'meal.basketSignIn'
-    | 'meal.basketSignInTitle'
+    | 'meal.allergensValue'
     | 'meal.browseAll'
-    | 'meal.channelsTitle'
-    | 'meal.compositionTitle'
-    | 'meal.cookedBy'
-    | 'meal.dietTagsTitle'
+    | 'meal.factsPanelTitle'
+    | 'meal.factsTitle'
     | 'meal.imageLabel'
     | 'meal.ingredientsBody'
-    | 'meal.ingredientsContract'
-    | 'meal.ingredientsTitle'
+    | 'meal.ingredientsLabel'
+    | 'meal.instructionsLabel'
+    | 'meal.instructionsNotSent'
+    | 'meal.instructionsPlaceholder'
     | 'meal.loading'
-    | 'meal.macroEnergy'
-    | 'meal.macroRingCaption'
     | 'meal.macroValue'
-    | 'meal.macrosTitle'
-    | 'meal.macrosTitlePer100g'
+    | 'meal.makeItYours'
+    | 'meal.moreFromKitchen'
     | 'meal.noPlanBody'
     | 'meal.noPlanBrowse'
     | 'meal.noPlanHome'
@@ -1093,39 +1580,41 @@ export interface NamespaceKeys {
     | 'meal.notFoundBody'
     | 'meal.notFoundTitle'
     | 'meal.notRatedYet'
-    | 'meal.openKitchen'
-    | 'meal.orderCutOff'
+    | 'meal.optionsNone'
     | 'meal.planSignIn'
-    | 'meal.preparationMinutes'
-    | 'meal.priceEach'
-    | 'meal.priceTitle'
+    | 'meal.pricePerPack'
+    | 'meal.quantityDecrease'
+    | 'meal.quantityIncrease'
+    | 'meal.quantityLabel'
     | 'meal.quotationBody'
     | 'meal.quotationBusiness'
     | 'meal.quotationSignIn'
     | 'meal.quotationTitle'
-    | 'meal.ratingLabel'
+    | 'meal.ratingSummary'
     | 'meal.replaceBody'
     | 'meal.replaceMeal'
     | 'meal.replaceTitle'
     | 'meal.requestQuotation'
     | 'meal.servingGrams'
     | 'meal.servingLabel'
-    | 'meal.servingTitle'
-    | 'meal.subscriptionEligible'
-    | 'meal.subscriptionIneligible'
-    | 'meal.unavailableOn'
-    | 'meals.allLoaded'
+    | 'meal.strip.carbohydrate'
+    | 'meal.strip.energy'
+    | 'meal.strip.fat'
+    | 'meal.strip.protein'
+    | 'meal.stripPer100g'
+    | 'meal.thumbEmpty'
+    | 'meal.thumbKitchen'
+    | 'meals.countAvailable'
+    | 'meals.countSoFar'
     | 'meals.emptyBody'
     | 'meals.emptyTitle'
     | 'meals.filters'
     | 'meals.filtersActive'
     | 'meals.loadMore'
     | 'meals.loadingMore'
-    | 'meals.searchLabel'
-    | 'meals.showing'
-    | 'meals.showingUnknownTotal'
-    | 'meals.sort.energy'
-    | 'meals.sort.preparation_time'
+    | 'meals.moreFilters'
+    | 'meals.moreFiltersActive'
+    | 'meals.moreFiltersDone'
     | 'meals.sort.price'
     | 'meals.sort.protein'
     | 'meals.sort.rating'
@@ -1178,19 +1667,15 @@ export interface NamespaceKeys {
     | 'plan.variantLabel'
     | 'plan.variantsBody'
     | 'plan.variantsTitle'
-    | 'plans.bandsLabel'
-    | 'plans.byKitchen'
-    | 'plans.calorie.higher'
-    | 'plans.calorie.lighter'
-    | 'plans.calorie.moderate'
-    | 'plans.calorieFilter'
-    | 'plans.categoryAll'
-    | 'plans.categoryLabel'
+    | 'plans.allKitchens'
+    | 'plans.balancePrice'
+    | 'plans.balancePriceFrom'
+    | 'plans.choosePlan'
     | 'plans.compareClear'
     | 'plans.compareEmpty'
     | 'plans.compareFull'
-    | 'plans.compareHint'
     | 'plans.compareLabel'
+    | 'plans.compareNamed'
     | 'plans.compareOpen'
     | 'plans.compareRemove'
     | 'plans.compareSelected'
@@ -1200,6 +1685,7 @@ export interface NamespaceKeys {
     | 'plans.ctaPrimary'
     | 'plans.ctaSecondary'
     | 'plans.ctaTitle'
+    | 'plans.currentPlan'
     | 'plans.durationNoDiscount'
     | 'plans.durationSaves'
     | 'plans.durationShort.12w'
@@ -1207,42 +1693,61 @@ export interface NamespaceKeys {
     | 'plans.durationShort.2w'
     | 'plans.durationShort.4w'
     | 'plans.durationTotal'
-    | 'plans.durations'
     | 'plans.durationsFor'
     | 'plans.durationsLabel'
     | 'plans.emptyBody'
     | 'plans.emptyTitle'
     | 'plans.energyBand'
     | 'plans.eyebrow'
-    | 'plans.filters'
-    | 'plans.filtersActive'
-    | 'plans.fromPrice'
-    | 'plans.heroHowItWorks'
-    | 'plans.heroSpeakToDietitian'
-    | 'plans.kitchenCount'
-    | 'plans.kitchenFilter'
+    | 'plans.featureBalances'
+    | 'plans.featureBands'
+    | 'plans.featureDiscount'
+    | 'plans.featureMeals'
+    | 'plans.featureMealsRange'
+    | 'plans.howItWorksLink'
+    | 'plans.kitchenFilterLabel'
+    | 'plans.managePlan'
+    | 'plans.managePlanNamed'
     | 'plans.mealsPerDay'
     | 'plans.mealsPerDayNoSnacks'
     | 'plans.methodologyTitle'
-    | 'plans.perDayPrice'
-    | 'plans.perWeekSuffix'
-    | 'plans.priceFrom'
+    | 'plans.perDaySuffix'
     | 'plans.ratingLabel'
-    | 'plans.resultSummary'
-    | 'plans.searchLabel'
-    | 'plans.searchPlaceholder'
-    | 'plans.showing'
-    | 'plans.sort.priceLowHigh'
-    | 'plans.sort.ratingHighLow'
-    | 'plans.sort.recommended'
-    | 'plans.sortLabel'
+    | 'plans.subscriber.balance'
+    | 'plans.subscriber.balanceValue'
+    | 'plans.subscriber.cutoff'
+    | 'plans.subscriber.cutoffValue'
+    | 'plans.subscriber.day.delivery'
+    | 'plans.subscriber.day.off'
+    | 'plans.subscriber.day.skipped'
+    | 'plans.subscriber.deliveryDays'
+    | 'plans.subscriber.deliveryDaysValue'
+    | 'plans.subscriber.dietaryRules'
+    | 'plans.subscriber.eyebrowActive'
+    | 'plans.subscriber.eyebrowPaused'
+    | 'plans.subscriber.nextCharge'
+    | 'plans.subscriber.nextChargeValue'
+    | 'plans.subscriber.nextDelivery'
+    | 'plans.subscriber.noNextDelivery'
+    | 'plans.subscriber.note'
+    | 'plans.subscriber.pause'
+    | 'plans.subscriber.pausedToast'
+    | 'plans.subscriber.plan'
+    | 'plans.subscriber.planTitle'
+    | 'plans.subscriber.resume'
+    | 'plans.subscriber.resumedToast'
+    | 'plans.subscriber.shuffle'
+    | 'plans.subscriber.skipNext'
+    | 'plans.subscriber.skippedToast'
+    | 'plans.subscriber.tile.delivery'
+    | 'plans.subscriber.tile.off'
+    | 'plans.subscriber.tile.skipped'
+    | 'plans.subscriber.unknown'
+    | 'plans.subscriber.weekCount'
+    | 'plans.subscriber.weekTitle'
     | 'plans.subtitle'
+    | 'plans.taglineWithKitchen'
     | 'plans.title'
-    | 'plans.trust.flexible'
-    | 'plans.trust.kitchens'
-    | 'plans.trust.reviewed'
-    | 'plans.viewPlan'
-    | 'plans.viewPlanNamed'
     | 'title'
     | 'tools.activity.extra_active'
     | 'tools.activity.lightly_active'
@@ -1346,18 +1851,25 @@ export interface NamespaceKeys {
   readonly "commerce":
     | 'address.area'
     | 'address.areaHint'
+    | 'address.areaPlaceholder'
     | 'address.city'
     | 'address.cityHint'
+    | 'address.cityPlaceholder'
     | 'address.countryCode'
     | 'address.countryCodeHint'
+    | 'address.countryCodePlaceholder'
     | 'address.instructions'
     | 'address.instructionsHint'
+    | 'address.instructionsPlaceholder'
     | 'address.label'
     | 'address.labelHint'
+    | 'address.labelPlaceholder'
     | 'address.line1'
     | 'address.line1Hint'
+    | 'address.line1Placeholder'
     | 'address.line2'
     | 'address.line2Hint'
+    | 'address.line2Placeholder'
     | 'address.notStored'
     | 'balance.cutOffNote'
     | 'balance.perDay'
@@ -1378,66 +1890,90 @@ export interface NamespaceKeys {
     | 'cancel.noRefund'
     | 'cancel.open'
     | 'cancel.title'
+    | 'cart.addMoreBody'
     | 'cart.allergenBody'
     | 'cart.allergenTitle'
-    | 'cart.body'
     | 'cart.browse'
+    | 'cart.browseMenu'
     | 'cart.checkout'
-    | 'cart.count'
+    | 'cart.decrease'
     | 'cart.delivery'
-    | 'cart.deliveryAtPlacement'
-    | 'cart.deliveryFree'
+    | 'cart.deliveryAtCheckout'
+    | 'cart.discount'
+    | 'cart.discountValue'
     | 'cart.emptyBody'
     | 'cart.emptyTitle'
-    | 'cart.priceCaption'
-    | 'cart.quantityLabel'
+    | 'cart.finePrint'
+    | 'cart.increase'
+    | 'cart.lineSummary'
+    | 'cart.noChanges'
+    | 'cart.promoApply'
+    | 'cart.promoLabel'
+    | 'cart.quantityValue'
     | 'cart.remove'
     | 'cart.removeHint'
+    | 'cart.subtitle'
+    | 'cart.subtitleNoAddress'
     | 'cart.subtotal'
     | 'cart.summaryEmpty'
     | 'cart.summaryTitle'
     | 'cart.title'
     | 'cart.total'
-    | 'cart.unitPrice'
     | 'cart.updateFailedTitle'
     | 'cart.viewMeal'
     | 'checkout.addAddress'
-    | 'checkout.addressBody'
+    | 'checkout.addressPlaceholder'
     | 'checkout.addressTitle'
-    | 'checkout.body'
+    | 'checkout.areaLabel'
+    | 'checkout.back'
+    | 'checkout.committedSeparator'
     | 'checkout.committedSlot'
-    | 'checkout.dateHint'
+    | 'checkout.confirmedBody'
+    | 'checkout.confirmedTitle'
     | 'checkout.dateLabel'
-    | 'checkout.earliest'
-    | 'checkout.edit'
+    | 'checkout.deliveringTo'
+    | 'checkout.deliveryBody'
+    | 'checkout.deliveryTitle'
     | 'checkout.emptyBody'
     | 'checkout.emptyTitle'
     | 'checkout.finishSetup'
+    | 'checkout.fromAddress'
+    | 'checkout.itemCount'
+    | 'checkout.modeDelivery'
+    | 'checkout.modeDeliveryFee'
+    | 'checkout.modeDeliverySub'
+    | 'checkout.modeLabel'
+    | 'checkout.modePickup'
+    | 'checkout.modePickupSub'
+    | 'checkout.modePickupUnavailable'
     | 'checkout.noAddressBody'
     | 'checkout.noAddressTitle'
-    | 'checkout.paymentNoticeBody'
-    | 'checkout.paymentNoticeTitle'
+    | 'checkout.noNote'
+    | 'checkout.noSlotsOffered'
+    | 'checkout.noteLabel'
+    | 'checkout.paymentCod'
+    | 'checkout.paymentCodMeta'
+    | 'checkout.paymentTitle'
     | 'checkout.placeFailedTitle'
     | 'checkout.placeOrder'
     | 'checkout.placeOrderHint'
-    | 'checkout.priceAfterReview'
-    | 'checkout.priceBeforeReview'
+    | 'checkout.placeOrderTotal'
     | 'checkout.progressLabel'
     | 'checkout.review'
+    | 'checkout.setupBody'
+    | 'checkout.setupTitle'
+    | 'checkout.slotChip'
     | 'checkout.slotTitle'
-    | 'checkout.slotWindow'
+    | 'checkout.stepCurrent'
+    | 'checkout.stepDone'
+    | 'checkout.stepUpcoming'
     | 'checkout.steps.delivery'
+    | 'checkout.steps.payment'
     | 'checkout.steps.placed'
-    | 'checkout.steps.review'
-    | 'checkout.successBody'
-    | 'checkout.successCart'
-    | 'checkout.successCodBody'
-    | 'checkout.successCodTitle'
-    | 'checkout.successPriceCaption'
-    | 'checkout.successSubscriptions'
-    | 'checkout.successSummaryTitle'
-    | 'checkout.successTitle'
+    | 'checkout.streetLabel'
+    | 'checkout.successTrack'
     | 'checkout.summaryTitle'
+    | 'checkout.theKitchen'
     | 'checkout.title'
     | 'choices.body'
     | 'choices.bodyDated'
@@ -1705,6 +2241,7 @@ export interface NamespaceKeys {
     | 'validation.tooLong'
     | 'warnings.checkout_address_missing'
     | 'warnings.checkout_empty_cart'
+    | 'warnings.checkout_window_not_offered'
     | 'warnings.planner_allergen_conflict'
     | 'warnings.subscription_delivery_day_unavailable'
     | 'warnings.subscription_no_delivery_days'
@@ -1739,6 +2276,7 @@ export interface NamespaceKeys {
     | 'action.signIn'
     | 'action.signOut'
     | 'action.signUp'
+    | 'action.viewBasket'
     | 'app.name'
     | 'app.tagline'
     | 'direction.ltr'
@@ -1751,9 +2289,12 @@ export interface NamespaceKeys {
     | 'locale.reloadNow'
     | 'locale.reloadRequiredBody'
     | 'locale.reloadRequiredTitle'
+    | 'nav.current'
     | 'nav.devices'
     | 'nav.overview'
     | 'nav.profile'
+    | 'nav.sectionAccount'
+    | 'nav.sectionWorkspaces'
     | 'nav.showcase'
     | 'nav.workspace'
     | 'network.backOnline'
@@ -1762,6 +2303,16 @@ export interface NamespaceKeys {
     | 'network.reconnectingBody'
     | 'network.reconnectingTitle'
     | 'notifications.count'
+    | 'photoCredit.byline'
+    | 'photoCredit.modified'
+    | 'photoCredit.provider.flickr'
+    | 'photoCredit.provider.nappy'
+    | 'photoCredit.provider.other'
+    | 'photoCredit.provider.rawpixel'
+    | 'photoCredit.provider.stocksnap'
+    | 'photoCredit.provider.unsplash'
+    | 'photoCredit.provider.wikimedia'
+    | 'photoCredit.via'
     | 'state.empty'
     | 'state.loading'
     | 'state.restoringSession'
@@ -1783,6 +2334,7 @@ export interface NamespaceKeys {
     | 'dateField.day'
     | 'dateField.month'
     | 'dateField.year'
+    | 'datePicker.clear'
     | 'datePicker.nextMonth'
     | 'datePicker.previousMonth'
     | 'emptyState.prototypeBadge'
@@ -1810,8 +2362,13 @@ export interface NamespaceKeys {
     | 'select.searchLabel'
     | 'select.searchPlaceholder'
     | 'select.searchResults'
+    | 'shell.emptyPanelBody'
+    | 'shell.emptyPanelTitle'
+    | 'shell.hideNavigation'
+    | 'shell.modules'
     | 'shell.openNavigation'
     | 'shell.primaryNavigation'
+    | 'shell.showNavigation'
     | 'shell.skipToContent'
     | 'showcase.accordionBody'
     | 'showcase.accordionOne'
@@ -1889,6 +2446,7 @@ export interface NamespaceKeys {
     | 'showcase.tableSortableCaption'
     | 'showcase.tabsLabel'
     | 'showcase.title'
+    | 'showcase.toastAction'
     | 'showcase.toastMessage'
     | 'spike.colour.description'
     | 'spike.elevation.description'
@@ -1910,6 +2468,8 @@ export interface NamespaceKeys {
     | 'spike.subtitle'
     | 'spike.title'
     | 'spike.typography.description'
+    | 'stepProgress.step'
+    | 'stepProgress.stepDone'
     | 'stepper.progress'
     | 'swatch.contrast'
     | 'table.empty'
@@ -1918,8 +2478,16 @@ export interface NamespaceKeys {
     | 'table.sortedDescending'
     | 'tag.join'
     | 'tag.more'
-    | 'tag.overflow';
+    | 'tag.overflow'
+    | 'timeField.clear'
+    | 'timeField.done'
+    | 'timeField.hour'
+    | 'timeField.invalid'
+    | 'timeField.minute'
+    | 'timeField.open'
+    | 'timeField.placeholder';
   readonly "errors":
+    | 'failure.access_self_lockout'
     | 'failure.account_verification_required'
     | 'failure.address_area_not_served'
     | 'failure.auth_email_unverified'
@@ -1995,6 +2563,7 @@ export interface NamespaceKeys {
     | 'orderRefusal.unpriced'
     | 'orderRefusal.variant_not_active'
     | 'orderRefusal.variant_unknown'
+    | 'orderRefusal.window_not_offered'
     | 'orderRefusal.zone_suspended'
     | 'validation.accept_privacy'
     | 'validation.accept_terms'
@@ -2006,16 +2575,25 @@ export interface NamespaceKeys {
     | 'validation.password_mismatch'
     | 'validation.required';
   readonly "guest":
-    | 'address.back'
-    | 'address.continue'
+    | 'address.area'
+    | 'address.city'
+    | 'address.countryCode'
     | 'address.date'
+    | 'address.defaultLabel'
+    | 'address.dropOff.call'
+    | 'address.dropOff.hand'
+    | 'address.dropOff.leave'
+    | 'address.dropOffLabel'
+    | 'address.line1'
+    | 'address.line2'
     | 'address.outOfZoneAreas'
     | 'address.outOfZoneBody'
     | 'address.outOfZoneBrowse'
     | 'address.outOfZoneTitle'
     | 'address.slot'
-    | 'address.subtitle'
     | 'address.title'
+    | 'blockLabel'
+    | 'change'
     | 'contact.channel'
     | 'contact.channelEmail'
     | 'contact.channelSms'
@@ -2029,20 +2607,23 @@ export interface NamespaceKeys {
     | 'contact.errors.nameRequired'
     | 'contact.fullName'
     | 'contact.fullNameHint'
+    | 'contact.fullNamePlaceholder'
     | 'contact.mobile'
     | 'contact.mobileHint'
-    | 'contact.subtitle'
+    | 'contact.mobilePlaceholder'
     | 'contact.title'
     | 'convert.body'
     | 'convert.declined'
     | 'convert.doneBody'
     | 'convert.doneTitle'
     | 'convert.fullName'
+    | 'convert.fullNamePlaceholder'
     | 'convert.marketing'
     | 'convert.marketingHint'
     | 'convert.noThanks'
     | 'convert.password'
     | 'convert.passwordHint'
+    | 'convert.passwordPlaceholder'
     | 'convert.submit'
     | 'convert.title'
     | 'convert.verifiedNote'
@@ -2059,6 +2640,7 @@ export interface NamespaceKeys {
     | 'deletion.invalidCode'
     | 'deletion.mobile'
     | 'deletion.mobileHint'
+    | 'deletion.mobilePlaceholder'
     | 'deletion.request'
     | 'deletion.sentBody'
     | 'deletion.sentTitle'
@@ -2069,50 +2651,82 @@ export interface NamespaceKeys {
     | 'entry.continueAsGuest'
     | 'entry.signIn'
     | 'entry.title'
-    | 'order.deliveringTo'
-    | 'order.lines'
+    | 'eyebrow'
+    | 'order.arriving'
+    | 'order.cancelledBody'
+    | 'order.cancelledTitle'
+    | 'order.courierDetail'
+    | 'order.courierName'
+    | 'order.courierTitle'
+    | 'order.droppingAt'
+    | 'order.getHelp'
+    | 'order.headline.cancelled'
+    | 'order.headline.confirmed'
+    | 'order.headline.delivered'
+    | 'order.headline.out_for_delivery'
+    | 'order.headline.placed'
+    | 'order.headline.preparing'
+    | 'order.itemsTitle'
+    | 'order.keepReference'
+    | 'order.lead.cancelled'
+    | 'order.lead.confirmed'
+    | 'order.lead.delivered'
+    | 'order.lead.out_for_delivery'
+    | 'order.lead.placed'
+    | 'order.lead.preparing'
+    | 'order.lineLabel'
+    | 'order.messageCourier'
+    | 'order.noTime'
     | 'order.notFoundBody'
     | 'order.notFoundTitle'
-    | 'order.payment'
+    | 'order.noteOnFile'
+    | 'order.number'
+    | 'order.placedAt'
+    | 'order.position.current'
+    | 'order.position.done'
+    | 'order.position.upcoming'
     | 'order.reference'
-    | 'order.slot'
-    | 'order.state'
+    | 'order.refresh'
+    | 'order.separator'
     | 'order.states.cancelled'
     | 'order.states.confirmed'
     | 'order.states.delivered'
     | 'order.states.out_for_delivery'
     | 'order.states.placed'
     | 'order.states.preparing'
-    | 'order.subtitle'
-    | 'order.title'
+    | 'order.steps.confirmed.detail'
+    | 'order.steps.confirmed.title'
+    | 'order.steps.delivered.detail'
+    | 'order.steps.delivered.title'
+    | 'order.steps.out_for_delivery.detail'
+    | 'order.steps.out_for_delivery.title'
+    | 'order.steps.placed.detail'
+    | 'order.steps.placed.title'
+    | 'order.steps.preparing.detail'
+    | 'order.steps.preparing.title'
+    | 'order.steps.ready_for_pickup.detail'
+    | 'order.steps.ready_for_pickup.title'
+    | 'order.timeline'
     | 'order.total'
-    | 'review.back'
+    | 'order.windowPending'
+    | 'pay.title'
     | 'review.cashOnDelivery'
-    | 'review.cashOnDeliveryNote'
-    | 'review.contact'
-    | 'review.deliveringTo'
-    | 'review.marketingHint'
+    | 'review.finePrint'
     | 'review.marketingLabel'
-    | 'review.payment'
     | 'review.place'
-    | 'review.slot'
-    | 'review.subtitle'
-    | 'review.title'
     | 'review.unverified'
+    | 'saveBody'
+    | 'saveTitle'
     | 'session.expiredBody'
     | 'session.expiredTitle'
     | 'session.restart'
-    | 'steps.address'
-    | 'steps.contact'
-    | 'steps.review'
-    | 'steps.verify'
-    | 'subtitle'
     | 'title'
     | 'verify.back'
-    | 'verify.confirmed'
+    | 'verify.confirmedAs'
     | 'verify.otpFallback'
     | 'verify.subtitle'
-    | 'verify.title';
+    | 'when.noSlots'
+    | 'when.title';
   readonly "invitations":
     | 'accept.action'
     | 'accept.pending'
@@ -2258,11 +2872,12 @@ export interface NamespaceKeys {
     | 'analytics.units.count'
     | 'analytics.units.minutes'
     | 'analytics.units.percent'
-    | 'analytics.window.fieldAvgMinutes'
     | 'analytics.window.kind'
     | 'analytics.window.note'
+    | 'areas.chosenCount'
     | 'areas.groupLabel'
     | 'areas.inactive'
+    | 'areas.inactiveTag'
     | 'areas.matchCount'
     | 'areas.moreHidden'
     | 'areas.noMatches'
@@ -2323,24 +2938,27 @@ export interface NamespaceKeys {
     | 'bilingual.missingArabicHint'
     | 'branchHours.allClosedBody'
     | 'branchHours.allClosedTitle'
-    | 'branchHours.backToHub'
-    | 'branchHours.branchBadge'
-    | 'branchHours.branchUnknown'
+    | 'branchHours.cardCutOff'
+    | 'branchHours.cardDayUnit'
+    | 'branchHours.cardTrading'
+    | 'branchHours.cardTradingUnit'
+    | 'branchHours.chip'
     | 'branchHours.closedBadge'
     | 'branchHours.closedLabel'
-    | 'branchHours.closedNote'
     | 'branchHours.closesBeforeOpens'
     | 'branchHours.closesInvalid'
     | 'branchHours.closesLabel'
-    | 'branchHours.contextNote'
+    | 'branchHours.columnDay'
+    | 'branchHours.columnTrading'
     | 'branchHours.copiedAnnouncement'
+    | 'branchHours.copyShort'
     | 'branchHours.copyToOpenDays'
     | 'branchHours.cutOffAfterCloses'
     | 'branchHours.cutOffDayCount'
     | 'branchHours.cutOffHint'
     | 'branchHours.cutOffInvalid'
     | 'branchHours.cutOffLabel'
-    | 'branchHours.cutOffNone'
+    | 'branchHours.dayHours'
     | 'branchHours.loadErrorTitle'
     | 'branchHours.noBranchBody'
     | 'branchHours.noBranchTitle'
@@ -2350,12 +2968,15 @@ export interface NamespaceKeys {
     | 'branchHours.save'
     | 'branchHours.saveError'
     | 'branchHours.savedToast'
-    | 'branchHours.sectionContext'
-    | 'branchHours.sectionWeek'
-    | 'branchHours.timeZoneBadge'
+    | 'branchHours.summaryBranch'
+    | 'branchHours.summaryDays'
+    | 'branchHours.summaryTimeZone'
+    | 'branchHours.summaryTitle'
     | 'branchHours.title'
     | 'branchHours.titleFor'
-    | 'branchHours.weekIntro'
+    | 'branchHours.tradingLabel'
+    | 'branchHours.tradingOpen'
+    | 'branchHours.weekTitle'
     | 'calendar.a11y.nothing'
     | 'calendar.a11y.projected'
     | 'calendar.a11y.showing'
@@ -2388,15 +3009,22 @@ export interface NamespaceKeys {
     | 'catalogue.archive'
     | 'catalogue.clearFilter'
     | 'catalogue.close'
+    | 'catalogue.columnFilter'
+    | 'catalogue.columnFiltered'
     | 'catalogue.columnMenu'
     | 'catalogue.columnSort'
     | 'catalogue.columnUpdated'
+    | 'catalogue.columnsButton'
+    | 'catalogue.columnsClear'
+    | 'catalogue.columnsHeading'
+    | 'catalogue.columnsHint'
+    | 'catalogue.columnsLabel'
+    | 'catalogue.columnsReset'
     | 'catalogue.edit'
     | 'catalogue.fields'
     | 'catalogue.filter'
     | 'catalogue.navToggle'
     | 'catalogue.pagerLabel'
-    | 'catalogue.pagerRange'
     | 'catalogue.rowActions'
     | 'catalogue.sortAscending'
     | 'catalogue.sortDescending'
@@ -2406,13 +3034,26 @@ export interface NamespaceKeys {
     | 'catalogue.statsViewLabel'
     | 'catalogue.title'
     | 'catalogue.view'
+    | 'channelPrices.b2b'
+    | 'channelPrices.b2c'
+    | 'channelPrices.conflict'
+    | 'channelPrices.failed'
+    | 'channelPrices.hint'
+    | 'channelPrices.noPriceList'
+    | 'channelPrices.price'
+    | 'channelPrices.priceInvalid'
+    | 'channelPrices.priceNeedsWeight'
+    | 'channelPrices.save'
+    | 'channelPrices.saved'
+    | 'channelPrices.title'
+    | 'channelPrices.unit'
+    | 'channelPrices.weight'
+    | 'channelPrices.weightInvalid'
     | 'channels.consumerTag'
     | 'channels.createFirst'
     | 'channels.fromHint'
     | 'channels.fromLabel'
-    | 'channels.save'
     | 'channels.saveError'
-    | 'channels.savedSeparately'
     | 'channels.savedToast'
     | 'channels.sectionHint'
     | 'channels.sectionTitle'
@@ -2463,7 +3104,6 @@ export interface NamespaceKeys {
     | 'common.saving'
     | 'common.undo'
     | 'common.yes'
-    | 'composition.allergensDescription'
     | 'composition.description'
     | 'composition.fromDatabase'
     | 'composition.per100g'
@@ -2474,6 +3114,14 @@ export interface NamespaceKeys {
     | 'conflict.title'
     | 'containment.contains'
     | 'containment.mayContain'
+    | 'deliveryWindows.emptyBody'
+    | 'deliveryWindows.emptyTitle'
+    | 'deliveryWindows.intro'
+    | 'deliveryWindows.loadErrorTitle'
+    | 'deliveryWindows.noZones'
+    | 'deliveryWindows.title'
+    | 'deliveryWindows.unknownZone'
+    | 'deliveryWindows.zonesColumn'
     | 'desk.a11y.noCustomerName'
     | 'desk.a11y.noDeliveryRun'
     | 'desk.assign.assignedToast'
@@ -2565,7 +3213,6 @@ export interface NamespaceKeys {
     | 'desk.noSlot'
     | 'desk.offlineBody'
     | 'desk.offlineTitle'
-    | 'desk.open'
     | 'desk.payment.notReceipted'
     | 'desk.payment.outstanding'
     | 'desk.payment.receipted'
@@ -2583,6 +3230,7 @@ export interface NamespaceKeys {
     | 'desk.recordPayment.methodHint'
     | 'desk.recordPayment.methodLabel'
     | 'desk.recordPayment.notesHint'
+    | 'desk.recordPayment.notesPlaceholder'
     | 'desk.recordPayment.open'
     | 'desk.recordPayment.recordedToast'
     | 'desk.recordPayment.referenceHint'
@@ -2604,29 +3252,24 @@ export interface NamespaceKeys {
     | 'desk.refusal.unpriced'
     | 'desk.refusal.variant_not_active'
     | 'desk.refusal.variant_unknown'
+    | 'desk.refusal.window_not_offered'
     | 'desk.refusal.zone_suspended'
-    | 'desk.sale.addressDescription'
-    | 'desk.sale.addressLabelLabel'
+    | 'desk.sale.addItem'
+    | 'desk.sale.addItemPriced'
+    | 'desk.sale.addressNeedsCustomer'
     | 'desk.sale.addressNoteBody'
-    | 'desk.sale.addressNoteTitle'
     | 'desk.sale.addressSave'
-    | 'desk.sale.addressSavedTitle'
+    | 'desk.sale.addressTitle'
     | 'desk.sale.addressUndeliverableBody'
     | 'desk.sale.addressUndeliverableTitle'
-    | 'desk.sale.areaHint'
     | 'desk.sale.areaLabel'
     | 'desk.sale.areaPlaceholder'
-    | 'desk.sale.back'
-    | 'desk.sale.backToQueue'
-    | 'desk.sale.basketEmptyBody'
-    | 'desk.sale.basketEmptyTitle'
-    | 'desk.sale.basketTitle'
     | 'desk.sale.buildingLabel'
-    | 'desk.sale.complete'
-    | 'desk.sale.completedBody'
+    | 'desk.sale.buildingPlaceholder'
+    | 'desk.sale.change'
+    | 'desk.sale.charge'
+    | 'desk.sale.chargeEmpty'
     | 'desk.sale.completedNumber'
-    | 'desk.sale.completedStatusLabel'
-    | 'desk.sale.completedTitle'
     | 'desk.sale.customerCancelCreate'
     | 'desk.sale.customerCapped'
     | 'desk.sale.customerChoose'
@@ -2636,6 +3279,7 @@ export interface NamespaceKeys {
     | 'desk.sale.customerDuplicatesTitle'
     | 'desk.sale.customerNameHint'
     | 'desk.sale.customerNameLabel'
+    | 'desk.sale.customerNamePlaceholder'
     | 'desk.sale.customerNew'
     | 'desk.sale.customerNoneBody'
     | 'desk.sale.customerNoneTitle'
@@ -2643,85 +3287,80 @@ export interface NamespaceKeys {
     | 'desk.sale.customerPhoneLabel'
     | 'desk.sale.customerRegular'
     | 'desk.sale.customerSearchErrorTitle'
-    | 'desk.sale.customerSearchHint'
     | 'desk.sale.customerSearchLabel'
     | 'desk.sale.customerSearchPlaceholder'
     | 'desk.sale.customerSearchTooShort'
+    | 'desk.sale.customerTitle'
     | 'desk.sale.customerUnnamed'
     | 'desk.sale.customerUseInstead'
+    | 'desk.sale.dateLabel'
     | 'desk.sale.deliveryFee'
-    | 'desk.sale.directionsHint'
     | 'desk.sale.directionsLabel'
+    | 'desk.sale.directionsPlaceholder'
+    | 'desk.sale.driverHint'
+    | 'desk.sale.driverLabel'
+    | 'desk.sale.driverNone'
+    | 'desk.sale.each'
     | 'desk.sale.itemCount'
-    | 'desk.sale.itemKind.meal'
-    | 'desk.sale.itemKind.product'
-    | 'desk.sale.leave'
     | 'desk.sale.lineOneLabel'
+    | 'desk.sale.lineOnePlaceholder'
     | 'desk.sale.lineTwoLabel'
+    | 'desk.sale.lineTwoPlaceholder'
     | 'desk.sale.method.cashAtCounter'
     | 'desk.sale.method.cashOnDelivery'
     | 'desk.sale.method.wish'
     | 'desk.sale.methodLabel'
-    | 'desk.sale.newSale'
-    | 'desk.sale.next'
-    | 'desk.sale.noQuoteYet'
-    | 'desk.sale.notesHint'
+    | 'desk.sale.more'
+    | 'desk.sale.noSlots'
+    | 'desk.sale.notSold'
     | 'desk.sale.notesLabel'
-    | 'desk.sale.orderRefusalsTitle'
-    | 'desk.sale.paymentDescription'
-    | 'desk.sale.pickerAdd'
-    | 'desk.sale.pickerAddItem'
-    | 'desk.sale.pickerAdded'
-    | 'desk.sale.pickerColumnAllergens'
-    | 'desk.sale.pickerColumnItem'
-    | 'desk.sale.pickerColumnKind'
+    | 'desk.sale.onTicket'
     | 'desk.sale.pickerEmptyBody'
     | 'desk.sale.pickerEmptyTitle'
     | 'desk.sale.pickerErrorTitle'
-    | 'desk.sale.pickerNote'
     | 'desk.sale.pickerSearchLabel'
     | 'desk.sale.pickerSearchPlaceholder'
-    | 'desk.sale.pickerTitle'
-    | 'desk.sale.place'
+    | 'desk.sale.placeFor'
+    | 'desk.sale.placedAssignedToast'
+    | 'desk.sale.placedConfirmedToast'
     | 'desk.sale.placedToast'
-    | 'desk.sale.position'
-    | 'desk.sale.progressLabel'
-    | 'desk.sale.quantityLabel'
     | 'desk.sale.quoteErrorBody'
     | 'desk.sale.quoteErrorTitle'
     | 'desk.sale.quoteUpdating'
-    | 'desk.sale.quotedByKitchen'
     | 'desk.sale.referenceHint'
     | 'desk.sale.referenceLabel'
+    | 'desk.sale.referencePlaceholder'
     | 'desk.sale.refusedBody'
     | 'desk.sale.refusedTitle'
-    | 'desk.sale.removeLine'
-    | 'desk.sale.reviewDescription'
-    | 'desk.sale.reviewItems'
-    | 'desk.sale.reviewLine'
-    | 'desk.sale.reviewMethod'
-    | 'desk.sale.reviewType'
-    | 'desk.sale.step.address'
-    | 'desk.sale.step.basket'
-    | 'desk.sale.step.customer'
-    | 'desk.sale.step.payment'
-    | 'desk.sale.step.review'
-    | 'desk.sale.step.type'
-    | 'desk.sale.stepTab'
-    | 'desk.sale.subtitle'
+    | 'desk.sale.section.dressings'
+    | 'desk.sale.section.frozenMeals'
+    | 'desk.sale.section.meals'
+    | 'desk.sale.section.products'
+    | 'desk.sale.section.sauces'
+    | 'desk.sale.sectionsLabel'
+    | 'desk.sale.shortfall.address'
+    | 'desk.sale.shortfall.customer'
+    | 'desk.sale.shortfall.reference'
+    | 'desk.sale.slotHours'
+    | 'desk.sale.slotLabel'
+    | 'desk.sale.soldBody'
+    | 'desk.sale.soldToast'
     | 'desk.sale.subtotal'
+    | 'desk.sale.ticketEmpty'
+    | 'desk.sale.ticketTitle'
     | 'desk.sale.title'
     | 'desk.sale.total'
     | 'desk.sale.type.counter'
     | 'desk.sale.type.delivery'
     | 'desk.sale.type.pickup'
-    | 'desk.sale.typeDescription'
     | 'desk.sale.typeHint.counter'
     | 'desk.sale.typeHint.delivery'
     | 'desk.sale.typeHint.pickup'
     | 'desk.sale.typeLabel'
+    | 'desk.sale.whenLabel'
     | 'desk.sale.wishNoteBody'
     | 'desk.sale.wishNoteTitle'
+    | 'desk.sale.zoneNoSlots'
     | 'desk.searchHint'
     | 'desk.searchLabel'
     | 'desk.searchPlaceholder'
@@ -2738,16 +3377,14 @@ export interface NamespaceKeys {
     | 'desk.window.overdue'
     | 'desk.window.today'
     | 'desk.windowLabel'
-    | 'dressings.caption'
     | 'dressings.create'
-    | 'dressings.emptyBody'
-    | 'dressings.emptyTitle'
-    | 'dressings.resultCount'
-    | 'dressings.searchPlaceholder'
-    | 'dressings.subtitle'
     | 'dressings.title'
     | 'dressings.viewKind'
     | 'driver.assignedAt'
+    | 'driver.availableHint'
+    | 'driver.availableTitle'
+    | 'driver.claim'
+    | 'driver.claimTaken'
     | 'driver.deliver'
     | 'driver.deliverBody'
     | 'driver.deliverConfirm'
@@ -2757,9 +3394,11 @@ export interface NamespaceKeys {
     | 'driver.emptyBody'
     | 'driver.emptyTitle'
     | 'driver.loadErrorTitle'
+    | 'driver.mineTitle'
     | 'driver.noAddress'
     | 'driver.notesHint'
     | 'driver.notesLabel'
+    | 'driver.notesPlaceholder'
     | 'driver.orderLabel'
     | 'driver.orderReference'
     | 'driver.phone'
@@ -2788,8 +3427,6 @@ export interface NamespaceKeys {
     | 'editor.editTitle'
     | 'editor.forkAction'
     | 'editor.forkError'
-    | 'editor.forkedFromBody'
-    | 'editor.forkedFromTitle'
     | 'editor.forkedToast'
     | 'editor.lastUpdated'
     | 'editor.lastUpdatedBy'
@@ -2798,10 +3435,12 @@ export interface NamespaceKeys {
     | 'editor.metaSeparator'
     | 'editor.nameRequired'
     | 'editor.neverSaved'
+    | 'editor.next'
     | 'editor.notFoundBody'
     | 'editor.notFoundTitle'
     | 'editor.platformLibraryBody'
     | 'editor.platformLibraryTitle'
+    | 'editor.previous'
     | 'editor.save'
     | 'editor.saveError'
     | 'editor.savedToast'
@@ -2814,6 +3453,8 @@ export interface NamespaceKeys {
     | 'editor.sectionNotes'
     | 'editor.sectionNotesTitle'
     | 'editor.sectionOtherNames'
+    | 'editor.stepCounter'
+    | 'editor.stepsLabel'
     | 'editor.unsaved'
     | 'families.allergenClasses.description'
     | 'families.allergenClasses.name'
@@ -2827,14 +3468,12 @@ export interface NamespaceKeys {
     | 'families.consumptionExceptions.name'
     | 'families.costReport.description'
     | 'families.costReport.name'
+    | 'families.deliveryWindows.description'
+    | 'families.deliveryWindows.name'
     | 'families.deliveryZones.description'
     | 'families.deliveryZones.name'
-    | 'families.dressings.description'
-    | 'families.dressings.name'
     | 'families.ingredients.description'
     | 'families.ingredients.name'
-    | 'families.meals.description'
-    | 'families.meals.name'
     | 'families.orderCalendar.description'
     | 'families.orderCalendar.name'
     | 'families.orderCashReport.description'
@@ -2855,6 +3494,8 @@ export interface NamespaceKeys {
     | 'families.procurement.name'
     | 'families.production.description'
     | 'families.production.name'
+    | 'families.productionBatches.description'
+    | 'families.productionBatches.name'
     | 'families.products.description'
     | 'families.products.name'
     | 'families.purchases.description'
@@ -2864,26 +3505,34 @@ export interface NamespaceKeys {
     | 'families.quotations.description'
     | 'families.quotations.name'
     | 'families.recipes.description'
+    | 'families.recipes.keywords'
     | 'families.recipes.name'
     | 'families.review.description'
     | 'families.review.name'
-    | 'families.sauces.description'
-    | 'families.sauces.name'
+    | 'families.roles.description'
+    | 'families.roles.name'
     | 'families.stock.description'
     | 'families.stock.name'
     | 'families.suppliers.description'
     | 'families.suppliers.name'
     | 'families.supplyOrders.description'
     | 'families.supplyOrders.name'
+    | 'families.team.description'
+    | 'families.team.name'
+    | 'fields.amountPlaceholder'
     | 'fields.category'
     | 'fields.categoryHint'
     | 'fields.categoryPlaceholder'
     | 'fields.composition'
     | 'fields.compositionHint'
+    | 'fields.daysPlaceholder'
+    | 'fields.descriptionPlaceholderAr'
+    | 'fields.descriptionPlaceholderEn'
     | 'fields.designation'
     | 'fields.gramsPerUnit'
-    | 'fields.gramsPerUnitHint'
     | 'fields.gramsPerUnitPlaceholder'
+    | 'fields.ingredientNamePlaceholderAr'
+    | 'fields.ingredientNamePlaceholderEn'
     | 'fields.itemsPerPurchaseUnit'
     | 'fields.itemsPerUnit'
     | 'fields.itemsPerUnitHint'
@@ -2891,10 +3540,20 @@ export interface NamespaceKeys {
     | 'fields.name'
     | 'fields.notes'
     | 'fields.notesHint'
+    | 'fields.packagingNamePlaceholderAr'
+    | 'fields.packagingNamePlaceholderEn'
+    | 'fields.percentPlaceholder'
+    | 'fields.planNamePlaceholderAr'
+    | 'fields.planNamePlaceholderEn'
+    | 'fields.productNamePlaceholderAr'
+    | 'fields.productNamePlaceholderEn'
     | 'fields.purchaseUnit'
     | 'fields.purchaseUnitHint'
     | 'fields.purchaseUnitNone'
     | 'fields.purchaseUnitNoneHint'
+    | 'fields.quantityPlaceholder'
+    | 'fields.recipeNamePlaceholderAr'
+    | 'fields.recipeNamePlaceholderEn'
     | 'fields.reference'
     | 'fields.referenceHint'
     | 'fields.referencePlaceholder'
@@ -2909,12 +3568,50 @@ export interface NamespaceKeys {
     | 'fields.unitPrice'
     | 'fields.unitPriceHint'
     | 'fields.unitPricePlaceholder'
+    | 'fields.zoneNamePlaceholderAr'
+    | 'fields.zoneNamePlaceholderEn'
+    | 'forms.aboveWaste'
+    | 'forms.allergensTitle'
+    | 'forms.atZeroCount'
+    | 'forms.cost'
+    | 'forms.costPerItem'
+    | 'forms.days'
+    | 'forms.description'
+    | 'forms.expiryAndWaste'
+    | 'forms.expiryPeriod'
+    | 'forms.holds'
+    | 'forms.holdsUnit'
+    | 'forms.image'
+    | 'forms.imagePick'
+    | 'forms.imageRemove'
+    | 'forms.incompleteLines'
+    | 'forms.issueUnit'
+    | 'forms.itemsPerPack'
+    | 'forms.itemsPerUnit'
+    | 'forms.marginBelowCost'
+    | 'forms.marginLow'
+    | 'forms.noFigures'
+    | 'forms.nutritionTitle'
+    | 'forms.pack'
+    | 'forms.price'
+    | 'forms.required'
+    | 'forms.requiredCount'
+    | 'forms.shelfLifeInvalid'
+    | 'forms.toFixCount'
+    | 'forms.warningCount'
+    | 'forms.waste'
+    | 'forms.yieldAndWaste'
+    | 'forms.zeroQuantity'
+    | 'frozenMeals.create'
+    | 'frozenMeals.title'
+    | 'frozenMeals.viewKind'
+    | 'hub.attentionClear'
+    | 'hub.attentionTitle'
     | 'hub.countUnavailable'
     | 'hub.draftCount'
     | 'hub.emptyBody'
     | 'hub.emptyTitle'
     | 'hub.errorTitle'
-    | 'hub.insightTag'
     | 'hub.itemCount'
     | 'hub.kpi.consumptionExceptions'
     | 'hub.kpi.deliveryZones'
@@ -2924,51 +3621,27 @@ export interface NamespaceKeys {
     | 'hub.kpi.needsReview'
     | 'hub.kpi.publishedMeals'
     | 'hub.kpi.requirementShortfalls'
-    | 'hub.open'
-    | 'hub.openReview'
     | 'hub.publishedCount'
     | 'hub.quarantineCount'
     | 'hub.referenceOnly'
-    | 'hub.subtitle'
     | 'hub.title'
-    | 'ingredientDetail.b2bValue'
-    | 'ingredientDetail.b2cValue'
-    | 'ingredientDetail.backToList'
-    | 'ingredientDetail.basisValue'
-    | 'ingredientDetail.fieldBasis'
-    | 'ingredientDetail.fieldGramsPerUnit'
-    | 'ingredientDetail.fieldItemsPerUnit'
-    | 'ingredientDetail.fieldLastChange'
+    | 'ingredientDetail.allergensDietsTitle'
+    | 'ingredientDetail.fieldCapacity'
     | 'ingredientDetail.fieldPackCost'
     | 'ingredientDetail.fieldSellable'
-    | 'ingredientDetail.historyBody'
-    | 'ingredientDetail.historyTitle'
-    | 'ingredientDetail.kpiB2bPrice'
-    | 'ingredientDetail.kpiMarginBasis'
+    | 'ingredientDetail.fieldWaste'
+    | 'ingredientDetail.identificationSubtitle'
+    | 'ingredientDetail.identificationTitle'
     | 'ingredientDetail.kpiMarginOnCost'
-    | 'ingredientDetail.kpiPurchasePack'
-    | 'ingredientDetail.kpiUnitPrice'
-    | 'ingredientDetail.marginValue'
-    | 'ingredientDetail.packCostValue'
-    | 'ingredientDetail.packSummary'
-    | 'ingredientDetail.purchaseUnitValue'
-    | 'ingredientDetail.sectionChangeHistory'
-    | 'ingredientDetail.sectionDefinition'
-    | 'ingredientDetail.sectionPackCost'
-    | 'ingredientDetail.sectionSoldAsIs'
-    | 'ingredientDetail.sectionSuppliers'
-    | 'ingredientDetail.sectionWhereUsed'
+    | 'ingredientDetail.nutrientValue'
+    | 'ingredientDetail.nutritionEmpty'
+    | 'ingredientDetail.nutritionSubtitle'
+    | 'ingredientDetail.perUnitValue'
     | 'ingredientDetail.sellableNo'
     | 'ingredientDetail.sellableYes'
-    | 'ingredientDetail.stockUnitValue'
-    | 'ingredientDetail.suppliersBody'
-    | 'ingredientDetail.suppliersTitle'
-    | 'ingredientDetail.tabComposition'
-    | 'ingredientDetail.tabHistory'
-    | 'ingredientDetail.tabOverview'
-    | 'ingredientDetail.tabPurchasing'
-    | 'ingredientDetail.tabSale'
-    | 'ingredientDetail.tabsLabel'
+    | 'ingredientDetail.sourcingTitle'
+    | 'ingredientDetail.usedInSubtitle'
+    | 'ingredientDetail.usedInTitle'
     | 'ingredientDetail.whereUsedBody'
     | 'ingredientDetail.whereUsedTitle'
     | 'kds.column.done'
@@ -3002,11 +3675,19 @@ export interface NamespaceKeys {
     | 'list.archivedToast'
     | 'list.caption'
     | 'list.columnAllergens'
+    | 'list.columnB2bPrice'
+    | 'list.columnB2cPrice'
     | 'list.columnCategory'
+    | 'list.columnComposition'
+    | 'list.columnCostPer100g'
+    | 'list.columnGramsPerUnit'
     | 'list.columnItem'
+    | 'list.columnItemsPerUnit'
     | 'list.columnName'
+    | 'list.columnPurchaseUnit'
     | 'list.columnReference'
     | 'list.columnStatus'
+    | 'list.columnSubcategory'
     | 'list.columnUnit'
     | 'list.columnUnitPrice'
     | 'list.columnUpdated'
@@ -3018,6 +3699,9 @@ export interface NamespaceKeys {
     | 'list.filteredEmptyTitle'
     | 'list.import'
     | 'list.importUnavailable'
+    | 'list.layoutCards'
+    | 'list.layoutLabel'
+    | 'list.layoutTable'
     | 'list.loadMore'
     | 'list.loadingMore'
     | 'list.mayContain'
@@ -3031,7 +3715,6 @@ export interface NamespaceKeys {
     | 'list.statDraft'
     | 'list.statDraftAction'
     | 'list.statDraftCaption'
-    | 'list.statLive'
     | 'list.statLiveCaption'
     | 'list.statMissingArabic'
     | 'list.statMissingArabicCaption'
@@ -3067,31 +3750,25 @@ export interface NamespaceKeys {
     | 'meals.allergensRailEmpty'
     | 'meals.allergensRailFrozen'
     | 'meals.allergensRailTitle'
-    | 'meals.backToList'
     | 'meals.blockDescription'
     | 'meals.blockMealTypes'
     | 'meals.blockName'
     | 'meals.blockServiceDays'
     | 'meals.blockUnsaved'
-    | 'meals.caption'
     | 'meals.channelsLabel'
     | 'meals.channelsReadOnly'
-    | 'meals.columnAllergens'
-    | 'meals.columnChannels'
-    | 'meals.columnName'
     | 'meals.confidential'
     | 'meals.confidentialHint'
     | 'meals.create'
-    | 'meals.createTitle'
-    | 'meals.createdToast'
     | 'meals.descriptionLabel'
     | 'meals.dietsHint'
     | 'meals.dietsLabel'
     | 'meals.editTitle'
-    | 'meals.emptyBody'
-    | 'meals.emptyTitle'
-    | 'meals.filteredEmptyBody'
-    | 'meals.filteredEmptyTitle'
+    | 'meals.finishedStockBlockedIngredient'
+    | 'meals.finishedStockBlockedMode'
+    | 'meals.finishedStockOff'
+    | 'meals.finishedStockOn'
+    | 'meals.finishedStockToggleLabel'
     | 'meals.gateCheckName'
     | 'meals.gateCheckSaved'
     | 'meals.gateCheckServiceDays'
@@ -3103,14 +3780,27 @@ export interface NamespaceKeys {
     | 'meals.marginValue'
     | 'meals.mealTypesLabel'
     | 'meals.nameRequired'
-    | 'meals.noChannels'
-    | 'meals.notFoundBody'
-    | 'meals.notFoundTitle'
+    | 'meals.netContentHint'
+    | 'meals.netContentInvalid'
+    | 'meals.netContentLabel'
+    | 'meals.netContentRequired'
+    | 'meals.netContentUnitLabel'
+    | 'meals.netContentUnitMissing'
+    | 'meals.netContentUnitsForbidden'
     | 'meals.notVisibleToConsumers'
-    | 'meals.openRecipe'
     | 'meals.portionHint'
     | 'meals.portionInvalid'
     | 'meals.portionLabel'
+    | 'meals.portionPlaceholder'
+    | 'meals.producedIngredientHint'
+    | 'meals.producedIngredientLabel'
+    | 'meals.producedIngredientNone'
+    | 'meals.productionModeBoth'
+    | 'meals.productionModeHint'
+    | 'meals.productionModeLabel'
+    | 'meals.productionModeProduction'
+    | 'meals.productionModeSupplier'
+    | 'meals.productionModeUnset'
     | 'meals.publishAllergensNone'
     | 'meals.publishAllergensTitle'
     | 'meals.publishBlockedTitle'
@@ -3121,38 +3811,31 @@ export interface NamespaceKeys {
     | 'meals.publishedTitle'
     | 'meals.publishedToast'
     | 'meals.recipeHint'
-    | 'meals.recipeHintNone'
-    | 'meals.recipeLabel'
-    | 'meals.recipeNone'
     | 'meals.resultCount'
     | 'meals.retire'
     | 'meals.retireBody'
     | 'meals.retireConfirm'
     | 'meals.retireConsequence'
-    | 'meals.retireFailed'
     | 'meals.retireTitle'
     | 'meals.retiredBody'
     | 'meals.retiredTitle'
     | 'meals.retiredToast'
-    | 'meals.searchPlaceholder'
     | 'meals.sectionDetails'
     | 'meals.sectionIdentity'
     | 'meals.sectionMargin'
+    | 'meals.sectionProduction'
+    | 'meals.sectionProductionHint'
     | 'meals.sectionRecipe'
     | 'meals.sectionWhen'
     | 'meals.sectionWhenHint'
-    | 'meals.statLiveAction'
-    | 'meals.statLiveCaption'
     | 'meals.subtitle'
     | 'meals.title'
     | 'meals.typeFilterAll'
-    | 'meals.typeFilterLabel'
-    | 'meals.viewAllergensCaption'
-    | 'meals.viewAllergensSource'
     | 'meals.viewKind'
     | 'meals.viewPublic'
     | 'meals.viewVisibility'
     | 'meals.visibleToConsumers'
+    | 'nav.groups.access'
     | 'nav.groups.catalogue'
     | 'nav.groups.commercial'
     | 'nav.groups.operations'
@@ -3162,53 +3845,82 @@ export interface NamespaceKeys {
     | 'nav.overview'
     | 'nav.railTitle'
     | 'nutritionFacts.derivedBadge'
-    | 'nutritionFacts.derivedDescription'
-    | 'nutritionFacts.estimateDescription'
     | 'nutritionFacts.estimateLabel'
     | 'nutritionFacts.estimatedBadge'
-    | 'nutritionFacts.hint'
-    | 'nutritionFacts.noteHint'
     | 'nutritionFacts.noteLabel'
     | 'nutritionFacts.notePlaceholder'
-    | 'nutritionFacts.partialError'
-    | 'nutritionFacts.partialHint'
-    | 'nutritionFacts.saturatedFatHint'
     | 'nutritionFacts.title'
     | 'nutritionFacts.unitGrams'
     | 'nutritionFacts.unitKcal'
     | 'nutritionFacts.unitMilligrams'
+    | 'ops.batch.awaitingTarget'
+    | 'ops.batch.baseTimes'
+    | 'ops.batch.baseTimesWithWaste'
     | 'ops.batch.basis.fills_yield'
     | 'ops.batch.basis.per_batch'
     | 'ops.batch.basis.per_container'
+    | 'ops.batch.basisLabel'
+    | 'ops.batch.basisPortions'
+    | 'ops.batch.basisYield'
+    | 'ops.batch.batchesUnit'
+    | 'ops.batch.book'
+    | 'ops.batch.bookHint'
+    | 'ops.batch.columnAvailable'
     | 'ops.batch.columnBasis'
+    | 'ops.batch.columnDesignation'
     | 'ops.batch.columnItem'
-    | 'ops.batch.columnNote'
+    | 'ops.batch.columnPerBatch'
+    | 'ops.batch.columnPosition'
     | 'ops.batch.columnQuantity'
+    | 'ops.batch.columnRef'
+    | 'ops.batch.columnRequired'
+    | 'ops.batch.columnShort'
+    | 'ops.batch.columnToIssue'
     | 'ops.batch.columnUnit'
+    | 'ops.batch.consumeBody'
+    | 'ops.batch.consumeHeading'
+    | 'ops.batch.factBaseYield'
+    | 'ops.batch.factBatchesNeeded'
+    | 'ops.batch.factPiecesNone'
+    | 'ops.batch.factPortionsPerBatch'
+    | 'ops.batch.factPortionsProduced'
+    | 'ops.batch.factVersion'
+    | 'ops.batch.factYieldCaption'
+    | 'ops.batch.factorLine'
+    | 'ops.batch.factorNone'
+    | 'ops.batch.fromDatabase'
     | 'ops.batch.ingredientsHeading'
+    | 'ops.batch.lineCount'
     | 'ops.batch.loadErrorTitle'
-    | 'ops.batch.metrics.batches'
-    | 'ops.batch.metrics.pieces'
-    | 'ops.batch.metrics.quantity'
-    | 'ops.batch.metrics.waste'
-    | 'ops.batch.modeLabel'
-    | 'ops.batch.modePieces'
-    | 'ops.batch.modeYield'
+    | 'ops.batch.loadingCaption'
     | 'ops.batch.noPackaging'
     | 'ops.batch.noPiecesHint'
+    | 'ops.batch.noRecipeCaption'
+    | 'ops.batch.noneRecorded'
     | 'ops.batch.optionalBadge'
     | 'ops.batch.packagingHeading'
+    | 'ops.batch.packagingScaledHeading'
+    | 'ops.batch.packagingWasteIncluded'
     | 'ops.batch.pickRecipeBody'
     | 'ops.batch.pickRecipeTitle'
-    | 'ops.batch.piecesUnit'
+    | 'ops.batch.portionsUnit'
+    | 'ops.batch.positionCovered'
+    | 'ops.batch.positionShort'
+    | 'ops.batch.printSheet'
+    | 'ops.batch.rawMaterialsHeading'
+    | 'ops.batch.readOnlyChip'
     | 'ops.batch.recipeLabel'
     | 'ops.batch.recipePlaceholder'
     | 'ops.batch.recipesErrorTitle'
-    | 'ops.batch.subtitle'
-    | 'ops.batch.targetLabel'
+    | 'ops.batch.roundedFrom'
+    | 'ops.batch.roundedUpFrom'
+    | 'ops.batch.roundingFoot'
     | 'ops.batch.targetNeededBody'
     | 'ops.batch.targetNeededTitle'
-    | 'ops.batch.title'
+    | 'ops.batch.targetPortionsLabel'
+    | 'ops.batch.targetQuantityLabel'
+    | 'ops.batch.versionCell'
+    | 'ops.batch.wasteAddedToInputs'
     | 'ops.cashReport.a11y.unnamedAgent'
     | 'ops.cashReport.caption'
     | 'ops.cashReport.columnAgent'
@@ -3237,7 +3949,6 @@ export interface NamespaceKeys {
     | 'ops.cashReport.summaryRows'
     | 'ops.cashReport.title'
     | 'ops.cashReport.totalsHeading'
-    | 'ops.cashReport.totalsNote'
     | 'ops.costReport.caption'
     | 'ops.costReport.chartCogs'
     | 'ops.costReport.chartCogsMix'
@@ -3248,9 +3959,13 @@ export interface NamespaceKeys {
     | 'ops.costReport.chip'
     | 'ops.costReport.cogsMixCenter'
     | 'ops.costReport.columnCogs'
+    | 'ops.costReport.columnEstimatedMargin'
     | 'ops.costReport.columnMargin'
     | 'ops.costReport.columnMarginPercent'
     | 'ops.costReport.columnMonth'
+    | 'ops.costReport.columnProductionConsumption'
+    | 'ops.costReport.columnProductionWaste'
+    | 'ops.costReport.columnProductionYield'
     | 'ops.costReport.columnRevenue'
     | 'ops.costReport.columnSpend'
     | 'ops.costReport.currencyLabel'
@@ -3306,10 +4021,12 @@ export interface NamespaceKeys {
     | 'ops.exceptions.reasons.no_catalogue_item'
     | 'ops.exceptions.reasons.no_ingredient_cost'
     | 'ops.exceptions.reasons.no_ingredient_link'
+    | 'ops.exceptions.reasons.no_net_content'
     | 'ops.exceptions.reasons.no_recipe_version'
     | 'ops.exceptions.reasons.no_stock_item'
     | 'ops.exceptions.reasons.no_stock_unit'
     | 'ops.exceptions.reasons.no_yield_piece_count'
+    | 'ops.exceptions.reasons.reserved_for_production'
     | 'ops.exceptions.reasons.unit_conversion_unsupported'
     | 'ops.exceptions.reasons.unquantified_recipe_line'
     | 'ops.exceptions.resolve'
@@ -3319,7 +4036,6 @@ export interface NamespaceKeys {
     | 'ops.exceptions.resolvedBadge'
     | 'ops.exceptions.resolvedToast'
     | 'ops.exceptions.retry'
-    | 'ops.exceptions.showingCount'
     | 'ops.exceptions.statResolvedCaption'
     | 'ops.exceptions.statShownCaption'
     | 'ops.exceptions.statUnit'
@@ -3338,8 +4054,6 @@ export interface NamespaceKeys {
     | 'ops.exceptions.window.openNote'
     | 'ops.exceptions.window.retry'
     | 'ops.exceptions.window.title'
-    | 'ops.ledger.allItems'
-    | 'ops.ledger.allSuppliers'
     | 'ops.ledger.chargeDelivery'
     | 'ops.ledger.chargeDiscount'
     | 'ops.ledger.chargeOther'
@@ -3347,29 +4061,37 @@ export interface NamespaceKeys {
     | 'ops.ledger.columnDate'
     | 'ops.ledger.columnItem'
     | 'ops.ledger.columnLineTotal'
+    | 'ops.ledger.columnQuantity'
+    | 'ops.ledger.columnState'
     | 'ops.ledger.columnSupplier'
     | 'ops.ledger.columnUnitPrice'
     | 'ops.ledger.completeBadge'
+    | 'ops.ledger.costNoteBody'
+    | 'ops.ledger.costNoteTitle'
     | 'ops.ledger.emptyBody'
     | 'ops.ledger.emptyTitle'
-    | 'ops.ledger.filterCostStatus'
     | 'ops.ledger.filterFrom'
-    | 'ops.ledger.filterItem'
-    | 'ops.ledger.filterSupplier'
     | 'ops.ledger.filterTo'
+    | 'ops.ledger.fromPlaceholder'
     | 'ops.ledger.hideCharges'
     | 'ops.ledger.incompleteBadge'
     | 'ops.ledger.modeDetail'
     | 'ops.ledger.modeLabel'
     | 'ops.ledger.modeMonthly'
     | 'ops.ledger.modeWeekly'
-    | 'ops.ledger.nextPage'
     | 'ops.ledger.noPricedDeliveries'
     | 'ops.ledger.noSupplier'
     | 'ops.ledger.pendingFxNote'
     | 'ops.ledger.periodDates'
+    | 'ops.ledger.searchPlaceholder'
     | 'ops.ledger.showCharges'
-    | 'ops.ledger.subtitle'
+    | 'ops.ledger.statLinesUnit'
+    | 'ops.ledger.statPendingFxCaption'
+    | 'ops.ledger.statPricedCaption'
+    | 'ops.ledger.statUnpricedCaption'
+    | 'ops.ledger.statePendingFx'
+    | 'ops.ledger.statePriced'
+    | 'ops.ledger.stateUnpriced'
     | 'ops.ledger.summaryEmptyBody'
     | 'ops.ledger.summaryEmptyTitle'
     | 'ops.ledger.summaryInvoiceTotal'
@@ -3377,13 +4099,20 @@ export interface NamespaceKeys {
     | 'ops.ledger.summaryRange'
     | 'ops.ledger.summarySubtotal'
     | 'ops.ledger.title'
+    | 'ops.ledger.toPlaceholder'
     | 'ops.ledger.unpricedLines'
+    | 'ops.ledger.viewFoot'
+    | 'ops.ledger.viewKind'
+    | 'ops.ledger.viewPendingFxNote'
+    | 'ops.ledger.viewUnpricedNote'
     | 'ops.metricUnavailable'
-    | 'ops.orders.allLoaded'
+    | 'ops.orders.actionsHeading'
+    | 'ops.orders.backToOrders'
     | 'ops.orders.cancel'
     | 'ops.orders.cancelBody'
     | 'ops.orders.cancelConfirm'
     | 'ops.orders.cancelDismiss'
+    | 'ops.orders.cancelFinal'
     | 'ops.orders.cancelReasonLabel'
     | 'ops.orders.cancelTitle'
     | 'ops.orders.cancellationHeading'
@@ -3391,6 +4120,7 @@ export interface NamespaceKeys {
     | 'ops.orders.cancelledAt'
     | 'ops.orders.cancelledToast'
     | 'ops.orders.caption'
+    | 'ops.orders.chip'
     | 'ops.orders.clearFilters'
     | 'ops.orders.columnActions'
     | 'ops.orders.columnDelivery'
@@ -3405,6 +4135,7 @@ export interface NamespaceKeys {
     | 'ops.orders.conflictBody'
     | 'ops.orders.conflictRefresh'
     | 'ops.orders.conflictTitle'
+    | 'ops.orders.currencyNote'
     | 'ops.orders.deliveryAddress'
     | 'ops.orders.deliveryArea'
     | 'ops.orders.deliveryDate'
@@ -3422,6 +4153,8 @@ export interface NamespaceKeys {
     | 'ops.orders.fulfil'
     | 'ops.orders.fulfilledAt'
     | 'ops.orders.fulfilledToast'
+    | 'ops.orders.lineCount'
+    | 'ops.orders.lineItem'
     | 'ops.orders.lineQuantity'
     | 'ops.orders.lineTotal'
     | 'ops.orders.lineUnitPrice'
@@ -3429,12 +4162,13 @@ export interface NamespaceKeys {
     | 'ops.orders.loadErrorTitle'
     | 'ops.orders.loadMore'
     | 'ops.orders.loadingMore'
+    | 'ops.orders.metricFulfilled'
     | 'ops.orders.metrics.awaiting'
     | 'ops.orders.metrics.confirmed'
     | 'ops.orders.metrics.loaded'
     | 'ops.orders.noAllergens'
     | 'ops.orders.noDeliveryFee'
-    | 'ops.orders.open'
+    | 'ops.orders.nothingToDo'
     | 'ops.orders.placedAt'
     | 'ops.orders.reason.addressUnreachable'
     | 'ops.orders.reason.customerRequested'
@@ -3443,6 +4177,11 @@ export interface NamespaceKeys {
     | 'ops.orders.saveFailed'
     | 'ops.orders.searchHint'
     | 'ops.orders.searchLabel'
+    | 'ops.orders.statAwaitingCaption'
+    | 'ops.orders.statConfirmedCaption'
+    | 'ops.orders.statFulfilledCaption'
+    | 'ops.orders.statLoadedCaption'
+    | 'ops.orders.statUnit'
     | 'ops.orders.status.cancelled'
     | 'ops.orders.status.confirmed'
     | 'ops.orders.status.fulfilled'
@@ -3454,110 +4193,444 @@ export interface NamespaceKeys {
     | 'ops.orders.title'
     | 'ops.orders.total'
     | 'ops.orders.totalsHeading'
+    | 'ops.orders.viewKind'
+    | 'ops.orders.viewPlacedNote'
     | 'ops.procurement.addLine'
+    | 'ops.procurement.arrivalAside'
+    | 'ops.procurement.arrivalSection'
     | 'ops.procurement.columnCostStatus'
     | 'ops.procurement.columnLines'
     | 'ops.procurement.columnReceivedAt'
+    | 'ops.procurement.columnRefs'
     | 'ops.procurement.columnSupplier'
     | 'ops.procurement.columnTotal'
     | 'ops.procurement.costsRedacted'
+    | 'ops.procurement.deliveryNotePlaceholder'
+    | 'ops.procurement.discardBody'
+    | 'ops.procurement.discardTitle'
     | 'ops.procurement.emptyBody'
     | 'ops.procurement.emptyTitle'
+    | 'ops.procurement.fieldDeliveryNote'
     | 'ops.procurement.fieldDocumentRef'
     | 'ops.procurement.fieldInvoiceRef'
-    | 'ops.procurement.fieldInvoiceRefHint'
     | 'ops.procurement.fieldLineItem'
     | 'ops.procurement.fieldLineQuantity'
     | 'ops.procurement.fieldLineUnit'
     | 'ops.procurement.fieldLineUnitPrice'
+    | 'ops.procurement.fieldOrder'
     | 'ops.procurement.fieldReceivedOn'
-    | 'ops.procurement.fieldReceivedOnHint'
     | 'ops.procurement.fieldSupplier'
     | 'ops.procurement.fieldSupplierCode'
     | 'ops.procurement.fieldSupplierEmail'
     | 'ops.procurement.fieldSupplierName'
     | 'ops.procurement.fieldSupplierPhone'
+    | 'ops.procurement.filteredEmptyBody'
+    | 'ops.procurement.invoicePlaceholder'
+    | 'ops.procurement.issueDateFuture'
+    | 'ops.procurement.issueFieldItem'
+    | 'ops.procurement.issueFieldQuantity'
+    | 'ops.procurement.issueFieldUnitPrice'
+    | 'ops.procurement.issueLine'
+    | 'ops.procurement.issueNoLines'
+    | 'ops.procurement.issueNoOrder'
+    | 'ops.procurement.issueOverReceipt'
+    | 'ops.procurement.issueVarianceNote'
+    | 'ops.procurement.issuesSummary'
+    | 'ops.procurement.kindMarket'
+    | 'ops.procurement.kindOrder'
+    | 'ops.procurement.kindOrderUnpicked'
+    | 'ops.procurement.lastPaid'
+    | 'ops.procurement.lineCount'
+    | 'ops.procurement.lineCountUnpriced'
+    | 'ops.procurement.lineFieldLabel'
+    | 'ops.procurement.lineItemMissing'
+    | 'ops.procurement.lineQuantityInvalid'
+    | 'ops.procurement.lineQuantityMissing'
+    | 'ops.procurement.lineTotal'
+    | 'ops.procurement.lineUnitPriceInvalid'
+    | 'ops.procurement.linesSection'
+    | 'ops.procurement.listFoot'
     | 'ops.procurement.manageSuppliers'
-    | 'ops.procurement.metrics.lines'
-    | 'ops.procurement.metrics.receipts'
-    | 'ops.procurement.metrics.suppliers'
+    | 'ops.procurement.modeMarketBody'
+    | 'ops.procurement.modeMarketTitle'
+    | 'ops.procurement.modeOrderBody'
+    | 'ops.procurement.modeOrderTitle'
+    | 'ops.procurement.neverBought'
     | 'ops.procurement.newSupplier'
+    | 'ops.procurement.newSupplierBody'
     | 'ops.procurement.newSupplierFailed'
+    | 'ops.procurement.newSupplierSave'
     | 'ops.procurement.newSupplierTitle'
     | 'ops.procurement.noSupplier'
-    | 'ops.procurement.noSuppliers'
     | 'ops.procurement.notYetReceived'
+    | 'ops.procurement.orderOption'
+    | 'ops.procurement.orderOutstanding'
+    | 'ops.procurement.ordersLoading'
     | 'ops.procurement.pendingFxCount'
+    | 'ops.procurement.postDelivery'
     | 'ops.procurement.postFailed'
     | 'ops.procurement.postReceipt'
     | 'ops.procurement.postTitle'
     | 'ops.procurement.postedToast'
+    | 'ops.procurement.priceChange'
+    | 'ops.procurement.pricePlaceholder'
+    | 'ops.procurement.quantitiesOnly'
+    | 'ops.procurement.quantitiesOnlyNote'
+    | 'ops.procurement.receiptSection'
+    | 'ops.procurement.receiptTotal'
     | 'ops.procurement.receiptsTitle'
+    | 'ops.procurement.receivedOnFuture'
     | 'ops.procurement.removeLine'
-    | 'ops.procurement.subtitle'
+    | 'ops.procurement.risesEmpty'
+    | 'ops.procurement.risesQuantity'
+    | 'ops.procurement.risesTitle'
+    | 'ops.procurement.risesTitleNoBranch'
+    | 'ops.procurement.searchPlaceholder'
+    | 'ops.procurement.statCompleteCaption'
+    | 'ops.procurement.statPartialCaption'
+    | 'ops.procurement.statReceiptsUnit'
+    | 'ops.procurement.statUnpricedCaption'
+    | 'ops.procurement.summaryKind'
+    | 'ops.procurement.summaryNoSupplier'
+    | 'ops.procurement.summaryTitle'
+    | 'ops.procurement.supplierCodePlaceholder'
     | 'ops.procurement.supplierCreatedToast'
-    | 'ops.procurement.suppliersTitle'
+    | 'ops.procurement.supplierCurrencyNote'
+    | 'ops.procurement.supplierNamePlaceholder'
+    | 'ops.procurement.supplierNameRequired'
+    | 'ops.procurement.supplierPlaceholder'
     | 'ops.procurement.title'
+    | 'ops.procurement.unplannedTitle'
+    | 'ops.procurement.unpricedNote'
     | 'ops.procurement.unpricedReceipts'
-    | 'ops.production.columnActions'
-    | 'ops.production.columnId'
+    | 'ops.procurement.viewKind'
+    | 'ops.procurement.viewUnpricedNote'
+    | 'ops.production.abandon'
+    | 'ops.production.abandonReasonHint'
+    | 'ops.production.abandonReasonLabel'
+    | 'ops.production.abandonReasonPlaceholder'
+    | 'ops.production.abandonReasonRequired'
+    | 'ops.production.abandonSubmit'
+    | 'ops.production.abandonSubtitle'
+    | 'ops.production.abandonTitle'
+    | 'ops.production.abandonedAtLabel'
+    | 'ops.production.abandonedToast'
+    | 'ops.production.actualCost'
+    | 'ops.production.actualCostCaption'
+    | 'ops.production.amountRequired'
+    | 'ops.production.asPlanned'
+    | 'ops.production.backToDesk'
+    | 'ops.production.backToList'
+    | 'ops.production.batchFactorLabel'
+    | 'ops.production.batchFactorPlaceholder'
+    | 'ops.production.batchFallbackTitle'
+    | 'ops.production.batchReferenceLabel'
+    | 'ops.production.batchSection'
+    | 'ops.production.batchTitle'
+    | 'ops.production.branchScoped'
+    | 'ops.production.cancelBatch'
+    | 'ops.production.cancelBlocked'
+    | 'ops.production.cancelBody'
+    | 'ops.production.cancelSubmit'
+    | 'ops.production.cancelTitle'
+    | 'ops.production.cancelledAtLabel'
+    | 'ops.production.cancelledToast'
+    | 'ops.production.columnBatch'
+    | 'ops.production.columnBranch'
+    | 'ops.production.columnClaimed'
+    | 'ops.production.columnExpiry'
+    | 'ops.production.columnItem'
+    | 'ops.production.columnMade'
+    | 'ops.production.columnMakes'
     | 'ops.production.columnStatus'
+    | 'ops.production.columnStorage'
+    | 'ops.production.columnUnitCost'
+    | 'ops.production.columnUsed'
+    | 'ops.production.columnVersion'
+    | 'ops.production.columnWasted'
+    | 'ops.production.columnYield'
     | 'ops.production.complete'
+    | 'ops.production.completeFailed'
+    | 'ops.production.completeSubmit'
+    | 'ops.production.completeSubtitle'
+    | 'ops.production.completeTitle'
+    | 'ops.production.completedAtLabel'
     | 'ops.production.completedToast'
+    | 'ops.production.completedUnvaluedToast'
+    | 'ops.production.confirm'
+    | 'ops.production.confirmedAtLabel'
+    | 'ops.production.confirmedToast'
+    | 'ops.production.consumedHeading'
+    | 'ops.production.consumedHint'
+    | 'ops.production.costStatusPartial'
+    | 'ops.production.costStatusPartialBody'
+    | 'ops.production.costStatusUnvalued'
+    | 'ops.production.costStatusUnvaluedBody'
+    | 'ops.production.costWithheld'
+    | 'ops.production.costsHiddenBody'
+    | 'ops.production.costsHiddenTitle'
     | 'ops.production.create'
-    | 'ops.production.createFailed'
+    | 'ops.production.createChip'
     | 'ops.production.createSubmit'
-    | 'ops.production.createTitle'
     | 'ops.production.createdToast'
+    | 'ops.production.currencyConflict'
+    | 'ops.production.discardBody'
+    | 'ops.production.discardTitle'
+    | 'ops.production.draftOnTopBody'
+    | 'ops.production.draftOnTopTitle'
     | 'ops.production.emptyBody'
     | 'ops.production.emptyTitle'
-    | 'ops.production.loadErrorBody'
+    | 'ops.production.estimatedCost'
+    | 'ops.production.estimatedCostCaption'
+    | 'ops.production.estimatedLiveCaption'
+    | 'ops.production.expiredBadge'
+    | 'ops.production.expiredNotice'
+    | 'ops.production.expiryDateLabel'
+    | 'ops.production.expiryFromRecipe'
+    | 'ops.production.filterOpen'
+    | 'ops.production.filterStatus'
+    | 'ops.production.filteredEmptyBody'
+    | 'ops.production.filteredEmptyTitle'
+    | 'ops.production.footNote'
+    | 'ops.production.fromPlanner'
+    | 'ops.production.headingCost'
+    | 'ops.production.headingLines'
+    | 'ops.production.headingPlan'
+    | 'ops.production.headingRecord'
+    | 'ops.production.headingYield'
+    | 'ops.production.labelBatchOf'
+    | 'ops.production.labelCopies'
+    | 'ops.production.lineKindIngredient'
+    | 'ops.production.lineKindPackaging'
     | 'ops.production.loadErrorTitle'
-    | 'ops.production.metrics.batches'
-    | 'ops.production.metrics.inProgress'
-    | 'ops.production.metrics.yield'
+    | 'ops.production.lotLabel'
+    | 'ops.production.newSubtitle'
+    | 'ops.production.newTitle'
+    | 'ops.production.nextPage'
     | 'ops.production.noBranchBody'
     | 'ops.production.noBranchTitle'
-    | 'ops.production.ordersHeading'
+    | 'ops.production.noExpiry'
+    | 'ops.production.noRecipeAccessBody'
+    | 'ops.production.noRecipeAccessTitle'
+    | 'ops.production.notFoundBody'
+    | 'ops.production.notFoundTitle'
+    | 'ops.production.notesHint'
+    | 'ops.production.notesLabel'
+    | 'ops.production.notesPlaceholder'
+    | 'ops.production.openBatch'
+    | 'ops.production.openNote'
+    | 'ops.production.orderShortfall'
+    | 'ops.production.planAvailable'
+    | 'ops.production.planHolesBody'
+    | 'ops.production.planHolesTitle'
+    | 'ops.production.planIngredientsHeading'
+    | 'ops.production.planLiveCaption'
+    | 'ops.production.planMissing'
+    | 'ops.production.planOnHand'
+    | 'ops.production.planPackagingHeading'
+    | 'ops.production.planReady'
+    | 'ops.production.planRequired'
+    | 'ops.production.planReserved'
+    | 'ops.production.planShort'
+    | 'ops.production.plannedCaption'
+    | 'ops.production.plannedLabel'
+    | 'ops.production.plannedYieldLabel'
+    | 'ops.production.previewDraftOnTop'
+    | 'ops.production.previewNeedsAmount'
+    | 'ops.production.previewNeedsRecipe'
+    | 'ops.production.previousPage'
+    | 'ops.production.printLabel'
+    | 'ops.production.producedHint'
+    | 'ops.production.producedLabel'
+    | 'ops.production.producedPlaceholder'
+    | 'ops.production.producedRequired'
+    | 'ops.production.productionDateLabel'
+    | 'ops.production.quickFactor'
+    | 'ops.production.recipeHint'
+    | 'ops.production.recipeHintDraft'
+    | 'ops.production.recipeHintPortions'
+    | 'ops.production.recipeLabel'
+    | 'ops.production.recipePlaceholder'
+    | 'ops.production.recipeRequired'
+    | 'ops.production.recipeUnpublished'
+    | 'ops.production.registerEmptyBody'
+    | 'ops.production.registerEmptyTitle'
+    | 'ops.production.registerTitle'
+    | 'ops.production.rejectedHint'
+    | 'ops.production.rejectedLabel'
+    | 'ops.production.rejectedTooHigh'
+    | 'ops.production.runsCaption'
+    | 'ops.production.scaleFactor'
+    | 'ops.production.scaleLabel'
+    | 'ops.production.scaleYield'
+    | 'ops.production.scanLabel'
+    | 'ops.production.scanNoMatch'
+    | 'ops.production.searchPlaceholder'
+    | 'ops.production.sheetBasisHeading'
+    | 'ops.production.sheetLink'
+    | 'ops.production.sheetLive'
+    | 'ops.production.sheetNutritionEmpty'
+    | 'ops.production.sheetNutritionHeading'
+    | 'ops.production.sheetPublicationLabel'
+    | 'ops.production.sheetPublicationNone'
+    | 'ops.production.sheetSubtitle'
+    | 'ops.production.sheetTitle'
+    | 'ops.production.sheetUnconfirmedBody'
+    | 'ops.production.sheetUnconfirmedTitle'
+    | 'ops.production.sheetVersionLabel'
+    | 'ops.production.shortNone'
+    | 'ops.production.shortSome'
+    | 'ops.production.start'
+    | 'ops.production.startedAtLabel'
+    | 'ops.production.startedToast'
+    | 'ops.production.statCompletedCaption'
+    | 'ops.production.statConfirmedCaption'
+    | 'ops.production.statDraftCaption'
+    | 'ops.production.statExpired'
+    | 'ops.production.statExpiredCaption'
+    | 'ops.production.statInProductionCaption'
+    | 'ops.production.statInProgressCaption'
+    | 'ops.production.statLines'
+    | 'ops.production.statLinesCaption'
+    | 'ops.production.statPlannedCaption'
+    | 'ops.production.statShort'
+    | 'ops.production.statUnit'
+    | 'ops.production.statUnvalued'
+    | 'ops.production.statUnvaluedCaption'
+    | 'ops.production.status.abandoned'
     | 'ops.production.status.cancelled'
     | 'ops.production.status.completed'
-    | 'ops.production.status.inProgress'
-    | 'ops.production.status.planned'
-    | 'ops.production.subtitle'
+    | 'ops.production.status.confirmed'
+    | 'ops.production.status.draft'
+    | 'ops.production.status.inProduction'
+    | 'ops.production.statusTitle'
+    | 'ops.production.stepCompletedBody'
+    | 'ops.production.stepConfirmedBody'
+    | 'ops.production.stepDraftBody'
+    | 'ops.production.stepInProductionBody'
+    | 'ops.production.stepsTitle'
+    | 'ops.production.storageLocationLabel'
+    | 'ops.production.storageLocationPlaceholder'
+    | 'ops.production.summaryFoot'
+    | 'ops.production.summaryMakes'
+    | 'ops.production.summaryPortions'
+    | 'ops.production.summaryRuns'
+    | 'ops.production.summaryRunsValue'
+    | 'ops.production.summaryShort'
+    | 'ops.production.summaryShortNone'
+    | 'ops.production.summaryShortValue'
+    | 'ops.production.summaryTitle'
+    | 'ops.production.summaryVersion'
+    | 'ops.production.thisBranch'
     | 'ops.production.title'
-    | 'ops.production.versionHint'
-    | 'ops.production.versionLabel'
+    | 'ops.production.uncostedLines'
+    | 'ops.production.unitCostLabel'
+    | 'ops.production.unpublishedTitle'
+    | 'ops.production.unreferenced'
+    | 'ops.production.usableCaption'
+    | 'ops.production.viewKind'
+    | 'ops.production.wasteHeading'
+    | 'ops.production.wasteHint'
+    | 'ops.production.yieldPlanned'
+    | 'ops.production.yieldProduced'
+    | 'ops.production.yieldRejected'
+    | 'ops.production.yieldRejectedCaption'
+    | 'ops.production.yieldUsable'
+    | 'ops.production.yieldVariance'
+    | 'ops.production.yieldVarianceLossCaption'
+    | 'ops.production.yieldVarianceOverCaption'
+    | 'ops.qc.backToList'
+    | 'ops.qc.batchMeta'
+    | 'ops.qc.batchesNone'
+    | 'ops.qc.checkBadge'
     | 'ops.qc.checksHeading'
-    | 'ops.qc.columnActions'
+    | 'ops.qc.checksNone'
+    | 'ops.qc.colBatch'
+    | 'ops.qc.colChecks'
+    | 'ops.qc.colDate'
+    | 'ops.qc.colReceipt'
+    | 'ops.qc.colRecipe'
+    | 'ops.qc.colSupplier'
+    | 'ops.qc.columnKind'
     | 'ops.qc.columnStatus'
     | 'ops.qc.columnSubject'
+    | 'ops.qc.coverAside'
+    | 'ops.qc.coverBatchTitle'
+    | 'ops.qc.coverMore'
+    | 'ops.qc.coverReceiptTitle'
     | 'ops.qc.create'
+    | 'ops.qc.createChip'
     | 'ops.qc.createFailed'
     | 'ops.qc.createSubmit'
+    | 'ops.qc.createSubmitHold'
     | 'ops.qc.createTitle'
+    | 'ops.qc.createdHeldToast'
     | 'ops.qc.createdToast'
+    | 'ops.qc.duplicateHold'
+    | 'ops.qc.duplicateOpen'
+    | 'ops.qc.duplicatePending'
     | 'ops.qc.emptyBody'
     | 'ops.qc.emptyTitle'
+    | 'ops.qc.fieldReference'
+    | 'ops.qc.filteredEmptyBody'
+    | 'ops.qc.filteredEmptyTitle'
+    | 'ops.qc.footNote'
     | 'ops.qc.heldToast'
     | 'ops.qc.hold'
+    | 'ops.qc.holdAfterCreateFailed'
+    | 'ops.qc.holdNote'
+    | 'ops.qc.issueNoSubject'
+    | 'ops.qc.kindBatchBody'
+    | 'ops.qc.kindBatchTitle'
+    | 'ops.qc.kindReceiptBody'
+    | 'ops.qc.kindReceiptTitle'
     | 'ops.qc.loadErrorBody'
     | 'ops.qc.loadErrorTitle'
     | 'ops.qc.metrics.holds'
     | 'ops.qc.metrics.openChecks'
     | 'ops.qc.metrics.releases'
+    | 'ops.qc.receiptsNone'
     | 'ops.qc.release'
     | 'ops.qc.releasedToast'
+    | 'ops.qc.searchBatches'
+    | 'ops.qc.searchPlaceholder'
+    | 'ops.qc.searchReceipts'
+    | 'ops.qc.startHoldBody'
+    | 'ops.qc.startHoldTitle'
+    | 'ops.qc.startPendingBody'
+    | 'ops.qc.startPendingTitle'
+    | 'ops.qc.startSection'
+    | 'ops.qc.statHoldCaption'
+    | 'ops.qc.statPendingCaption'
+    | 'ops.qc.statReleasedCaption'
+    | 'ops.qc.statUnit'
+    | 'ops.qc.stateHold'
+    | 'ops.qc.statePending'
+    | 'ops.qc.stateReleased'
+    | 'ops.qc.statesTitle'
     | 'ops.qc.status.hold'
     | 'ops.qc.status.passed'
     | 'ops.qc.status.pending'
     | 'ops.qc.status.released'
+    | 'ops.qc.statusOnHold'
+    | 'ops.qc.statusPending'
     | 'ops.qc.subject.goodsReceipt'
     | 'ops.qc.subject.productionOrder'
-    | 'ops.qc.subjectIdHint'
-    | 'ops.qc.subjectIdLabel'
-    | 'ops.qc.subjectTypeLabel'
-    | 'ops.qc.subtitle'
+    | 'ops.qc.subjectAside'
+    | 'ops.qc.subjectSection'
+    | 'ops.qc.subjectsFailed'
+    | 'ops.qc.subjectsLimited'
+    | 'ops.qc.subjectsNoMatch'
+    | 'ops.qc.summaryFootHold'
+    | 'ops.qc.summaryFootPending'
+    | 'ops.qc.summaryPlannedFor'
+    | 'ops.qc.summaryReceived'
+    | 'ops.qc.summaryStartsAs'
+    | 'ops.qc.summarySubject'
+    | 'ops.qc.summarySubjectType'
+    | 'ops.qc.summaryTitle'
     | 'ops.qc.title'
+    | 'ops.qc.viewKind'
     | 'ops.quotations.caption'
     | 'ops.quotations.clearFilter'
     | 'ops.quotations.columnActions'
@@ -3604,14 +4677,17 @@ export interface NamespaceKeys {
     | 'ops.quotations.notPricedYet'
     | 'ops.quotations.notes'
     | 'ops.quotations.open'
-    | 'ops.quotations.price'
     | 'ops.quotations.programme'
     | 'ops.quotations.quotedAt'
     | 'ops.quotations.quotedToast'
     | 'ops.quotations.requestHeading'
     | 'ops.quotations.send'
+    | 'ops.quotations.sendRule'
     | 'ops.quotations.staleBody'
     | 'ops.quotations.staleTitle'
+    | 'ops.quotations.statAwaitingCaption'
+    | 'ops.quotations.statLoadedCaption'
+    | 'ops.quotations.statQuotedCaption'
     | 'ops.quotations.status.accepted'
     | 'ops.quotations.status.declined'
     | 'ops.quotations.status.expired'
@@ -3623,10 +4699,14 @@ export interface NamespaceKeys {
     | 'ops.quotations.title'
     | 'ops.quotations.total'
     | 'ops.quotations.totalsHeading'
+    | 'ops.quotations.viewKind'
     | 'ops.readyForApi'
+    | 'ops.receiving.backToProcurement'
     | 'ops.receiving.chargesHint'
+    | 'ops.receiving.chipPostsStock'
     | 'ops.receiving.closeShortHint'
     | 'ops.receiving.closeShortLabel'
+    | 'ops.receiving.closeShortReasonPlaceholder'
     | 'ops.receiving.confirmCloseShort'
     | 'ops.receiving.confirmComplete'
     | 'ops.receiving.confirmDate'
@@ -3640,6 +4720,7 @@ export interface NamespaceKeys {
     | 'ops.receiving.costStatus.complete'
     | 'ops.receiving.costStatus.partial'
     | 'ops.receiving.costStatus.unpriced'
+    | 'ops.receiving.documentRefPlaceholder'
     | 'ops.receiving.emptyBody'
     | 'ops.receiving.emptyTitle'
     | 'ops.receiving.fieldCloseShortReason'
@@ -3662,6 +4743,7 @@ export interface NamespaceKeys {
     | 'ops.receiving.fieldVarianceNote'
     | 'ops.receiving.fieldVarianceNoteHint'
     | 'ops.receiving.hideCharges'
+    | 'ops.receiving.invoiceRefPlaceholder'
     | 'ops.receiving.lineOverReceipt'
     | 'ops.receiving.linesTitle'
     | 'ops.receiving.orderMissingBody'
@@ -3674,17 +4756,23 @@ export interface NamespaceKeys {
     | 'ops.receiving.post'
     | 'ops.receiving.postFailed'
     | 'ops.receiving.postedToast'
+    | 'ops.receiving.sectionCharges'
+    | 'ops.receiving.sectionDelivery'
+    | 'ops.receiving.sectionOrder'
     | 'ops.receiving.showCharges'
     | 'ops.receiving.subtitle'
     | 'ops.receiving.summary'
     | 'ops.receiving.title'
     | 'ops.receiving.unpricedToast'
+    | 'ops.receiving.varianceNotePlaceholder'
     | 'ops.requirements.branchRequiredBody'
     | 'ops.requirements.branchRequiredTitle'
     | 'ops.requirements.columnAvailable'
     | 'ops.requirements.columnIngredient'
+    | 'ops.requirements.columnOnHand'
     | 'ops.requirements.columnPosition'
     | 'ops.requirements.columnRequired'
+    | 'ops.requirements.columnReserved'
     | 'ops.requirements.columnShort'
     | 'ops.requirements.columnSuggestedBuy'
     | 'ops.requirements.columnUnit'
@@ -3729,68 +4817,87 @@ export interface NamespaceKeys {
     | 'ops.requirements.windowLabel'
     | 'ops.requirements.windowTo'
     | 'ops.stock.adjust'
-    | 'ops.stock.adjustHint'
-    | 'ops.stock.adjustTitle'
     | 'ops.stock.adjustedToast'
-    | 'ops.stock.columnActions'
-    | 'ops.stock.columnHeld'
     | 'ops.stock.columnItem'
     | 'ops.stock.columnLastPurchase'
-    | 'ops.stock.columnLevel'
     | 'ops.stock.columnQuantity'
-    | 'ops.stock.columnThreshold'
+    | 'ops.stock.columnReorderPar'
     | 'ops.stock.columnUnit'
+    | 'ops.stock.countInvalid'
+    | 'ops.stock.countedToast'
     | 'ops.stock.direction'
+    | 'ops.stock.directionCount'
     | 'ops.stock.directionDecrease'
     | 'ops.stock.directionIncrease'
-    | 'ops.stock.emptyBody'
+    | 'ops.stock.effectCount'
+    | 'ops.stock.effectDecrease'
+    | 'ops.stock.effectIncrease'
+    | 'ops.stock.effectThreshold'
+    | 'ops.stock.effectWaste'
     | 'ops.stock.emptyShelf'
-    | 'ops.stock.emptyTitle'
+    | 'ops.stock.exceedsShelf'
     | 'ops.stock.fieldAdjustQuantity'
+    | 'ops.stock.fieldCountedQuantity'
+    | 'ops.stock.fieldNotes'
+    | 'ops.stock.fieldNotesPlaceholder'
     | 'ops.stock.fieldParLevel'
-    | 'ops.stock.fieldParLevelHint'
     | 'ops.stock.fieldThreshold'
-    | 'ops.stock.fieldThresholdHint'
-    | 'ops.stock.fieldWasteQuantity'
+    | 'ops.stock.filteredEmptyBody'
     | 'ops.stock.history'
     | 'ops.stock.inStockBadge'
     | 'ops.stock.ingredientsEmptyBody'
     | 'ops.stock.ingredientsEmptyTitle'
-    | 'ops.stock.ingredientsHint'
-    | 'ops.stock.ingredientsTitle'
+    | 'ops.stock.kindIngredients'
+    | 'ops.stock.kindLabel'
+    | 'ops.stock.kindProducts'
     | 'ops.stock.lastPurchaseFrom'
     | 'ops.stock.lastPurchaseHidden'
     | 'ops.stock.lastPurchaseLoading'
     | 'ops.stock.lastPurchasePrice'
-    | 'ops.stock.levelsTitle'
+    | 'ops.stock.ledgerNote'
+    | 'ops.stock.levelLabel'
+    | 'ops.stock.levelOut'
     | 'ops.stock.lowBadge'
     | 'ops.stock.lowStockCount'
-    | 'ops.stock.metrics.ingredients'
-    | 'ops.stock.metrics.levels'
     | 'ops.stock.metrics.lowStock'
     | 'ops.stock.metrics.outOfStock'
-    | 'ops.stock.metrics.products'
     | 'ops.stock.neverBought'
-    | 'ops.stock.neverStocked'
-    | 'ops.stock.noLevels'
     | 'ops.stock.noPurchaseSupplier'
     | 'ops.stock.noThreshold'
-    | 'ops.stock.pageSize'
+    | 'ops.stock.numberInvalid'
+    | 'ops.stock.parLevelPlaceholder'
+    | 'ops.stock.parNotAboveThreshold'
     | 'ops.stock.productsEmptyBody'
     | 'ops.stock.productsEmptyTitle'
-    | 'ops.stock.productsHint'
-    | 'ops.stock.productsTitle'
-    | 'ops.stock.subtitle'
-    | 'ops.stock.threshold'
+    | 'ops.stock.quantityInvalid'
+    | 'ops.stock.quantityUnitHint'
+    | 'ops.stock.reorderPar'
+    | 'ops.stock.saveFailedBody'
+    | 'ops.stock.saveFailedTitle'
+    | 'ops.stock.saveLabel'
+    | 'ops.stock.searchPlaceholder'
+    | 'ops.stock.sectionMovement'
+    | 'ops.stock.sectionThreshold'
+    | 'ops.stock.statLowCaption'
+    | 'ops.stock.statOkCaption'
+    | 'ops.stock.statOutCaption'
+    | 'ops.stock.statUnit'
+    | 'ops.stock.summaryAfter'
+    | 'ops.stock.summaryEffects'
+    | 'ops.stock.summaryNothing'
+    | 'ops.stock.summaryOnHand'
+    | 'ops.stock.summaryTitle'
     | 'ops.stock.thresholdClearedToast'
+    | 'ops.stock.thresholdNote'
+    | 'ops.stock.thresholdPlaceholder'
     | 'ops.stock.thresholdSetToast'
-    | 'ops.stock.thresholdTitle'
-    | 'ops.stock.title'
+    | 'ops.stock.viewKind'
+    | 'ops.stock.viewNoteEmpty'
+    | 'ops.stock.viewNoteLow'
     | 'ops.stock.waste'
-    | 'ops.stock.wasteTitle'
     | 'ops.stock.wastedToast'
     | 'ops.suppliers.addContact'
-    | 'ops.suppliers.addressHint'
+    | 'ops.suppliers.addressPlaceholder'
     | 'ops.suppliers.allItemsLinked'
     | 'ops.suppliers.archiveBody'
     | 'ops.suppliers.archiveConfirm'
@@ -3802,8 +4909,7 @@ export interface NamespaceKeys {
     | 'ops.suppliers.archivedToast'
     | 'ops.suppliers.backToList'
     | 'ops.suppliers.caption'
-    | 'ops.suppliers.codeEditHint'
-    | 'ops.suppliers.codeMintHint'
+    | 'ops.suppliers.codePlaceholder'
     | 'ops.suppliers.columnContact'
     | 'ops.suppliers.columnItem'
     | 'ops.suppliers.columnItems'
@@ -3811,20 +4917,21 @@ export interface NamespaceKeys {
     | 'ops.suppliers.columnName'
     | 'ops.suppliers.columnRef'
     | 'ops.suppliers.columnTerms'
+    | 'ops.suppliers.contactEmailPlaceholder'
+    | 'ops.suppliers.contactNamePlaceholder'
     | 'ops.suppliers.contactNeedsChannel'
     | 'ops.suppliers.contactPosition'
-    | 'ops.suppliers.contactsAfterSaveBody'
-    | 'ops.suppliers.contactsAfterSaveTitle'
-    | 'ops.suppliers.contactsHint'
+    | 'ops.suppliers.contactRolePlaceholder'
+    | 'ops.suppliers.contactWhatsappPlaceholder'
     | 'ops.suppliers.contactsSavedToast'
     | 'ops.suppliers.create'
     | 'ops.suppliers.createTitle'
     | 'ops.suppliers.createdToast'
-    | 'ops.suppliers.currencyHint'
     | 'ops.suppliers.editRef'
     | 'ops.suppliers.editRefBody'
     | 'ops.suppliers.editRefTitle'
     | 'ops.suppliers.editTitle'
+    | 'ops.suppliers.emailPlaceholder'
     | 'ops.suppliers.emptyBody'
     | 'ops.suppliers.emptyTitle'
     | 'ops.suppliers.fieldAddress'
@@ -3845,22 +4952,21 @@ export interface NamespaceKeys {
     | 'ops.suppliers.filteredEmptyBody'
     | 'ops.suppliers.filteredEmptyTitle'
     | 'ops.suppliers.generalContact'
-    | 'ops.suppliers.generalContactHint'
     | 'ops.suppliers.itemCount'
-    | 'ops.suppliers.itemRefHint'
+    | 'ops.suppliers.itemRefPlaceholder'
     | 'ops.suppliers.itemsEmptyBody'
-    | 'ops.suppliers.itemsHint'
     | 'ops.suppliers.itemsTitle'
     | 'ops.suppliers.leadTimeDays'
-    | 'ops.suppliers.leadTimeHint'
     | 'ops.suppliers.leadTimeInvalid'
+    | 'ops.suppliers.leadTimePlaceholder'
     | 'ops.suppliers.linkItem'
-    | 'ops.suppliers.linkItemHint'
     | 'ops.suppliers.linkItemLabel'
     | 'ops.suppliers.linkedToast'
     | 'ops.suppliers.loadErrorTitle'
     | 'ops.suppliers.makePreferred'
     | 'ops.suppliers.makePrimary'
+    | 'ops.suppliers.namePlaceholderAr'
+    | 'ops.suppliers.namePlaceholderEn'
     | 'ops.suppliers.nameRequired'
     | 'ops.suppliers.neverBoughtHere'
     | 'ops.suppliers.noContact'
@@ -3874,7 +4980,9 @@ export interface NamespaceKeys {
     | 'ops.suppliers.noTerms'
     | 'ops.suppliers.notFoundBody'
     | 'ops.suppliers.notFoundTitle'
-    | 'ops.suppliers.paymentTermsHint'
+    | 'ops.suppliers.notesPlaceholder'
+    | 'ops.suppliers.paymentTermsPlaceholder'
+    | 'ops.suppliers.phonePlaceholder'
     | 'ops.suppliers.pickItem'
     | 'ops.suppliers.preferredBadge'
     | 'ops.suppliers.preferredToast'
@@ -3892,7 +5000,12 @@ export interface NamespaceKeys {
     | 'ops.suppliers.sectionContacts'
     | 'ops.suppliers.sectionDetails'
     | 'ops.suppliers.seeLedger'
-    | 'ops.suppliers.showArchived'
+    | 'ops.suppliers.segmentActive'
+    | 'ops.suppliers.segmentLabel'
+    | 'ops.suppliers.segmentWithArchived'
+    | 'ops.suppliers.statActiveCaption'
+    | 'ops.suppliers.statArchivedCaption'
+    | 'ops.suppliers.statUnit'
     | 'ops.suppliers.subtitle'
     | 'ops.suppliers.supplierCount'
     | 'ops.suppliers.title'
@@ -3902,16 +5015,15 @@ export interface NamespaceKeys {
     | 'ops.suppliers.unlinkConsequence'
     | 'ops.suppliers.unlinkTitle'
     | 'ops.suppliers.unlinkedToast'
+    | 'ops.suppliers.viewFoot'
+    | 'ops.suppliers.viewKind'
     | 'ops.suppliers.whatsappHint'
-    | 'ops.supplyOrders.addHint'
-    | 'ops.supplyOrders.addLabel'
     | 'ops.supplyOrders.addLineHint'
     | 'ops.supplyOrders.addLineLabel'
     | 'ops.supplyOrders.addLinePlaceholder'
     | 'ops.supplyOrders.addPlaceholder'
     | 'ops.supplyOrders.addSupplier'
     | 'ops.supplyOrders.addTitle'
-    | 'ops.supplyOrders.andMore'
     | 'ops.supplyOrders.backToOrders'
     | 'ops.supplyOrders.branchRequiredBody'
     | 'ops.supplyOrders.branchRequiredTitle'
@@ -3943,9 +5055,6 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.columnReorderAt'
     | 'ops.supplyOrders.columnStatus'
     | 'ops.supplyOrders.columnSupplier'
-    | 'ops.supplyOrders.commitLeftBehind'
-    | 'ops.supplyOrders.commitLines'
-    | 'ops.supplyOrders.commitOrders'
     | 'ops.supplyOrders.createCancel'
     | 'ops.supplyOrders.createConfirm'
     | 'ops.supplyOrders.createConfirmBody'
@@ -3955,11 +5064,10 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.createFailed'
     | 'ops.supplyOrders.createdToast'
     | 'ops.supplyOrders.detailSubtitle'
+    | 'ops.supplyOrders.detailSummaryTitle'
     | 'ops.supplyOrders.detailTitle'
-    | 'ops.supplyOrders.emptyBody'
-    | 'ops.supplyOrders.emptyTitle'
     | 'ops.supplyOrders.excludedCount'
-    | 'ops.supplyOrders.groupSummary'
+    | 'ops.supplyOrders.groupCount'
     | 'ops.supplyOrders.issue'
     | 'ops.supplyOrders.issueConfirm'
     | 'ops.supplyOrders.issueConfirmBody'
@@ -3974,6 +5082,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.metrics.low'
     | 'ops.supplyOrders.metrics.outOfStock'
     | 'ops.supplyOrders.needsCount'
+    | 'ops.supplyOrders.needsTitle'
     | 'ops.supplyOrders.noLines'
     | 'ops.supplyOrders.noNotes'
     | 'ops.supplyOrders.notFoundBody'
@@ -3981,18 +5090,22 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.notOrdering'
     | 'ops.supplyOrders.notesHint'
     | 'ops.supplyOrders.notesLabel'
+    | 'ops.supplyOrders.notesPlaceholder'
     | 'ops.supplyOrders.notesTitle'
     | 'ops.supplyOrders.nothingNeededBody'
     | 'ops.supplyOrders.nothingNeededTitle'
+    | 'ops.supplyOrders.onHand'
     | 'ops.supplyOrders.order'
     | 'ops.supplyOrders.orderAnyway'
     | 'ops.supplyOrders.ordersCaption'
     | 'ops.supplyOrders.ordersEmptyBody'
     | 'ops.supplyOrders.ordersEmptyTitle'
+    | 'ops.supplyOrders.ordersFilteredEmptyBody'
+    | 'ops.supplyOrders.ordersFilteredEmptyTitle'
+    | 'ops.supplyOrders.ordersFoot'
     | 'ops.supplyOrders.ordersTitle'
     | 'ops.supplyOrders.outBadge'
-    | 'ops.supplyOrders.panelSubtitle'
-    | 'ops.supplyOrders.panelTitle'
+    | 'ops.supplyOrders.outCount'
     | 'ops.supplyOrders.preferredBadge'
     | 'ops.supplyOrders.prepare'
     | 'ops.supplyOrders.previewCaption'
@@ -4053,6 +5166,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.reasonNoSupplier'
     | 'ops.supplyOrders.receiptLineCount'
     | 'ops.supplyOrders.receiptNoDocumentRef'
+    | 'ops.supplyOrders.receiptsEmpty'
     | 'ops.supplyOrders.receiptsNote'
     | 'ops.supplyOrders.receiptsTitle'
     | 'ops.supplyOrders.receiveDelivery'
@@ -4065,44 +5179,84 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.removeLine'
     | 'ops.supplyOrders.saveLines'
     | 'ops.supplyOrders.savedToast'
+    | 'ops.supplyOrders.searchLabel'
+    | 'ops.supplyOrders.searchPlaceholder'
+    | 'ops.supplyOrders.statDraftAction'
+    | 'ops.supplyOrders.statDraftCaption'
+    | 'ops.supplyOrders.statIssuedCaption'
+    | 'ops.supplyOrders.statItemsUnit'
+    | 'ops.supplyOrders.statLowCaption'
+    | 'ops.supplyOrders.statOrdersUnit'
+    | 'ops.supplyOrders.statOutCaption'
     | 'ops.supplyOrders.status.cancelled'
     | 'ops.supplyOrders.status.draft'
     | 'ops.supplyOrders.status.issued'
     | 'ops.supplyOrders.status.partiallyReceived'
     | 'ops.supplyOrders.status.received'
     | 'ops.supplyOrders.subtitle'
+    | 'ops.supplyOrders.summaryBySupplier'
+    | 'ops.supplyOrders.summaryDrafts'
+    | 'ops.supplyOrders.summaryIssuedOn'
+    | 'ops.supplyOrders.summaryLeftBehind'
+    | 'ops.supplyOrders.summaryLineTotal'
+    | 'ops.supplyOrders.summaryLines'
     | 'ops.supplyOrders.supplierArchivedBody'
     | 'ops.supplyOrders.supplierArchivedTitle'
     | 'ops.supplyOrders.supplierLabel'
-    | 'ops.supplyOrders.supplierLiveNote'
     | 'ops.supplyOrders.supplierPlaceholder'
-    | 'ops.supplyOrders.supplierSectionTitle'
-    | 'ops.supplyOrders.supplierSnapshotNote'
     | 'ops.supplyOrders.title'
     | 'ops.supplyOrders.unassignedCount'
     | 'ops.supplyOrders.unlinkedCaption'
     | 'ops.supplyOrders.unlinkedTitle'
-    | 'ops.unpricedReceipts.columnAction'
+    | 'ops.supplyOrders.viewBranch'
+    | 'ops.supplyOrders.viewKind'
+    | 'ops.unpricedReceipts.backToQueue'
+    | 'ops.unpricedReceipts.columnItem'
+    | 'ops.unpricedReceipts.columnLineTotal'
+    | 'ops.unpricedReceipts.columnReceived'
     | 'ops.unpricedReceipts.columnReceivedOn'
     | 'ops.unpricedReceipts.columnRefs'
     | 'ops.unpricedReceipts.columnState'
     | 'ops.unpricedReceipts.columnSupplier'
+    | 'ops.unpricedReceipts.columnToPrice'
     | 'ops.unpricedReceipts.completeFailed'
-    | 'ops.unpricedReceipts.completeTitle'
     | 'ops.unpricedReceipts.completedToast'
     | 'ops.unpricedReceipts.emptyBody'
     | 'ops.unpricedReceipts.emptyTitle'
+    | 'ops.unpricedReceipts.fieldDeliveryNote'
+    | 'ops.unpricedReceipts.fieldInvoice'
+    | 'ops.unpricedReceipts.fieldInvoiceDate'
+    | 'ops.unpricedReceipts.fieldOrder'
     | 'ops.unpricedReceipts.fieldUnitPrice'
+    | 'ops.unpricedReceipts.fieldVarianceNote'
+    | 'ops.unpricedReceipts.linePendingFx'
+    | 'ops.unpricedReceipts.linePriceLabel'
+    | 'ops.unpricedReceipts.linePriced'
+    | 'ops.unpricedReceipts.lineToPrice'
+    | 'ops.unpricedReceipts.linesHeading'
     | 'ops.unpricedReceipts.linesToPrice'
+    | 'ops.unpricedReceipts.loadErrorTitle'
     | 'ops.unpricedReceipts.metrics.receipts'
     | 'ops.unpricedReceipts.noInvoiceRef'
-    | 'ops.unpricedReceipts.openLabel'
+    | 'ops.unpricedReceipts.noOrder'
+    | 'ops.unpricedReceipts.notFoundBody'
+    | 'ops.unpricedReceipts.notFoundTitle'
+    | 'ops.unpricedReceipts.nothingToPrice'
     | 'ops.unpricedReceipts.pendingFxBadge'
     | 'ops.unpricedReceipts.pendingFxBody'
     | 'ops.unpricedReceipts.pendingFxTitle'
+    | 'ops.unpricedReceipts.priceInvalid'
     | 'ops.unpricedReceipts.quantitiesImmutable'
-    | 'ops.unpricedReceipts.receivedQuantity'
-    | 'ops.unpricedReceipts.subtitle'
+    | 'ops.unpricedReceipts.receiptFallbackTitle'
+    | 'ops.unpricedReceipts.receiptTitle'
+    | 'ops.unpricedReceipts.recordHeading'
+    | 'ops.unpricedReceipts.savePrices'
+    | 'ops.unpricedReceipts.statPendingFxCaption'
+    | 'ops.unpricedReceipts.statReceiptsCaption'
+    | 'ops.unpricedReceipts.statReceivedCaption'
+    | 'ops.unpricedReceipts.statToPriceCaption'
+    | 'ops.unpricedReceipts.statTypedCaption'
+    | 'ops.unpricedReceipts.statTypedLabel'
     | 'ops.unpricedReceipts.title'
     | 'packaging.archiveBody'
     | 'packaging.archiveConfirm'
@@ -4125,14 +5279,9 @@ export interface NamespaceKeys {
     | 'packaging.statUnpriced'
     | 'packaging.statUnpricedCaption'
     | 'packaging.viewKind'
-    | 'plans.addCombination'
     | 'plans.addDuration'
+    | 'plans.addVariant'
     | 'plans.backToList'
-    | 'plans.bandAddAction'
-    | 'plans.bandAddBody'
-    | 'plans.bandAddIncomplete'
-    | 'plans.bandAddReady'
-    | 'plans.bandAddTitle'
     | 'plans.bandRange'
     | 'plans.blockDurations'
     | 'plans.blockInconsistentDurations'
@@ -4142,112 +5291,89 @@ export interface NamespaceKeys {
     | 'plans.blockUnsaved'
     | 'plans.blockVariants'
     | 'plans.caption'
-    | 'plans.categoriesHint'
     | 'plans.categoriesLabel'
-    | 'plans.categoriesNone'
     | 'plans.categoryAddAction'
-    | 'plans.categoryAddHint'
     | 'plans.categoryAddLabel'
     | 'plans.cellLabel'
     | 'plans.cellNotSold'
-    | 'plans.cellRemoved'
     | 'plans.cellSold'
     | 'plans.cellVariantCount'
     | 'plans.columnDurations'
     | 'plans.columnName'
     | 'plans.columnPrices'
     | 'plans.columnVariants'
-    | 'plans.combinationAvailableHint'
-    | 'plans.combinationAvailableLabel'
-    | 'plans.combinationCodeDuplicate'
-    | 'plans.combinationCodeHint'
-    | 'plans.combinationCodeLabel'
-    | 'plans.combinationCodeRequired'
     | 'plans.combinationCount'
-    | 'plans.combinationLabelLabel'
-    | 'plans.combinationLabelRequired'
-    | 'plans.combinationNumber'
-    | 'plans.combinationRemoved'
-    | 'plans.combinationUnavailable'
-    | 'plans.combinationsEmpty'
-    | 'plans.combinationsHelp'
-    | 'plans.combinationsSavedToast'
     | 'plans.confirmedPriceCount'
-    | 'plans.coordinateHint'
     | 'plans.coverage'
     | 'plans.create'
-    | 'plans.createFirst'
+    | 'plans.createChip'
     | 'plans.createTitle'
     | 'plans.createdToast'
-    | 'plans.cutOffHint'
     | 'plans.cutOffLabel'
     | 'plans.cutOffRequired'
     | 'plans.cutOffUnit'
     | 'plans.dayCount'
-    | 'plans.dayCountList'
     | 'plans.daysAbsentHint'
-    | 'plans.daysHint'
     | 'plans.daysLabel'
+    | 'plans.daysNone'
     | 'plans.daysRequired'
     | 'plans.daysUnit'
     | 'plans.descriptionLabel'
+    | 'plans.descriptionPlaceholderAr'
+    | 'plans.descriptionPlaceholderEn'
     | 'plans.dietsLabel'
-    | 'plans.discountHint'
     | 'plans.discountInvalid'
     | 'plans.discountLabel'
     | 'plans.discountNotSet'
     | 'plans.discountNotSetExplainer'
     | 'plans.discountSetExplainer'
-    | 'plans.discountUnit'
-    | 'plans.discountValue'
     | 'plans.discountZeroExplainer'
     | 'plans.durationCount'
     | 'plans.durationDuplicate'
-    | 'plans.durationNumber'
+    | 'plans.durationMeaning'
     | 'plans.durationRemoved'
     | 'plans.durationsEmpty'
-    | 'plans.durationsHelp'
     | 'plans.durationsSaveError'
     | 'plans.durationsSavedToast'
     | 'plans.editTitle'
     | 'plans.emptyBody'
     | 'plans.emptyTitle'
     | 'plans.energyMaxLabel'
+    | 'plans.energyMaxPlaceholder'
     | 'plans.energyMinLabel'
+    | 'plans.energyMinPlaceholder'
     | 'plans.energyRequired'
     | 'plans.energyReversed'
-    | 'plans.energyUnit'
     | 'plans.filteredEmptyBody'
     | 'plans.filteredEmptyTitle'
     | 'plans.inactiveCount'
-    | 'plans.inconsistentDurationCount'
     | 'plans.kindFixedDays'
     | 'plans.kindLabel'
     | 'plans.kindOneOff'
     | 'plans.loadErrorTitle'
     | 'plans.matrixCaption'
     | 'plans.matrixEmpty'
-    | 'plans.matrixHelp'
     | 'plans.matrixRowHeader'
     | 'plans.matrixSaveError'
     | 'plans.mealsPerDayLabel'
+    | 'plans.mealsPerDayPlaceholder'
     | 'plans.menuAddDish'
     | 'plans.menuAddedAnnouncement'
-    | 'plans.menuAnchorHint'
     | 'plans.menuAnchorLabel'
     | 'plans.menuAnchorMalformed'
+    | 'plans.menuAnchorPlaceholder'
     | 'plans.menuAnchorRequired'
     | 'plans.menuBeyondCycle'
     | 'plans.menuBlockedTitle'
     | 'plans.menuCutoverBody'
     | 'plans.menuCutoverTitle'
-    | 'plans.menuCycleDaysHint'
     | 'plans.menuCycleDaysLabel'
+    | 'plans.menuCycleNotWeekly'
     | 'plans.menuCycleOutOfRange'
     | 'plans.menuCycleRequired'
     | 'plans.menuDayBeyond'
     | 'plans.menuDayEmptyHint'
-    | 'plans.menuDayFalls'
+    | 'plans.menuDayLabel'
     | 'plans.menuDayNumber'
     | 'plans.menuDuplicateCoordinate'
     | 'plans.menuEmpty'
@@ -4256,19 +5382,18 @@ export interface NamespaceKeys {
     | 'plans.menuEntryCount'
     | 'plans.menuEntryNumber'
     | 'plans.menuEntryRemoved'
-    | 'plans.menuHelp'
+    | 'plans.menuExplainer'
     | 'plans.menuLoadErrorTitle'
-    | 'plans.menuMealHint'
     | 'plans.menuMealLabel'
+    | 'plans.menuMealPlaceholder'
     | 'plans.menuMealRequired'
     | 'plans.menuMealUnavailable'
     | 'plans.menuMealsPending'
-    | 'plans.menuNothingToWithdraw'
     | 'plans.menuSaveError'
     | 'plans.menuSavedToast'
-    | 'plans.menuSequenceHint'
     | 'plans.menuSequenceLabel'
     | 'plans.menuSequenceRequired'
+    | 'plans.menuSequenceShort'
     | 'plans.menuSlotBreakfast'
     | 'plans.menuSlotDinner'
     | 'plans.menuSlotLabel'
@@ -4285,16 +5410,13 @@ export interface NamespaceKeys {
     | 'plans.menuWithdrawTitle'
     | 'plans.menuWithdrawnToast'
     | 'plans.nameRequired'
-    | 'plans.newVariantName'
     | 'plans.noDurations'
-    | 'plans.noFixedDurations'
     | 'plans.noVariants'
     | 'plans.notFoundBody'
     | 'plans.notFoundTitle'
-    | 'plans.oneOffCount'
+    | 'plans.oneOffExplainer'
     | 'plans.openPriceLists'
     | 'plans.placeholderPriceCount'
-    | 'plans.pricesHelp'
     | 'plans.pricesPending'
     | 'plans.publishBlockedTitle'
     | 'plans.publishBody'
@@ -4306,69 +5428,87 @@ export interface NamespaceKeys {
     | 'plans.publishedBody'
     | 'plans.publishedTitle'
     | 'plans.publishedToast'
-    | 'plans.resultCount'
     | 'plans.retire'
     | 'plans.retireBody'
     | 'plans.retireConfirm'
     | 'plans.retireConsequence'
     | 'plans.retireTitle'
-    | 'plans.retiredBody'
-    | 'plans.retiredTitle'
     | 'plans.retiredToast'
-    | 'plans.rowUndeclared'
-    | 'plans.saveCombinations'
     | 'plans.saveDurations'
     | 'plans.saveMenu'
+    | 'plans.savePlan'
     | 'plans.saveVariants'
-    | 'plans.sectionCombinations'
     | 'plans.sectionDetails'
     | 'plans.sectionDurations'
-    | 'plans.sectionMatrix'
     | 'plans.sectionMenu'
     | 'plans.sectionPrices'
+    | 'plans.servingsMeals'
     | 'plans.servingsRequired'
+    | 'plans.servingsSnacks'
     | 'plans.servingsSummary'
     | 'plans.snacksPerDayLabel'
+    | 'plans.snacksPerDayPlaceholder'
+    | 'plans.statDraftCaption'
+    | 'plans.statPlansUnit'
+    | 'plans.statPublishedCaption'
+    | 'plans.stepsLabel'
     | 'plans.subtitle'
     | 'plans.summaryLabel'
+    | 'plans.summaryPlaceholderAr'
+    | 'plans.summaryPlaceholderEn'
+    | 'plans.tabMatrix'
+    | 'plans.tabVariants'
     | 'plans.title'
-    | 'plans.undecidedDiscountCount'
-    | 'plans.unnamedCombination'
     | 'plans.unnamedDuration'
     | 'plans.unnamedVariant'
     | 'plans.unpricedCount'
     | 'plans.variantActive'
-    | 'plans.variantActiveHint'
     | 'plans.variantActiveLabel'
     | 'plans.variantCount'
     | 'plans.variantInactive'
     | 'plans.variantNameLabel'
+    | 'plans.variantNamePlaceholder'
     | 'plans.variantNameRequired'
     | 'plans.variantNumber'
     | 'plans.variantRemoved'
     | 'plans.variantsEmpty'
-    | 'plans.variantsHelp'
     | 'plans.variantsSavedToast'
     | 'plans.variantsTitle'
+    | 'plans.viewCombinations'
+    | 'plans.viewKind'
     | 'plans.viewPublic'
-    | 'plans.weekdaysHint'
-    | 'plans.weekdaysLabel'
     | 'priceLists.addEntry'
     | 'priceLists.agreementBadge'
-    | 'priceLists.amountDisabledHint'
-    | 'priceLists.amountHint'
-    | 'priceLists.amountInvalid'
+    | 'priceLists.amountFieldLabel'
     | 'priceLists.amountLabel'
-    | 'priceLists.amountRequired'
     | 'priceLists.backToList'
     | 'priceLists.badgeConfirmed'
     | 'priceLists.badgeDaily'
     | 'priceLists.badgePending'
+    | 'priceLists.basisConfirmed'
+    | 'priceLists.basisDaily'
+    | 'priceLists.basisFieldLabel'
+    | 'priceLists.basisLabel'
+    | 'priceLists.basisPending'
     | 'priceLists.blockInconsistent'
     | 'priceLists.blockNoEntries'
     | 'priceLists.blockUnsaved'
+    | 'priceLists.bulkAppliedToast'
+    | 'priceLists.bulkApply'
+    | 'priceLists.bulkClear'
+    | 'priceLists.bulkLabel'
+    | 'priceLists.bulkNothingToast'
+    | 'priceLists.bulkPercentLabel'
+    | 'priceLists.bulkRemove'
     | 'priceLists.caption'
+    | 'priceLists.changesAdded'
+    | 'priceLists.changesBodyDraft'
+    | 'priceLists.changesBodyPublished'
+    | 'priceLists.changesEdited'
+    | 'priceLists.changesRemoved'
+    | 'priceLists.changesTitle'
     | 'priceLists.channelsLabel'
+    | 'priceLists.clearUntil'
     | 'priceLists.columnChannels'
     | 'priceLists.columnCurrency'
     | 'priceLists.columnEntries'
@@ -4377,43 +5517,82 @@ export interface NamespaceKeys {
     | 'priceLists.confidentialTitle'
     | 'priceLists.confirmedCount'
     | 'priceLists.currencyLabel'
-    | 'priceLists.datesReversed'
+    | 'priceLists.discardChanges'
+    | 'priceLists.discardedToast'
+    | 'priceLists.draftNoteBody'
+    | 'priceLists.draftNoteTitle'
     | 'priceLists.effectiveFromLabel'
-    | 'priceLists.effectiveUntilHint'
     | 'priceLists.effectiveUntilLabel'
     | 'priceLists.emptyBody'
     | 'priceLists.emptyTitle'
-    | 'priceLists.entriesEmpty'
-    | 'priceLists.entriesHelp'
     | 'priceLists.entriesTitle'
     | 'priceLists.entryCount'
-    | 'priceLists.entryNumber'
-    | 'priceLists.entryRemoved'
-    | 'priceLists.factsTitle'
+    | 'priceLists.filterAll'
+    | 'priceLists.filterChanged'
+    | 'priceLists.filterConfirmed'
+    | 'priceLists.filterDaily'
+    | 'priceLists.filterLabel'
+    | 'priceLists.filterPending'
     | 'priceLists.filteredEmptyBody'
     | 'priceLists.filteredEmptyTitle'
+    | 'priceLists.fixedHint'
+    | 'priceLists.fixedTag'
+    | 'priceLists.fromFieldLabel'
+    | 'priceLists.gapAdd'
+    | 'priceLists.gapAddedToast'
+    | 'priceLists.gapBody'
+    | 'priceLists.gapBodyMore'
+    | 'priceLists.gapTitle'
+    | 'priceLists.groupDressing'
+    | 'priceLists.groupFrozenMeal'
+    | 'priceLists.groupMeal'
+    | 'priceLists.groupPlan'
+    | 'priceLists.groupProduct'
+    | 'priceLists.groupSauce'
+    | 'priceLists.groupUnchosen'
     | 'priceLists.inconsistentCount'
-    | 'priceLists.itemDuplicate'
-    | 'priceLists.itemHint'
+    | 'priceLists.issueChip'
+    | 'priceLists.issuesTitle'
     | 'priceLists.itemLabel'
     | 'priceLists.itemPlaceholder'
-    | 'priceLists.itemRequired'
     | 'priceLists.kindMeal'
     | 'priceLists.kindPlan'
     | 'priceLists.kindProduct'
+    | 'priceLists.kitchenLabel'
+    | 'priceLists.legendConfirmed'
+    | 'priceLists.legendDaily'
+    | 'priceLists.legendPending'
+    | 'priceLists.legendReplaces'
     | 'priceLists.loadErrorTitle'
+    | 'priceLists.loadingNote'
     | 'priceLists.marketCount'
-    | 'priceLists.marketPricedExplainer'
+    | 'priceLists.metaDraft'
+    | 'priceLists.metaDraftUndated'
+    | 'priceLists.metaPublished'
+    | 'priceLists.metaPublishedUndated'
+    | 'priceLists.newEntry'
     | 'priceLists.noChannels'
     | 'priceLists.noEntries'
+    | 'priceLists.noEntriesBody'
+    | 'priceLists.noEntriesTitle'
+    | 'priceLists.noMatchBody'
+    | 'priceLists.noMatchTitle'
     | 'priceLists.notFoundBody'
     | 'priceLists.notFoundTitle'
-    | 'priceLists.noteHint'
-    | 'priceLists.noteLabel'
-    | 'priceLists.packHint'
+    | 'priceLists.notOnSale'
+    | 'priceLists.offlineBody'
+    | 'priceLists.offlineTitle'
+    | 'priceLists.openEnded'
     | 'priceLists.packLabel'
     | 'priceLists.placeholderCount'
-    | 'priceLists.placeholderExplainer'
+    | 'priceLists.problemAmountNotAllowed'
+    | 'priceLists.problemBadAmount'
+    | 'priceLists.problemNoAmount'
+    | 'priceLists.problemNoItem'
+    | 'priceLists.problemOverlap'
+    | 'priceLists.problemReversed'
+    | 'priceLists.problemsNote'
+    | 'priceLists.publish'
     | 'priceLists.publishBlockedTitle'
     | 'priceLists.publishBody'
     | 'priceLists.publishConsequence'
@@ -4421,43 +5600,49 @@ export interface NamespaceKeys {
     | 'priceLists.publishExcludedTitle'
     | 'priceLists.publishRefusedEntries'
     | 'priceLists.publishTitle'
-    | 'priceLists.publishedBody'
-    | 'priceLists.publishedTitle'
     | 'priceLists.publishedToast'
-    | 'priceLists.readOnlyNote'
+    | 'priceLists.removeColumn'
+    | 'priceLists.removeEntry'
+    | 'priceLists.resolvingItem'
     | 'priceLists.resultCount'
-    | 'priceLists.saveEntries'
+    | 'priceLists.saveAndCharge'
+    | 'priceLists.saveDraft'
     | 'priceLists.saveFailedTitle'
-    | 'priceLists.savedToast'
-    | 'priceLists.statusLabel'
+    | 'priceLists.savedToastDraft'
+    | 'priceLists.savedToastPublished'
+    | 'priceLists.searchLabel'
+    | 'priceLists.selectAll'
+    | 'priceLists.selectEntry'
+    | 'priceLists.selectedCount'
+    | 'priceLists.setAtCounter'
+    | 'priceLists.statAgreementCaption'
+    | 'priceLists.statNothingPriced'
+    | 'priceLists.statNothingPricedCaption'
     | 'priceLists.subtitle'
     | 'priceLists.title'
     | 'priceLists.unknownItem'
-    | 'priceLists.unnamedEntry'
-    | 'priceLists.variantHint'
-    | 'priceLists.variantLabel'
-    | 'priceLists.variantPlaceholder'
-    | 'priceLists.wholePlan'
+    | 'priceLists.untilFieldLabel'
+    | 'priceLists.viewKind'
+    | 'priceLists.viewPending'
+    | 'priceLists.wasAmount'
     | 'priceStatus.confirmed'
     | 'priceStatus.marketPriced'
     | 'priceStatus.placeholder'
     | 'products.addPack'
+    | 'products.archiveAlready'
     | 'products.archiveBody'
     | 'products.archiveConfirm'
     | 'products.archiveConsequence'
     | 'products.archiveFailed'
+    | 'products.archiveHint'
+    | 'products.archiveNoPermission'
     | 'products.archiveTitle'
-    | 'products.archivedBody'
-    | 'products.archivedTitle'
+    | 'products.archiveUnsaved'
     | 'products.archivedToast'
     | 'products.assortedHint'
     | 'products.assortedLabel'
     | 'products.assortedShort'
     | 'products.backToList'
-    | 'products.blockCategory'
-    | 'products.blockChannels'
-    | 'products.blockName'
-    | 'products.blockPacks'
     | 'products.caption'
     | 'products.categoryFilterAll'
     | 'products.categoryFilterLabel'
@@ -4470,7 +5655,6 @@ export interface NamespaceKeys {
     | 'products.create'
     | 'products.createTitle'
     | 'products.createdToast'
-    | 'products.dataQualityBody'
     | 'products.dataQualityCount'
     | 'products.dataQualityTitle'
     | 'products.defaultPack'
@@ -4478,9 +5662,7 @@ export interface NamespaceKeys {
     | 'products.dietsFromRecipe'
     | 'products.dietsLabel'
     | 'products.dietsNone'
-    | 'products.dietsProvenance'
     | 'products.dietsRailEmpty'
-    | 'products.dietsRailTitle'
     | 'products.editTitle'
     | 'products.emptyBody'
     | 'products.emptyTitle'
@@ -4488,16 +5670,17 @@ export interface NamespaceKeys {
     | 'products.filteredEmptyTitle'
     | 'products.formulationStart'
     | 'products.formulationStartedToast'
-    | 'products.gateCheckCategory'
-    | 'products.gateCheckChannels'
-    | 'products.gateCheckName'
-    | 'products.gateCheckPacks'
-    | 'products.gateTitle'
     | 'products.loadErrorTitle'
     | 'products.marketPricedHint'
     | 'products.marketPricedLabel'
     | 'products.marketPricedShort'
     | 'products.nameRequired'
+    | 'products.netContentHint'
+    | 'products.netContentInvalid'
+    | 'products.netContentLabel'
+    | 'products.netContentUnitLabel'
+    | 'products.netContentUnitMissing'
+    | 'products.netContentUnitsForbidden'
     | 'products.noChannels'
     | 'products.noPacks'
     | 'products.notFoundBody'
@@ -4507,6 +5690,7 @@ export interface NamespaceKeys {
     | 'products.packCodeHeader'
     | 'products.packCodeHint'
     | 'products.packCodeLabel'
+    | 'products.packCodePlaceholder'
     | 'products.packCodeRequired'
     | 'products.packCount'
     | 'products.packLabel'
@@ -4526,10 +5710,12 @@ export interface NamespaceKeys {
     | 'products.packsEmpty'
     | 'products.packsHint'
     | 'products.productCount'
+    | 'products.publishBody'
+    | 'products.publishTitle'
+    | 'products.publishedToast'
     | 'products.quarantineBody'
     | 'products.quarantineTitle'
     | 'products.recipeHint'
-    | 'products.recipeHintNone'
     | 'products.recipeLabel'
     | 'products.recipeMissingBody'
     | 'products.recipeMissingTitle'
@@ -4540,13 +5726,10 @@ export interface NamespaceKeys {
     | 'products.resultCount'
     | 'products.searchPlaceholder'
     | 'products.sectionDetails'
-    | 'products.sectionIdentity'
     | 'products.sectionPacks'
     | 'products.sectionRecipe'
     | 'products.statNoPack'
     | 'products.statNoPackCaption'
-    | 'products.subtitle'
-    | 'products.title'
     | 'products.unitsPerPackHint'
     | 'products.unitsPerPackInvalid'
     | 'products.unitsPerPackLabel'
@@ -4601,10 +5784,31 @@ export interface NamespaceKeys {
     | 'recipes.backToCurrentVersion'
     | 'recipes.backToList'
     | 'recipes.caption'
+    | 'recipes.cascadePackagingLines'
+    | 'recipes.cascadePackagingPerUnit'
+    | 'recipes.cascadePackagingWithWaste'
+    | 'recipes.cascadeProductionLines'
+    | 'recipes.cascadeProductionPerUnit'
+    | 'recipes.cascadeProductionWithWaste'
+    | 'recipes.cascadeTotal'
+    | 'recipes.checkAllergens'
+    | 'recipes.checkAllergensOk'
+    | 'recipes.checkAllergensUnmapped'
+    | 'recipes.checkCosted'
+    | 'recipes.checkCostedOk'
+    | 'recipes.checkLanguages'
+    | 'recipes.checkLanguagesMissing'
+    | 'recipes.checkLanguagesOk'
+    | 'recipes.checkNoLines'
+    | 'recipes.checkYield'
+    | 'recipes.checkYieldMissing'
+    | 'recipes.checkYieldOk'
     | 'recipes.coefficientsHint'
     | 'recipes.columnAllergens'
+    | 'recipes.columnKind'
     | 'recipes.columnKitchen'
     | 'recipes.columnName'
+    | 'recipes.columnOnSale'
     | 'recipes.columnVersion'
     | 'recipes.columnVersionShort'
     | 'recipes.columnVersionState'
@@ -4615,16 +5819,17 @@ export interface NamespaceKeys {
     | 'recipes.confidentialHint'
     | 'recipes.costCascadeHint'
     | 'recipes.costPackaging'
-    | 'recipes.costPerBatch'
+    | 'recipes.costPerPieceWithWaste'
     | 'recipes.costPerUnit'
     | 'recipes.costProduction'
     | 'recipes.costTotal'
     | 'recipes.costTotalCard'
     | 'recipes.costWithWaste'
     | 'recipes.create'
+    | 'recipes.createAction'
+    | 'recipes.createPreparation'
     | 'recipes.createTitle'
     | 'recipes.createdToast'
-    | 'recipes.currencyMixed'
     | 'recipes.currentVersion'
     | 'recipes.descriptionLabel'
     | 'recipes.discard'
@@ -4633,10 +5838,15 @@ export interface NamespaceKeys {
     | 'recipes.emptyTitle'
     | 'recipes.filteredEmptyBody'
     | 'recipes.filteredEmptyTitle'
+    | 'recipes.formSubtitle'
     | 'recipes.grossMargin'
     | 'recipes.identityDescription'
+    | 'recipes.imageLabel'
     | 'recipes.immutableBody'
     | 'recipes.immutableTitle'
+    | 'recipes.kindMeals'
+    | 'recipes.kindPreparation'
+    | 'recipes.kindPreparations'
     | 'recipes.kitchenFilterAll'
     | 'recipes.kitchenFilterLabel'
     | 'recipes.lineCount'
@@ -4653,18 +5863,20 @@ export interface NamespaceKeys {
     | 'recipes.linesDescription'
     | 'recipes.linesEmpty'
     | 'recipes.linesPickerHint'
+    | 'recipes.listingFailedToast'
     | 'recipes.loadErrorTitle'
     | 'recipes.marginHint'
     | 'recipes.marginNoBasis'
     | 'recipes.markOptional'
     | 'recipes.markRequired'
+    | 'recipes.modeNew'
     | 'recipes.nameRequired'
     | 'recipes.newDraft'
     | 'recipes.newDraftFromVersion'
     | 'recipes.noAllergens'
+    | 'recipes.notFormulated'
     | 'recipes.notFoundBody'
     | 'recipes.notFoundTitle'
-    | 'recipes.open'
     | 'recipes.optional'
     | 'recipes.outputCount'
     | 'recipes.outputIngredient'
@@ -4674,6 +5886,7 @@ export interface NamespaceKeys {
     | 'recipes.outputsExplainerTitle'
     | 'recipes.packageCostLabel'
     | 'recipes.packageCostsHint'
+    | 'recipes.packageCostsIncomplete'
     | 'recipes.packageCostsNoLines'
     | 'recipes.packageCostsNoYield'
     | 'recipes.packageCostsNone'
@@ -4682,16 +5895,21 @@ export interface NamespaceKeys {
     | 'recipes.packageInBatch'
     | 'recipes.packagingHint'
     | 'recipes.packagingPlaceholder'
-    | 'recipes.packagingWasteHint'
+    | 'recipes.packagingWasteHelp'
     | 'recipes.packagingWastePercent'
     | 'recipes.pickerNoMatch'
     | 'recipes.pickerSearching'
+    | 'recipes.portionsPerBatch'
     | 'recipes.primaryOutput'
     | 'recipes.primaryOutputHint'
     | 'recipes.primaryOutputLabel'
     | 'recipes.primaryOutputPlaceholder'
     | 'recipes.primaryOutputRequired'
+    | 'recipes.print'
+    | 'recipes.productionWasteHelp'
     | 'recipes.productionWastePercent'
+    | 'recipes.publishChecksTitle'
+    | 'recipes.quantityProduced'
     | 'recipes.quarantined'
     | 'recipes.recipeCount'
     | 'recipes.removeLine'
@@ -4700,6 +5918,7 @@ export interface NamespaceKeys {
     | 'recipes.retire'
     | 'recipes.saveErrorTitle'
     | 'recipes.saveFailed'
+    | 'recipes.savePublish'
     | 'recipes.savedToast'
     | 'recipes.sectionAllergenClasses'
     | 'recipes.sectionCoefficients'
@@ -4710,13 +5929,18 @@ export interface NamespaceKeys {
     | 'recipes.sectionOutputs'
     | 'recipes.sectionPackageCosts'
     | 'recipes.sectionPackaging'
-    | 'recipes.sectionPackagingWaste'
     | 'recipes.sectionRawMaterials'
+    | 'recipes.sectionSellingPrice'
     | 'recipes.sectionSteps'
     | 'recipes.sectionVersions'
+    | 'recipes.sectionWaste'
     | 'recipes.sectionYield'
-    | 'recipes.sectionYieldWaste'
+    | 'recipes.sectionYieldOnly'
+    | 'recipes.sellerLabel'
+    | 'recipes.sellingPriceHint'
+    | 'recipes.sellingPriceHintNoPackaging'
     | 'recipes.sheetAfterSave'
+    | 'recipes.sheetAllergensDerived'
     | 'recipes.sheetBasisMismatch'
     | 'recipes.sheetColComments'
     | 'recipes.sheetColDesignation'
@@ -4728,27 +5952,42 @@ export interface NamespaceKeys {
     | 'recipes.sheetColUnitPrice'
     | 'recipes.sheetConfidential'
     | 'recipes.sheetCostAbsent'
+    | 'recipes.sheetCostAllIn'
     | 'recipes.sheetCostHidden'
     | 'recipes.sheetCostPerPiece'
     | 'recipes.sheetCostPerUnit'
+    | 'recipes.sheetCostSaved'
     | 'recipes.sheetCostTitle'
     | 'recipes.sheetCostTotal'
+    | 'recipes.sheetCostWeekly'
     | 'recipes.sheetCostWithWaste'
     | 'recipes.sheetDesignation'
     | 'recipes.sheetKind'
     | 'recipes.sheetKindUnstated'
     | 'recipes.sheetNoLines'
+    | 'recipes.sheetPackagingAfterWaste'
+    | 'recipes.sheetPackagingPerUnit'
     | 'recipes.sheetPrintHint'
+    | 'recipes.sheetPrintTitle'
+    | 'recipes.sheetProductionAfterWaste'
     | 'recipes.sheetQuantityProduced'
     | 'recipes.sheetQuantityWithPieces'
     | 'recipes.sheetRawMaterial'
+    | 'recipes.sheetRestrictedValue'
     | 'recipes.sheetTitle'
     | 'recipes.sheetTotalRow'
+    | 'recipes.sheetWeeklyCarried'
+    | 'recipes.sheetWeeklyEffective'
+    | 'recipes.sheetWeeklyNeedsPrice'
+    | 'recipes.sheetYieldWithPortions'
     | 'recipes.sourceKindLabel'
+    | 'recipes.statOnSaleAction'
+    | 'recipes.statOnSaleCaption'
     | 'recipes.statReview'
     | 'recipes.statReviewAction'
     | 'recipes.statReviewCaption'
     | 'recipes.stepCount'
+    | 'recipes.stepCounter'
     | 'recipes.stepInstruction'
     | 'recipes.stepMinutes'
     | 'recipes.stepMinutesHint'
@@ -4766,6 +6005,7 @@ export interface NamespaceKeys {
     | 'recipes.tabPackaging'
     | 'recipes.tabPrevious'
     | 'recipes.tabProduction'
+    | 'recipes.tabSelling'
     | 'recipes.tabSheet'
     | 'recipes.tabsLabel'
     | 'recipes.title'
@@ -4781,15 +6021,26 @@ export interface NamespaceKeys {
     | 'recipes.versionUnavailableTitle'
     | 'recipes.versionsDescription'
     | 'recipes.viewAllergensCaption'
+    | 'recipes.viewAllergensFrozen'
     | 'recipes.viewAllergensSource'
+    | 'recipes.viewHandle'
     | 'recipes.viewKind'
+    | 'recipes.wasteHint'
     | 'recipes.wastePercent'
     | 'recipes.wastePercentHint'
+    | 'recipes.withdrawBody'
+    | 'recipes.withdrawFailed'
+    | 'recipes.withdrawTitle'
+    | 'recipes.withdrawnToast'
     | 'recipes.yieldDescription'
+    | 'recipes.yieldFirstHint'
     | 'recipes.yieldPieces'
     | 'recipes.yieldQuantity'
     | 'recipes.yieldRequired'
     | 'recipes.yieldUnit'
+    | 'recordView.details'
+    | 'recordView.statusTitle'
+    | 'recordView.version'
     | 'review.blockedCount'
     | 'review.chip'
     | 'review.clearBadge'
@@ -4818,7 +6069,6 @@ export interface NamespaceKeys {
     | 'review.scopeUnblocked'
     | 'review.searchLabel'
     | 'review.searchPlaceholder'
-    | 'review.sectionCount'
     | 'review.statBlockedCaption'
     | 'review.statShown'
     | 'review.statShownCaption'
@@ -4832,7 +6082,6 @@ export interface NamespaceKeys {
     | 'review.truncatedTitle'
     | 'review.updatedBy'
     | 'review.updatedBySeed'
-    | 'review.view'
     | 'review.waitingCount'
     | 'review.window.chipsCaption'
     | 'review.window.fieldFamily'
@@ -4873,13 +6122,9 @@ export interface NamespaceKeys {
     | 'rows.movedAnnouncement'
     | 'rows.remove'
     | 'sale.b2bPrice'
-    | 'sale.b2bPriceHint'
     | 'sale.b2cPrice'
-    | 'sale.b2cPriceHint'
     | 'sale.currencyUnknown'
-    | 'sale.eyebrow'
     | 'sale.margin'
-    | 'sale.marginHint'
     | 'sale.marginNoBasis'
     | 'sale.marginUnavailable'
     | 'sale.priceInvalid'
@@ -4887,19 +6132,21 @@ export interface NamespaceKeys {
     | 'sale.stateOn'
     | 'sale.title'
     | 'sale.toggleLabel'
-    | 'sauces.caption'
     | 'sauces.create'
-    | 'sauces.emptyBody'
-    | 'sauces.emptyTitle'
     | 'sauces.kindColdSauce'
     | 'sauces.kindCookingSauce'
     | 'sauces.kindDessertSauce'
     | 'sauces.kindMarinadePrep'
-    | 'sauces.resultCount'
-    | 'sauces.searchPlaceholder'
-    | 'sauces.subtitle'
     | 'sauces.title'
     | 'sauces.viewKind'
+    | 'search.empty'
+    | 'search.general'
+    | 'search.hintClose'
+    | 'search.hintMove'
+    | 'search.hintOpen'
+    | 'search.label'
+    | 'search.placeholder'
+    | 'search.trigger'
     | 'status.all'
     | 'status.draft'
     | 'status.label'
@@ -4939,7 +6186,6 @@ export interface NamespaceKeys {
     | 'toolbar.segmentDraft'
     | 'toolbar.segmentLive'
     | 'toolbar.segmentReview'
-    | 'toolbar.showing'
     | 'toolbar.statusAll'
     | 'toolbar.statusLabel'
     | 'units.cup'
@@ -4984,19 +6230,32 @@ export interface NamespaceKeys {
     | 'windows.activeHint'
     | 'windows.activeLabel'
     | 'windows.add'
+    | 'windows.capacityColumn'
     | 'windows.capacityHint'
     | 'windows.capacityInvalid'
     | 'windows.capacityLabel'
+    | 'windows.capacityPlaceholder'
     | 'windows.capacityUncapped'
     | 'windows.count'
     | 'windows.coveredDayCount'
+    | 'windows.dayInitial.1'
+    | 'windows.dayInitial.2'
+    | 'windows.dayInitial.3'
+    | 'windows.dayInitial.4'
+    | 'windows.dayInitial.5'
+    | 'windows.dayInitial.6'
+    | 'windows.dayInitial.7'
     | 'windows.endBeforeStart'
     | 'windows.endInvalid'
     | 'windows.endsLabel'
     | 'windows.inactiveBadge'
     | 'windows.labelField'
+    | 'windows.labelPlaceholderAr'
+    | 'windows.labelPlaceholderEn'
     | 'windows.labelRequired'
     | 'windows.none'
+    | 'windows.offeredColumn'
+    | 'windows.offeredYes'
     | 'windows.removed'
     | 'windows.rowTitle'
     | 'windows.save'
@@ -5007,6 +6266,12 @@ export interface NamespaceKeys {
     | 'windows.weekdaysHint'
     | 'windows.weekdaysLabel'
     | 'windows.weekdaysRequired'
+    | 'zoneWindows.everyDay'
+    | 'zoneWindows.groupLabel'
+    | 'zoneWindows.inactiveBadge'
+    | 'zoneWindows.intro'
+    | 'zoneWindows.manage'
+    | 'zoneWindows.none'
     | 'zones.amountInvalid'
     | 'zones.archiveAreaCount'
     | 'zones.archiveBody'
@@ -5015,11 +6280,10 @@ export interface NamespaceKeys {
     | 'zones.archiveConsequence'
     | 'zones.archiveTitle'
     | 'zones.archiveWindowCount'
-    | 'zones.archivedBody'
-    | 'zones.archivedTitle'
     | 'zones.archivedToast'
     | 'zones.areaCount'
     | 'zones.areasIntro'
+    | 'zones.back'
     | 'zones.backToList'
     | 'zones.branchCount'
     | 'zones.branchesLabel'
@@ -5030,8 +6294,10 @@ export interface NamespaceKeys {
     | 'zones.columnEstimated'
     | 'zones.columnName'
     | 'zones.columnWindows'
+    | 'zones.coveredDayCount'
     | 'zones.create'
     | 'zones.createFirst'
+    | 'zones.createSummary'
     | 'zones.createTitle'
     | 'zones.createdToast'
     | 'zones.currencyCreateHint'
@@ -5044,9 +6310,11 @@ export interface NamespaceKeys {
     | 'zones.estimatedLabel'
     | 'zones.estimatedMinutes'
     | 'zones.estimatedNone'
+    | 'zones.estimatedPlaceholder'
     | 'zones.estimatedUnit'
     | 'zones.feeHint'
     | 'zones.feeLabel'
+    | 'zones.feePlaceholder'
     | 'zones.feeStateAmount'
     | 'zones.feeStateUnset'
     | 'zones.feeStateZero'
@@ -5058,6 +6326,7 @@ export interface NamespaceKeys {
     | 'zones.loadErrorTitle'
     | 'zones.minimumHint'
     | 'zones.minimumLabel'
+    | 'zones.minimumPlaceholder'
     | 'zones.minimumStateAmount'
     | 'zones.minimumStateUnset'
     | 'zones.minimumStateZero'
@@ -5065,6 +6334,7 @@ export interface NamespaceKeys {
     | 'zones.nameRequired'
     | 'zones.noActiveWindows'
     | 'zones.noAreas'
+    | 'zones.noBranches'
     | 'zones.noEstimate'
     | 'zones.noFeeRecorded'
     | 'zones.noMinimum'
@@ -5073,12 +6343,20 @@ export interface NamespaceKeys {
     | 'zones.notFoundBody'
     | 'zones.notFoundTitle'
     | 'zones.resultCount'
+    | 'zones.saveZone'
     | 'zones.sectionAreas'
     | 'zones.sectionDetails'
     | 'zones.sectionWindows'
+    | 'zones.statNoAreasCaption'
+    | 'zones.statNoWindowsCaption'
     | 'zones.subtitle'
     | 'zones.title'
+    | 'zones.titleChip'
     | 'zones.uncoveredDayCount'
+    | 'zones.viewFee'
+    | 'zones.viewKind'
+    | 'zones.viewMinimum'
+    | 'zones.viewWeekdays'
     | 'zones.windowCount'
     | 'zones.windowsIntro';
   readonly "marketplace":
@@ -5121,8 +6399,8 @@ export interface NamespaceKeys {
     | 'channels.pos'
     | 'channels.subscription'
     | 'common.listSeparator'
-    | 'consumer.greeting'
-    | 'consumer.greetingAnonymous'
+    | 'consumer.links.title'
+    | 'consumer.nav.account'
     | 'consumer.nav.cart'
     | 'consumer.nav.cartWithCount'
     | 'consumer.nav.discover'
@@ -5132,33 +6410,15 @@ export interface NamespaceKeys {
     | 'consumer.nav.profile'
     | 'consumer.nav.subscriptions'
     | 'consumer.nav.virtualDietitian'
-    | 'consumer.nutrition.emptyBody'
-    | 'consumer.nutrition.emptyTitle'
-    | 'consumer.nutrition.title'
-    | 'consumer.nutrition.whyThisTarget'
-    | 'consumer.onboarding.body'
-    | 'consumer.onboarding.start'
-    | 'consumer.onboarding.title'
     | 'consumer.resume.body'
     | 'consumer.resume.continue'
     | 'consumer.resume.dismiss'
     | 'consumer.resume.title'
-    | 'consumer.subscription.emptyBody'
-    | 'consumer.subscription.emptyTitle'
+    | 'consumer.subscription.eyebrow'
     | 'consumer.subscription.manage'
     | 'consumer.subscription.nextDelivery'
     | 'consumer.subscription.noNextDelivery'
-    | 'consumer.subscription.title'
     | 'consumer.subscription.weeklyPrice'
-    | 'consumer.subtitle'
-    | 'consumer.title'
-    | 'consumer.today.emptyBody'
-    | 'consumer.today.emptyTitle'
-    | 'consumer.today.forDate'
-    | 'consumer.today.forToday'
-    | 'consumer.today.locked'
-    | 'consumer.today.openPlanner'
-    | 'consumer.today.title'
     | 'dietitians.accepting'
     | 'dietitians.browseOthers'
     | 'dietitians.cardLabel'
@@ -5198,41 +6458,38 @@ export interface NamespaceKeys {
     | 'diets.pescatarian'
     | 'diets.vegan'
     | 'diets.vegetarian'
+    | 'discover.addLabel'
     | 'discover.allMeals'
+    | 'discover.allMealsCount'
+    | 'discover.becauseYouOrdered'
+    | 'discover.cardEnergy'
+    | 'discover.cardProtein'
+    | 'discover.cardRating'
+    | 'discover.cardRatingLabel'
     | 'discover.categoriesTitle'
-    | 'discover.comingBody'
-    | 'discover.comingTitle'
-    | 'discover.dietitiansBody'
-    | 'discover.dietitiansTitle'
-    | 'discover.family.diets'
-    | 'discover.family.meals'
-    | 'discover.family.plans'
-    | 'discover.family.tools'
-    | 'discover.familyBody.diets'
-    | 'discover.familyBody.meals'
-    | 'discover.familyBody.plans'
-    | 'discover.familyBody.tools'
     | 'discover.heroBody'
     | 'discover.heroBrowseMeals'
     | 'discover.heroEyebrow'
+    | 'discover.heroEyebrowKitchens'
+    | 'discover.heroEyebrowMeals'
     | 'discover.heroImageLabel'
     | 'discover.heroOverlayLabel'
     | 'discover.heroTitle'
-    | 'discover.kitchensBody'
-    | 'discover.kitchensTitle'
+    | 'discover.heroTrackOrder'
+    | 'discover.notRated'
     | 'discover.offerAction'
     | 'discover.offerBody'
     | 'discover.offerEyebrow'
+    | 'discover.offerFallbackAction'
+    | 'discover.offerFallbackBody'
+    | 'discover.offerFallbackEyebrow'
+    | 'discover.offerFallbackTitle'
     | 'discover.offerTitle'
     | 'discover.popularMeta'
     | 'discover.popularTitle'
     | 'discover.railFigures'
     | 'discover.railTitle'
-    | 'discover.searchLabel'
-    | 'discover.searchPlaceholder'
-    | 'discover.searchSubmit'
-    | 'discover.subtitle'
-    | 'discover.title'
+    | 'discover.tileCount'
     | 'filters.availability'
     | 'filters.category'
     | 'filters.clear'
@@ -5283,7 +6540,12 @@ export interface NamespaceKeys {
     | 'howItWorks.step.tell.title'
     | 'howItWorks.subtitle'
     | 'howItWorks.title'
+    | 'imageCredits.intro'
+    | 'imageCredits.none'
+    | 'imageCredits.synthetic'
+    | 'imageCredits.title'
     | 'itemTypes.dressing'
+    | 'itemTypes.frozen_meal'
     | 'itemTypes.meal'
     | 'itemTypes.product'
     | 'itemTypes.sauce'
@@ -5305,7 +6567,6 @@ export interface NamespaceKeys {
     | 'kitchen.zoneFee'
     | 'kitchen.zoneMinimum'
     | 'kitchen.zoneMinutes'
-    | 'kitchens.allKitchens'
     | 'kitchens.areaSeparator'
     | 'kitchens.cardLabel'
     | 'kitchens.collectionOnly'
@@ -5315,46 +6576,94 @@ export interface NamespaceKeys {
     | 'kitchens.emptyBody'
     | 'kitchens.emptyTitle'
     | 'kitchens.etaMinutes'
+    | 'kitchens.finder.addDish'
+    | 'kitchens.finder.addressAdd'
+    | 'kitchens.finder.addressChange'
+    | 'kitchens.finder.addressNone'
+    | 'kitchens.finder.addressPending'
+    | 'kitchens.finder.addressSignIn'
+    | 'kitchens.finder.addressSignedOut'
+    | 'kitchens.finder.bestFit'
+    | 'kitchens.finder.closedToday'
+    | 'kitchens.finder.count'
+    | 'kitchens.finder.deliveringTo'
+    | 'kitchens.finder.dietMatch'
+    | 'kitchens.finder.dishFigures'
+    | 'kitchens.finder.emptyBody'
+    | 'kitchens.finder.emptyTitle'
+    | 'kitchens.finder.eyebrowListed'
+    | 'kitchens.finder.eyebrowOpen'
+    | 'kitchens.finder.eyebrowPending'
+    | 'kitchens.finder.fact.delivery'
+    | 'kitchens.finder.fact.fee'
+    | 'kitchens.finder.fact.minimum'
+    | 'kitchens.finder.fact.rating'
+    | 'kitchens.finder.filtersLabel'
+    | 'kitchens.finder.free'
+    | 'kitchens.finder.from'
+    | 'kitchens.finder.goal.high_protein.body'
+    | 'kitchens.finder.goal.high_protein.title'
+    | 'kitchens.finder.goal.low_carb.body'
+    | 'kitchens.finder.goal.low_carb.title'
+    | 'kitchens.finder.goal.under500.body'
+    | 'kitchens.finder.goal.under500.title'
+    | 'kitchens.finder.goal.vegan.body'
+    | 'kitchens.finder.goal.vegan.title'
+    | 'kitchens.finder.goalAction'
+    | 'kitchens.finder.goalCount'
+    | 'kitchens.finder.goalsMeta'
+    | 'kitchens.finder.goalsTitle'
+    | 'kitchens.finder.ledeMatched'
+    | 'kitchens.finder.ledeSetPreferences'
+    | 'kitchens.finder.ledeTail'
+    | 'kitchens.finder.ledeUnmatched'
+    | 'kitchens.finder.listAll'
+    | 'kitchens.finder.listMatching'
+    | 'kitchens.finder.minutes'
+    | 'kitchens.finder.noDishes'
+    | 'kitchens.finder.noFigure'
+    | 'kitchens.finder.noPlans'
+    | 'kitchens.finder.openDish'
+    | 'kitchens.finder.openKitchen'
+    | 'kitchens.finder.openToday'
+    | 'kitchens.finder.plans'
+    | 'kitchens.finder.ratingValue'
+    | 'kitchens.finder.searchLabel'
+    | 'kitchens.finder.searchPlaceholder'
+    | 'kitchens.finder.seePlans'
+    | 'kitchens.finder.signatureDishes'
+    | 'kitchens.finder.sort.fastest'
+    | 'kitchens.finder.sort.fee'
+    | 'kitchens.finder.sort.match'
+    | 'kitchens.finder.sort.name'
+    | 'kitchens.finder.sort.rating'
+    | 'kitchens.finder.sortFieldLabel'
+    | 'kitchens.finder.sortLabel'
+    | 'kitchens.finder.term.delivery'
+    | 'kitchens.finder.term.fee'
+    | 'kitchens.finder.term.minimum'
+    | 'kitchens.finder.title'
+    | 'kitchens.finder.toggle.openToday'
+    | 'kitchens.finder.toggle.pickup'
+    | 'kitchens.finder.toggle.subscription'
+    | 'kitchens.finder.topRated'
+    | 'kitchens.finder.under30'
+    | 'kitchens.finder.viewMenu'
+    | 'kitchens.finder.whyDiets'
+    | 'kitchens.finder.whyMatch'
+    | 'kitchens.finder.whyWithSummary'
     | 'kitchens.freeDelivery'
-    | 'kitchens.goalBody.halal_friendly'
-    | 'kitchens.goalBody.high_protein'
-    | 'kitchens.goalBody.low_carb'
-    | 'kitchens.goalBody.vegan'
-    | 'kitchens.goalsTitle'
-    | 'kitchens.heroEyebrow'
-    | 'kitchens.heroEyebrowPending'
-    | 'kitchens.heroTitle'
     | 'kitchens.imageLabel'
-    | 'kitchens.matches'
     | 'kitchens.noPublishedZone'
     | 'kitchens.notRatedYet'
     | 'kitchens.ratingLabel'
-    | 'kitchens.resultsTitle'
     | 'kitchens.searchLabel'
     | 'kitchens.searchPlaceholder'
     | 'kitchens.subtitle'
     | 'kitchens.title'
     | 'kitchens.verified'
-    | 'landing.authBody'
-    | 'landing.authTitle'
     | 'landing.browseKitchens'
-    | 'landing.featuredKitchens'
-    | 'landing.featuredKitchensBody'
-    | 'landing.forBusinessTeaserBody'
-    | 'landing.forBusinessTeaserTitle'
-    | 'landing.heroBody'
-    | 'landing.heroTitle'
     | 'landing.howItWorks'
-    | 'landing.howItWorksTeaserBody'
-    | 'landing.howItWorksTeaserTitle'
-    | 'landing.seeAllKitchens'
-    | 'landing.value.kitchens.body'
-    | 'landing.value.kitchens.title'
-    | 'landing.value.plan.body'
-    | 'landing.value.plan.title'
-    | 'landing.value.review.body'
-    | 'landing.value.review.title'
-    | 'landing.valueTitle'
     | 'levels.excessive'
     | 'levels.good'
     | 'levels.high'
@@ -5393,12 +6702,14 @@ export interface NamespaceKeys {
     | 'menu.subtitle'
     | 'menu.title'
     | 'menu.titleFor'
+    | 'nav.account'
     | 'nav.accountMenu'
     | 'nav.dietitians'
     | 'nav.discover'
     | 'nav.forBusiness'
     | 'nav.home'
     | 'nav.howItWorks'
+    | 'nav.imageCredits'
     | 'nav.kitchens'
     | 'nav.meals'
     | 'nav.myHome'
@@ -5423,6 +6734,22 @@ export interface NamespaceKeys {
     | 'nutrition.fat'
     | 'nutrition.protein'
     | 'nutrition.source'
+    | 'packSize.per'
+    | 'packSize.units.bag'
+    | 'packSize.units.bottle'
+    | 'packSize.units.can'
+    | 'packSize.units.cup'
+    | 'packSize.units.g'
+    | 'packSize.units.gallon'
+    | 'packSize.units.kg'
+    | 'packSize.units.l'
+    | 'packSize.units.ml'
+    | 'packSize.units.pack'
+    | 'packSize.units.piece'
+    | 'packSize.units.portion'
+    | 'packSize.units.slice'
+    | 'packSize.units.tbsp'
+    | 'packSize.units.tsp'
     | 'prototype.badge'
     | 'prototype.hint'
     | 'prototype.notBuilt'
@@ -5431,25 +6758,111 @@ export interface NamespaceKeys {
     | 'resume.thisPage'
     | 'storefront.addLabel'
     | 'storefront.closedToday'
-    | 'storefront.collectFrom'
-    | 'storefront.dietsEyebrow'
-    | 'storefront.emptyBody'
-    | 'storefront.emptyTitle'
-    | 'storefront.factBranches'
-    | 'storefront.factCuisine'
-    | 'storefront.factDelivery'
-    | 'storefront.factDeliveryValue'
-    | 'storefront.factRating'
-    | 'storefront.fee'
-    | 'storefront.fromAmount'
-    | 'storefront.minimum'
+    | 'storefront.eyebrow'
+    | 'storefront.eyebrowArea'
+    | 'storefront.facts.branchCount'
+    | 'storefront.facts.branches'
+    | 'storefront.facts.cuisine'
+    | 'storefront.facts.delivery'
+    | 'storefront.facts.minutes'
+    | 'storefront.facts.minutesRange'
+    | 'storefront.facts.none'
+    | 'storefront.facts.notRated'
+    | 'storefront.facts.rating'
+    | 'storefront.facts.ratingValue'
+    | 'storefront.menu.all'
+    | 'storefront.menu.chip'
+    | 'storefront.menu.count'
+    | 'storefront.menu.countCutOff'
+    | 'storefront.menu.emptyBody'
+    | 'storefront.menu.emptyTitle'
+    | 'storefront.menu.other'
+    | 'storefront.menu.shelvesLabel'
     | 'storefront.openMeal'
     | 'storefront.openToday'
-    | 'storefront.orderEyebrow'
-    | 'storefront.productsTitle'
-    | 'storefront.sectionNote'
-    | 'storefront.seePlans'
-    | 'storefront.startOrder'
+    | 'storefront.order.collectFrom'
+    | 'storefront.order.cutOff'
+    | 'storefront.order.delivery'
+    | 'storefront.order.eyebrow'
+    | 'storefront.order.fee'
+    | 'storefront.order.fromAmount'
+    | 'storefront.order.hoursLeft'
+    | 'storefront.order.minimum'
+    | 'storefront.order.minutesLeft'
+    | 'storefront.order.modesLabel'
+    | 'storefront.order.passed'
+    | 'storefront.order.pickup'
+    | 'storefront.order.readyIn'
+    | 'storefront.order.seePlans'
+    | 'storefront.order.start'
+    | 'storefront.plans.choose'
+    | 'storefront.plans.chooseLabel'
+    | 'storefront.plans.empty'
+    | 'storefront.plans.howItWorks'
+    | 'storefront.plans.perWeek'
+    | 'storefront.plans.subtitle'
+    | 'storefront.plans.title'
+    | 'storefront.reviews.barLabel'
+    | 'storefront.reviews.count'
+    | 'storefront.reviews.emptyBody'
+    | 'storefront.reviews.emptyTitle'
+    | 'storefront.reviews.notRated'
+    | 'storefront.reviews.outOfFive'
+    | 'storefront.row.energy'
+    | 'storefront.row.protein'
+    | 'storefront.safety.allergenCount'
+    | 'storefront.safety.allergensBody'
+    | 'storefront.safety.allergensTitle'
+    | 'storefront.safety.dietsEyebrow'
+    | 'storefront.safety.noAllergens'
+    | 'storefront.safety.noDiets'
+    | 'storefront.safety.noteJoin'
+    | 'storefront.safety.nutritionBody'
+    | 'storefront.safety.nutritionFigure'
+    | 'storefront.safety.nutritionTitle'
+    | 'storefront.safety.unverifiedBody'
+    | 'storefront.safety.verifiedBody'
+    | 'storefront.safety.verifiedFigure'
+    | 'storefront.safety.verifiedTitle'
+    | 'storefront.separator'
+    | 'storefront.tabs.label'
+    | 'storefront.tabs.menu'
+    | 'storefront.tabs.plans'
+    | 'storefront.tabs.reviews'
+    | 'storefront.tabs.safety'
+    | 'storefront.tabs.today'
+    | 'storefront.today.clock'
+    | 'storefront.today.cutoff.body'
+    | 'storefront.today.cutoff.bodyNone'
+    | 'storefront.today.cutoff.bodyPassed'
+    | 'storefront.today.cutoff.eyebrow'
+    | 'storefront.today.cutoff.eyebrowTime'
+    | 'storefront.today.cutoff.inHours'
+    | 'storefront.today.cutoff.inMinutes'
+    | 'storefront.today.cutoff.none'
+    | 'storefront.today.cutoff.orderBy'
+    | 'storefront.today.cutoff.passed'
+    | 'storefront.today.cutoff.pick'
+    | 'storefront.today.cutoff.window'
+    | 'storefront.today.cutoff.windowsLabel'
+    | 'storefront.today.events.closes'
+    | 'storefront.today.events.closesNote'
+    | 'storefront.today.events.cutoff'
+    | 'storefront.today.events.cutoffNote'
+    | 'storefront.today.events.opens'
+    | 'storefront.today.events.opensNote'
+    | 'storefront.today.events.window'
+    | 'storefront.today.events.windowNote'
+    | 'storefront.today.eyebrow'
+    | 'storefront.today.eyebrowDate'
+    | 'storefront.today.line.empty'
+    | 'storefront.today.line.eyebrow'
+    | 'storefront.today.none'
+    | 'storefront.today.title'
+    | 'storefront.verified'
+    | 'storefront.ways.delivery'
+    | 'storefront.ways.pickup'
+    | 'storefront.ways.plans'
     | 'subscriptionStates.active'
     | 'subscriptionStates.cancelled'
     | 'subscriptionStates.draft'
@@ -5977,6 +7390,7 @@ export interface NamespaceKeys {
     | 'add.perServing'
     | 'add.restaurantDishHint'
     | 'add.restaurantDishLabel'
+    | 'add.restaurantDishPlaceholder'
     | 'add.restaurantHint'
     | 'add.restaurantSubmit'
     | 'add.restaurantVenueLabel'
@@ -6134,6 +7548,7 @@ export interface NamespaceKeys {
     | 'index.startVirtualDietitian'
     | 'notes.customerHint'
     | 'notes.customerLabel'
+    | 'notes.customerPlaceholder'
     | 'notes.dietitianTitle'
     | 'notes.errorBody'
     | 'notes.errorTitle'
@@ -6286,6 +7701,7 @@ export interface NamespaceKeys {
     | 'week.templateBody'
     | 'week.templateConfirm'
     | 'week.templateNameLabel'
+    | 'week.templateNamePlaceholder'
     | 'week.templateTitle'
     | 'week.title'
     | 'week.warningsBody'
@@ -6293,19 +7709,28 @@ export interface NamespaceKeys {
   readonly "platformAdmin":
     | 'create.branchNameHint'
     | 'create.branchNameLabel'
+    | 'create.branchNamePlaceholder'
     | 'create.cityLabel'
+    | 'create.cityPlaceholder'
     | 'create.countryLabel'
+    | 'create.countryPlaceholder'
     | 'create.created'
     | 'create.currencyLabel'
+    | 'create.currencyPlaceholder'
     | 'create.languageLabel'
+    | 'create.languagePlaceholder'
     | 'create.nameLabel'
+    | 'create.namePlaceholderAr'
+    | 'create.namePlaceholderEn'
     | 'create.ownerNext'
     | 'create.slugHint'
     | 'create.slugLabel'
+    | 'create.slugPlaceholder'
     | 'create.submit'
     | 'create.submitting'
     | 'create.subtitle'
     | 'create.timezoneLabel'
+    | 'create.timezonePlaceholder'
     | 'create.title'
     | 'detail.backToList'
     | 'detail.branchColumn.city'
@@ -6331,8 +7756,10 @@ export interface NamespaceKeys {
     | 'invite.emailPlaceholder'
     | 'invite.messageHint'
     | 'invite.messageLabel'
+    | 'invite.messagePlaceholder'
     | 'invite.nameHint'
     | 'invite.nameLabel'
+    | 'invite.namePlaceholder'
     | 'invite.sent'
     | 'invite.sentNotMailed'
     | 'invite.submit'
@@ -6373,6 +7800,7 @@ export interface NamespaceKeys {
     | 'lifecycle.suspendConfirm'
     | 'lifecycle.suspendReasonHint'
     | 'lifecycle.suspendReasonLabel'
+    | 'lifecycle.suspendReasonPlaceholder'
     | 'lifecycle.suspendTitle'
     | 'lifecycle.suspended'
     | 'lifecycle.suspending'
@@ -6424,6 +7852,7 @@ export interface NamespaceKeys {
     | 'plan.noteFailedTitle'
     | 'plan.noteHint'
     | 'plan.noteLabel'
+    | 'plan.notePlaceholder'
     | 'plan.noteSave'
     | 'plan.noteTitle'
     | 'plan.open'
@@ -6496,6 +7925,7 @@ export interface NamespaceKeys {
     | 'review.changesDialogTitle'
     | 'review.changesNoteHint'
     | 'review.changesNoteLabel'
+    | 'review.changesNotePlaceholder'
     | 'review.changesPriorityLabel'
     | 'review.clientNoteTitle'
     | 'review.contextTitle'
@@ -6510,6 +7940,7 @@ export interface NamespaceKeys {
     | 'review.noteDialogTitle'
     | 'review.noteHint'
     | 'review.noteLabel'
+    | 'review.notePlaceholder'
     | 'review.overrideConfirm'
     | 'review.overrideDialogBody'
     | 'review.overrideDialogTitle'
@@ -6517,12 +7948,14 @@ export interface NamespaceKeys {
     | 'review.overrideEnergyLabel'
     | 'review.overrideReasonHint'
     | 'review.overrideReasonLabel'
+    | 'review.overrideReasonPlaceholder'
     | 'review.reasonsTitle'
     | 'review.requestChanges'
     | 'review.setNote'
     | 'review.setOverride'
     | 'review.signatureHint'
     | 'review.signatureLabel'
+    | 'review.signaturePlaceholder'
     | 'severities.advisory'
     | 'severities.critical'
     | 'severities.strict'
@@ -6705,10 +8138,12 @@ export interface NamespaceKeys {
     | 'override.energyHint'
     | 'override.energyInvalid'
     | 'override.energyLabel'
+    | 'override.energyPlaceholder'
     | 'override.failed'
     | 'override.open'
     | 'override.reasonHint'
     | 'override.reasonLabel'
+    | 'override.reasonPlaceholder'
     | 'override.reasonRequired'
     | 'quickReplies.analysing.addDislike'
     | 'quickReplies.analysing.confirmRestrictions'
@@ -6793,8 +8228,10 @@ export interface NamespaceKeys {
     | 'states.suggested_targets.summary'
     | 'structure.areaHint'
     | 'structure.areaLabel'
+    | 'structure.areaPlaceholder'
     | 'structure.budgetHint'
     | 'structure.budgetLabel'
+    | 'structure.budgetPlaceholder'
     | 'structure.energyShare'
     | 'structure.generate'
     | 'structure.generateFailed'
@@ -6915,12 +8352,269 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'access:workspaceSelector.open',
   'access:workspaceSelector.subtitle',
   'access:workspaceSelector.title',
+  'accessAdmin:add.back',
+  'accessAdmin:add.branch',
+  'accessAdmin:add.createHint',
+  'accessAdmin:add.created',
+  'accessAdmin:add.domain',
+  'accessAdmin:add.email',
+  'accessAdmin:add.familyName',
+  'accessAdmin:add.generate',
+  'accessAdmin:add.givenName',
+  'accessAdmin:add.inviteHint',
+  'accessAdmin:add.message',
+  'accessAdmin:add.modes.create',
+  'accessAdmin:add.modes.invite',
+  'accessAdmin:add.password',
+  'accessAdmin:add.passwordAcknowledge',
+  'accessAdmin:add.passwordBody',
+  'accessAdmin:add.passwordTitle',
+  'accessAdmin:add.placeholders.email',
+  'accessAdmin:add.placeholders.familyName',
+  'accessAdmin:add.placeholders.givenName',
+  'accessAdmin:add.placeholders.password',
+  'accessAdmin:add.placeholders.signInName',
+  'accessAdmin:add.role',
+  'accessAdmin:add.roleInviteHint',
+  'accessAdmin:add.roles',
+  'accessAdmin:add.rolesCreateHint',
+  'accessAdmin:add.sections.invitation',
+  'accessAdmin:add.sections.person',
+  'accessAdmin:add.sections.signIn',
+  'accessAdmin:add.signInName',
+  'accessAdmin:add.signInNameHint',
+  'accessAdmin:add.signInNameInvalid',
+  'accessAdmin:add.submitCreate',
+  'accessAdmin:add.submitInvite',
+  'accessAdmin:add.title',
+  'accessAdmin:advanced.actions.manage',
+  'accessAdmin:advanced.actions.other',
+  'accessAdmin:advanced.actions.publish',
+  'accessAdmin:advanced.actions.view',
+  'accessAdmin:advanced.actions.viewCosts',
+  'accessAdmin:advanced.cellLabel',
+  'accessAdmin:advanced.columns.area',
+  'accessAdmin:advanced.notHeld',
+  'accessAdmin:advanced.selected',
+  'accessAdmin:advanced.tableLabel',
+  'accessAdmin:changePassword.confirmation',
+  'accessAdmin:changePassword.current',
+  'accessAdmin:changePassword.done',
+  'accessAdmin:changePassword.password',
+  'accessAdmin:changePassword.submit',
+  'accessAdmin:changePassword.subtitle',
+  'accessAdmin:changePassword.title',
+  'accessAdmin:codes.audit.view_organisation.name',
+  'accessAdmin:codes.b2b_quotation.quote_organisation.name',
+  'accessAdmin:codes.b2b_quotation.view_organisation.name',
+  'accessAdmin:codes.branch.manage_current.name',
+  'accessAdmin:codes.branch.view_current.name',
+  'accessAdmin:codes.catalogue.manage_organisation.name',
+  'accessAdmin:codes.catalogue.publish_organisation.name',
+  'accessAdmin:codes.catalogue.view_organisation.name',
+  'accessAdmin:codes.consent.manage_own.name',
+  'accessAdmin:codes.consent.view_own.name',
+  'accessAdmin:codes.customer.create_on_behalf_organisation.name',
+  'accessAdmin:codes.delivery_zone.manage_organisation.name',
+  'accessAdmin:codes.device.manage_own.name',
+  'accessAdmin:codes.entitlement.view_organisation.name',
+  'accessAdmin:codes.inventory.manage_organisation.name',
+  'accessAdmin:codes.inventory.order_supplies_organisation.name',
+  'accessAdmin:codes.inventory.view_costs_organisation.name',
+  'accessAdmin:codes.inventory.view_organisation.name',
+  'accessAdmin:codes.membership.end_organisation.name',
+  'accessAdmin:codes.membership.invite_organisation.name',
+  'accessAdmin:codes.membership.update_organisation.name',
+  'accessAdmin:codes.membership.view_organisation.name',
+  'accessAdmin:codes.order.create_on_behalf_organisation.name',
+  'accessAdmin:codes.order.manage_organisation.name',
+  'accessAdmin:codes.order.view_customer_contact_organisation.name',
+  'accessAdmin:codes.order.view_organisation.name',
+  'accessAdmin:codes.organisation.update_current.name',
+  'accessAdmin:codes.organisation.view_current.name',
+  'accessAdmin:codes.plan.manage_organisation.name',
+  'accessAdmin:codes.plan.publish_organisation.name',
+  'accessAdmin:codes.price_list.manage_organisation.name',
+  'accessAdmin:codes.price_list.view_organisation.name',
+  'accessAdmin:codes.profile.update_own.name',
+  'accessAdmin:codes.profile.view_own.name',
+  'accessAdmin:codes.recipe.manage_organisation.name',
+  'accessAdmin:codes.recipe.publish_organisation.name',
+  'accessAdmin:codes.recipe.view_costs_organisation.name',
+  'accessAdmin:codes.recipe.view_organisation.name',
+  'accessAdmin:codes.role.manage_organisation.name',
+  'accessAdmin:codes.role.view_organisation.name',
+  'accessAdmin:codes.session.revoke_own.name',
+  'accessAdmin:codes.subscription.view_organisation.name',
+  'accessAdmin:codes.user.manage_organisation.name',
+  'accessAdmin:extras.orderDeskCustomer',
+  'accessAdmin:extras.orderDeskSale',
+  'accessAdmin:extras.unpricedReceipts',
+  'accessAdmin:member.assignmentExpired',
+  'accessAdmin:member.assignmentFrom',
+  'accessAdmin:member.assignmentScheduled',
+  'accessAdmin:member.assignmentUntil',
+  'accessAdmin:member.cancel',
+  'accessAdmin:member.end',
+  'accessAdmin:member.endBody',
+  'accessAdmin:member.endConfirm',
+  'accessAdmin:member.endTitle',
+  'accessAdmin:member.ended',
+  'accessAdmin:member.lastAdministrator',
+  'accessAdmin:member.permissionsHeading',
+  'accessAdmin:member.permissionsHint',
+  'accessAdmin:member.permissionsNone',
+  'accessAdmin:member.reactivate',
+  'accessAdmin:member.reactivated',
+  'accessAdmin:member.rolesHeading',
+  'accessAdmin:member.rolesHint',
+  'accessAdmin:member.save',
+  'accessAdmin:member.saved',
+  'accessAdmin:member.scopeHeading',
+  'accessAdmin:member.scopeHint',
+  'accessAdmin:member.scopeSingleBranch',
+  'accessAdmin:member.scopeWholeKitchen',
+  'accessAdmin:member.selfLockout',
+  'accessAdmin:member.suspend',
+  'accessAdmin:member.suspended',
+  'accessAdmin:member.title',
+  'accessAdmin:pages.alsoOpens',
+  'accessAdmin:pages.cellLabel',
+  'accessAdmin:pages.columns.extras',
+  'accessAdmin:pages.columns.page',
+  'accessAdmin:pages.levels.manage',
+  'accessAdmin:pages.levels.none',
+  'accessAdmin:pages.levels.view',
+  'accessAdmin:pages.tableLabel',
+  'accessAdmin:pages.unmappedCount',
+  'accessAdmin:pages.unmappedHeading',
+  'accessAdmin:pages.unmappedHint',
+  'accessAdmin:role.back',
+  'accessAdmin:role.cancel',
+  'accessAdmin:role.code',
+  'accessAdmin:role.codeInvalid',
+  'accessAdmin:role.codePlaceholder',
+  'accessAdmin:role.copyTitle',
+  'accessAdmin:role.created',
+  'accessAdmin:role.delete',
+  'accessAdmin:role.deleteBlocked',
+  'accessAdmin:role.deleteBody',
+  'accessAdmin:role.deleteConfirm',
+  'accessAdmin:role.deleteTitle',
+  'accessAdmin:role.deleted',
+  'accessAdmin:role.description',
+  'accessAdmin:role.descriptionPlaceholderAr',
+  'accessAdmin:role.descriptionPlaceholderEn',
+  'accessAdmin:role.name',
+  'accessAdmin:role.namePlaceholderAr',
+  'accessAdmin:role.namePlaceholderEn',
+  'accessAdmin:role.newTitle',
+  'accessAdmin:role.save',
+  'accessAdmin:role.saved',
+  'accessAdmin:role.selfLockout',
+  'accessAdmin:role.shadowsTemplate',
+  'accessAdmin:role.tabs.advanced',
+  'accessAdmin:role.tabs.details',
+  'accessAdmin:role.tabs.pages',
+  'accessAdmin:role.templateNotice',
+  'accessAdmin:roles.caption',
+  'accessAdmin:roles.columns.description',
+  'accessAdmin:roles.columns.holders',
+  'accessAdmin:roles.columns.kind',
+  'accessAdmin:roles.columns.pages',
+  'accessAdmin:roles.columns.role',
+  'accessAdmin:roles.copy',
+  'accessAdmin:roles.create',
+  'accessAdmin:roles.edit',
+  'accessAdmin:roles.emptyBody',
+  'accessAdmin:roles.emptyTitle',
+  'accessAdmin:roles.filteredEmptyBody',
+  'accessAdmin:roles.filteredEmptyTitle',
+  'accessAdmin:roles.holders',
+  'accessAdmin:roles.holdersNone',
+  'accessAdmin:roles.kindOwn',
+  'accessAdmin:roles.kindTemplate',
+  'accessAdmin:roles.noDescription',
+  'accessAdmin:roles.open',
+  'accessAdmin:roles.ownHeading',
+  'accessAdmin:roles.ownHint',
+  'accessAdmin:roles.permissionCount',
+  'accessAdmin:roles.searchHint',
+  'accessAdmin:roles.searchLabel',
+  'accessAdmin:roles.segmentAll',
+  'accessAdmin:roles.segmentLabel',
+  'accessAdmin:roles.segmentOwn',
+  'accessAdmin:roles.segmentTemplates',
+  'accessAdmin:roles.statOwn',
+  'accessAdmin:roles.statOwnCaption',
+  'accessAdmin:roles.statRoles',
+  'accessAdmin:roles.statTemplates',
+  'accessAdmin:roles.statTemplatesCaption',
+  'accessAdmin:roles.statUnheld',
+  'accessAdmin:roles.statUnheldCaption',
+  'accessAdmin:roles.subtitle',
+  'accessAdmin:roles.templatesHeading',
+  'accessAdmin:roles.templatesHint',
+  'accessAdmin:roles.title',
+  'accessAdmin:signIn.organisation',
+  'accessAdmin:signIn.useFullEmail',
+  'accessAdmin:status.active',
+  'accessAdmin:status.ended',
+  'accessAdmin:status.invited',
+  'accessAdmin:status.suspended',
+  'accessAdmin:team.add',
+  'accessAdmin:team.caption',
+  'accessAdmin:team.columns.email',
+  'accessAdmin:team.columns.joined',
+  'accessAdmin:team.columns.person',
+  'accessAdmin:team.columns.roles',
+  'accessAdmin:team.columns.scope',
+  'accessAdmin:team.columns.status',
+  'accessAdmin:team.columns.userEmail',
+  'accessAdmin:team.emptyBody',
+  'accessAdmin:team.emptyTitle',
+  'accessAdmin:team.filteredEmptyBody',
+  'accessAdmin:team.filteredEmptyTitle',
+  'accessAdmin:team.invitations.caption',
+  'accessAdmin:team.invitations.columnExpires',
+  'accessAdmin:team.invitations.empty',
+  'accessAdmin:team.invitations.expires',
+  'accessAdmin:team.invitations.revoke',
+  'accessAdmin:team.invitations.revoked',
+  'accessAdmin:team.invitations.sent',
+  'accessAdmin:team.invitations.subtitle',
+  'accessAdmin:team.invitations.title',
+  'accessAdmin:team.moreRoles',
+  'accessAdmin:team.noRoles',
+  'accessAdmin:team.notJoined',
+  'accessAdmin:team.open',
+  'accessAdmin:team.organisationWide',
+  'accessAdmin:team.searchHint',
+  'accessAdmin:team.searchLabel',
+  'accessAdmin:team.searchPageHint',
+  'accessAdmin:team.segmentEveryone',
+  'accessAdmin:team.segmentLabel',
+  'accessAdmin:team.segmentWorking',
+  'accessAdmin:team.showEnded',
+  'accessAdmin:team.statInvitations',
+  'accessAdmin:team.statInvitationsCaption',
+  'accessAdmin:team.statNoRoles',
+  'accessAdmin:team.statNoRolesCaption',
+  'accessAdmin:team.statOffers',
+  'accessAdmin:team.statPeople',
+  'accessAdmin:team.statWorking',
+  'accessAdmin:team.statWorkingCaption',
+  'accessAdmin:team.subtitle',
+  'accessAdmin:team.title',
+  'accessAdmin:team.unnamed',
+  'accessAdmin:title',
   'account:addresses.add',
   'account:addresses.areaHint',
   'account:addresses.areaLabel',
   'account:addresses.areaPlaceholder',
   'account:addresses.backToList',
   'account:addresses.buildingLabel',
+  'account:addresses.buildingPlaceholder',
   'account:addresses.coverageBody',
   'account:addresses.coverageTitle',
   'account:addresses.default',
@@ -6928,10 +8622,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:addresses.empty',
   'account:addresses.emptyBody',
   'account:addresses.floorLabel',
+  'account:addresses.floorPlaceholder',
   'account:addresses.labelLabel',
   'account:addresses.labelPlaceholder',
   'account:addresses.line1Label',
+  'account:addresses.line1Placeholder',
   'account:addresses.line2Label',
+  'account:addresses.line2Placeholder',
   'account:addresses.makeDefault',
   'account:addresses.missingBody',
   'account:addresses.missingTitle',
@@ -6939,6 +8636,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:addresses.noAreasTitle',
   'account:addresses.notesHint',
   'account:addresses.notesLabel',
+  'account:addresses.notesPlaceholder',
   'account:addresses.partSeparator',
   'account:addresses.remove',
   'account:addresses.removeBody',
@@ -6948,27 +8646,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:addresses.subtitle',
   'account:addresses.title',
   'account:checklist.blocked',
-  'account:checklist.canActivate',
   'account:checklist.cannotActivate',
-  'account:checklist.done',
-  'account:checklist.optional',
   'account:checklist.outstanding',
-  'account:checklist.required',
-  'account:checklist.review',
-  'account:checklist.start',
+  'account:checklist.steps.add_address.action',
   'account:checklist.steps.add_address.body',
+  'account:checklist.steps.add_address.bodyOutsideArea',
   'account:checklist.steps.add_address.title',
+  'account:checklist.steps.consents.action',
   'account:checklist.steps.consents.body',
   'account:checklist.steps.consents.title',
+  'account:checklist.steps.dietary_profile.action',
   'account:checklist.steps.dietary_profile.body',
   'account:checklist.steps.dietary_profile.title',
+  'account:checklist.steps.verify_email.action',
   'account:checklist.steps.verify_email.body',
   'account:checklist.steps.verify_email.title',
+  'account:checklist.steps.verify_phone.action',
   'account:checklist.steps.verify_phone.body',
   'account:checklist.steps.verify_phone.title',
-  'account:checklist.subtitle',
-  'account:checklist.title',
-  'account:checklist.todo',
   'account:closure.acknowledge',
   'account:closure.back',
   'account:closure.blockedBody',
@@ -6995,6 +8690,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:closure.noChallenge',
   'account:closure.noteHint',
   'account:closure.noteLabel',
+  'account:closure.notePlaceholder',
   'account:closure.optOutConfirm',
   'account:closure.optOutDoneBody',
   'account:closure.optOutDoneTitle',
@@ -7070,13 +8766,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:contacts.add',
   'account:contacts.addEmail',
   'account:contacts.addPhone',
-  'account:contacts.emailLabel',
   'account:contacts.empty',
   'account:contacts.emptyBody',
-  'account:contacts.loginEmail',
   'account:contacts.loginEmailNote',
   'account:contacts.makePrimary',
-  'account:contacts.phoneLabel',
   'account:contacts.primary',
   'account:contacts.remove',
   'account:contacts.removeBody',
@@ -7085,7 +8778,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:contacts.title',
   'account:contacts.unverified',
   'account:contacts.verified',
-  'account:contacts.verify',
   'account:dietary.addAllergen',
   'account:dietary.allergenLabel',
   'account:dietary.allergensEmpty',
@@ -7101,6 +8793,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:dietary.hasAllergiesLabel',
   'account:dietary.noneBody',
   'account:dietary.noteLabel',
+  'account:dietary.notePlaceholder',
   'account:dietary.save',
   'account:dietary.saved',
   'account:dietary.severity.allergy',
@@ -7113,15 +8806,32 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:dietary.subtitle',
   'account:dietary.title',
   'account:dietary.unanswered',
-  'account:lifecycle.active',
-  'account:lifecycle.closed',
-  'account:lifecycle.closing',
-  'account:lifecycle.provisional',
-  'account:lifecycle.suspended',
-  'account:marketing.note',
+  'account:favorites.empty',
+  'account:favorites.emptyBody',
   'account:marketing.saveFailed',
-  'account:marketing.subtitle',
   'account:marketing.title',
+  'account:nav.addresses',
+  'account:nav.favorites',
+  'account:nav.label',
+  'account:nav.notifications',
+  'account:nav.orders',
+  'account:nav.payments',
+  'account:nav.profile',
+  'account:orders.backToHistory',
+  'account:orders.browse',
+  'account:orders.empty',
+  'account:orders.emptyBody',
+  'account:orders.lineLabel',
+  'account:orders.meta',
+  'account:orders.more',
+  'account:orders.newestFirst',
+  'account:orders.notFoundBody',
+  'account:orders.notFoundTitle',
+  'account:orders.openHint',
+  'account:orders.reorder',
+  'account:orders.title',
+  'account:payments.body',
+  'account:payments.cash',
   'account:phone.addNumber',
   'account:phone.backToAccount',
   'account:phone.countries.AE',
@@ -7146,6 +8856,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:phone.noNumberTitle',
   'account:phone.numberHint',
   'account:phone.numberLabel',
+  'account:phone.numberPlaceholder',
   'account:phone.otpFallback',
   'account:phone.pendingBody',
   'account:phone.sendCode',
@@ -7154,7 +8865,31 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:phone.title',
   'account:phone.verifiedBody',
   'account:phone.verifiedTitle',
-  'account:subtitle',
+  'account:privacy.closeAccount',
+  'account:privacy.reviewConsents',
+  'account:privacy.title',
+  'account:profile.allergiesDeclared',
+  'account:profile.allergiesNone',
+  'account:profile.answerAllergies',
+  'account:profile.cancel',
+  'account:profile.dietsEyebrow',
+  'account:profile.dietsLocked',
+  'account:profile.dietsUnavailable',
+  'account:profile.editAllergies',
+  'account:profile.emailLabel',
+  'account:profile.listSeparator',
+  'account:profile.manageAddresses',
+  'account:profile.mobileLabel',
+  'account:profile.nameLabel',
+  'account:profile.noPhone',
+  'account:profile.phoneAdd',
+  'account:profile.phoneChange',
+  'account:profile.phoneVerify',
+  'account:profile.save',
+  'account:profile.saved',
+  'account:profile.slotLabel',
+  'account:profile.slotUnset',
+  'account:profile.title',
   'account:title',
   'auth:aside.headline',
   'auth:aside.points.marketplace',
@@ -7166,11 +8901,27 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:branchPicker.openLabel',
   'auth:branchPicker.subtitle',
   'auth:branchPicker.title',
+  'auth:changePassword.continueLabel',
+  'auth:changePassword.currentHint',
+  'auth:changePassword.currentLabel',
+  'auth:changePassword.currentPlaceholder',
+  'auth:changePassword.optionalSubtitle',
+  'auth:changePassword.optionalTitle',
+  'auth:changePassword.passwordConfirmationLabel',
+  'auth:changePassword.passwordConfirmationPlaceholder',
+  'auth:changePassword.passwordLabel',
+  'auth:changePassword.passwordPlaceholder',
+  'auth:changePassword.submit',
+  'auth:changePassword.subtitle',
+  'auth:changePassword.successBody',
+  'auth:changePassword.successTitle',
+  'auth:changePassword.title',
   'auth:devices.current',
   'auth:devices.empty',
   'auth:devices.emptyBody',
   'auth:devices.lastUsed',
   'auth:devices.neverUsed',
+  'auth:devices.otherSessions',
   'auth:devices.platform.android',
   'auth:devices.platform.ios',
   'auth:devices.platform.web',
@@ -7181,7 +8932,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:devices.revokeTitle',
   'auth:devices.revoked',
   'auth:devices.subtitle',
+  'auth:devices.thisSession',
   'auth:devices.title',
+  'auth:devices.unrecognisedBody',
+  'auth:devices.unrecognisedTitle',
   'auth:forgotPassword.backToSignIn',
   'auth:forgotPassword.emailLabel',
   'auth:forgotPassword.sentBody',
@@ -7189,29 +8943,39 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:forgotPassword.submit',
   'auth:forgotPassword.subtitle',
   'auth:forgotPassword.title',
+  'auth:login.composedHint',
+  'auth:login.domainFull',
+  'auth:login.domainLabel',
   'auth:login.emailLabel',
   'auth:login.emailPlaceholder',
   'auth:login.failed',
   'auth:login.forgotLink',
   'auth:login.guest',
   'auth:login.passwordLabel',
+  'auth:login.passwordPlaceholder',
   'auth:login.rateLimited',
   'auth:login.registerLink',
   'auth:login.registerPrompt',
   'auth:login.rememberLabel',
+  'auth:login.signInNameLabel',
+  'auth:login.signInNamePlaceholder',
   'auth:login.submit',
   'auth:login.subtitle',
   'auth:login.title',
   'auth:login.twoFactor.back',
   'auth:login.twoFactor.codeHint',
   'auth:login.twoFactor.codeLabel',
+  'auth:login.twoFactor.codePlaceholder',
   'auth:login.twoFactor.recoveryHint',
   'auth:login.twoFactor.recoveryLabel',
+  'auth:login.twoFactor.recoveryPlaceholder',
   'auth:login.twoFactor.submit',
   'auth:login.twoFactor.subtitle',
   'auth:login.twoFactor.title',
   'auth:login.twoFactor.useCode',
   'auth:login.twoFactor.useRecovery',
+  'auth:login.useFullEmail',
+  'auth:login.useSignInName',
   'auth:organisationPicker.branchCount',
   'auth:organisationPicker.empty',
   'auth:organisationPicker.emptyAction',
@@ -7250,36 +9014,57 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:otp.title',
   'auth:profile.account',
   'auth:profile.branch',
+  'auth:profile.changePassword',
   'auth:profile.consents',
+  'auth:profile.consentsBody',
   'auth:profile.consentsNone',
   'auth:profile.context',
+  'auth:profile.currentMembership',
+  'auth:profile.devicesHint',
   'auth:profile.displayName',
   'auth:profile.email',
+  'auth:profile.emailUnverified',
+  'auth:profile.emailVerified',
   'auth:profile.entitlements',
+  'auth:profile.entitlementsTitle',
   'auth:profile.locale',
   'auth:profile.memberSince',
+  'auth:profile.membershipStatus.active',
+  'auth:profile.membershipStatus.expired',
+  'auth:profile.membershipStatus.pending',
+  'auth:profile.membershipStatus.revoked',
+  'auth:profile.membershipStatus.suspended',
   'auth:profile.memberships',
+  'auth:profile.name',
   'auth:profile.noBranch',
   'auth:profile.noContext',
   'auth:profile.none',
   'auth:profile.organisation',
+  'auth:profile.password',
+  'auth:profile.passwordHint',
   'auth:profile.permissions',
+  'auth:profile.permissionsTitle',
   'auth:profile.roles',
+  'auth:profile.security',
   'auth:profile.subtitle',
   'auth:profile.timeZone',
   'auth:profile.title',
   'auth:profile.twoFactor',
   'auth:profile.twoFactorDisabled',
   'auth:profile.twoFactorEnabled',
+  'auth:profile.twoFactorHint',
   'auth:register.acceptPrivacy',
   'auth:register.acceptTerms',
   'auth:register.emailLabel',
   'auth:register.loginLink',
   'auth:register.loginPrompt',
   'auth:register.nameLabel',
+  'auth:register.namePlaceholder',
   'auth:register.passwordConfirmationLabel',
+  'auth:register.passwordConfirmationPlaceholder',
   'auth:register.passwordHint',
   'auth:register.passwordLabel',
+  'auth:register.passwordPlaceholder',
   'auth:register.privacyLink',
   'auth:register.submit',
   'auth:register.subtitle',
@@ -7289,7 +9074,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:resetPassword.missingLink',
   'auth:resetPassword.missingLinkBody',
   'auth:resetPassword.passwordConfirmationLabel',
+  'auth:resetPassword.passwordConfirmationPlaceholder',
   'auth:resetPassword.passwordLabel',
+  'auth:resetPassword.passwordPlaceholder',
   'auth:resetPassword.requestNew',
   'auth:resetPassword.submit',
   'auth:resetPassword.subtitle',
@@ -7299,6 +9086,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:stepUp.body',
   'auth:stepUp.confirmed',
   'auth:stepUp.passwordLabel',
+  'auth:stepUp.passwordPlaceholder',
   'auth:stepUp.submit',
   'auth:stepUp.title',
   'auth:verifyEmail.body',
@@ -7336,6 +9124,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:agreement.sign',
   'b2bApplication:agreement.signTitle',
   'b2bApplication:agreement.signatoryTitle',
+  'b2bApplication:agreement.signatoryTitlePlaceholder',
   'b2bApplication:agreement.signedOn',
   'b2bApplication:agreement.signing',
   'b2bApplication:agreement.startsOn',
@@ -7344,6 +9133,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:agreement.title',
   'b2bApplication:agreement.typedName',
   'b2bApplication:agreement.typedNameHint',
+  'b2bApplication:agreement.typedNamePlaceholder',
   'b2bApplication:agreement.verified',
   'b2bApplication:agreement.verifyBody',
   'b2bApplication:agreement.verifyFirst',
@@ -7414,27 +9204,43 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:errors.sectionRefused',
   'b2bApplication:fields.businessType',
   'b2bApplication:fields.commercialRegistrationNumber',
+  'b2bApplication:fields.commercialRegistrationNumberPlaceholder',
   'b2bApplication:fields.countryCode',
+  'b2bApplication:fields.countryCodePlaceholder',
   'b2bApplication:fields.currencyCode',
+  'b2bApplication:fields.currencyCodePlaceholder',
   'b2bApplication:fields.deliveryNotes',
+  'b2bApplication:fields.deliveryNotesPlaceholder',
   'b2bApplication:fields.expectedOrderFrequency',
   'b2bApplication:fields.expectedVolumeBand',
   'b2bApplication:fields.incorporatedOn',
+  'b2bApplication:fields.incorporatedOnPlaceholder',
   'b2bApplication:fields.leadTimeDays',
+  'b2bApplication:fields.leadTimeDaysPlaceholder',
   'b2bApplication:fields.legalName',
   'b2bApplication:fields.legalNameAr',
+  'b2bApplication:fields.legalNameArPlaceholder',
+  'b2bApplication:fields.legalNamePlaceholder',
   'b2bApplication:fields.preferredDeliveryWindow',
   'b2bApplication:fields.productCategories',
   'b2bApplication:fields.requestedCreditLimitMinor',
+  'b2bApplication:fields.requestedCreditLimitMinorPlaceholder',
   'b2bApplication:fields.requestedPaymentTerms',
   'b2bApplication:fields.requiresInvoicePerLocation',
   'b2bApplication:fields.signatoryEmail',
+  'b2bApplication:fields.signatoryEmailPlaceholder',
   'b2bApplication:fields.signatoryName',
+  'b2bApplication:fields.signatoryNamePlaceholder',
   'b2bApplication:fields.signatoryPhone',
+  'b2bApplication:fields.signatoryPhonePlaceholder',
   'b2bApplication:fields.signatoryTitle',
+  'b2bApplication:fields.signatoryTitlePlaceholder',
   'b2bApplication:fields.taxRegistrationNumber',
+  'b2bApplication:fields.taxRegistrationNumberPlaceholder',
   'b2bApplication:fields.tradingName',
+  'b2bApplication:fields.tradingNamePlaceholder',
   'b2bApplication:fields.website',
+  'b2bApplication:fields.websitePlaceholder',
   'b2bApplication:hints.deliveryNotes',
   'b2bApplication:hints.leadTimeDays',
   'b2bApplication:hints.legalName',
@@ -7548,6 +9354,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:windDown.effectiveOn',
   'b2bApplication:windDown.failedTitle',
   'b2bApplication:windDown.nameLabel',
+  'b2bApplication:windDown.namePlaceholder',
   'b2bApplication:windDown.noEffectiveDate',
   'b2bApplication:windDown.noneBody',
   'b2bApplication:windDown.noneTitle',
@@ -7598,6 +9405,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:windDown.timelineTitle',
   'b2bApplication:windDown.title',
   'b2bApplication:windDown.titleLabel',
+  'b2bApplication:windDown.titlePlaceholder',
   'b2bApplication:windDown.triggers.client_request',
   'b2bApplication:windDown.triggers.contract_end',
   'b2bApplication:windDown.triggers.non_renewal',
@@ -7620,7 +9428,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:wizard.stepPosition',
   'business:builder.back',
   'business:builder.contactEmail',
+  'business:builder.contactEmailPlaceholder',
   'business:builder.contactName',
+  'business:builder.contactNamePlaceholder',
   'business:builder.contactTitle',
   'business:builder.deliveryDate',
   'business:builder.deliveryDateHint',
@@ -7638,6 +9448,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:builder.notFoundTitle',
   'business:builder.note',
   'business:builder.noteHint',
+  'business:builder.notePlaceholder',
   'business:builder.openList',
   'business:builder.quantityLabel',
   'business:builder.recurring',
@@ -7662,6 +9473,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:catalogue.buildQuotation',
   'business:catalogue.clearFilters',
   'business:catalogue.contractPrice',
+  'business:catalogue.contractPricePerPack',
   'business:catalogue.emptyBody',
   'business:catalogue.emptyTitle',
   'business:catalogue.kindAll',
@@ -7681,6 +9493,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:catalogue.quote',
   'business:catalogue.recurring',
   'business:catalogue.searchLabel',
+  'business:catalogue.searchPlaceholder',
   'business:catalogue.singleCurrency',
   'business:catalogue.title',
   'business:catalogue.unpriced',
@@ -7700,6 +9513,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:dashboard.lookupHint',
   'business:dashboard.lookupLabel',
   'business:dashboard.lookupOpen',
+  'business:dashboard.lookupPlaceholder',
   'business:dashboard.lookupTitle',
   'business:dashboard.noQuotationsBody',
   'business:dashboard.noQuotationsTitle',
@@ -7802,6 +9616,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:schedule.line',
   'business:schedule.title',
   'business:title',
+  'catalogue:card.calories',
+  'catalogue:card.noFigure',
+  'catalogue:card.notRated',
+  'catalogue:card.protein',
+  'catalogue:card.rating',
+  'catalogue:card.soldOut',
+  'catalogue:card.unavailable',
   'catalogue:common.back',
   'catalogue:common.listSeparator',
   'catalogue:common.loading',
@@ -7870,12 +9691,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:facts.title',
   'catalogue:facts.version',
   'catalogue:filters.activeCount',
+  'catalogue:filters.allMeals',
   'catalogue:filters.anyValue',
   'catalogue:filters.atLeast',
   'catalogue:filters.atMost',
   'catalogue:filters.carbohydrate',
+  'catalogue:filters.category',
   'catalogue:filters.clear',
+  'catalogue:filters.clearAll',
   'catalogue:filters.diet',
+  'catalogue:filters.dietary',
   'catalogue:filters.energy',
   'catalogue:filters.excludeAllergens',
   'catalogue:filters.excludeAllergensHint',
@@ -7883,6 +9708,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:filters.groupWithCount',
   'catalogue:filters.kitchen',
   'catalogue:filters.mealType',
+  'catalogue:filters.moreDiets',
+  'catalogue:filters.optionWithCount',
   'catalogue:filters.preparationMinutes',
   'catalogue:filters.price',
   'catalogue:filters.protein',
@@ -7892,6 +9719,112 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:filters.unitGrams',
   'catalogue:filters.unitKcal',
   'catalogue:filters.unitMinutes',
+  'catalogue:howPlans.breadcrumbCurrent',
+  'catalogue:howPlans.breadcrumbPlans',
+  'catalogue:howPlans.calculator.body',
+  'catalogue:howPlans.calculator.cell.delivery',
+  'catalogue:howPlans.calculator.cell.ended',
+  'catalogue:howPlans.calculator.cell.none',
+  'catalogue:howPlans.calculator.cell.skipped',
+  'catalogue:howPlans.calculator.cellLabel',
+  'catalogue:howPlans.calculator.credit',
+  'catalogue:howPlans.calculator.creditNone',
+  'catalogue:howPlans.calculator.empty',
+  'catalogue:howPlans.calculator.eyebrow',
+  'catalogue:howPlans.calculator.lastDelivery',
+  'catalogue:howPlans.calculator.lastDeliveryNote',
+  'catalogue:howPlans.calculator.lasts',
+  'catalogue:howPlans.calculator.lastsNote',
+  'catalogue:howPlans.calculator.lastsValue',
+  'catalogue:howPlans.calculator.left',
+  'catalogue:howPlans.calculator.leftValue',
+  'catalogue:howPlans.calculator.legendDelivery',
+  'catalogue:howPlans.calculator.legendNone',
+  'catalogue:howPlans.calculator.legendSkipped',
+  'catalogue:howPlans.calculator.moreWeeks',
+  'catalogue:howPlans.calculator.none',
+  'catalogue:howPlans.calculator.perDay',
+  'catalogue:howPlans.calculator.perDayDiscount',
+  'catalogue:howPlans.calculator.perDayLocked',
+  'catalogue:howPlans.calculator.pickWeekday',
+  'catalogue:howPlans.calculator.planLabel',
+  'catalogue:howPlans.calculator.planOption',
+  'catalogue:howPlans.calculator.sizeLabel',
+  'catalogue:howPlans.calculator.sizeOption',
+  'catalogue:howPlans.calculator.sizeOptionDiscount',
+  'catalogue:howPlans.calculator.skipWeek',
+  'catalogue:howPlans.calculator.skipWeekNamed',
+  'catalogue:howPlans.calculator.skipped',
+  'catalogue:howPlans.calculator.title',
+  'catalogue:howPlans.calculator.total',
+  'catalogue:howPlans.calculator.totalNote',
+  'catalogue:howPlans.calculator.weekLabel',
+  'catalogue:howPlans.calculator.weekdaysLabel',
+  'catalogue:howPlans.choosePlan',
+  'catalogue:howPlans.ctaBody',
+  'catalogue:howPlans.ctaTitle',
+  'catalogue:howPlans.cutoff.delivered.body',
+  'catalogue:howPlans.cutoff.delivered.time',
+  'catalogue:howPlans.cutoff.delivered.title',
+  'catalogue:howPlans.cutoff.eyebrow',
+  'catalogue:howPlans.cutoff.lock.body',
+  'catalogue:howPlans.cutoff.lock.time',
+  'catalogue:howPlans.cutoff.lock.title',
+  'catalogue:howPlans.cutoff.order.body',
+  'catalogue:howPlans.cutoff.order.time',
+  'catalogue:howPlans.cutoff.order.title',
+  'catalogue:howPlans.example.body',
+  'catalogue:howPlans.example.delivered',
+  'catalogue:howPlans.example.eyebrow',
+  'catalogue:howPlans.example.gridLabel',
+  'catalogue:howPlans.example.left',
+  'catalogue:howPlans.example.priceLabel',
+  'catalogue:howPlans.example.priceValue',
+  'catalogue:howPlans.example.skipsLabel',
+  'catalogue:howPlans.example.skipsValue',
+  'catalogue:howPlans.example.stillYours',
+  'catalogue:howPlans.eyebrow',
+  'catalogue:howPlans.faq.address.a',
+  'catalogue:howPlans.faq.address.q',
+  'catalogue:howPlans.faq.chooseMeals.a',
+  'catalogue:howPlans.faq.chooseMeals.q',
+  'catalogue:howPlans.faq.expire.a',
+  'catalogue:howPlans.faq.expire.q',
+  'catalogue:howPlans.faq.priceRise.a',
+  'catalogue:howPlans.faq.priceRise.q',
+  'catalogue:howPlans.faq.soldOut.a',
+  'catalogue:howPlans.faq.soldOut.q',
+  'catalogue:howPlans.faqTitle',
+  'catalogue:howPlans.lede',
+  'catalogue:howPlans.rules.allergies.body',
+  'catalogue:howPlans.rules.allergies.title',
+  'catalogue:howPlans.rules.cancel.body',
+  'catalogue:howPlans.rules.cancel.title',
+  'catalogue:howPlans.rules.cutoff.body',
+  'catalogue:howPlans.rules.cutoff.title',
+  'catalogue:howPlans.rules.days.body',
+  'catalogue:howPlans.rules.days.title',
+  'catalogue:howPlans.rules.price.body',
+  'catalogue:howPlans.rules.price.title',
+  'catalogue:howPlans.rules.skip.body',
+  'catalogue:howPlans.rules.skip.title',
+  'catalogue:howPlans.rulesMeta',
+  'catalogue:howPlans.rulesTitle',
+  'catalogue:howPlans.states.active.body',
+  'catalogue:howPlans.states.active.name',
+  'catalogue:howPlans.states.active.next',
+  'catalogue:howPlans.states.cancelled.body',
+  'catalogue:howPlans.states.cancelled.name',
+  'catalogue:howPlans.states.cancelled.next',
+  'catalogue:howPlans.states.completed.body',
+  'catalogue:howPlans.states.completed.name',
+  'catalogue:howPlans.states.completed.next',
+  'catalogue:howPlans.states.eyebrow',
+  'catalogue:howPlans.states.paused.body',
+  'catalogue:howPlans.states.paused.name',
+  'catalogue:howPlans.states.paused.next',
+  'catalogue:howPlans.title',
+  'catalogue:howPlans.tryCalculator',
   'catalogue:macros.grams',
   'catalogue:macros.inRange',
   'catalogue:macros.kilocalories',
@@ -7906,8 +9839,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:macros.title',
   'catalogue:meal.actionErrorBody',
   'catalogue:meal.actionErrorTitle',
-  'catalogue:meal.actionsTitle',
-  'catalogue:meal.addToBasket',
+  'catalogue:meal.addToCart',
+  'catalogue:meal.addToCartLabel',
   'catalogue:meal.addToPlan',
   'catalogue:meal.addedToBasket',
   'catalogue:meal.addedToPlan',
@@ -7916,32 +9849,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meal.allergenItem',
   'catalogue:meal.allergensDeclared',
   'catalogue:meal.allergensNone',
+  'catalogue:meal.allergensNoneShort',
   'catalogue:meal.allergensTitle',
-  'catalogue:meal.availabilityNone',
-  'catalogue:meal.availabilityTitle',
-  'catalogue:meal.availableOn',
-  'catalogue:meal.availableRemaining',
-  'catalogue:meal.b2bAvailable',
-  'catalogue:meal.b2bNoPrice',
-  'catalogue:meal.b2cAvailable',
-  'catalogue:meal.b2cUnavailable',
-  'catalogue:meal.basketSignIn',
-  'catalogue:meal.basketSignInTitle',
+  'catalogue:meal.allergensValue',
   'catalogue:meal.browseAll',
-  'catalogue:meal.channelsTitle',
-  'catalogue:meal.compositionTitle',
-  'catalogue:meal.cookedBy',
-  'catalogue:meal.dietTagsTitle',
+  'catalogue:meal.factsPanelTitle',
+  'catalogue:meal.factsTitle',
   'catalogue:meal.imageLabel',
   'catalogue:meal.ingredientsBody',
-  'catalogue:meal.ingredientsContract',
-  'catalogue:meal.ingredientsTitle',
+  'catalogue:meal.ingredientsLabel',
+  'catalogue:meal.instructionsLabel',
+  'catalogue:meal.instructionsNotSent',
+  'catalogue:meal.instructionsPlaceholder',
   'catalogue:meal.loading',
-  'catalogue:meal.macroEnergy',
-  'catalogue:meal.macroRingCaption',
   'catalogue:meal.macroValue',
-  'catalogue:meal.macrosTitle',
-  'catalogue:meal.macrosTitlePer100g',
+  'catalogue:meal.makeItYours',
+  'catalogue:meal.moreFromKitchen',
   'catalogue:meal.noPlanBody',
   'catalogue:meal.noPlanBrowse',
   'catalogue:meal.noPlanHome',
@@ -7949,39 +9872,41 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meal.notFoundBody',
   'catalogue:meal.notFoundTitle',
   'catalogue:meal.notRatedYet',
-  'catalogue:meal.openKitchen',
-  'catalogue:meal.orderCutOff',
+  'catalogue:meal.optionsNone',
   'catalogue:meal.planSignIn',
-  'catalogue:meal.preparationMinutes',
-  'catalogue:meal.priceEach',
-  'catalogue:meal.priceTitle',
+  'catalogue:meal.pricePerPack',
+  'catalogue:meal.quantityDecrease',
+  'catalogue:meal.quantityIncrease',
+  'catalogue:meal.quantityLabel',
   'catalogue:meal.quotationBody',
   'catalogue:meal.quotationBusiness',
   'catalogue:meal.quotationSignIn',
   'catalogue:meal.quotationTitle',
-  'catalogue:meal.ratingLabel',
+  'catalogue:meal.ratingSummary',
   'catalogue:meal.replaceBody',
   'catalogue:meal.replaceMeal',
   'catalogue:meal.replaceTitle',
   'catalogue:meal.requestQuotation',
   'catalogue:meal.servingGrams',
   'catalogue:meal.servingLabel',
-  'catalogue:meal.servingTitle',
-  'catalogue:meal.subscriptionEligible',
-  'catalogue:meal.subscriptionIneligible',
-  'catalogue:meal.unavailableOn',
-  'catalogue:meals.allLoaded',
+  'catalogue:meal.strip.carbohydrate',
+  'catalogue:meal.strip.energy',
+  'catalogue:meal.strip.fat',
+  'catalogue:meal.strip.protein',
+  'catalogue:meal.stripPer100g',
+  'catalogue:meal.thumbEmpty',
+  'catalogue:meal.thumbKitchen',
+  'catalogue:meals.countAvailable',
+  'catalogue:meals.countSoFar',
   'catalogue:meals.emptyBody',
   'catalogue:meals.emptyTitle',
   'catalogue:meals.filters',
   'catalogue:meals.filtersActive',
   'catalogue:meals.loadMore',
   'catalogue:meals.loadingMore',
-  'catalogue:meals.searchLabel',
-  'catalogue:meals.showing',
-  'catalogue:meals.showingUnknownTotal',
-  'catalogue:meals.sort.energy',
-  'catalogue:meals.sort.preparation_time',
+  'catalogue:meals.moreFilters',
+  'catalogue:meals.moreFiltersActive',
+  'catalogue:meals.moreFiltersDone',
   'catalogue:meals.sort.price',
   'catalogue:meals.sort.protein',
   'catalogue:meals.sort.rating',
@@ -8034,19 +9959,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plan.variantLabel',
   'catalogue:plan.variantsBody',
   'catalogue:plan.variantsTitle',
-  'catalogue:plans.bandsLabel',
-  'catalogue:plans.byKitchen',
-  'catalogue:plans.calorie.higher',
-  'catalogue:plans.calorie.lighter',
-  'catalogue:plans.calorie.moderate',
-  'catalogue:plans.calorieFilter',
-  'catalogue:plans.categoryAll',
-  'catalogue:plans.categoryLabel',
+  'catalogue:plans.allKitchens',
+  'catalogue:plans.balancePrice',
+  'catalogue:plans.balancePriceFrom',
+  'catalogue:plans.choosePlan',
   'catalogue:plans.compareClear',
   'catalogue:plans.compareEmpty',
   'catalogue:plans.compareFull',
-  'catalogue:plans.compareHint',
   'catalogue:plans.compareLabel',
+  'catalogue:plans.compareNamed',
   'catalogue:plans.compareOpen',
   'catalogue:plans.compareRemove',
   'catalogue:plans.compareSelected',
@@ -8056,6 +9977,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.ctaPrimary',
   'catalogue:plans.ctaSecondary',
   'catalogue:plans.ctaTitle',
+  'catalogue:plans.currentPlan',
   'catalogue:plans.durationNoDiscount',
   'catalogue:plans.durationSaves',
   'catalogue:plans.durationShort.12w',
@@ -8063,42 +9985,61 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.durationShort.2w',
   'catalogue:plans.durationShort.4w',
   'catalogue:plans.durationTotal',
-  'catalogue:plans.durations',
   'catalogue:plans.durationsFor',
   'catalogue:plans.durationsLabel',
   'catalogue:plans.emptyBody',
   'catalogue:plans.emptyTitle',
   'catalogue:plans.energyBand',
   'catalogue:plans.eyebrow',
-  'catalogue:plans.filters',
-  'catalogue:plans.filtersActive',
-  'catalogue:plans.fromPrice',
-  'catalogue:plans.heroHowItWorks',
-  'catalogue:plans.heroSpeakToDietitian',
-  'catalogue:plans.kitchenCount',
-  'catalogue:plans.kitchenFilter',
+  'catalogue:plans.featureBalances',
+  'catalogue:plans.featureBands',
+  'catalogue:plans.featureDiscount',
+  'catalogue:plans.featureMeals',
+  'catalogue:plans.featureMealsRange',
+  'catalogue:plans.howItWorksLink',
+  'catalogue:plans.kitchenFilterLabel',
+  'catalogue:plans.managePlan',
+  'catalogue:plans.managePlanNamed',
   'catalogue:plans.mealsPerDay',
   'catalogue:plans.mealsPerDayNoSnacks',
   'catalogue:plans.methodologyTitle',
-  'catalogue:plans.perDayPrice',
-  'catalogue:plans.perWeekSuffix',
-  'catalogue:plans.priceFrom',
+  'catalogue:plans.perDaySuffix',
   'catalogue:plans.ratingLabel',
-  'catalogue:plans.resultSummary',
-  'catalogue:plans.searchLabel',
-  'catalogue:plans.searchPlaceholder',
-  'catalogue:plans.showing',
-  'catalogue:plans.sort.priceLowHigh',
-  'catalogue:plans.sort.ratingHighLow',
-  'catalogue:plans.sort.recommended',
-  'catalogue:plans.sortLabel',
+  'catalogue:plans.subscriber.balance',
+  'catalogue:plans.subscriber.balanceValue',
+  'catalogue:plans.subscriber.cutoff',
+  'catalogue:plans.subscriber.cutoffValue',
+  'catalogue:plans.subscriber.day.delivery',
+  'catalogue:plans.subscriber.day.off',
+  'catalogue:plans.subscriber.day.skipped',
+  'catalogue:plans.subscriber.deliveryDays',
+  'catalogue:plans.subscriber.deliveryDaysValue',
+  'catalogue:plans.subscriber.dietaryRules',
+  'catalogue:plans.subscriber.eyebrowActive',
+  'catalogue:plans.subscriber.eyebrowPaused',
+  'catalogue:plans.subscriber.nextCharge',
+  'catalogue:plans.subscriber.nextChargeValue',
+  'catalogue:plans.subscriber.nextDelivery',
+  'catalogue:plans.subscriber.noNextDelivery',
+  'catalogue:plans.subscriber.note',
+  'catalogue:plans.subscriber.pause',
+  'catalogue:plans.subscriber.pausedToast',
+  'catalogue:plans.subscriber.plan',
+  'catalogue:plans.subscriber.planTitle',
+  'catalogue:plans.subscriber.resume',
+  'catalogue:plans.subscriber.resumedToast',
+  'catalogue:plans.subscriber.shuffle',
+  'catalogue:plans.subscriber.skipNext',
+  'catalogue:plans.subscriber.skippedToast',
+  'catalogue:plans.subscriber.tile.delivery',
+  'catalogue:plans.subscriber.tile.off',
+  'catalogue:plans.subscriber.tile.skipped',
+  'catalogue:plans.subscriber.unknown',
+  'catalogue:plans.subscriber.weekCount',
+  'catalogue:plans.subscriber.weekTitle',
   'catalogue:plans.subtitle',
+  'catalogue:plans.taglineWithKitchen',
   'catalogue:plans.title',
-  'catalogue:plans.trust.flexible',
-  'catalogue:plans.trust.kitchens',
-  'catalogue:plans.trust.reviewed',
-  'catalogue:plans.viewPlan',
-  'catalogue:plans.viewPlanNamed',
   'catalogue:title',
   'catalogue:tools.activity.extra_active',
   'catalogue:tools.activity.lightly_active',
@@ -8201,18 +10142,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:tools.weightUnitMetric',
   'commerce:address.area',
   'commerce:address.areaHint',
+  'commerce:address.areaPlaceholder',
   'commerce:address.city',
   'commerce:address.cityHint',
+  'commerce:address.cityPlaceholder',
   'commerce:address.countryCode',
   'commerce:address.countryCodeHint',
+  'commerce:address.countryCodePlaceholder',
   'commerce:address.instructions',
   'commerce:address.instructionsHint',
+  'commerce:address.instructionsPlaceholder',
   'commerce:address.label',
   'commerce:address.labelHint',
+  'commerce:address.labelPlaceholder',
   'commerce:address.line1',
   'commerce:address.line1Hint',
+  'commerce:address.line1Placeholder',
   'commerce:address.line2',
   'commerce:address.line2Hint',
+  'commerce:address.line2Placeholder',
   'commerce:address.notStored',
   'commerce:balance.cutOffNote',
   'commerce:balance.perDay',
@@ -8233,66 +10181,90 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:cancel.noRefund',
   'commerce:cancel.open',
   'commerce:cancel.title',
+  'commerce:cart.addMoreBody',
   'commerce:cart.allergenBody',
   'commerce:cart.allergenTitle',
-  'commerce:cart.body',
   'commerce:cart.browse',
+  'commerce:cart.browseMenu',
   'commerce:cart.checkout',
-  'commerce:cart.count',
+  'commerce:cart.decrease',
   'commerce:cart.delivery',
-  'commerce:cart.deliveryAtPlacement',
-  'commerce:cart.deliveryFree',
+  'commerce:cart.deliveryAtCheckout',
+  'commerce:cart.discount',
+  'commerce:cart.discountValue',
   'commerce:cart.emptyBody',
   'commerce:cart.emptyTitle',
-  'commerce:cart.priceCaption',
-  'commerce:cart.quantityLabel',
+  'commerce:cart.finePrint',
+  'commerce:cart.increase',
+  'commerce:cart.lineSummary',
+  'commerce:cart.noChanges',
+  'commerce:cart.promoApply',
+  'commerce:cart.promoLabel',
+  'commerce:cart.quantityValue',
   'commerce:cart.remove',
   'commerce:cart.removeHint',
+  'commerce:cart.subtitle',
+  'commerce:cart.subtitleNoAddress',
   'commerce:cart.subtotal',
   'commerce:cart.summaryEmpty',
   'commerce:cart.summaryTitle',
   'commerce:cart.title',
   'commerce:cart.total',
-  'commerce:cart.unitPrice',
   'commerce:cart.updateFailedTitle',
   'commerce:cart.viewMeal',
   'commerce:checkout.addAddress',
-  'commerce:checkout.addressBody',
+  'commerce:checkout.addressPlaceholder',
   'commerce:checkout.addressTitle',
-  'commerce:checkout.body',
+  'commerce:checkout.areaLabel',
+  'commerce:checkout.back',
+  'commerce:checkout.committedSeparator',
   'commerce:checkout.committedSlot',
-  'commerce:checkout.dateHint',
+  'commerce:checkout.confirmedBody',
+  'commerce:checkout.confirmedTitle',
   'commerce:checkout.dateLabel',
-  'commerce:checkout.earliest',
-  'commerce:checkout.edit',
+  'commerce:checkout.deliveringTo',
+  'commerce:checkout.deliveryBody',
+  'commerce:checkout.deliveryTitle',
   'commerce:checkout.emptyBody',
   'commerce:checkout.emptyTitle',
   'commerce:checkout.finishSetup',
+  'commerce:checkout.fromAddress',
+  'commerce:checkout.itemCount',
+  'commerce:checkout.modeDelivery',
+  'commerce:checkout.modeDeliveryFee',
+  'commerce:checkout.modeDeliverySub',
+  'commerce:checkout.modeLabel',
+  'commerce:checkout.modePickup',
+  'commerce:checkout.modePickupSub',
+  'commerce:checkout.modePickupUnavailable',
   'commerce:checkout.noAddressBody',
   'commerce:checkout.noAddressTitle',
-  'commerce:checkout.paymentNoticeBody',
-  'commerce:checkout.paymentNoticeTitle',
+  'commerce:checkout.noNote',
+  'commerce:checkout.noSlotsOffered',
+  'commerce:checkout.noteLabel',
+  'commerce:checkout.paymentCod',
+  'commerce:checkout.paymentCodMeta',
+  'commerce:checkout.paymentTitle',
   'commerce:checkout.placeFailedTitle',
   'commerce:checkout.placeOrder',
   'commerce:checkout.placeOrderHint',
-  'commerce:checkout.priceAfterReview',
-  'commerce:checkout.priceBeforeReview',
+  'commerce:checkout.placeOrderTotal',
   'commerce:checkout.progressLabel',
   'commerce:checkout.review',
+  'commerce:checkout.setupBody',
+  'commerce:checkout.setupTitle',
+  'commerce:checkout.slotChip',
   'commerce:checkout.slotTitle',
-  'commerce:checkout.slotWindow',
+  'commerce:checkout.stepCurrent',
+  'commerce:checkout.stepDone',
+  'commerce:checkout.stepUpcoming',
   'commerce:checkout.steps.delivery',
+  'commerce:checkout.steps.payment',
   'commerce:checkout.steps.placed',
-  'commerce:checkout.steps.review',
-  'commerce:checkout.successBody',
-  'commerce:checkout.successCart',
-  'commerce:checkout.successCodBody',
-  'commerce:checkout.successCodTitle',
-  'commerce:checkout.successPriceCaption',
-  'commerce:checkout.successSubscriptions',
-  'commerce:checkout.successSummaryTitle',
-  'commerce:checkout.successTitle',
+  'commerce:checkout.streetLabel',
+  'commerce:checkout.successTrack',
   'commerce:checkout.summaryTitle',
+  'commerce:checkout.theKitchen',
   'commerce:checkout.title',
   'commerce:choices.body',
   'commerce:choices.bodyDated',
@@ -8560,6 +10532,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:validation.tooLong',
   'commerce:warnings.checkout_address_missing',
   'commerce:warnings.checkout_empty_cart',
+  'commerce:warnings.checkout_window_not_offered',
   'commerce:warnings.planner_allergen_conflict',
   'commerce:warnings.subscription_delivery_day_unavailable',
   'commerce:warnings.subscription_no_delivery_days',
@@ -8593,6 +10566,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:action.signIn',
   'common:action.signOut',
   'common:action.signUp',
+  'common:action.viewBasket',
   'common:app.name',
   'common:app.tagline',
   'common:direction.ltr',
@@ -8605,9 +10579,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:locale.reloadNow',
   'common:locale.reloadRequiredBody',
   'common:locale.reloadRequiredTitle',
+  'common:nav.current',
   'common:nav.devices',
   'common:nav.overview',
   'common:nav.profile',
+  'common:nav.sectionAccount',
+  'common:nav.sectionWorkspaces',
   'common:nav.showcase',
   'common:nav.workspace',
   'common:network.backOnline',
@@ -8616,6 +10593,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:network.reconnectingBody',
   'common:network.reconnectingTitle',
   'common:notifications.count',
+  'common:photoCredit.byline',
+  'common:photoCredit.modified',
+  'common:photoCredit.provider.flickr',
+  'common:photoCredit.provider.nappy',
+  'common:photoCredit.provider.other',
+  'common:photoCredit.provider.rawpixel',
+  'common:photoCredit.provider.stocksnap',
+  'common:photoCredit.provider.unsplash',
+  'common:photoCredit.provider.wikimedia',
+  'common:photoCredit.via',
   'common:state.empty',
   'common:state.loading',
   'common:state.restoringSession',
@@ -8636,6 +10623,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:dateField.day',
   'designSystem:dateField.month',
   'designSystem:dateField.year',
+  'designSystem:datePicker.clear',
   'designSystem:datePicker.nextMonth',
   'designSystem:datePicker.previousMonth',
   'designSystem:emptyState.prototypeBadge',
@@ -8663,8 +10651,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:select.searchLabel',
   'designSystem:select.searchPlaceholder',
   'designSystem:select.searchResults',
+  'designSystem:shell.emptyPanelBody',
+  'designSystem:shell.emptyPanelTitle',
+  'designSystem:shell.hideNavigation',
+  'designSystem:shell.modules',
   'designSystem:shell.openNavigation',
   'designSystem:shell.primaryNavigation',
+  'designSystem:shell.showNavigation',
   'designSystem:shell.skipToContent',
   'designSystem:showcase.accordionBody',
   'designSystem:showcase.accordionOne',
@@ -8742,6 +10735,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:showcase.tableSortableCaption',
   'designSystem:showcase.tabsLabel',
   'designSystem:showcase.title',
+  'designSystem:showcase.toastAction',
   'designSystem:showcase.toastMessage',
   'designSystem:spike.colour.description',
   'designSystem:spike.elevation.description',
@@ -8763,6 +10757,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:spike.subtitle',
   'designSystem:spike.title',
   'designSystem:spike.typography.description',
+  'designSystem:stepProgress.step',
+  'designSystem:stepProgress.stepDone',
   'designSystem:stepper.progress',
   'designSystem:swatch.contrast',
   'designSystem:table.empty',
@@ -8772,6 +10768,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:tag.join',
   'designSystem:tag.more',
   'designSystem:tag.overflow',
+  'designSystem:timeField.clear',
+  'designSystem:timeField.done',
+  'designSystem:timeField.hour',
+  'designSystem:timeField.invalid',
+  'designSystem:timeField.minute',
+  'designSystem:timeField.open',
+  'designSystem:timeField.placeholder',
+  'errors:failure.access_self_lockout',
   'errors:failure.account_verification_required',
   'errors:failure.address_area_not_served',
   'errors:failure.auth_email_unverified',
@@ -8847,6 +10851,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:orderRefusal.unpriced',
   'errors:orderRefusal.variant_not_active',
   'errors:orderRefusal.variant_unknown',
+  'errors:orderRefusal.window_not_offered',
   'errors:orderRefusal.zone_suspended',
   'errors:validation.accept_privacy',
   'errors:validation.accept_terms',
@@ -8857,16 +10862,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:validation.password_min_length',
   'errors:validation.password_mismatch',
   'errors:validation.required',
-  'guest:address.back',
-  'guest:address.continue',
+  'guest:address.area',
+  'guest:address.city',
+  'guest:address.countryCode',
   'guest:address.date',
+  'guest:address.defaultLabel',
+  'guest:address.dropOff.call',
+  'guest:address.dropOff.hand',
+  'guest:address.dropOff.leave',
+  'guest:address.dropOffLabel',
+  'guest:address.line1',
+  'guest:address.line2',
   'guest:address.outOfZoneAreas',
   'guest:address.outOfZoneBody',
   'guest:address.outOfZoneBrowse',
   'guest:address.outOfZoneTitle',
   'guest:address.slot',
-  'guest:address.subtitle',
   'guest:address.title',
+  'guest:blockLabel',
+  'guest:change',
   'guest:contact.channel',
   'guest:contact.channelEmail',
   'guest:contact.channelSms',
@@ -8880,20 +10894,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:contact.errors.nameRequired',
   'guest:contact.fullName',
   'guest:contact.fullNameHint',
+  'guest:contact.fullNamePlaceholder',
   'guest:contact.mobile',
   'guest:contact.mobileHint',
-  'guest:contact.subtitle',
+  'guest:contact.mobilePlaceholder',
   'guest:contact.title',
   'guest:convert.body',
   'guest:convert.declined',
   'guest:convert.doneBody',
   'guest:convert.doneTitle',
   'guest:convert.fullName',
+  'guest:convert.fullNamePlaceholder',
   'guest:convert.marketing',
   'guest:convert.marketingHint',
   'guest:convert.noThanks',
   'guest:convert.password',
   'guest:convert.passwordHint',
+  'guest:convert.passwordPlaceholder',
   'guest:convert.submit',
   'guest:convert.title',
   'guest:convert.verifiedNote',
@@ -8910,6 +10927,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:deletion.invalidCode',
   'guest:deletion.mobile',
   'guest:deletion.mobileHint',
+  'guest:deletion.mobilePlaceholder',
   'guest:deletion.request',
   'guest:deletion.sentBody',
   'guest:deletion.sentTitle',
@@ -8920,50 +10938,82 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:entry.continueAsGuest',
   'guest:entry.signIn',
   'guest:entry.title',
-  'guest:order.deliveringTo',
-  'guest:order.lines',
+  'guest:eyebrow',
+  'guest:order.arriving',
+  'guest:order.cancelledBody',
+  'guest:order.cancelledTitle',
+  'guest:order.courierDetail',
+  'guest:order.courierName',
+  'guest:order.courierTitle',
+  'guest:order.droppingAt',
+  'guest:order.getHelp',
+  'guest:order.headline.cancelled',
+  'guest:order.headline.confirmed',
+  'guest:order.headline.delivered',
+  'guest:order.headline.out_for_delivery',
+  'guest:order.headline.placed',
+  'guest:order.headline.preparing',
+  'guest:order.itemsTitle',
+  'guest:order.keepReference',
+  'guest:order.lead.cancelled',
+  'guest:order.lead.confirmed',
+  'guest:order.lead.delivered',
+  'guest:order.lead.out_for_delivery',
+  'guest:order.lead.placed',
+  'guest:order.lead.preparing',
+  'guest:order.lineLabel',
+  'guest:order.messageCourier',
+  'guest:order.noTime',
   'guest:order.notFoundBody',
   'guest:order.notFoundTitle',
-  'guest:order.payment',
+  'guest:order.noteOnFile',
+  'guest:order.number',
+  'guest:order.placedAt',
+  'guest:order.position.current',
+  'guest:order.position.done',
+  'guest:order.position.upcoming',
   'guest:order.reference',
-  'guest:order.slot',
-  'guest:order.state',
+  'guest:order.refresh',
+  'guest:order.separator',
   'guest:order.states.cancelled',
   'guest:order.states.confirmed',
   'guest:order.states.delivered',
   'guest:order.states.out_for_delivery',
   'guest:order.states.placed',
   'guest:order.states.preparing',
-  'guest:order.subtitle',
-  'guest:order.title',
+  'guest:order.steps.confirmed.detail',
+  'guest:order.steps.confirmed.title',
+  'guest:order.steps.delivered.detail',
+  'guest:order.steps.delivered.title',
+  'guest:order.steps.out_for_delivery.detail',
+  'guest:order.steps.out_for_delivery.title',
+  'guest:order.steps.placed.detail',
+  'guest:order.steps.placed.title',
+  'guest:order.steps.preparing.detail',
+  'guest:order.steps.preparing.title',
+  'guest:order.steps.ready_for_pickup.detail',
+  'guest:order.steps.ready_for_pickup.title',
+  'guest:order.timeline',
   'guest:order.total',
-  'guest:review.back',
+  'guest:order.windowPending',
+  'guest:pay.title',
   'guest:review.cashOnDelivery',
-  'guest:review.cashOnDeliveryNote',
-  'guest:review.contact',
-  'guest:review.deliveringTo',
-  'guest:review.marketingHint',
+  'guest:review.finePrint',
   'guest:review.marketingLabel',
-  'guest:review.payment',
   'guest:review.place',
-  'guest:review.slot',
-  'guest:review.subtitle',
-  'guest:review.title',
   'guest:review.unverified',
+  'guest:saveBody',
+  'guest:saveTitle',
   'guest:session.expiredBody',
   'guest:session.expiredTitle',
   'guest:session.restart',
-  'guest:steps.address',
-  'guest:steps.contact',
-  'guest:steps.review',
-  'guest:steps.verify',
-  'guest:subtitle',
   'guest:title',
   'guest:verify.back',
-  'guest:verify.confirmed',
+  'guest:verify.confirmedAs',
   'guest:verify.otpFallback',
   'guest:verify.subtitle',
-  'guest:verify.title',
+  'guest:when.noSlots',
+  'guest:when.title',
   'invitations:accept.action',
   'invitations:accept.pending',
   'invitations:accepted.alreadyBody',
@@ -9107,11 +11157,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:analytics.units.count',
   'kitchen:analytics.units.minutes',
   'kitchen:analytics.units.percent',
-  'kitchen:analytics.window.fieldAvgMinutes',
   'kitchen:analytics.window.kind',
   'kitchen:analytics.window.note',
+  'kitchen:areas.chosenCount',
   'kitchen:areas.groupLabel',
   'kitchen:areas.inactive',
+  'kitchen:areas.inactiveTag',
   'kitchen:areas.matchCount',
   'kitchen:areas.moreHidden',
   'kitchen:areas.noMatches',
@@ -9172,24 +11223,27 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:bilingual.missingArabicHint',
   'kitchen:branchHours.allClosedBody',
   'kitchen:branchHours.allClosedTitle',
-  'kitchen:branchHours.backToHub',
-  'kitchen:branchHours.branchBadge',
-  'kitchen:branchHours.branchUnknown',
+  'kitchen:branchHours.cardCutOff',
+  'kitchen:branchHours.cardDayUnit',
+  'kitchen:branchHours.cardTrading',
+  'kitchen:branchHours.cardTradingUnit',
+  'kitchen:branchHours.chip',
   'kitchen:branchHours.closedBadge',
   'kitchen:branchHours.closedLabel',
-  'kitchen:branchHours.closedNote',
   'kitchen:branchHours.closesBeforeOpens',
   'kitchen:branchHours.closesInvalid',
   'kitchen:branchHours.closesLabel',
-  'kitchen:branchHours.contextNote',
+  'kitchen:branchHours.columnDay',
+  'kitchen:branchHours.columnTrading',
   'kitchen:branchHours.copiedAnnouncement',
+  'kitchen:branchHours.copyShort',
   'kitchen:branchHours.copyToOpenDays',
   'kitchen:branchHours.cutOffAfterCloses',
   'kitchen:branchHours.cutOffDayCount',
   'kitchen:branchHours.cutOffHint',
   'kitchen:branchHours.cutOffInvalid',
   'kitchen:branchHours.cutOffLabel',
-  'kitchen:branchHours.cutOffNone',
+  'kitchen:branchHours.dayHours',
   'kitchen:branchHours.loadErrorTitle',
   'kitchen:branchHours.noBranchBody',
   'kitchen:branchHours.noBranchTitle',
@@ -9199,12 +11253,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:branchHours.save',
   'kitchen:branchHours.saveError',
   'kitchen:branchHours.savedToast',
-  'kitchen:branchHours.sectionContext',
-  'kitchen:branchHours.sectionWeek',
-  'kitchen:branchHours.timeZoneBadge',
+  'kitchen:branchHours.summaryBranch',
+  'kitchen:branchHours.summaryDays',
+  'kitchen:branchHours.summaryTimeZone',
+  'kitchen:branchHours.summaryTitle',
   'kitchen:branchHours.title',
   'kitchen:branchHours.titleFor',
-  'kitchen:branchHours.weekIntro',
+  'kitchen:branchHours.tradingLabel',
+  'kitchen:branchHours.tradingOpen',
+  'kitchen:branchHours.weekTitle',
   'kitchen:calendar.a11y.nothing',
   'kitchen:calendar.a11y.projected',
   'kitchen:calendar.a11y.showing',
@@ -9237,15 +11294,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:catalogue.archive',
   'kitchen:catalogue.clearFilter',
   'kitchen:catalogue.close',
+  'kitchen:catalogue.columnFilter',
+  'kitchen:catalogue.columnFiltered',
   'kitchen:catalogue.columnMenu',
   'kitchen:catalogue.columnSort',
   'kitchen:catalogue.columnUpdated',
+  'kitchen:catalogue.columnsButton',
+  'kitchen:catalogue.columnsClear',
+  'kitchen:catalogue.columnsHeading',
+  'kitchen:catalogue.columnsHint',
+  'kitchen:catalogue.columnsLabel',
+  'kitchen:catalogue.columnsReset',
   'kitchen:catalogue.edit',
   'kitchen:catalogue.fields',
   'kitchen:catalogue.filter',
   'kitchen:catalogue.navToggle',
   'kitchen:catalogue.pagerLabel',
-  'kitchen:catalogue.pagerRange',
   'kitchen:catalogue.rowActions',
   'kitchen:catalogue.sortAscending',
   'kitchen:catalogue.sortDescending',
@@ -9255,13 +11319,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:catalogue.statsViewLabel',
   'kitchen:catalogue.title',
   'kitchen:catalogue.view',
+  'kitchen:channelPrices.b2b',
+  'kitchen:channelPrices.b2c',
+  'kitchen:channelPrices.conflict',
+  'kitchen:channelPrices.failed',
+  'kitchen:channelPrices.hint',
+  'kitchen:channelPrices.noPriceList',
+  'kitchen:channelPrices.price',
+  'kitchen:channelPrices.priceInvalid',
+  'kitchen:channelPrices.priceNeedsWeight',
+  'kitchen:channelPrices.save',
+  'kitchen:channelPrices.saved',
+  'kitchen:channelPrices.title',
+  'kitchen:channelPrices.unit',
+  'kitchen:channelPrices.weight',
+  'kitchen:channelPrices.weightInvalid',
   'kitchen:channels.consumerTag',
   'kitchen:channels.createFirst',
   'kitchen:channels.fromHint',
   'kitchen:channels.fromLabel',
-  'kitchen:channels.save',
   'kitchen:channels.saveError',
-  'kitchen:channels.savedSeparately',
   'kitchen:channels.savedToast',
   'kitchen:channels.sectionHint',
   'kitchen:channels.sectionTitle',
@@ -9312,7 +11389,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:common.saving',
   'kitchen:common.undo',
   'kitchen:common.yes',
-  'kitchen:composition.allergensDescription',
   'kitchen:composition.description',
   'kitchen:composition.fromDatabase',
   'kitchen:composition.per100g',
@@ -9323,6 +11399,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:conflict.title',
   'kitchen:containment.contains',
   'kitchen:containment.mayContain',
+  'kitchen:deliveryWindows.emptyBody',
+  'kitchen:deliveryWindows.emptyTitle',
+  'kitchen:deliveryWindows.intro',
+  'kitchen:deliveryWindows.loadErrorTitle',
+  'kitchen:deliveryWindows.noZones',
+  'kitchen:deliveryWindows.title',
+  'kitchen:deliveryWindows.unknownZone',
+  'kitchen:deliveryWindows.zonesColumn',
   'kitchen:desk.a11y.noCustomerName',
   'kitchen:desk.a11y.noDeliveryRun',
   'kitchen:desk.assign.assignedToast',
@@ -9414,7 +11498,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.noSlot',
   'kitchen:desk.offlineBody',
   'kitchen:desk.offlineTitle',
-  'kitchen:desk.open',
   'kitchen:desk.payment.notReceipted',
   'kitchen:desk.payment.outstanding',
   'kitchen:desk.payment.receipted',
@@ -9432,6 +11515,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.recordPayment.methodHint',
   'kitchen:desk.recordPayment.methodLabel',
   'kitchen:desk.recordPayment.notesHint',
+  'kitchen:desk.recordPayment.notesPlaceholder',
   'kitchen:desk.recordPayment.open',
   'kitchen:desk.recordPayment.recordedToast',
   'kitchen:desk.recordPayment.referenceHint',
@@ -9453,29 +11537,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.refusal.unpriced',
   'kitchen:desk.refusal.variant_not_active',
   'kitchen:desk.refusal.variant_unknown',
+  'kitchen:desk.refusal.window_not_offered',
   'kitchen:desk.refusal.zone_suspended',
-  'kitchen:desk.sale.addressDescription',
-  'kitchen:desk.sale.addressLabelLabel',
+  'kitchen:desk.sale.addItem',
+  'kitchen:desk.sale.addItemPriced',
+  'kitchen:desk.sale.addressNeedsCustomer',
   'kitchen:desk.sale.addressNoteBody',
-  'kitchen:desk.sale.addressNoteTitle',
   'kitchen:desk.sale.addressSave',
-  'kitchen:desk.sale.addressSavedTitle',
+  'kitchen:desk.sale.addressTitle',
   'kitchen:desk.sale.addressUndeliverableBody',
   'kitchen:desk.sale.addressUndeliverableTitle',
-  'kitchen:desk.sale.areaHint',
   'kitchen:desk.sale.areaLabel',
   'kitchen:desk.sale.areaPlaceholder',
-  'kitchen:desk.sale.back',
-  'kitchen:desk.sale.backToQueue',
-  'kitchen:desk.sale.basketEmptyBody',
-  'kitchen:desk.sale.basketEmptyTitle',
-  'kitchen:desk.sale.basketTitle',
   'kitchen:desk.sale.buildingLabel',
-  'kitchen:desk.sale.complete',
-  'kitchen:desk.sale.completedBody',
+  'kitchen:desk.sale.buildingPlaceholder',
+  'kitchen:desk.sale.change',
+  'kitchen:desk.sale.charge',
+  'kitchen:desk.sale.chargeEmpty',
   'kitchen:desk.sale.completedNumber',
-  'kitchen:desk.sale.completedStatusLabel',
-  'kitchen:desk.sale.completedTitle',
   'kitchen:desk.sale.customerCancelCreate',
   'kitchen:desk.sale.customerCapped',
   'kitchen:desk.sale.customerChoose',
@@ -9485,6 +11564,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.customerDuplicatesTitle',
   'kitchen:desk.sale.customerNameHint',
   'kitchen:desk.sale.customerNameLabel',
+  'kitchen:desk.sale.customerNamePlaceholder',
   'kitchen:desk.sale.customerNew',
   'kitchen:desk.sale.customerNoneBody',
   'kitchen:desk.sale.customerNoneTitle',
@@ -9492,85 +11572,80 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.customerPhoneLabel',
   'kitchen:desk.sale.customerRegular',
   'kitchen:desk.sale.customerSearchErrorTitle',
-  'kitchen:desk.sale.customerSearchHint',
   'kitchen:desk.sale.customerSearchLabel',
   'kitchen:desk.sale.customerSearchPlaceholder',
   'kitchen:desk.sale.customerSearchTooShort',
+  'kitchen:desk.sale.customerTitle',
   'kitchen:desk.sale.customerUnnamed',
   'kitchen:desk.sale.customerUseInstead',
+  'kitchen:desk.sale.dateLabel',
   'kitchen:desk.sale.deliveryFee',
-  'kitchen:desk.sale.directionsHint',
   'kitchen:desk.sale.directionsLabel',
+  'kitchen:desk.sale.directionsPlaceholder',
+  'kitchen:desk.sale.driverHint',
+  'kitchen:desk.sale.driverLabel',
+  'kitchen:desk.sale.driverNone',
+  'kitchen:desk.sale.each',
   'kitchen:desk.sale.itemCount',
-  'kitchen:desk.sale.itemKind.meal',
-  'kitchen:desk.sale.itemKind.product',
-  'kitchen:desk.sale.leave',
   'kitchen:desk.sale.lineOneLabel',
+  'kitchen:desk.sale.lineOnePlaceholder',
   'kitchen:desk.sale.lineTwoLabel',
+  'kitchen:desk.sale.lineTwoPlaceholder',
   'kitchen:desk.sale.method.cashAtCounter',
   'kitchen:desk.sale.method.cashOnDelivery',
   'kitchen:desk.sale.method.wish',
   'kitchen:desk.sale.methodLabel',
-  'kitchen:desk.sale.newSale',
-  'kitchen:desk.sale.next',
-  'kitchen:desk.sale.noQuoteYet',
-  'kitchen:desk.sale.notesHint',
+  'kitchen:desk.sale.more',
+  'kitchen:desk.sale.noSlots',
+  'kitchen:desk.sale.notSold',
   'kitchen:desk.sale.notesLabel',
-  'kitchen:desk.sale.orderRefusalsTitle',
-  'kitchen:desk.sale.paymentDescription',
-  'kitchen:desk.sale.pickerAdd',
-  'kitchen:desk.sale.pickerAddItem',
-  'kitchen:desk.sale.pickerAdded',
-  'kitchen:desk.sale.pickerColumnAllergens',
-  'kitchen:desk.sale.pickerColumnItem',
-  'kitchen:desk.sale.pickerColumnKind',
+  'kitchen:desk.sale.onTicket',
   'kitchen:desk.sale.pickerEmptyBody',
   'kitchen:desk.sale.pickerEmptyTitle',
   'kitchen:desk.sale.pickerErrorTitle',
-  'kitchen:desk.sale.pickerNote',
   'kitchen:desk.sale.pickerSearchLabel',
   'kitchen:desk.sale.pickerSearchPlaceholder',
-  'kitchen:desk.sale.pickerTitle',
-  'kitchen:desk.sale.place',
+  'kitchen:desk.sale.placeFor',
+  'kitchen:desk.sale.placedAssignedToast',
+  'kitchen:desk.sale.placedConfirmedToast',
   'kitchen:desk.sale.placedToast',
-  'kitchen:desk.sale.position',
-  'kitchen:desk.sale.progressLabel',
-  'kitchen:desk.sale.quantityLabel',
   'kitchen:desk.sale.quoteErrorBody',
   'kitchen:desk.sale.quoteErrorTitle',
   'kitchen:desk.sale.quoteUpdating',
-  'kitchen:desk.sale.quotedByKitchen',
   'kitchen:desk.sale.referenceHint',
   'kitchen:desk.sale.referenceLabel',
+  'kitchen:desk.sale.referencePlaceholder',
   'kitchen:desk.sale.refusedBody',
   'kitchen:desk.sale.refusedTitle',
-  'kitchen:desk.sale.removeLine',
-  'kitchen:desk.sale.reviewDescription',
-  'kitchen:desk.sale.reviewItems',
-  'kitchen:desk.sale.reviewLine',
-  'kitchen:desk.sale.reviewMethod',
-  'kitchen:desk.sale.reviewType',
-  'kitchen:desk.sale.step.address',
-  'kitchen:desk.sale.step.basket',
-  'kitchen:desk.sale.step.customer',
-  'kitchen:desk.sale.step.payment',
-  'kitchen:desk.sale.step.review',
-  'kitchen:desk.sale.step.type',
-  'kitchen:desk.sale.stepTab',
-  'kitchen:desk.sale.subtitle',
+  'kitchen:desk.sale.section.dressings',
+  'kitchen:desk.sale.section.frozenMeals',
+  'kitchen:desk.sale.section.meals',
+  'kitchen:desk.sale.section.products',
+  'kitchen:desk.sale.section.sauces',
+  'kitchen:desk.sale.sectionsLabel',
+  'kitchen:desk.sale.shortfall.address',
+  'kitchen:desk.sale.shortfall.customer',
+  'kitchen:desk.sale.shortfall.reference',
+  'kitchen:desk.sale.slotHours',
+  'kitchen:desk.sale.slotLabel',
+  'kitchen:desk.sale.soldBody',
+  'kitchen:desk.sale.soldToast',
   'kitchen:desk.sale.subtotal',
+  'kitchen:desk.sale.ticketEmpty',
+  'kitchen:desk.sale.ticketTitle',
   'kitchen:desk.sale.title',
   'kitchen:desk.sale.total',
   'kitchen:desk.sale.type.counter',
   'kitchen:desk.sale.type.delivery',
   'kitchen:desk.sale.type.pickup',
-  'kitchen:desk.sale.typeDescription',
   'kitchen:desk.sale.typeHint.counter',
   'kitchen:desk.sale.typeHint.delivery',
   'kitchen:desk.sale.typeHint.pickup',
   'kitchen:desk.sale.typeLabel',
+  'kitchen:desk.sale.whenLabel',
   'kitchen:desk.sale.wishNoteBody',
   'kitchen:desk.sale.wishNoteTitle',
+  'kitchen:desk.sale.zoneNoSlots',
   'kitchen:desk.searchHint',
   'kitchen:desk.searchLabel',
   'kitchen:desk.searchPlaceholder',
@@ -9587,16 +11662,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.window.overdue',
   'kitchen:desk.window.today',
   'kitchen:desk.windowLabel',
-  'kitchen:dressings.caption',
   'kitchen:dressings.create',
-  'kitchen:dressings.emptyBody',
-  'kitchen:dressings.emptyTitle',
-  'kitchen:dressings.resultCount',
-  'kitchen:dressings.searchPlaceholder',
-  'kitchen:dressings.subtitle',
   'kitchen:dressings.title',
   'kitchen:dressings.viewKind',
   'kitchen:driver.assignedAt',
+  'kitchen:driver.availableHint',
+  'kitchen:driver.availableTitle',
+  'kitchen:driver.claim',
+  'kitchen:driver.claimTaken',
   'kitchen:driver.deliver',
   'kitchen:driver.deliverBody',
   'kitchen:driver.deliverConfirm',
@@ -9606,9 +11679,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.emptyBody',
   'kitchen:driver.emptyTitle',
   'kitchen:driver.loadErrorTitle',
+  'kitchen:driver.mineTitle',
   'kitchen:driver.noAddress',
   'kitchen:driver.notesHint',
   'kitchen:driver.notesLabel',
+  'kitchen:driver.notesPlaceholder',
   'kitchen:driver.orderLabel',
   'kitchen:driver.orderReference',
   'kitchen:driver.phone',
@@ -9637,8 +11712,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:editor.editTitle',
   'kitchen:editor.forkAction',
   'kitchen:editor.forkError',
-  'kitchen:editor.forkedFromBody',
-  'kitchen:editor.forkedFromTitle',
   'kitchen:editor.forkedToast',
   'kitchen:editor.lastUpdated',
   'kitchen:editor.lastUpdatedBy',
@@ -9647,10 +11720,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:editor.metaSeparator',
   'kitchen:editor.nameRequired',
   'kitchen:editor.neverSaved',
+  'kitchen:editor.next',
   'kitchen:editor.notFoundBody',
   'kitchen:editor.notFoundTitle',
   'kitchen:editor.platformLibraryBody',
   'kitchen:editor.platformLibraryTitle',
+  'kitchen:editor.previous',
   'kitchen:editor.save',
   'kitchen:editor.saveError',
   'kitchen:editor.savedToast',
@@ -9663,6 +11738,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:editor.sectionNotes',
   'kitchen:editor.sectionNotesTitle',
   'kitchen:editor.sectionOtherNames',
+  'kitchen:editor.stepCounter',
+  'kitchen:editor.stepsLabel',
   'kitchen:editor.unsaved',
   'kitchen:families.allergenClasses.description',
   'kitchen:families.allergenClasses.name',
@@ -9676,14 +11753,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.consumptionExceptions.name',
   'kitchen:families.costReport.description',
   'kitchen:families.costReport.name',
+  'kitchen:families.deliveryWindows.description',
+  'kitchen:families.deliveryWindows.name',
   'kitchen:families.deliveryZones.description',
   'kitchen:families.deliveryZones.name',
-  'kitchen:families.dressings.description',
-  'kitchen:families.dressings.name',
   'kitchen:families.ingredients.description',
   'kitchen:families.ingredients.name',
-  'kitchen:families.meals.description',
-  'kitchen:families.meals.name',
   'kitchen:families.orderCalendar.description',
   'kitchen:families.orderCalendar.name',
   'kitchen:families.orderCashReport.description',
@@ -9704,6 +11779,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.procurement.name',
   'kitchen:families.production.description',
   'kitchen:families.production.name',
+  'kitchen:families.productionBatches.description',
+  'kitchen:families.productionBatches.name',
   'kitchen:families.products.description',
   'kitchen:families.products.name',
   'kitchen:families.purchases.description',
@@ -9713,26 +11790,34 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.quotations.description',
   'kitchen:families.quotations.name',
   'kitchen:families.recipes.description',
+  'kitchen:families.recipes.keywords',
   'kitchen:families.recipes.name',
   'kitchen:families.review.description',
   'kitchen:families.review.name',
-  'kitchen:families.sauces.description',
-  'kitchen:families.sauces.name',
+  'kitchen:families.roles.description',
+  'kitchen:families.roles.name',
   'kitchen:families.stock.description',
   'kitchen:families.stock.name',
   'kitchen:families.suppliers.description',
   'kitchen:families.suppliers.name',
   'kitchen:families.supplyOrders.description',
   'kitchen:families.supplyOrders.name',
+  'kitchen:families.team.description',
+  'kitchen:families.team.name',
+  'kitchen:fields.amountPlaceholder',
   'kitchen:fields.category',
   'kitchen:fields.categoryHint',
   'kitchen:fields.categoryPlaceholder',
   'kitchen:fields.composition',
   'kitchen:fields.compositionHint',
+  'kitchen:fields.daysPlaceholder',
+  'kitchen:fields.descriptionPlaceholderAr',
+  'kitchen:fields.descriptionPlaceholderEn',
   'kitchen:fields.designation',
   'kitchen:fields.gramsPerUnit',
-  'kitchen:fields.gramsPerUnitHint',
   'kitchen:fields.gramsPerUnitPlaceholder',
+  'kitchen:fields.ingredientNamePlaceholderAr',
+  'kitchen:fields.ingredientNamePlaceholderEn',
   'kitchen:fields.itemsPerPurchaseUnit',
   'kitchen:fields.itemsPerUnit',
   'kitchen:fields.itemsPerUnitHint',
@@ -9740,10 +11825,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.name',
   'kitchen:fields.notes',
   'kitchen:fields.notesHint',
+  'kitchen:fields.packagingNamePlaceholderAr',
+  'kitchen:fields.packagingNamePlaceholderEn',
+  'kitchen:fields.percentPlaceholder',
+  'kitchen:fields.planNamePlaceholderAr',
+  'kitchen:fields.planNamePlaceholderEn',
+  'kitchen:fields.productNamePlaceholderAr',
+  'kitchen:fields.productNamePlaceholderEn',
   'kitchen:fields.purchaseUnit',
   'kitchen:fields.purchaseUnitHint',
   'kitchen:fields.purchaseUnitNone',
   'kitchen:fields.purchaseUnitNoneHint',
+  'kitchen:fields.quantityPlaceholder',
+  'kitchen:fields.recipeNamePlaceholderAr',
+  'kitchen:fields.recipeNamePlaceholderEn',
   'kitchen:fields.reference',
   'kitchen:fields.referenceHint',
   'kitchen:fields.referencePlaceholder',
@@ -9758,12 +11853,50 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.unitPrice',
   'kitchen:fields.unitPriceHint',
   'kitchen:fields.unitPricePlaceholder',
+  'kitchen:fields.zoneNamePlaceholderAr',
+  'kitchen:fields.zoneNamePlaceholderEn',
+  'kitchen:forms.aboveWaste',
+  'kitchen:forms.allergensTitle',
+  'kitchen:forms.atZeroCount',
+  'kitchen:forms.cost',
+  'kitchen:forms.costPerItem',
+  'kitchen:forms.days',
+  'kitchen:forms.description',
+  'kitchen:forms.expiryAndWaste',
+  'kitchen:forms.expiryPeriod',
+  'kitchen:forms.holds',
+  'kitchen:forms.holdsUnit',
+  'kitchen:forms.image',
+  'kitchen:forms.imagePick',
+  'kitchen:forms.imageRemove',
+  'kitchen:forms.incompleteLines',
+  'kitchen:forms.issueUnit',
+  'kitchen:forms.itemsPerPack',
+  'kitchen:forms.itemsPerUnit',
+  'kitchen:forms.marginBelowCost',
+  'kitchen:forms.marginLow',
+  'kitchen:forms.noFigures',
+  'kitchen:forms.nutritionTitle',
+  'kitchen:forms.pack',
+  'kitchen:forms.price',
+  'kitchen:forms.required',
+  'kitchen:forms.requiredCount',
+  'kitchen:forms.shelfLifeInvalid',
+  'kitchen:forms.toFixCount',
+  'kitchen:forms.warningCount',
+  'kitchen:forms.waste',
+  'kitchen:forms.yieldAndWaste',
+  'kitchen:forms.zeroQuantity',
+  'kitchen:frozenMeals.create',
+  'kitchen:frozenMeals.title',
+  'kitchen:frozenMeals.viewKind',
+  'kitchen:hub.attentionClear',
+  'kitchen:hub.attentionTitle',
   'kitchen:hub.countUnavailable',
   'kitchen:hub.draftCount',
   'kitchen:hub.emptyBody',
   'kitchen:hub.emptyTitle',
   'kitchen:hub.errorTitle',
-  'kitchen:hub.insightTag',
   'kitchen:hub.itemCount',
   'kitchen:hub.kpi.consumptionExceptions',
   'kitchen:hub.kpi.deliveryZones',
@@ -9773,51 +11906,27 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.kpi.needsReview',
   'kitchen:hub.kpi.publishedMeals',
   'kitchen:hub.kpi.requirementShortfalls',
-  'kitchen:hub.open',
-  'kitchen:hub.openReview',
   'kitchen:hub.publishedCount',
   'kitchen:hub.quarantineCount',
   'kitchen:hub.referenceOnly',
-  'kitchen:hub.subtitle',
   'kitchen:hub.title',
-  'kitchen:ingredientDetail.b2bValue',
-  'kitchen:ingredientDetail.b2cValue',
-  'kitchen:ingredientDetail.backToList',
-  'kitchen:ingredientDetail.basisValue',
-  'kitchen:ingredientDetail.fieldBasis',
-  'kitchen:ingredientDetail.fieldGramsPerUnit',
-  'kitchen:ingredientDetail.fieldItemsPerUnit',
-  'kitchen:ingredientDetail.fieldLastChange',
+  'kitchen:ingredientDetail.allergensDietsTitle',
+  'kitchen:ingredientDetail.fieldCapacity',
   'kitchen:ingredientDetail.fieldPackCost',
   'kitchen:ingredientDetail.fieldSellable',
-  'kitchen:ingredientDetail.historyBody',
-  'kitchen:ingredientDetail.historyTitle',
-  'kitchen:ingredientDetail.kpiB2bPrice',
-  'kitchen:ingredientDetail.kpiMarginBasis',
+  'kitchen:ingredientDetail.fieldWaste',
+  'kitchen:ingredientDetail.identificationSubtitle',
+  'kitchen:ingredientDetail.identificationTitle',
   'kitchen:ingredientDetail.kpiMarginOnCost',
-  'kitchen:ingredientDetail.kpiPurchasePack',
-  'kitchen:ingredientDetail.kpiUnitPrice',
-  'kitchen:ingredientDetail.marginValue',
-  'kitchen:ingredientDetail.packCostValue',
-  'kitchen:ingredientDetail.packSummary',
-  'kitchen:ingredientDetail.purchaseUnitValue',
-  'kitchen:ingredientDetail.sectionChangeHistory',
-  'kitchen:ingredientDetail.sectionDefinition',
-  'kitchen:ingredientDetail.sectionPackCost',
-  'kitchen:ingredientDetail.sectionSoldAsIs',
-  'kitchen:ingredientDetail.sectionSuppliers',
-  'kitchen:ingredientDetail.sectionWhereUsed',
+  'kitchen:ingredientDetail.nutrientValue',
+  'kitchen:ingredientDetail.nutritionEmpty',
+  'kitchen:ingredientDetail.nutritionSubtitle',
+  'kitchen:ingredientDetail.perUnitValue',
   'kitchen:ingredientDetail.sellableNo',
   'kitchen:ingredientDetail.sellableYes',
-  'kitchen:ingredientDetail.stockUnitValue',
-  'kitchen:ingredientDetail.suppliersBody',
-  'kitchen:ingredientDetail.suppliersTitle',
-  'kitchen:ingredientDetail.tabComposition',
-  'kitchen:ingredientDetail.tabHistory',
-  'kitchen:ingredientDetail.tabOverview',
-  'kitchen:ingredientDetail.tabPurchasing',
-  'kitchen:ingredientDetail.tabSale',
-  'kitchen:ingredientDetail.tabsLabel',
+  'kitchen:ingredientDetail.sourcingTitle',
+  'kitchen:ingredientDetail.usedInSubtitle',
+  'kitchen:ingredientDetail.usedInTitle',
   'kitchen:ingredientDetail.whereUsedBody',
   'kitchen:ingredientDetail.whereUsedTitle',
   'kitchen:kds.column.done',
@@ -9851,11 +11960,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:list.archivedToast',
   'kitchen:list.caption',
   'kitchen:list.columnAllergens',
+  'kitchen:list.columnB2bPrice',
+  'kitchen:list.columnB2cPrice',
   'kitchen:list.columnCategory',
+  'kitchen:list.columnComposition',
+  'kitchen:list.columnCostPer100g',
+  'kitchen:list.columnGramsPerUnit',
   'kitchen:list.columnItem',
+  'kitchen:list.columnItemsPerUnit',
   'kitchen:list.columnName',
+  'kitchen:list.columnPurchaseUnit',
   'kitchen:list.columnReference',
   'kitchen:list.columnStatus',
+  'kitchen:list.columnSubcategory',
   'kitchen:list.columnUnit',
   'kitchen:list.columnUnitPrice',
   'kitchen:list.columnUpdated',
@@ -9867,6 +11984,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:list.filteredEmptyTitle',
   'kitchen:list.import',
   'kitchen:list.importUnavailable',
+  'kitchen:list.layoutCards',
+  'kitchen:list.layoutLabel',
+  'kitchen:list.layoutTable',
   'kitchen:list.loadMore',
   'kitchen:list.loadingMore',
   'kitchen:list.mayContain',
@@ -9880,7 +12000,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:list.statDraft',
   'kitchen:list.statDraftAction',
   'kitchen:list.statDraftCaption',
-  'kitchen:list.statLive',
   'kitchen:list.statLiveCaption',
   'kitchen:list.statMissingArabic',
   'kitchen:list.statMissingArabicCaption',
@@ -9916,31 +12035,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.allergensRailEmpty',
   'kitchen:meals.allergensRailFrozen',
   'kitchen:meals.allergensRailTitle',
-  'kitchen:meals.backToList',
   'kitchen:meals.blockDescription',
   'kitchen:meals.blockMealTypes',
   'kitchen:meals.blockName',
   'kitchen:meals.blockServiceDays',
   'kitchen:meals.blockUnsaved',
-  'kitchen:meals.caption',
   'kitchen:meals.channelsLabel',
   'kitchen:meals.channelsReadOnly',
-  'kitchen:meals.columnAllergens',
-  'kitchen:meals.columnChannels',
-  'kitchen:meals.columnName',
   'kitchen:meals.confidential',
   'kitchen:meals.confidentialHint',
   'kitchen:meals.create',
-  'kitchen:meals.createTitle',
-  'kitchen:meals.createdToast',
   'kitchen:meals.descriptionLabel',
   'kitchen:meals.dietsHint',
   'kitchen:meals.dietsLabel',
   'kitchen:meals.editTitle',
-  'kitchen:meals.emptyBody',
-  'kitchen:meals.emptyTitle',
-  'kitchen:meals.filteredEmptyBody',
-  'kitchen:meals.filteredEmptyTitle',
+  'kitchen:meals.finishedStockBlockedIngredient',
+  'kitchen:meals.finishedStockBlockedMode',
+  'kitchen:meals.finishedStockOff',
+  'kitchen:meals.finishedStockOn',
+  'kitchen:meals.finishedStockToggleLabel',
   'kitchen:meals.gateCheckName',
   'kitchen:meals.gateCheckSaved',
   'kitchen:meals.gateCheckServiceDays',
@@ -9952,14 +12065,27 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.marginValue',
   'kitchen:meals.mealTypesLabel',
   'kitchen:meals.nameRequired',
-  'kitchen:meals.noChannels',
-  'kitchen:meals.notFoundBody',
-  'kitchen:meals.notFoundTitle',
+  'kitchen:meals.netContentHint',
+  'kitchen:meals.netContentInvalid',
+  'kitchen:meals.netContentLabel',
+  'kitchen:meals.netContentRequired',
+  'kitchen:meals.netContentUnitLabel',
+  'kitchen:meals.netContentUnitMissing',
+  'kitchen:meals.netContentUnitsForbidden',
   'kitchen:meals.notVisibleToConsumers',
-  'kitchen:meals.openRecipe',
   'kitchen:meals.portionHint',
   'kitchen:meals.portionInvalid',
   'kitchen:meals.portionLabel',
+  'kitchen:meals.portionPlaceholder',
+  'kitchen:meals.producedIngredientHint',
+  'kitchen:meals.producedIngredientLabel',
+  'kitchen:meals.producedIngredientNone',
+  'kitchen:meals.productionModeBoth',
+  'kitchen:meals.productionModeHint',
+  'kitchen:meals.productionModeLabel',
+  'kitchen:meals.productionModeProduction',
+  'kitchen:meals.productionModeSupplier',
+  'kitchen:meals.productionModeUnset',
   'kitchen:meals.publishAllergensNone',
   'kitchen:meals.publishAllergensTitle',
   'kitchen:meals.publishBlockedTitle',
@@ -9970,38 +12096,31 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.publishedTitle',
   'kitchen:meals.publishedToast',
   'kitchen:meals.recipeHint',
-  'kitchen:meals.recipeHintNone',
-  'kitchen:meals.recipeLabel',
-  'kitchen:meals.recipeNone',
   'kitchen:meals.resultCount',
   'kitchen:meals.retire',
   'kitchen:meals.retireBody',
   'kitchen:meals.retireConfirm',
   'kitchen:meals.retireConsequence',
-  'kitchen:meals.retireFailed',
   'kitchen:meals.retireTitle',
   'kitchen:meals.retiredBody',
   'kitchen:meals.retiredTitle',
   'kitchen:meals.retiredToast',
-  'kitchen:meals.searchPlaceholder',
   'kitchen:meals.sectionDetails',
   'kitchen:meals.sectionIdentity',
   'kitchen:meals.sectionMargin',
+  'kitchen:meals.sectionProduction',
+  'kitchen:meals.sectionProductionHint',
   'kitchen:meals.sectionRecipe',
   'kitchen:meals.sectionWhen',
   'kitchen:meals.sectionWhenHint',
-  'kitchen:meals.statLiveAction',
-  'kitchen:meals.statLiveCaption',
   'kitchen:meals.subtitle',
   'kitchen:meals.title',
   'kitchen:meals.typeFilterAll',
-  'kitchen:meals.typeFilterLabel',
-  'kitchen:meals.viewAllergensCaption',
-  'kitchen:meals.viewAllergensSource',
   'kitchen:meals.viewKind',
   'kitchen:meals.viewPublic',
   'kitchen:meals.viewVisibility',
   'kitchen:meals.visibleToConsumers',
+  'kitchen:nav.groups.access',
   'kitchen:nav.groups.catalogue',
   'kitchen:nav.groups.commercial',
   'kitchen:nav.groups.operations',
@@ -10011,53 +12130,82 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nav.overview',
   'kitchen:nav.railTitle',
   'kitchen:nutritionFacts.derivedBadge',
-  'kitchen:nutritionFacts.derivedDescription',
-  'kitchen:nutritionFacts.estimateDescription',
   'kitchen:nutritionFacts.estimateLabel',
   'kitchen:nutritionFacts.estimatedBadge',
-  'kitchen:nutritionFacts.hint',
-  'kitchen:nutritionFacts.noteHint',
   'kitchen:nutritionFacts.noteLabel',
   'kitchen:nutritionFacts.notePlaceholder',
-  'kitchen:nutritionFacts.partialError',
-  'kitchen:nutritionFacts.partialHint',
-  'kitchen:nutritionFacts.saturatedFatHint',
   'kitchen:nutritionFacts.title',
   'kitchen:nutritionFacts.unitGrams',
   'kitchen:nutritionFacts.unitKcal',
   'kitchen:nutritionFacts.unitMilligrams',
+  'kitchen:ops.batch.awaitingTarget',
+  'kitchen:ops.batch.baseTimes',
+  'kitchen:ops.batch.baseTimesWithWaste',
   'kitchen:ops.batch.basis.fills_yield',
   'kitchen:ops.batch.basis.per_batch',
   'kitchen:ops.batch.basis.per_container',
+  'kitchen:ops.batch.basisLabel',
+  'kitchen:ops.batch.basisPortions',
+  'kitchen:ops.batch.basisYield',
+  'kitchen:ops.batch.batchesUnit',
+  'kitchen:ops.batch.book',
+  'kitchen:ops.batch.bookHint',
+  'kitchen:ops.batch.columnAvailable',
   'kitchen:ops.batch.columnBasis',
+  'kitchen:ops.batch.columnDesignation',
   'kitchen:ops.batch.columnItem',
-  'kitchen:ops.batch.columnNote',
+  'kitchen:ops.batch.columnPerBatch',
+  'kitchen:ops.batch.columnPosition',
   'kitchen:ops.batch.columnQuantity',
+  'kitchen:ops.batch.columnRef',
+  'kitchen:ops.batch.columnRequired',
+  'kitchen:ops.batch.columnShort',
+  'kitchen:ops.batch.columnToIssue',
   'kitchen:ops.batch.columnUnit',
+  'kitchen:ops.batch.consumeBody',
+  'kitchen:ops.batch.consumeHeading',
+  'kitchen:ops.batch.factBaseYield',
+  'kitchen:ops.batch.factBatchesNeeded',
+  'kitchen:ops.batch.factPiecesNone',
+  'kitchen:ops.batch.factPortionsPerBatch',
+  'kitchen:ops.batch.factPortionsProduced',
+  'kitchen:ops.batch.factVersion',
+  'kitchen:ops.batch.factYieldCaption',
+  'kitchen:ops.batch.factorLine',
+  'kitchen:ops.batch.factorNone',
+  'kitchen:ops.batch.fromDatabase',
   'kitchen:ops.batch.ingredientsHeading',
+  'kitchen:ops.batch.lineCount',
   'kitchen:ops.batch.loadErrorTitle',
-  'kitchen:ops.batch.metrics.batches',
-  'kitchen:ops.batch.metrics.pieces',
-  'kitchen:ops.batch.metrics.quantity',
-  'kitchen:ops.batch.metrics.waste',
-  'kitchen:ops.batch.modeLabel',
-  'kitchen:ops.batch.modePieces',
-  'kitchen:ops.batch.modeYield',
+  'kitchen:ops.batch.loadingCaption',
   'kitchen:ops.batch.noPackaging',
   'kitchen:ops.batch.noPiecesHint',
+  'kitchen:ops.batch.noRecipeCaption',
+  'kitchen:ops.batch.noneRecorded',
   'kitchen:ops.batch.optionalBadge',
   'kitchen:ops.batch.packagingHeading',
+  'kitchen:ops.batch.packagingScaledHeading',
+  'kitchen:ops.batch.packagingWasteIncluded',
   'kitchen:ops.batch.pickRecipeBody',
   'kitchen:ops.batch.pickRecipeTitle',
-  'kitchen:ops.batch.piecesUnit',
+  'kitchen:ops.batch.portionsUnit',
+  'kitchen:ops.batch.positionCovered',
+  'kitchen:ops.batch.positionShort',
+  'kitchen:ops.batch.printSheet',
+  'kitchen:ops.batch.rawMaterialsHeading',
+  'kitchen:ops.batch.readOnlyChip',
   'kitchen:ops.batch.recipeLabel',
   'kitchen:ops.batch.recipePlaceholder',
   'kitchen:ops.batch.recipesErrorTitle',
-  'kitchen:ops.batch.subtitle',
-  'kitchen:ops.batch.targetLabel',
+  'kitchen:ops.batch.roundedFrom',
+  'kitchen:ops.batch.roundedUpFrom',
+  'kitchen:ops.batch.roundingFoot',
   'kitchen:ops.batch.targetNeededBody',
   'kitchen:ops.batch.targetNeededTitle',
-  'kitchen:ops.batch.title',
+  'kitchen:ops.batch.targetPortionsLabel',
+  'kitchen:ops.batch.targetQuantityLabel',
+  'kitchen:ops.batch.versionCell',
+  'kitchen:ops.batch.wasteAddedToInputs',
   'kitchen:ops.cashReport.a11y.unnamedAgent',
   'kitchen:ops.cashReport.caption',
   'kitchen:ops.cashReport.columnAgent',
@@ -10086,7 +12234,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.cashReport.summaryRows',
   'kitchen:ops.cashReport.title',
   'kitchen:ops.cashReport.totalsHeading',
-  'kitchen:ops.cashReport.totalsNote',
   'kitchen:ops.costReport.caption',
   'kitchen:ops.costReport.chartCogs',
   'kitchen:ops.costReport.chartCogsMix',
@@ -10097,9 +12244,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.chip',
   'kitchen:ops.costReport.cogsMixCenter',
   'kitchen:ops.costReport.columnCogs',
+  'kitchen:ops.costReport.columnEstimatedMargin',
   'kitchen:ops.costReport.columnMargin',
   'kitchen:ops.costReport.columnMarginPercent',
   'kitchen:ops.costReport.columnMonth',
+  'kitchen:ops.costReport.columnProductionConsumption',
+  'kitchen:ops.costReport.columnProductionWaste',
+  'kitchen:ops.costReport.columnProductionYield',
   'kitchen:ops.costReport.columnRevenue',
   'kitchen:ops.costReport.columnSpend',
   'kitchen:ops.costReport.currencyLabel',
@@ -10155,10 +12306,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.reasons.no_catalogue_item',
   'kitchen:ops.exceptions.reasons.no_ingredient_cost',
   'kitchen:ops.exceptions.reasons.no_ingredient_link',
+  'kitchen:ops.exceptions.reasons.no_net_content',
   'kitchen:ops.exceptions.reasons.no_recipe_version',
   'kitchen:ops.exceptions.reasons.no_stock_item',
   'kitchen:ops.exceptions.reasons.no_stock_unit',
   'kitchen:ops.exceptions.reasons.no_yield_piece_count',
+  'kitchen:ops.exceptions.reasons.reserved_for_production',
   'kitchen:ops.exceptions.reasons.unit_conversion_unsupported',
   'kitchen:ops.exceptions.reasons.unquantified_recipe_line',
   'kitchen:ops.exceptions.resolve',
@@ -10168,7 +12321,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.resolvedBadge',
   'kitchen:ops.exceptions.resolvedToast',
   'kitchen:ops.exceptions.retry',
-  'kitchen:ops.exceptions.showingCount',
   'kitchen:ops.exceptions.statResolvedCaption',
   'kitchen:ops.exceptions.statShownCaption',
   'kitchen:ops.exceptions.statUnit',
@@ -10187,8 +12339,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.window.openNote',
   'kitchen:ops.exceptions.window.retry',
   'kitchen:ops.exceptions.window.title',
-  'kitchen:ops.ledger.allItems',
-  'kitchen:ops.ledger.allSuppliers',
   'kitchen:ops.ledger.chargeDelivery',
   'kitchen:ops.ledger.chargeDiscount',
   'kitchen:ops.ledger.chargeOther',
@@ -10196,29 +12346,37 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.columnDate',
   'kitchen:ops.ledger.columnItem',
   'kitchen:ops.ledger.columnLineTotal',
+  'kitchen:ops.ledger.columnQuantity',
+  'kitchen:ops.ledger.columnState',
   'kitchen:ops.ledger.columnSupplier',
   'kitchen:ops.ledger.columnUnitPrice',
   'kitchen:ops.ledger.completeBadge',
+  'kitchen:ops.ledger.costNoteBody',
+  'kitchen:ops.ledger.costNoteTitle',
   'kitchen:ops.ledger.emptyBody',
   'kitchen:ops.ledger.emptyTitle',
-  'kitchen:ops.ledger.filterCostStatus',
   'kitchen:ops.ledger.filterFrom',
-  'kitchen:ops.ledger.filterItem',
-  'kitchen:ops.ledger.filterSupplier',
   'kitchen:ops.ledger.filterTo',
+  'kitchen:ops.ledger.fromPlaceholder',
   'kitchen:ops.ledger.hideCharges',
   'kitchen:ops.ledger.incompleteBadge',
   'kitchen:ops.ledger.modeDetail',
   'kitchen:ops.ledger.modeLabel',
   'kitchen:ops.ledger.modeMonthly',
   'kitchen:ops.ledger.modeWeekly',
-  'kitchen:ops.ledger.nextPage',
   'kitchen:ops.ledger.noPricedDeliveries',
   'kitchen:ops.ledger.noSupplier',
   'kitchen:ops.ledger.pendingFxNote',
   'kitchen:ops.ledger.periodDates',
+  'kitchen:ops.ledger.searchPlaceholder',
   'kitchen:ops.ledger.showCharges',
-  'kitchen:ops.ledger.subtitle',
+  'kitchen:ops.ledger.statLinesUnit',
+  'kitchen:ops.ledger.statPendingFxCaption',
+  'kitchen:ops.ledger.statPricedCaption',
+  'kitchen:ops.ledger.statUnpricedCaption',
+  'kitchen:ops.ledger.statePendingFx',
+  'kitchen:ops.ledger.statePriced',
+  'kitchen:ops.ledger.stateUnpriced',
   'kitchen:ops.ledger.summaryEmptyBody',
   'kitchen:ops.ledger.summaryEmptyTitle',
   'kitchen:ops.ledger.summaryInvoiceTotal',
@@ -10226,13 +12384,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.summaryRange',
   'kitchen:ops.ledger.summarySubtotal',
   'kitchen:ops.ledger.title',
+  'kitchen:ops.ledger.toPlaceholder',
   'kitchen:ops.ledger.unpricedLines',
+  'kitchen:ops.ledger.viewFoot',
+  'kitchen:ops.ledger.viewKind',
+  'kitchen:ops.ledger.viewPendingFxNote',
+  'kitchen:ops.ledger.viewUnpricedNote',
   'kitchen:ops.metricUnavailable',
-  'kitchen:ops.orders.allLoaded',
+  'kitchen:ops.orders.actionsHeading',
+  'kitchen:ops.orders.backToOrders',
   'kitchen:ops.orders.cancel',
   'kitchen:ops.orders.cancelBody',
   'kitchen:ops.orders.cancelConfirm',
   'kitchen:ops.orders.cancelDismiss',
+  'kitchen:ops.orders.cancelFinal',
   'kitchen:ops.orders.cancelReasonLabel',
   'kitchen:ops.orders.cancelTitle',
   'kitchen:ops.orders.cancellationHeading',
@@ -10240,6 +12405,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.cancelledAt',
   'kitchen:ops.orders.cancelledToast',
   'kitchen:ops.orders.caption',
+  'kitchen:ops.orders.chip',
   'kitchen:ops.orders.clearFilters',
   'kitchen:ops.orders.columnActions',
   'kitchen:ops.orders.columnDelivery',
@@ -10254,6 +12420,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.conflictBody',
   'kitchen:ops.orders.conflictRefresh',
   'kitchen:ops.orders.conflictTitle',
+  'kitchen:ops.orders.currencyNote',
   'kitchen:ops.orders.deliveryAddress',
   'kitchen:ops.orders.deliveryArea',
   'kitchen:ops.orders.deliveryDate',
@@ -10271,6 +12438,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.fulfil',
   'kitchen:ops.orders.fulfilledAt',
   'kitchen:ops.orders.fulfilledToast',
+  'kitchen:ops.orders.lineCount',
+  'kitchen:ops.orders.lineItem',
   'kitchen:ops.orders.lineQuantity',
   'kitchen:ops.orders.lineTotal',
   'kitchen:ops.orders.lineUnitPrice',
@@ -10278,12 +12447,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.loadErrorTitle',
   'kitchen:ops.orders.loadMore',
   'kitchen:ops.orders.loadingMore',
+  'kitchen:ops.orders.metricFulfilled',
   'kitchen:ops.orders.metrics.awaiting',
   'kitchen:ops.orders.metrics.confirmed',
   'kitchen:ops.orders.metrics.loaded',
   'kitchen:ops.orders.noAllergens',
   'kitchen:ops.orders.noDeliveryFee',
-  'kitchen:ops.orders.open',
+  'kitchen:ops.orders.nothingToDo',
   'kitchen:ops.orders.placedAt',
   'kitchen:ops.orders.reason.addressUnreachable',
   'kitchen:ops.orders.reason.customerRequested',
@@ -10292,6 +12462,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.saveFailed',
   'kitchen:ops.orders.searchHint',
   'kitchen:ops.orders.searchLabel',
+  'kitchen:ops.orders.statAwaitingCaption',
+  'kitchen:ops.orders.statConfirmedCaption',
+  'kitchen:ops.orders.statFulfilledCaption',
+  'kitchen:ops.orders.statLoadedCaption',
+  'kitchen:ops.orders.statUnit',
   'kitchen:ops.orders.status.cancelled',
   'kitchen:ops.orders.status.confirmed',
   'kitchen:ops.orders.status.fulfilled',
@@ -10303,110 +12478,444 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.title',
   'kitchen:ops.orders.total',
   'kitchen:ops.orders.totalsHeading',
+  'kitchen:ops.orders.viewKind',
+  'kitchen:ops.orders.viewPlacedNote',
   'kitchen:ops.procurement.addLine',
+  'kitchen:ops.procurement.arrivalAside',
+  'kitchen:ops.procurement.arrivalSection',
   'kitchen:ops.procurement.columnCostStatus',
   'kitchen:ops.procurement.columnLines',
   'kitchen:ops.procurement.columnReceivedAt',
+  'kitchen:ops.procurement.columnRefs',
   'kitchen:ops.procurement.columnSupplier',
   'kitchen:ops.procurement.columnTotal',
   'kitchen:ops.procurement.costsRedacted',
+  'kitchen:ops.procurement.deliveryNotePlaceholder',
+  'kitchen:ops.procurement.discardBody',
+  'kitchen:ops.procurement.discardTitle',
   'kitchen:ops.procurement.emptyBody',
   'kitchen:ops.procurement.emptyTitle',
+  'kitchen:ops.procurement.fieldDeliveryNote',
   'kitchen:ops.procurement.fieldDocumentRef',
   'kitchen:ops.procurement.fieldInvoiceRef',
-  'kitchen:ops.procurement.fieldInvoiceRefHint',
   'kitchen:ops.procurement.fieldLineItem',
   'kitchen:ops.procurement.fieldLineQuantity',
   'kitchen:ops.procurement.fieldLineUnit',
   'kitchen:ops.procurement.fieldLineUnitPrice',
+  'kitchen:ops.procurement.fieldOrder',
   'kitchen:ops.procurement.fieldReceivedOn',
-  'kitchen:ops.procurement.fieldReceivedOnHint',
   'kitchen:ops.procurement.fieldSupplier',
   'kitchen:ops.procurement.fieldSupplierCode',
   'kitchen:ops.procurement.fieldSupplierEmail',
   'kitchen:ops.procurement.fieldSupplierName',
   'kitchen:ops.procurement.fieldSupplierPhone',
+  'kitchen:ops.procurement.filteredEmptyBody',
+  'kitchen:ops.procurement.invoicePlaceholder',
+  'kitchen:ops.procurement.issueDateFuture',
+  'kitchen:ops.procurement.issueFieldItem',
+  'kitchen:ops.procurement.issueFieldQuantity',
+  'kitchen:ops.procurement.issueFieldUnitPrice',
+  'kitchen:ops.procurement.issueLine',
+  'kitchen:ops.procurement.issueNoLines',
+  'kitchen:ops.procurement.issueNoOrder',
+  'kitchen:ops.procurement.issueOverReceipt',
+  'kitchen:ops.procurement.issueVarianceNote',
+  'kitchen:ops.procurement.issuesSummary',
+  'kitchen:ops.procurement.kindMarket',
+  'kitchen:ops.procurement.kindOrder',
+  'kitchen:ops.procurement.kindOrderUnpicked',
+  'kitchen:ops.procurement.lastPaid',
+  'kitchen:ops.procurement.lineCount',
+  'kitchen:ops.procurement.lineCountUnpriced',
+  'kitchen:ops.procurement.lineFieldLabel',
+  'kitchen:ops.procurement.lineItemMissing',
+  'kitchen:ops.procurement.lineQuantityInvalid',
+  'kitchen:ops.procurement.lineQuantityMissing',
+  'kitchen:ops.procurement.lineTotal',
+  'kitchen:ops.procurement.lineUnitPriceInvalid',
+  'kitchen:ops.procurement.linesSection',
+  'kitchen:ops.procurement.listFoot',
   'kitchen:ops.procurement.manageSuppliers',
-  'kitchen:ops.procurement.metrics.lines',
-  'kitchen:ops.procurement.metrics.receipts',
-  'kitchen:ops.procurement.metrics.suppliers',
+  'kitchen:ops.procurement.modeMarketBody',
+  'kitchen:ops.procurement.modeMarketTitle',
+  'kitchen:ops.procurement.modeOrderBody',
+  'kitchen:ops.procurement.modeOrderTitle',
+  'kitchen:ops.procurement.neverBought',
   'kitchen:ops.procurement.newSupplier',
+  'kitchen:ops.procurement.newSupplierBody',
   'kitchen:ops.procurement.newSupplierFailed',
+  'kitchen:ops.procurement.newSupplierSave',
   'kitchen:ops.procurement.newSupplierTitle',
   'kitchen:ops.procurement.noSupplier',
-  'kitchen:ops.procurement.noSuppliers',
   'kitchen:ops.procurement.notYetReceived',
+  'kitchen:ops.procurement.orderOption',
+  'kitchen:ops.procurement.orderOutstanding',
+  'kitchen:ops.procurement.ordersLoading',
   'kitchen:ops.procurement.pendingFxCount',
+  'kitchen:ops.procurement.postDelivery',
   'kitchen:ops.procurement.postFailed',
   'kitchen:ops.procurement.postReceipt',
   'kitchen:ops.procurement.postTitle',
   'kitchen:ops.procurement.postedToast',
+  'kitchen:ops.procurement.priceChange',
+  'kitchen:ops.procurement.pricePlaceholder',
+  'kitchen:ops.procurement.quantitiesOnly',
+  'kitchen:ops.procurement.quantitiesOnlyNote',
+  'kitchen:ops.procurement.receiptSection',
+  'kitchen:ops.procurement.receiptTotal',
   'kitchen:ops.procurement.receiptsTitle',
+  'kitchen:ops.procurement.receivedOnFuture',
   'kitchen:ops.procurement.removeLine',
-  'kitchen:ops.procurement.subtitle',
+  'kitchen:ops.procurement.risesEmpty',
+  'kitchen:ops.procurement.risesQuantity',
+  'kitchen:ops.procurement.risesTitle',
+  'kitchen:ops.procurement.risesTitleNoBranch',
+  'kitchen:ops.procurement.searchPlaceholder',
+  'kitchen:ops.procurement.statCompleteCaption',
+  'kitchen:ops.procurement.statPartialCaption',
+  'kitchen:ops.procurement.statReceiptsUnit',
+  'kitchen:ops.procurement.statUnpricedCaption',
+  'kitchen:ops.procurement.summaryKind',
+  'kitchen:ops.procurement.summaryNoSupplier',
+  'kitchen:ops.procurement.summaryTitle',
+  'kitchen:ops.procurement.supplierCodePlaceholder',
   'kitchen:ops.procurement.supplierCreatedToast',
-  'kitchen:ops.procurement.suppliersTitle',
+  'kitchen:ops.procurement.supplierCurrencyNote',
+  'kitchen:ops.procurement.supplierNamePlaceholder',
+  'kitchen:ops.procurement.supplierNameRequired',
+  'kitchen:ops.procurement.supplierPlaceholder',
   'kitchen:ops.procurement.title',
+  'kitchen:ops.procurement.unplannedTitle',
+  'kitchen:ops.procurement.unpricedNote',
   'kitchen:ops.procurement.unpricedReceipts',
-  'kitchen:ops.production.columnActions',
-  'kitchen:ops.production.columnId',
+  'kitchen:ops.procurement.viewKind',
+  'kitchen:ops.procurement.viewUnpricedNote',
+  'kitchen:ops.production.abandon',
+  'kitchen:ops.production.abandonReasonHint',
+  'kitchen:ops.production.abandonReasonLabel',
+  'kitchen:ops.production.abandonReasonPlaceholder',
+  'kitchen:ops.production.abandonReasonRequired',
+  'kitchen:ops.production.abandonSubmit',
+  'kitchen:ops.production.abandonSubtitle',
+  'kitchen:ops.production.abandonTitle',
+  'kitchen:ops.production.abandonedAtLabel',
+  'kitchen:ops.production.abandonedToast',
+  'kitchen:ops.production.actualCost',
+  'kitchen:ops.production.actualCostCaption',
+  'kitchen:ops.production.amountRequired',
+  'kitchen:ops.production.asPlanned',
+  'kitchen:ops.production.backToDesk',
+  'kitchen:ops.production.backToList',
+  'kitchen:ops.production.batchFactorLabel',
+  'kitchen:ops.production.batchFactorPlaceholder',
+  'kitchen:ops.production.batchFallbackTitle',
+  'kitchen:ops.production.batchReferenceLabel',
+  'kitchen:ops.production.batchSection',
+  'kitchen:ops.production.batchTitle',
+  'kitchen:ops.production.branchScoped',
+  'kitchen:ops.production.cancelBatch',
+  'kitchen:ops.production.cancelBlocked',
+  'kitchen:ops.production.cancelBody',
+  'kitchen:ops.production.cancelSubmit',
+  'kitchen:ops.production.cancelTitle',
+  'kitchen:ops.production.cancelledAtLabel',
+  'kitchen:ops.production.cancelledToast',
+  'kitchen:ops.production.columnBatch',
+  'kitchen:ops.production.columnBranch',
+  'kitchen:ops.production.columnClaimed',
+  'kitchen:ops.production.columnExpiry',
+  'kitchen:ops.production.columnItem',
+  'kitchen:ops.production.columnMade',
+  'kitchen:ops.production.columnMakes',
   'kitchen:ops.production.columnStatus',
+  'kitchen:ops.production.columnStorage',
+  'kitchen:ops.production.columnUnitCost',
+  'kitchen:ops.production.columnUsed',
+  'kitchen:ops.production.columnVersion',
+  'kitchen:ops.production.columnWasted',
+  'kitchen:ops.production.columnYield',
   'kitchen:ops.production.complete',
+  'kitchen:ops.production.completeFailed',
+  'kitchen:ops.production.completeSubmit',
+  'kitchen:ops.production.completeSubtitle',
+  'kitchen:ops.production.completeTitle',
+  'kitchen:ops.production.completedAtLabel',
   'kitchen:ops.production.completedToast',
+  'kitchen:ops.production.completedUnvaluedToast',
+  'kitchen:ops.production.confirm',
+  'kitchen:ops.production.confirmedAtLabel',
+  'kitchen:ops.production.confirmedToast',
+  'kitchen:ops.production.consumedHeading',
+  'kitchen:ops.production.consumedHint',
+  'kitchen:ops.production.costStatusPartial',
+  'kitchen:ops.production.costStatusPartialBody',
+  'kitchen:ops.production.costStatusUnvalued',
+  'kitchen:ops.production.costStatusUnvaluedBody',
+  'kitchen:ops.production.costWithheld',
+  'kitchen:ops.production.costsHiddenBody',
+  'kitchen:ops.production.costsHiddenTitle',
   'kitchen:ops.production.create',
-  'kitchen:ops.production.createFailed',
+  'kitchen:ops.production.createChip',
   'kitchen:ops.production.createSubmit',
-  'kitchen:ops.production.createTitle',
   'kitchen:ops.production.createdToast',
+  'kitchen:ops.production.currencyConflict',
+  'kitchen:ops.production.discardBody',
+  'kitchen:ops.production.discardTitle',
+  'kitchen:ops.production.draftOnTopBody',
+  'kitchen:ops.production.draftOnTopTitle',
   'kitchen:ops.production.emptyBody',
   'kitchen:ops.production.emptyTitle',
-  'kitchen:ops.production.loadErrorBody',
+  'kitchen:ops.production.estimatedCost',
+  'kitchen:ops.production.estimatedCostCaption',
+  'kitchen:ops.production.estimatedLiveCaption',
+  'kitchen:ops.production.expiredBadge',
+  'kitchen:ops.production.expiredNotice',
+  'kitchen:ops.production.expiryDateLabel',
+  'kitchen:ops.production.expiryFromRecipe',
+  'kitchen:ops.production.filterOpen',
+  'kitchen:ops.production.filterStatus',
+  'kitchen:ops.production.filteredEmptyBody',
+  'kitchen:ops.production.filteredEmptyTitle',
+  'kitchen:ops.production.footNote',
+  'kitchen:ops.production.fromPlanner',
+  'kitchen:ops.production.headingCost',
+  'kitchen:ops.production.headingLines',
+  'kitchen:ops.production.headingPlan',
+  'kitchen:ops.production.headingRecord',
+  'kitchen:ops.production.headingYield',
+  'kitchen:ops.production.labelBatchOf',
+  'kitchen:ops.production.labelCopies',
+  'kitchen:ops.production.lineKindIngredient',
+  'kitchen:ops.production.lineKindPackaging',
   'kitchen:ops.production.loadErrorTitle',
-  'kitchen:ops.production.metrics.batches',
-  'kitchen:ops.production.metrics.inProgress',
-  'kitchen:ops.production.metrics.yield',
+  'kitchen:ops.production.lotLabel',
+  'kitchen:ops.production.newSubtitle',
+  'kitchen:ops.production.newTitle',
+  'kitchen:ops.production.nextPage',
   'kitchen:ops.production.noBranchBody',
   'kitchen:ops.production.noBranchTitle',
-  'kitchen:ops.production.ordersHeading',
+  'kitchen:ops.production.noExpiry',
+  'kitchen:ops.production.noRecipeAccessBody',
+  'kitchen:ops.production.noRecipeAccessTitle',
+  'kitchen:ops.production.notFoundBody',
+  'kitchen:ops.production.notFoundTitle',
+  'kitchen:ops.production.notesHint',
+  'kitchen:ops.production.notesLabel',
+  'kitchen:ops.production.notesPlaceholder',
+  'kitchen:ops.production.openBatch',
+  'kitchen:ops.production.openNote',
+  'kitchen:ops.production.orderShortfall',
+  'kitchen:ops.production.planAvailable',
+  'kitchen:ops.production.planHolesBody',
+  'kitchen:ops.production.planHolesTitle',
+  'kitchen:ops.production.planIngredientsHeading',
+  'kitchen:ops.production.planLiveCaption',
+  'kitchen:ops.production.planMissing',
+  'kitchen:ops.production.planOnHand',
+  'kitchen:ops.production.planPackagingHeading',
+  'kitchen:ops.production.planReady',
+  'kitchen:ops.production.planRequired',
+  'kitchen:ops.production.planReserved',
+  'kitchen:ops.production.planShort',
+  'kitchen:ops.production.plannedCaption',
+  'kitchen:ops.production.plannedLabel',
+  'kitchen:ops.production.plannedYieldLabel',
+  'kitchen:ops.production.previewDraftOnTop',
+  'kitchen:ops.production.previewNeedsAmount',
+  'kitchen:ops.production.previewNeedsRecipe',
+  'kitchen:ops.production.previousPage',
+  'kitchen:ops.production.printLabel',
+  'kitchen:ops.production.producedHint',
+  'kitchen:ops.production.producedLabel',
+  'kitchen:ops.production.producedPlaceholder',
+  'kitchen:ops.production.producedRequired',
+  'kitchen:ops.production.productionDateLabel',
+  'kitchen:ops.production.quickFactor',
+  'kitchen:ops.production.recipeHint',
+  'kitchen:ops.production.recipeHintDraft',
+  'kitchen:ops.production.recipeHintPortions',
+  'kitchen:ops.production.recipeLabel',
+  'kitchen:ops.production.recipePlaceholder',
+  'kitchen:ops.production.recipeRequired',
+  'kitchen:ops.production.recipeUnpublished',
+  'kitchen:ops.production.registerEmptyBody',
+  'kitchen:ops.production.registerEmptyTitle',
+  'kitchen:ops.production.registerTitle',
+  'kitchen:ops.production.rejectedHint',
+  'kitchen:ops.production.rejectedLabel',
+  'kitchen:ops.production.rejectedTooHigh',
+  'kitchen:ops.production.runsCaption',
+  'kitchen:ops.production.scaleFactor',
+  'kitchen:ops.production.scaleLabel',
+  'kitchen:ops.production.scaleYield',
+  'kitchen:ops.production.scanLabel',
+  'kitchen:ops.production.scanNoMatch',
+  'kitchen:ops.production.searchPlaceholder',
+  'kitchen:ops.production.sheetBasisHeading',
+  'kitchen:ops.production.sheetLink',
+  'kitchen:ops.production.sheetLive',
+  'kitchen:ops.production.sheetNutritionEmpty',
+  'kitchen:ops.production.sheetNutritionHeading',
+  'kitchen:ops.production.sheetPublicationLabel',
+  'kitchen:ops.production.sheetPublicationNone',
+  'kitchen:ops.production.sheetSubtitle',
+  'kitchen:ops.production.sheetTitle',
+  'kitchen:ops.production.sheetUnconfirmedBody',
+  'kitchen:ops.production.sheetUnconfirmedTitle',
+  'kitchen:ops.production.sheetVersionLabel',
+  'kitchen:ops.production.shortNone',
+  'kitchen:ops.production.shortSome',
+  'kitchen:ops.production.start',
+  'kitchen:ops.production.startedAtLabel',
+  'kitchen:ops.production.startedToast',
+  'kitchen:ops.production.statCompletedCaption',
+  'kitchen:ops.production.statConfirmedCaption',
+  'kitchen:ops.production.statDraftCaption',
+  'kitchen:ops.production.statExpired',
+  'kitchen:ops.production.statExpiredCaption',
+  'kitchen:ops.production.statInProductionCaption',
+  'kitchen:ops.production.statInProgressCaption',
+  'kitchen:ops.production.statLines',
+  'kitchen:ops.production.statLinesCaption',
+  'kitchen:ops.production.statPlannedCaption',
+  'kitchen:ops.production.statShort',
+  'kitchen:ops.production.statUnit',
+  'kitchen:ops.production.statUnvalued',
+  'kitchen:ops.production.statUnvaluedCaption',
+  'kitchen:ops.production.status.abandoned',
   'kitchen:ops.production.status.cancelled',
   'kitchen:ops.production.status.completed',
-  'kitchen:ops.production.status.inProgress',
-  'kitchen:ops.production.status.planned',
-  'kitchen:ops.production.subtitle',
+  'kitchen:ops.production.status.confirmed',
+  'kitchen:ops.production.status.draft',
+  'kitchen:ops.production.status.inProduction',
+  'kitchen:ops.production.statusTitle',
+  'kitchen:ops.production.stepCompletedBody',
+  'kitchen:ops.production.stepConfirmedBody',
+  'kitchen:ops.production.stepDraftBody',
+  'kitchen:ops.production.stepInProductionBody',
+  'kitchen:ops.production.stepsTitle',
+  'kitchen:ops.production.storageLocationLabel',
+  'kitchen:ops.production.storageLocationPlaceholder',
+  'kitchen:ops.production.summaryFoot',
+  'kitchen:ops.production.summaryMakes',
+  'kitchen:ops.production.summaryPortions',
+  'kitchen:ops.production.summaryRuns',
+  'kitchen:ops.production.summaryRunsValue',
+  'kitchen:ops.production.summaryShort',
+  'kitchen:ops.production.summaryShortNone',
+  'kitchen:ops.production.summaryShortValue',
+  'kitchen:ops.production.summaryTitle',
+  'kitchen:ops.production.summaryVersion',
+  'kitchen:ops.production.thisBranch',
   'kitchen:ops.production.title',
-  'kitchen:ops.production.versionHint',
-  'kitchen:ops.production.versionLabel',
+  'kitchen:ops.production.uncostedLines',
+  'kitchen:ops.production.unitCostLabel',
+  'kitchen:ops.production.unpublishedTitle',
+  'kitchen:ops.production.unreferenced',
+  'kitchen:ops.production.usableCaption',
+  'kitchen:ops.production.viewKind',
+  'kitchen:ops.production.wasteHeading',
+  'kitchen:ops.production.wasteHint',
+  'kitchen:ops.production.yieldPlanned',
+  'kitchen:ops.production.yieldProduced',
+  'kitchen:ops.production.yieldRejected',
+  'kitchen:ops.production.yieldRejectedCaption',
+  'kitchen:ops.production.yieldUsable',
+  'kitchen:ops.production.yieldVariance',
+  'kitchen:ops.production.yieldVarianceLossCaption',
+  'kitchen:ops.production.yieldVarianceOverCaption',
+  'kitchen:ops.qc.backToList',
+  'kitchen:ops.qc.batchMeta',
+  'kitchen:ops.qc.batchesNone',
+  'kitchen:ops.qc.checkBadge',
   'kitchen:ops.qc.checksHeading',
-  'kitchen:ops.qc.columnActions',
+  'kitchen:ops.qc.checksNone',
+  'kitchen:ops.qc.colBatch',
+  'kitchen:ops.qc.colChecks',
+  'kitchen:ops.qc.colDate',
+  'kitchen:ops.qc.colReceipt',
+  'kitchen:ops.qc.colRecipe',
+  'kitchen:ops.qc.colSupplier',
+  'kitchen:ops.qc.columnKind',
   'kitchen:ops.qc.columnStatus',
   'kitchen:ops.qc.columnSubject',
+  'kitchen:ops.qc.coverAside',
+  'kitchen:ops.qc.coverBatchTitle',
+  'kitchen:ops.qc.coverMore',
+  'kitchen:ops.qc.coverReceiptTitle',
   'kitchen:ops.qc.create',
+  'kitchen:ops.qc.createChip',
   'kitchen:ops.qc.createFailed',
   'kitchen:ops.qc.createSubmit',
+  'kitchen:ops.qc.createSubmitHold',
   'kitchen:ops.qc.createTitle',
+  'kitchen:ops.qc.createdHeldToast',
   'kitchen:ops.qc.createdToast',
+  'kitchen:ops.qc.duplicateHold',
+  'kitchen:ops.qc.duplicateOpen',
+  'kitchen:ops.qc.duplicatePending',
   'kitchen:ops.qc.emptyBody',
   'kitchen:ops.qc.emptyTitle',
+  'kitchen:ops.qc.fieldReference',
+  'kitchen:ops.qc.filteredEmptyBody',
+  'kitchen:ops.qc.filteredEmptyTitle',
+  'kitchen:ops.qc.footNote',
   'kitchen:ops.qc.heldToast',
   'kitchen:ops.qc.hold',
+  'kitchen:ops.qc.holdAfterCreateFailed',
+  'kitchen:ops.qc.holdNote',
+  'kitchen:ops.qc.issueNoSubject',
+  'kitchen:ops.qc.kindBatchBody',
+  'kitchen:ops.qc.kindBatchTitle',
+  'kitchen:ops.qc.kindReceiptBody',
+  'kitchen:ops.qc.kindReceiptTitle',
   'kitchen:ops.qc.loadErrorBody',
   'kitchen:ops.qc.loadErrorTitle',
   'kitchen:ops.qc.metrics.holds',
   'kitchen:ops.qc.metrics.openChecks',
   'kitchen:ops.qc.metrics.releases',
+  'kitchen:ops.qc.receiptsNone',
   'kitchen:ops.qc.release',
   'kitchen:ops.qc.releasedToast',
+  'kitchen:ops.qc.searchBatches',
+  'kitchen:ops.qc.searchPlaceholder',
+  'kitchen:ops.qc.searchReceipts',
+  'kitchen:ops.qc.startHoldBody',
+  'kitchen:ops.qc.startHoldTitle',
+  'kitchen:ops.qc.startPendingBody',
+  'kitchen:ops.qc.startPendingTitle',
+  'kitchen:ops.qc.startSection',
+  'kitchen:ops.qc.statHoldCaption',
+  'kitchen:ops.qc.statPendingCaption',
+  'kitchen:ops.qc.statReleasedCaption',
+  'kitchen:ops.qc.statUnit',
+  'kitchen:ops.qc.stateHold',
+  'kitchen:ops.qc.statePending',
+  'kitchen:ops.qc.stateReleased',
+  'kitchen:ops.qc.statesTitle',
   'kitchen:ops.qc.status.hold',
   'kitchen:ops.qc.status.passed',
   'kitchen:ops.qc.status.pending',
   'kitchen:ops.qc.status.released',
+  'kitchen:ops.qc.statusOnHold',
+  'kitchen:ops.qc.statusPending',
   'kitchen:ops.qc.subject.goodsReceipt',
   'kitchen:ops.qc.subject.productionOrder',
-  'kitchen:ops.qc.subjectIdHint',
-  'kitchen:ops.qc.subjectIdLabel',
-  'kitchen:ops.qc.subjectTypeLabel',
-  'kitchen:ops.qc.subtitle',
+  'kitchen:ops.qc.subjectAside',
+  'kitchen:ops.qc.subjectSection',
+  'kitchen:ops.qc.subjectsFailed',
+  'kitchen:ops.qc.subjectsLimited',
+  'kitchen:ops.qc.subjectsNoMatch',
+  'kitchen:ops.qc.summaryFootHold',
+  'kitchen:ops.qc.summaryFootPending',
+  'kitchen:ops.qc.summaryPlannedFor',
+  'kitchen:ops.qc.summaryReceived',
+  'kitchen:ops.qc.summaryStartsAs',
+  'kitchen:ops.qc.summarySubject',
+  'kitchen:ops.qc.summarySubjectType',
+  'kitchen:ops.qc.summaryTitle',
   'kitchen:ops.qc.title',
+  'kitchen:ops.qc.viewKind',
   'kitchen:ops.quotations.caption',
   'kitchen:ops.quotations.clearFilter',
   'kitchen:ops.quotations.columnActions',
@@ -10453,14 +12962,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.notPricedYet',
   'kitchen:ops.quotations.notes',
   'kitchen:ops.quotations.open',
-  'kitchen:ops.quotations.price',
   'kitchen:ops.quotations.programme',
   'kitchen:ops.quotations.quotedAt',
   'kitchen:ops.quotations.quotedToast',
   'kitchen:ops.quotations.requestHeading',
   'kitchen:ops.quotations.send',
+  'kitchen:ops.quotations.sendRule',
   'kitchen:ops.quotations.staleBody',
   'kitchen:ops.quotations.staleTitle',
+  'kitchen:ops.quotations.statAwaitingCaption',
+  'kitchen:ops.quotations.statLoadedCaption',
+  'kitchen:ops.quotations.statQuotedCaption',
   'kitchen:ops.quotations.status.accepted',
   'kitchen:ops.quotations.status.declined',
   'kitchen:ops.quotations.status.expired',
@@ -10472,10 +12984,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.title',
   'kitchen:ops.quotations.total',
   'kitchen:ops.quotations.totalsHeading',
+  'kitchen:ops.quotations.viewKind',
   'kitchen:ops.readyForApi',
+  'kitchen:ops.receiving.backToProcurement',
   'kitchen:ops.receiving.chargesHint',
+  'kitchen:ops.receiving.chipPostsStock',
   'kitchen:ops.receiving.closeShortHint',
   'kitchen:ops.receiving.closeShortLabel',
+  'kitchen:ops.receiving.closeShortReasonPlaceholder',
   'kitchen:ops.receiving.confirmCloseShort',
   'kitchen:ops.receiving.confirmComplete',
   'kitchen:ops.receiving.confirmDate',
@@ -10489,6 +13005,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.receiving.costStatus.complete',
   'kitchen:ops.receiving.costStatus.partial',
   'kitchen:ops.receiving.costStatus.unpriced',
+  'kitchen:ops.receiving.documentRefPlaceholder',
   'kitchen:ops.receiving.emptyBody',
   'kitchen:ops.receiving.emptyTitle',
   'kitchen:ops.receiving.fieldCloseShortReason',
@@ -10511,6 +13028,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.receiving.fieldVarianceNote',
   'kitchen:ops.receiving.fieldVarianceNoteHint',
   'kitchen:ops.receiving.hideCharges',
+  'kitchen:ops.receiving.invoiceRefPlaceholder',
   'kitchen:ops.receiving.lineOverReceipt',
   'kitchen:ops.receiving.linesTitle',
   'kitchen:ops.receiving.orderMissingBody',
@@ -10523,17 +13041,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.receiving.post',
   'kitchen:ops.receiving.postFailed',
   'kitchen:ops.receiving.postedToast',
+  'kitchen:ops.receiving.sectionCharges',
+  'kitchen:ops.receiving.sectionDelivery',
+  'kitchen:ops.receiving.sectionOrder',
   'kitchen:ops.receiving.showCharges',
   'kitchen:ops.receiving.subtitle',
   'kitchen:ops.receiving.summary',
   'kitchen:ops.receiving.title',
   'kitchen:ops.receiving.unpricedToast',
+  'kitchen:ops.receiving.varianceNotePlaceholder',
   'kitchen:ops.requirements.branchRequiredBody',
   'kitchen:ops.requirements.branchRequiredTitle',
   'kitchen:ops.requirements.columnAvailable',
   'kitchen:ops.requirements.columnIngredient',
+  'kitchen:ops.requirements.columnOnHand',
   'kitchen:ops.requirements.columnPosition',
   'kitchen:ops.requirements.columnRequired',
+  'kitchen:ops.requirements.columnReserved',
   'kitchen:ops.requirements.columnShort',
   'kitchen:ops.requirements.columnSuggestedBuy',
   'kitchen:ops.requirements.columnUnit',
@@ -10578,68 +13102,87 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.requirements.windowLabel',
   'kitchen:ops.requirements.windowTo',
   'kitchen:ops.stock.adjust',
-  'kitchen:ops.stock.adjustHint',
-  'kitchen:ops.stock.adjustTitle',
   'kitchen:ops.stock.adjustedToast',
-  'kitchen:ops.stock.columnActions',
-  'kitchen:ops.stock.columnHeld',
   'kitchen:ops.stock.columnItem',
   'kitchen:ops.stock.columnLastPurchase',
-  'kitchen:ops.stock.columnLevel',
   'kitchen:ops.stock.columnQuantity',
-  'kitchen:ops.stock.columnThreshold',
+  'kitchen:ops.stock.columnReorderPar',
   'kitchen:ops.stock.columnUnit',
+  'kitchen:ops.stock.countInvalid',
+  'kitchen:ops.stock.countedToast',
   'kitchen:ops.stock.direction',
+  'kitchen:ops.stock.directionCount',
   'kitchen:ops.stock.directionDecrease',
   'kitchen:ops.stock.directionIncrease',
-  'kitchen:ops.stock.emptyBody',
+  'kitchen:ops.stock.effectCount',
+  'kitchen:ops.stock.effectDecrease',
+  'kitchen:ops.stock.effectIncrease',
+  'kitchen:ops.stock.effectThreshold',
+  'kitchen:ops.stock.effectWaste',
   'kitchen:ops.stock.emptyShelf',
-  'kitchen:ops.stock.emptyTitle',
+  'kitchen:ops.stock.exceedsShelf',
   'kitchen:ops.stock.fieldAdjustQuantity',
+  'kitchen:ops.stock.fieldCountedQuantity',
+  'kitchen:ops.stock.fieldNotes',
+  'kitchen:ops.stock.fieldNotesPlaceholder',
   'kitchen:ops.stock.fieldParLevel',
-  'kitchen:ops.stock.fieldParLevelHint',
   'kitchen:ops.stock.fieldThreshold',
-  'kitchen:ops.stock.fieldThresholdHint',
-  'kitchen:ops.stock.fieldWasteQuantity',
+  'kitchen:ops.stock.filteredEmptyBody',
   'kitchen:ops.stock.history',
   'kitchen:ops.stock.inStockBadge',
   'kitchen:ops.stock.ingredientsEmptyBody',
   'kitchen:ops.stock.ingredientsEmptyTitle',
-  'kitchen:ops.stock.ingredientsHint',
-  'kitchen:ops.stock.ingredientsTitle',
+  'kitchen:ops.stock.kindIngredients',
+  'kitchen:ops.stock.kindLabel',
+  'kitchen:ops.stock.kindProducts',
   'kitchen:ops.stock.lastPurchaseFrom',
   'kitchen:ops.stock.lastPurchaseHidden',
   'kitchen:ops.stock.lastPurchaseLoading',
   'kitchen:ops.stock.lastPurchasePrice',
-  'kitchen:ops.stock.levelsTitle',
+  'kitchen:ops.stock.ledgerNote',
+  'kitchen:ops.stock.levelLabel',
+  'kitchen:ops.stock.levelOut',
   'kitchen:ops.stock.lowBadge',
   'kitchen:ops.stock.lowStockCount',
-  'kitchen:ops.stock.metrics.ingredients',
-  'kitchen:ops.stock.metrics.levels',
   'kitchen:ops.stock.metrics.lowStock',
   'kitchen:ops.stock.metrics.outOfStock',
-  'kitchen:ops.stock.metrics.products',
   'kitchen:ops.stock.neverBought',
-  'kitchen:ops.stock.neverStocked',
-  'kitchen:ops.stock.noLevels',
   'kitchen:ops.stock.noPurchaseSupplier',
   'kitchen:ops.stock.noThreshold',
-  'kitchen:ops.stock.pageSize',
+  'kitchen:ops.stock.numberInvalid',
+  'kitchen:ops.stock.parLevelPlaceholder',
+  'kitchen:ops.stock.parNotAboveThreshold',
   'kitchen:ops.stock.productsEmptyBody',
   'kitchen:ops.stock.productsEmptyTitle',
-  'kitchen:ops.stock.productsHint',
-  'kitchen:ops.stock.productsTitle',
-  'kitchen:ops.stock.subtitle',
-  'kitchen:ops.stock.threshold',
+  'kitchen:ops.stock.quantityInvalid',
+  'kitchen:ops.stock.quantityUnitHint',
+  'kitchen:ops.stock.reorderPar',
+  'kitchen:ops.stock.saveFailedBody',
+  'kitchen:ops.stock.saveFailedTitle',
+  'kitchen:ops.stock.saveLabel',
+  'kitchen:ops.stock.searchPlaceholder',
+  'kitchen:ops.stock.sectionMovement',
+  'kitchen:ops.stock.sectionThreshold',
+  'kitchen:ops.stock.statLowCaption',
+  'kitchen:ops.stock.statOkCaption',
+  'kitchen:ops.stock.statOutCaption',
+  'kitchen:ops.stock.statUnit',
+  'kitchen:ops.stock.summaryAfter',
+  'kitchen:ops.stock.summaryEffects',
+  'kitchen:ops.stock.summaryNothing',
+  'kitchen:ops.stock.summaryOnHand',
+  'kitchen:ops.stock.summaryTitle',
   'kitchen:ops.stock.thresholdClearedToast',
+  'kitchen:ops.stock.thresholdNote',
+  'kitchen:ops.stock.thresholdPlaceholder',
   'kitchen:ops.stock.thresholdSetToast',
-  'kitchen:ops.stock.thresholdTitle',
-  'kitchen:ops.stock.title',
+  'kitchen:ops.stock.viewKind',
+  'kitchen:ops.stock.viewNoteEmpty',
+  'kitchen:ops.stock.viewNoteLow',
   'kitchen:ops.stock.waste',
-  'kitchen:ops.stock.wasteTitle',
   'kitchen:ops.stock.wastedToast',
   'kitchen:ops.suppliers.addContact',
-  'kitchen:ops.suppliers.addressHint',
+  'kitchen:ops.suppliers.addressPlaceholder',
   'kitchen:ops.suppliers.allItemsLinked',
   'kitchen:ops.suppliers.archiveBody',
   'kitchen:ops.suppliers.archiveConfirm',
@@ -10651,8 +13194,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.archivedToast',
   'kitchen:ops.suppliers.backToList',
   'kitchen:ops.suppliers.caption',
-  'kitchen:ops.suppliers.codeEditHint',
-  'kitchen:ops.suppliers.codeMintHint',
+  'kitchen:ops.suppliers.codePlaceholder',
   'kitchen:ops.suppliers.columnContact',
   'kitchen:ops.suppliers.columnItem',
   'kitchen:ops.suppliers.columnItems',
@@ -10660,20 +13202,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.columnName',
   'kitchen:ops.suppliers.columnRef',
   'kitchen:ops.suppliers.columnTerms',
+  'kitchen:ops.suppliers.contactEmailPlaceholder',
+  'kitchen:ops.suppliers.contactNamePlaceholder',
   'kitchen:ops.suppliers.contactNeedsChannel',
   'kitchen:ops.suppliers.contactPosition',
-  'kitchen:ops.suppliers.contactsAfterSaveBody',
-  'kitchen:ops.suppliers.contactsAfterSaveTitle',
-  'kitchen:ops.suppliers.contactsHint',
+  'kitchen:ops.suppliers.contactRolePlaceholder',
+  'kitchen:ops.suppliers.contactWhatsappPlaceholder',
   'kitchen:ops.suppliers.contactsSavedToast',
   'kitchen:ops.suppliers.create',
   'kitchen:ops.suppliers.createTitle',
   'kitchen:ops.suppliers.createdToast',
-  'kitchen:ops.suppliers.currencyHint',
   'kitchen:ops.suppliers.editRef',
   'kitchen:ops.suppliers.editRefBody',
   'kitchen:ops.suppliers.editRefTitle',
   'kitchen:ops.suppliers.editTitle',
+  'kitchen:ops.suppliers.emailPlaceholder',
   'kitchen:ops.suppliers.emptyBody',
   'kitchen:ops.suppliers.emptyTitle',
   'kitchen:ops.suppliers.fieldAddress',
@@ -10694,22 +13237,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.filteredEmptyBody',
   'kitchen:ops.suppliers.filteredEmptyTitle',
   'kitchen:ops.suppliers.generalContact',
-  'kitchen:ops.suppliers.generalContactHint',
   'kitchen:ops.suppliers.itemCount',
-  'kitchen:ops.suppliers.itemRefHint',
+  'kitchen:ops.suppliers.itemRefPlaceholder',
   'kitchen:ops.suppliers.itemsEmptyBody',
-  'kitchen:ops.suppliers.itemsHint',
   'kitchen:ops.suppliers.itemsTitle',
   'kitchen:ops.suppliers.leadTimeDays',
-  'kitchen:ops.suppliers.leadTimeHint',
   'kitchen:ops.suppliers.leadTimeInvalid',
+  'kitchen:ops.suppliers.leadTimePlaceholder',
   'kitchen:ops.suppliers.linkItem',
-  'kitchen:ops.suppliers.linkItemHint',
   'kitchen:ops.suppliers.linkItemLabel',
   'kitchen:ops.suppliers.linkedToast',
   'kitchen:ops.suppliers.loadErrorTitle',
   'kitchen:ops.suppliers.makePreferred',
   'kitchen:ops.suppliers.makePrimary',
+  'kitchen:ops.suppliers.namePlaceholderAr',
+  'kitchen:ops.suppliers.namePlaceholderEn',
   'kitchen:ops.suppliers.nameRequired',
   'kitchen:ops.suppliers.neverBoughtHere',
   'kitchen:ops.suppliers.noContact',
@@ -10723,7 +13265,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.noTerms',
   'kitchen:ops.suppliers.notFoundBody',
   'kitchen:ops.suppliers.notFoundTitle',
-  'kitchen:ops.suppliers.paymentTermsHint',
+  'kitchen:ops.suppliers.notesPlaceholder',
+  'kitchen:ops.suppliers.paymentTermsPlaceholder',
+  'kitchen:ops.suppliers.phonePlaceholder',
   'kitchen:ops.suppliers.pickItem',
   'kitchen:ops.suppliers.preferredBadge',
   'kitchen:ops.suppliers.preferredToast',
@@ -10741,7 +13285,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.sectionContacts',
   'kitchen:ops.suppliers.sectionDetails',
   'kitchen:ops.suppliers.seeLedger',
-  'kitchen:ops.suppliers.showArchived',
+  'kitchen:ops.suppliers.segmentActive',
+  'kitchen:ops.suppliers.segmentLabel',
+  'kitchen:ops.suppliers.segmentWithArchived',
+  'kitchen:ops.suppliers.statActiveCaption',
+  'kitchen:ops.suppliers.statArchivedCaption',
+  'kitchen:ops.suppliers.statUnit',
   'kitchen:ops.suppliers.subtitle',
   'kitchen:ops.suppliers.supplierCount',
   'kitchen:ops.suppliers.title',
@@ -10751,16 +13300,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.unlinkConsequence',
   'kitchen:ops.suppliers.unlinkTitle',
   'kitchen:ops.suppliers.unlinkedToast',
+  'kitchen:ops.suppliers.viewFoot',
+  'kitchen:ops.suppliers.viewKind',
   'kitchen:ops.suppliers.whatsappHint',
-  'kitchen:ops.supplyOrders.addHint',
-  'kitchen:ops.supplyOrders.addLabel',
   'kitchen:ops.supplyOrders.addLineHint',
   'kitchen:ops.supplyOrders.addLineLabel',
   'kitchen:ops.supplyOrders.addLinePlaceholder',
   'kitchen:ops.supplyOrders.addPlaceholder',
   'kitchen:ops.supplyOrders.addSupplier',
   'kitchen:ops.supplyOrders.addTitle',
-  'kitchen:ops.supplyOrders.andMore',
   'kitchen:ops.supplyOrders.backToOrders',
   'kitchen:ops.supplyOrders.branchRequiredBody',
   'kitchen:ops.supplyOrders.branchRequiredTitle',
@@ -10792,9 +13340,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.columnReorderAt',
   'kitchen:ops.supplyOrders.columnStatus',
   'kitchen:ops.supplyOrders.columnSupplier',
-  'kitchen:ops.supplyOrders.commitLeftBehind',
-  'kitchen:ops.supplyOrders.commitLines',
-  'kitchen:ops.supplyOrders.commitOrders',
   'kitchen:ops.supplyOrders.createCancel',
   'kitchen:ops.supplyOrders.createConfirm',
   'kitchen:ops.supplyOrders.createConfirmBody',
@@ -10804,11 +13349,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.createFailed',
   'kitchen:ops.supplyOrders.createdToast',
   'kitchen:ops.supplyOrders.detailSubtitle',
+  'kitchen:ops.supplyOrders.detailSummaryTitle',
   'kitchen:ops.supplyOrders.detailTitle',
-  'kitchen:ops.supplyOrders.emptyBody',
-  'kitchen:ops.supplyOrders.emptyTitle',
   'kitchen:ops.supplyOrders.excludedCount',
-  'kitchen:ops.supplyOrders.groupSummary',
+  'kitchen:ops.supplyOrders.groupCount',
   'kitchen:ops.supplyOrders.issue',
   'kitchen:ops.supplyOrders.issueConfirm',
   'kitchen:ops.supplyOrders.issueConfirmBody',
@@ -10823,6 +13367,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.metrics.low',
   'kitchen:ops.supplyOrders.metrics.outOfStock',
   'kitchen:ops.supplyOrders.needsCount',
+  'kitchen:ops.supplyOrders.needsTitle',
   'kitchen:ops.supplyOrders.noLines',
   'kitchen:ops.supplyOrders.noNotes',
   'kitchen:ops.supplyOrders.notFoundBody',
@@ -10830,18 +13375,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.notOrdering',
   'kitchen:ops.supplyOrders.notesHint',
   'kitchen:ops.supplyOrders.notesLabel',
+  'kitchen:ops.supplyOrders.notesPlaceholder',
   'kitchen:ops.supplyOrders.notesTitle',
   'kitchen:ops.supplyOrders.nothingNeededBody',
   'kitchen:ops.supplyOrders.nothingNeededTitle',
+  'kitchen:ops.supplyOrders.onHand',
   'kitchen:ops.supplyOrders.order',
   'kitchen:ops.supplyOrders.orderAnyway',
   'kitchen:ops.supplyOrders.ordersCaption',
   'kitchen:ops.supplyOrders.ordersEmptyBody',
   'kitchen:ops.supplyOrders.ordersEmptyTitle',
+  'kitchen:ops.supplyOrders.ordersFilteredEmptyBody',
+  'kitchen:ops.supplyOrders.ordersFilteredEmptyTitle',
+  'kitchen:ops.supplyOrders.ordersFoot',
   'kitchen:ops.supplyOrders.ordersTitle',
   'kitchen:ops.supplyOrders.outBadge',
-  'kitchen:ops.supplyOrders.panelSubtitle',
-  'kitchen:ops.supplyOrders.panelTitle',
+  'kitchen:ops.supplyOrders.outCount',
   'kitchen:ops.supplyOrders.preferredBadge',
   'kitchen:ops.supplyOrders.prepare',
   'kitchen:ops.supplyOrders.previewCaption',
@@ -10902,6 +13451,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.reasonNoSupplier',
   'kitchen:ops.supplyOrders.receiptLineCount',
   'kitchen:ops.supplyOrders.receiptNoDocumentRef',
+  'kitchen:ops.supplyOrders.receiptsEmpty',
   'kitchen:ops.supplyOrders.receiptsNote',
   'kitchen:ops.supplyOrders.receiptsTitle',
   'kitchen:ops.supplyOrders.receiveDelivery',
@@ -10914,44 +13464,84 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.removeLine',
   'kitchen:ops.supplyOrders.saveLines',
   'kitchen:ops.supplyOrders.savedToast',
+  'kitchen:ops.supplyOrders.searchLabel',
+  'kitchen:ops.supplyOrders.searchPlaceholder',
+  'kitchen:ops.supplyOrders.statDraftAction',
+  'kitchen:ops.supplyOrders.statDraftCaption',
+  'kitchen:ops.supplyOrders.statIssuedCaption',
+  'kitchen:ops.supplyOrders.statItemsUnit',
+  'kitchen:ops.supplyOrders.statLowCaption',
+  'kitchen:ops.supplyOrders.statOrdersUnit',
+  'kitchen:ops.supplyOrders.statOutCaption',
   'kitchen:ops.supplyOrders.status.cancelled',
   'kitchen:ops.supplyOrders.status.draft',
   'kitchen:ops.supplyOrders.status.issued',
   'kitchen:ops.supplyOrders.status.partiallyReceived',
   'kitchen:ops.supplyOrders.status.received',
   'kitchen:ops.supplyOrders.subtitle',
+  'kitchen:ops.supplyOrders.summaryBySupplier',
+  'kitchen:ops.supplyOrders.summaryDrafts',
+  'kitchen:ops.supplyOrders.summaryIssuedOn',
+  'kitchen:ops.supplyOrders.summaryLeftBehind',
+  'kitchen:ops.supplyOrders.summaryLineTotal',
+  'kitchen:ops.supplyOrders.summaryLines',
   'kitchen:ops.supplyOrders.supplierArchivedBody',
   'kitchen:ops.supplyOrders.supplierArchivedTitle',
   'kitchen:ops.supplyOrders.supplierLabel',
-  'kitchen:ops.supplyOrders.supplierLiveNote',
   'kitchen:ops.supplyOrders.supplierPlaceholder',
-  'kitchen:ops.supplyOrders.supplierSectionTitle',
-  'kitchen:ops.supplyOrders.supplierSnapshotNote',
   'kitchen:ops.supplyOrders.title',
   'kitchen:ops.supplyOrders.unassignedCount',
   'kitchen:ops.supplyOrders.unlinkedCaption',
   'kitchen:ops.supplyOrders.unlinkedTitle',
-  'kitchen:ops.unpricedReceipts.columnAction',
+  'kitchen:ops.supplyOrders.viewBranch',
+  'kitchen:ops.supplyOrders.viewKind',
+  'kitchen:ops.unpricedReceipts.backToQueue',
+  'kitchen:ops.unpricedReceipts.columnItem',
+  'kitchen:ops.unpricedReceipts.columnLineTotal',
+  'kitchen:ops.unpricedReceipts.columnReceived',
   'kitchen:ops.unpricedReceipts.columnReceivedOn',
   'kitchen:ops.unpricedReceipts.columnRefs',
   'kitchen:ops.unpricedReceipts.columnState',
   'kitchen:ops.unpricedReceipts.columnSupplier',
+  'kitchen:ops.unpricedReceipts.columnToPrice',
   'kitchen:ops.unpricedReceipts.completeFailed',
-  'kitchen:ops.unpricedReceipts.completeTitle',
   'kitchen:ops.unpricedReceipts.completedToast',
   'kitchen:ops.unpricedReceipts.emptyBody',
   'kitchen:ops.unpricedReceipts.emptyTitle',
+  'kitchen:ops.unpricedReceipts.fieldDeliveryNote',
+  'kitchen:ops.unpricedReceipts.fieldInvoice',
+  'kitchen:ops.unpricedReceipts.fieldInvoiceDate',
+  'kitchen:ops.unpricedReceipts.fieldOrder',
   'kitchen:ops.unpricedReceipts.fieldUnitPrice',
+  'kitchen:ops.unpricedReceipts.fieldVarianceNote',
+  'kitchen:ops.unpricedReceipts.linePendingFx',
+  'kitchen:ops.unpricedReceipts.linePriceLabel',
+  'kitchen:ops.unpricedReceipts.linePriced',
+  'kitchen:ops.unpricedReceipts.lineToPrice',
+  'kitchen:ops.unpricedReceipts.linesHeading',
   'kitchen:ops.unpricedReceipts.linesToPrice',
+  'kitchen:ops.unpricedReceipts.loadErrorTitle',
   'kitchen:ops.unpricedReceipts.metrics.receipts',
   'kitchen:ops.unpricedReceipts.noInvoiceRef',
-  'kitchen:ops.unpricedReceipts.openLabel',
+  'kitchen:ops.unpricedReceipts.noOrder',
+  'kitchen:ops.unpricedReceipts.notFoundBody',
+  'kitchen:ops.unpricedReceipts.notFoundTitle',
+  'kitchen:ops.unpricedReceipts.nothingToPrice',
   'kitchen:ops.unpricedReceipts.pendingFxBadge',
   'kitchen:ops.unpricedReceipts.pendingFxBody',
   'kitchen:ops.unpricedReceipts.pendingFxTitle',
+  'kitchen:ops.unpricedReceipts.priceInvalid',
   'kitchen:ops.unpricedReceipts.quantitiesImmutable',
-  'kitchen:ops.unpricedReceipts.receivedQuantity',
-  'kitchen:ops.unpricedReceipts.subtitle',
+  'kitchen:ops.unpricedReceipts.receiptFallbackTitle',
+  'kitchen:ops.unpricedReceipts.receiptTitle',
+  'kitchen:ops.unpricedReceipts.recordHeading',
+  'kitchen:ops.unpricedReceipts.savePrices',
+  'kitchen:ops.unpricedReceipts.statPendingFxCaption',
+  'kitchen:ops.unpricedReceipts.statReceiptsCaption',
+  'kitchen:ops.unpricedReceipts.statReceivedCaption',
+  'kitchen:ops.unpricedReceipts.statToPriceCaption',
+  'kitchen:ops.unpricedReceipts.statTypedCaption',
+  'kitchen:ops.unpricedReceipts.statTypedLabel',
   'kitchen:ops.unpricedReceipts.title',
   'kitchen:packaging.archiveBody',
   'kitchen:packaging.archiveConfirm',
@@ -10974,14 +13564,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:packaging.statUnpriced',
   'kitchen:packaging.statUnpricedCaption',
   'kitchen:packaging.viewKind',
-  'kitchen:plans.addCombination',
   'kitchen:plans.addDuration',
+  'kitchen:plans.addVariant',
   'kitchen:plans.backToList',
-  'kitchen:plans.bandAddAction',
-  'kitchen:plans.bandAddBody',
-  'kitchen:plans.bandAddIncomplete',
-  'kitchen:plans.bandAddReady',
-  'kitchen:plans.bandAddTitle',
   'kitchen:plans.bandRange',
   'kitchen:plans.blockDurations',
   'kitchen:plans.blockInconsistentDurations',
@@ -10991,112 +13576,89 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.blockUnsaved',
   'kitchen:plans.blockVariants',
   'kitchen:plans.caption',
-  'kitchen:plans.categoriesHint',
   'kitchen:plans.categoriesLabel',
-  'kitchen:plans.categoriesNone',
   'kitchen:plans.categoryAddAction',
-  'kitchen:plans.categoryAddHint',
   'kitchen:plans.categoryAddLabel',
   'kitchen:plans.cellLabel',
   'kitchen:plans.cellNotSold',
-  'kitchen:plans.cellRemoved',
   'kitchen:plans.cellSold',
   'kitchen:plans.cellVariantCount',
   'kitchen:plans.columnDurations',
   'kitchen:plans.columnName',
   'kitchen:plans.columnPrices',
   'kitchen:plans.columnVariants',
-  'kitchen:plans.combinationAvailableHint',
-  'kitchen:plans.combinationAvailableLabel',
-  'kitchen:plans.combinationCodeDuplicate',
-  'kitchen:plans.combinationCodeHint',
-  'kitchen:plans.combinationCodeLabel',
-  'kitchen:plans.combinationCodeRequired',
   'kitchen:plans.combinationCount',
-  'kitchen:plans.combinationLabelLabel',
-  'kitchen:plans.combinationLabelRequired',
-  'kitchen:plans.combinationNumber',
-  'kitchen:plans.combinationRemoved',
-  'kitchen:plans.combinationUnavailable',
-  'kitchen:plans.combinationsEmpty',
-  'kitchen:plans.combinationsHelp',
-  'kitchen:plans.combinationsSavedToast',
   'kitchen:plans.confirmedPriceCount',
-  'kitchen:plans.coordinateHint',
   'kitchen:plans.coverage',
   'kitchen:plans.create',
-  'kitchen:plans.createFirst',
+  'kitchen:plans.createChip',
   'kitchen:plans.createTitle',
   'kitchen:plans.createdToast',
-  'kitchen:plans.cutOffHint',
   'kitchen:plans.cutOffLabel',
   'kitchen:plans.cutOffRequired',
   'kitchen:plans.cutOffUnit',
   'kitchen:plans.dayCount',
-  'kitchen:plans.dayCountList',
   'kitchen:plans.daysAbsentHint',
-  'kitchen:plans.daysHint',
   'kitchen:plans.daysLabel',
+  'kitchen:plans.daysNone',
   'kitchen:plans.daysRequired',
   'kitchen:plans.daysUnit',
   'kitchen:plans.descriptionLabel',
+  'kitchen:plans.descriptionPlaceholderAr',
+  'kitchen:plans.descriptionPlaceholderEn',
   'kitchen:plans.dietsLabel',
-  'kitchen:plans.discountHint',
   'kitchen:plans.discountInvalid',
   'kitchen:plans.discountLabel',
   'kitchen:plans.discountNotSet',
   'kitchen:plans.discountNotSetExplainer',
   'kitchen:plans.discountSetExplainer',
-  'kitchen:plans.discountUnit',
-  'kitchen:plans.discountValue',
   'kitchen:plans.discountZeroExplainer',
   'kitchen:plans.durationCount',
   'kitchen:plans.durationDuplicate',
-  'kitchen:plans.durationNumber',
+  'kitchen:plans.durationMeaning',
   'kitchen:plans.durationRemoved',
   'kitchen:plans.durationsEmpty',
-  'kitchen:plans.durationsHelp',
   'kitchen:plans.durationsSaveError',
   'kitchen:plans.durationsSavedToast',
   'kitchen:plans.editTitle',
   'kitchen:plans.emptyBody',
   'kitchen:plans.emptyTitle',
   'kitchen:plans.energyMaxLabel',
+  'kitchen:plans.energyMaxPlaceholder',
   'kitchen:plans.energyMinLabel',
+  'kitchen:plans.energyMinPlaceholder',
   'kitchen:plans.energyRequired',
   'kitchen:plans.energyReversed',
-  'kitchen:plans.energyUnit',
   'kitchen:plans.filteredEmptyBody',
   'kitchen:plans.filteredEmptyTitle',
   'kitchen:plans.inactiveCount',
-  'kitchen:plans.inconsistentDurationCount',
   'kitchen:plans.kindFixedDays',
   'kitchen:plans.kindLabel',
   'kitchen:plans.kindOneOff',
   'kitchen:plans.loadErrorTitle',
   'kitchen:plans.matrixCaption',
   'kitchen:plans.matrixEmpty',
-  'kitchen:plans.matrixHelp',
   'kitchen:plans.matrixRowHeader',
   'kitchen:plans.matrixSaveError',
   'kitchen:plans.mealsPerDayLabel',
+  'kitchen:plans.mealsPerDayPlaceholder',
   'kitchen:plans.menuAddDish',
   'kitchen:plans.menuAddedAnnouncement',
-  'kitchen:plans.menuAnchorHint',
   'kitchen:plans.menuAnchorLabel',
   'kitchen:plans.menuAnchorMalformed',
+  'kitchen:plans.menuAnchorPlaceholder',
   'kitchen:plans.menuAnchorRequired',
   'kitchen:plans.menuBeyondCycle',
   'kitchen:plans.menuBlockedTitle',
   'kitchen:plans.menuCutoverBody',
   'kitchen:plans.menuCutoverTitle',
-  'kitchen:plans.menuCycleDaysHint',
   'kitchen:plans.menuCycleDaysLabel',
+  'kitchen:plans.menuCycleNotWeekly',
   'kitchen:plans.menuCycleOutOfRange',
   'kitchen:plans.menuCycleRequired',
   'kitchen:plans.menuDayBeyond',
   'kitchen:plans.menuDayEmptyHint',
-  'kitchen:plans.menuDayFalls',
+  'kitchen:plans.menuDayLabel',
   'kitchen:plans.menuDayNumber',
   'kitchen:plans.menuDuplicateCoordinate',
   'kitchen:plans.menuEmpty',
@@ -11105,19 +13667,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.menuEntryCount',
   'kitchen:plans.menuEntryNumber',
   'kitchen:plans.menuEntryRemoved',
-  'kitchen:plans.menuHelp',
+  'kitchen:plans.menuExplainer',
   'kitchen:plans.menuLoadErrorTitle',
-  'kitchen:plans.menuMealHint',
   'kitchen:plans.menuMealLabel',
+  'kitchen:plans.menuMealPlaceholder',
   'kitchen:plans.menuMealRequired',
   'kitchen:plans.menuMealUnavailable',
   'kitchen:plans.menuMealsPending',
-  'kitchen:plans.menuNothingToWithdraw',
   'kitchen:plans.menuSaveError',
   'kitchen:plans.menuSavedToast',
-  'kitchen:plans.menuSequenceHint',
   'kitchen:plans.menuSequenceLabel',
   'kitchen:plans.menuSequenceRequired',
+  'kitchen:plans.menuSequenceShort',
   'kitchen:plans.menuSlotBreakfast',
   'kitchen:plans.menuSlotDinner',
   'kitchen:plans.menuSlotLabel',
@@ -11134,16 +13695,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.menuWithdrawTitle',
   'kitchen:plans.menuWithdrawnToast',
   'kitchen:plans.nameRequired',
-  'kitchen:plans.newVariantName',
   'kitchen:plans.noDurations',
-  'kitchen:plans.noFixedDurations',
   'kitchen:plans.noVariants',
   'kitchen:plans.notFoundBody',
   'kitchen:plans.notFoundTitle',
-  'kitchen:plans.oneOffCount',
+  'kitchen:plans.oneOffExplainer',
   'kitchen:plans.openPriceLists',
   'kitchen:plans.placeholderPriceCount',
-  'kitchen:plans.pricesHelp',
   'kitchen:plans.pricesPending',
   'kitchen:plans.publishBlockedTitle',
   'kitchen:plans.publishBody',
@@ -11155,69 +13713,87 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.publishedBody',
   'kitchen:plans.publishedTitle',
   'kitchen:plans.publishedToast',
-  'kitchen:plans.resultCount',
   'kitchen:plans.retire',
   'kitchen:plans.retireBody',
   'kitchen:plans.retireConfirm',
   'kitchen:plans.retireConsequence',
   'kitchen:plans.retireTitle',
-  'kitchen:plans.retiredBody',
-  'kitchen:plans.retiredTitle',
   'kitchen:plans.retiredToast',
-  'kitchen:plans.rowUndeclared',
-  'kitchen:plans.saveCombinations',
   'kitchen:plans.saveDurations',
   'kitchen:plans.saveMenu',
+  'kitchen:plans.savePlan',
   'kitchen:plans.saveVariants',
-  'kitchen:plans.sectionCombinations',
   'kitchen:plans.sectionDetails',
   'kitchen:plans.sectionDurations',
-  'kitchen:plans.sectionMatrix',
   'kitchen:plans.sectionMenu',
   'kitchen:plans.sectionPrices',
+  'kitchen:plans.servingsMeals',
   'kitchen:plans.servingsRequired',
+  'kitchen:plans.servingsSnacks',
   'kitchen:plans.servingsSummary',
   'kitchen:plans.snacksPerDayLabel',
+  'kitchen:plans.snacksPerDayPlaceholder',
+  'kitchen:plans.statDraftCaption',
+  'kitchen:plans.statPlansUnit',
+  'kitchen:plans.statPublishedCaption',
+  'kitchen:plans.stepsLabel',
   'kitchen:plans.subtitle',
   'kitchen:plans.summaryLabel',
+  'kitchen:plans.summaryPlaceholderAr',
+  'kitchen:plans.summaryPlaceholderEn',
+  'kitchen:plans.tabMatrix',
+  'kitchen:plans.tabVariants',
   'kitchen:plans.title',
-  'kitchen:plans.undecidedDiscountCount',
-  'kitchen:plans.unnamedCombination',
   'kitchen:plans.unnamedDuration',
   'kitchen:plans.unnamedVariant',
   'kitchen:plans.unpricedCount',
   'kitchen:plans.variantActive',
-  'kitchen:plans.variantActiveHint',
   'kitchen:plans.variantActiveLabel',
   'kitchen:plans.variantCount',
   'kitchen:plans.variantInactive',
   'kitchen:plans.variantNameLabel',
+  'kitchen:plans.variantNamePlaceholder',
   'kitchen:plans.variantNameRequired',
   'kitchen:plans.variantNumber',
   'kitchen:plans.variantRemoved',
   'kitchen:plans.variantsEmpty',
-  'kitchen:plans.variantsHelp',
   'kitchen:plans.variantsSavedToast',
   'kitchen:plans.variantsTitle',
+  'kitchen:plans.viewCombinations',
+  'kitchen:plans.viewKind',
   'kitchen:plans.viewPublic',
-  'kitchen:plans.weekdaysHint',
-  'kitchen:plans.weekdaysLabel',
   'kitchen:priceLists.addEntry',
   'kitchen:priceLists.agreementBadge',
-  'kitchen:priceLists.amountDisabledHint',
-  'kitchen:priceLists.amountHint',
-  'kitchen:priceLists.amountInvalid',
+  'kitchen:priceLists.amountFieldLabel',
   'kitchen:priceLists.amountLabel',
-  'kitchen:priceLists.amountRequired',
   'kitchen:priceLists.backToList',
   'kitchen:priceLists.badgeConfirmed',
   'kitchen:priceLists.badgeDaily',
   'kitchen:priceLists.badgePending',
+  'kitchen:priceLists.basisConfirmed',
+  'kitchen:priceLists.basisDaily',
+  'kitchen:priceLists.basisFieldLabel',
+  'kitchen:priceLists.basisLabel',
+  'kitchen:priceLists.basisPending',
   'kitchen:priceLists.blockInconsistent',
   'kitchen:priceLists.blockNoEntries',
   'kitchen:priceLists.blockUnsaved',
+  'kitchen:priceLists.bulkAppliedToast',
+  'kitchen:priceLists.bulkApply',
+  'kitchen:priceLists.bulkClear',
+  'kitchen:priceLists.bulkLabel',
+  'kitchen:priceLists.bulkNothingToast',
+  'kitchen:priceLists.bulkPercentLabel',
+  'kitchen:priceLists.bulkRemove',
   'kitchen:priceLists.caption',
+  'kitchen:priceLists.changesAdded',
+  'kitchen:priceLists.changesBodyDraft',
+  'kitchen:priceLists.changesBodyPublished',
+  'kitchen:priceLists.changesEdited',
+  'kitchen:priceLists.changesRemoved',
+  'kitchen:priceLists.changesTitle',
   'kitchen:priceLists.channelsLabel',
+  'kitchen:priceLists.clearUntil',
   'kitchen:priceLists.columnChannels',
   'kitchen:priceLists.columnCurrency',
   'kitchen:priceLists.columnEntries',
@@ -11226,43 +13802,82 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:priceLists.confidentialTitle',
   'kitchen:priceLists.confirmedCount',
   'kitchen:priceLists.currencyLabel',
-  'kitchen:priceLists.datesReversed',
+  'kitchen:priceLists.discardChanges',
+  'kitchen:priceLists.discardedToast',
+  'kitchen:priceLists.draftNoteBody',
+  'kitchen:priceLists.draftNoteTitle',
   'kitchen:priceLists.effectiveFromLabel',
-  'kitchen:priceLists.effectiveUntilHint',
   'kitchen:priceLists.effectiveUntilLabel',
   'kitchen:priceLists.emptyBody',
   'kitchen:priceLists.emptyTitle',
-  'kitchen:priceLists.entriesEmpty',
-  'kitchen:priceLists.entriesHelp',
   'kitchen:priceLists.entriesTitle',
   'kitchen:priceLists.entryCount',
-  'kitchen:priceLists.entryNumber',
-  'kitchen:priceLists.entryRemoved',
-  'kitchen:priceLists.factsTitle',
+  'kitchen:priceLists.filterAll',
+  'kitchen:priceLists.filterChanged',
+  'kitchen:priceLists.filterConfirmed',
+  'kitchen:priceLists.filterDaily',
+  'kitchen:priceLists.filterLabel',
+  'kitchen:priceLists.filterPending',
   'kitchen:priceLists.filteredEmptyBody',
   'kitchen:priceLists.filteredEmptyTitle',
+  'kitchen:priceLists.fixedHint',
+  'kitchen:priceLists.fixedTag',
+  'kitchen:priceLists.fromFieldLabel',
+  'kitchen:priceLists.gapAdd',
+  'kitchen:priceLists.gapAddedToast',
+  'kitchen:priceLists.gapBody',
+  'kitchen:priceLists.gapBodyMore',
+  'kitchen:priceLists.gapTitle',
+  'kitchen:priceLists.groupDressing',
+  'kitchen:priceLists.groupFrozenMeal',
+  'kitchen:priceLists.groupMeal',
+  'kitchen:priceLists.groupPlan',
+  'kitchen:priceLists.groupProduct',
+  'kitchen:priceLists.groupSauce',
+  'kitchen:priceLists.groupUnchosen',
   'kitchen:priceLists.inconsistentCount',
-  'kitchen:priceLists.itemDuplicate',
-  'kitchen:priceLists.itemHint',
+  'kitchen:priceLists.issueChip',
+  'kitchen:priceLists.issuesTitle',
   'kitchen:priceLists.itemLabel',
   'kitchen:priceLists.itemPlaceholder',
-  'kitchen:priceLists.itemRequired',
   'kitchen:priceLists.kindMeal',
   'kitchen:priceLists.kindPlan',
   'kitchen:priceLists.kindProduct',
+  'kitchen:priceLists.kitchenLabel',
+  'kitchen:priceLists.legendConfirmed',
+  'kitchen:priceLists.legendDaily',
+  'kitchen:priceLists.legendPending',
+  'kitchen:priceLists.legendReplaces',
   'kitchen:priceLists.loadErrorTitle',
+  'kitchen:priceLists.loadingNote',
   'kitchen:priceLists.marketCount',
-  'kitchen:priceLists.marketPricedExplainer',
+  'kitchen:priceLists.metaDraft',
+  'kitchen:priceLists.metaDraftUndated',
+  'kitchen:priceLists.metaPublished',
+  'kitchen:priceLists.metaPublishedUndated',
+  'kitchen:priceLists.newEntry',
   'kitchen:priceLists.noChannels',
   'kitchen:priceLists.noEntries',
+  'kitchen:priceLists.noEntriesBody',
+  'kitchen:priceLists.noEntriesTitle',
+  'kitchen:priceLists.noMatchBody',
+  'kitchen:priceLists.noMatchTitle',
   'kitchen:priceLists.notFoundBody',
   'kitchen:priceLists.notFoundTitle',
-  'kitchen:priceLists.noteHint',
-  'kitchen:priceLists.noteLabel',
-  'kitchen:priceLists.packHint',
+  'kitchen:priceLists.notOnSale',
+  'kitchen:priceLists.offlineBody',
+  'kitchen:priceLists.offlineTitle',
+  'kitchen:priceLists.openEnded',
   'kitchen:priceLists.packLabel',
   'kitchen:priceLists.placeholderCount',
-  'kitchen:priceLists.placeholderExplainer',
+  'kitchen:priceLists.problemAmountNotAllowed',
+  'kitchen:priceLists.problemBadAmount',
+  'kitchen:priceLists.problemNoAmount',
+  'kitchen:priceLists.problemNoItem',
+  'kitchen:priceLists.problemOverlap',
+  'kitchen:priceLists.problemReversed',
+  'kitchen:priceLists.problemsNote',
+  'kitchen:priceLists.publish',
   'kitchen:priceLists.publishBlockedTitle',
   'kitchen:priceLists.publishBody',
   'kitchen:priceLists.publishConsequence',
@@ -11270,43 +13885,49 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:priceLists.publishExcludedTitle',
   'kitchen:priceLists.publishRefusedEntries',
   'kitchen:priceLists.publishTitle',
-  'kitchen:priceLists.publishedBody',
-  'kitchen:priceLists.publishedTitle',
   'kitchen:priceLists.publishedToast',
-  'kitchen:priceLists.readOnlyNote',
+  'kitchen:priceLists.removeColumn',
+  'kitchen:priceLists.removeEntry',
+  'kitchen:priceLists.resolvingItem',
   'kitchen:priceLists.resultCount',
-  'kitchen:priceLists.saveEntries',
+  'kitchen:priceLists.saveAndCharge',
+  'kitchen:priceLists.saveDraft',
   'kitchen:priceLists.saveFailedTitle',
-  'kitchen:priceLists.savedToast',
-  'kitchen:priceLists.statusLabel',
+  'kitchen:priceLists.savedToastDraft',
+  'kitchen:priceLists.savedToastPublished',
+  'kitchen:priceLists.searchLabel',
+  'kitchen:priceLists.selectAll',
+  'kitchen:priceLists.selectEntry',
+  'kitchen:priceLists.selectedCount',
+  'kitchen:priceLists.setAtCounter',
+  'kitchen:priceLists.statAgreementCaption',
+  'kitchen:priceLists.statNothingPriced',
+  'kitchen:priceLists.statNothingPricedCaption',
   'kitchen:priceLists.subtitle',
   'kitchen:priceLists.title',
   'kitchen:priceLists.unknownItem',
-  'kitchen:priceLists.unnamedEntry',
-  'kitchen:priceLists.variantHint',
-  'kitchen:priceLists.variantLabel',
-  'kitchen:priceLists.variantPlaceholder',
-  'kitchen:priceLists.wholePlan',
+  'kitchen:priceLists.untilFieldLabel',
+  'kitchen:priceLists.viewKind',
+  'kitchen:priceLists.viewPending',
+  'kitchen:priceLists.wasAmount',
   'kitchen:priceStatus.confirmed',
   'kitchen:priceStatus.marketPriced',
   'kitchen:priceStatus.placeholder',
   'kitchen:products.addPack',
+  'kitchen:products.archiveAlready',
   'kitchen:products.archiveBody',
   'kitchen:products.archiveConfirm',
   'kitchen:products.archiveConsequence',
   'kitchen:products.archiveFailed',
+  'kitchen:products.archiveHint',
+  'kitchen:products.archiveNoPermission',
   'kitchen:products.archiveTitle',
-  'kitchen:products.archivedBody',
-  'kitchen:products.archivedTitle',
+  'kitchen:products.archiveUnsaved',
   'kitchen:products.archivedToast',
   'kitchen:products.assortedHint',
   'kitchen:products.assortedLabel',
   'kitchen:products.assortedShort',
   'kitchen:products.backToList',
-  'kitchen:products.blockCategory',
-  'kitchen:products.blockChannels',
-  'kitchen:products.blockName',
-  'kitchen:products.blockPacks',
   'kitchen:products.caption',
   'kitchen:products.categoryFilterAll',
   'kitchen:products.categoryFilterLabel',
@@ -11319,7 +13940,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.create',
   'kitchen:products.createTitle',
   'kitchen:products.createdToast',
-  'kitchen:products.dataQualityBody',
   'kitchen:products.dataQualityCount',
   'kitchen:products.dataQualityTitle',
   'kitchen:products.defaultPack',
@@ -11327,9 +13947,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.dietsFromRecipe',
   'kitchen:products.dietsLabel',
   'kitchen:products.dietsNone',
-  'kitchen:products.dietsProvenance',
   'kitchen:products.dietsRailEmpty',
-  'kitchen:products.dietsRailTitle',
   'kitchen:products.editTitle',
   'kitchen:products.emptyBody',
   'kitchen:products.emptyTitle',
@@ -11337,16 +13955,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.filteredEmptyTitle',
   'kitchen:products.formulationStart',
   'kitchen:products.formulationStartedToast',
-  'kitchen:products.gateCheckCategory',
-  'kitchen:products.gateCheckChannels',
-  'kitchen:products.gateCheckName',
-  'kitchen:products.gateCheckPacks',
-  'kitchen:products.gateTitle',
   'kitchen:products.loadErrorTitle',
   'kitchen:products.marketPricedHint',
   'kitchen:products.marketPricedLabel',
   'kitchen:products.marketPricedShort',
   'kitchen:products.nameRequired',
+  'kitchen:products.netContentHint',
+  'kitchen:products.netContentInvalid',
+  'kitchen:products.netContentLabel',
+  'kitchen:products.netContentUnitLabel',
+  'kitchen:products.netContentUnitMissing',
+  'kitchen:products.netContentUnitsForbidden',
   'kitchen:products.noChannels',
   'kitchen:products.noPacks',
   'kitchen:products.notFoundBody',
@@ -11356,6 +13975,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.packCodeHeader',
   'kitchen:products.packCodeHint',
   'kitchen:products.packCodeLabel',
+  'kitchen:products.packCodePlaceholder',
   'kitchen:products.packCodeRequired',
   'kitchen:products.packCount',
   'kitchen:products.packLabel',
@@ -11375,10 +13995,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.packsEmpty',
   'kitchen:products.packsHint',
   'kitchen:products.productCount',
+  'kitchen:products.publishBody',
+  'kitchen:products.publishTitle',
+  'kitchen:products.publishedToast',
   'kitchen:products.quarantineBody',
   'kitchen:products.quarantineTitle',
   'kitchen:products.recipeHint',
-  'kitchen:products.recipeHintNone',
   'kitchen:products.recipeLabel',
   'kitchen:products.recipeMissingBody',
   'kitchen:products.recipeMissingTitle',
@@ -11389,13 +14011,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.resultCount',
   'kitchen:products.searchPlaceholder',
   'kitchen:products.sectionDetails',
-  'kitchen:products.sectionIdentity',
   'kitchen:products.sectionPacks',
   'kitchen:products.sectionRecipe',
   'kitchen:products.statNoPack',
   'kitchen:products.statNoPackCaption',
-  'kitchen:products.subtitle',
-  'kitchen:products.title',
   'kitchen:products.unitsPerPackHint',
   'kitchen:products.unitsPerPackInvalid',
   'kitchen:products.unitsPerPackLabel',
@@ -11450,10 +14069,31 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.backToCurrentVersion',
   'kitchen:recipes.backToList',
   'kitchen:recipes.caption',
+  'kitchen:recipes.cascadePackagingLines',
+  'kitchen:recipes.cascadePackagingPerUnit',
+  'kitchen:recipes.cascadePackagingWithWaste',
+  'kitchen:recipes.cascadeProductionLines',
+  'kitchen:recipes.cascadeProductionPerUnit',
+  'kitchen:recipes.cascadeProductionWithWaste',
+  'kitchen:recipes.cascadeTotal',
+  'kitchen:recipes.checkAllergens',
+  'kitchen:recipes.checkAllergensOk',
+  'kitchen:recipes.checkAllergensUnmapped',
+  'kitchen:recipes.checkCosted',
+  'kitchen:recipes.checkCostedOk',
+  'kitchen:recipes.checkLanguages',
+  'kitchen:recipes.checkLanguagesMissing',
+  'kitchen:recipes.checkLanguagesOk',
+  'kitchen:recipes.checkNoLines',
+  'kitchen:recipes.checkYield',
+  'kitchen:recipes.checkYieldMissing',
+  'kitchen:recipes.checkYieldOk',
   'kitchen:recipes.coefficientsHint',
   'kitchen:recipes.columnAllergens',
+  'kitchen:recipes.columnKind',
   'kitchen:recipes.columnKitchen',
   'kitchen:recipes.columnName',
+  'kitchen:recipes.columnOnSale',
   'kitchen:recipes.columnVersion',
   'kitchen:recipes.columnVersionShort',
   'kitchen:recipes.columnVersionState',
@@ -11464,16 +14104,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.confidentialHint',
   'kitchen:recipes.costCascadeHint',
   'kitchen:recipes.costPackaging',
-  'kitchen:recipes.costPerBatch',
+  'kitchen:recipes.costPerPieceWithWaste',
   'kitchen:recipes.costPerUnit',
   'kitchen:recipes.costProduction',
   'kitchen:recipes.costTotal',
   'kitchen:recipes.costTotalCard',
   'kitchen:recipes.costWithWaste',
   'kitchen:recipes.create',
+  'kitchen:recipes.createAction',
+  'kitchen:recipes.createPreparation',
   'kitchen:recipes.createTitle',
   'kitchen:recipes.createdToast',
-  'kitchen:recipes.currencyMixed',
   'kitchen:recipes.currentVersion',
   'kitchen:recipes.descriptionLabel',
   'kitchen:recipes.discard',
@@ -11482,10 +14123,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.emptyTitle',
   'kitchen:recipes.filteredEmptyBody',
   'kitchen:recipes.filteredEmptyTitle',
+  'kitchen:recipes.formSubtitle',
   'kitchen:recipes.grossMargin',
   'kitchen:recipes.identityDescription',
+  'kitchen:recipes.imageLabel',
   'kitchen:recipes.immutableBody',
   'kitchen:recipes.immutableTitle',
+  'kitchen:recipes.kindMeals',
+  'kitchen:recipes.kindPreparation',
+  'kitchen:recipes.kindPreparations',
   'kitchen:recipes.kitchenFilterAll',
   'kitchen:recipes.kitchenFilterLabel',
   'kitchen:recipes.lineCount',
@@ -11502,18 +14148,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.linesDescription',
   'kitchen:recipes.linesEmpty',
   'kitchen:recipes.linesPickerHint',
+  'kitchen:recipes.listingFailedToast',
   'kitchen:recipes.loadErrorTitle',
   'kitchen:recipes.marginHint',
   'kitchen:recipes.marginNoBasis',
   'kitchen:recipes.markOptional',
   'kitchen:recipes.markRequired',
+  'kitchen:recipes.modeNew',
   'kitchen:recipes.nameRequired',
   'kitchen:recipes.newDraft',
   'kitchen:recipes.newDraftFromVersion',
   'kitchen:recipes.noAllergens',
+  'kitchen:recipes.notFormulated',
   'kitchen:recipes.notFoundBody',
   'kitchen:recipes.notFoundTitle',
-  'kitchen:recipes.open',
   'kitchen:recipes.optional',
   'kitchen:recipes.outputCount',
   'kitchen:recipes.outputIngredient',
@@ -11523,6 +14171,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.outputsExplainerTitle',
   'kitchen:recipes.packageCostLabel',
   'kitchen:recipes.packageCostsHint',
+  'kitchen:recipes.packageCostsIncomplete',
   'kitchen:recipes.packageCostsNoLines',
   'kitchen:recipes.packageCostsNoYield',
   'kitchen:recipes.packageCostsNone',
@@ -11531,16 +14180,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.packageInBatch',
   'kitchen:recipes.packagingHint',
   'kitchen:recipes.packagingPlaceholder',
-  'kitchen:recipes.packagingWasteHint',
+  'kitchen:recipes.packagingWasteHelp',
   'kitchen:recipes.packagingWastePercent',
   'kitchen:recipes.pickerNoMatch',
   'kitchen:recipes.pickerSearching',
+  'kitchen:recipes.portionsPerBatch',
   'kitchen:recipes.primaryOutput',
   'kitchen:recipes.primaryOutputHint',
   'kitchen:recipes.primaryOutputLabel',
   'kitchen:recipes.primaryOutputPlaceholder',
   'kitchen:recipes.primaryOutputRequired',
+  'kitchen:recipes.print',
+  'kitchen:recipes.productionWasteHelp',
   'kitchen:recipes.productionWastePercent',
+  'kitchen:recipes.publishChecksTitle',
+  'kitchen:recipes.quantityProduced',
   'kitchen:recipes.quarantined',
   'kitchen:recipes.recipeCount',
   'kitchen:recipes.removeLine',
@@ -11549,6 +14203,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.retire',
   'kitchen:recipes.saveErrorTitle',
   'kitchen:recipes.saveFailed',
+  'kitchen:recipes.savePublish',
   'kitchen:recipes.savedToast',
   'kitchen:recipes.sectionAllergenClasses',
   'kitchen:recipes.sectionCoefficients',
@@ -11559,13 +14214,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sectionOutputs',
   'kitchen:recipes.sectionPackageCosts',
   'kitchen:recipes.sectionPackaging',
-  'kitchen:recipes.sectionPackagingWaste',
   'kitchen:recipes.sectionRawMaterials',
+  'kitchen:recipes.sectionSellingPrice',
   'kitchen:recipes.sectionSteps',
   'kitchen:recipes.sectionVersions',
+  'kitchen:recipes.sectionWaste',
   'kitchen:recipes.sectionYield',
-  'kitchen:recipes.sectionYieldWaste',
+  'kitchen:recipes.sectionYieldOnly',
+  'kitchen:recipes.sellerLabel',
+  'kitchen:recipes.sellingPriceHint',
+  'kitchen:recipes.sellingPriceHintNoPackaging',
   'kitchen:recipes.sheetAfterSave',
+  'kitchen:recipes.sheetAllergensDerived',
   'kitchen:recipes.sheetBasisMismatch',
   'kitchen:recipes.sheetColComments',
   'kitchen:recipes.sheetColDesignation',
@@ -11577,27 +14237,42 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sheetColUnitPrice',
   'kitchen:recipes.sheetConfidential',
   'kitchen:recipes.sheetCostAbsent',
+  'kitchen:recipes.sheetCostAllIn',
   'kitchen:recipes.sheetCostHidden',
   'kitchen:recipes.sheetCostPerPiece',
   'kitchen:recipes.sheetCostPerUnit',
+  'kitchen:recipes.sheetCostSaved',
   'kitchen:recipes.sheetCostTitle',
   'kitchen:recipes.sheetCostTotal',
+  'kitchen:recipes.sheetCostWeekly',
   'kitchen:recipes.sheetCostWithWaste',
   'kitchen:recipes.sheetDesignation',
   'kitchen:recipes.sheetKind',
   'kitchen:recipes.sheetKindUnstated',
   'kitchen:recipes.sheetNoLines',
+  'kitchen:recipes.sheetPackagingAfterWaste',
+  'kitchen:recipes.sheetPackagingPerUnit',
   'kitchen:recipes.sheetPrintHint',
+  'kitchen:recipes.sheetPrintTitle',
+  'kitchen:recipes.sheetProductionAfterWaste',
   'kitchen:recipes.sheetQuantityProduced',
   'kitchen:recipes.sheetQuantityWithPieces',
   'kitchen:recipes.sheetRawMaterial',
+  'kitchen:recipes.sheetRestrictedValue',
   'kitchen:recipes.sheetTitle',
   'kitchen:recipes.sheetTotalRow',
+  'kitchen:recipes.sheetWeeklyCarried',
+  'kitchen:recipes.sheetWeeklyEffective',
+  'kitchen:recipes.sheetWeeklyNeedsPrice',
+  'kitchen:recipes.sheetYieldWithPortions',
   'kitchen:recipes.sourceKindLabel',
+  'kitchen:recipes.statOnSaleAction',
+  'kitchen:recipes.statOnSaleCaption',
   'kitchen:recipes.statReview',
   'kitchen:recipes.statReviewAction',
   'kitchen:recipes.statReviewCaption',
   'kitchen:recipes.stepCount',
+  'kitchen:recipes.stepCounter',
   'kitchen:recipes.stepInstruction',
   'kitchen:recipes.stepMinutes',
   'kitchen:recipes.stepMinutesHint',
@@ -11615,6 +14290,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.tabPackaging',
   'kitchen:recipes.tabPrevious',
   'kitchen:recipes.tabProduction',
+  'kitchen:recipes.tabSelling',
   'kitchen:recipes.tabSheet',
   'kitchen:recipes.tabsLabel',
   'kitchen:recipes.title',
@@ -11630,15 +14306,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.versionUnavailableTitle',
   'kitchen:recipes.versionsDescription',
   'kitchen:recipes.viewAllergensCaption',
+  'kitchen:recipes.viewAllergensFrozen',
   'kitchen:recipes.viewAllergensSource',
+  'kitchen:recipes.viewHandle',
   'kitchen:recipes.viewKind',
+  'kitchen:recipes.wasteHint',
   'kitchen:recipes.wastePercent',
   'kitchen:recipes.wastePercentHint',
+  'kitchen:recipes.withdrawBody',
+  'kitchen:recipes.withdrawFailed',
+  'kitchen:recipes.withdrawTitle',
+  'kitchen:recipes.withdrawnToast',
   'kitchen:recipes.yieldDescription',
+  'kitchen:recipes.yieldFirstHint',
   'kitchen:recipes.yieldPieces',
   'kitchen:recipes.yieldQuantity',
   'kitchen:recipes.yieldRequired',
   'kitchen:recipes.yieldUnit',
+  'kitchen:recordView.details',
+  'kitchen:recordView.statusTitle',
+  'kitchen:recordView.version',
   'kitchen:review.blockedCount',
   'kitchen:review.chip',
   'kitchen:review.clearBadge',
@@ -11667,7 +14354,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:review.scopeUnblocked',
   'kitchen:review.searchLabel',
   'kitchen:review.searchPlaceholder',
-  'kitchen:review.sectionCount',
   'kitchen:review.statBlockedCaption',
   'kitchen:review.statShown',
   'kitchen:review.statShownCaption',
@@ -11681,7 +14367,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:review.truncatedTitle',
   'kitchen:review.updatedBy',
   'kitchen:review.updatedBySeed',
-  'kitchen:review.view',
   'kitchen:review.waitingCount',
   'kitchen:review.window.chipsCaption',
   'kitchen:review.window.fieldFamily',
@@ -11722,13 +14407,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:rows.movedAnnouncement',
   'kitchen:rows.remove',
   'kitchen:sale.b2bPrice',
-  'kitchen:sale.b2bPriceHint',
   'kitchen:sale.b2cPrice',
-  'kitchen:sale.b2cPriceHint',
   'kitchen:sale.currencyUnknown',
-  'kitchen:sale.eyebrow',
   'kitchen:sale.margin',
-  'kitchen:sale.marginHint',
   'kitchen:sale.marginNoBasis',
   'kitchen:sale.marginUnavailable',
   'kitchen:sale.priceInvalid',
@@ -11736,19 +14417,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:sale.stateOn',
   'kitchen:sale.title',
   'kitchen:sale.toggleLabel',
-  'kitchen:sauces.caption',
   'kitchen:sauces.create',
-  'kitchen:sauces.emptyBody',
-  'kitchen:sauces.emptyTitle',
   'kitchen:sauces.kindColdSauce',
   'kitchen:sauces.kindCookingSauce',
   'kitchen:sauces.kindDessertSauce',
   'kitchen:sauces.kindMarinadePrep',
-  'kitchen:sauces.resultCount',
-  'kitchen:sauces.searchPlaceholder',
-  'kitchen:sauces.subtitle',
   'kitchen:sauces.title',
   'kitchen:sauces.viewKind',
+  'kitchen:search.empty',
+  'kitchen:search.general',
+  'kitchen:search.hintClose',
+  'kitchen:search.hintMove',
+  'kitchen:search.hintOpen',
+  'kitchen:search.label',
+  'kitchen:search.placeholder',
+  'kitchen:search.trigger',
   'kitchen:status.all',
   'kitchen:status.draft',
   'kitchen:status.label',
@@ -11788,7 +14471,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:toolbar.segmentDraft',
   'kitchen:toolbar.segmentLive',
   'kitchen:toolbar.segmentReview',
-  'kitchen:toolbar.showing',
   'kitchen:toolbar.statusAll',
   'kitchen:toolbar.statusLabel',
   'kitchen:units.cup',
@@ -11833,19 +14515,32 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:windows.activeHint',
   'kitchen:windows.activeLabel',
   'kitchen:windows.add',
+  'kitchen:windows.capacityColumn',
   'kitchen:windows.capacityHint',
   'kitchen:windows.capacityInvalid',
   'kitchen:windows.capacityLabel',
+  'kitchen:windows.capacityPlaceholder',
   'kitchen:windows.capacityUncapped',
   'kitchen:windows.count',
   'kitchen:windows.coveredDayCount',
+  'kitchen:windows.dayInitial.1',
+  'kitchen:windows.dayInitial.2',
+  'kitchen:windows.dayInitial.3',
+  'kitchen:windows.dayInitial.4',
+  'kitchen:windows.dayInitial.5',
+  'kitchen:windows.dayInitial.6',
+  'kitchen:windows.dayInitial.7',
   'kitchen:windows.endBeforeStart',
   'kitchen:windows.endInvalid',
   'kitchen:windows.endsLabel',
   'kitchen:windows.inactiveBadge',
   'kitchen:windows.labelField',
+  'kitchen:windows.labelPlaceholderAr',
+  'kitchen:windows.labelPlaceholderEn',
   'kitchen:windows.labelRequired',
   'kitchen:windows.none',
+  'kitchen:windows.offeredColumn',
+  'kitchen:windows.offeredYes',
   'kitchen:windows.removed',
   'kitchen:windows.rowTitle',
   'kitchen:windows.save',
@@ -11856,6 +14551,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:windows.weekdaysHint',
   'kitchen:windows.weekdaysLabel',
   'kitchen:windows.weekdaysRequired',
+  'kitchen:zoneWindows.everyDay',
+  'kitchen:zoneWindows.groupLabel',
+  'kitchen:zoneWindows.inactiveBadge',
+  'kitchen:zoneWindows.intro',
+  'kitchen:zoneWindows.manage',
+  'kitchen:zoneWindows.none',
   'kitchen:zones.amountInvalid',
   'kitchen:zones.archiveAreaCount',
   'kitchen:zones.archiveBody',
@@ -11864,11 +14565,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:zones.archiveConsequence',
   'kitchen:zones.archiveTitle',
   'kitchen:zones.archiveWindowCount',
-  'kitchen:zones.archivedBody',
-  'kitchen:zones.archivedTitle',
   'kitchen:zones.archivedToast',
   'kitchen:zones.areaCount',
   'kitchen:zones.areasIntro',
+  'kitchen:zones.back',
   'kitchen:zones.backToList',
   'kitchen:zones.branchCount',
   'kitchen:zones.branchesLabel',
@@ -11879,8 +14579,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:zones.columnEstimated',
   'kitchen:zones.columnName',
   'kitchen:zones.columnWindows',
+  'kitchen:zones.coveredDayCount',
   'kitchen:zones.create',
   'kitchen:zones.createFirst',
+  'kitchen:zones.createSummary',
   'kitchen:zones.createTitle',
   'kitchen:zones.createdToast',
   'kitchen:zones.currencyCreateHint',
@@ -11893,9 +14595,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:zones.estimatedLabel',
   'kitchen:zones.estimatedMinutes',
   'kitchen:zones.estimatedNone',
+  'kitchen:zones.estimatedPlaceholder',
   'kitchen:zones.estimatedUnit',
   'kitchen:zones.feeHint',
   'kitchen:zones.feeLabel',
+  'kitchen:zones.feePlaceholder',
   'kitchen:zones.feeStateAmount',
   'kitchen:zones.feeStateUnset',
   'kitchen:zones.feeStateZero',
@@ -11907,6 +14611,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:zones.loadErrorTitle',
   'kitchen:zones.minimumHint',
   'kitchen:zones.minimumLabel',
+  'kitchen:zones.minimumPlaceholder',
   'kitchen:zones.minimumStateAmount',
   'kitchen:zones.minimumStateUnset',
   'kitchen:zones.minimumStateZero',
@@ -11914,6 +14619,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:zones.nameRequired',
   'kitchen:zones.noActiveWindows',
   'kitchen:zones.noAreas',
+  'kitchen:zones.noBranches',
   'kitchen:zones.noEstimate',
   'kitchen:zones.noFeeRecorded',
   'kitchen:zones.noMinimum',
@@ -11922,12 +14628,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:zones.notFoundBody',
   'kitchen:zones.notFoundTitle',
   'kitchen:zones.resultCount',
+  'kitchen:zones.saveZone',
   'kitchen:zones.sectionAreas',
   'kitchen:zones.sectionDetails',
   'kitchen:zones.sectionWindows',
+  'kitchen:zones.statNoAreasCaption',
+  'kitchen:zones.statNoWindowsCaption',
   'kitchen:zones.subtitle',
   'kitchen:zones.title',
+  'kitchen:zones.titleChip',
   'kitchen:zones.uncoveredDayCount',
+  'kitchen:zones.viewFee',
+  'kitchen:zones.viewKind',
+  'kitchen:zones.viewMinimum',
+  'kitchen:zones.viewWeekdays',
   'kitchen:zones.windowCount',
   'kitchen:zones.windowsIntro',
   'marketplace:allergens.celery',
@@ -11969,8 +14683,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:channels.pos',
   'marketplace:channels.subscription',
   'marketplace:common.listSeparator',
-  'marketplace:consumer.greeting',
-  'marketplace:consumer.greetingAnonymous',
+  'marketplace:consumer.links.title',
+  'marketplace:consumer.nav.account',
   'marketplace:consumer.nav.cart',
   'marketplace:consumer.nav.cartWithCount',
   'marketplace:consumer.nav.discover',
@@ -11980,33 +14694,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:consumer.nav.profile',
   'marketplace:consumer.nav.subscriptions',
   'marketplace:consumer.nav.virtualDietitian',
-  'marketplace:consumer.nutrition.emptyBody',
-  'marketplace:consumer.nutrition.emptyTitle',
-  'marketplace:consumer.nutrition.title',
-  'marketplace:consumer.nutrition.whyThisTarget',
-  'marketplace:consumer.onboarding.body',
-  'marketplace:consumer.onboarding.start',
-  'marketplace:consumer.onboarding.title',
   'marketplace:consumer.resume.body',
   'marketplace:consumer.resume.continue',
   'marketplace:consumer.resume.dismiss',
   'marketplace:consumer.resume.title',
-  'marketplace:consumer.subscription.emptyBody',
-  'marketplace:consumer.subscription.emptyTitle',
+  'marketplace:consumer.subscription.eyebrow',
   'marketplace:consumer.subscription.manage',
   'marketplace:consumer.subscription.nextDelivery',
   'marketplace:consumer.subscription.noNextDelivery',
-  'marketplace:consumer.subscription.title',
   'marketplace:consumer.subscription.weeklyPrice',
-  'marketplace:consumer.subtitle',
-  'marketplace:consumer.title',
-  'marketplace:consumer.today.emptyBody',
-  'marketplace:consumer.today.emptyTitle',
-  'marketplace:consumer.today.forDate',
-  'marketplace:consumer.today.forToday',
-  'marketplace:consumer.today.locked',
-  'marketplace:consumer.today.openPlanner',
-  'marketplace:consumer.today.title',
   'marketplace:dietitians.accepting',
   'marketplace:dietitians.browseOthers',
   'marketplace:dietitians.cardLabel',
@@ -12046,41 +14742,38 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:diets.pescatarian',
   'marketplace:diets.vegan',
   'marketplace:diets.vegetarian',
+  'marketplace:discover.addLabel',
   'marketplace:discover.allMeals',
+  'marketplace:discover.allMealsCount',
+  'marketplace:discover.becauseYouOrdered',
+  'marketplace:discover.cardEnergy',
+  'marketplace:discover.cardProtein',
+  'marketplace:discover.cardRating',
+  'marketplace:discover.cardRatingLabel',
   'marketplace:discover.categoriesTitle',
-  'marketplace:discover.comingBody',
-  'marketplace:discover.comingTitle',
-  'marketplace:discover.dietitiansBody',
-  'marketplace:discover.dietitiansTitle',
-  'marketplace:discover.family.diets',
-  'marketplace:discover.family.meals',
-  'marketplace:discover.family.plans',
-  'marketplace:discover.family.tools',
-  'marketplace:discover.familyBody.diets',
-  'marketplace:discover.familyBody.meals',
-  'marketplace:discover.familyBody.plans',
-  'marketplace:discover.familyBody.tools',
   'marketplace:discover.heroBody',
   'marketplace:discover.heroBrowseMeals',
   'marketplace:discover.heroEyebrow',
+  'marketplace:discover.heroEyebrowKitchens',
+  'marketplace:discover.heroEyebrowMeals',
   'marketplace:discover.heroImageLabel',
   'marketplace:discover.heroOverlayLabel',
   'marketplace:discover.heroTitle',
-  'marketplace:discover.kitchensBody',
-  'marketplace:discover.kitchensTitle',
+  'marketplace:discover.heroTrackOrder',
+  'marketplace:discover.notRated',
   'marketplace:discover.offerAction',
   'marketplace:discover.offerBody',
   'marketplace:discover.offerEyebrow',
+  'marketplace:discover.offerFallbackAction',
+  'marketplace:discover.offerFallbackBody',
+  'marketplace:discover.offerFallbackEyebrow',
+  'marketplace:discover.offerFallbackTitle',
   'marketplace:discover.offerTitle',
   'marketplace:discover.popularMeta',
   'marketplace:discover.popularTitle',
   'marketplace:discover.railFigures',
   'marketplace:discover.railTitle',
-  'marketplace:discover.searchLabel',
-  'marketplace:discover.searchPlaceholder',
-  'marketplace:discover.searchSubmit',
-  'marketplace:discover.subtitle',
-  'marketplace:discover.title',
+  'marketplace:discover.tileCount',
   'marketplace:filters.availability',
   'marketplace:filters.category',
   'marketplace:filters.clear',
@@ -12131,7 +14824,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:howItWorks.step.tell.title',
   'marketplace:howItWorks.subtitle',
   'marketplace:howItWorks.title',
+  'marketplace:imageCredits.intro',
+  'marketplace:imageCredits.none',
+  'marketplace:imageCredits.synthetic',
+  'marketplace:imageCredits.title',
   'marketplace:itemTypes.dressing',
+  'marketplace:itemTypes.frozen_meal',
   'marketplace:itemTypes.meal',
   'marketplace:itemTypes.product',
   'marketplace:itemTypes.sauce',
@@ -12153,7 +14851,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:kitchen.zoneFee',
   'marketplace:kitchen.zoneMinimum',
   'marketplace:kitchen.zoneMinutes',
-  'marketplace:kitchens.allKitchens',
   'marketplace:kitchens.areaSeparator',
   'marketplace:kitchens.cardLabel',
   'marketplace:kitchens.collectionOnly',
@@ -12163,46 +14860,94 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:kitchens.emptyBody',
   'marketplace:kitchens.emptyTitle',
   'marketplace:kitchens.etaMinutes',
+  'marketplace:kitchens.finder.addDish',
+  'marketplace:kitchens.finder.addressAdd',
+  'marketplace:kitchens.finder.addressChange',
+  'marketplace:kitchens.finder.addressNone',
+  'marketplace:kitchens.finder.addressPending',
+  'marketplace:kitchens.finder.addressSignIn',
+  'marketplace:kitchens.finder.addressSignedOut',
+  'marketplace:kitchens.finder.bestFit',
+  'marketplace:kitchens.finder.closedToday',
+  'marketplace:kitchens.finder.count',
+  'marketplace:kitchens.finder.deliveringTo',
+  'marketplace:kitchens.finder.dietMatch',
+  'marketplace:kitchens.finder.dishFigures',
+  'marketplace:kitchens.finder.emptyBody',
+  'marketplace:kitchens.finder.emptyTitle',
+  'marketplace:kitchens.finder.eyebrowListed',
+  'marketplace:kitchens.finder.eyebrowOpen',
+  'marketplace:kitchens.finder.eyebrowPending',
+  'marketplace:kitchens.finder.fact.delivery',
+  'marketplace:kitchens.finder.fact.fee',
+  'marketplace:kitchens.finder.fact.minimum',
+  'marketplace:kitchens.finder.fact.rating',
+  'marketplace:kitchens.finder.filtersLabel',
+  'marketplace:kitchens.finder.free',
+  'marketplace:kitchens.finder.from',
+  'marketplace:kitchens.finder.goal.high_protein.body',
+  'marketplace:kitchens.finder.goal.high_protein.title',
+  'marketplace:kitchens.finder.goal.low_carb.body',
+  'marketplace:kitchens.finder.goal.low_carb.title',
+  'marketplace:kitchens.finder.goal.under500.body',
+  'marketplace:kitchens.finder.goal.under500.title',
+  'marketplace:kitchens.finder.goal.vegan.body',
+  'marketplace:kitchens.finder.goal.vegan.title',
+  'marketplace:kitchens.finder.goalAction',
+  'marketplace:kitchens.finder.goalCount',
+  'marketplace:kitchens.finder.goalsMeta',
+  'marketplace:kitchens.finder.goalsTitle',
+  'marketplace:kitchens.finder.ledeMatched',
+  'marketplace:kitchens.finder.ledeSetPreferences',
+  'marketplace:kitchens.finder.ledeTail',
+  'marketplace:kitchens.finder.ledeUnmatched',
+  'marketplace:kitchens.finder.listAll',
+  'marketplace:kitchens.finder.listMatching',
+  'marketplace:kitchens.finder.minutes',
+  'marketplace:kitchens.finder.noDishes',
+  'marketplace:kitchens.finder.noFigure',
+  'marketplace:kitchens.finder.noPlans',
+  'marketplace:kitchens.finder.openDish',
+  'marketplace:kitchens.finder.openKitchen',
+  'marketplace:kitchens.finder.openToday',
+  'marketplace:kitchens.finder.plans',
+  'marketplace:kitchens.finder.ratingValue',
+  'marketplace:kitchens.finder.searchLabel',
+  'marketplace:kitchens.finder.searchPlaceholder',
+  'marketplace:kitchens.finder.seePlans',
+  'marketplace:kitchens.finder.signatureDishes',
+  'marketplace:kitchens.finder.sort.fastest',
+  'marketplace:kitchens.finder.sort.fee',
+  'marketplace:kitchens.finder.sort.match',
+  'marketplace:kitchens.finder.sort.name',
+  'marketplace:kitchens.finder.sort.rating',
+  'marketplace:kitchens.finder.sortFieldLabel',
+  'marketplace:kitchens.finder.sortLabel',
+  'marketplace:kitchens.finder.term.delivery',
+  'marketplace:kitchens.finder.term.fee',
+  'marketplace:kitchens.finder.term.minimum',
+  'marketplace:kitchens.finder.title',
+  'marketplace:kitchens.finder.toggle.openToday',
+  'marketplace:kitchens.finder.toggle.pickup',
+  'marketplace:kitchens.finder.toggle.subscription',
+  'marketplace:kitchens.finder.topRated',
+  'marketplace:kitchens.finder.under30',
+  'marketplace:kitchens.finder.viewMenu',
+  'marketplace:kitchens.finder.whyDiets',
+  'marketplace:kitchens.finder.whyMatch',
+  'marketplace:kitchens.finder.whyWithSummary',
   'marketplace:kitchens.freeDelivery',
-  'marketplace:kitchens.goalBody.halal_friendly',
-  'marketplace:kitchens.goalBody.high_protein',
-  'marketplace:kitchens.goalBody.low_carb',
-  'marketplace:kitchens.goalBody.vegan',
-  'marketplace:kitchens.goalsTitle',
-  'marketplace:kitchens.heroEyebrow',
-  'marketplace:kitchens.heroEyebrowPending',
-  'marketplace:kitchens.heroTitle',
   'marketplace:kitchens.imageLabel',
-  'marketplace:kitchens.matches',
   'marketplace:kitchens.noPublishedZone',
   'marketplace:kitchens.notRatedYet',
   'marketplace:kitchens.ratingLabel',
-  'marketplace:kitchens.resultsTitle',
   'marketplace:kitchens.searchLabel',
   'marketplace:kitchens.searchPlaceholder',
   'marketplace:kitchens.subtitle',
   'marketplace:kitchens.title',
   'marketplace:kitchens.verified',
-  'marketplace:landing.authBody',
-  'marketplace:landing.authTitle',
   'marketplace:landing.browseKitchens',
-  'marketplace:landing.featuredKitchens',
-  'marketplace:landing.featuredKitchensBody',
-  'marketplace:landing.forBusinessTeaserBody',
-  'marketplace:landing.forBusinessTeaserTitle',
-  'marketplace:landing.heroBody',
-  'marketplace:landing.heroTitle',
   'marketplace:landing.howItWorks',
-  'marketplace:landing.howItWorksTeaserBody',
-  'marketplace:landing.howItWorksTeaserTitle',
-  'marketplace:landing.seeAllKitchens',
-  'marketplace:landing.value.kitchens.body',
-  'marketplace:landing.value.kitchens.title',
-  'marketplace:landing.value.plan.body',
-  'marketplace:landing.value.plan.title',
-  'marketplace:landing.value.review.body',
-  'marketplace:landing.value.review.title',
-  'marketplace:landing.valueTitle',
   'marketplace:levels.excessive',
   'marketplace:levels.good',
   'marketplace:levels.high',
@@ -12241,12 +14986,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:menu.subtitle',
   'marketplace:menu.title',
   'marketplace:menu.titleFor',
+  'marketplace:nav.account',
   'marketplace:nav.accountMenu',
   'marketplace:nav.dietitians',
   'marketplace:nav.discover',
   'marketplace:nav.forBusiness',
   'marketplace:nav.home',
   'marketplace:nav.howItWorks',
+  'marketplace:nav.imageCredits',
   'marketplace:nav.kitchens',
   'marketplace:nav.meals',
   'marketplace:nav.myHome',
@@ -12271,6 +15018,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:nutrition.fat',
   'marketplace:nutrition.protein',
   'marketplace:nutrition.source',
+  'marketplace:packSize.per',
+  'marketplace:packSize.units.bag',
+  'marketplace:packSize.units.bottle',
+  'marketplace:packSize.units.can',
+  'marketplace:packSize.units.cup',
+  'marketplace:packSize.units.g',
+  'marketplace:packSize.units.gallon',
+  'marketplace:packSize.units.kg',
+  'marketplace:packSize.units.l',
+  'marketplace:packSize.units.ml',
+  'marketplace:packSize.units.pack',
+  'marketplace:packSize.units.piece',
+  'marketplace:packSize.units.portion',
+  'marketplace:packSize.units.slice',
+  'marketplace:packSize.units.tbsp',
+  'marketplace:packSize.units.tsp',
   'marketplace:prototype.badge',
   'marketplace:prototype.hint',
   'marketplace:prototype.notBuilt',
@@ -12279,25 +15042,111 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:resume.thisPage',
   'marketplace:storefront.addLabel',
   'marketplace:storefront.closedToday',
-  'marketplace:storefront.collectFrom',
-  'marketplace:storefront.dietsEyebrow',
-  'marketplace:storefront.emptyBody',
-  'marketplace:storefront.emptyTitle',
-  'marketplace:storefront.factBranches',
-  'marketplace:storefront.factCuisine',
-  'marketplace:storefront.factDelivery',
-  'marketplace:storefront.factDeliveryValue',
-  'marketplace:storefront.factRating',
-  'marketplace:storefront.fee',
-  'marketplace:storefront.fromAmount',
-  'marketplace:storefront.minimum',
+  'marketplace:storefront.eyebrow',
+  'marketplace:storefront.eyebrowArea',
+  'marketplace:storefront.facts.branchCount',
+  'marketplace:storefront.facts.branches',
+  'marketplace:storefront.facts.cuisine',
+  'marketplace:storefront.facts.delivery',
+  'marketplace:storefront.facts.minutes',
+  'marketplace:storefront.facts.minutesRange',
+  'marketplace:storefront.facts.none',
+  'marketplace:storefront.facts.notRated',
+  'marketplace:storefront.facts.rating',
+  'marketplace:storefront.facts.ratingValue',
+  'marketplace:storefront.menu.all',
+  'marketplace:storefront.menu.chip',
+  'marketplace:storefront.menu.count',
+  'marketplace:storefront.menu.countCutOff',
+  'marketplace:storefront.menu.emptyBody',
+  'marketplace:storefront.menu.emptyTitle',
+  'marketplace:storefront.menu.other',
+  'marketplace:storefront.menu.shelvesLabel',
   'marketplace:storefront.openMeal',
   'marketplace:storefront.openToday',
-  'marketplace:storefront.orderEyebrow',
-  'marketplace:storefront.productsTitle',
-  'marketplace:storefront.sectionNote',
-  'marketplace:storefront.seePlans',
-  'marketplace:storefront.startOrder',
+  'marketplace:storefront.order.collectFrom',
+  'marketplace:storefront.order.cutOff',
+  'marketplace:storefront.order.delivery',
+  'marketplace:storefront.order.eyebrow',
+  'marketplace:storefront.order.fee',
+  'marketplace:storefront.order.fromAmount',
+  'marketplace:storefront.order.hoursLeft',
+  'marketplace:storefront.order.minimum',
+  'marketplace:storefront.order.minutesLeft',
+  'marketplace:storefront.order.modesLabel',
+  'marketplace:storefront.order.passed',
+  'marketplace:storefront.order.pickup',
+  'marketplace:storefront.order.readyIn',
+  'marketplace:storefront.order.seePlans',
+  'marketplace:storefront.order.start',
+  'marketplace:storefront.plans.choose',
+  'marketplace:storefront.plans.chooseLabel',
+  'marketplace:storefront.plans.empty',
+  'marketplace:storefront.plans.howItWorks',
+  'marketplace:storefront.plans.perWeek',
+  'marketplace:storefront.plans.subtitle',
+  'marketplace:storefront.plans.title',
+  'marketplace:storefront.reviews.barLabel',
+  'marketplace:storefront.reviews.count',
+  'marketplace:storefront.reviews.emptyBody',
+  'marketplace:storefront.reviews.emptyTitle',
+  'marketplace:storefront.reviews.notRated',
+  'marketplace:storefront.reviews.outOfFive',
+  'marketplace:storefront.row.energy',
+  'marketplace:storefront.row.protein',
+  'marketplace:storefront.safety.allergenCount',
+  'marketplace:storefront.safety.allergensBody',
+  'marketplace:storefront.safety.allergensTitle',
+  'marketplace:storefront.safety.dietsEyebrow',
+  'marketplace:storefront.safety.noAllergens',
+  'marketplace:storefront.safety.noDiets',
+  'marketplace:storefront.safety.noteJoin',
+  'marketplace:storefront.safety.nutritionBody',
+  'marketplace:storefront.safety.nutritionFigure',
+  'marketplace:storefront.safety.nutritionTitle',
+  'marketplace:storefront.safety.unverifiedBody',
+  'marketplace:storefront.safety.verifiedBody',
+  'marketplace:storefront.safety.verifiedFigure',
+  'marketplace:storefront.safety.verifiedTitle',
+  'marketplace:storefront.separator',
+  'marketplace:storefront.tabs.label',
+  'marketplace:storefront.tabs.menu',
+  'marketplace:storefront.tabs.plans',
+  'marketplace:storefront.tabs.reviews',
+  'marketplace:storefront.tabs.safety',
+  'marketplace:storefront.tabs.today',
+  'marketplace:storefront.today.clock',
+  'marketplace:storefront.today.cutoff.body',
+  'marketplace:storefront.today.cutoff.bodyNone',
+  'marketplace:storefront.today.cutoff.bodyPassed',
+  'marketplace:storefront.today.cutoff.eyebrow',
+  'marketplace:storefront.today.cutoff.eyebrowTime',
+  'marketplace:storefront.today.cutoff.inHours',
+  'marketplace:storefront.today.cutoff.inMinutes',
+  'marketplace:storefront.today.cutoff.none',
+  'marketplace:storefront.today.cutoff.orderBy',
+  'marketplace:storefront.today.cutoff.passed',
+  'marketplace:storefront.today.cutoff.pick',
+  'marketplace:storefront.today.cutoff.window',
+  'marketplace:storefront.today.cutoff.windowsLabel',
+  'marketplace:storefront.today.events.closes',
+  'marketplace:storefront.today.events.closesNote',
+  'marketplace:storefront.today.events.cutoff',
+  'marketplace:storefront.today.events.cutoffNote',
+  'marketplace:storefront.today.events.opens',
+  'marketplace:storefront.today.events.opensNote',
+  'marketplace:storefront.today.events.window',
+  'marketplace:storefront.today.events.windowNote',
+  'marketplace:storefront.today.eyebrow',
+  'marketplace:storefront.today.eyebrowDate',
+  'marketplace:storefront.today.line.empty',
+  'marketplace:storefront.today.line.eyebrow',
+  'marketplace:storefront.today.none',
+  'marketplace:storefront.today.title',
+  'marketplace:storefront.verified',
+  'marketplace:storefront.ways.delivery',
+  'marketplace:storefront.ways.pickup',
+  'marketplace:storefront.ways.plans',
   'marketplace:subscriptionStates.active',
   'marketplace:subscriptionStates.cancelled',
   'marketplace:subscriptionStates.draft',
@@ -12822,6 +15671,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'planner:add.perServing',
   'planner:add.restaurantDishHint',
   'planner:add.restaurantDishLabel',
+  'planner:add.restaurantDishPlaceholder',
   'planner:add.restaurantHint',
   'planner:add.restaurantSubmit',
   'planner:add.restaurantVenueLabel',
@@ -12979,6 +15829,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'planner:index.startVirtualDietitian',
   'planner:notes.customerHint',
   'planner:notes.customerLabel',
+  'planner:notes.customerPlaceholder',
   'planner:notes.dietitianTitle',
   'planner:notes.errorBody',
   'planner:notes.errorTitle',
@@ -13131,25 +15982,35 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'planner:week.templateBody',
   'planner:week.templateConfirm',
   'planner:week.templateNameLabel',
+  'planner:week.templateNamePlaceholder',
   'planner:week.templateTitle',
   'planner:week.title',
   'planner:week.warningsBody',
   'planner:week.warningsTitle',
   'platformAdmin:create.branchNameHint',
   'platformAdmin:create.branchNameLabel',
+  'platformAdmin:create.branchNamePlaceholder',
   'platformAdmin:create.cityLabel',
+  'platformAdmin:create.cityPlaceholder',
   'platformAdmin:create.countryLabel',
+  'platformAdmin:create.countryPlaceholder',
   'platformAdmin:create.created',
   'platformAdmin:create.currencyLabel',
+  'platformAdmin:create.currencyPlaceholder',
   'platformAdmin:create.languageLabel',
+  'platformAdmin:create.languagePlaceholder',
   'platformAdmin:create.nameLabel',
+  'platformAdmin:create.namePlaceholderAr',
+  'platformAdmin:create.namePlaceholderEn',
   'platformAdmin:create.ownerNext',
   'platformAdmin:create.slugHint',
   'platformAdmin:create.slugLabel',
+  'platformAdmin:create.slugPlaceholder',
   'platformAdmin:create.submit',
   'platformAdmin:create.submitting',
   'platformAdmin:create.subtitle',
   'platformAdmin:create.timezoneLabel',
+  'platformAdmin:create.timezonePlaceholder',
   'platformAdmin:create.title',
   'platformAdmin:detail.backToList',
   'platformAdmin:detail.branchColumn.city',
@@ -13175,8 +16036,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:invite.emailPlaceholder',
   'platformAdmin:invite.messageHint',
   'platformAdmin:invite.messageLabel',
+  'platformAdmin:invite.messagePlaceholder',
   'platformAdmin:invite.nameHint',
   'platformAdmin:invite.nameLabel',
+  'platformAdmin:invite.namePlaceholder',
   'platformAdmin:invite.sent',
   'platformAdmin:invite.sentNotMailed',
   'platformAdmin:invite.submit',
@@ -13217,6 +16080,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:lifecycle.suspendConfirm',
   'platformAdmin:lifecycle.suspendReasonHint',
   'platformAdmin:lifecycle.suspendReasonLabel',
+  'platformAdmin:lifecycle.suspendReasonPlaceholder',
   'platformAdmin:lifecycle.suspendTitle',
   'platformAdmin:lifecycle.suspended',
   'platformAdmin:lifecycle.suspending',
@@ -13267,6 +16131,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'professional:plan.noteFailedTitle',
   'professional:plan.noteHint',
   'professional:plan.noteLabel',
+  'professional:plan.notePlaceholder',
   'professional:plan.noteSave',
   'professional:plan.noteTitle',
   'professional:plan.open',
@@ -13339,6 +16204,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'professional:review.changesDialogTitle',
   'professional:review.changesNoteHint',
   'professional:review.changesNoteLabel',
+  'professional:review.changesNotePlaceholder',
   'professional:review.changesPriorityLabel',
   'professional:review.clientNoteTitle',
   'professional:review.contextTitle',
@@ -13353,6 +16219,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'professional:review.noteDialogTitle',
   'professional:review.noteHint',
   'professional:review.noteLabel',
+  'professional:review.notePlaceholder',
   'professional:review.overrideConfirm',
   'professional:review.overrideDialogBody',
   'professional:review.overrideDialogTitle',
@@ -13360,12 +16227,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'professional:review.overrideEnergyLabel',
   'professional:review.overrideReasonHint',
   'professional:review.overrideReasonLabel',
+  'professional:review.overrideReasonPlaceholder',
   'professional:review.reasonsTitle',
   'professional:review.requestChanges',
   'professional:review.setNote',
   'professional:review.setOverride',
   'professional:review.signatureHint',
   'professional:review.signatureLabel',
+  'professional:review.signaturePlaceholder',
   'professional:severities.advisory',
   'professional:severities.critical',
   'professional:severities.strict',
@@ -13547,10 +16416,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'virtualDietitian:override.energyHint',
   'virtualDietitian:override.energyInvalid',
   'virtualDietitian:override.energyLabel',
+  'virtualDietitian:override.energyPlaceholder',
   'virtualDietitian:override.failed',
   'virtualDietitian:override.open',
   'virtualDietitian:override.reasonHint',
   'virtualDietitian:override.reasonLabel',
+  'virtualDietitian:override.reasonPlaceholder',
   'virtualDietitian:override.reasonRequired',
   'virtualDietitian:quickReplies.analysing.addDislike',
   'virtualDietitian:quickReplies.analysing.confirmRestrictions',
@@ -13635,8 +16506,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'virtualDietitian:states.suggested_targets.summary',
   'virtualDietitian:structure.areaHint',
   'virtualDietitian:structure.areaLabel',
+  'virtualDietitian:structure.areaPlaceholder',
   'virtualDietitian:structure.budgetHint',
   'virtualDietitian:structure.budgetLabel',
+  'virtualDietitian:structure.budgetPlaceholder',
   'virtualDietitian:structure.energyShare',
   'virtualDietitian:structure.generate',
   'virtualDietitian:structure.generateFailed',

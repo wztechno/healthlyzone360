@@ -34,20 +34,21 @@ file is the number in the table.
 
 ## Densities are an input, not a transcription
 
-The table says nothing about mass per unit, and 19 of the 306 ingredients are
+The table says nothing about mass per unit, and 13 of the 306 ingredients are
 stocked by the litre, so a recipe line reading "0.2 l soya sauce" has no grams
 and therefore no nutrition. `GRAMS_PER_LITRE` below closes that, and it lives
 here — in the generator, beside its own provenance — rather than being typed
 into the JSON, so a re-conversion cannot drop it.
 
-Four of the nineteen are estimates rather than measurements and say so in their
-own note. `GRAMS_PER_PIECE` is the same idea for a row that is counted rather
-than poured: eggs, which every technical sheet states in pieces. Each row takes
-whichever table names it and a row in both is a contradiction the self-test
-refuses. The remaining 286 rows get no density: 272 are already stocked by mass
-and need none, and the other 14 piece-based rows are left NULL for a kitchen to
-weigh (`grams_per_unit` is nullable precisely so that "nobody has weighed this"
-is sayable).
+Three of the thirteen are estimates rather than measurements and say so in their
+own note. The other 293 rows need no density at all: the owner's unit table
+(2026-09) stocks every one of them by mass, so `gramsOf()` weighs them directly
+and a figure here would be dead weight the ingredient service would clear.
+
+It used to be two tables. The second held the rows a kitchen counted rather than
+poured — eggs, at 50 g a piece — and six of these thirteen were ketchup,
+mayonnaise and the four mustards, which the same table moved to kilograms. Both
+groups are mass rows now.
 
 `--self-test` parses a miniature table with every shape in it and asserts the
 normalised output; it also runs automatically before every real conversion.
@@ -87,12 +88,6 @@ GRAMS_PER_LITRE = {
     "ING-003": (1000, "Aqueous solution; water-like density assumed (estimate)."),
     "ING-012": (1010, "USDA: 1 tbsp = 14.9 g."),
     "ING-013": (1080, "USDA: 1 tbsp = 16 g."),
-    "ING-016": (1150, "USDA: 1 tbsp = 17 g."),
-    "ING-017": (930, "USDA: 1 tbsp = 13.8 g."),
-    "ING-019": (1010, "USDA prepared mustard: 1 tsp = 5 g; Dijon and wholegrain take the same family figure (estimate)."),
-    "ING-020": (1010, "USDA prepared mustard: 1 tsp = 5 g; Dijon and wholegrain take the same family figure (estimate)."),
-    "ING-021": (1010, "USDA prepared mustard: 1 tsp = 5 g; Dijon and wholegrain take the same family figure (estimate)."),
-    "ING-022": (1010, "USDA prepared mustard: 1 tsp = 5 g; Dijon and wholegrain take the same family figure (estimate)."),
     "ING-023": (1000, "Water."),
     "ING-025": (1000, "Water."),
     "ING-026": (1080, "USDA: 1 tbsp = 16 g."),
@@ -105,23 +100,22 @@ GRAMS_PER_LITRE = {
     "ING-067": (1030, "USDA: 1 cup = 244 g."),
 }
 
-# Grams in one piece, for the rows a kitchen counts rather than weighs. Same contract as the
-# densities above — the seeder writes the figure only while the row still stocks in the unit
-# named beside it, which for these is `piece` rather than `l`.
-GRAMS_PER_PIECE = {
-    "ING-207": (50, "USDA large egg, edible portion 50 g; the sheets count eggs in pieces."),
-}
-
 # Density table -> the stock unit its figures are measured against.
-GRAMS_PER_UNIT_TABLES = ((GRAMS_PER_LITRE, "l"), (GRAMS_PER_PIECE, "piece"))
+#
+# One table, where there were two. The second held eggs at 50 g a piece, and the owner's unit
+# table (2026-09) moved that row to kilograms along with every other counted ingredient — so
+# there is no `piece` row left to weigh, and a table with no rows is a shape to maintain rather
+# than a fact to record. The 50 g figure survives in the migration that restates the recipe
+# lines which used to say "4 piece".
+GRAMS_PER_UNIT_TABLES = ((GRAMS_PER_LITRE, "l"),)
 
 NOTICE = (
     "Per 100 g of the ingredient as purchased. Generic ingredients carry representative "
     "food-composition values; rows whose note begins \"Estimated\" are recipe-, brand-, salt- or "
     "preparation-dependent and are flagged rather than sourced. For purchasing, labelling or "
     "medical dietetics, replace an estimated row with the supplier's own label. "
-    "`grams_per_unit` is the mass of one of the row's own stock units and is supplied by this "
-    "generator, not by the source table."
+    "`grams_per_unit` is the mass of one of the row's own stock units — a litre, for the thirteen "
+    "rows stocked that way — and is supplied by this generator, not by the source table."
 )
 
 
@@ -226,20 +220,27 @@ def self_test() -> None:
     assert soy["grams_per_unit"] == 1080 and soy["grams_per_unit_of"] == "l"
     assert soy["grams_per_unit_note"].startswith("USDA"), soy
 
-    # A row weighed by the piece rather than by the litre takes its own unit with it — the
-    # seeder compares that name against the ingredient's default unit before writing anything.
+    # Eggs used to be the one row weighed by the piece. The owner's unit table stocks them by mass
+    # like everything else that was counted, so they now carry no density at all — and the row's
+    # transcribed numbers are untouched by that, which is what this checks.
     eggs = rows["ING-207"]
-    assert eggs["grams_per_unit"] == 50 and eggs["grams_per_unit_of"] == "piece", eggs
-    assert eggs["energy_kcal"] == 143, "the density does not disturb the transcribed numbers"
+    assert "grams_per_unit" not in eggs, "a mass-stocked row carries no density"
+    assert eggs["energy_kcal"] == 143, "dropping the density does not disturb the numbers"
 
     # Round-trip: what is written is what is read back.
     assert json.loads(json.dumps(doc, ensure_ascii=False)) == doc
 
-    assert len(GRAMS_PER_LITRE) == 19, len(GRAMS_PER_LITRE)
-    assert len(GRAMS_PER_PIECE) == 1, len(GRAMS_PER_PIECE)
-    # One row, one unit. A ref in both tables would make the merge order decide the figure's
-    # meaning, and an ingredient is not stocked in two units at once.
-    assert not set(GRAMS_PER_LITRE) & set(GRAMS_PER_PIECE), "a ref may name only one density table"
+    # One row per ref per table, and every table's unit distinct — an ingredient is not stocked in
+    # two units at once, and a ref in two tables would let the merge order decide what the figure
+    # means. Trivially true while there is one table; the assert is what keeps it true if a second
+    # is ever added back.
+    units = [unit for _, unit in GRAMS_PER_UNIT_TABLES]
+    assert len(units) == len(set(units)), "two density tables claim the same stock unit"
+    seen: set[str] = set()
+    for table, _ in GRAMS_PER_UNIT_TABLES:
+        assert not seen & set(table), "a ref may name only one density table"
+        seen |= set(table)
+
     assert all(grams > 0 for table, _ in GRAMS_PER_UNIT_TABLES for grams, _ in table.values())
 
     held = sum(len(table) for table, _ in GRAMS_PER_UNIT_TABLES)

@@ -55,6 +55,10 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  *  * `area_not_served`, `zone_suspended` — nobody delivers there, or this
  *    kitchen has paused going there. Kept apart because one is permanent and
  *    the other is this week.
+ *  * `window_not_offered` — the delivery names a slot the address's zone does
+ *    not offer (`ZoneWindowService::offeredCodes()`), carrying
+ *    `delivery_window_code` and `delivery_zone_id`. Subscription generation is
+ *    exempt (`ComposedPlacement::$enforceWindowOffer`).
  *  * `currency_mismatch` — the delivery fee or a line prices in a currency
  *    the order is not denominated in. Never converted.
  *  * `mixed_delivery_dates` — the basket asks for more than one day, which

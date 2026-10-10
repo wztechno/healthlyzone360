@@ -24,6 +24,7 @@ use Healthy360\Delivery\Enums\DeliveryZoneStatus;
 use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Models\DeliveryZoneArea;
+use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
@@ -91,7 +92,7 @@ use RuntimeException;
  * already invented as `ae-demo-*` demonstration areas. The rest are added here
  * with the same prefix and for the same reason: they are mechanism (b), demo
  * data, never the committed Lebanese gazetteer, and the prefix is what says so
- * at a glance to a reader and to `DatabaseSeederTest`'s exclusions.
+ * at a glance.
  *
  * ## Two kitchens sell nothing, on purpose
  *
@@ -277,6 +278,10 @@ class MarketplaceKitchensSeeder extends Seeder
         foreach ($windowFixtures as $window) {
             $this->deliveryWindow($kitchen, $window, $owner);
         }
+
+        // Every window in every zone — placement refuses a slot the zone
+        // does not offer.
+        app(ZoneWindowService::class)->assignAll((string) $kitchen->getKey());
 
         $catalogue = $this->catalogue($kitchen, $owner);
 
@@ -537,8 +542,7 @@ class MarketplaceKitchensSeeder extends Seeder
      *
      * Every code carries the `ae-demo-` prefix for the reason that seeder
      * records: these are demo places, not the committed gazetteer, and the
-     * prefix is what `DatabaseSeederTest` excludes when it pins the Lebanese
-     * count at 125.
+     * prefix is what says so.
      */
     private function area(string $nameEn): DeliveryArea
     {

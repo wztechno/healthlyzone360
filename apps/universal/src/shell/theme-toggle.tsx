@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next';
 /**
  * The appearance switch, beside the language switch in every shell's top bar.
  *
- * One component rather than three copies. The three shells (`area-shell`, `marketplace-shell`,
- * `consumer-shell`) each own a different trailing group — sign out, a basket, register/sign in —
- * but this control is identical in all of them, and a control that is the same in three places
- * should only be able to change in one.
+ * The staff shell (`area-shell`) draws it in its top bar. The customer header (`marketplace-shell`,
+ * which `consumer-shell` also wears) does not: HealthZone ends that header in the name and the cart,
+ * so the appearance switch there is an item in the account menu and a link in the footer, both
+ * calling the same `useTheme().toggleTheme`.
  *
  * ## Why the glyph carries its own colour
  *

@@ -25,9 +25,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $organisation_type_id
  * @property string $name
  * @property string $slug
+ * @property string|null $staff_email_domain the domain a staff login is spelled with, when the organisation states one
  * @property string $country_code
  * @property string $default_currency_code
  * @property string $default_language_code
+ * @property string|null $timezone IANA identifier; null resolves from the branches (OrganisationTimezone)
  * @property OrganisationStatus $status
  * @property CarbonImmutable|null $suspended_at
  * @property string|null $suspension_reason

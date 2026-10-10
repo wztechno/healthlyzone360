@@ -8,7 +8,10 @@ use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ProductCategory;
 use Healthy360\Catalogues\Tests\Fixtures\CatalogueWorld;
+use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Ingredients\Models\IngredientCategory;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
+use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 
 /*
@@ -55,6 +58,70 @@ it('creates a draft item and derives its slug', function (): void {
     expect(CatalogueItem::withoutTenancy()->whereKey($response->json('data.item.id'))->value('organisation_id'))
         ->toBe((string) $this->a->organisation->getKey())
         ->and(AuditLog::query()->where('action', 'catalogue.item_created')->count())->toBe(1);
+});
+
+it('gives a sauce and a dressing an ingredient twin that carries the item’s own handle', function (): void {
+    // A sauce is sold and also spooned into meals, whose lines name ingredients. Every imported
+    // sauce has a twin; one created here must too, or it can be sold but never cooked with.
+    $this->actingAs($this->a->user);
+    $sauceCategory = IngredientCategory::factory()->platform()->create(['code' => 'sauce']);
+    $dressingCategory = IngredientCategory::factory()->platform()->create(['code' => 'dressings']);
+
+    $sauce = $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'sauce',
+        'name_en' => 'Garlic Sauce',
+        'catalogue_id' => (string) $this->a->catalogue->getKey(),
+    ], CatalogueWorld::headers($this->a))->assertCreated()->json('data.item');
+
+    $dressing = $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'dressing',
+        'name_en' => 'Lemon Dressing',
+        'catalogue_id' => (string) $this->a->catalogue->getKey(),
+    ], CatalogueWorld::headers($this->a))->assertCreated()->json('data.item');
+
+    $sauceTwin = Ingredient::withoutTenancy()->whereKey($sauce['ingredient_id'])->sole();
+    $dressingTwin = Ingredient::withoutTenancy()->whereKey($dressing['ingredient_id'])->sole();
+
+    expect($sauceTwin->organisation_id)->toBe((string) $this->a->organisation->getKey())
+        ->and($sauceTwin->name_en)->toBe('Garlic Sauce')
+        // The same handle on both records, so a cook can quote it from either side.
+        ->and($sauceTwin->source_ref)->toBe(CatalogueItem::withoutTenancy()->whereKey($sauce['id'])->value('source_ref'))
+        ->and($sauceTwin->source_ref)->toStartWith('SAC-')
+        ->and($sauceTwin->ingredient_category_id)->toBe((string) $sauceCategory->getKey())
+        ->and($dressingTwin->source_ref)->toStartWith('DRS-')
+        ->and($dressingTwin->ingredient_category_id)->toBe((string) $dressingCategory->getKey())
+        // Weighed in kilograms, which is what every cooked item's recipe yields in.
+        ->and($sauceTwin->defaultUnit()->value('code'))->toBe('kg');
+});
+
+it('makes no twin for a product, nor for a sauce that already names its ingredient', function (): void {
+    $this->actingAs($this->a->user);
+    $existing = Ingredient::factory()->create(['organisation_id' => (string) $this->a->organisation->getKey()]);
+    $before = Ingredient::withoutTenancy()->count();
+
+    $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'product',
+        'name_en' => 'Harissa Paste 250g',
+        'catalogue_id' => (string) $this->a->catalogue->getKey(),
+    ], CatalogueWorld::headers($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.item.ingredient_id', null);
+
+    // A sauce sells from the shelf its ingredient is counted on, so naming one that is weighed
+    // means saying how much a sold unit is (PROD1). Beside the point of this test, and required
+    // before the item can exist at all.
+    $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'sauce',
+        'name_en' => 'House Mayonnaise',
+        'catalogue_id' => (string) $this->a->catalogue->getKey(),
+        'ingredient_id' => (string) $existing->getKey(),
+        'net_content_quantity' => 0.3,
+        'net_content_unit_id' => CatalogueWorld::unit('kg'),
+    ], CatalogueWorld::headers($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.item.ingredient_id', (string) $existing->getKey());
+
+    expect(Ingredient::withoutTenancy()->count())->toBe($before);
 });
 
 it('records an untranslated Arabic name as empty rather than as the English one', function (): void {
@@ -278,9 +345,15 @@ it('filters by type, status and category and walks the cursor', function (): voi
         ->assertOk()->json('data');
     expect($byCategory)->toHaveCount(1);
 
-    $this->getJson('/api/v1/catalogue/items?item_type=nonsense', $headers)
+    // The refusal names every type the filter accepts — built from the enum, so a
+    // new family (frozen meals were missing from the hand-written list) cannot be
+    // accepted by the filter while the message says it is not.
+    $refused = $this->getJson('/api/v1/catalogue/items?item_type=nonsense', $headers)
         ->assertStatus(400)
-        ->assertJsonPath('error.code', 'request.invalid');
+        ->assertJsonPath('error.code', 'request.invalid')
+        ->assertJsonPath('error.details.parameter', 'item_type');
+
+    expect($refused->json('error.message'))->toContain('frozen_meal');
 
     // A keyset walk visits every row exactly once.
     $first = $this->getJson('/api/v1/catalogue/items?limit=2', $headers)->assertOk();
@@ -414,4 +487,251 @@ it('serves numbered pages that count the type asked for, not the catalogue', fun
     $this->getJson('/api/v1/catalogue/items?item_type=meal&page=3&per_page=2', $headers)
         ->assertStatus(400)
         ->assertJsonPath('error.details.parameter', 'page');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Selling from finished stock (PROD1)
+|--------------------------------------------------------------------------
+|
+| A meal is cooked when it is ordered, and a sale of one explodes its recipe
+| onto the raw-material shelves. A meal *made in advance* is not: the raw
+| materials left the shelves when the batch was cooked, so the sale has to draw
+| the finished item's own shelf or take them twice.
+|
+| `sells_from_finished_stock` is the opt-in, and these are the rules around it.
+| Its two preconditions — a kitchen that produces the meal, an ingredient a
+| published recipe version outputs — are refused on the write rather than
+| discovered by a customer's order days later. So is the one state that would
+| otherwise break silently: flag on, shelf counted in kilograms, nothing saying
+| how much one sold unit is.
+|
+*/
+
+it('records a meal that sells from finished stock, with what one sold unit is', function (): void {
+    $ingredient = CatalogueWorld::producedIngredient($this->a);
+
+    $this->actingAs($this->a->user);
+
+    $response = $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'meal',
+        'name_en' => 'Prepared Caesar Salad 300g',
+        'production_mode' => 'production',
+        'ingredient_id' => (string) $ingredient->getKey(),
+        'sells_from_finished_stock' => true,
+        'net_content_quantity' => 0.3,
+        'net_content_unit_id' => CatalogueWorld::unit('kg'),
+    ], CatalogueWorld::headers($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.item.sells_from_finished_stock', true)
+        // A string on the wire, at the column's own four places, for the reason
+        // every decimal on this surface is one: a float would have rounded it.
+        ->assertJsonPath('data.item.net_content_quantity', '0.3000')
+        ->assertJsonPath('data.item.net_content_unit_id', CatalogueWorld::unit('kg'));
+
+    // And it survives a read, rather than being echoed once by the create.
+    $this->getJson('/api/v1/catalogue/items/'.$response->json('data.item.id'), CatalogueWorld::headers($this->a))
+        ->assertOk()
+        ->assertJsonPath('data.item.net_content_quantity', '0.3000')
+        ->assertJsonPath('data.item.sells_from_finished_stock', true);
+});
+
+it('defaults a meal to exploding its recipe', function (): void {
+    // The column is NOT NULL DEFAULT false precisely so that every meal already
+    // in a catalogue keeps deducting exactly what it deducted before the column
+    // existed. A meal becomes a finished-stock meal by being said to be one.
+    $this->actingAs($this->a->user);
+
+    $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'meal',
+        'name_en' => 'Freekeh Bowl',
+    ], CatalogueWorld::headers($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.item.sells_from_finished_stock', false)
+        ->assertJsonPath('data.item.net_content_quantity', null)
+        ->assertJsonPath('data.item.net_content_unit_id', null);
+});
+
+it('refuses finished-stock selling on a meal this kitchen does not produce', function (): void {
+    $ingredient = CatalogueWorld::producedIngredient($this->a);
+
+    $this->actingAs($this->a->user);
+
+    // Every precondition but the mode. A kitchen cannot sell a shelf of
+    // something it does not make — the shelf would never be filled.
+    $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'meal',
+        'name_en' => 'Bought-in Salad',
+        'production_mode' => 'supplier',
+        'ingredient_id' => (string) $ingredient->getKey(),
+        'sells_from_finished_stock' => true,
+    ], CatalogueWorld::headers($this->a))
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed')
+        ->assertJsonPath(
+            'error.details.fields.sells_from_finished_stock.0',
+            fn (?string $message): bool => $message !== null && str_contains($message, 'production mode'),
+        );
+
+    expect(CatalogueItem::withoutTenancy()->where('name_en', 'Bought-in Salad')->exists())->toBeFalse();
+});
+
+it('refuses finished-stock selling against an ingredient no published recipe produces', function (): void {
+    $draftOnly = CatalogueWorld::producedIngredient(
+        $this->a,
+        'Unpublished salad',
+        'kg',
+        RecipeVersionStatus::Draft,
+    );
+
+    $this->actingAs($this->a->user);
+
+    // A draft version is a plan. Nothing has been made from it, so there is no
+    // shelf — which is the same reason the publish gate re-asks the question.
+    $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'meal',
+        'name_en' => 'Salad From Nowhere',
+        'production_mode' => 'production',
+        'ingredient_id' => (string) $draftOnly->getKey(),
+        'sells_from_finished_stock' => true,
+        'net_content_quantity' => 0.3,
+        'net_content_unit_id' => CatalogueWorld::unit('kg'),
+    ], CatalogueWorld::headers($this->a))
+        ->assertStatus(422)
+        ->assertJsonPath(
+            'error.details.fields.sells_from_finished_stock.0',
+            fn (?string $message): bool => $message !== null && str_contains($message, 'published recipe'),
+        );
+
+    expect(CatalogueItem::withoutTenancy()->where('name_en', 'Salad From Nowhere')->exists())->toBeFalse();
+});
+
+it('refuses a net content measured in a unit that does not exist', function (): void {
+    $ingredient = CatalogueWorld::producedIngredient($this->a);
+
+    $this->actingAs($this->a->user);
+
+    // Without this check the foreign key is the only backstop, and a mistyped
+    // identifier is a 500 rather than a 422 naming the field somebody got wrong.
+    $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'meal',
+        'name_en' => 'Salad In Nothing',
+        'production_mode' => 'production',
+        'ingredient_id' => (string) $ingredient->getKey(),
+        'sells_from_finished_stock' => true,
+        'net_content_quantity' => 0.3,
+        'net_content_unit_id' => '00000000-0000-4000-8000-000000000000',
+    ], CatalogueWorld::headers($this->a))
+        ->assertStatus(422)
+        ->assertJsonPath('error.details.fields.net_content_unit_id.0', fn (?string $m): bool => $m !== null);
+
+    expect(CatalogueItem::withoutTenancy()->where('name_en', 'Salad In Nothing')->exists())->toBeFalse();
+});
+
+it('refuses a finished-stock meal on a weighed shelf that says nothing about one sold unit', function (): void {
+    $ingredient = CatalogueWorld::producedIngredient($this->a);
+
+    $this->actingAs($this->a->user);
+
+    // The trap this rule closes. The shelf counts in kilograms, so "one sold
+    // unit" is a conversion nothing else in the record can express — and
+    // `OrderConsumptionService` refuses such a sale with `no_net_content`
+    // rather than guessing. The write refuses exactly what the sale would,
+    // days earlier and in front of the person who can fix it.
+    $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'meal',
+        'name_en' => 'Salad Of Unknown Size',
+        'production_mode' => 'production',
+        'ingredient_id' => (string) $ingredient->getKey(),
+        'sells_from_finished_stock' => true,
+    ], CatalogueWorld::headers($this->a))
+        ->assertStatus(422)
+        ->assertJsonPath(
+            'error.details.fields.net_content_quantity.0',
+            fn (?string $m): bool => $m !== null && str_contains($m, 'finished stock'),
+        );
+
+    expect(CatalogueItem::withoutTenancy()->where('name_en', 'Salad Of Unknown Size')->exists())->toBeFalse();
+});
+
+it('asks nothing about net content when the shelf is counted in pieces', function (): void {
+    // `portion_factor` already means something on a counted shelf — one sold
+    // unit is one piece — so demanding a net content there would be asking for
+    // a second answer to a settled question.
+    $ingredient = CatalogueWorld::producedIngredient($this->a, 'Frozen lasagne', 'piece');
+
+    $this->actingAs($this->a->user);
+
+    $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'meal',
+        'name_en' => 'Frozen Lasagne Portion',
+        'production_mode' => 'production',
+        'ingredient_id' => (string) $ingredient->getKey(),
+        'sells_from_finished_stock' => true,
+    ], CatalogueWorld::headers($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.item.sells_from_finished_stock', true)
+        ->assertJsonPath('data.item.net_content_quantity', null);
+});
+
+it('refuses a net content that is not a positive quantity', function (): void {
+    $ingredient = CatalogueWorld::producedIngredient($this->a);
+
+    $this->actingAs($this->a->user);
+
+    $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'meal',
+        'name_en' => 'Salad Of No Size',
+        'production_mode' => 'production',
+        'ingredient_id' => (string) $ingredient->getKey(),
+        'sells_from_finished_stock' => true,
+        'net_content_quantity' => 0,
+        'net_content_unit_id' => CatalogueWorld::unit('kg'),
+    ], CatalogueWorld::headers($this->a))
+        ->assertStatus(422)
+        ->assertJsonPath('error.details.fields.net_content_quantity.0', fn (?string $m): bool => $m !== null);
+});
+
+it('turns finished-stock selling on and off again over the update endpoint', function (): void {
+    $ingredient = CatalogueWorld::producedIngredient($this->a);
+    $item = CatalogueItem::factory()->meal()->create([
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_en' => 'Caesar salad',
+    ]);
+
+    $this->actingAs($this->a->user);
+    $url = '/api/v1/catalogue/items/'.$item->getKey();
+
+    // The whole chain in one PATCH, which is what the meal editor sends.
+    $this->patchJson($url, [
+        'production_mode' => 'production',
+        'ingredient_id' => (string) $ingredient->getKey(),
+        'sells_from_finished_stock' => true,
+        'net_content_quantity' => 0.3,
+        'net_content_unit_id' => CatalogueWorld::unit('kg'),
+    ], CatalogueWorld::headers($this->a) + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->assertJsonPath('data.item.sells_from_finished_stock', true)
+        ->assertJsonPath('data.item.net_content_quantity', '0.3000');
+
+    // And off again. Switching off must also drop the net content, or a meal
+    // could carry a conversion for a shelf it no longer sells from — and the
+    // weighed-shelf rule has nothing left to refuse once the flag is false.
+    $this->patchJson($url, [
+        'sells_from_finished_stock' => false,
+        'net_content_quantity' => null,
+        'net_content_unit_id' => null,
+    ], CatalogueWorld::headers($this->a) + ['If-Match' => '"1"'])
+        ->assertOk()
+        ->assertJsonPath('data.item.sells_from_finished_stock', false)
+        ->assertJsonPath('data.item.net_content_quantity', null);
+
+    $stored = CatalogueItem::withoutTenancy()->whereKey($item->getKey())->sole();
+
+    expect($stored->sells_from_finished_stock)->toBeFalse()
+        ->and($stored->net_content_unit_id)->toBeNull()
+        // The link and the mode survive the flag being cleared: a kitchen that
+        // stops selling a salad off the shelf still produces it.
+        ->and($stored->ingredient_id)->toBe((string) $ingredient->getKey());
 });

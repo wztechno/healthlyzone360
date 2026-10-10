@@ -73,6 +73,10 @@
     "stepper": {
         "progress": "الخطوة {{current}} من {{total}}"
     },
+    "stepProgress": {
+        "step": "الخطوة {{current}} من {{total}}: {{label}}",
+        "stepDone": "الخطوة {{current}} من {{total}}: {{label}}، مكتملة"
+    },
     "numberStepper": {
         "increase": "زيادة {{label}}",
         "decrease": "إنقاص {{label}}"
@@ -98,7 +102,8 @@
     },
     "datePicker": {
         "previousMonth": "الشهر السابق",
-        "nextMonth": "الشهر التالي"
+        "nextMonth": "الشهر التالي",
+        "clear": "مسح التاريخ"
     },
     "rating": {
         "summary": "{{value}} من {{max}}",
@@ -125,7 +130,12 @@
     "shell": {
         "primaryNavigation": "التنقّل الرئيسي",
         "openNavigation": "فتح التنقّل الرئيسي",
-        "skipToContent": "الانتقال إلى المحتوى الرئيسي"
+        "skipToContent": "الانتقال إلى المحتوى الرئيسي",
+        "hideNavigation": "إغلاق لوحة الصفحات",
+        "showNavigation": "فتح لوحة الصفحات",
+        "modules": "الوحدات",
+        "emptyPanelTitle": "لا توجد صفحات ضمن {{page}}",
+        "emptyPanelBody": "اختر وحدة لعرض صفحاتها هنا."
     },
     "showcase": {
         "title": "نظام التصميم",
@@ -151,6 +161,7 @@
         "dialogBody": "سُيسجّل خروج الجهاز فوراً.",
         "drawerTitle": "لوحة جانبية للعرض",
         "toastMessage": "تمّ ذلك بنجاح.",
+        "toastAction": "عرض",
         "sampleLabel": "حقل تجريبي",
         "sampleHint": "ملاحظة توضّح الحقل.",
         "sampleError": "هناك خطأ في هذه القيمة.",
@@ -222,5 +233,14 @@
         "overflow_other": "+{{count}}",
         "overflow_two": "+{{count}}",
         "overflow_zero": "+{{count}}"
+    },
+    "timeField": {
+        "hour": "الساعة",
+        "minute": "الدقيقة",
+        "open": "اختر وقتًا لـ {{label}}",
+        "clear": "مسح",
+        "done": "تم",
+        "placeholder": "--:--",
+        "invalid": "أدخل الوقت بالصيغة HH:mm، مثل 09:30."
     }
 }

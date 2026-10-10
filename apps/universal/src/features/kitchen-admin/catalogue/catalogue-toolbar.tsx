@@ -67,6 +67,13 @@ export interface CatalogueToolbarProps<Status extends string = string> {
     /** Translated. The field carries no visible label on this row, so this is its accessible one. */
     readonly searchLabel: string;
     readonly searchPlaceholder?: string | undefined;
+    /**
+     * Enter in the search does something besides filter — the batch register's scan field, which
+     * looks a code up and opens the batch it names. The field keeps focus after it, so a scanner's
+     * next label lands without a click, and it stops correcting and capitalising what is typed,
+     * because what is typed is a code.
+     */
+    readonly onSearchSubmit?: (() => void) | undefined;
 
     /**
      * Single-select status segments, "All" first. Omit both this and `status` for an entity with no
@@ -87,6 +94,7 @@ export function CatalogueToolbar<Status extends string = string>({
     onSearchChange,
     searchLabel,
     searchPlaceholder,
+    onSearchSubmit,
     statusSegments,
     status,
     onStatusChange,
@@ -101,6 +109,9 @@ export function CatalogueToolbar<Status extends string = string>({
         onStatusChange !== undefined;
 
     /*
+     * On the same raised panel as the list under it and the cards above — border, fill and the card
+     * cast — so the page reads as three objects rather than two and a loose row of controls.
+     *
      * `min-h-`, not `h-`. The row was a fixed 28px because it held nothing but `sm` controls; the
      * page's one primary is the `md` (32px) exception the handoff names, and now that it sits on
      * this line a fixed 28px row would clip it. The floor keeps the row's height where it was on a
@@ -109,7 +120,7 @@ export function CatalogueToolbar<Status extends string = string>({
     return (
         <View
             testID={testID}
-            className="min-h-control-sm flex-row items-center justify-center gap-tight"
+            className="min-h-control-sm flex-row items-center justify-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
         >
             {/*
              * The search is what absorbs the row.
@@ -128,6 +139,14 @@ export function CatalogueToolbar<Status extends string = string>({
                     label={searchLabel}
                     placeholder={searchPlaceholder}
                     size="sm"
+                    {...(onSearchSubmit === undefined
+                        ? {}
+                        : {
+                              onSubmitEditing: onSearchSubmit,
+                              blurOnSubmit: false,
+                              autoCorrect: false,
+                              autoCapitalize: 'none' as const,
+                          })}
                     testID={`${testID}-search`}
                 />
             </View>

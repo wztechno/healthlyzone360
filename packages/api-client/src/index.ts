@@ -51,6 +51,7 @@ export type {
     SetContextRequest,
     TwoFactorChallengeRequest,
     TwoFactorSetup,
+    UpdatePasswordRequest,
     ValidationFields,
 } from './contracts/index.ts';
 

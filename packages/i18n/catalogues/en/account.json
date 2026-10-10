@@ -1,65 +1,102 @@
 {
     "title": "Your account",
-    "subtitle": "Everything Healthy360 needs before your first order, and everything you can change afterwards.",
-    "lifecycle": {
-        "provisional": "Setup unfinished",
-        "active": "Active",
-        "suspended": "Suspended",
-        "closing": "Closing",
-        "closed": "Closed"
+    "nav": {
+        "label": "Account sections",
+        "orders": "Orders",
+        "profile": "Profile",
+        "addresses": "Addresses",
+        "notifications": "Notifications",
+        "favorites": "Favorites",
+        "payments": "Payment methods"
+    },
+    "orders": {
+        "title": "Order history",
+        "newestFirst": "Newest first",
+        "meta": "{{date}} · #{{reference}}",
+        "openHint": "Opens order {{reference}}",
+        "empty": "No orders yet",
+        "emptyBody": "Orders you place while signed in appear here, newest first.",
+        "browse": "Browse the menu",
+        "more": "Show older orders",
+        "backToHistory": "Back to your orders",
+        "notFoundTitle": "We could not find that order",
+        "notFoundBody": "It may belong to another account, or the link may be incomplete. Your own orders are all in your order history.",
+        "lineLabel": "{{qty}}× {{name}}",
+        "reorder": "Reorder"
     },
     "checklist": {
-        "title": "Finish setting up",
-        "subtitle": "A few things are still needed. You can do them in any order.",
-        "done": "Done",
-        "todo": "Not done yet",
-        "required": "Needed to activate",
-        "optional": "Optional",
-        "canActivate": "Everything needed is in place.",
         "cannotActivate": "A few required steps are still outstanding.",
         "outstanding_one": "{{count}} required step to go. You can do it whenever suits you.",
         "outstanding_other": "{{count}} required steps to go. You can do them in any order.",
         "blocked": "Cannot be done yet: {{reason}}",
-        "start": "Start",
-        "review": "Review",
         "steps": {
             "verify_email": {
                 "title": "Confirm your email address",
-                "body": "We use it for order confirmations and for signing you in."
+                "body": "Enter the code we sent to your email address to confirm it.",
+                "action": "Confirm email"
             },
             "verify_phone": {
                 "title": "Confirm your mobile number",
-                "body": "So a driver can reach you on the day."
+                "body": "Add your mobile number and enter the code we text you.",
+                "action": "Add mobile"
             },
             "add_address": {
                 "title": "Add a delivery address",
-                "body": "Choose the area you are in — we only deliver to areas on the list."
+                "body": "Save an address in an area we deliver to, so the kitchen knows where to bring your order.",
+                "action": "Add address",
+                "bodyOutsideArea": "Your saved address is outside the areas we deliver to. Add one we can reach."
             },
             "dietary_profile": {
                 "title": "Tell us what you cannot eat",
-                "body": "Allergies and dietary needs, so meals can be filtered for you."
+                "body": "Tell us about any food allergies, or that you have none, so we never send you something unsafe.",
+                "action": "Answer now"
             },
             "consents": {
                 "title": "Review your permissions",
-                "body": "What you agree to, and what you can decline."
+                "body": "Review and accept the terms you need to agree to before ordering.",
+                "action": "Review terms"
             }
         }
     },
     "marketing": {
         "title": "Offers and updates",
-        "subtitle": "Entirely up to you. Nothing here affects your orders or your account.",
-        "note": "You can change these at any time, and stopping them takes effect immediately.",
         "saveFailed": "That change was not saved. Try again."
+    },
+    "profile": {
+        "title": "Profile & preferences",
+        "nameLabel": "Full name",
+        "noPhone": "No number yet",
+        "answerAllergies": "Answer the allergy question",
+        "editAllergies": "Edit allergies",
+        "dietsLocked": "Answer the allergy question before choosing a diet.",
+        "listSeparator": ", ",
+        "save": "Save changes",
+        "cancel": "Cancel",
+        "saved": "Changes saved.",
+        "manageAddresses": "Manage addresses",
+        "emailLabel": "Email",
+        "mobileLabel": "Mobile",
+        "slotLabel": "Default slot",
+        "slotUnset": "Chosen at each checkout",
+        "phoneAdd": "Add",
+        "phoneVerify": "Confirm",
+        "phoneChange": "Change",
+        "dietsEyebrow": "Dietary preferences · applied to recommendations",
+        "dietsUnavailable": "Dietary preferences are kept on your customer account, which is not set up yet.",
+        "allergiesNone": "Allergies: none declared.",
+        "allergiesDeclared": "Allergies: {{list}}."
+    },
+    "privacy": {
+        "title": "Privacy",
+        "reviewConsents": "Review permissions",
+        "closeAccount": "Close my account"
     },
     "contacts": {
         "title": "Email and phone",
         "subtitle": "Where we reach you. Each one is confirmed with a code before we use it.",
-        "emailLabel": "Email address",
-        "phoneLabel": "Mobile number",
         "add": "Add",
         "addEmail": "Add an email address",
         "addPhone": "Add a mobile number",
-        "verify": "Confirm this",
         "verified": "Confirmed",
         "unverified": "Not confirmed",
         "primary": "Main",
@@ -67,7 +104,6 @@
         "remove": "Remove",
         "removeTitle": "Remove this contact?",
         "removeBody": "{{contact}} will no longer be used for anything.",
-        "loginEmail": "Sign-in address",
         "loginEmailNote": "This is the address you sign in with, so it cannot be removed here.",
         "empty": "Nothing added yet",
         "emptyBody": "Add an address or a number so we can reach you."
@@ -95,6 +131,7 @@
         },
         "numberLabel": "Mobile number",
         "numberHint": "Without the country code. A leading zero is fine — we take it off.",
+        "numberPlaceholder": "e.g. 50 123 4567",
         "errors": {
             "empty": "Enter your mobile number.",
             "tooShort": "That is too short to be a mobile number.",
@@ -128,11 +165,16 @@
         "noAreasTitle": "No areas to choose from",
         "noAreasBody": "The delivery areas could not be loaded, so an address cannot be saved yet.",
         "line1Label": "Street",
+        "line1Placeholder": "e.g. Hamra Street",
         "line2Label": "More detail",
+        "line2Placeholder": "e.g. Next to the pharmacy",
         "buildingLabel": "Building",
+        "buildingPlaceholder": "e.g. Salam Building",
         "floorLabel": "Floor or apartment",
+        "floorPlaceholder": "e.g. 3rd floor, apartment 12",
         "notesLabel": "Directions for the driver",
         "notesHint": "Anything that helps someone find you. Not part of the address.",
+        "notesPlaceholder": "e.g. Blue gate, ring twice",
         "partSeparator": ", ",
         "requiredField": "This one is needed.",
         "default": "Default",
@@ -169,8 +211,9 @@
         },
         "severityHint": "Only a declared allergy removes a meal outright.",
         "noteLabel": "Anything we should know",
+        "notePlaceholder": "e.g. Even traces make me ill",
         "dietsTitle": "Diet",
-        "dietsSubtitle": "Vegetarian, halal, and anything else that shapes what you are shown.",
+        "dietsSubtitle": "Choose the one that fits you best. Tap it again to clear it.",
         "dietsEmpty": "Nothing chosen — you will be shown everything.",
         "exclusionsTitle": "Ingredients to leave out",
         "exclusionsSubtitle": "Things you simply do not want, for reasons that are not an allergy.",
@@ -224,6 +267,7 @@
         "reasonHint": "This helps us fix what pushed you away. It is not used to talk you out of it.",
         "noteLabel": "Tell us more",
         "noteHint": "Optional. Deleted when the closure finishes.",
+        "notePlaceholder": "e.g. I am moving abroad",
         "reasons": {
             "no_longer_needed": "I no longer need it",
             "too_expensive": "It is too expensive",
@@ -309,5 +353,13 @@
         "signedOutNote": "You have been signed out. This device no longer holds a session.",
         "optOutDoneTitle": "Marketing stopped",
         "optOutDoneBody": "We will not send you marketing again. Your account and everything in it is untouched."
+    },
+    "favorites": {
+        "empty": "No favorites yet",
+        "emptyBody": "Saving meals as favorites isn't available yet. Everything you've ordered is in your order history."
+    },
+    "payments": {
+        "cash": "Cash on delivery",
+        "body": "One-off orders are paid to the courier when they arrive. No card is stored on your account."
     }
 }

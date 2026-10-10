@@ -21,7 +21,7 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
  * | Class      |   200 |   150 |      100 | the title; never dropped                    |
  * | Regulation |   160 |   120 |       40 | secondary; the platform's own citation      |
  * | Markets    |   160 |   120 |       50 | badges, or "no market requires it"          |
- * | Threshold  |   120 |    88 |       85 | mono, centred — the figure the row is read for |
+ * | Threshold  |   120 |    88 |       85 | mono — the figure the row is read for       |
  * | Status     |   110 |    78 |       80 | badge                                       |
  *
  * The tracks are the ingredient spec's, moved across one position at a time rather than
@@ -75,7 +75,11 @@ export function allergenColumns({
 }: AllergenColumnDeps): readonly CatalogueColumn<AllergenClass>[] {
     return [
         {
-            key: 'code',
+            // The ID is the regulatory reference — `ALG-01` — which is what a label, an audit and
+            // a supplier's spec sheet quote. The slug (`gluten`) stays the record's key and is still
+            // searched, but it is not shown: two identifiers side by side read as two things.
+            // Keyed `regulation` so the header sorts through the list hook's own regulation order.
+            key: 'regulation',
             label: t('kitchen:list.columnReference'),
             width: 96,
             min: 84,
@@ -84,13 +88,10 @@ export function allergenColumns({
             mono: true,
             sortable: true,
             sortType: 'text',
-            // The code *is* the identifier here — `gluten`, `sulphites`. There is no separate
-            // series, because the platform did not invent one: the regulatory name is the handle,
-            // and a `ALG-004` beside it would be a second identity for the same thing.
-            value: (entry) => String(entry.code),
+            value: (entry) => entry.regulatoryReference,
             render: (entry) => (
                 <Text testID={`${allergenRowTestId(String(entry.code))}-code`} variant="mono">
-                    {String(entry.code)}
+                    {entry.regulatoryReference}
                 </Text>
             ),
         },
@@ -124,22 +125,6 @@ export function allergenColumns({
                     </Inline>
                 );
             },
-        },
-        {
-            key: 'regulation',
-            label: t('kitchen:classes.columnReference'),
-            width: 160,
-            min: 120,
-            priority: CATALOGUE_PRIORITY.category,
-            role: 'meta',
-            sortable: true,
-            sortType: 'text',
-            value: (entry) => entry.regulatoryReference,
-            render: (entry) => (
-                <Text testID={`${allergenRowTestId(String(entry.code))}-reference`}>
-                    {entry.regulatoryReference}
-                </Text>
-            ),
         },
         {
             key: 'markets',
@@ -186,7 +171,6 @@ export function allergenColumns({
             // The row's headline figure: what a kitchen is actually looking up when it opens this
             // page is the amount at which a class becomes declarable.
             role: 'metric',
-            align: 'center',
             mono: true,
             sortable: true,
             sortType: 'number',

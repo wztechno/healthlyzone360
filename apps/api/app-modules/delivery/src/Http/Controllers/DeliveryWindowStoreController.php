@@ -20,6 +20,10 @@ use Illuminate\Http\JsonResponse;
  * A duplicate `code` inside the organisation is a `409`; the same code in
  * another kitchen is not a collision, because a window is one kitchen's word
  * for one of its own slots.
+ *
+ * A new window is offered in **no zone** (`delivery_zone_ids: []`) until a
+ * kitchen assigns it through `PUT …/delivery-zones/{zone}/windows`: adding a
+ * slot must not silently start offering it everywhere the van goes.
  */
 final class DeliveryWindowStoreController
 {
@@ -35,6 +39,6 @@ final class DeliveryWindowStoreController
     {
         $window = $this->windows->create($request->payload());
 
-        return ApiResponse::data(['delivery_window' => $this->presenter->window($window)], status: 201);
+        return ApiResponse::data(['delivery_window' => $this->presenter->window($window, [])], status: 201);
     }
 }

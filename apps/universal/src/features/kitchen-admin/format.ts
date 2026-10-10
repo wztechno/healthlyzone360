@@ -14,7 +14,7 @@ import type {
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
 import type { BadgeTone } from '@healthy360/design-system';
-import { hasPrivatePricing, minorUnitExponent } from '@healthy360/domain-types';
+import { hasPrivatePricing, isCurrencyCode, minorUnitExponent } from '@healthy360/domain-types';
 import type {
     CurrencyCode,
     DietClassification,
@@ -185,7 +185,16 @@ const UNIT_DIMENSION: Readonly<Record<MeasureUnit, UnitDimension>> = {
     bag: 'package',
     can: 'package',
     bottle: 'package',
-    gallon: 'package',
+    /*
+     * Volume, matching the server.
+     *
+     * `measurement_units` has gallon at `dimension: volume` with a real `base_ratio` (3785.411784
+     * millilitres), so it converts to and from litres exactly. Filed here under `package` it read
+     * as a container — which meant this client would never offer to convert a gallon while the
+     * server happily would, and the two disagreed about whether a mustard bought by the gallon and
+     * measured by the litre could be costed at all.
+     */
+    gallon: 'volume',
 };
 
 export function unitDimension(unit: MeasureUnit): UnitDimension {
@@ -334,63 +343,6 @@ export function costPerServing(cost: CostAmount | null, servings: number): CostA
 }
 
 /**
- * What one line costs — the quantity converted into the unit the price is quoted against, then
- * multiplied.
- *
- * The conversion is the whole point. A price is recorded per *one* unit of something (per kilogram,
- * per piece) and a line is written in whatever the kitchen's sheet used, so multiplying the raw
- * figures reads a 300 g line against a per-kilogram price as three hundred kilograms. The server
- * converts before it multiplies (`RecipeVersionService::costOf`) and refuses across dimensions; this
- * is the same rule on the client.
- *
- * `null` is an **uncosted** line — no recorded price, or no conversion between the two units — and is
- * never a zero. A zero is a measurement, and a costing panel full of them reads as "these things are
- * free" rather than "nobody has priced them".
- */
-export function lineCost(
-    quantity: number,
-    unit: MeasureUnit,
-    price: CostAmount | null,
-    pricedPer: MeasureUnit,
-): number | null {
-    if (price === null) return null;
-    const converted = normaliseQuantity(quantity, unit, pricedPer);
-    return converted === null ? null : converted * price.amount;
-}
-
-/**
- * What one filled package costs: the product it holds, plus the container at its own waste rate.
- *
- * `capacity` is how much product one item holds *in the recipe's own unit* (a 300 cc bottle carries
- * `0.3` kg of sauce — see `IngredientAdmin.capacity`), so the contents cost is the production cost
- * per yield unit times that capacity converted into the yield's unit. The waste coefficient applies
- * to the container alone: a box is crushed in the stack, the sauce inside it is not.
- *
- * `null` when the item records no capacity, or when its capacity cannot be converted to the yield
- * unit — a `piece` capacity against a kilogram yield is a question this arithmetic cannot answer.
- */
-export function costPerPackage({
-    productionPerYieldUnit,
-    capacity,
-    yieldUnit,
-    containerPrice,
-    packagingWastePercent,
-}: {
-    readonly productionPerYieldUnit: number;
-    readonly capacity: { readonly quantity: number; readonly unit: MeasureUnit } | null;
-    readonly yieldUnit: MeasureUnit;
-    readonly containerPrice: number | null;
-    readonly packagingWastePercent: number;
-}): number | null {
-    if (capacity === null) return null;
-    const held = normaliseQuantity(capacity.quantity, capacity.unit, yieldUnit);
-    if (held === null) return null;
-    return (
-        productionPerYieldUnit * held + (containerPrice ?? 0) * (1 + packagingWastePercent / 100)
-    );
-}
-
-/**
  * Moves one row of an ordered list, returning a new list.
  *
  * The three row editors (lines, outputs, steps) all order by array position, so this is the single
@@ -505,6 +457,19 @@ export function formatMoney(
 }
 
 /**
+ * A wire currency code narrowed to one this application can actually format, or `null`.
+ *
+ * The contracts type several money figures' codes as a bare `string`, because the server's column
+ * is a `char(3)` and a client that refused an unrecognised one would blank a page over a currency
+ * somebody added to the reference data this morning. {@link formatMoney} takes the narrowed type
+ * and renders `null` as a bare number, so an unknown code degrades to an honest figure without its
+ * mark rather than to a crash or to a silently wrong symbol.
+ */
+export function knownCurrency(code: string | null | undefined): CurrencyCode | null {
+    return isCurrencyCode(code) ? code : null;
+}
+
+/**
  * The currency's mark in this locale — `$`, `د.إ.‏` — falling back to the code itself.
  *
  * For the *unit suffix* of a price field, where the value in the box has to stay a plain number the
@@ -521,14 +486,6 @@ export function currencySymbol(locale: string, currency: CurrencyCode): string {
 
 /** Statuses the product list filter offers, in lifecycle order. */
 export const PRODUCT_STATUS_FILTERS: readonly PublishableStatus[] = [
-    'draft',
-    'review_required',
-    'published',
-    'retired',
-];
-
-/** Statuses the meal list filter offers, in lifecycle order. */
-export const MEAL_STATUS_FILTERS: readonly PublishableStatus[] = [
     'draft',
     'review_required',
     'published',
@@ -784,6 +741,21 @@ export function parseMinorAmount(value: string, currency: CurrencyCode): number 
     return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
+/**
+ * A price's date as the Kitchen Forms draw every date — day, short month, year: `21 Sep 2026`.
+ *
+ * The value is a calendar day, not an instant, so it is read at UTC midnight and formatted in UTC:
+ * formatting it in the kitchen's zone would move a day west of Greenwich to the day before.
+ */
+export function formatEntryDate(formatter: Formatter, iso: string): string {
+    return formatter.formatDate(`${iso}T00:00:00.000Z`, {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'UTC',
+    });
+}
+
 /* ── subscription plans (K1.6) ───────────────────────────────────────────────────────────────── */
 
 /** Statuses the plan list filter offers, in lifecycle order. */
@@ -953,7 +925,9 @@ export function summarisePlanPrices(
     plan: { readonly id: string; readonly variants: readonly PlanVariantAdmin[] },
     priceLists: readonly { readonly entries: readonly PriceListEntry[] }[],
 ): PlanPriceCoverage {
-    const references: string[] = ['', ...plan.variants.map((variant) => String(variant.id))];
+    // One reference per configuration and none for the plan as a whole: the server's publish gate
+    // and its quote both price a configuration from its own row, and ignore a whole-plan row.
+    const references: string[] = plan.variants.map((variant) => String(variant.id));
     const found = new Map<string, Set<PriceStatus>>(
         references.map((reference) => [reference, new Set<PriceStatus>()]),
     );
@@ -1034,11 +1008,6 @@ export function recipeRowTestId(recipeId: string): string {
 /** The test id prefix of one product row. */
 export function productRowTestId(productId: string): string {
     return `kitchen-product-${productId}`;
-}
-
-/** The test id prefix of one meal row. */
-export function mealRowTestId(mealId: string): string {
-    return `kitchen-meal-${mealId}`;
 }
 
 /** The test id prefix of one price-list row. */

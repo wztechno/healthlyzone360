@@ -111,10 +111,16 @@ describe('initialChoices', () => {
         });
 
         expect(initialChoice(suggested)).toEqual({
-            quantity: '8.0000',
+            quantity: '8',
             supplierId: supplierId(1),
             ordering: true,
         });
+    });
+
+    it('drops the padding zeros, never a significant one', () => {
+        expect(initialChoice(row(1, { suggestedQuantity: '0.1250' })).quantity).toBe('0.125');
+        expect(initialChoice(row(1, { suggestedQuantity: '120.0000' })).quantity).toBe('120');
+        expect(initialChoice(row(1, { suggestedQuantity: '120' })).quantity).toBe('120');
     });
 
     it('opens a row with no suggestion empty rather than at zero', () => {
@@ -267,7 +273,7 @@ describe('buildGroups', () => {
         const plan = buildGroups([defaulted], {});
 
         expect(plan.lineCount).toBe(1);
-        expect(plan.groups[0]?.lines[0]?.quantity).toBe('6.0000');
+        expect(plan.groups[0]?.lines[0]?.quantity).toBe('6');
     });
 });
 

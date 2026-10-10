@@ -12,6 +12,7 @@ import type {
     ResendVerificationResult,
     SetContextRequest,
     TwoFactorChallengeRequest,
+    UpdatePasswordRequest,
 } from '@healthy360/api-client';
 import type { ActiveContext, Device, DeviceId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -178,6 +179,28 @@ export function useResetPasswordMutation(): UseMutationResult<void, unknown, Pas
     const repositories = useRepositories();
     return useMutation({
         mutationFn: (request: PasswordResetRequest) => repositories.auth.resetPassword(request),
+    });
+}
+
+/**
+ * Replace the password from inside a live session.
+ *
+ * `/me` is invalidated on success because `must_change_password` is the thing that changed: without
+ * the refetch the landing resolver keeps holding the person on the very screen they just finished.
+ */
+export function useUpdatePasswordMutation(): UseMutationResult<
+    void,
+    unknown,
+    UpdatePasswordRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (request: UpdatePasswordRequest) => repositories.auth.updatePassword(request),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.me() });
+        },
     });
 }
 

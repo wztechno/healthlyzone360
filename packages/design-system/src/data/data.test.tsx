@@ -160,7 +160,7 @@ describe('Table — wide', () => {
         expect(header).toContain('text-content-secondary');
         expect(header).not.toContain('uppercase');
         expect(header).not.toContain('tracking-widest');
-        // No family class survives anywhere: there is one, set on `html` per script.
+        // A header is body text and names no family: `global.css` sets it per script.
         for (const face of ['font-admin', 'font-display', 'font-mono']) {
             expect(header).not.toContain(face);
         }

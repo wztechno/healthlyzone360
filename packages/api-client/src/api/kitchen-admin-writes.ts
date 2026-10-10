@@ -6,18 +6,25 @@ import {
     RecipeId,
     SubscriptionPlanId,
 } from '@healthy360/domain-types';
-import type { KitchenBranchId, PriceListId, RecipeVersionId } from '@healthy360/domain-types';
+import type {
+    DeliveryWindowId,
+    KitchenBranchId,
+    PriceListId,
+    RecipeVersionId,
+} from '@healthy360/domain-types';
 import type { MeasureUnit, NutritionFacts } from '@healthy360/nutrition';
 
 import type {
     BranchOperating,
     CostAmount,
+    CreateDeliveryWindowRequest,
     CreateDeliveryZoneRequest,
     CreateIngredientRequest,
     CreateMealRequest,
     CreatePlanRequest,
     CreateProductRequest,
     CreateRecipeRequest,
+    DeliveryWindow,
     DeliveryZoneAdmin,
     IngredientAdmin,
     IngredientAllergenMapping,
@@ -29,13 +36,15 @@ import type {
     PriceListAdmin,
     PriceListEntry,
     ProductAdmin,
+    ProductionMode,
     RecipeAdmin,
     RecipeRollupDraft,
     RecipeRollupPreview,
     ReplacePlanMenuRequest,
     SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
-    SetDeliveryWindowsRequest,
+    ItemChannelPrices,
+    SetItemChannelPricesRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
     SetPlanCombinationsRequest,
@@ -47,6 +56,8 @@ import type {
     SetRecipeOutputsRequest,
     SetRecipeStepsRequest,
     SetZoneAreasRequest,
+    SetZoneWindowsRequest,
+    UpdateDeliveryWindowRequest,
     UpdateDeliveryZoneRequest,
     UpdateIngredientRequest,
     UpdateMealRequest,
@@ -73,10 +84,13 @@ import type {
 } from '../generated/types.ts';
 import {
     buildCategoryLookup,
+    mapDeliveryWindow,
     mapPlanMenu,
     mapRecipeRollupPreview,
+    mapItemChannelPrices,
     pickCurrentRecipeVersion,
     type CategoryLookup,
+    type WireItemChannelPrices,
 } from './kitchen-admin-mappers.ts';
 import { createApiKitchenAdminReads } from './kitchen-admin-repository.ts';
 import type { Transport } from './transport.ts';
@@ -92,6 +106,7 @@ export type ApiKitchenAdminWrites = Pick<
     | 'forkIngredient'
     | 'setIngredientAllergens'
     | 'createRecipe'
+    | 'createRecipeVersion'
     | 'updateRecipe'
     | 'setRecipeLines'
     | 'setRecipePackaging'
@@ -102,8 +117,10 @@ export type ApiKitchenAdminWrites = Pick<
     | 'retireRecipe'
     | 'createProduct'
     | 'updateProduct'
+    | 'publishProduct'
     | 'archiveProduct'
     | 'setProductChannelAvailability'
+    | 'setItemChannelPrices'
     | 'setPriceListEntries'
     | 'publishPriceList'
     | 'createMeal'
@@ -123,7 +140,9 @@ export type ApiKitchenAdminWrites = Pick<
     | 'updateZone'
     | 'archiveZone'
     | 'setZoneAreas'
-    | 'setDeliveryWindows'
+    | 'setZoneWindows'
+    | 'createDeliveryWindow'
+    | 'updateDeliveryWindow'
     | 'setBranchOperating'
 >;
 
@@ -141,6 +160,39 @@ function descriptionWire(text: { readonly en: string; readonly ar?: string | und
     };
 }
 
+/**
+ * The finished-stock half of a meal write (PROD1).
+ *
+ * Every key is omitted unless the caller said something about it, which is what
+ * lets one helper serve both the create — where an absent key takes the column
+ * default — and the patch, where an absent key means "leave it alone" and an
+ * explicit `null` means "clear it". Collapsing the two would make clearing a net
+ * content indistinguishable from not mentioning it.
+ */
+function finishedStockWire(request: {
+    readonly productionMode?: ProductionMode | null | undefined;
+    readonly ingredientId?: string | null | undefined;
+    readonly sellsFromFinishedStock?: boolean | undefined;
+    readonly netContentQuantity?: number | null | undefined;
+    readonly netContentUnitId?: string | null | undefined;
+}): Record<string, unknown> {
+    return {
+        ...(request.productionMode === undefined
+            ? {}
+            : { production_mode: request.productionMode }),
+        ...(request.ingredientId === undefined ? {} : { ingredient_id: request.ingredientId }),
+        ...(request.sellsFromFinishedStock === undefined
+            ? {}
+            : { sells_from_finished_stock: request.sellsFromFinishedStock }),
+        ...(request.netContentQuantity === undefined
+            ? {}
+            : { net_content_quantity: request.netContentQuantity }),
+        ...(request.netContentUnitId === undefined
+            ? {}
+            : { net_content_unit_id: request.netContentUnitId }),
+    };
+}
+
 function slugifyCode(label: string): string {
     const slug = label
         .toLowerCase()
@@ -148,6 +200,40 @@ function slugifyCode(label: string): string {
         .replace(/^-+|-+$/g, '')
         .slice(0, 40);
     return slug === '' ? 'item' : slug;
+}
+
+/** The window code column's width. */
+const WINDOW_CODE_MAX = 30;
+
+/**
+ * A new window's code: the English name slugged and cut to the column's 30 characters, made unique
+ * against the kitchen's existing codes with a numeric suffix (`morning`, `morning-2`, …).
+ */
+export function deriveWindowCode(name: string, existing: readonly string[]): string {
+    const base = slugifyCode(name).slice(0, WINDOW_CODE_MAX).replace(/-+$/, '') || 'window';
+    const taken = new Set(existing);
+    if (!taken.has(base)) return base;
+    for (let suffix = 2; ; suffix += 1) {
+        const tail = `-${String(suffix)}`;
+        const candidate = `${base.slice(0, WINDOW_CODE_MAX - tail.length).replace(/-+$/, '')}${tail}`;
+        if (!taken.has(candidate)) return candidate;
+    }
+}
+
+/** The editable window fields, sent only when present. An Arabic name left empty is omitted. */
+function deliveryWindowWire(request: UpdateDeliveryWindowRequest): Record<string, unknown> {
+    return {
+        ...(request.label === undefined
+            ? {}
+            : {
+                  name_en: request.label.en,
+                  ...(request.label.ar === '' ? {} : { name_ar: request.label.ar }),
+              }),
+        ...(request.weekdays === undefined ? {} : { weekdays: [...request.weekdays] }),
+        ...(request.startsAt === undefined ? {} : { starts_at: request.startsAt }),
+        ...(request.endsAt === undefined ? {} : { ends_at: request.endsAt }),
+        ...(request.isActive === undefined ? {} : { is_active: request.isActive }),
+    };
 }
 
 function isUuid(value: string): boolean {
@@ -205,6 +291,32 @@ class MeasurementUnitLookup {
         this.#loaded = true;
 
         return this.#codeToId.get(unit) ?? null;
+    }
+
+    /**
+     * The same lookup, for a caller that cannot carry on without an answer.
+     *
+     * Every write that resolves a unit does `if (unitId !== null) body.x = unitId` — so a code with
+     * no `measurement_units` row was silently omitted from the request, the save succeeded, and the
+     * field came back unchanged. Picking "Slices" in the ingredient editor did exactly that:
+     * reported success, saved nothing.
+     *
+     * Dropping a field the user chose is worse than failing, because only one of the two is
+     * visible. The pickers no longer offer a code this cannot resolve; this is what makes the next
+     * one that slips through say so.
+     */
+    async require(transport: Transport, unit: MeasureUnit): Promise<string> {
+        const id = await this.resolve(transport, unit);
+
+        if (id === null) {
+            throw new Error(
+                `No measurement unit is registered for the code "${unit}", so a write naming it ` +
+                    'would silently drop the field. This is a client/reference-data mismatch ' +
+                    'rather than anything a user did.',
+            );
+        }
+
+        return id;
     }
 }
 
@@ -576,7 +688,10 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 request.subcategoryCode === undefined
                     ? undefined
                     : lookup.codeToId.get(request.subcategoryCode);
-            const unitId = await units.resolve(transport, request.measurementUnit);
+            // `require`, not `resolve`: a stock unit is the one field on this form that decides
+            // whether every recipe line naming the row can be weighed, and dropping it quietly is
+            // how a row ends up in a unit nobody chose.
+            const unitId = await units.require(transport, request.measurementUnit);
 
             const envelope = await transport.requestEnvelope<{
                 readonly ingredient: AdminIngredient;
@@ -590,7 +705,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     ...(subcategoryId === undefined
                         ? {}
                         : { ingredient_subcategory_id: subcategoryId }),
-                    ...(unitId === null ? {} : { default_unit_id: unitId }),
+                    default_unit_id: unitId,
                     // `items_per_unit` was on the contract and never sent — a gap, not a decision:
                     // a create that stated the pack size silently dropped it and the first save
                     // after had to state it again.
@@ -659,8 +774,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 }
             }
             if (request.measurementUnit !== undefined) {
-                const unitId = await units.resolve(transport, request.measurementUnit);
-                if (unitId !== null) body.default_unit_id = unitId;
+                body.default_unit_id = await units.require(transport, request.measurementUnit);
             }
             if (request.purchaseUnit !== undefined) {
                 if (request.purchaseUnit === null) {
@@ -777,6 +891,9 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     ...(request.recipeCategory === undefined
                         ? {}
                         : { recipe_category: request.recipeCategory }),
+                    ...(request.shelfLifeDays === undefined
+                        ? {}
+                        : { shelf_life_days: request.shelfLifeDays }),
                 },
             });
 
@@ -796,11 +913,28 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     ...(request.wastePercent === undefined
                         ? {}
                         : { waste_coefficient_percent: request.wastePercent }),
+                    ...(request.packagingWastePercent === undefined
+                        ? {}
+                        : { packaging_waste_percent: request.packagingWastePercent }),
                     ...priceFields(request.b2bPrice, request.b2cPrice, undefined),
                 },
             });
 
             return reads.getRecipe(RecipeId.unsafe(recipeId));
+        },
+
+        async createRecipeVersion(
+            recipeId: RecipeId,
+            copyFromVersion: number,
+        ): Promise<RecipeAdmin> {
+            // No `If-Match`: this adds a version row and writes nothing that already exists.
+            await transport.request({
+                method: 'POST',
+                path: `/catalogue/recipes/${encodeURIComponent(String(recipeId))}/versions`,
+                body: { copy_from_version: copyFromVersion },
+            });
+
+            return reads.getRecipe(recipeId);
         },
 
         async updateRecipe(recipeId: RecipeId, request: UpdateRecipeRequest): Promise<RecipeAdmin> {
@@ -815,6 +949,8 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             // `null` clears it, `undefined` leaves it alone — `RecipeService::update` reads its
             // payload key by key and treats the empty string as a clear for this column.
             if (request.recipeCategory !== undefined) body.recipe_category = request.recipeCategory;
+            // The recipe's, never the version's: this body is the one a published recipe accepts.
+            if (request.shelfLifeDays !== undefined) body.shelf_life_days = request.shelfLifeDays;
 
             if (Object.keys(body).length > 0) {
                 await transport.request({
@@ -836,6 +972,9 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 versionBody.yield_piece_count = request.yieldPieces;
             if (request.wastePercent !== undefined) {
                 versionBody.waste_coefficient_percent = request.wastePercent;
+            }
+            if (request.packagingWastePercent !== undefined) {
+                versionBody.packaging_waste_percent = request.packagingWastePercent;
             }
 
             // On the version body and not the record's: the prices are stated against *this*
@@ -1021,6 +1160,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                         ...(request.isAssorted === undefined
                             ? {}
                             : { is_assorted: request.isAssorted }),
+                        ...finishedStockWire(request),
                     },
                 },
             );
@@ -1065,6 +1205,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             if (request.isMarketPriced !== undefined)
                 body.is_market_priced = request.isMarketPriced;
             if (request.isAssorted !== undefined) body.is_assorted = request.isAssorted;
+            Object.assign(body, finishedStockWire(request));
 
             // One editor save, up to three lock-versioned writes. Each accepted
             // one bumps the item, so the second and third have to carry what the
@@ -1089,6 +1230,15 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 await replaceDietClassifications(id, lockVersion, request.dietClassifications);
             }
 
+            return reads.getProduct(productId);
+        },
+
+        async publishProduct(productId: ProductId, request: LockedRequest): Promise<ProductAdmin> {
+            await transport.request({
+                method: 'POST',
+                path: `/catalogue/items/${encodeURIComponent(String(productId))}/publish`,
+                headers: ifMatch(request.lockVersion),
+            });
             return reads.getProduct(productId);
         },
 
@@ -1133,6 +1283,33 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             });
 
             return reads.getProduct(productId);
+        },
+
+        async setItemChannelPrices(
+            itemId: ProductId | MealId,
+            request: SetItemChannelPricesRequest,
+        ): Promise<ItemChannelPrices> {
+            const body: Record<string, unknown> = {};
+            for (const channel of ['b2b', 'b2c'] as const) {
+                const offer = request[channel];
+                if (offer === undefined) continue;
+                body[channel] =
+                    offer === null
+                        ? null
+                        : {
+                              quantity: offer.quantity,
+                              unit: offer.unit,
+                              amount_minor: offer.amountMinor,
+                          };
+            }
+
+            const data = await transport.request<WireItemChannelPrices>({
+                method: 'PUT',
+                path: `/catalogue/items/${encodeURIComponent(String(itemId))}/channel-prices`,
+                headers: ifMatch(request.lockVersion),
+                body,
+            });
+            return mapItemChannelPrices(data);
         },
 
         async setPriceListEntries(
@@ -1183,6 +1360,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                         ...(request.portionFactor === undefined
                             ? {}
                             : { portion_factor: request.portionFactor }),
+                        ...finishedStockWire(request),
                     },
                 },
             );
@@ -1214,6 +1392,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 body.recipe_id = request.recipeId === null ? null : String(request.recipeId);
             }
             if (request.portionFactor !== undefined) body.portion_factor = request.portionFactor;
+            Object.assign(body, finishedStockWire(request));
 
             if (Object.keys(body).length > 0) {
                 await patchCatalogueItem(id, request.lockVersion, body);
@@ -1302,6 +1481,15 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             const id = String(planId);
             const body: Record<string, unknown> = {};
 
+            /*
+             * Up to three writes against one row's version, so each carries the version the one
+             * before it left behind. Every one of them advances it: sending the version read at the
+             * start to all three made the profile write refuse as a conflict the moment the item
+             * patch had landed — every edit of a saved plan's name, summary or cut-off failed with
+             * "this resource changed", having half-applied.
+             */
+            let version = request.lockVersion;
+
             if (request.name !== undefined) {
                 body.name_en = request.name.en;
                 body.name_ar = request.name.ar;
@@ -1310,7 +1498,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 Object.assign(body, descriptionWire(request.description));
 
             if (Object.keys(body).length > 0) {
-                await patchCatalogueItem(id, request.lockVersion, body);
+                version = await patchCatalogueItem(id, version, body);
             }
 
             const profile: Record<string, unknown> = {};
@@ -1323,20 +1511,19 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             }
 
             if (Object.keys(profile).length > 0) {
-                await transport.request({
+                const written = await transport.request<{
+                    readonly item?: AdminCatalogueItem | undefined;
+                }>({
                     method: 'PUT',
                     path: `/catalogue/plans/${encodeURIComponent(id)}/profile`,
-                    headers: ifMatch(request.lockVersion),
+                    headers: ifMatch(version),
                     body: profile,
                 });
+                version = written?.item?.lock_version ?? version + 1;
             }
 
             if (request.dietClassifications !== undefined) {
-                await replaceDietClassifications(
-                    id,
-                    request.lockVersion,
-                    request.dietClassifications,
-                );
+                await replaceDietClassifications(id, version, request.dietClassifications);
             }
 
             return reads.getPlan(planId);
@@ -1365,14 +1552,55 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             request: SetPlanVariantsRequest,
         ): Promise<PlanAdmin> {
             const id = String(planId);
-            const combinations = await transport.request<MealCombinationOption[]>({
+            let combinations = await transport.request<MealCombinationOption[]>({
                 method: 'GET',
                 path: '/catalogue/plan-vocabulary/combinations',
             });
-            const bands = await transport.request<EnergyBand[]>({
+            let bands = await transport.request<EnergyBand[]>({
                 method: 'GET',
                 path: '/catalogue/plan-vocabulary/energy-bands',
             });
+
+            /*
+             * A configuration's meals a day and energy band are its coordinates, and the server keys
+             * them by the kitchen's vocabulary rows. The editor no longer has a section that writes
+             * that vocabulary, so a coordinate the kitchen has never used is created here, as
+             * `setPlanDurations` creates a duration — rather than dropping the configuration, which
+             * sent an empty `cells` list, came back 200, and saved a plan with nothing in it.
+             */
+            for (const variant of request.variants) {
+                if (combinations.some((row) => row.meals_per_day === variant.mealsPerDay)) continue;
+                const created = await transport.requestEnvelope<{
+                    readonly combination: MealCombinationOption;
+                }>({
+                    method: 'POST',
+                    path: '/catalogue/plan-vocabulary/combinations',
+                    body: {
+                        code: slugifyCode(`${String(variant.mealsPerDay)}-meals`),
+                        name_en: `${String(variant.mealsPerDay)} meals a day`,
+                        meals_per_day: variant.mealsPerDay,
+                        ...sittingsForMealsPerDay(variant.mealsPerDay),
+                    },
+                });
+                combinations = [...combinations, created.data.combination];
+            }
+            for (const variant of request.variants) {
+                const { min, max } = variant.energyBand;
+                if (bands.some((row) => row.min_kcal === min && row.max_kcal === max)) continue;
+                const created = await transport.requestEnvelope<{
+                    readonly energy_band: EnergyBand;
+                }>({
+                    method: 'POST',
+                    path: '/catalogue/plan-vocabulary/energy-bands',
+                    body: {
+                        code: slugifyCode(`${String(min)}-${String(max)}-kcal`),
+                        name_en: `${String(min)}–${String(max)} kcal`,
+                        min_kcal: min,
+                        max_kcal: max,
+                    },
+                });
+                bands = [...bands, created.data.energy_band];
+            }
 
             const cells = request.variants.flatMap((variant) => {
                 const combination = combinations.find(
@@ -1683,75 +1911,52 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             return reads.getZone(zoneId);
         },
 
-        /**
-         * Org-scoped delivery windows. The contract keys the write by zone so
-         * the zone editor can own the form; windows themselves are kitchen
-         * vocabulary (no zone FK on the wire today).
-         */
-        async setDeliveryWindows(
+        async setZoneWindows(
             zoneId: DeliveryZoneId,
-            request: SetDeliveryWindowsRequest,
+            request: SetZoneWindowsRequest,
         ): Promise<DeliveryZoneAdmin> {
-            let windows = await transport.request<WireDeliveryWindow[]>({
+            await transport.request({
+                method: 'PUT',
+                path: `/catalogue/delivery-zones/${encodeURIComponent(String(zoneId))}/windows`,
+                headers: ifMatch(request.lockVersion),
+                body: { delivery_window_ids: request.windowIds.map((id) => String(id)) },
+            });
+            return reads.getZone(zoneId);
+        },
+
+        async createDeliveryWindow(request: CreateDeliveryWindowRequest): Promise<DeliveryWindow> {
+            const existing = await transport.request<WireDeliveryWindow[]>({
                 method: 'GET',
                 path: '/catalogue/delivery-windows',
             });
+            const envelope = await transport.requestEnvelope<{
+                readonly delivery_window: WireDeliveryWindow;
+            }>({
+                method: 'POST',
+                path: '/catalogue/delivery-windows',
+                body: {
+                    code: deriveWindowCode(
+                        request.label.en,
+                        existing.map((row) => row.code),
+                    ),
+                    ...deliveryWindowWire(request),
+                },
+            });
+            return mapDeliveryWindow(envelope.data.delivery_window);
+        },
 
-            const keptIds = new Set<string>();
-
-            for (const window of request.windows) {
-                const body = {
-                    name_en: window.label.en,
-                    ...(window.label.ar === undefined || window.label.ar === ''
-                        ? {}
-                        : { name_ar: window.label.ar }),
-                    weekdays: [...window.weekdays],
-                    starts_at: window.startsAt,
-                    ends_at: window.endsAt,
-                    is_active: window.isActive ?? true,
-                };
-
-                if (window.id === null) {
-                    const created = await transport.requestEnvelope<{
-                        readonly delivery_window: WireDeliveryWindow;
-                    }>({
-                        method: 'POST',
-                        path: '/catalogue/delivery-windows',
-                        body: {
-                            code: slugifyCode(window.label.en),
-                            ...body,
-                        },
-                    });
-                    windows = [...windows, created.data.delivery_window];
-                    keptIds.add(created.data.delivery_window.id);
-                    continue;
-                }
-
-                const id = String(window.id);
-                keptIds.add(id);
-                const updated = await transport.requestEnvelope<{
-                    readonly delivery_window: WireDeliveryWindow;
-                }>({
-                    method: 'PATCH',
-                    path: `/catalogue/delivery-windows/${encodeURIComponent(id)}`,
-                    body,
-                });
-                windows = windows.map((row) =>
-                    row.id === id ? updated.data.delivery_window : row,
-                );
-            }
-
-            for (const existing of windows) {
-                if (keptIds.has(existing.id) || !existing.is_active) continue;
-
-                await transport.request({
-                    method: 'PATCH',
-                    path: `/catalogue/delivery-windows/${encodeURIComponent(existing.id)}`,
-                    body: { is_active: false },
-                });
-            }
-
-            return reads.getZone(zoneId);
+        async updateDeliveryWindow(
+            windowId: DeliveryWindowId,
+            request: UpdateDeliveryWindowRequest,
+        ): Promise<DeliveryWindow> {
+            const envelope = await transport.requestEnvelope<{
+                readonly delivery_window: WireDeliveryWindow;
+            }>({
+                method: 'PATCH',
+                path: `/catalogue/delivery-windows/${encodeURIComponent(String(windowId))}`,
+                body: deliveryWindowWire(request),
+            });
+            return mapDeliveryWindow(envelope.data.delivery_window);
         },
 
         async setMealAvailability(
@@ -1813,7 +2018,30 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     ...(draft.yieldPieceCount === undefined
                         ? {}
                         : { yield_piece_count: draft.yieldPieceCount }),
+                    ...(draft.packagingWastePercent === undefined
+                        ? {}
+                        : { packaging_waste_percent: draft.packagingWastePercent }),
                     lines,
+                    /*
+                     * No unit resolution here, unlike the lines above.
+                     *
+                     * A packaging line's unit is the item's own `default_unit_id` and the server
+                     * reads it off the record; the request carries a basis and, for `per_batch`
+                     * alone, a typed quantity. The other two bases are computed from the yield and
+                     * the item's capacity — by the same `preparePackaging()` a save runs, which is
+                     * what makes a preview and a save agree about how many bottles a batch fills.
+                     */
+                    ...(draft.packaging === undefined
+                        ? {}
+                        : {
+                              packaging: draft.packaging.map((line) => ({
+                                  ingredient_id: String(line.ingredientId),
+                                  basis: line.basis,
+                                  ...(line.quantity === undefined
+                                      ? {}
+                                      : { quantity: line.quantity }),
+                              })),
+                          }),
                 },
             });
 

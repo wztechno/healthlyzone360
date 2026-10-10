@@ -15,6 +15,7 @@ import {
     RecipeVersionId,
     ServiceAreaId,
     SubscriptionPlanId,
+    SALES_CHANNELS,
     type DietClassification,
     type SalesChannel,
 } from '@healthy360/domain-types';
@@ -30,6 +31,8 @@ import type {
     IngredientAdmin,
     IngredientAllergenMapping,
     IngredientCategoryAdmin,
+    ItemChannelOffer,
+    ItemChannelPrices,
     PackagingBasis,
     RecipePackagingLine,
     MealAdmin,
@@ -48,7 +51,10 @@ import type {
     CostAmount,
     RecipeAdmin,
     RecipeAdminSummary,
+    RecipeKind,
+    RecipeSoldAs,
     RecipeCostFigures,
+    RecipeComputedCost,
     RecipeAllergenDeclaration,
     RecipeLine,
     RecipeOutput,
@@ -58,11 +64,12 @@ import type {
     RecipeVersionSummary,
     RollupWarning,
     ServiceArea,
+    RecipeWeeklyCost,
     TechnicalSheetAdmin,
 } from '../contracts/kitchen-admin.ts';
-import { ALLERGEN_CONTAINMENTS } from '../contracts/kitchen-admin.ts';
+import { ALLERGEN_CONTAINMENTS, isRecipeKind } from '../contracts/kitchen-admin.ts';
 import { UNKNOWN_ISO_DATE_TIME } from './mappers.ts';
-import { mapNutritionFacts } from './marketplace-mappers.ts';
+import { mapNutritionFacts, mapPackSize } from './marketplace-mappers.ts';
 import type {
     AdminCatalogueItem,
     AdminCatalogueItemVariant,
@@ -72,8 +79,10 @@ import type {
     AdminPriceList,
     AdminPriceListEntry,
     AdminRecipe,
+    AdminRecipeSoldAs,
     AdminRecipeVersion,
     AdminSalesChannel,
+    ComputedCost as WireComputedCost,
     CostSnapshot as WireCostSnapshot,
     DeliveryWindow as WireDeliveryWindow,
     DeliveryZone,
@@ -84,6 +93,7 @@ import type {
     IngredientStatus,
     IngredientVerificationStatus,
     MealCombinationOption,
+    PlanDurationAssignment,
     PlanDurationOption,
     PlanMenuCycle as WirePlanMenuCycle,
     PlanMenuEntry as WirePlanMenuEntry,
@@ -101,8 +111,10 @@ import type {
     BranchOperatingDay as WireBranchOperatingDay,
     CatalogueItemStatus,
     DeliveryZoneStatus,
+    ItemChannelPricesEnvelope,
     PriceStatus,
     TechnicalSheet as WireTechnicalSheet,
+    WeeklyCost as WireWeeklyCost,
 } from '../generated/types.ts';
 
 /**
@@ -306,6 +318,7 @@ export function mapIngredientAdmin(
             updatedByName: null,
         },
         name: { en: wire.name_en, ar: wire.name_ar },
+        slug: wire.slug,
         reference: wire.source_ref ?? null,
         ...categoryPairFor(lookup, wire.ingredient_category_id, wire.ingredient_subcategory_id),
         measurementUnit: mapMeasureUnit(wire.default_unit_code),
@@ -473,13 +486,31 @@ export function mapDeliveryZonePublishableStatus(status: DeliveryZoneStatus): Pu
     return 'draft';
 }
 
+/**
+ * A recipe's state as a list renders it: the current version's, unless the identity is archived.
+ *
+ * The archive check comes first because it is the one fact the *identity* owns. `recipes.status` is
+ * `active | archived`; everything else belongs to a version, and an archived recipe is retired
+ * whatever its versions still say.
+ *
+ * This used to be derived from the identity plus `published_version_number` alone, which made
+ * `review_required` unreachable — there was no input that could produce it. A recipe carrying a
+ * quarantined version reported `published`, so the Review stat card sat at zero, `/kitchen/review`
+ * never listed a recipe, and a quarantine was invisible on the one screen built to surface it.
+ */
 export function mapRecipeIdentityPublishableStatus(
     recipeStatus: AdminRecipe['status'],
+    currentVersionStatus: RecipeVersionStatus | null,
     publishedVersionNumber: number | null,
 ): PublishableStatus {
     if (recipeStatus === 'archived') return 'retired';
-    if (publishedVersionNumber !== null) return 'published';
-    return 'draft';
+    if (currentVersionStatus !== null)
+        return mapRecipeVersionPublishableStatus(currentVersionStatus);
+
+    // A recipe with no versions at all. The create path makes it unreachable, but the shape allows
+    // it, and "published because something is published" is the honest fallback for a row that
+    // predates the column.
+    return publishedVersionNumber !== null ? 'published' : 'draft';
 }
 
 export function mapRecipeVersionPublishableStatus(status: RecipeVersionStatus): PublishableStatus {
@@ -564,6 +595,23 @@ function mapCatalogueItemMeta(wire: AdminCatalogueItem): IngredientAdmin['meta']
     };
 }
 
+/**
+ * The photograph id for a catalogue item, as the admin draws it.
+ *
+ * The stored `image_placeholder_id` wins when a kitchen has set one. When it has not — which is
+ * every row the v6 import wrote — the id is derived exactly as `MarketplaceMealPresenter` derives
+ * it, `item_type + '-' + slug`, so the admin and the storefront always show the same picture for
+ * the same item. Both halves come from the server; nothing here slugifies a name.
+ *
+ * Meals used to fall back to an empty string, which resolves to nothing, so any meal without a
+ * stored id drew the generated pattern; products carried no image id at all. The v6 dishes are
+ * written as `product` rows (`ProductWriter.php:165`), so this is what lets the thirty-seven of them
+ * with photographs show one in the admin.
+ */
+function catalogueImageId(wire: AdminCatalogueItem): string {
+    return wire.image_placeholder_id ?? `${wire.item_type}-${wire.slug}`;
+}
+
 export function mapProductAdminFromItem(
     wire: AdminCatalogueItem,
     options?: {
@@ -591,10 +639,15 @@ export function mapProductAdminFromItem(
         isMarketPriced: wire.is_market_priced,
         isAssorted: wire.is_assorted,
         packVariants: options?.packVariants ?? [],
+        // The server's fixed-scale string, passed through: four places survive a
+        // round trip that way, and the editor holds the user's own text anyway.
+        netContentQuantity: wire.net_content_quantity ?? null,
+        netContentUnitId: wire.net_content_unit_id ?? null,
         channelAvailability: options?.channelAvailability ?? [],
         recipeId: wire.recipe_id == null ? null : RecipeId.unsafe(wire.recipe_id),
         dietClassifications: options?.dietClassifications ?? [],
         dataQualityFlags: wire.data_quality_flags,
+        imagePlaceholderId: catalogueImageId(wire),
     };
 }
 
@@ -637,12 +690,23 @@ export function mapMealAdminFromItem(
         // and NOT NULL in the database, and one piece per sold unit is exactly
         // what a row without the column meant.
         portionFactor: wire.portion_factor == null ? 1 : Number(wire.portion_factor),
+        productionMode: wire.production_mode ?? null,
+        ingredientId: wire.ingredient_id ?? null,
+        // The stored flag, passed through. A payload predating the column reads
+        // false, which is what the column's own default says and what every meal
+        // did before it existed.
+        sellsFromFinishedStock: wire.sells_from_finished_stock ?? false,
+        // Left as the server's fixed-scale string rather than parsed to a
+        // number: four places survive a round trip that way, and a form holds
+        // the user's own text regardless.
+        netContentQuantity: wire.net_content_quantity ?? null,
+        netContentUnitId: wire.net_content_unit_id ?? null,
         mealTypes: [],
         dietClassifications: options?.dietClassifications ?? [],
         allergens: options?.allergens ?? [],
         channelAvailability: options?.channelAvailability ?? [],
         availability: options?.availability ?? availabilityFromWire ?? [],
-        imagePlaceholderId: wire.image_placeholder_id ?? '',
+        imagePlaceholderId: catalogueImageId(wire),
         marginPercent: null,
     };
 }
@@ -704,6 +768,7 @@ export function mapRecipeRollupPreview(wire: WireRecipeRollupPreview): RecipeRol
             ];
         }),
         estimatedCost: estimated,
+        computedCost: mapComputedCost(wire.computed_cost),
         warnings,
     };
 }
@@ -736,9 +801,62 @@ export function mapPlanAdminFromItem(
     };
 }
 
+function isSalesChannel(code: string): code is SalesChannel {
+    return (SALES_CHANNELS as readonly string[]).includes(code);
+}
+
+/** One seller of a recipe, as `GET /catalogue/recipes` lists it beside the row. */
+function mapRecipeSeller(wire: AdminRecipeSoldAs): RecipeSoldAs {
+    return {
+        id: wire.id,
+        // The server only lists the four cooked kinds; anything else is a contract break, and
+        // reading it as a meal is the least wrong row rather than a crash on the whole page.
+        itemType:
+            wire.item_type === 'sauce' ||
+            wire.item_type === 'dressing' ||
+            wire.item_type === 'frozen_meal'
+                ? wire.item_type
+                : 'meal',
+        status: mapCataloguePublishableStatus(wire.status),
+        lockVersion: wire.lock_version,
+        reference: wire.reference,
+        slug: wire.slug,
+        name: localised(wire.name_en, wire.name_ar),
+        imagePlaceholderId: wire.image_placeholder_id,
+        kitchenCategory: wire.kitchen_category,
+        kitchenSubcategory: wire.kitchen_subcategory,
+        isMarketPriced: wire.is_market_priced,
+        isAssorted: wire.is_assorted,
+        dataQualityFlags: wire.data_quality_flags,
+        portionFactor: parseDecimal(wire.portion_factor, 1),
+        composition: wire.composition,
+        channels: wire.channel_codes.filter(isSalesChannel),
+        packCount: wire.pack_count,
+        defaultPack:
+            wire.default_pack === null
+                ? null
+                : {
+                      label: localised(wire.default_pack.label_en, wire.default_pack.label_ar),
+                      netQuantity: parseDecimal(wire.default_pack.net_quantity, 0),
+                      netUnit: mapMeasureUnit(wire.default_pack.net_unit_code),
+                  },
+    };
+}
+
+/** The kinds a row claims, dropping anything the client does not know how to draw. */
+function mapRecipeKinds(kinds: readonly string[] | undefined): readonly RecipeKind[] {
+    const known = (kinds ?? []).filter(isRecipeKind);
+    return known.length === 0 ? ['preparation'] : known;
+}
+
 export function mapRecipeAdminSummary(
     wire: AdminRecipe,
-    options?: { readonly currentVersionNumber?: number; readonly versionCount?: number },
+    options?: {
+        readonly currentVersionNumber?: number;
+        readonly versionCount?: number;
+        readonly currentVersionStatus?: PublishableStatus;
+        readonly allergenCodes?: readonly AllergenCode[];
+    },
 ): RecipeAdminSummary {
     const currentVersionNumber =
         options?.currentVersionNumber ?? wire.published_version_number ?? 1;
@@ -747,7 +865,11 @@ export function mapRecipeAdminSummary(
         id: RecipeId.unsafe(wire.id),
         meta: {
             lockVersion: wire.lock_version,
-            status: mapRecipeIdentityPublishableStatus(wire.status, wire.published_version_number),
+            status: mapRecipeIdentityPublishableStatus(
+                wire.status,
+                wire.current_version_status,
+                wire.published_version_number,
+            ),
             updatedAt: wire.updated_at ?? UNKNOWN_ISO_DATE_TIME,
             updatedByName: null,
         },
@@ -762,6 +884,23 @@ export function mapRecipeAdminSummary(
         recipeCategory: wire.recipe_category ?? null,
         currentVersionNumber,
         versionCount: options?.versionCount ?? 1,
+        currentVersionStatus:
+            options?.currentVersionStatus ??
+            (wire.current_version_status === null
+                ? 'draft'
+                : mapRecipeVersionPublishableStatus(wire.current_version_status)),
+        allergenCodes:
+            options?.allergenCodes ??
+            wire.current_version_allergen_codes.map((code) => AllergenCode.unsafe(code)),
+        lineCount: wire.current_version_line_count ?? 0,
+        // Absent, not empty, when the server left the sellers out: a role without catalogue view
+        // gets a row with no Kind, not a row that says the recipe sells nothing.
+        ...(wire.sold_as === undefined
+            ? {}
+            : {
+                  soldAs: wire.sold_as.map(mapRecipeSeller),
+                  kinds: mapRecipeKinds(wire.kinds),
+              }),
     };
 }
 
@@ -893,6 +1032,7 @@ export function mapRecipeVersionAdmin(
         yieldUnit: measureUnitById(wire.yield_unit_id, units),
         yieldPieces: wire.yield_piece_count ?? null,
         wastePercent: parseDecimal(wire.waste_coefficient_percent, 3),
+        packagingWastePercent: parseDecimal(wire.packaging_waste_percent),
         // The two list prices share one currency by construction — the column CHECK refuses an
         // amount without one — so both read the same code rather than each carrying its own.
         b2bPrice: mapCostAmount(wire.b2b_price_amount, wire.price_currency_code),
@@ -916,6 +1056,15 @@ export function mapRecipeAdmin(
     const summary = mapRecipeAdminSummary(recipeWire, {
         currentVersionNumber: currentVersion.versionNumber,
         versionCount: versionsWire.length,
+        // Taken from the version this read already resolved rather than from the wire fields.
+        //
+        // The single read now computes `current_version_status` and the allergen codes the same way
+        // the listing does (both go through the server's `RecipeSummaries`), so the wire fields are
+        // no longer null here. The override stays because this client has the versions in hand and
+        // picks the current one with the rule it opens the editor on: a record must not report
+        // `published` on its own page while the list it was opened from said `review_required`.
+        currentVersionStatus: currentVersion.status,
+        allergenCodes: currentVersion.allergens.map((declared) => declared.allergenCode),
     });
 
     const currentVersionId = currentVersion.id;
@@ -934,6 +1083,7 @@ export function mapRecipeAdmin(
     return {
         ...summary,
         description: localised(recipeWire.notes ?? '', undefined),
+        shelfLifeDays: recipeWire.shelf_life_days ?? null,
         currentVersion,
         versions,
     };
@@ -952,6 +1102,127 @@ function mapCostAmount(
     return Number.isFinite(parsed)
         ? { amount: parsed, currency: currency as CostAmount['currency'] }
         : null;
+}
+
+/**
+ * The live cost block, wire → contract.
+ *
+ * `currency_code` is the block's, not each figure's: every amount inside one computation shares it
+ * by construction, because a formulation carrying two currencies is refused rather than blended.
+ */
+function mapComputedCost(
+    wire: WireComputedCost | WireWeeklyCost | null | undefined,
+): RecipeComputedCost | null {
+    if (wire === null || wire === undefined) return null;
+
+    const currency = wire.currency_code;
+    const amount = (value: string | null): CostAmount | null => mapCostAmount(value, currency);
+    const lineCostOf = (line: {
+        readonly line_number: number;
+        readonly ingredient_id: string;
+        readonly unit_cost_amount: string | null;
+        readonly line_cost_amount: string | null;
+    }) => ({
+        lineNumber: line.line_number,
+        ingredientId: IngredientId.unsafe(line.ingredient_id),
+        unitCost: amount(line.unit_cost_amount),
+        lineCost: amount(line.line_cost_amount),
+    });
+
+    return {
+        currency: isCurrencyCode(currency) ? currency : null,
+        production: {
+            total: amount(wire.production.total_input_cost_amount),
+            costPerYieldUnit: amount(wire.production.cost_per_yield_unit_amount),
+            costPerYieldUnitWithWaste: amount(
+                wire.production.cost_per_yield_unit_with_waste_amount,
+            ),
+            costPerPiece: amount(wire.production.cost_per_piece_amount),
+            costPerPieceWithWaste: amount(wire.production.cost_per_piece_with_waste_amount),
+            wastePercent: Number(wire.production.waste_percent),
+            uncostedLineNumbers: wire.production.uncosted_line_numbers,
+            isComplete: wire.production.is_complete,
+            lines: (wire.production.lines ?? []).map(lineCostOf),
+        },
+        packaging: {
+            total: amount(wire.packaging.total_packaging_cost_amount),
+            costPerYieldUnit: amount(wire.packaging.cost_per_yield_unit_amount),
+            costPerYieldUnitWithWaste: amount(wire.packaging.cost_per_yield_unit_with_waste_amount),
+            wastePercent: Number(wire.packaging.waste_percent),
+            uncostedLineNumbers: wire.packaging.uncosted_line_numbers,
+            isComplete: wire.packaging.is_complete,
+            lines: (wire.packaging.lines ?? []).map(lineCostOf),
+        },
+        totalCostPerYieldUnit: amount(wire.total_cost_per_yield_unit_amount),
+        /*
+         * The weekly block shares this mapper and states neither per-line costs nor per-package
+         * ones: it prices a formulation as a whole at last week's averages, so there is no line to
+         * draw a figure beside. Empty rather than absent, because every reader of these two lists
+         * renders a table and an empty table is the honest answer to "which lines cost what".
+         */
+        packages: ('packages' in wire ? wire.packages : []).map((line) => ({
+            lineNumber: line.line_number,
+            ingredientId: IngredientId.unsafe(line.ingredient_id),
+            cost: amount(line.cost_per_package_amount),
+        })),
+    };
+}
+
+/**
+ * The weekly-priced block.
+ *
+ * Not nullable, unlike `computed`: a formulation nothing could be priced brings back an empty cost
+ * block with its line sources intact, because "which ingredient has no price" is the whole answer in
+ * that case and a null would throw it away.
+ */
+function mapWeeklyCost(wire: WireWeeklyCost): RecipeWeeklyCost {
+    const base = mapComputedCost(wire);
+
+    return {
+        ...(base ?? {
+            currency: null,
+            production: {
+                total: null,
+                costPerYieldUnit: null,
+                costPerYieldUnitWithWaste: null,
+                costPerPiece: null,
+                costPerPieceWithWaste: null,
+                wastePercent: 0,
+                uncostedLineNumbers: [],
+                isComplete: false,
+                lines: [],
+            },
+            packaging: {
+                total: null,
+                costPerYieldUnit: null,
+                costPerYieldUnitWithWaste: null,
+                wastePercent: 0,
+                uncostedLineNumbers: [],
+                isComplete: false,
+                lines: [],
+            },
+            totalCostPerYieldUnit: null,
+            packages: [],
+        }),
+        weeklyPricePublicationId: wire.weekly_price_publication_id ?? null,
+        hasCarriedForwardPrices: wire.has_carried_forward_prices,
+        ingredientsNeedingInitialPrice: wire.ingredients_needing_initial_price.map((id) =>
+            IngredientId.unsafe(id),
+        ),
+        lineSources: wire.line_sources.map((source) => ({
+            lineNumber: source.line_number,
+            ingredientId: IngredientId.unsafe(source.ingredient_id),
+            source: source.cost_source,
+            unitCost: mapCostAmount(source.unit_cost_amount, source.cost_currency_code),
+            effectiveFrom: source.effective_from ?? null,
+            sourceRecipeVersionId:
+                source.source_recipe_version_id === null ||
+                source.source_recipe_version_id === undefined
+                    ? null
+                    : RecipeVersionId.unsafe(source.source_recipe_version_id),
+            carriedForward: source.carried_forward,
+        })),
+    };
 }
 
 function mapCostFigures(wire: WireCostSnapshot | null): RecipeCostFigures | null {
@@ -993,6 +1264,8 @@ export function mapTechnicalSheetAdmin(wire: WireTechnicalSheet): TechnicalSheet
         uncostedLineNumbers: wire.uncosted_line_numbers,
         asRecorded: mapCostFigures(wire.snapshots.as_recorded),
         recalculated: mapCostFigures(wire.snapshots.recalculated),
+        computed: mapComputedCost(wire.computed),
+        weekly: mapWeeklyCost(wire.weekly),
     };
 }
 
@@ -1000,30 +1273,42 @@ function mapPriceStatus(wire: PriceStatus): PriceListEntry['priceStatus'] {
     return wire;
 }
 
+/**
+ * The item types priced as a product: sauces, dressings and frozen meals share the product shape
+ * wholesale — packs, pricing, publication — as {@link ProductAdmin.itemType} records. Only a plan is
+ * a plan; reading every type that was not `product` or `meal` as one turned a list of sauces into
+ * rows referring to plans that do not exist.
+ */
+const PRODUCT_SHAPED_TYPES: ReadonlySet<AdminCatalogueItem['item_type']> = new Set([
+    'product',
+    'sauce',
+    'dressing',
+    'frozen_meal',
+]);
+
 export function mapPriceListEntry(
     wire: AdminPriceListEntry,
     itemType: AdminCatalogueItem['item_type'],
     itemId: string,
     variantCode: string | null,
 ): PriceListEntry {
-    const itemRef =
-        itemType === 'product'
-            ? {
-                  kind: 'product' as const,
-                  productId: ProductId.unsafe(itemId),
-                  packCode: variantCode,
-              }
-            : itemType === 'meal'
-              ? { kind: 'meal' as const, mealId: MealId.unsafe(itemId) }
-              : {
-                    kind: 'plan' as const,
-                    planId: SubscriptionPlanId.unsafe(itemId),
-                    variantId:
-                        wire.catalogue_item_variant_id === null ||
-                        wire.catalogue_item_variant_id === undefined
-                            ? null
-                            : PlanVariantId.unsafe(wire.catalogue_item_variant_id),
-                };
+    const itemRef = PRODUCT_SHAPED_TYPES.has(itemType)
+        ? {
+              kind: 'product' as const,
+              productId: ProductId.unsafe(itemId),
+              packCode: variantCode,
+          }
+        : itemType === 'meal'
+          ? { kind: 'meal' as const, mealId: MealId.unsafe(itemId) }
+          : {
+                kind: 'plan' as const,
+                planId: SubscriptionPlanId.unsafe(itemId),
+                variantId:
+                    wire.catalogue_item_variant_id === null ||
+                    wire.catalogue_item_variant_id === undefined
+                        ? null
+                        : PlanVariantId.unsafe(wire.catalogue_item_variant_id),
+            };
 
     return {
         item: itemRef,
@@ -1068,12 +1353,14 @@ export function mapPriceListAdmin(
 export function mapDeliveryWindow(wire: WireDeliveryWindow): DeliveryWindow {
     return {
         id: DeliveryWindowId.unsafe(wire.id),
+        code: wire.code,
         label: localised(wire.name_en, wire.name_ar),
         weekdays: wire.weekdays.length === 0 ? [1, 2, 3, 4, 5, 6, 7] : wire.weekdays,
         startsAt: wire.starts_at ?? '00:00',
         endsAt: wire.ends_at ?? '00:00',
         capacity: null,
         isActive: wire.is_active,
+        zoneIds: (wire.delivery_zone_ids ?? []).map((id) => DeliveryZoneId.unsafe(id)),
     };
 }
 
@@ -1091,7 +1378,6 @@ export function mapDeliveryZoneAdmin(
     wire: DeliveryZone,
     options?: {
         readonly areas?: readonly ServiceArea[];
-        readonly deliveryWindows?: readonly DeliveryWindow[];
     },
 ): DeliveryZoneAdmin {
     return {
@@ -1113,7 +1399,7 @@ export function mapDeliveryZoneAdmin(
         minimumOrderMinor: wire.minimum_order_minor,
         currency: isCurrencyCode(wire.currency_code) ? wire.currency_code : 'USD',
         estimatedMinutes: wire.estimated_minutes,
-        deliveryWindows: options?.deliveryWindows ?? [],
+        windowIds: (wire.delivery_window_ids ?? []).map((id) => DeliveryWindowId.unsafe(id)),
     };
 }
 
@@ -1125,6 +1411,38 @@ export function mapPlanCombination(option: MealCombinationOption): PlanCombinati
         snacksPerDay: 0,
         isAvailable: option.is_active,
     };
+}
+
+/**
+ * The durations one plan offers, from its configurations' assignments.
+ *
+ * One row per duration however many configurations carry it — the editor writes a duration to every
+ * configuration at once — with the discount the first assignment states. Ordered as the editor lists
+ * them: the one-off first, then by length.
+ */
+export function planDurationsFromAssignments(
+    assignments: readonly PlanDurationAssignment[],
+    vocabulary: readonly PlanDurationOption[],
+): readonly PlanDurationAdmin[] {
+    const options = new Map(vocabulary.map((option) => [option.id, option]));
+    const seen = new Set<string>();
+    const rows: PlanDurationAdmin[] = [];
+    for (const assignment of assignments) {
+        if (seen.has(assignment.plan_duration_id)) continue;
+        const option = options.get(assignment.plan_duration_id);
+        if (option === undefined) continue;
+        seen.add(assignment.plan_duration_id);
+        const discount =
+            assignment.discount_percent === null
+                ? null
+                : Number.parseFloat(assignment.discount_percent);
+        rows.push({
+            ...mapPlanDuration(option),
+            discountPercent:
+                discount === null || Number.isNaN(discount) ? null : Math.round(discount),
+        });
+    }
+    return rows.sort((left, right) => (left.days ?? -1) - (right.days ?? -1));
 }
 
 export function mapPlanDuration(option: PlanDurationOption): PlanDurationAdmin {
@@ -1267,4 +1585,32 @@ export function priceListChannelsFromAssignments(
         if (!channels.includes(mapped)) channels.push(mapped);
     }
     return channels;
+}
+
+/* ── B2B / B2C weight and price ──────────────────────────────────────────────────────────────── */
+
+export type WireItemChannelPrices = ItemChannelPricesEnvelope['data'];
+type WireItemChannelOffer = NonNullable<WireItemChannelPrices['channels']['b2b']>;
+
+/**
+ * Wire → `ItemChannelPrices`. A channel whose currency this build cannot format is read as absent
+ * rather than shown as a bare number, the rule every money mapper here follows.
+ */
+export function mapItemChannelPrices(wire: WireItemChannelPrices): ItemChannelPrices {
+    const offer = (row: WireItemChannelOffer | null): ItemChannelOffer | null =>
+        row === null || !isCurrencyCode(row.currency_code)
+            ? null
+            : {
+                  salesChannelId: row.sales_channel_id,
+                  priceListId: PriceListId.unsafe(row.price_list_id),
+                  currency: row.currency_code,
+                  pack: mapPackSize(row.pack),
+                  amountMinor: row.amount_minor,
+              };
+
+    return {
+        lockVersion: wire.lock_version,
+        b2b: offer(wire.channels.b2b),
+        b2c: offer(wire.channels.b2c),
+    };
 }

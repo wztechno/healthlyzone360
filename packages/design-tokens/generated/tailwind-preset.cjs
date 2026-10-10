@@ -59,7 +59,9 @@ module.exports = {
           "accent": "rgb(var(--h360-color-accent-surface) / <alpha-value>)",
           "accent-subtle": "rgb(var(--h360-color-accent-subtle) / <alpha-value>)",
           "canopy": "rgb(var(--h360-color-surface-canopy) / <alpha-value>)",
-          "canopy-deep": "rgb(var(--h360-color-surface-canopy-deep) / <alpha-value>)"
+          "canopy-deep": "rgb(var(--h360-color-surface-canopy-deep) / <alpha-value>)",
+          "sidebar": "rgb(var(--h360-color-surface-sidebar) / <alpha-value>)",
+          "sidebar-active": "rgb(var(--h360-color-sidebar-active) / <alpha-value>)"
         },
         "content": {
           "primary": "rgb(var(--h360-color-text-primary) / <alpha-value>)",
@@ -71,7 +73,10 @@ module.exports = {
           "on-accent": "rgb(var(--h360-color-on-accent-surface) / <alpha-value>)",
           "on-accent-subtle": "rgb(var(--h360-color-on-accent-subtle) / <alpha-value>)",
           "on-canopy": "rgb(var(--h360-color-on-canopy) / <alpha-value>)",
-          "on-canopy-muted": "rgb(var(--h360-color-on-canopy-muted) / <alpha-value>)"
+          "on-canopy-muted": "rgb(var(--h360-color-on-canopy-muted) / <alpha-value>)",
+          "on-sidebar": "rgb(var(--h360-color-on-sidebar) / <alpha-value>)",
+          "on-sidebar-muted": "rgb(var(--h360-color-on-sidebar-muted) / <alpha-value>)",
+          "on-sidebar-active": "rgb(var(--h360-color-on-sidebar-active) / <alpha-value>)"
         },
         "stroke": {
           "subtle": "rgb(var(--h360-color-border-subtle) / <alpha-value>)",
@@ -185,8 +190,8 @@ module.exports = {
       },
       "fontFamily": {
         "latin": [
-          "SchibstedGrotesk_400Regular",
-          "'Schibsted Grotesk'",
+          "Inter_400Regular",
+          "'Inter'",
           "'IBM Plex Sans Arabic'",
           "system-ui",
           "-apple-system",
@@ -203,8 +208,9 @@ module.exports = {
           "sans-serif"
         ],
         "display": [
-          "SchibstedGrotesk_700Bold",
-          "'Schibsted Grotesk'",
+          "SpaceGrotesk_700Bold",
+          "'Space Grotesk'",
+          "'Inter'",
           "'IBM Plex Sans Arabic'",
           "system-ui",
           "-apple-system",
@@ -213,8 +219,8 @@ module.exports = {
           "sans-serif"
         ],
         "mono": [
-          "SchibstedGrotesk_400Regular",
-          "'Schibsted Grotesk'",
+          "Inter_400Regular",
+          "'Inter'",
           "'IBM Plex Sans Arabic'",
           "system-ui",
           "-apple-system",

@@ -11,6 +11,12 @@ import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
 import { GAP_CLASS } from '../primitives/stack.tsx';
 import type { SpaceStep } from '../primitives/stack.tsx';
+import { TableCellTextContext } from '../primitives/text.tsx';
+import type { TableCellText } from '../primitives/text.tsx';
+
+/** The two values a cell can give its text — constants, because the context compares by identity. */
+const PLAIN_CELL: TableCellText = {};
+const STRONG_CELL: TableCellText = { strong: true };
 
 export type TableSortDirection = 'asc' | 'desc';
 
@@ -51,7 +57,12 @@ export interface TableRowAction<Row> {
 export interface TableColumn<Row> {
     readonly key: string;
     readonly header: string;
-    /** Aligns to the trailing edge so figures line up on their last digit. */
+    /**
+     * A column of figures. On the admin's compact tables it is centred under its header — a number
+     * and its unit read as one block, and the header names the block — as `DataList` sets its figure
+     * columns. The customer's tables and the stacked card keep it at the trailing edge, where a value
+     * sits opposite its label.
+     */
     readonly numeric?: boolean | undefined;
     /**
      * The one figure in the row a reader is actually comparing — a total, a price, a count. It is
@@ -64,8 +75,14 @@ export interface TableColumn<Row> {
      * the card's leading line in the stacked presentation. At most one column should set this.
      */
     readonly rowHeader?: boolean | undefined;
-    /** Relative width inside the row. Defaults to 1. */
+    /** Relative share of the row's width once the fixed columns have theirs. Defaults to 1. */
     readonly flex?: number | undefined;
+    /**
+     * A fixed track in dp, for a column whose content is short and known — a unit, a count, a
+     * status. It does not take a share of the row, so the space a short value does not need goes to
+     * the columns of long text instead of sitting empty beside it. Wins over `flex`.
+     */
+    readonly width?: number | undefined;
     /**
      * Makes the column's header pressable and gives it an `aria-sort`. Only the wide presentation
      * has column headers, so this has no effect below `md`.
@@ -161,6 +178,18 @@ export interface TableProps<Row> {
  * `columnheader` — and a footer inside each card below it, where a fourth column of buttons would
  * be the squeeze the stacked branch exists to avoid.
  */
+/**
+ * One column's track. A fixed column is exactly its `width`; every other column shares what is left
+ * by its `flex`, and may shrink below its content — `minWidth: 0` — so a long value ends in an
+ * ellipsis (see `TableCellTextContext`) instead of pushing the row wider than the table.
+ */
+function trackStyle<Row>(column: TableColumn<Row>) {
+    if (column.width !== undefined) {
+        return { flexBasis: column.width, flexGrow: 0, flexShrink: 0, minWidth: 0 } as const;
+    }
+    return { flexGrow: column.flex ?? 1, flexShrink: 1, flexBasis: 0, minWidth: 0 } as const;
+}
+
 export function Table<Row>({
     caption,
     columns,
@@ -181,6 +210,15 @@ export function Table<Row>({
     const { t } = useTranslation();
     const { atLeast } = useBreakpoint();
     const density = useDensity();
+    /*
+     * The admin's figures centre under their header and every cell reads at one size and ink; the
+     * customer's tables — a nutrition label, a plan comparison — keep figures on the trailing edge,
+     * where a label-and-amount table has always put them, and keep their own type ramp.
+     */
+    const desk = density === 'compact';
+    const figureText = desk ? 'text-center' : 'text-end';
+    const figureJustify = desk ? 'justify-center' : 'justify-end';
+    const figureItems = desk ? 'items-center' : 'items-end';
     const HEADER_CELL_CLASS = headerCellClass(density);
     const generated = useId();
     const base = testID ?? `table-${generated.replace(/:/g, '')}`;
@@ -374,9 +412,9 @@ export function Table<Row>({
                                         numberOfLines={2}
                                         className={cx(
                                             HEADER_CELL_CLASS,
-                                            column.numeric === true ? 'text-end' : 'text-start',
+                                            column.numeric === true ? figureText : 'text-start',
                                         )}
-                                        style={{ flex: column.flex ?? 1 }}
+                                        style={trackStyle(column)}
                                     >
                                         {column.header}
                                     </RNText>
@@ -396,7 +434,7 @@ export function Table<Row>({
                                     aria-sort={
                                         !active ? 'none' : ascending ? 'ascending' : 'descending'
                                     }
-                                    style={{ flex: column.flex ?? 1 }}
+                                    style={trackStyle(column)}
                                 >
                                     <Pressable
                                         testID={`${base}-sort-${column.key}`}
@@ -425,7 +463,7 @@ export function Table<Row>({
                                         className={cx(
                                             'flex-row items-center gap-1 min-h-touch',
                                             column.numeric === true
-                                                ? 'justify-end'
+                                                ? figureJustify
                                                 : 'justify-start',
                                         )}
                                     >
@@ -435,16 +473,14 @@ export function Table<Row>({
                                                 'shrink',
                                                 HEADER_CELL_CLASS,
                                                 active ? 'text-content-primary' : null,
-                                                column.numeric === true ? 'text-end' : 'text-start',
+                                                column.numeric === true ? figureText : 'text-start',
                                             )}
                                         >
                                             {column.header}
                                         </RNText>
                                         <Icon
                                             testID={`${base}-sort-indicator-${column.key}`}
-                                            name={
-                                                active && !ascending ? 'chevronDown' : 'chevronUp'
-                                            }
+                                            name={active && !ascending ? 'arrowDown' : 'arrowUp'}
                                             size="sm"
                                             className={
                                                 active
@@ -490,7 +526,7 @@ export function Table<Row>({
                                     testID={`${base}-cell-${rowKey(row)}-${column.key}`}
                                     role={column.rowHeader === true ? 'rowheader' : 'cell'}
                                     className={cx(
-                                        column.numeric === true ? 'items-end' : 'items-start',
+                                        column.numeric === true ? figureItems : 'items-start',
                                         // The emphasis is applied to the *cell*, so a caller gets
                                         // the treatment by declaring which column matters rather
                                         // than by repeating a class in every `render`.
@@ -507,9 +543,24 @@ export function Table<Row>({
                                               ? 'text-role-strong text-content-primary'
                                               : 'text-base font-semibold text-content-primary',
                                     )}
-                                    style={{ flex: column.flex ?? 1 }}
+                                    style={trackStyle(column)}
                                 >
-                                    {column.render(row)}
+                                    {/*
+                                     * One size and one ink down every column — see
+                                     * `TableCellTextContext`. The `primary` column keeps its
+                                     * weight, not a larger size.
+                                     */}
+                                    <TableCellTextContext.Provider
+                                        value={
+                                            !desk
+                                                ? null
+                                                : column.primary === true
+                                                  ? STRONG_CELL
+                                                  : PLAIN_CELL
+                                        }
+                                    >
+                                        {column.render(row)}
+                                    </TableCellTextContext.Provider>
                                 </View>
                             ))}
                             {rowAction === undefined ? null : (

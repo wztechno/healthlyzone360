@@ -6,7 +6,9 @@ namespace Healthy360\Ingredients\Providers;
 
 use Healthy360\Ingredients\Console\ImportIngredientNutritionCommand;
 use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
+use Healthy360\Ingredients\Contracts\IngredientWeeklyPriceLookup;
 use Healthy360\Ingredients\Services\NullIngredientUsageRegistry;
+use Healthy360\Ingredients\Services\NullIngredientWeeklyPriceLookup;
 use Healthy360\Ingredients\Services\PlatformLibraryAccess;
 use Illuminate\Support\ServiceProvider;
 
@@ -24,6 +26,14 @@ class IngredientsServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(IngredientUsageRegistry::class, NullIngredientUsageRegistry::class);
+
+        // The same port shape, for the estimating price. Procurement owns the
+        // goods-receipt ledger the figure is computed from and binds the real
+        // implementation over this one in its `boot()`; declaring the question
+        // here — upstream of Recipes, Inventory and Procurement alike — is what
+        // keeps `Recipes -> Procurement` out of the graph, where it would close a
+        // cycle against `Procurement -> Inventory -> Recipes`.
+        $this->app->bind(IngredientWeeklyPriceLookup::class, NullIngredientWeeklyPriceLookup::class);
 
         // Scoped, not bound fresh: "is this caller the platform operator?" costs an organisation
         // lookup, the answer cannot change inside one request, and the presenter asks it once per

@@ -7,7 +7,10 @@ import {
     Stack,
     Text,
     inputControlClassName,
+    Menu,
     inputFrameClassName,
+    useBreakpoint,
+    useTheme,
 } from '@healthy360/design-system';
 import type { NavigationItem } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
@@ -25,7 +28,6 @@ import { QUERY_PARAM } from '../features/marketplace/filter-bar.tsx';
 import { marketplaceNavigation } from '../navigation/consumer-items.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
 import { useSession } from '../session/session-provider.tsx';
-import { ThemeToggle } from './theme-toggle.tsx';
 
 const SHELL_TEST_ID = 'marketplace-shell';
 const CONTENT_TEST_ID = `${SHELL_TEST_ID}-content`;
@@ -146,7 +148,9 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                     key: item.key,
                     label: t(item.labelKey),
                     icon: item.icon,
-                    active: pathname === item.href,
+                    // A section, not a page: HealthZone keeps "Menu" underlined on a meal and
+                    // "Kitchens" on a storefront, so a destination owns everything beneath it.
+                    active: pathname === item.href || pathname.startsWith(`${item.href}/`),
                     testID: `marketplace-nav-${item.key}`,
                     onPress: () => {
                         router.push(item.href as never);
@@ -195,8 +199,8 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
              * lands now and the palette pass reaches this without reopening the file. Retiring the
              * gradient also hands violet back to its one job, marking machine-generated content.
              */}
-            <View className="h-7 w-7 rounded rounded-es-xs border-[1.5px] border-content-primary bg-surface-brand" />
-            <RNText className="text-xl tracking-display text-content-primary">
+            <View className="h-[26px] w-[26px] rounded rounded-es-xs border-[1.5px] border-surface-canopy bg-surface-brand" />
+            <RNText className="font-display text-xl font-extrabold tracking-display text-content-primary">
                 {t('marketplace:brand.name')}
             </RNText>
         </Pressable>
@@ -219,6 +223,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
      * and the catalogue keeps its own search field on the screen where it belongs.
      */
     const [searchDraft, setSearchDraft] = useState('');
+    const wideBar = useBreakpoint().atLeast('xl');
     const [searchFocused, setSearchFocused] = useState(false);
 
     const submitSearch = useCallback(() => {
@@ -257,100 +262,172 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     );
 
     /*
-     * Two changes from `wrap={false}`, and both are needed — either alone does nothing.
+     * The account control: the design's bordered name button, opening the account menu.
      *
-     * These three controls are 263 px wide together, which is most of a 320 px phone before the
-     * brand mark has had any. With `wrap={false}` the *document* was 472 px wide inside a 390 px
-     * window at every viewport below `md`, so the whole page drifted sideways under the thumb.
+     * HealthZone's header ends in exactly two controls — the person's name and the cart — and the
+     * row used to carry six (name, basket, language, appearance, sign out, plus search). The four
+     * that are not destinations moved behind the name, which is where a person looks for "me":
+     * their account, their home, the language and appearance switches, and sign out. The language
+     * and appearance switches are also in the footer, so a signed-out visitor still has them and
+     * nobody has to open a menu to find the one control they cannot read the page without.
      *
-     * `wrap` (the `Inline` default, and it says why: unwrapped rows overflow) lets the group use a
-     * second line. `shrink` is what makes that possible at all: React Native Web gives every `View`
-     * `flex-shrink: 0`, so a wrapping row still takes its max-content width and never reaches the
-     * point where wrapping would happen. The pair is the smallest change that makes the top bar fit.
+     * `displayName` is the field the profile keeps for naming a person, so mononyms and non-Latin
+     * name orders come through as entered rather than being reassembled from given and family parts.
      */
+    const { isDark, toggleTheme } = useTheme();
+    const toggleLocale = useCallback(() => {
+        void setLocale(locale.startsWith('ar') ? 'en' : 'ar');
+    }, [locale, setLocale]);
+    const otherLocaleLabel = locale.startsWith('ar') ? 'English' : t('common:locale.arabic');
+    const themeLabel = isDark ? t('common:theme.switchToLight') : t('common:theme.switchToDark');
+    const accountMenuLabel = t('marketplace:nav.accountMenu', { name: accountName });
+
+    const accountMenu = (
+        <Menu
+            testID="marketplace-account-menu"
+            label={accountMenuLabel}
+            align="end"
+            sections={[
+                {
+                    items: [
+                        {
+                            key: 'account',
+                            label: t('marketplace:nav.account'),
+                            testID: 'marketplace-account',
+                            onSelect: () => {
+                                router.push('/customer/account' as never);
+                            },
+                        },
+                        {
+                            key: 'my-home',
+                            label: t('marketplace:nav.myHome'),
+                            testID: 'marketplace-my-home',
+                            onSelect: () => {
+                                router.push('/customer' as never);
+                            },
+                        },
+                        // The person's own details card — name, email, organisations, devices. It
+                        // was one press away from the old sidebar, so it is one press away here.
+                        {
+                            key: 'profile',
+                            label: t('marketplace:consumer.nav.profile'),
+                            testID: 'marketplace-profile',
+                            onSelect: () => {
+                                router.push('/profile' as never);
+                            },
+                        },
+                    ],
+                },
+                {
+                    items: [
+                        {
+                            key: 'locale',
+                            label: otherLocaleLabel,
+                            testID: 'locale-toggle',
+                            onSelect: toggleLocale,
+                        },
+                        {
+                            key: 'theme',
+                            label: themeLabel,
+                            testID: 'theme-toggle',
+                            onSelect: toggleTheme,
+                        },
+                    ],
+                },
+                {
+                    items: [
+                        {
+                            key: 'sign-out',
+                            label: t('common:action.signOut'),
+                            testID: 'marketplace-sign-out',
+                            disabled: logout.isPending,
+                            onSelect: () => {
+                                logout.mutate(undefined, {
+                                    onSuccess: () => {
+                                        router.replace('/' as never);
+                                    },
+                                });
+                            },
+                        },
+                    ],
+                },
+            ]}
+            trigger={({ triggerProps, toggle }) => (
+                <Pressable
+                    {...triggerProps}
+                    testID="marketplace-account-trigger"
+                    role="button"
+                    accessibilityRole="button"
+                    accessibilityLabel={accountMenuLabel}
+                    focusable
+                    onPress={toggle}
+                    // The design's name button: outlined on the strong stroke, 10px radius, the
+                    // name at 14px medium. Outlined, not borderless — a bordered box is what tells
+                    // you the name is a control and not a label saying who is signed in.
+                    className="min-h-touch max-w-[180px] flex-row items-center rounded-lg border border-stroke-strong bg-transparent px-3.5"
+                >
+                    <RNText
+                        numberOfLines={1}
+                        className="text-sm font-medium text-content-primary text-start"
+                    >
+                        {accountName}
+                    </RNText>
+                </Pressable>
+            )}
+        />
+    );
+
     /*
-     * Two groups, not one run of six controls.
-     *
-     * At `xs` (4px) the search box, the account card and the basket sat hard against one another
-     * and read as a single undifferentiated block — the eye could not tell where one control ended
-     * and the next began. The design separates the search from the account controls by a clear
-     * margin and spaces the controls themselves more loosely than that, so the nesting here mirrors
-     * it: 16px between the two groups, 8px inside the action group.
+     * The cart: the word and its count, always. The design draws the count chip even at zero, and a
+     * chip that appears only once something is added makes the button change width under the
+     * pointer at the moment of the first add. The chip is the button's colours inverted.
+     */
+    const cartButton = (
+        <Button
+            testID="marketplace-basket"
+            size="sm"
+            variant="primary"
+            label={cartLabel}
+            accessibilityLabel={cartButtonLabel}
+            iconEnd={
+                <View
+                    testID="marketplace-basket-count"
+                    className="min-w-[24px] items-center justify-center rounded-full bg-content-on-brand px-2 py-0.5"
+                >
+                    <RNText className="text-xs font-semibold tabular-nums text-surface-brand">
+                        {String(cartCount)}
+                    </RNText>
+                </View>
+            }
+            onPress={() => {
+                router.push('/customer/cart' as never);
+            }}
+        />
+    );
+
+    /*
+     * One line from `xl`. A wrapping row breaks a line *before* it lets a child shrink, so at 1280px
+     * the search dropped onto a second line at full width instead of narrowing. From `xl` the bar
+     * keeps the destinations on one line (see `AppShell`), and the search — which is `min-w-0
+     * shrink` — is the part that yields, as HealthZone draws it. Below `xl` the group may wrap:
+     * React Native Web gives every `View` `flex-shrink: 0`, so without `shrink` and `wrap` the row
+     * would take its max-content width and push the document sideways on a phone.
      */
     const topbarEnd = (
-        <Inline space="md" justify="end" className="min-w-0 shrink">
+        <Inline space="md" justify="end" wrap={!wideBar} className="min-w-0 shrink">
             {searchField}
             <Inline space="sm" justify="end">
                 {signedIn ? (
                     <>
-                        {/*
-                         * The account controls sit in the row, not behind a menu.
-                         *
-                         * A menu was tried and taken back out: it collapses four controls into one,
-                         * but it also hides the language switch and the appearance switch behind a
-                         * press, and those are the two people reach for without being told where
-                         * they are. Sign out likewise — a way out that has to be hunted for is a
-                         * worse trade than a denser row.
-                         *
-                         * The cost is real and known: this row carries six controls plus a search
-                         * field, so it is tighter than the design's, which draws two. If it ever
-                         * crowds again, the fix is the menu — the `Popover` still supports it
-                         * (`triggerVariant="button"`, `align="end"`) — not narrower gaps.
-                         *
-                         * `displayName` is the field the profile keeps for naming a person, so
-                         * mononyms and non-Latin name orders come through as entered rather than
-                         * being reassembled from given and family parts.
-                         */}
-                        <Button
-                            testID="marketplace-my-home"
-                            size="sm"
-                            // Outlined, not borderless: a bordered box is what tells you the name
-                            // is a control and not a label saying who is signed in.
-                            variant="secondary"
-                            label={accountName}
-                            onPress={() => {
-                                router.push('/customer' as never);
-                            }}
-                        />
-                        <Button
-                            testID="marketplace-basket"
-                            size="sm"
-                            variant="primary"
-                            label={cartButtonLabel}
-                            /*
-                             * No leading glyph. The design's cart is the word and the count, nothing
-                             * else, and the basket icon in front of the word "Basket" was saying the
-                             * same thing twice while squeezing the count into the corner.
-                             *
-                             * The count is a filled pill against the button's own fill — light chip on
-                             * the strong fill here, the design's lime chip on ink once the palette
-                             * lands. It needs the width and the vertical padding to read as a chip
-                             * rather than as a stray character: at `min-w-[20px] px-1.5` with no
-                             * `py`, a single digit rendered as a cramped white square.
-                             */
-                            iconEnd={
-                                cartCount === 0 ? undefined : (
-                                    <View
-                                        testID="marketplace-basket-count"
-                                        className="min-w-[24px] items-center justify-center rounded-full bg-surface-raised px-2 py-0.5"
-                                    >
-                                        <RNText className="text-xs font-semibold text-surface-brand">
-                                            {String(cartCount)}
-                                        </RNText>
-                                    </View>
-                                )
-                            }
-                            onPress={() => {
-                                router.push('/customer/cart' as never);
-                            }}
-                        />
+                        {accountMenu}
+                        {cartButton}
                     </>
                 ) : (
                     <>
                         <Button
                             testID="marketplace-register"
                             size="sm"
-                            variant="ghost"
+                            variant="secondary"
                             label={t('marketplace:nav.register')}
                             onPress={() => {
                                 goToAuth('/register');
@@ -367,37 +444,6 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                         />
                     </>
                 )}
-                {/*
-                 * Shared by both states, and last in the row — after the destination the person
-                 * came for. Sign out stays `quiet`: outlined so it does not read as disabled, but
-                 * never the strongest control in a row that contains the basket.
-                 */}
-                <Button
-                    testID="locale-toggle"
-                    size="sm"
-                    variant="ghost"
-                    label={locale.startsWith('ar') ? 'English' : t('common:locale.arabic')}
-                    onPress={() => {
-                        void setLocale(locale.startsWith('ar') ? 'en' : 'ar');
-                    }}
-                />
-                <ThemeToggle />
-                {signedIn ? (
-                    <Button
-                        testID="marketplace-sign-out"
-                        size="sm"
-                        variant="quiet"
-                        label={t('common:action.signOut')}
-                        loading={logout.isPending}
-                        onPress={() => {
-                            logout.mutate(undefined, {
-                                onSuccess: () => {
-                                    router.replace('/' as never);
-                                },
-                            });
-                        }}
-                    />
-                ) : null}
             </Inline>
         </Inline>
     );
@@ -414,41 +460,47 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
         { key: 'dietitians', labelKey: 'marketplace:nav.dietitians', href: '/dietitians' },
         { key: 'how-it-works', labelKey: 'marketplace:nav.howItWorks', href: '/how-it-works' },
         { key: 'for-business', labelKey: 'marketplace:nav.forBusiness', href: '/for-business' },
+        // Not decoration: CC BY and CC BY-SA ask for attribution reasonable to the medium, and for
+        // the images that cannot carry a credit beside them — a grid card, a tile, a 20px
+        // catalogue thumbnail — this link is where that obligation is actually discharged.
+        { key: 'image-credits', labelKey: 'marketplace:nav.imageCredits', href: '/image-credits' },
         signedIn
             ? { key: 'my-home', labelKey: 'marketplace:nav.myHome', href: '/customer' }
             : { key: 'sign-in', labelKey: 'marketplace:nav.signIn', href: '/sign-in' },
     ].filter((link) => isPathAvailable(link.href));
 
-    const footer = (
-        <Stack
-            space="sm"
-            testID="marketplace-footer"
-            className="bg-surface-canopy p-8 md:px-10 lg:px-11"
+    /** A footer link: small muted print, underlined, with a touch target around it. */
+    const footerLink = (key: string, label: string, onPress: () => void) => (
+        <Pressable
+            key={key}
+            testID={`footer-${key}`}
+            role="link"
+            accessibilityRole="link"
+            focusable
+            onPress={onPress}
+            className="min-h-touch justify-center"
         >
-            <RNText className="text-base text-content-on-canopy">
-                {t('marketplace:brand.name')}
-            </RNText>
-            <RNText className="text-sm text-content-on-canopy-muted">
-                {t('marketplace:footer.about')}
-            </RNText>
-            <Inline space="sm" wrap>
-                {footerLinks.map((link) => (
-                    <Pressable
-                        key={link.key}
-                        testID={`footer-${link.key}`}
-                        role="link"
-                        accessibilityRole="link"
-                        focusable
-                        onPress={() => {
-                            router.push(link.href as never);
-                        }}
-                        className="min-h-touch justify-center pe-3"
-                    >
-                        <RNText className="text-sm text-content-on-canopy-muted underline">
-                            {t(link.labelKey)}
-                        </RNText>
-                    </Pressable>
-                ))}
+            <RNText className="text-xs text-content-secondary underline">{label}</RNText>
+        </Pressable>
+    );
+
+    /*
+     * The design's foot of the page: one quiet block of small print under a hairline, on the
+     * page's measure (`AppShell` draws the rule). It carries what a footer must — the secondary
+     * destinations, the image credits the CC licences ask for, the language and appearance
+     * switches a signed-out visitor has nowhere else to find, and the prototype disclosure — in the
+     * design's 12px muted type rather than as a second band of chrome.
+     */
+    const footer = (
+        <Stack space="xs" testID="marketplace-footer" className="pb-6 pt-3">
+            <Inline space="md" wrap>
+                {footerLinks.map((link) =>
+                    footerLink(link.key, t(link.labelKey), () => {
+                        router.push(link.href as never);
+                    }),
+                )}
+                {footerLink('locale', otherLocaleLabel, toggleLocale)}
+                {footerLink('theme', themeLabel, toggleTheme)}
             </Inline>
             {/*
              * There are no published terms, privacy notice or licence to link to: this is a
@@ -456,8 +508,8 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
              * dead control in the one place a person is most entitled to expect a real document.
              * Saying so is the honest substitute.
              */}
-            <RNText testID="footer-legal" className="text-xs text-content-on-canopy-muted">
-                {t('marketplace:footer.legalPrototype')}
+            <RNText testID="footer-legal" className="text-xs text-content-secondary">
+                {`${t('marketplace:footer.about')} ${t('marketplace:footer.legalPrototype')}`}
             </RNText>
         </Stack>
     );

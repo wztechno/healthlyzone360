@@ -106,6 +106,7 @@ export function PlanNotesPanel({
                                 testID={`${testID}-input`}
                                 id={`${testID}-input`}
                                 label={t('planner:notes.customerLabel')}
+                                placeholder={t('planner:notes.customerPlaceholder')}
                                 hint={t('planner:notes.customerHint')}
                                 multiline
                                 numberOfLines={5}

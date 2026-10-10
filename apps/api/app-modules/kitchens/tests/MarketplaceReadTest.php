@@ -3,11 +3,11 @@
 declare(strict_types=1);
 
 use App\Models\User;
-use Database\Seeders\DatabaseSeeder;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Organisations\Enums\OrganisationStatus;
 use Healthy360\Organisations\Models\Organisation;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,9 +26,7 @@ use Healthy360\Organisations\Models\Organisation;
 |
 */
 
-beforeEach(function (): void {
-    $this->seed(DatabaseSeeder::class);
-});
+pest()->use(SeedDatabaseOnce::class);
 
 it('lists the demonstration kitchen to an anonymous caller', function (): void {
     $response = $this->getJson('/api/v1/marketplace/kitchens')->assertOk();
@@ -99,6 +97,19 @@ it('lists published products beside meals and filters by item type', function ()
     $this->getJson('/api/v1/marketplace/meals?item_types=plan')
         ->assertStatus(400)
         ->assertJsonPath('error.code', 'request.invalid');
+});
+
+it('lists a frozen meal on the menu and filters by it', function (): void {
+    $listed = collect($this->getJson('/api/v1/marketplace/meals?item_types=product')->assertOk()->json('data'))->first();
+
+    // Same packs, same price path: only the type says it now comes out of the freezer.
+    CatalogueItem::withoutTenancy()->whereKey($listed['id'])->update(['item_type' => 'frozen_meal']);
+
+    $frozen = collect($this->getJson('/api/v1/marketplace/meals?item_types=frozen_meal')->assertOk()->json('data'));
+
+    expect($frozen->pluck('id')->all())->toBe([$listed['id']])
+        ->and($frozen->first()['item_type'])->toBe('frozen_meal')
+        ->and($frozen->first()['image_placeholder_id'])->toBe('frozen_meal-'.$listed['slug']);
 });
 
 it('surfaces seeded Verdant products on the wholesale B2B catalogue at B2B amounts', function (): void {

@@ -6,7 +6,23 @@ import { Icon } from '../icons/icon.tsx';
 import { useDensity } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
 import { FieldLabel } from './field-label';
+import { useFieldSummarised } from './form-issue-scope.tsx';
+import { HALF_TRACK_WIDTH } from '../primitives/grid-shared.ts';
 import type { GridSpanProps } from '../primitives/grid-shared.ts';
+
+/** The widest a number field draws: one half track. See `FormFieldProps.numeric`. */
+export const NUMBER_FIELD_MAX_WIDTH = HALF_TRACK_WIDTH;
+
+/**
+ * The most characters a number field takes — `999999.999`, or a six-figure price to two places.
+ *
+ * Nothing a kitchen counts, weighs or pays runs longer, and a field that took any number of digits
+ * took a held-down key too: a quantity forty digits long reaches the server as a validation error,
+ * or as a float that is not the figure typed. The same three fields the width cap finds take it —
+ * `QuantityInput`, the `NumberStepper` box, and a `TextInputField` whose keyboard is numeric — and a
+ * caller's own `maxLength` wins.
+ */
+export const NUMBER_MAX_LENGTH = 10;
 
 /**
  * The accessibility props a `FormField` hands to whatever control it wraps.
@@ -55,12 +71,30 @@ export interface FormFieldProps extends GridSpanProps {
     readonly labelHidden?: boolean | undefined;
     /** Supporting copy shown under the label and referenced by `aria-describedby`. */
     readonly hint?: string | undefined;
-    /** Validation message. Its presence is what marks the control invalid. */
+    /**
+     * Validation message. Its presence is what marks the control invalid.
+     *
+     * Drawn under the control — unless a `FormIssueBanner` in scope names this field (its chip's
+     * `fieldId` is this field's `id`). The banner has said it once; the field then keeps its red
+     * edge and keeps the message only for assistive technology, as the control's description.
+     */
     readonly error?: string | undefined;
+    /**
+     * A caution that does not block — `Above 10%` under a waste rate. Drawn under the control with
+     * the warning mark, and never `aria-invalid`: the value is legal, it is only unusual. Ignored
+     * while `error` is set, because a field states one problem at a time.
+     */
+    readonly warning?: string | undefined;
     readonly required?: boolean | undefined;
     readonly disabled?: boolean | undefined;
     /** Stable id root. Generated when omitted, which is fine for everything except tests. */
     readonly id?: string | undefined;
+    /**
+     * The control holds a number. The field is then never wider than one half track (132px) — the
+     * smallest field the forms draw — so a two-digit value never sits in a 280px box. A narrower
+     * container (a table cell) still wins: this is a ceiling, not a width.
+     */
+    readonly numeric?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
     readonly children: (control: FieldControlProps) => ReactNode;
@@ -74,9 +108,11 @@ export function FormField({
     labelHidden = false,
     hint,
     error,
+    warning,
     required = false,
     disabled = false,
     id,
+    numeric = false,
     className,
     testID,
     children,
@@ -84,18 +120,25 @@ export function FormField({
     const generated = useId();
     const density = useDensity();
     const base = id ?? `field-${generated.replace(/:/g, '')}`;
+    const summarised = useFieldSummarised(base);
+
+    // One message under the control: an error outranks a warning on the same field.
+    const caution = error === undefined ? warning : undefined;
 
     const labelId = `${base}-label`;
     const hintId = hint === undefined ? undefined : `${base}-hint`;
     const errorId = error === undefined ? undefined : `${base}-error`;
-    const described = [hintId, errorId].filter((value): value is string => value !== undefined);
+    const warningId = caution === undefined ? undefined : `${base}-warning`;
+    const described = [hintId, errorId, warningId].filter(
+        (value): value is string => value !== undefined,
+    );
 
     const control: FieldControlProps = {
         nativeID: base,
         ...(labelHidden ? {} : { 'aria-labelledby': labelId }),
         accessibilityLabel: required ? `${label} ${REQUIRED_MARK}` : label,
         ...(described.length > 0 ? { 'aria-describedby': described.join(' ') } : {}),
-        ...((error ?? hint) ? { accessibilityHint: error ?? hint } : {}),
+        ...((error ?? caution ?? hint) ? { accessibilityHint: error ?? caution ?? hint } : {}),
         'aria-invalid': error !== undefined,
         'aria-required': required,
         accessibilityState: { disabled },
@@ -117,7 +160,11 @@ export function FormField({
          * container has no business ordering anything, so it opts out and lets the panel compete
          * where it should: against its ancestors' siblings.
          */
-        <View testID={testID} className={cx('z-auto flex-col gap-hair', className)}>
+        <View
+            testID={testID}
+            className={cx('z-auto flex-col gap-hair', className)}
+            style={numeric ? { maxWidth: NUMBER_FIELD_MAX_WIDTH } : undefined}
+        >
             {/*
              * The label is an element in its own right, and on the web it is a real `<label
              * for="…">`. `aria-labelledby` alone reads as "labelled by a hidden thing" to axe the
@@ -147,10 +194,35 @@ export function FormField({
 
             {children(control)}
 
-            {error === undefined ? null : (
+            {/*
+             * A message the banner already names stays in the tree — it is still what
+             * `aria-describedby` points at, so a screen reader landing here from the chip hears why
+             * — but takes no room and draws nothing. It stops being a live region too: the banner is
+             * the announcement, and two alerts for one refused save is how a reader learns to stop
+             * listening.
+             */}
+            {summarised && (error ?? caution) !== undefined ? (
+                <RNText
+                    nativeID={errorId ?? warningId}
+                    testID={
+                        testID === undefined
+                            ? undefined
+                            : `${testID}-${error === undefined ? 'warning' : 'error'}`
+                    }
+                    className="absolute h-px w-px overflow-hidden opacity-0"
+                >
+                    {error ?? caution}
+                </RNText>
+            ) : null}
+
+            {error === undefined || summarised ? null : (
                 <View className="flex-row items-center gap-1">
-                    {/* An error is never signalled by colour alone: the icon carries it too. */}
-                    <Icon name="warning" size="sm" className="text-danger-strong" />
+                    {/*
+                     * An error is never signalled by colour alone: the icon carries it too. The
+                     * cross, not the triangle — the triangle is the warning's, and a field that can
+                     * carry either needs the two to differ in shape as well as ink.
+                     */}
+                    <Icon name="circleX" size="sm" className="text-danger-strong" />
                     <RNText
                         nativeID={errorId}
                         testID={testID === undefined ? undefined : `${testID}-error`}
@@ -160,6 +232,22 @@ export function FormField({
                         className={cx(supportClass, 'flex-1 text-danger-strong text-start')}
                     >
                         {error}
+                    </RNText>
+                </View>
+            )}
+
+            {caution === undefined || summarised ? null : (
+                <View className="flex-row items-center gap-1">
+                    <Icon name="alert" size="sm" className="text-warning-strong" />
+                    {/* `status`, not `alert`: a caution is news, not an interruption. */}
+                    <RNText
+                        nativeID={warningId}
+                        testID={testID === undefined ? undefined : `${testID}-warning`}
+                        role="status"
+                        aria-live="polite"
+                        className={cx(supportClass, 'flex-1 text-warning-strong text-start')}
+                    >
+                        {caution}
                     </RNText>
                 </View>
             )}

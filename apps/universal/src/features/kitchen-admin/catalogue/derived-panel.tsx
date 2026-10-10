@@ -85,18 +85,33 @@ export interface DerivedPanelProps {
      * the ones the record cannot fill. See the note above on why the row does not collapse.
      */
     /**
-     * One line saying where the values came from and that they cannot be edited.
+     * One line saying where the values came from and that they cannot be edited. Optional: the
+     * stepped editors leave it out and let the sunken fill say it.
      *
      * The `From database` badge is *not* a prop. It belongs beside the section title, which is
      * `FormSection`'s `aside` and not this component's business — the panel is the content, and
      * putting a second badge inside it would state the same thing twice, ten pixels apart.
      */
-    readonly description: string;
+    readonly description?: string | undefined;
     readonly figures: readonly DerivedFigure[];
     /** Stands in for a figure the record has not got. An em dash, not a zero. */
     readonly emptyValue: string;
     /** Read-only `Tag`s — an ingredient's allergen classes. An empty set simply draws nothing. */
     readonly chips?: ReactNode | undefined;
+    /**
+     * `sunken` (the default) is the confirmation well described above: recessed fill, secondary
+     * ink, the unit under the figure. `outline` is the Catalogue Forms tile — a raised card with a
+     * hairline, the figure in primary ink and the unit right beside it on the baseline — for a
+     * sheet the reader opens *to read* the figures, the recipe's technical sheet and the
+     * ingredient's nutrition, rather than to confirm them on the way past. An absent figure still
+     * reads as absent: the em dash drops to secondary ink.
+     *
+     * An `outline` tile is as wide as what it holds rather than a fixed 200px, and its figure and
+     * unit share the `section` step — the size of the section title over the tiles: eight tiles of
+     * a short number and a two-letter unit do not need 200px each, and a fixed width only opened a
+     * gap between the figure and its unit.
+     */
+    readonly variant?: 'sunken' | 'outline' | undefined;
     readonly testID: string;
 }
 
@@ -105,51 +120,64 @@ export function DerivedPanel({
     figures,
     emptyValue,
     chips,
+    variant = 'sunken',
     testID,
 }: DerivedPanelProps) {
     return (
         <View testID={testID} className="flex-col gap-snug">
-            <Text testID={`${testID}-description`} variant="caption" tone="secondary">
-                {description}
-            </Text>
+            {description === undefined ? null : (
+                <Text testID={`${testID}-description`} variant="caption" tone="secondary">
+                    {description}
+                </Text>
+            )}
 
             {figures.length === 0 ? null : (
                 /*
                  * A wrapping row of fixed 200px tiles rather than `CardGrid`, for the reason
                  * `CatalogueStatCards` states: `CardGrid`'s track is `minmax(200px, 260px)` and
                  * with room to spare it resolves to the *max*, which is not the row the design
-                 * draws. Pinning `cardWidth.min` gives the design's `repeat(4, 200px)` and wraps
+                 * draws. Pinning `cardWidth.min` on the sunken well gives the design's
+                 * `repeat(4, 200px)` and wraps
                  * to three-plus-one on a narrow port instead of squeezing four.
                  */
                 <View testID={`${testID}-figures`} className="flex-row flex-wrap gap-tight">
-                    {figures.map((figure) => (
-                        <View key={figure.key} style={{ width: cardWidth.min }}>
-                            <Card
+                    {figures.map((figure) =>
+                        variant === 'outline' ? (
+                            <OutlineTile
+                                key={figure.key}
+                                figure={figure}
+                                emptyValue={emptyValue}
                                 testID={`${testID}-figure-${figure.key}`}
-                                tone="sunken"
-                                padding="sm"
-                            >
-                                <Text variant="micro" tone="secondary">
-                                    {figure.label}
-                                </Text>
-                                <RNText
-                                    testID={`${testID}-figure-${figure.key}-value`}
-                                    className="text-role-display tabular-nums text-content-secondary text-start"
+                            />
+                        ) : (
+                            <View key={figure.key} style={{ width: cardWidth.min }}>
+                                <Card
+                                    testID={`${testID}-figure-${figure.key}`}
+                                    tone="sunken"
+                                    padding="sm"
                                 >
-                                    {figure.value ?? emptyValue}
-                                </RNText>
-                                {/*
-                                 * `caption`, not `micro`. The design sets this line at 10px,
-                                 * which is `micro`'s size — but `micro` is the column-label step,
-                                 * 600 weight, and `kcal / 100 g` is a unit rather than a label for
-                                 * the figure above it. 11px at regular weight is what a unit is.
-                                 */}
-                                <Text variant="caption" tone="secondary">
-                                    {figure.unit}
-                                </Text>
-                            </Card>
-                        </View>
-                    ))}
+                                    <Text variant="micro" tone="secondary">
+                                        {figure.label}
+                                    </Text>
+                                    <RNText
+                                        testID={`${testID}-figure-${figure.key}-value`}
+                                        className="text-role-display tabular-nums text-content-secondary text-start"
+                                    >
+                                        {figure.value ?? emptyValue}
+                                    </RNText>
+                                    {/*
+                                     * `caption`, not `micro`. The design sets this line at 10px,
+                                     * which is `micro`'s size — but `micro` is the column-label step,
+                                     * 600 weight, and `kcal / 100 g` is a unit rather than a label for
+                                     * the figure above it. 11px at regular weight is what a unit is.
+                                     */}
+                                    <Text variant="caption" tone="secondary">
+                                        {figure.unit}
+                                    </Text>
+                                </Card>
+                            </View>
+                        ),
+                    )}
                 </View>
             )}
 
@@ -158,6 +186,49 @@ export function DerivedPanel({
                     {chips}
                 </View>
             )}
+        </View>
+    );
+}
+
+/** One `outline` card: the label over the figure, the unit right beside the figure. */
+function OutlineTile({
+    figure,
+    emptyValue,
+    testID,
+}: {
+    readonly figure: DerivedFigure;
+    readonly emptyValue: string;
+    readonly testID: string;
+}) {
+    return (
+        <View
+            testID={testID}
+            className="flex-col gap-hair rounded-md border border-stroke-subtle bg-surface-raised px-snug py-tight"
+        >
+            <Text variant="micro" tone="secondary">
+                {figure.label}
+            </Text>
+            <View className="flex-row items-baseline gap-hair">
+                {/*
+                 * The figure and its unit are one quantity, so they share one size — the section
+                 * title's step, the `100 g` in "Nutrition · 100 g" above them. React Native's `Text`
+                 * for both, for the reason the header gives: a step plus fixed-advance digits cannot
+                 * come through `Text`'s variant without a stylesheet-order coin toss.
+                 */}
+                <RNText
+                    testID={`${testID}-value`}
+                    className={
+                        figure.value === null
+                            ? 'text-role-section tabular-nums text-content-secondary text-start'
+                            : 'text-role-section tabular-nums text-content-primary text-start'
+                    }
+                >
+                    {figure.value ?? emptyValue}
+                </RNText>
+                <RNText className="text-role-section text-content-secondary text-start">
+                    {figure.unit}
+                </RNText>
+            </View>
         </View>
     );
 }

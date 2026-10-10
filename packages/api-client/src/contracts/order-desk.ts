@@ -429,7 +429,8 @@ export interface OrderDeskCalendarFilters {
  * Every quantity is a **decimal string**, not a number, and for the reason every other quantity on
  * this client is: a `numeric` column crossed through IEEE-754 is a quantity that stops being the one
  * the server computed. `required` carries six places (the scale the recipe explosion works at) while
- * `available`, `short` and `suggestedBuy` carry four (the scale the stock column stores). The
+ * `onHand`, `reserved`, `available`, `short` and `suggestedBuy` carry four (the scale the stock
+ * column stores). The
  * difference is deliberate on the server's side — see the operation — and is passed through here
  * rather than normalised, because rounding a figure to make two columns agree is inventing one.
  *
@@ -450,9 +451,23 @@ export interface OrderDeskRequirement {
     readonly unitCode: string | null;
     /** How much the window needs, six decimal places. */
     readonly required: string;
-    /** What the branch holds, four places. `0` is a shelf holding none — never an unknown. */
+    /**
+     * What is physically on the shelf before any claim, four places. `0` is a shelf holding none —
+     * never an unknown.
+     */
+    readonly onHand: string;
+    /**
+     * How much of `onHand` confirmed production orders have claimed, four places. Carried so a
+     * screen can explain the gap between `onHand` and `available` rather than just applying it.
+     */
+    readonly reserved: string;
+    /**
+     * `onHand − reserved`, four places — what the window can actually draw on. **May be negative**
+     * where more is claimed than is there; render it as it arrives, because clamping it would hide
+     * an over-committed shelf.
+     */
     readonly available: string;
-    /** `max(0, required − available)`, four places. Zero is a true zero. */
+    /** `max(0, required − available)`, four places, so net of production's claims. Zero is a true zero. */
     readonly short: string;
     /** What to order: buy-up-to-par where a par is set, the bare shortfall otherwise. */
     readonly suggestedBuy: string;
@@ -649,6 +664,19 @@ export interface OrderDeskDrivers {
     readonly limit: number;
 }
 
+/**
+ * A slot a desk sale can be booked into: one of the kitchen's **active** delivery windows, by the
+ * code the placement's `deliveryWindowCode` takes. Times are kitchen-local `HH:mm`, null on a
+ * window somebody named before deciding its hours.
+ */
+export interface OrderDeskDeliveryWindow {
+    readonly code: string;
+    readonly nameEn: string;
+    readonly nameAr: string;
+    readonly startsAt: string | null;
+    readonly endsAt: string | null;
+}
+
 /* ------------------------------------------------------------------------------------------------
  * Selling: the quote, the placement, and the customer a sale is for
  * ---------------------------------------------------------------------------------------------- */
@@ -774,6 +802,11 @@ export interface OrderDeskQuote {
     /** Order-level refusals — the shape, the destination, the schedule. Line refusals are on lines. */
     readonly refusals: readonly OrderDeskRefusal[];
     readonly quotable: boolean;
+    /**
+     * The slot codes the delivery address's zone offers. Non-null only for a delivery whose
+     * address resolves to a serving zone; `null` means no filtering applies.
+     */
+    readonly offeredWindowCodes: readonly string[] | null;
 }
 
 /**
@@ -804,6 +837,12 @@ export interface PlaceOrderDeskSaleRequest extends OrderDeskSaleRequest {
     readonly paymentMethod: KitchenOrderPaymentMethod;
     /** Required on `counter`, **prohibited** on the other two. A `422` either way. */
     readonly payment?: OrderDeskCounterPayment | undefined;
+    /**
+     * Delivery only (`422` otherwise): hand the run the placement creates to this person. Needs
+     * `order.manage_organisation` (`403` without it) and an active member (`422` otherwise). Omit
+     * it to leave the run in the unassigned pool drivers claim from.
+     */
+    readonly driverUserId?: string | undefined;
 }
 
 /** How a customer record came to exist. `staff` is a caller some kitchen wrote down at a desk. */
@@ -975,6 +1014,9 @@ export interface OrderDeskRepository {
      * only ever wanted at the moment somebody is choosing.
      */
     listDrivers(): Promise<OrderDeskDrivers>;
+
+    /** This kitchen's active delivery windows, in display order — the desk sale's slot choice. */
+    listDeliveryWindows(): Promise<readonly OrderDeskDeliveryWindow[]>;
 
     /**
      * One day's takings, by agent, method and currency — **the till-shift mitigation**.

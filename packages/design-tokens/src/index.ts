@@ -1,11 +1,15 @@
 export {
     COLOUR_STOPS,
+    GRADIENT_NAMES,
     NUTRITION_LEVELS,
     RAMPS,
     SEMANTIC_ROLES,
     THEMES,
     brand,
+    chartColours,
+    gradients,
     neutral,
+    palette,
     violet,
     nutritionDark,
     nutritionLight,
@@ -18,8 +22,11 @@ export {
     themes,
 } from './colour.ts';
 export type {
+    ChartColours,
     ColourRamp,
     ColourStop,
+    GradientName,
+    GradientToken,
     NutritionLevel,
     NutritionPattern,
     NutritionStop,
@@ -54,6 +61,7 @@ export {
     isHexColour,
     meetsAaNormalText,
     relativeLuminance,
+    withAlpha,
 } from './contrast.ts';
 export type { Rgb } from './contrast.ts';
 
@@ -62,6 +70,8 @@ export {
     FONT_SIZE_NAMES,
     SCRIPTS,
     TABULAR_NUMERIC_CLASS,
+    TYPEFACE_ROLES,
+    displayFamilies,
     displayLetterSpacing,
     displayLineHeightMultipliers,
     fontFamilies,
@@ -72,11 +82,16 @@ export {
     lineHeightMultipliers,
     lineHeights,
     monoFamilies,
+    resolveWeight,
     scriptForLocale,
     TEXT_ROLE_NAMES,
     textRoleLetterSpacing,
     textRoleLineHeight,
     textRoles,
+    typefaceKey,
+    typefacePackage,
+    typefaceWeightPath,
+    typefaces,
 } from './typography.ts';
 export type {
     FontFamilyTokens,
@@ -87,6 +102,8 @@ export type {
     Script,
     TextRole,
     TextRoleName,
+    Typeface,
+    TypefaceRole,
 } from './typography.ts';
 
 export {

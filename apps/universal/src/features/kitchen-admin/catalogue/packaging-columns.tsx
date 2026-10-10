@@ -60,6 +60,19 @@ const PRICE_DIGITS: Intl.NumberFormatOptions = {
     maximumFractionDigits: 2,
 };
 
+/**
+ * The six a first visit draws. Stated rather than left to `priority`, which ranks Category below the
+ * two pack-size columns — and Category is the column this list filters by, as on Ingredients.
+ */
+export const PACKAGING_DEFAULT_COLUMNS: readonly string[] = [
+    'reference',
+    'name',
+    'category',
+    'purchasePrice',
+    'capacity',
+    'status',
+];
+
 export function packagingColumns({
     t,
     locale,
@@ -92,9 +105,8 @@ export function packagingColumns({
         },
         {
             key: 'name',
-            // The same `columnItem` the ingredient list takes. `list.columnName` still reads
-            // "Designation" and still names the recipe line table's title column, which is a
-            // different surface with a different word for it.
+            // The same `columnItem` the ingredient list takes. `list.columnName` names the recipe
+            // line table's title column — the same word today, but a different surface.
             label: t('kitchen:list.columnItem'),
             width: 200,
             min: 150,
@@ -103,6 +115,7 @@ export function packagingColumns({
             sortable: true,
             sortType: 'text',
             value: (row) => displayName(row.name, locale).value,
+            thumbnail: (row) => `ingredient-${row.slug}`,
             /*
              * The `label` step, which is what the other five Catalogue lists give the column that
              * names the row — ingredients, products, recipes, meals and allergen classes all draw
@@ -159,7 +172,8 @@ export function packagingColumns({
             width: 108,
             min: 64,
             priority: CATALOGUE_PRIORITY.unit,
-            align: 'center',
+            sortable: true,
+            sortType: 'text',
             value: (row) => (row.purchaseUnit === null ? dash : t(unitShortKey(row.purchaseUnit))),
         },
         {
@@ -169,8 +183,9 @@ export function packagingColumns({
             width: 108,
             min: 68,
             priority: CATALOGUE_PRIORITY.unit,
-            align: 'center',
             mono: true,
+            sortable: true,
+            sortType: 'number',
             value: (row) =>
                 row.itemsPerUnit === null ? dash : formatter.formatNumber(row.itemsPerUnit),
         },
@@ -180,7 +195,6 @@ export function packagingColumns({
             width: 96,
             min: 88,
             priority: CATALOGUE_PRIORITY.unitPrice,
-            align: 'center',
             // The page's headline number. Packaging exists as records so a recipe can cost what it
             // ships in, and this is that cost.
             role: 'metric',
@@ -218,8 +232,9 @@ export function packagingColumns({
             width: 88,
             min: 80,
             priority: CATALOGUE_PRIORITY.metric,
-            align: 'center',
             mono: true,
+            sortable: true,
+            sortType: 'number',
             value: (row) =>
                 row.capacity === null
                     ? dash
@@ -231,8 +246,9 @@ export function packagingColumns({
             width: 80,
             min: 68,
             priority: CATALOGUE_PRIORITY.updated,
-            align: 'center',
             mono: true,
+            sortable: true,
+            sortType: 'number',
             // `0` and `null` are different answers — "none is thrown away" against "nobody has
             // measured" — so the dash is reserved for the second.
             value: (row) =>

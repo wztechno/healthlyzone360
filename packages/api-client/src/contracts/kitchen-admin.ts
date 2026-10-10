@@ -22,6 +22,7 @@ import type {
 } from '@healthy360/domain-types';
 import type { MeasureUnit, NutritionFacts, Serving } from '@healthy360/nutrition';
 
+import type { PackSize } from './marketplace.ts';
 import type { CursorPage, CursorPageRequest, OffsetPageRequest } from './pagination.ts';
 
 /**
@@ -282,6 +283,16 @@ export interface IngredientAdmin {
     readonly id: IngredientId;
     readonly meta: AdminEntityMeta;
     readonly name: LocalisedText;
+    /**
+     * The stable handle the ingredient's photograph is filed under, as
+     * `ingredients/<slug>.thumb.webp`.
+     *
+     * Carried rather than derived from {@link name} because the slug is the server's — a
+     * client that slugified `Mustard, wholegrain (a l'ancienne)` for itself would address a
+     * file that does not exist, and the miss would show as a placeholder rather than an
+     * error. It is already on the wire and required by the schema, so this costs nothing.
+     */
+    readonly slug: string;
     /** The kitchen's own reference, e.g. `IG-014`. `null` for a platform-library row. */
     readonly reference: string | null;
     readonly categoryCode: string;
@@ -522,7 +533,38 @@ export interface IngredientAdminFilter extends CursorPageRequest, OffsetPageRequ
     readonly allergenCodes?: readonly AllergenCode[] | undefined;
     /** Only rows this organisation owns; omit for the library plus the kitchen's own forks. */
     readonly ownedOnly?: boolean | undefined;
+    /**
+     * How the collection is ordered, across every page of it.
+     *
+     * Numbered pages only — a keyset walk *is* its ordering, so the endpoint refuses the pair
+     * rather than serving an unsorted list under a `sort` the caller believes was applied.
+     *
+     * Absent means the collection's own `(created_at, id)`, which is what every caller got before
+     * this field existed.
+     */
+    readonly sort?: IngredientAdminSort | undefined;
+    readonly sortDirection?: 'asc' | 'desc' | undefined;
+    /**
+     * Which name the `name` sort orders by. Defaults to English.
+     *
+     * The list renders the reader's own language and has to sort on what it renders: a catalogue
+     * ordered by `name_en` under an Arabic interface is in no order the reader can see. Ignored by
+     * every other sort.
+     */
+    readonly sortLanguage?: 'en' | 'ar' | undefined;
 }
+
+/**
+ * What the ingredient list may be ordered by — the seven tracks its header sorts.
+ *
+ * `allergens` is not among them, for the reason the list states: the cell is a *set* drawn as a
+ * comma run, and ordering a set by its first member sorts "Egg, Mustard" above "Milk" for reasons
+ * no reader can see.
+ *
+ * `category` and `unit` order by the *code* the row draws, not by the foreign key behind it.
+ */
+export type IngredientAdminSort =
+    'reference' | 'name' | 'category' | 'unit' | 'unitPrice' | 'status' | 'updatedAt';
 
 /**
  * The two series the ingredient table is numbered in.
@@ -749,6 +791,13 @@ export interface RecipeVersionAdmin {
     /** Process loss, whole percent. The source sheets state 3 %. */
     readonly wastePercent: number;
     /**
+     * Packaging loss — split film, mis-fed labels — applied to the packaging half of the cost alone,
+     * and to what a sale deducts from the packaging shelves. A separate figure from `wastePercent`
+     * because the source sheets state separate rates, and one field for both would make correcting
+     * either silently rewrite the other.
+     */
+    readonly packagingWastePercent: number;
+    /**
      * Trade list price for one unit of `yieldUnit`, `null` when none is recorded.
      *
      * A list price, not a cost: what this version is offered at to a kitchen or corporate buyer,
@@ -773,6 +822,65 @@ export interface RecipeVersionAdmin {
     /** True when a line or an ingredient changed after the figures were last derived. */
     readonly derivationStale: boolean;
     readonly publishedAt: IsoDateTime | null;
+}
+
+/**
+ * What a recipe is, to the person reading the recipe book: the kind of thing it is sold as.
+ *
+ * Derived on the server from the catalogue items whose `recipe_id` names the recipe — never
+ * stored, so it cannot drift from the items. `preparation` is the kind of a recipe nothing sells:
+ * a marination, a patty, a component another recipe uses.
+ */
+export const RECIPE_KINDS = ['meal', 'sauce', 'dressing', 'frozen_meal', 'preparation'] as const;
+export type RecipeKind = (typeof RECIPE_KINDS)[number];
+
+/** The cooked catalogue kinds — every {@link RecipeKind} but `preparation`, which sells nothing. */
+export type RecipeSellerKind = Exclude<RecipeKind, 'preparation'>;
+
+export function isRecipeKind(value: unknown): value is RecipeKind {
+    return typeof value === 'string' && (RECIPE_KINDS as readonly string[]).includes(value);
+}
+
+/** The pack a packaged seller is sold in by default — enough to say "500 g tub" on a row. */
+export interface RecipeSoldAsPack {
+    readonly label: LocalisedText;
+    readonly netQuantity: number;
+    readonly netUnit: MeasureUnit;
+}
+
+/**
+ * One catalogue item that sells a recipe, as the recipe book lists it.
+ *
+ * Everything the departing meal, sauce, dressing and frozen-meal lists drew from the item is
+ * here, so the merged row and its View panel lose nothing: the handle and photo, the publication
+ * state with the lock version a withdrawal must quote, the kitchen's filing pair, the flags, the
+ * portion and composition, the channels it is available on, and its default pack. The item's
+ * *listing* — packs, service days, publication — is still edited on the recipe's Selling tab.
+ */
+export interface RecipeSoldAs {
+    /** The catalogue item's id — a `MealId` for a meal, a `ProductId` for the packaged kinds. */
+    readonly id: string;
+    readonly itemType: RecipeSellerKind;
+    readonly status: PublishableStatus;
+    /** The item's own lock version — what `retireMeal` / `archiveProduct` must send. */
+    readonly lockVersion: number;
+    /** The kitchen's handle — `SAC-016`, `DRS-003` — or `null` before one was assigned. */
+    readonly reference: string | null;
+    readonly slug: string;
+    readonly name: LocalisedText;
+    readonly imagePlaceholderId: string;
+    readonly kitchenCategory: string | null;
+    readonly kitchenSubcategory: string | null;
+    readonly isMarketPriced: boolean;
+    readonly isAssorted: boolean;
+    readonly dataQualityFlags: readonly string[];
+    /** The portion sold, relative to one recipe serving. */
+    readonly portionFactor: number;
+    readonly composition: string | null;
+    /** The channels the item is available on right now. */
+    readonly channels: readonly SalesChannel[];
+    readonly packCount: number;
+    readonly defaultPack: RecipeSoldAsPack | null;
 }
 
 export interface RecipeAdminSummary {
@@ -800,10 +908,61 @@ export interface RecipeAdminSummary {
     readonly recipeCategory: string | null;
     readonly currentVersionNumber: number;
     readonly versionCount: number;
+    /**
+     * The **current version's** state — the only field here that can say `review_required`.
+     *
+     * `meta.status` is derived from this. Both are on the shape because they answer different
+     * questions: `meta.status` is "what lifecycle state is this record in", which every publishable
+     * family has, and this is "which of a recipe's several versions did that come from".
+     *
+     * A recipe row itself only ever carries `active | archived`. Everything a kitchen thinks of as
+     * a recipe's state belongs to a version, so a list built from the identity alone could not
+     * render a quarantine at all: a recipe whose live version was under review read as `published`,
+     * the review queue never listed one, and the Review stat card was permanently zero.
+     */
+    readonly currentVersionStatus: PublishableStatus;
+    /**
+     * The allergen classes that version declares.
+     *
+     * On the summary because the list's Allergens column is read forty times a day and used to
+     * cost one `getRecipe` per visible row to fill — twenty-five extra requests a page for two
+     * cells. Empty is a real answer and means the version declares none; it does not mean the
+     * label is unknown.
+     */
+    readonly allergenCodes: readonly AllergenCode[];
+    /**
+     * How many raw-material lines the current version has. `0` is a real state: a placeholder
+     * the book lists as "Not formulated" until somebody writes the formulation.
+     */
+    readonly lineCount: number;
+    /**
+     * The catalogue items this recipe is sold as, in slug order — empty for a preparation.
+     *
+     * Absent, not empty, when the caller cannot see the catalogue: the server leaves the key out
+     * for a role without `catalogue.view_organisation`, and a client draws the row without its
+     * Kind and On-sale columns rather than claiming the recipe sells nothing.
+     */
+    readonly soldAs?: readonly RecipeSoldAs[] | undefined;
+    /**
+     * The distinct kinds of those items, in the same order; `['preparation']` when nothing sells
+     * the recipe. A recipe sold as a meal and as a sauce lists both, and the `kind` filter matches
+     * it under either — what the row prints is what the filter matches. Absent with `soldAs`.
+     */
+    readonly kinds?: readonly RecipeKind[] | undefined;
 }
 
 export interface RecipeAdmin extends RecipeAdminSummary {
     readonly description: LocalisedText;
+    /**
+     * How many days a batch of this recipe keeps; a batch's use-by date is its production date plus
+     * this, computed when the batch is completed. `0` is "use the day it is made"; `null` is nobody
+     * has said, and the cook enters the date by hand.
+     *
+     * The recipe's and not the version's — it is how the kitchen keeps the food, not what the food
+     * is — so it is writable while the current version is published, and a correction never puts
+     * the formulation back through review.
+     */
+    readonly shelfLifeDays: number | null;
     readonly currentVersion: RecipeVersionAdmin;
     /** Newest first. Summaries only — a version's lines are fetched by opening it. */
     readonly versions: readonly RecipeVersionSummary[];
@@ -812,7 +971,6 @@ export interface RecipeAdmin extends RecipeAdminSummary {
 export interface RecipeAdminFilter extends CursorPageRequest, OffsetPageRequest {
     readonly query?: string | undefined;
     readonly statuses?: readonly PublishableStatus[] | undefined;
-    readonly kitchenId?: KitchenId | undefined;
     /**
      * Narrows to the rows whose allergen label carries one of these classes.
      *
@@ -825,6 +983,16 @@ export interface RecipeAdminFilter extends CursorPageRequest, OffsetPageRequest 
     readonly allergenCodes?: readonly AllergenCode[] | undefined;
     /** Only recipes whose current version needs re-derivation. */
     readonly staleOnly?: boolean | undefined;
+    /**
+     * Recipes sold as this kind — any seller of the kind matches, so a recipe sold as a meal and
+     * as a sauce is listed under both. `preparation` narrows to recipes nothing sells. Refused
+     * (403) for a caller without `catalogue.view_organisation`; a client never sends it for one.
+     */
+    readonly kind?: RecipeKind | undefined;
+    /** Recipes with a seller in this publication state. Same permission rule as `kind`. */
+    readonly sellingStatus?: PublishableStatus | undefined;
+    /** The kitchen's own filing word on the recipe — `cooking_sauce`, `marination`. */
+    readonly category?: string | undefined;
 }
 
 /**
@@ -857,6 +1025,119 @@ export interface RecipeCostFigures {
     readonly calculatedAt: IsoDateTime;
 }
 
+/** CONFIDENTIAL — one half of a live cost computation. */
+export interface RecipeCostHalf {
+    readonly total: CostAmount | null;
+    readonly costPerYieldUnit: CostAmount | null;
+    readonly costPerYieldUnitWithWaste: CostAmount | null;
+    readonly wastePercent: number;
+    /** Lines that contributed nothing, in line order. Non-empty means the half is incomplete. */
+    readonly uncostedLineNumbers: readonly number[];
+    readonly isComplete: boolean;
+    /**
+     * Each line's unit cost and line cost, in line order.
+     *
+     * What a line table draws beside its rows, priced on the same basis as the totals, so a row
+     * and the total under it cannot disagree about what an ingredient costs.
+     */
+    readonly lines: readonly RecipeLineCost[];
+}
+
+/** CONFIDENTIAL: one line's figures, keyed by the line number the server assigned. */
+export interface RecipeLineCost {
+    readonly lineNumber: number;
+    /**
+     * What the line names, beside its number. A table matching these to rows somebody is still
+     * editing needs both: after a row is removed, line 2 is a different ingredient until the next
+     * answer lands, and a figure drawn beside the wrong row is worse than a dash.
+     */
+    readonly ingredientId: IngredientId;
+    /** Null is an unpriced line. Never a zero: a zero is a measurement. */
+    readonly unitCost: CostAmount | null;
+    readonly lineCost: CostAmount | null;
+}
+
+/**
+ * CONFIDENTIAL — this system's arithmetic over a version's lines as they stand.
+ *
+ * Two halves that are summed but never blended: the formulation's currency wins where they
+ * disagree, and packaging reports itself uncosted rather than being converted, because there is no
+ * exchange rate anywhere in this system.
+ *
+ * Packaging carries no per-piece figure, deliberately — it is divided by the recipe's own yield
+ * rather than by its container count, so a "cost per piece of packaging" would be a number with no
+ * question behind it.
+ */
+export interface RecipeComputedCost {
+    readonly currency: CurrencyCode | null;
+    readonly production: RecipeCostHalf & {
+        readonly costPerPiece: CostAmount | null;
+        readonly costPerPieceWithWaste: CostAmount | null;
+    };
+    readonly packaging: RecipeCostHalf;
+    /** Production-with-waste plus packaging-with-waste; null unless both halves are complete. */
+    readonly totalCostPerYieldUnit: CostAmount | null;
+    /**
+     * What one filled package costs, one entry per packaging line.
+     *
+     * The figure an operator sets a retail price against. Every line is here, including a cap that
+     * holds nothing: its `cost` is null rather than the entry being dropped, so a screen can say
+     * which item it could not cost instead of showing one package where two were drawn.
+     */
+    readonly packages: readonly RecipePackageCost[];
+}
+
+/** CONFIDENTIAL — one packaging line's cost per filled package. */
+export interface RecipePackageCost {
+    readonly lineNumber: number;
+    readonly ingredientId: IngredientId;
+    /** Null for an item with no capacity, a capacity the yield unit cannot express, or an incomplete formulation. */
+    readonly cost: CostAmount | null;
+}
+
+/** Where one formulation line's weekly estimate came from. */
+export type WeeklyCostSource = 'weekly' | 'component_recipe' | 'ingredient_fallback' | 'none';
+
+/**
+ * CONFIDENTIAL — the provenance of one line's weekly estimate.
+ *
+ * The four sources are not interchangeable and a reader has to be able to tell them apart.
+ * `component_recipe` is the one that matters most: the line names something the kitchen makes, so
+ * the figure is that recipe's own cost per unit of what it produces — which is what stops a
+ * dressing's olive oil being counted inside the dressing and again inside the salad.
+ *
+ * `none` means the line is uncosted and the total is withheld. It is never a zero: a free
+ * ingredient and an unpriced one must not cost a recipe the same thing.
+ */
+export interface WeeklyCostLineSource {
+    readonly lineNumber: number;
+    readonly ingredientId: IngredientId;
+    readonly source: WeeklyCostSource;
+    readonly unitCost: CostAmount | null;
+    /** The Monday this price took effect, `YYYY-MM-DD`; null on a typed or missing price. */
+    readonly effectiveFrom: string | null;
+    readonly sourceRecipeVersionId: RecipeVersionId | null;
+    /** Whether the figure is an older week's, carried because this one could not be averaged. */
+    readonly carriedForward: boolean;
+}
+
+/**
+ * CONFIDENTIAL — what the version costs at the published weekly average of what was really paid.
+ *
+ * Beside {@link RecipeComputedCost}, never instead of it. One answers "what did we say this cost
+ * when we costed it" and this answers "what does it cost at what we are actually paying now"; a
+ * screen showing only one of the two has quietly told the reader that it is the cost.
+ */
+export interface RecipeWeeklyCost extends RecipeComputedCost {
+    /** The publication these figures were read from; null means the standing prices. */
+    readonly weeklyPricePublicationId: string | null;
+    readonly hasCarriedForwardPrices: boolean;
+    /** Ingredients with no published price behind them — the initial-price-entry list. */
+    readonly ingredientsNeedingInitialPrice: readonly IngredientId[];
+    /** Every line, including the ones that could not be costed. */
+    readonly lineSources: readonly WeeklyCostLineSource[];
+}
+
 /**
  * CONFIDENTIAL — the technical sheet of one recipe version: the costed lines
  * and the latest snapshot per basis. `null` from the repository means the
@@ -871,18 +1152,40 @@ export interface TechnicalSheetAdmin {
     readonly uncostedLineNumbers: readonly number[];
     /** The sheet's own figures, verbatim (`as_recorded`). */
     readonly asRecorded: RecipeCostFigures | null;
-    /** This system's arithmetic over the same lines (`recalculated`). */
+    /** This system's arithmetic over the same lines, as at the last snapshot (`recalculated`). */
     readonly recalculated: RecipeCostFigures | null;
+    /**
+     * The same arithmetic over the lines **as they stand now**, and the figure a sheet should lead
+     * with.
+     *
+     * Both fields above are snapshots, and a snapshot is only written at publication or on an
+     * explicit request. A version that has never been published has neither, and `as_recorded` is
+     * written by the v6 importer alone — so a recipe a kitchen typed in by hand had no cost block at
+     * all while the panel read `asRecorded` and nothing else.
+     *
+     * Null only on a formulation carrying more than one currency, which is the one case the live
+     * computation refuses outright rather than blending at a rate this system does not have.
+     */
+    readonly computed: RecipeComputedCost | null;
+    /**
+     * The same formulation at this week's **published** prices — what the kitchen is actually
+     * paying, rather than what the lines were frozen at.
+     *
+     * Always present, even when nothing could be costed: `lineSources` names the lines that have no
+     * price, and `ingredientsNeedingInitialPrice` is what an "enter a price for these" prompt reads.
+     */
+    readonly weekly: RecipeWeeklyCost;
 }
 
 /**
  * The reference series a record is numbered in.
  *
- * `ING-` is the ingredient library's. The other three are the recipe table's: the library, sauces
- * and dressings are all recipes, read off different sheets and quoted by different handles, so they
- * number separately. A client names the series; the number in it is always the server's.
+ * `ING-` is the ingredient library's. The others are the recipe table's: the library, sauces,
+ * dressings and frozen meals are all recipes, read off different sheets and quoted by different
+ * handles, so they number separately. A client names the series; the number in it is always the
+ * server's.
  */
-export type ReferenceSeries = 'ING-' | 'RC-' | 'SAC-' | 'DRS-';
+export type ReferenceSeries = 'ING-' | 'RC-' | 'SAC-' | 'DRS-' | 'FRZ-';
 
 /*
  * Where each series is counted, which is the table its existing handles are in: `ING-` among the
@@ -900,9 +1203,13 @@ export interface CreateRecipeRequest {
     readonly yieldUnit: MeasureUnit;
     readonly yieldPieces?: number | undefined;
     readonly wastePercent?: number | undefined;
+    /** Omitted leaves the column's own default, `0`. */
+    readonly packagingWastePercent?: number | undefined;
     /** Trade list price per yield unit. Omitted leaves it unpriced. */
     readonly b2bPrice?: CostAmount | undefined;
     readonly b2cPrice?: CostAmount | undefined;
+    /** See {@link RecipeAdmin.shelfLifeDays}. Omitted leaves it unset. */
+    readonly shelfLifeDays?: number | undefined;
 }
 
 export interface UpdateRecipeRequest extends LockedRequest {
@@ -914,6 +1221,7 @@ export interface UpdateRecipeRequest extends LockedRequest {
     readonly yieldUnit?: MeasureUnit | undefined;
     readonly yieldPieces?: number | null | undefined;
     readonly wastePercent?: number | undefined;
+    readonly packagingWastePercent?: number | undefined;
     /**
      * Trade list price per yield unit. `null` **clears** it, `undefined` leaves it alone — the same
      * three-way distinction the ingredient editor's prices draw, and the reason an emptied price box
@@ -921,6 +1229,12 @@ export interface UpdateRecipeRequest extends LockedRequest {
      */
     readonly b2bPrice?: CostAmount | null | undefined;
     readonly b2cPrice?: CostAmount | null | undefined;
+    /**
+     * See {@link RecipeAdmin.shelfLifeDays}. `null` clears it, `undefined` leaves it alone. Written on
+     * the recipe, never the version, so a request carrying only this and the lock version is legal
+     * against a published recipe.
+     */
+    readonly shelfLifeDays?: number | null | undefined;
 }
 
 /** A line as a caller writes it. Costs and names are derived server-side, never client-supplied. */
@@ -980,6 +1294,20 @@ export interface RecipeRollupDraft {
     readonly yieldUnit?: MeasureUnit | undefined;
     /** How many pieces the yield divides into — the cost block's divisor. */
     readonly yieldPieceCount?: number | undefined;
+    /**
+     * The consumables one batch eats, priced the same way a saved version's are.
+     *
+     * The endpoint has always accepted these; the client simply never sent them, so the preview's
+     * cost block described a batch with no packaging in it while the editor's own Packaging tab sat
+     * one click away with three rows on it.
+     *
+     * `fills_yield` and `per_container` quantities are computed server-side from the yield and the
+     * item's capacity, exactly as a save computes them — which is why a draft may state a basis
+     * without stating a number.
+     */
+    readonly packaging?: readonly RecipePackagingLineInput[] | undefined;
+    /** Applied to the packaging half alone. The production coefficient is `wastePercent`. */
+    readonly packagingWastePercent?: number | undefined;
 }
 
 /** One allergen the draft would declare, and the lines that put it there. */
@@ -1012,6 +1340,19 @@ export interface RecipeRollupPreview {
     readonly allergenSources: readonly AllergenSource[];
     /** CONFIDENTIAL — summed line costs. `null` when any line has no recorded cost. */
     readonly estimatedCost: CostAmount | null;
+    /**
+     * CONFIDENTIAL — the full cost cascade over this draft, in the technical sheet's exact shape.
+     *
+     * The same service computes both, so a figure here and the same figure on a saved version's
+     * sheet agree by construction rather than by two implementations being kept in step. That is
+     * the point: the editor used to run its own cascade in JavaScript floats, priced from the
+     * ingredient's *list* price where the server prices from the purchase price, and the two
+     * quietly disagreed.
+     *
+     * `null` when the draft states no yield to divide by, or when the caller lacks
+     * `recipe.view_costs_organisation`.
+     */
+    readonly computedCost: RecipeComputedCost | null;
     readonly warnings: readonly RollupWarning[];
 }
 
@@ -1038,7 +1379,7 @@ export interface ProductAdmin {
      * kitchen screens list each kind on its own page via
      * {@link ProductAdminFilter.itemType}.
      */
-    readonly itemType: 'product' | 'sauce' | 'dressing';
+    readonly itemType: 'product' | 'sauce' | 'dressing' | 'frozen_meal';
     /**
      * The kitchen's own handle — `SAC-001`, `DRS-019`, `RSL-055`.
      *
@@ -1069,12 +1410,30 @@ export interface ProductAdmin {
     /** True for a row that stands for a mixed selection rather than one article. */
     readonly isAssorted: boolean;
     readonly packVariants: readonly ProductPackVariant[];
+    /**
+     * How much of the produced ingredient one sold unit is (PROD1).
+     *
+     * There is no `sellsFromFinishedStock` beside it: a product, sauce, dressing
+     * or frozen meal sells from finished stock as a property of what it is, so a
+     * flag here would be a control that changes nothing. The net content is a
+     * different matter — a frozen meal sold by weight off a shelf counted in
+     * kilograms needs it, or every sale refuses with `no_net_content`.
+     */
+    readonly netContentQuantity: string | null;
+    readonly netContentUnitId: string | null;
     readonly channelAvailability: readonly ChannelAvailability[];
     /** The recipe it is produced from, when it is produced rather than bought in. */
     readonly recipeId: RecipeId | null;
     readonly dietClassifications: readonly DietClassification[];
     /** Import findings the operator has not resolved, e.g. `dual_pack_single_price`. */
     readonly dataQualityFlags: readonly string[];
+    /**
+     * The photograph id, resolved by `EntityImage` — the stored one when a kitchen set it,
+     * otherwise `<item_type>-<slug>`, the same id the storefront derives. Most products have no
+     * photograph and draw the generated pattern; the imported dishes, which are product rows,
+     * resolve to their own under `meals/`.
+     */
+    readonly imagePlaceholderId: string;
 }
 
 export interface ProductAdminFilter extends CursorPageRequest, OffsetPageRequest {
@@ -1093,18 +1452,20 @@ export interface ProductAdminFilter extends CursorPageRequest, OffsetPageRequest
     readonly categoryId?: string | undefined;
     readonly channels?: readonly SalesChannel[] | undefined;
     /** Which packaged kind to list. Defaults to `product`. */
-    readonly itemType?: 'product' | 'sauce' | 'dressing' | undefined;
+    readonly itemType?: 'product' | 'sauce' | 'dressing' | 'frozen_meal' | undefined;
 }
 
 export interface CreateProductRequest {
     /** Defaults to `product`; the sauces and dressings screens pass their own. */
-    readonly itemType?: 'product' | 'sauce' | 'dressing' | undefined;
+    readonly itemType?: 'product' | 'sauce' | 'dressing' | 'frozen_meal' | undefined;
     readonly name: LocalisedText;
     readonly description: LocalisedText;
     readonly categoryCode: string;
     readonly recipeId?: RecipeId | undefined;
     readonly isMarketPriced?: boolean | undefined;
     readonly isAssorted?: boolean | undefined;
+    readonly netContentQuantity?: number | null | undefined;
+    readonly netContentUnitId?: string | null | undefined;
     readonly packVariants?: readonly ProductPackVariant[] | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
 }
@@ -1116,12 +1477,60 @@ export interface UpdateProductRequest extends LockedRequest {
     readonly recipeId?: RecipeId | null | undefined;
     readonly isMarketPriced?: boolean | undefined;
     readonly isAssorted?: boolean | undefined;
+    readonly netContentQuantity?: number | null | undefined;
+    readonly netContentUnitId?: string | null | undefined;
     readonly packVariants?: readonly ProductPackVariant[] | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
 }
 
 export interface SetChannelAvailabilityRequest extends LockedRequest {
     readonly availability: readonly ChannelAvailability[];
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * B2B / B2C weight and price
+ * ---------------------------------------------------------------------------------------------- */
+
+/** The two channels an article is priced on, as the v6 sheet states them. */
+export type TradeChannel = 'b2b' | 'b2c';
+
+/**
+ * One channel's side of an article's offer: the pack it sells (its `b2b` or `b2c` pack variant) and
+ * that pack's standing price on the list the channel quotes from. `amountMinor` is `null` while the
+ * pack is not priced.
+ */
+export interface ItemChannelOffer {
+    readonly salesChannelId: string;
+    readonly priceListId: PriceListId;
+    readonly currency: CurrencyCode;
+    readonly pack: PackSize | null;
+    readonly amountMinor: number | null;
+}
+
+/**
+ * An article's B2B and B2C weight and price. A channel is `null` when the kitchen has no such
+ * channel with an active price list, so there is nowhere to write the price.
+ */
+export interface ItemChannelPrices {
+    readonly lockVersion: number;
+    readonly b2b: ItemChannelOffer | null;
+    readonly b2c: ItemChannelOffer | null;
+}
+
+export interface SetItemChannelOffer {
+    readonly quantity: number;
+    readonly unit: MeasureUnit;
+    /** `null` keeps the pack and withdraws its price. */
+    readonly amountMinor: number | null;
+}
+
+/**
+ * Only the channels being changed. Absent is untouched; `null` stops selling on that channel (its
+ * price closes, the pack keeps its weight). `lockVersion` is the **item's**.
+ */
+export interface SetItemChannelPricesRequest extends LockedRequest {
+    readonly b2b?: SetItemChannelOffer | null | undefined;
+    readonly b2c?: SetItemChannelOffer | null | undefined;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -1200,6 +1609,17 @@ export interface MealAvailabilityDay {
     readonly orderCutOffAt: string | null;
 }
 
+/**
+ * Where a sellable comes from: this kitchen's own production, a supplier, or both.
+ *
+ * It is the first of the two preconditions on selling from finished stock — a
+ * kitchen cannot deduct a shelf of something it does not make — which is why the
+ * meal editor can set it at all. Before PROD1 it reached no screen in the
+ * application and could only be set through the API.
+ */
+export const PRODUCTION_MODES = ['production', 'supplier', 'both'] as const;
+export type ProductionMode = (typeof PRODUCTION_MODES)[number];
+
 export interface MealAdmin {
     readonly id: MealId;
     readonly meta: AdminEntityMeta;
@@ -1216,6 +1636,36 @@ export interface MealAdmin {
     readonly recipeVersionId: RecipeVersionId | null;
     /** The portion sold, relative to one recipe serving. */
     readonly portionFactor: number;
+    /**
+     * What this kitchen does about the meal, and what a sale of it deducts (PROD1).
+     *
+     * `productionMode` and `ingredientId` are the two preconditions behind
+     * `sellsFromFinishedStock`: the server refuses the flag unless the kitchen
+     * *produces* the meal and the ingredient it names is one a published recipe
+     * version outputs. They are carried here so the editor can say which one is
+     * missing instead of discovering it from a refusal.
+     */
+    readonly productionMode: ProductionMode | null;
+    readonly ingredientId: string | null;
+    /**
+     * Made in advance: a sale draws the finished shelf rather than exploding the
+     * recipe. The **stored** flag, not the derived behaviour — a frozen meal
+     * sells that way by type and still reads false here, and writing the type's
+     * own behaviour back as an explicit choice is exactly the confusion the
+     * distinction exists to prevent.
+     */
+    readonly sellsFromFinishedStock: boolean;
+    /**
+     * How much of the produced ingredient one sold unit is — a 350 g pack off a
+     * shelf counted in kilograms. A fixed-scale decimal string, so four places
+     * survive the round trip.
+     *
+     * Required in practice wherever the shelf is weighed: a mass or volume shelf
+     * with no net content refuses every sale with `no_net_content` rather than
+     * guessing. A shelf counted in pieces needs none.
+     */
+    readonly netContentQuantity: string | null;
+    readonly netContentUnitId: string | null;
     readonly mealTypes: readonly MealType[];
     readonly dietClassifications: readonly DietClassification[];
     /** Frozen at publication from the recipe version's declaration; never edited here directly. */
@@ -1255,6 +1705,11 @@ export interface CreateMealRequest {
     readonly description: LocalisedText;
     readonly recipeId?: RecipeId | undefined;
     readonly portionFactor?: number | undefined;
+    readonly productionMode?: ProductionMode | null | undefined;
+    readonly ingredientId?: string | null | undefined;
+    readonly sellsFromFinishedStock?: boolean | undefined;
+    readonly netContentQuantity?: number | null | undefined;
+    readonly netContentUnitId?: string | null | undefined;
     readonly mealTypes?: readonly MealType[] | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
 }
@@ -1264,6 +1719,11 @@ export interface UpdateMealRequest extends LockedRequest {
     readonly description?: LocalisedText | undefined;
     readonly recipeId?: RecipeId | null | undefined;
     readonly portionFactor?: number | undefined;
+    readonly productionMode?: ProductionMode | null | undefined;
+    readonly ingredientId?: string | null | undefined;
+    readonly sellsFromFinishedStock?: boolean | undefined;
+    readonly netContentQuantity?: number | null | undefined;
+    readonly netContentUnitId?: string | null | undefined;
     readonly mealTypes?: readonly MealType[] | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
 }
@@ -1484,6 +1944,8 @@ export interface ReplacePlanMenuRequest extends LockedRequest {
 
 export interface DeliveryWindow {
     readonly id: DeliveryWindowId;
+    /** Fixed at creation (≤ 30 characters); what a slot is chosen and refused by on the wire. */
+    readonly code: string;
     readonly label: LocalisedText;
     /**
      * ISO weekdays the window runs on, 1 Monday … 7 Sunday.
@@ -1498,6 +1960,8 @@ export interface DeliveryWindow {
     /** Deliveries the window can take, when the kitchen caps it. `null` for uncapped. */
     readonly capacity: number | null;
     readonly isActive: boolean;
+    /** The zones that offer this window. A window in no zone is offered nowhere. */
+    readonly zoneIds: readonly DeliveryZoneId[];
 }
 
 export interface DeliveryZoneAdmin {
@@ -1513,7 +1977,12 @@ export interface DeliveryZoneAdmin {
     readonly minimumOrderMinor: number | null;
     readonly currency: CurrencyCode;
     readonly estimatedMinutes: number | null;
-    readonly deliveryWindows: readonly DeliveryWindow[];
+    /**
+     * The kitchen windows this zone offers, in window display order (inactive ones included). The
+     * windows themselves are kitchen-wide records — `listDeliveryWindows` — and a zone only chooses
+     * among them.
+     */
+    readonly windowIds: readonly DeliveryWindowId[];
 }
 
 export interface DeliveryZoneAdminFilter extends CursorPageRequest, OffsetPageRequest {
@@ -1543,19 +2012,21 @@ export interface SetZoneAreasRequest extends LockedRequest {
     readonly serviceAreaIds: readonly ServiceAreaId[];
 }
 
-/** A window as a caller writes it. `id` is `null` for one being added. */
-export interface DeliveryWindowInput {
-    readonly id: DeliveryWindowId | null;
+/** A new kitchen window. The server-side code is derived from the English name. */
+export interface CreateDeliveryWindowRequest {
     readonly label: LocalisedText;
     readonly weekdays: readonly number[];
     readonly startsAt: string;
     readonly endsAt: string;
-    readonly capacity?: number | null | undefined;
     readonly isActive?: boolean | undefined;
 }
 
-export interface SetDeliveryWindowsRequest extends LockedRequest {
-    readonly windows: readonly DeliveryWindowInput[];
+/** A window's editable fields. No lock version: window rows carry none. Code is immutable. */
+export type UpdateDeliveryWindowRequest = Partial<CreateDeliveryWindowRequest>;
+
+/** The whole set of windows a zone offers. Empty is a zone that offers no slot. */
+export interface SetZoneWindowsRequest extends LockedRequest {
+    readonly windowIds: readonly DeliveryWindowId[];
 }
 
 /**
@@ -1691,7 +2162,19 @@ export interface KitchenAdminRepository {
         versionId: RecipeVersionId,
     ): Promise<TechnicalSheetAdmin | null>;
     createRecipe(request: CreateRecipeRequest): Promise<RecipeAdmin>;
-    /** Editing a published recipe opens a new draft version; the result says which one is current. */
+    /**
+     * Opens the next draft version as a copy of version `copyFromVersion` (a version *number*) and
+     * answers with the recipe, whose current version is now that draft. This is the only way a
+     * published version changes.
+     *
+     * Takes no lock version — nothing existing is written, so there is nothing to be stale against.
+     */
+    createRecipeVersion(recipeId: RecipeId, copyFromVersion: number): Promise<RecipeAdmin>;
+    /**
+     * The record's fields and the current version's yield, waste and prices. A published version
+     * refuses the version half (`catalogue.version_immutable`): open a draft with
+     * {@link createRecipeVersion} first.
+     */
     updateRecipe(recipeId: RecipeId, request: UpdateRecipeRequest): Promise<RecipeAdmin>;
     setRecipeLines(recipeId: RecipeId, request: SetRecipeLinesRequest): Promise<RecipeAdmin>;
     setRecipeSteps(recipeId: RecipeId, request: SetRecipeStepsRequest): Promise<RecipeAdmin>;
@@ -1717,11 +2200,26 @@ export interface KitchenAdminRepository {
     getProduct(productId: ProductId): Promise<ProductAdmin>;
     createProduct(request: CreateProductRequest): Promise<ProductAdmin>;
     updateProduct(productId: ProductId, request: UpdateProductRequest): Promise<ProductAdmin>;
+    /**
+     * Publish a product, sauce or dressing — the same one action every sellable kind takes.
+     *
+     * `POST /catalogue/items/{item}/publish` has always been generic over `item_type`; only the
+     * meal path had a client method, so the kitchen could publish a dish and not the jar beside it.
+     * The gate behind it is `catalogue.publish_organisation` and the readiness evaluator, both of
+     * which already knew about every kind.
+     */
+    publishProduct(productId: ProductId, request: LockedRequest): Promise<ProductAdmin>;
     archiveProduct(productId: ProductId, request: LockedRequest): Promise<ProductAdmin>;
     setProductChannelAvailability(
         productId: ProductId,
         request: SetChannelAvailabilityRequest,
     ): Promise<ProductAdmin>;
+    /** The B2B and B2C weight and price of any sold article — a product, a sauce or a meal. */
+    getItemChannelPrices(itemId: ProductId | MealId): Promise<ItemChannelPrices>;
+    setItemChannelPrices(
+        itemId: ProductId | MealId,
+        request: SetItemChannelPricesRequest,
+    ): Promise<ItemChannelPrices>;
 
     /* ── price lists ────────────────────────────────────────────────────────────────────────── */
 
@@ -1788,10 +2286,21 @@ export interface KitchenAdminRepository {
     ): Promise<DeliveryZoneAdmin>;
     archiveZone(zoneId: DeliveryZoneId, request: LockedRequest): Promise<DeliveryZoneAdmin>;
     setZoneAreas(zoneId: DeliveryZoneId, request: SetZoneAreasRequest): Promise<DeliveryZoneAdmin>;
-    setDeliveryWindows(
+    /** Which windows the zone offers, versioned against the zone (wholesale replace). */
+    getZoneWindows(zoneId: DeliveryZoneId): Promise<readonly DeliveryWindowId[]>;
+    setZoneWindows(
         zoneId: DeliveryZoneId,
-        request: SetDeliveryWindowsRequest,
+        request: SetZoneWindowsRequest,
     ): Promise<DeliveryZoneAdmin>;
+    /** The kitchen's windows, org-wide, inactive ones included, in display order. */
+    listDeliveryWindows(): Promise<readonly DeliveryWindow[]>;
+    /** Created in no zone — a zone opts in through `setZoneWindows`. */
+    createDeliveryWindow(request: CreateDeliveryWindowRequest): Promise<DeliveryWindow>;
+    /** There is no delete: withdraw a window with `isActive: false`. */
+    updateDeliveryWindow(
+        windowId: DeliveryWindowId,
+        request: UpdateDeliveryWindowRequest,
+    ): Promise<DeliveryWindow>;
 
     /* ── branch operating data ──────────────────────────────────────────────────────────────── */
 

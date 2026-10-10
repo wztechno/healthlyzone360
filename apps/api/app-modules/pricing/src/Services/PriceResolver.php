@@ -119,11 +119,23 @@ final readonly class PriceResolver
                     priceListId: (string) $priceList->getKey(),
                     priceListItemId: (string) $row->getKey(),
                     minQuantity: $row->min_quantity,
+                    catalogueItemVariantId: $row->catalogue_item_variant_id,
                 );
             }
         }
 
         return null;
+    }
+
+    /**
+     * The list a channel quotes from to a buyer with no agreement — the
+     * channel's own standing price, which is what "the B2B price" and "the
+     * B2C price" of an article mean. Null when the channel reads no active
+     * list today.
+     */
+    public function publicTariffFor(SalesChannel $channel, ?CarbonImmutable $date = null): ?PriceList
+    {
+        return $this->listsFor($channel, ($date ?? CarbonImmutable::now())->startOfDay())[0] ?? null;
     }
 
     /**

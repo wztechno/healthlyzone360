@@ -71,6 +71,9 @@ use RuntimeException;
  */
 final readonly class V6CatalogueWriter
 {
+    /** The workbook quotes every price in US$. */
+    private const string PRICE_CURRENCY = 'USD';
+
     public function __construct(
         private KitchenWorkbookWorld $world,
         private TenantContext $context,
@@ -263,6 +266,14 @@ final readonly class V6CatalogueWriter
         $ingredient->composition = $this->trimmedOrNull($item['composition'] ?? null);
         $ingredient->items_per_unit = is_numeric($item['items_per_unit'] ?? null) ? (string) $item['items_per_unit'] : null;
         $ingredient->yield_factor = '1';
+
+        // The same list prices the catalogue item sells at, restated per
+        // usage unit so the ingredient list's B2B/B2C columns agree with it.
+        $b2b = self::pricePerUsageUnit($item, 'b2b');
+        $b2c = self::pricePerUsageUnit($item, 'b2c');
+        $ingredient->b2b_price_amount = $b2b;
+        $ingredient->b2c_price_amount = $b2c;
+        $ingredient->price_currency_code = $b2b === null && $b2c === null ? null : self::PRICE_CURRENCY;
         $ingredient->status = IngredientStatus::Active;
         $ingredient->verification_status = IngredientVerificationStatus::Unverified;
         $ingredient->source_system = $sourceSystem;
@@ -301,15 +312,48 @@ final readonly class V6CatalogueWriter
     }
 
     /**
+     * One channel's list price restated per usage unit, in major units, or
+     * null when it cannot be stated honestly.
+     *
+     * The sheet quotes a price for a pack weighed in kilograms (`weight_kg`),
+     * so the division only means something for a row measured in kilograms; a
+     * row measured in pieces would need a piece weight the sheet does not
+     * give. Six places, matching the column. Public and pure so the backfill
+     * migration states the same figure an import does.
+     *
+     * @param  array<string, mixed>  $item
+     * @return numeric-string|null
+     */
+    public static function pricePerUsageUnit(array $item, string $channel): ?string
+    {
+        $price = ((array) ($item['prices'] ?? []))[$channel] ?? null;
+
+        if (! is_array($price) || ! is_int($price['price_minor'] ?? null) || ($item['usage_unit_code'] ?? null) !== 'kg') {
+            return null;
+        }
+
+        $weight = $price['weight_kg'] ?? null;
+
+        if (! is_numeric($weight) || (float) $weight <= 0) {
+            return null;
+        }
+
+        // Workbook prices are US$ cents: two minor units.
+        $major = bcdiv((string) $price['price_minor'], '100', 12);
+
+        return bcdiv($major, number_format((float) $weight, 6, '.', ''), 6);
+    }
+
+    /**
      * The sellable packs. A row priced per channel gets a `b2b` and/or `b2c`
      * pack variant sized by the sheet's weights; an unpriced row gets one
      * `unit` variant in its usage unit, so the item has something a price can
      * attach to the day somebody prices it.
      *
-     * Meals get no pack at all. `CatalogueItemType::variantType()` is null for
-     * them, and every reader — the marketplace listing, the cart probe, the B2B
-     * browse — asks a meal for its item-level row, so a meal's prices and
-     * channel rows attach to the item itself.
+     * Meals get packs only when the sheet prices them per channel — Guacamole
+     * at 1 kg B2B and 300 g B2C states two sizes, and a price with no size is a
+     * price per nothing. An unpriced meal gets no placeholder pack: it is a
+     * dish sold as itself, and the readers fall back to its item-level row.
      *
      * @param  array<string, mixed>  $item
      * @return array<string, CatalogueItemVariant> variant code → variant
@@ -350,7 +394,7 @@ final readonly class V6CatalogueWriter
             ];
         }
 
-        if ($definitions === []) {
+        if ($definitions === [] && $catalogueItem->item_type !== CatalogueItemType::Meal) {
             $definitions[] = [
                 'code' => 'unit',
                 'label' => 'Unit',
@@ -459,7 +503,7 @@ final readonly class V6CatalogueWriter
             $entry->organisation_id = $organisationId;
             $entry->price_list_id = (string) $list->getKey();
             $entry->catalogue_item_id = (string) $catalogueItem->getKey();
-            // Pack kinds price the channel's pack; a meal prices the item itself.
+            // The channel's pack when the item has one; an item with no pack is priced itself.
             $entry->catalogue_item_variant_id = $variant instanceof CatalogueItemVariant ? (string) $variant->getKey() : null;
             $entry->min_quantity = null;
             $entry->unit_amount_minor = $price['price_minor'];

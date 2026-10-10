@@ -163,6 +163,7 @@ export function ClosureWizardScreen({ step }: ClosureWizardScreenProps) {
                             <TextInputField
                                 testID={`${TEST_ID}-reason-note`}
                                 label={t('account:closure.noteLabel')}
+                                placeholder={t('account:closure.notePlaceholder')}
                                 hint={t('account:closure.noteHint')}
                                 value={reasonNote}
                                 onChangeText={setReasonNote}

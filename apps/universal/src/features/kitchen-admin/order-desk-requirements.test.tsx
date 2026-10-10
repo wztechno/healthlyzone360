@@ -8,6 +8,7 @@ import { screen, waitFor } from '@testing-library/react-native';
 
 import { kitchenManagerSession, testActiveContext } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
 import { OrderDeskRequirementsScreen } from './screens/order-desk-requirements-screen.tsx';
 import { Dimensions } from 'react-native';
 
@@ -62,6 +63,8 @@ function requirement(overrides: Partial<OrderDeskRequirement> = {}): OrderDeskRe
         unitId: 'unit-0000-0001',
         unitCode: 'kg',
         required: '10.000000',
+        onHand: '2.0000',
+        reserved: '0.0000',
         available: '2.0000',
         short: '8.0000',
         suggestedBuy: '8.0000',
@@ -102,6 +105,17 @@ async function settled() {
         { timeout: 5000 },
     );
 }
+
+const TABLE = 'kitchen-order-desk-requirements-table';
+
+/** Reserved and Available are off by default (six columns); these tests read them. */
+function showStockColumns(): void {
+    rememberColumnChoice(TABLE, ['ingredient', 'onHand', 'reserved', 'available', 'unit']);
+}
+
+afterEach(() => {
+    forgetColumnChoice(TABLE);
+});
 
 describe('order desk requirements — the ladder', () => {
     it('shows skeletons, then the table', async () => {
@@ -185,12 +199,14 @@ describe('order desk requirements — the branch gate', () => {
 
 describe('order desk requirements — what the rows say', () => {
     it('renders an em dash for a shelf with no unit and a zero for a shelf holding none', async () => {
+        showStockColumns();
         await renderRequirements(async () =>
             answer([
                 requirement({
                     stockItemId: SHELF_ID,
                     unitId: null,
                     unitCode: null,
+                    onHand: '0.0000',
                     available: '0.0000',
                 }),
             ]),
@@ -207,6 +223,66 @@ describe('order desk requirements — what the rows say', () => {
         ).toHaveTextContent('0');
     });
 
+    /**
+     * A shelf that is full and still short is the reservation case, and the table has to show why
+     * or it reads as a bug: the buyer sees 10 kg of flour, a suggestion to buy 8 more, and no
+     * explanation. `onHand` and `reserved` are the explanation.
+     */
+    it('shows what is claimed beside what is on the shelf when production has reserved it', async () => {
+        showStockColumns();
+        await renderRequirements(async () =>
+            answer([
+                requirement({
+                    stockItemId: SHELF_ID,
+                    onHand: '10.0000',
+                    reserved: '8.0000',
+                    available: '2.0000',
+                    short: '8.0000',
+                    suggestedBuy: '8.0000',
+                }),
+            ]),
+        );
+
+        await settled();
+
+        expect(
+            screen.getByTestId(`kitchen-order-desk-requirement-${SHELF_ID}-on-hand`),
+        ).toHaveTextContent('10');
+        expect(
+            screen.getByTestId(`kitchen-order-desk-requirement-${SHELF_ID}-reserved`),
+        ).toHaveTextContent('8');
+        expect(
+            screen.getByTestId(`kitchen-order-desk-requirement-${SHELF_ID}-available`),
+        ).toHaveTextContent('2');
+    });
+
+    /**
+     * Over-claimed is a real state, not a rendering fault. A shelf holding 4 with 6 claimed has a
+     * negative `available`, and the screen passes it through — clamping it to zero would hide the
+     * part of the problem the buyer is being asked to fix.
+     */
+    it('renders a negative available rather than clamping an over-claimed shelf to zero', async () => {
+        showStockColumns();
+        await renderRequirements(async () =>
+            answer([
+                requirement({
+                    stockItemId: SHELF_ID,
+                    onHand: '4.0000',
+                    reserved: '6.0000',
+                    available: '-2.0000',
+                    short: '12.0000',
+                    suggestedBuy: '12.0000',
+                }),
+            ]),
+        );
+
+        await settled();
+
+        expect(
+            screen.getByTestId(`kitchen-order-desk-requirement-${SHELF_ID}-available`),
+        ).toHaveTextContent('-2');
+    });
+
     it('marks a short row by its Short figure, with no position column', async () => {
         await renderRequirements(async () =>
             answer([
@@ -215,6 +291,7 @@ describe('order desk requirements — what the rows say', () => {
                     stockItemId: SECOND_SHELF_ID,
                     code: 'sku-rice',
                     nameEn: 'Rice',
+                    onHand: '50.0000',
                     available: '50.0000',
                     short: '0.0000',
                     suggestedBuy: '0.0000',

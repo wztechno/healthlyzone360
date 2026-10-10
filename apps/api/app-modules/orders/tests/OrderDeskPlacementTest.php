@@ -2,11 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
+use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Customers\Models\CustomerAccount;
+use Healthy360\Delivery\Models\DeliveryJob;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Exceptions\PlacementRefused;
 use Healthy360\Orders\Models\Order;
@@ -155,7 +158,88 @@ it('delivers to a real customer at a real address, fee and all', function (): vo
         ->and($response->json('data.order.delivery.line_one'))->toBe('Rue Gouraud 12')
         ->and($order->customer_account_id)->toBe((string) $this->world->customer->account->getKey())
         ->and($order->sales_channel_id)->toBe((string) $this->world->desk->getKey())
-        ->and($order->placed_on_behalf_by)->toBe((string) $this->agent->getKey());
+        ->and($order->placed_on_behalf_by)->toBe((string) $this->agent->getKey())
+        // Confirmed at placement, so the run exists the moment the desk is
+        // done — waiting in the unassigned pool, because nobody was named.
+        ->and($response->json('data.order.status'))->toBe('confirmed');
+
+    $job = DeliveryJob::withoutTenancy()->where('order_id', $order->getKey())->sole();
+
+    expect($job->status)->toBe('pending')
+        ->and($job->driver_user_id)->toBeNull();
+});
+
+it('hands the new run straight to the driver the desk named', function (): void {
+    $manager = DeskWorld::agent($this->world, 'desk-manager@desk.test', [
+        ...DeskWorld::AGENT_PERMISSIONS,
+        'order.manage_organisation',
+    ]);
+    $driver = DeskWorld::agent($this->world, 'driver@desk.test', []);
+
+    $this->actingAs($manager);
+
+    $response = $this->postJson('/api/v1/catalogue/order-desk/orders', deskSaleBody($this, [
+        'fulfilment_type' => 'delivery',
+        'payment_method' => 'cash_on_delivery',
+        'customer_account_id' => (string) $this->world->customer->account->getKey(),
+        'customer_address_id' => (string) $this->world->customer->address->getKey(),
+        'driver_user_id' => (string) $driver->getKey(),
+    ]), deskSaleHeaders($this, 'delivery-with-driver'))->assertCreated();
+
+    $job = DeliveryJob::withoutTenancy()->sole();
+
+    expect($response->json('data.order.status'))->toBe('confirmed')
+        ->and($job->status)->toBe('assigned')
+        ->and($job->driver_user_id)->toBe((string) $driver->getKey())
+        ->and($job->assigned_at)->not->toBeNull()
+        ->and(AuditLog::query()->where('action', 'delivery.job_assigned')->count())->toBe(1);
+});
+
+it('refuses a driver who does not work here, and sells nothing', function (): void {
+    $manager = DeskWorld::agent($this->world, 'desk-manager@desk.test', [
+        ...DeskWorld::AGENT_PERMISSIONS,
+        'order.manage_organisation',
+    ]);
+    $this->actingAs($manager);
+
+    $this->postJson('/api/v1/catalogue/order-desk/orders', deskSaleBody($this, [
+        'fulfilment_type' => 'delivery',
+        'payment_method' => 'cash_on_delivery',
+        'customer_account_id' => (string) $this->world->customer->account->getKey(),
+        'customer_address_id' => (string) $this->world->customer->address->getKey(),
+        'driver_user_id' => (string) User::factory()->create()->getKey(),
+    ]), deskSaleHeaders($this, 'delivery-outsider-driver'))
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed')
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['driver_user_id']]]]);
+
+    // One transaction: the placement and its confirm roll back with the refusal.
+    expect(Order::query()->count())->toBe(0)
+        ->and(DeliveryJob::withoutTenancy()->count())->toBe(0);
+});
+
+it('will not let the desk name a driver without the authority to assign one', function (): void {
+    // The default agent may sell but not manage orders, and assigning a run is
+    // the assign endpoint's `order.manage_organisation`.
+    $this->postJson('/api/v1/catalogue/order-desk/orders', deskSaleBody($this, [
+        'fulfilment_type' => 'delivery',
+        'payment_method' => 'cash_on_delivery',
+        'customer_account_id' => (string) $this->world->customer->account->getKey(),
+        'customer_address_id' => (string) $this->world->customer->address->getKey(),
+        'driver_user_id' => (string) $this->agent->getKey(),
+    ]), deskSaleHeaders($this, 'delivery-driver-no-authority'))->assertForbidden();
+
+    expect(Order::query()->count())->toBe(0);
+});
+
+it('refuses a driver on anything that is not a delivery', function (): void {
+    $this->postJson('/api/v1/catalogue/order-desk/orders', deskSaleBody($this, [
+        'fulfilment_type' => 'pickup',
+        'customer_account_id' => (string) $this->world->customer->account->getKey(),
+        'driver_user_id' => (string) $this->agent->getKey(),
+    ]), deskSaleHeaders($this, 'pickup-with-driver'))
+        ->assertStatus(422)
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['driver_user_id']]]]);
 });
 
 it('refuses a pickup that carries an address, and names the reason', function (): void {
@@ -217,7 +301,11 @@ it('sells to a provisional account the same account could not check out for itse
     $this->postJson('/api/v1/catalogue/order-desk/orders', deskSaleBody($this, [
         'fulfilment_type' => 'pickup',
         'customer_account_id' => (string) $caller->getKey(),
-    ]), deskSaleHeaders($this, 'provisional-pickup'))->assertCreated();
+    ]), deskSaleHeaders($this, 'provisional-pickup'))
+        ->assertCreated()
+        // A pickup is still only placed: confirming at the desk is a delivery
+        // rule, because only a delivery has a run nobody could otherwise see.
+        ->assertJsonPath('data.order.status', 'placed');
 
     // The same placement with nobody named. Composed rather than driven over
     // HTTP because the self-service route for this shape is a cart checkout, and

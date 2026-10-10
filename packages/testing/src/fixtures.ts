@@ -58,6 +58,7 @@ export function makeSessionUser(overrides: Partial<SessionUser> = {}): SessionUs
         email: 'layla.haddad@example.com',
         emailVerifiedAt: FIXTURE_CREATED_AT,
         twoFactorEnabled: false,
+        mustChangePassword: false,
         profile: makeProfile(),
         createdAt: FIXTURE_CREATED_AT,
         ...overrides,

@@ -33,6 +33,13 @@ export interface AccessState {
     readonly mode: AppMode;
     readonly session: SessionState;
     readonly emailVerified: boolean;
+    /**
+     * True while the person is still carrying a password an administrator chose for them.
+     *
+     * Optional because it is a fact the guard kernel can do without: a state that omits it is a
+     * state with nothing to hold, which is every consumer and every fixture written before AA1.
+     */
+    readonly mustChangePassword?: boolean | undefined;
     readonly organisation?: AccessOrganisation | undefined;
     readonly branch?: AccessBranch | undefined;
     /**

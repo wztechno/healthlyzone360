@@ -62,6 +62,7 @@ interface HalfProps {
     readonly disabled?: boolean | undefined;
     /** Renders a paragraph field instead of a single line. See the note on `BilingualFieldProps`. */
     readonly multiline?: boolean | undefined;
+    readonly labelHidden?: boolean | undefined;
 }
 
 function BilingualHalf({
@@ -76,6 +77,7 @@ function BilingualHalf({
     required = false,
     disabled = false,
     multiline = false,
+    labelHidden = false,
 }: HalfProps) {
     const [focused, setFocused] = useState(false);
     /*
@@ -94,6 +96,7 @@ function BilingualHalf({
             testID={testID}
             id={testID}
             label={label}
+            labelHidden={labelHidden}
             {...(hint === undefined ? {} : { hint })}
             required={required}
             disabled={disabled}
@@ -153,6 +156,13 @@ export interface BilingualFieldProps extends GridSpanProps {
     readonly requiredEnglish?: boolean | undefined;
     readonly englishError?: string | undefined;
     /**
+     * Marks the Arabic half required too — for the records whose endpoint refuses a missing one
+     * outright (a role: `name_ar` is `required`), where a draft without it cannot be saved at all.
+     * Nothing publishes a role, so there is no later gate for the marker to defer to.
+     */
+    readonly requiredArabic?: boolean | undefined;
+    readonly arabicError?: string | undefined;
+    /**
      * Renders both halves as paragraph fields.
      *
      * A recipe step is a sentence or three, not a name, and typing one into a single-line box means
@@ -189,6 +199,17 @@ export interface BilingualFieldProps extends GridSpanProps {
      * restrained one. Nothing else on the page stretches, and no other editor opts in.
      */
     readonly layout?: 'stacked' | 'row' | 'fill' | undefined;
+    /**
+     * `fill` only: both halves keep their accessible names and draw no label — for a pair that sits
+     * under a table's column header (the delivery window table).
+     */
+    readonly labelHidden?: boolean | undefined;
+    /**
+     * An example for each half — `Morning` in the English box, `الصباح` in the Arabic one. Each
+     * language gets its own, written in that language: a placeholder is read in the box it sits in,
+     * and an English example in the right-to-left box would show the reader the wrong script.
+     */
+    readonly placeholder?: { readonly en?: string; readonly ar?: string } | undefined;
     readonly testID: string;
 }
 
@@ -198,27 +219,44 @@ export function BilingualField({
     onChange,
     requiredEnglish = false,
     englishError,
+    requiredArabic = false,
+    arabicError,
     multiline = false,
     disabled = false,
     layout = 'stacked',
+    labelHidden = false,
+    placeholder,
     testID,
 }: BilingualFieldProps) {
     const { t } = useTranslation();
+    const hintFor = (language: 'en' | 'ar'): { readonly placeholder?: string } => {
+        const text = placeholder?.[language];
+        return text === undefined ? {} : { placeholder: text };
+    };
     const arabicMissing = value.ar.trim() === '';
     const row = layout === 'row';
 
     if (layout === 'fill') {
         return (
-            <View testID={testID} className="z-auto flex-col gap-base md:flex-row">
+            <View
+                testID={testID}
+                className={
+                    labelHidden
+                        ? 'z-auto flex-row gap-tight'
+                        : 'z-auto flex-col gap-base md:flex-row'
+                }
+            >
                 <View className="z-auto min-w-0 flex-1">
                     <BilingualHalf
                         testID={`${testID}-en`}
                         label={fieldLabel}
+                        labelHidden={labelHidden}
                         value={value.en}
                         onChangeText={(next) => {
                             onChange({ ...value, en: next });
                         }}
                         direction="ltr"
+                        {...hintFor('en')}
                         required={requiredEnglish}
                         multiline={multiline}
                         disabled={disabled}
@@ -229,13 +267,17 @@ export function BilingualField({
                     <BilingualHalf
                         testID={`${testID}-ar`}
                         label={t('kitchen:bilingual.arabicLabel', { field: fieldLabel })}
+                        labelHidden={labelHidden}
                         value={value.ar}
                         onChangeText={(next) => {
                             onChange({ ...value, ar: next });
                         }}
                         direction="rtl"
+                        {...hintFor('ar')}
+                        required={requiredArabic}
                         multiline={multiline}
                         disabled={disabled}
+                        {...(arabicError === undefined ? {} : { error: arabicError })}
                     />
                 </View>
             </View>
@@ -263,6 +305,7 @@ export function BilingualField({
                             onChange({ ...value, en: next });
                         }}
                         direction="ltr"
+                        {...hintFor('en')}
                         required={requiredEnglish}
                         multiline={multiline}
                         disabled={disabled}
@@ -278,8 +321,11 @@ export function BilingualField({
                             onChange({ ...value, ar: next });
                         }}
                         direction="rtl"
+                        {...hintFor('ar')}
+                        required={requiredArabic}
                         multiline={multiline}
                         disabled={disabled}
+                        {...(arabicError === undefined ? {} : { error: arabicError })}
                     />
                 </View>
             </View>
@@ -297,6 +343,7 @@ export function BilingualField({
                     onChange({ ...value, en: next });
                 }}
                 direction="ltr"
+                {...hintFor('en')}
                 required={requiredEnglish}
                 multiline={multiline}
                 disabled={disabled}
@@ -312,8 +359,11 @@ export function BilingualField({
                     onChange({ ...value, ar: next });
                 }}
                 direction="rtl"
+                {...hintFor('ar')}
+                required={requiredArabic}
                 multiline={multiline}
                 disabled={disabled}
+                {...(arabicError === undefined ? {} : { error: arabicError })}
             />
         </>
     );

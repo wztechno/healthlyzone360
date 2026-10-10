@@ -1,5 +1,6 @@
 import { Badge } from '@healthy360/design-system';
-import type { NavigationItem } from '@healthy360/design-system';
+import type { IconName, NavigationItem } from '@healthy360/design-system';
+import { gradients } from '@healthy360/design-tokens';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
@@ -8,7 +9,7 @@ import { Text as RNText, View } from 'react-native';
 
 import { useReviewQueueQuery } from '../../data/kitchen-admin-hooks.ts';
 import { useConsumptionExceptionCountQuery } from '../../data/kitchen-ops-hooks.ts';
-import { permittedNavigation } from '../../navigation/items.ts';
+import { workspaceGroup } from '../../navigation/workspace-group.tsx';
 import { useAccessState } from '../../session/session-provider.tsx';
 import {
     OVERVIEW_HREF,
@@ -16,6 +17,7 @@ import {
     isKitchenNavActive,
     kitchenNavSections,
 } from './kitchen-nav.ts';
+import type { EntityGroup } from './entity-registry.ts';
 import { buildReviewQueue } from './review-queue.ts';
 
 /**
@@ -27,60 +29,72 @@ import { buildReviewQueue } from './review-queue.ts';
  * `app/kitchen/_layout.tsx` — the chrome ships with the kitchen area, not with the entry bundle.
  */
 
+/**
+ * Each module's mark on the rail, where a group is drawn as one icon. Drawn on the web (Lucide, see
+ * `icon-drawing.web.tsx`); on native each falls back to the glyph it replaced.
+ */
+const GROUP_ICONS: Readonly<Record<EntityGroup, IconName>> = {
+    orderDesk: 'receipt',
+    workbench: 'clipboardCheck',
+    catalogue: 'chefHat',
+    commercial: 'tag',
+    operations: 'package',
+    access: 'shield',
+};
+
 /** KITCHEN.md sidebar spec: the family rail is 232px. */
 export const KITCHEN_SIDEBAR_WIDTH = 232;
-
-/**
- * The canopy gradient behind the rail, over the shell's flat `surface-canopy`.
- *
- * Hexes in a prop, not a class, the same way `PageHero` and the marketplace brand mark carry
- * theirs — these are `surface-canopy` → `surface-canopy-deep` from the token set, which a
- * `LinearGradient` cannot read as classNames.
- */
-export function KitchenCanopyGradient() {
-    return (
-        <LinearGradient
-            colors={['#0b3b26', '#124f33']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={{ flex: 1 }}
-        />
-    );
-}
 
 /**
  * Brand block at the top of the rail: the violet-to-green mark the marketplace top bar uses, the
  * wordmark, and the area line under it. No branch name — the access state carries only branch ids,
  * and a made-up label would be worse than none.
  */
+/** The gradient mark with the brand's initial — the brand block's glyph, and all of it when collapsed. */
+function BrandMark() {
+    const { t } = useTranslation();
+    return (
+        <LinearGradient
+            colors={gradients.accent.colours}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ width: 32, height: 32, borderRadius: 8 }}
+        >
+            <View className="h-full w-full items-center justify-center">
+                <RNText className="text-base font-bold text-content-on-canopy">
+                    {t('marketplace:brand.name').slice(0, 1)}
+                </RNText>
+            </View>
+        </LinearGradient>
+    );
+}
+
+/**
+ * The top of the green module rail: empty. The logo lives once, in the white panel's brand block;
+ * this keeps the block's height so the rail's module icons start where they did.
+ */
+export function KitchenRailTop() {
+    return (
+        <View testID="kitchen-rail-top" className="pb-2 pt-4">
+            <View className="h-8" />
+        </View>
+    );
+}
+
 export function KitchenBrandBlock() {
     const { t } = useTranslation();
 
     return (
         <View testID="kitchen-rail-brand" className="flex-row items-center gap-2 px-4 pb-2 pt-4">
-            <LinearGradient
-                colors={['#6d28d9', '#16a34a']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{ width: 32, height: 32, borderRadius: 8 }}
-            >
-                <View className="h-full w-full items-center justify-center">
-                    <RNText className="text-base font-bold text-content-on-canopy">
-                        {t('marketplace:brand.name').slice(0, 1)}
-                    </RNText>
-                </View>
-            </LinearGradient>
+            <BrandMark />
             <View className="min-w-0 flex-1">
                 <RNText
                     numberOfLines={1}
-                    className="text-base font-bold text-content-on-canopy text-start"
+                    className="text-base font-bold text-content-primary text-start"
                 >
                     {t('marketplace:brand.name')}
                 </RNText>
-                <RNText
-                    numberOfLines={1}
-                    className="text-xs text-content-on-canopy-muted text-start"
-                >
+                <RNText numberOfLines={1} className="text-xs text-content-secondary text-start">
                     {t('kitchen:nav.railTitle')}
                 </RNText>
             </View>
@@ -173,10 +187,20 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
         };
 
         return [
+            // Workspace first: the areas and the account, above the kitchen's own modules.
+            ...workspaceGroup({
+                state,
+                t,
+                pathname,
+                currentArea: 'kitchen',
+                navigate: (href) => {
+                    router.push(href as never);
+                },
+            }),
             {
                 key: 'overview',
                 label: t('kitchen:nav.overview'),
-                icon: 'home',
+                icon: 'dashboard',
                 active: isKitchenNavActive(pathname, OVERVIEW_HREF),
                 testID: 'nav-overview',
                 onPress: () => {
@@ -187,19 +211,9 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
                 section.items.map((item) => ({
                     ...familyItem(item),
                     group: t(section.labelKey),
+                    groupIcon: GROUP_ICONS[section.group],
                 })),
             ),
-            ...permittedNavigation(state).map((item): NavigationItem => ({
-                key: item.key,
-                label: t(item.labelKey),
-                icon: item.icon,
-                group: t('kitchen:nav.groups.workspace'),
-                active: pathname === item.href,
-                testID: `nav-${item.key}`,
-                onPress: () => {
-                    router.push(item.href as never);
-                },
-            })),
         ];
     }, [sections, state, pathname, reviewTotal, exceptionTotal, router, t]);
 }

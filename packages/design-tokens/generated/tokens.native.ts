@@ -19,11 +19,11 @@ export const nativeTokens = {
         "textDisabled": "#646e7c",
         "textInverse": "#f7fcf9",
         "textOnBrand": "#ffffff",
-        "borderSubtle": "#cceeda",
+        "borderSubtle": "#d1fae5",
         "borderDefault": "#aaddc0",
         "borderStrong": "#5f8f76",
         "focusRing": "#157043",
-        "brandSurface": "#157043",
+        "brandSurface": "#16a34a",
         "brandSurfaceSubtle": "#dcfce7",
         "onBrandSurfaceSubtle": "#14532d",
         "accentSurface": "#6d28d9",
@@ -32,6 +32,11 @@ export const nativeTokens = {
         "surfaceCanopyDeep": "#124f33",
         "onCanopy": "#ffffff",
         "onCanopyMuted": "#dcfce7",
+        "surfaceSidebar": "#16a34a",
+        "onSidebar": "#ffffff",
+        "onSidebarMuted": "#ffffff",
+        "sidebarActive": "#ffffff",
+        "onSidebarActive": "#16a34a",
         "accentSubtle": "#f1ebfd",
         "onAccentSubtle": "#4c1d95",
         "ratingStar": "#b57d0d",
@@ -137,6 +142,11 @@ export const nativeTokens = {
         "surfaceCanopyDeep": "#17402c",
         "onCanopy": "#ffffff",
         "onCanopyMuted": "#dcfce7",
+        "surfaceSidebar": "#16241b",
+        "onSidebar": "#bcc7be",
+        "onSidebarMuted": "#8b968c",
+        "sidebarActive": "#153a26",
+        "onSidebarActive": "#86efac",
         "accentSubtle": "#251b3d",
         "onAccentSubtle": "#cdbcf7",
         "ratingStar": "#e0a92a",
@@ -315,11 +325,11 @@ export const nativeTokens = {
   "typography": {
     "fontFamilies": {
       "latin": {
-        "regular": "SchibstedGrotesk_400Regular",
-        "medium": "SchibstedGrotesk_500Medium",
-        "semibold": "SchibstedGrotesk_600SemiBold",
-        "bold": "SchibstedGrotesk_700Bold",
-        "stack": "'Schibsted Grotesk', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+        "regular": "Inter_400Regular",
+        "medium": "Inter_500Medium",
+        "semibold": "Inter_600SemiBold",
+        "bold": "Inter_700Bold",
+        "stack": "'Inter', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
       },
       "arabic": {
         "regular": "IBMPlexSansArabic_400Regular",
@@ -331,11 +341,11 @@ export const nativeTokens = {
     },
     "monoFamilies": {
       "latin": {
-        "regular": "SchibstedGrotesk_400Regular",
-        "medium": "SchibstedGrotesk_500Medium",
-        "semibold": "SchibstedGrotesk_600SemiBold",
-        "bold": "SchibstedGrotesk_700Bold",
-        "stack": "'Schibsted Grotesk', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+        "regular": "Inter_400Regular",
+        "medium": "Inter_500Medium",
+        "semibold": "Inter_600SemiBold",
+        "bold": "Inter_700Bold",
+        "stack": "'Inter', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
       },
       "arabic": {
         "regular": "IBMPlexSansArabic_400Regular",

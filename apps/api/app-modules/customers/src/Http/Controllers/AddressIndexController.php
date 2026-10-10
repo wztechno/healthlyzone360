@@ -48,7 +48,7 @@ final class AddressIndexController
     public function __invoke(Request $request): JsonResponse
     {
         $user = $this->currentUser($request);
-        $account = $this->customerAccountOrNull($user);
+        $account = $this->addressBookAccountOrNull($request, $user);
 
         $rows = ! $account instanceof CustomerAccount ? [] : CustomerAddress::query()
             ->where('customer_account_id', $account->getKey())

@@ -2,68 +2,89 @@ import type {
     AllergenClass,
     ApiFailure,
     PublishableStatus,
-    RecipeAdmin,
     RecipeAdminSummary,
+    RecipeKind,
+    RecipeSoldAs,
 } from '@healthy360/api-client/contracts';
-import type { AllergenCode, KitchenId, RecipeId } from '@healthy360/domain-types';
+import { isRecipeKind } from '@healthy360/api-client/contracts';
+import { MealId, ProductId } from '@healthy360/domain-types';
+import type { AllergenCode, RecipeId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 
+import { useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import type { RecipeKitchen } from '../../../data/kitchen-admin-hooks.ts';
 import {
+    KITCHEN_PAGE_SIZE,
     pagesInResult,
     useAllergenClassesQuery,
+    useArchiveProductMutation,
     useOpenRecipeDraftMutation,
-    useRecipeDetails,
-    useRecipeKitchensQuery,
     useRecipePageQuery,
+    useRecipeWholeSetQuery,
+    useRetireMealMutation,
     useRetireRecipeMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
+import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
+import { missingPack, onSaleStatus, recipeHandle } from './recipe-columns.tsx';
+import { useCatalogueFilters } from './use-catalogue-filters.ts';
+import { useDestructiveRow } from './use-destructive-row.ts';
 
 /**
- * Everything `/kitchen/recipes` knows that is not a pixel — the recipe half of handoff §4.6.
+ * Everything `/kitchen/recipes` knows that is not a pixel — the recipe book's list state.
  *
  * The split is the same one `use-ingredient-list.ts` makes and is worth just as much here: the
- * list's *behaviour* survives the move onto the Catalogue shell untouched while its presentation is
- * rewritten from §4.1. So what moved here moved verbatim — the filter shape the query key is built
- * from, the client-side sort, the page reset, the retire sequence and the lock version it carries,
- * and the draft-opening sequence with the version number its toast quotes. Nothing was improved on
- * the way across.
+ * list's *behaviour* lives here and the screen only draws it. So the filter shape the query key is
+ * built from, the client-side sort, the page reset, the retire and withdraw sequences with the lock
+ * versions they carry, and the draft-opening sequence with the version number its toast quotes are
+ * all in this file.
+ *
+ * ## The kind lives in the URL, and nowhere else
+ *
+ * `?kind=` is parsed on every render and never copied into state, so a tab is an address a reader
+ * can link to and the old `/kitchen/sauces` redirects land on it. Setting it is `router.setParams`;
+ * clearing it writes an empty value (the `meal-filters.tsx` precedent), which parses as no kind.
+ *
+ * `kind` and `sellingStatus` are only ever sent for a reader who can see the catalogue. The server
+ * refuses both with a 403 for anyone else, so for that reader a `?kind=` in the address is ignored
+ * rather than turned into a refusal.
  *
  * ## Sorting is client-side, and that is stated rather than hidden
  *
  * `RecipeAdminFilter` publishes no sort parameter, so the list sorts the rows it has — within the
  * page. Same limitation, same wording, as the ingredient list, and a real `?sort=` on the listing
- * endpoint makes it a server concern and this paragraph goes away.
+ * endpoint makes it a server concern and this paragraph goes away. Id orders by the handle the
+ * column draws, digits as numbers, so `SAC-9` comes before `SAC-10`.
  *
- * Two columns are deliberately unsortable: Version state and Allergens both arrive per row and out
- * of order, so ordering by either would sort the rows that had answered and shuffle the rest in
- * underneath as they landed. Their headers still filter through the toolbar's search.
+ * Kind, Category, Allergens, On sale and the seller tracks do not sort. Kind is the strip's, and
+ * Category, Allergens and On sale narrow through the request instead — a page-local order over a
+ * set-valued cell answers nothing the filter does not, and only for the rows that happened to load.
  *
  * ## The counts are over the loaded page, deliberately
  *
- * Shown, Draft, Awaiting review and Missing Arabic are all counted over the page in hand, which is
- * the only set this screen has. That difference is why Shown reads "18 of 306" rather than claiming
+ * On sale, Draft, Awaiting review and No pack are all counted over the page in hand, which is the
+ * only set this screen has. That difference is why Shown reads "18 of 306" rather than claiming
  * the three beside it are catalogue-wide.
  *
- * ## The detail read is here, not in three cells
+ * ## Withdraw is the seller's, and quotes the seller's lock version
  *
- * {@link useRecipeDetails} reads every row on the page so the version state, the derived allergen
- * label and the immutability that decides whether New draft is offered are all answerable
- * synchronously. That last one is why it has to be here: `rowActions` is a callback, not a
- * component, so it cannot call a query — and an action that appeared a beat after the row did would
- * be a control moving under the pointer.
+ * Withdrawing takes the *item* off sale — a meal is retired, a packaged item archived, which for a
+ * catalogue item is the same state — and leaves the recipe in the book. So the request names the
+ * seller's id and its own `lockVersion`, never the recipe's: the two move independently, and a
+ * precondition quoting the wrong one would be refused. It is offered only while exactly one item
+ * sells the recipe and that item is live, the old meal list's rule; with several sellers the choice
+ * of which to withdraw belongs to the editor's Selling tab.
  */
 
 /**
- * The columns a header menu can order by.
+ * The columns a header can order by.
  *
  * Version orders by `currentVersionNumber` — numerically, since lexically v11 sorts between v1 and
- * v2. Version state and Allergens are absent for the reason above.
+ * v2. Kitchen compares the id rather than the name the cell prints; every row of one kitchen's book
+ * shares it, which is why the column sits on the lowest rung.
  */
 export type RecipeSortKey = 'reference' | 'name' | 'kitchen' | 'version' | 'status' | 'updatedAt';
 export type RecipeSortDirection = 'asc' | 'desc';
@@ -76,8 +97,8 @@ export interface RecipeListState {
     readonly failure: ApiFailure | null;
     readonly refetch: () => void;
 
-    /** The detail behind one row, or `undefined` while it is in flight. */
-    readonly detailOf: (row: RecipeAdminSummary) => RecipeAdmin | undefined;
+    /** Whether the reader may see the catalogue — and so what sells each recipe. */
+    readonly sells: boolean;
 
     readonly query: string;
     readonly setQuery: (query: string) => void;
@@ -85,8 +106,15 @@ export interface RecipeListState {
     readonly trimmed: string;
     readonly statuses: readonly PublishableStatus[];
     readonly setStatuses: (statuses: readonly PublishableStatus[]) => void;
-    readonly kitchen: string | null;
-    readonly setKitchen: (kitchen: string | null) => void;
+    /** The tab — `null` is All. Read from `?kind=`, and always `null` without `sells`. */
+    readonly kind: RecipeKind | null;
+    readonly setKind: (kind: RecipeKind | null) => void;
+    /** The recipe's own filing word the list is narrowed to — `cold_sauce_dip` — or `null`. */
+    readonly category: string | null;
+    readonly setCategory: (category: string | null) => void;
+    /** Only recipes with a seller in this state, or `null`. Sent only with `sells`. */
+    readonly sellingStatus: PublishableStatus | null;
+    readonly setSellingStatus: (status: PublishableStatus | null) => void;
     /**
      * The allergen class the list is narrowed to, or `null`.
      *
@@ -100,10 +128,9 @@ export interface RecipeListState {
     readonly setAllergen: (allergen: AllergenCode | null) => void;
     /** Every class the platform declares — the column filter's value list. */
     readonly allergenClasses: readonly AllergenClass[];
-    /** True when no filter of any kind is in force — the empty state branches on it. */
+    /** True when no filter of any kind is in force, the tab included — the empty state branches on it. */
     readonly isUnfiltered: boolean;
     readonly clearFilters: () => void;
-    readonly kitchens: readonly RecipeKitchen[];
 
     readonly sortKey: RecipeSortKey;
     readonly sortDirection: RecipeSortDirection;
@@ -115,20 +142,25 @@ export interface RecipeListState {
     /** The server's count for the whole filtered set, or `null` before the first answer. */
     readonly total: number | null;
     readonly shown: number;
+    /** The whole-set read behind the other cards has not landed yet. */
+    readonly countsPending: boolean;
     readonly draftCount: number;
     /** Rows the store quarantined — a published allergen label a change has since contradicted. */
     readonly reviewCount: number;
-    readonly missingArabicCount: number;
+    /** Rows something sells that a shopper can buy right now. */
+    readonly onSaleCount: number;
+    /** Rows sold as a sauce, dressing or frozen meal that has no pack to sell in. */
+    readonly noPackCount: number;
 
     readonly openEditor: (recipeId: string) => void;
-    readonly createNew: () => void;
+    /** Opens the create form for one kind — a preparation is a plain recipe. */
+    readonly createNew: (kind: RecipeKind) => void;
 
     /**
      * The record the read-only View panel is showing, or `null`.
      *
-     * The summary rather than its id, matching the ingredient list: the row already carries most of
-     * what the panel draws, and the two fields it does not — the version state and the derived
-     * label — are the ones {@link detailOf} already holds.
+     * The summary rather than its id, matching the ingredient list: the row carries everything the
+     * panel draws, the version state, the derived label and the sellers included.
      */
     readonly viewing: RecipeAdminSummary | null;
     readonly openView: (row: RecipeAdminSummary) => void;
@@ -136,8 +168,7 @@ export interface RecipeListState {
 
     /**
      * True when this row's current version cannot be edited in place, so the only way to change it
-     * is to open its successor. `false` while the detail is in flight — an action is not offered
-     * until it is known to be the right one.
+     * is to open its successor.
      */
     readonly isImmutable: (row: RecipeAdminSummary) => boolean;
     readonly startDraft: (row: RecipeAdminSummary, onOpened: (version: number) => void) => void;
@@ -150,41 +181,78 @@ export interface RecipeListState {
     readonly confirmArchive: (onArchived: (name: string) => void) => void;
     readonly isArchivePending: boolean;
     readonly archiveFailure: ApiFailure | null;
+
+    /** Exactly one item sells the recipe, and it is live. The permission is the screen's. */
+    readonly isWithdrawable: (row: RecipeAdminSummary) => boolean;
+    /** The item the withdraw dialog is open for, or `null`. */
+    readonly withdrawing: RecipeSoldAs | null;
+    readonly askToWithdraw: (row: RecipeAdminSummary) => void;
+    readonly cancelWithdraw: () => void;
+    /** Takes the item off sale at its own lock version. `onDone` carries the item's name. */
+    readonly confirmWithdraw: (onDone: (name: string) => void) => void;
+    readonly isWithdrawPending: boolean;
+    readonly withdrawFailure: ApiFailure | null;
 }
 
 export function useRecipeList(): RecipeListState {
     const router = useRouter();
     const { locale } = useLocale();
+    const sells = useCan(CATALOGUE_VIEW_PERMISSION);
+    const requested = useLocalSearchParams<{ kind?: string }>().kind;
+    const kind = sells && isRecipeKind(requested) ? requested : null;
 
-    const [query, setQuery] = useState('');
-    const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
-    const [kitchen, setKitchen] = useState<string | null>(null);
+    const {
+        query,
+        setQuery,
+        trimmed,
+        statuses,
+        setStatuses,
+        isUnfiltered: searchAndStatusUnset,
+        clear: clearSearchAndStatus,
+    } = useCatalogueFilters();
     const [allergen, setAllergen] = useState<AllergenCode | null>(null);
+    const [category, setCategory] = useState<string | null>(null);
+    const [sellingStatus, setSellingStatus] = useState<PublishableStatus | null>(null);
     // Reference ascending, which is the order the codes were issued in and so the order a
     // kitchen already knows the library by. Sorting by name instead put the list in an order
     // that changes with the language.
     const [sortKey, setSortKey] = useState<RecipeSortKey>('reference');
     const [sortDirection, setSortDirection] = useState<RecipeSortDirection>('asc');
-    const [archiving, setArchiving] = useState<RecipeAdminSummary | null>(null);
     const [viewing, setViewing] = useState<RecipeAdminSummary | null>(null);
     const [draftOpeningFor, setDraftOpeningFor] = useState<RecipeId | null>(null);
 
-    const trimmed = query.trim();
     const filter = useMemo(
         () => ({
             ...(trimmed === '' ? {} : { query: trimmed }),
             ...(statuses.length === 0 ? {} : { statuses }),
-            ...(kitchen === null ? {} : { kitchenId: kitchen as KitchenId }),
             ...(allergen === null ? {} : { allergenCodes: [allergen] }),
+            ...(category === null ? {} : { category }),
+            // `kind` is already `null` without `sells`; `sellingStatus` is guarded the same way.
+            ...(kind === null ? {} : { kind }),
+            ...(sells && sellingStatus !== null ? { sellingStatus } : {}),
         }),
-        [trimmed, statuses, kitchen, allergen],
+        [trimmed, statuses, allergen, category, kind, sells, sellingStatus],
     );
 
     const [page, setPage] = useListPage(filter);
     const recipes = useRecipePageQuery(filter, page);
-    const kitchens = useRecipeKitchensQuery();
+    // The cards count every page the filters match, not the eighteen rows on this one.
+    const wholeSet = useRecipeWholeSetQuery(filter);
+    const everyRow = wholeSet.data ?? [];
     const allergenClasses = useAllergenClassesQuery();
-    const retire = useRetireRecipeMutation();
+    const retire = useDestructiveRow(useRetireRecipeMutation(), (row: RecipeAdminSummary) => ({
+        recipeId: row.id,
+        request: { lockVersion: row.meta.lockVersion },
+    }));
+    // Two flows because the contract has two verbs; the dialog is one, and only one is ever open.
+    const retireMeal = useDestructiveRow(useRetireMealMutation(), (seller: RecipeSoldAs) => ({
+        mealId: MealId.unsafe(seller.id),
+        request: { lockVersion: seller.lockVersion },
+    }));
+    const archiveItem = useDestructiveRow(useArchiveProductMutation(), (seller: RecipeSoldAs) => ({
+        productId: ProductId.unsafe(seller.id),
+        request: { lockVersion: seller.lockVersion },
+    }));
     const openDraft = useOpenRecipeDraftMutation();
 
     // Left possibly-undefined rather than defaulted to `[]`: `?? []` is a fresh array on every
@@ -196,7 +264,14 @@ export function useRecipeList(): RecipeListState {
     const sorted = useMemo(() => {
         const factor = sortDirection === 'asc' ? 1 : -1;
         return [...(rows ?? [])].sort((left, right) => {
-            if (sortKey === 'reference') return factor * left.slug.localeCompare(right.slug);
+            if (sortKey === 'reference') {
+                return (
+                    factor *
+                    recipeHandle(left).localeCompare(recipeHandle(right), undefined, {
+                        numeric: true,
+                    })
+                );
+            }
             if (sortKey === 'kitchen') {
                 return factor * String(left.kitchenId).localeCompare(String(right.kitchenId));
             }
@@ -220,20 +295,16 @@ export function useRecipeList(): RecipeListState {
         });
     }, [rows, sortKey, sortDirection, locale]);
 
-    // Keyed off the sorted page, so the reads follow the rows actually on screen. The identity of
-    // this array is what `useQueries` re-subscribes on, hence the memo.
-    const recipeIds = useMemo(() => sorted.map((row) => row.id), [sorted]);
-    const details = useRecipeDetails(recipeIds);
-    const detailOf = (row: RecipeAdminSummary): RecipeAdmin | undefined => details[String(row.id)];
-
-    const draftCount = sorted.filter((row) => row.meta.status === 'draft').length;
-    const reviewCount = sorted.filter((row) => row.meta.status === 'review_required').length;
-    const missingArabicCount = sorted.filter(
-        (row) => displayName(row.name, locale).isFallback,
-    ).length;
+    const draftCount = everyRow.filter((row) => row.meta.status === 'draft').length;
+    const reviewCount = everyRow.filter((row) => row.meta.status === 'review_required').length;
+    const onSaleCount = everyRow.filter((row) => onSaleStatus(row) === 'published').length;
+    const noPackCount = everyRow.filter((row) => (row.soldAs ?? []).some(missingPack)).length;
 
     const openEditor = (recipeId: string) => {
         router.push(`/kitchen/recipes/${recipeId}` as never);
+    };
+    const setKind = (next: RecipeKind | null) => {
+        router.setParams({ kind: next ?? '' });
     };
 
     return {
@@ -245,27 +316,36 @@ export function useRecipeList(): RecipeListState {
             void recipes.refetch();
         },
 
-        detailOf,
+        sells,
 
         query,
         setQuery,
         trimmed,
         statuses,
         setStatuses,
-        kitchen,
-        setKitchen,
+        kind,
+        setKind,
+        category,
+        setCategory,
+        sellingStatus,
+        setSellingStatus,
         allergen,
         setAllergen,
         allergenClasses: allergenClasses.data ?? [],
         isUnfiltered:
-            trimmed === '' && statuses.length === 0 && kitchen === null && allergen === null,
+            searchAndStatusUnset &&
+            allergen === null &&
+            category === null &&
+            sellingStatus === null &&
+            kind === null,
         clearFilters: () => {
-            setQuery('');
-            setStatuses([]);
-            setKitchen(null);
+            clearSearchAndStatus();
             setAllergen(null);
+            setCategory(null);
+            setSellingStatus(null);
+            // Only when there is one: an unconditional write would stamp `?kind=` on a clean URL.
+            if (kind !== null) setKind(null);
         },
-        kitchens: kitchens.data ?? [],
 
         sortKey,
         sortDirection,
@@ -278,14 +358,17 @@ export function useRecipeList(): RecipeListState {
         setPage,
         totalPages,
         total,
-        shown: sorted.length,
+        countsPending: wholeSet.isPending,
+        // Rows up to the end of this page: 18 of 306 on the first, 36 on the second.
+        shown: Math.min(page * KITCHEN_PAGE_SIZE, total ?? sorted.length),
         draftCount,
         reviewCount,
-        missingArabicCount,
+        onSaleCount,
+        noPackCount,
 
         openEditor,
-        createNew: () => {
-            router.push('/kitchen/recipes/new' as never);
+        createNew: (next) => {
+            router.push(`/kitchen/recipes/new?kind=${next}` as never);
         },
 
         viewing,
@@ -296,15 +379,15 @@ export function useRecipeList(): RecipeListState {
 
         // A published or retired version is frozen by the contract, so the only way to change it is
         // to open its successor. Offering New draft against a draft that is already open would
-        // write a version bump that changed nothing.
-        isImmutable: (row) => {
-            const status = detailOf(row)?.currentVersion.status;
-            return status === 'published' || status === 'retired';
-        },
+        // open a second draft beside it.
+        isImmutable: (row) =>
+            row.currentVersionStatus === 'published' || row.currentVersionStatus === 'retired',
+        // Copies `currentVersionNumber`, which on a row that offers New draft is the published
+        // version: the row must be live, so a retired current version never gets here.
         startDraft: (row, onOpened) => {
             setDraftOpeningFor(row.id);
             openDraft.mutate(
-                { recipeId: row.id, request: { lockVersion: row.meta.lockVersion } },
+                { recipeId: row.id, copyFromVersion: row.currentVersionNumber },
                 {
                     onSuccess: (updated) => {
                         onOpened(updated.currentVersion.versionNumber);
@@ -318,27 +401,40 @@ export function useRecipeList(): RecipeListState {
         },
         draftOpeningFor,
 
-        archiving,
-        askToArchive: setArchiving,
-        cancelArchive: () => {
-            setArchiving(null);
-        },
+        archiving: retire.target,
+        askToArchive: retire.ask,
+        cancelArchive: retire.cancel,
         // Retiring *is* the archive: the contract has no `archiveRecipe`, and nothing is deleted
         // because meals, products and cost snapshots still point at the version.
-        confirmArchive: (onArchived) => {
-            const row = archiving;
-            if (row === null) return;
-            retire.mutate(
-                { recipeId: row.id, request: { lockVersion: row.meta.lockVersion } },
-                {
-                    onSuccess: () => {
-                        setArchiving(null);
-                        onArchived(displayName(row.name, locale).value);
-                    },
-                },
+        confirmArchive: retire.confirm,
+        isArchivePending: retire.isPending,
+        archiveFailure: retire.failure,
+
+        isWithdrawable: (row) => {
+            const sellers = row.soldAs ?? [];
+            const only = sellers[0];
+            return (
+                sellers.length === 1 &&
+                only !== undefined &&
+                (only.status === 'published' || only.status === 'review_required')
             );
         },
-        isArchivePending: retire.isPending,
-        archiveFailure: toFailure(retire.error),
+        withdrawing: retireMeal.target ?? archiveItem.target,
+        askToWithdraw: (row) => {
+            const seller = row.soldAs?.[0];
+            if (seller === undefined) return;
+            (seller.itemType === 'meal' ? retireMeal : archiveItem).ask(seller);
+        },
+        cancelWithdraw: () => {
+            retireMeal.cancel();
+            archiveItem.cancel();
+        },
+        // Each flow does nothing without a target of its own, so calling both runs the open one.
+        confirmWithdraw: (onDone) => {
+            retireMeal.confirm(onDone);
+            archiveItem.confirm(onDone);
+        },
+        isWithdrawPending: retireMeal.isPending || archiveItem.isPending,
+        withdrawFailure: retireMeal.target === null ? archiveItem.failure : retireMeal.failure,
     };
 }

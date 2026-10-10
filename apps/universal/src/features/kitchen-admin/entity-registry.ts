@@ -32,9 +32,9 @@ import type { AccessState } from '@healthy360/permissions';
  * no lifecycle, nothing to create. Folding them into one card would mean a card whose count answered
  * two different questions at once, and an "open" control that had to pick which of the two it meant.
  *
- * Delivery *windows* get no card, and that is the contract's shape rather than an omission:
- * `setDeliveryWindows` is keyed by zone, so a window is only ever edited inside the zone that owns
- * it (`data/kitchen-admin-hooks.ts`, gap 14).
+ * Delivery *windows* are a third card beside the zones: the kitchen's slots are org-wide records
+ * edited on their own page (`/kitchen/delivery-windows`), and a zone only chooses which of them it
+ * offers (`setZoneWindows`).
  */
 
 /**
@@ -48,6 +48,12 @@ export const CATALOGUE_MANAGE_PERMISSION = 'catalogue.manage_organisation';
 export const CATALOGUE_PUBLISH_PERMISSION = 'catalogue.publish_organisation';
 export const RECIPE_VIEW_PERMISSION = 'recipe.view_organisation';
 export const RECIPE_MANAGE_PERMISSION = 'recipe.manage_organisation';
+/**
+ * What a recipe costs. The server withholds every recipe cost figure without it — the technical
+ * sheet's money, and the editor's `computedCost` — so a screen asks before drawing a cascade of
+ * dashes and says why instead.
+ */
+export const RECIPE_VIEW_COSTS_PERMISSION = 'recipe.view_costs_organisation';
 export const PRICE_LIST_VIEW_PERMISSION = 'price_list.view_organisation';
 export const PRICE_LIST_MANAGE_PERMISSION = 'price_list.manage_organisation';
 export const PLAN_MANAGE_PERMISSION = 'plan.manage_organisation';
@@ -59,6 +65,21 @@ export const DELIVERY_ZONE_MANAGE_PERMISSION = 'delivery_zone.manage_organisatio
  */
 export const ORDER_VIEW_PERMISSION = 'order.view_organisation';
 export const ORDER_MANAGE_PERMISSION = 'order.manage_organisation';
+
+/**
+ * The batch desk's own three (PROD1), and deliberately not the inventory codes it used to borrow.
+ *
+ * A production order stopped being a row with a status: it claims stock in advance, carries an
+ * estimated cost, and blends a finished valuation into the basis every sale is costed against.
+ * Whoever may count a shelf is not thereby whoever may commit next Thursday's oil to a batch.
+ *
+ * Costs split off for the reason they split everywhere else in this product: a chef runs the line
+ * and does not see what the line cost. The money is redacted **inside** the payload rather than at
+ * the door, so this code gates fields rather than a screen.
+ */
+export const PRODUCTION_VIEW_PERMISSION = 'production.view_organisation';
+export const PRODUCTION_MANAGE_PERMISSION = 'production.manage_organisation';
+export const PRODUCTION_VIEW_COSTS_PERMISSION = 'production.view_costs_organisation';
 
 /**
  * Placing an order **for somebody else** — the authority the Order Desk's sale wizard needs, and its
@@ -105,6 +126,27 @@ export const INVENTORY_VIEW_COSTS_PERMISSION = 'inventory.view_costs_organisatio
  * item is `inventory.manage_organisation` — rather than the cost code, because an exception names a
  * sale and a stock gap, not a valuation. No money passes through the review surface.
  */
+/**
+ * The access console's own codes (AA1).
+ *
+ * `role.*` and `membership.*` have been registered since the foundation and granted to
+ * `organisation_owner` since P0; until now nothing named them on this side because nothing could
+ * reach them. The pairs split the way every other pair here does — reading the staff list and
+ * changing somebody's roles are different authorities, and a kitchen may grant the first alone.
+ *
+ * `MEMBERSHIP_INVITE_PERMISSION`, `MEMBERSHIP_END_PERMISSION` and `USER_MANAGE_PERMISSION` name no
+ * family: they gate *controls* inside the two access screens rather than the screens themselves —
+ * the invite button, the End control, the create-a-login fork — so they are `useCan()` checks and
+ * not `EntityFamily` rows.
+ */
+export const ROLE_VIEW_PERMISSION = 'role.view_organisation';
+export const ROLE_MANAGE_PERMISSION = 'role.manage_organisation';
+export const MEMBERSHIP_VIEW_PERMISSION = 'membership.view_organisation';
+export const MEMBERSHIP_UPDATE_PERMISSION = 'membership.update_organisation';
+export const MEMBERSHIP_INVITE_PERMISSION = 'membership.invite_organisation';
+export const MEMBERSHIP_END_PERMISSION = 'membership.end_organisation';
+export const USER_MANAGE_PERMISSION = 'user.manage_organisation';
+
 export const INVENTORY_VIEW_PERMISSION = 'inventory.view_organisation';
 export const INVENTORY_MANAGE_PERMISSION = 'inventory.manage_organisation';
 
@@ -176,6 +218,10 @@ export const ENTITY_GROUPS = [
     'catalogue',
     'commercial',
     'operations',
+    // AA1. Last, because this list is ordered by how immediate a thing is and nobody is waiting on
+    // access administration. Adding the member forces a `GROUP_LABEL_KEYS` entry at compile time,
+    // which is the point of typing that map over this union.
+    'access',
 ] as const;
 export type EntityGroup = (typeof ENTITY_GROUPS)[number];
 
@@ -190,6 +236,12 @@ export interface EntityFamily {
     readonly descriptionKey: string;
     readonly icon: IconName;
     readonly href: string;
+    /**
+     * Other words the page search finds this family by, as one i18next key — matched, never shown.
+     * For a page whose name is not the word a reader types: the recipe book is where a kitchen's
+     * meals, sauces and dressings went, and "sauces" has to find it.
+     */
+    readonly keywordsKey?: string | undefined;
     /** Permission required to see the card *and* to open the screen behind it. */
     readonly permission: string;
     /** Permission required to write. `null` for a family nobody can write from this workspace. */
@@ -214,7 +266,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // doing all the work of telling them apart. The compromise every other card in this
         // workspace records applies unchanged — the icon set is a table of typographic characters,
         // and a real icon set retires it.
-        icon: 'calendar',
+        icon: 'clipboardList',
         href: '/kitchen/order-desk',
         // The order book's own pair, and deliberately the same pair: this is the same rows read in
         // a different order, so "may see the orders placed against this kitchen" is exactly the
@@ -239,7 +291,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // the two cards are the same work seen at two scales, they sit together in one group, and
         // their labels ("Order desk", "Order calendar") separate them. The workspace-wide note
         // applies unchanged — the icon set is a table of typographic characters.
-        icon: 'calendar',
+        icon: 'calendarDays',
         // Nested under the desk rather than a prefix-disjoint sibling, because the calendar *is*
         // part of the desk and the route tree says so. One consequence, and it is deliberate:
         // `isKitchenNavActive` matches this path against `/kitchen/order-desk` as well, and
@@ -268,7 +320,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // `▤` again, and for the calendar's reason: this is the same forward book seen a third way —
         // by ingredient rather than by order or by day — and the group plus the label ("Requirements")
         // is what separates the three cards. The icon set is a table of typographic characters.
-        icon: 'calendar',
+        icon: 'listChecks',
         // Nested under the desk, like the calendar, with the same deliberate consequence: the
         // breadcrumb reads "Order desk" and leads back to the queue.
         href: '/kitchen/order-desk/requirements',
@@ -297,7 +349,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // day's work seen four ways — in due order, by date, by ingredient and by who took the money
         // — and the labels are what separate them. The workspace-wide note applies unchanged: the
         // icon set is a table of typographic characters, and a real icon set retires it.
-        icon: 'calendar',
+        icon: 'banknote',
         // Nested under the desk like the calendar and the buy list, with the same deliberate
         // consequence: `isKitchenNavActive` matches this against `/kitchen/order-desk` too, so the
         // breadcrumb reads "Order desk" and leads back to the queue.
@@ -325,7 +377,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // obvious reading, and it is already the allergen-class card's glyph. Two cards wearing the
         // same warning sign, one meaning "the fourteen regulatory classes" and the other meaning
         // "these records are blocked", would be worse than a magnifier.
-        icon: 'search',
+        icon: 'clipboardCheck',
         href: '/kitchen/review',
         // Deliberately the *view* permission and not the manage one: a person who may read the
         // catalogue may see what is blocking it, and resolving a blocker is gated by the editor the
@@ -342,7 +394,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         nameKey: 'kitchen:families.analytics.name',
         descriptionKey: 'kitchen:families.analytics.description',
         // `▤`, the ruled sheet — closest glyph for a dashboard of figures until a chart icon lands.
-        icon: 'calendar',
+        icon: 'chartColumn',
         href: '/kitchen/analytics',
         permission: CATALOGUE_VIEW_PERMISSION,
         managePermission: null,
@@ -356,7 +408,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // `☰`, three stacked rules — a ledger of monthly figures, the same reading the purchases and
         // price-list cards give the glyph. A real icon set retires the compromise the whole
         // workspace records.
-        icon: 'menu',
+        icon: 'calculator',
         href: '/kitchen/cost-report',
         // The second card gated on the cost permission (INV1.1), and for the same reason as the
         // purchases ledger: this report exposes spend, COGS and the margin reconstructable from
@@ -375,7 +427,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // `⚠`, the warning sign — these are the deductions that could not be made honestly, a work
         // queue of stock gaps. It is the allergen card's glyph too, but the two never share a group
         // and the label beside the card carries the meaning; a real icon set retires the compromise.
-        icon: 'warning',
+        icon: 'alert',
         href: '/kitchen/consumption-exceptions',
         // The review surface reads on `inventory.view_organisation` (the queue) and writes on
         // `inventory.manage_organisation` (resolve/retry). Not the cost code — no money is shown here,
@@ -389,7 +441,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         group: 'catalogue',
         nameKey: 'kitchen:families.ingredients.name',
         descriptionKey: 'kitchen:families.ingredients.description',
-        icon: 'branch',
+        icon: 'wheat',
         href: '/kitchen/ingredients',
         permission: CATALOGUE_VIEW_PERMISSION,
         managePermission: CATALOGUE_MANAGE_PERMISSION,
@@ -406,7 +458,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         descriptionKey: 'kitchen:families.packaging.description',
         // The closest the set has to a box. There is no packaging glyph, and adding one is a
         // design-system change rather than this slice's.
-        icon: 'basket',
+        icon: 'package',
         href: '/kitchen/packaging',
         permission: CATALOGUE_VIEW_PERMISSION,
         managePermission: CATALOGUE_MANAGE_PERMISSION,
@@ -417,10 +469,14 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         group: 'catalogue',
         nameKey: 'kitchen:families.recipes.name',
         descriptionKey: 'kitchen:families.recipes.description',
-        // `▤`, the ruled sheet. The icon set has no recipe glyph and adding one is a design-system
-        // change, not a slice's; this is the closest honest reading — a technical sheet.
-        icon: 'calendar',
+        // The book: everything the kitchen cooks, whatever sells it — meals, sauces, dressings,
+        // frozen meals and the preparations nothing sells — so the names those pages had find it.
+        keywordsKey: 'kitchen:families.recipes.keywords',
+        // An open book, which is what this family is now rather than a library of technical sheets.
+        icon: 'bookOpen',
         href: '/kitchen/recipes',
+        // The recipe code alone, although the book lists what sells each recipe: a role without
+        // the catalogue still opens it, and the server leaves the sellers out of what it sends.
         permission: RECIPE_VIEW_PERMISSION,
         managePermission: RECIPE_MANAGE_PERMISSION,
     },
@@ -434,49 +490,10 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // with no box, carton or bag in it, so this is the closest honest reading; the glyph is
         // registered under the name `device` because that is the other place a rectangle was
         // wanted first, not because a product is a device. A real icon set retires the compromise.
-        icon: 'device',
+        icon: 'shoppingBag',
         href: '/kitchen/products',
         // See the note on the permission constants: no `product.*` code exists that this world can
         // grant, so the product surfaces reuse the catalogue pair with the rest of K1.
-        permission: CATALOGUE_VIEW_PERMISSION,
-        managePermission: CATALOGUE_MANAGE_PERMISSION,
-    },
-    {
-        key: 'sauces',
-        kind: 'managed',
-        group: 'catalogue',
-        nameKey: 'kitchen:families.sauces.name',
-        descriptionKey: 'kitchen:families.sauces.description',
-        // Same face-on pack rectangle as products: a sauce sells as a packaged
-        // good, and the glyph table still has nothing closer.
-        icon: 'device',
-        href: '/kitchen/sauces',
-        permission: CATALOGUE_VIEW_PERMISSION,
-        managePermission: CATALOGUE_MANAGE_PERMISSION,
-    },
-    {
-        key: 'dressings',
-        kind: 'managed',
-        group: 'catalogue',
-        nameKey: 'kitchen:families.dressings.name',
-        descriptionKey: 'kitchen:families.dressings.description',
-        icon: 'device',
-        href: '/kitchen/dressings',
-        permission: CATALOGUE_VIEW_PERMISSION,
-        managePermission: CATALOGUE_MANAGE_PERMISSION,
-    },
-    {
-        key: 'meals',
-        kind: 'managed',
-        group: 'catalogue',
-        nameKey: 'kitchen:families.meals.name',
-        descriptionKey: 'kitchen:families.meals.description',
-        // `◉`, a filled disc inside a ring — a plate seen from above. Same compromise as the
-        // product glyph: the character is registered as `eye`, which is also the confidential
-        // badge's icon elsewhere in this workspace. The two never appear together, and the label
-        // beside the card is what carries the meaning; a food glyph is a design-system change.
-        icon: 'eye',
-        href: '/kitchen/meals',
         permission: CATALOGUE_VIEW_PERMISSION,
         managePermission: CATALOGUE_MANAGE_PERMISSION,
     },
@@ -486,7 +503,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         group: 'catalogue',
         nameKey: 'kitchen:families.allergenClasses.name',
         descriptionKey: 'kitchen:families.allergenClasses.description',
-        icon: 'warning',
+        icon: 'wheatOff',
         href: '/kitchen/allergen-classes',
         permission: CATALOGUE_VIEW_PERMISSION,
         managePermission: null,
@@ -501,7 +518,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // meal glyphs record, and for a sharper reason here: the icon set is a table of typographic
         // characters with no money glyph in it, and any currency sign that could stand in would name
         // *one* currency on a family whose whole point is that each list carries its own.
-        icon: 'menu',
+        icon: 'tag',
         href: '/kitchen/price-lists',
         permission: PRICE_LIST_VIEW_PERMISSION,
         managePermission: PRICE_LIST_MANAGE_PERMISSION,
@@ -518,7 +535,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // same reason, and the compromise that entry records (no money glyph exists in a table of
         // typographic characters, and any currency sign would name one currency on a family whose
         // rows each carry their own) applies here word for word.
-        icon: 'menu',
+        icon: 'fileText',
         href: '/kitchen/quotations',
         permission: B2B_QUOTATION_VIEW_PERMISSION,
         managePermission: B2B_QUOTATION_QUOTE_PERMISSION,
@@ -537,7 +554,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // A plan is a ruled table of configurations and a schedule of deliveries, so this is the
         // closest honest reading; the label beside the card is what separates it from the recipe
         // book, and a real icon set retires the compromise for both.
-        icon: 'calendar',
+        icon: 'calendarRange',
         href: '/kitchen/plans',
         permission: CATALOGUE_VIEW_PERMISSION,
         managePermission: PLAN_MANAGE_PERMISSION,
@@ -554,8 +571,21 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // belongs to another card or says something untrue. The character is registered as `filter`
         // because a funnel was wanted first; a delivery zone is not a filter, and the label beside
         // the card is what carries the meaning until a real icon set retires the compromise.
-        icon: 'filter',
+        icon: 'mapPin',
         href: '/kitchen/delivery-zones',
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: DELIVERY_ZONE_MANAGE_PERMISSION,
+    },
+    {
+        key: 'delivery-windows',
+        kind: 'managed',
+        group: 'commercial',
+        nameKey: 'kitchen:families.deliveryWindows.name',
+        descriptionKey: 'kitchen:families.deliveryWindows.description',
+        // The kitchen's delivery slots, beside the zones that choose among them. Same code pair as
+        // the zones: the backend gates windows and zones on one permission.
+        icon: 'clock',
+        href: '/kitchen/delivery-windows',
         permission: CATALOGUE_VIEW_PERMISSION,
         managePermission: DELIVERY_ZONE_MANAGE_PERMISSION,
     },
@@ -568,7 +598,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // `▤`, the ruled sheet — a trading week is a timetable, which is the most literal reading
         // this glyph has anywhere in the workspace. It is the third card to carry it (recipes and
         // plans are the others) and the compromise those two record applies unchanged.
-        icon: 'calendar',
+        icon: 'clock',
         href: '/kitchen/branch-operating',
         permission: CATALOGUE_VIEW_PERMISSION,
         managePermission: CATALOGUE_MANAGE_PERMISSION,
@@ -584,7 +614,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // and the compromise those two record applies unchanged: the icon set is a table of
         // typographic characters with no receipt, bag or ticket in it, and every alternative either
         // belongs to another card or says something untrue (`✓` would call a queue of work "done").
-        icon: 'menu',
+        icon: 'receipt',
         href: '/kitchen/orders',
         // First among the operations entries because it is the operational front door: stock,
         // procurement, production and QC all exist to answer what this list is asking for.
@@ -597,7 +627,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         group: 'operations',
         nameKey: 'kitchen:families.stock.name',
         descriptionKey: 'kitchen:families.stock.description',
-        icon: 'menu',
+        icon: 'boxes',
         href: '/kitchen/stock',
         // INV1.0 gave the ops surface its own domain, but the stock, procurement, production and QC
         // families kept the `catalogue.*` piggyback the routes shed. Re-pointed here so the hub tile
@@ -615,7 +645,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // `▣`, a filled container — a basket, which is what this family is: the things the kitchen
         // is about to buy, gathered before anybody commits to buying them. The same compromise the
         // supplier card below records applies to the character.
-        icon: 'basket',
+        icon: 'shoppingCart',
         href: '/kitchen/supply-orders',
         // Between stock and suppliers, and the order is the sentence the operations group reads as:
         // orders come in, stock runs down, so the kitchen orders supplies — from the suppliers it
@@ -639,7 +669,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // applies: the icon set is a table of typographic characters with no van, warehouse or
         // handshake in it, and the character is registered as `user` because a person was wanted
         // first. A real icon set retires it.
-        icon: 'user',
+        icon: 'truck',
         href: '/kitchen/suppliers',
         // Immediately before procurement, and deliberately: a receipt is posted *against* a
         // supplier, so the book of who this kitchen buys from is the thing procurement points at.
@@ -655,7 +685,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         group: 'operations',
         nameKey: 'kitchen:families.procurement.name',
         descriptionKey: 'kitchen:families.procurement.description',
-        icon: 'branch',
+        icon: 'packageOpen',
         href: '/kitchen/procurement',
         permission: INVENTORY_VIEW_PERMISSION,
         managePermission: INVENTORY_MANAGE_PERMISSION,
@@ -670,7 +700,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // order cards give it. The purchases ledger is a ledger of lines with a total, so the glyph
         // is honest; the label beside the card separates it, and a real icon set retires the
         // compromise the whole workspace records.
-        icon: 'menu',
+        icon: 'notebookText',
         href: '/kitchen/purchases-ledger',
         // The one card in the workspace gated on the cost permission (INV1.1): the ledger *is* the
         // valuation, so a person without `inventory.view_costs_organisation` never sees the card and
@@ -690,7 +720,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // `◯`, the plain round — a plate, and the closest honest reading the glyph table has for
         // "how much food this makes". The workspace-wide compromise applies unchanged: the icon set
         // is a table of typographic characters, and a real icon set retires it.
-        icon: 'plate',
+        icon: 'layers',
         // Top-level, not nested under `/kitchen/recipes`: `isKitchenNavActive` matches on
         // `startsWith(href + '/')`, so a nested path would light the recipe book's nav row.
         href: '/kitchen/batch',
@@ -703,14 +733,44 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
     },
     {
         key: 'production',
+        // A family of records with a listing, a create control and a six-state lifecycle — the
+        // plainest `managed` in the workspace. Its three sibling routes (plan, batch, sheet) are
+        // nested under this href rather than families of their own, for the reason the order desk's
+        // siblings are: they are the same records seen closer, not a second book.
         kind: 'managed',
         group: 'operations',
         nameKey: 'kitchen:families.production.name',
         descriptionKey: 'kitchen:families.production.description',
-        icon: 'calendar',
-        href: '/kitchen/production',
-        permission: INVENTORY_VIEW_PERMISSION,
-        managePermission: INVENTORY_MANAGE_PERMISSION,
+        icon: 'cookingPot',
+        // `-desk`, and the old `/kitchen/production` redirects here. The suffix is not decoration:
+        // this is the internal counterpart of `/kitchen/order-desk`, and the two names being a pair
+        // is what tells a manager that one makes food and the other sells it.
+        href: '/kitchen/production-desk',
+        permission: PRODUCTION_VIEW_PERMISSION,
+        managePermission: PRODUCTION_MANAGE_PERMISSION,
+    },
+    {
+        key: 'production-batches',
+        // A view, not a family of records — the order calendar's reading exactly. It is the same
+        // book narrowed to the batches nobody has to move any more, with the expiry dates flagged,
+        // and nothing is created or written from it.
+        kind: 'workbench',
+        group: 'operations',
+        nameKey: 'kitchen:families.productionBatches.name',
+        descriptionKey: 'kitchen:families.productionBatches.description',
+        // `▤`, the ruled sheet — a register is a ruled book. The workspace-wide compromise applies
+        // unchanged: the icon set is a table of typographic characters, and a real icon set retires
+        // it.
+        icon: 'scrollText',
+        // Nested under the desk, with the deliberate consequence the order desk's siblings record:
+        // `isKitchenNavActive` matches this against `/kitchen/production-desk` too, and the ops
+        // shell takes the **first** matching family — so the breadcrumb reads "Production" and
+        // leads back to the queue.
+        href: '/kitchen/production-desk/batches',
+        permission: PRODUCTION_VIEW_PERMISSION,
+        // Nothing is written from a register. Every edge a batch has — confirm, start, complete,
+        // abandon, call off — lives on the batch itself, which holds the lock version.
+        managePermission: null,
     },
     {
         key: 'qc',
@@ -718,12 +778,121 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         group: 'operations',
         nameKey: 'kitchen:families.qc.name',
         descriptionKey: 'kitchen:families.qc.description',
-        icon: 'search',
+        icon: 'badgeCheck',
         href: '/kitchen/qc',
         permission: INVENTORY_VIEW_PERMISSION,
         managePermission: INVENTORY_MANAGE_PERMISSION,
     },
+
+    // ── access (AA1) ────────────────────────────────────────────────────────────────────────────
+    //
+    // Two families, last in the registry, for the reason `ENTITY_GROUPS` puts their group last:
+    // everything above answers "what do I do now" or "where do I go", and these answer "who may".
+    //
+    // They grow `WORKSPACE_PERMISSIONS` by two, which is what makes a permissions administrator's
+    // workspace a workspace rather than a forbidden page — that constant's own docblock promises
+    // exactly this, and until now there was no family it could keep the promise with.
+    {
+        key: 'team',
+        kind: 'managed',
+        group: 'access',
+        nameKey: 'kitchen:families.team.name',
+        descriptionKey: 'kitchen:families.team.description',
+        // `☺`, a person. The one card in this workspace whose records are people rather than
+        // things, and the only glyph in the set that says so.
+        icon: 'users',
+        href: '/kitchen/team',
+        permission: MEMBERSHIP_VIEW_PERMISSION,
+        // Not `membership.end_organisation`, though the screen offers End. `managePermission` is
+        // what the card's edit affordance asks for, and the ordinary edit here is changing where
+        // somebody works — ending them is a separate control behind its own `useCan()`.
+        managePermission: MEMBERSHIP_UPDATE_PERMISSION,
+    },
+    {
+        key: 'roles',
+        kind: 'managed',
+        group: 'access',
+        nameKey: 'kitchen:families.roles.name',
+        descriptionKey: 'kitchen:families.roles.description',
+        // `⊗`, the closed mark — the workspace-wide compromise every other card records applies
+        // unchanged: the icon set is a table of typographic characters, and this is the one in it
+        // that reads as a restriction rather than a thing.
+        icon: 'keyRound',
+        href: '/kitchen/roles',
+        permission: ROLE_VIEW_PERMISSION,
+        managePermission: ROLE_MANAGE_PERMISSION,
+    },
 ];
+
+/**
+ * Routes whose `<Gate>` asks for a code their family does not name (AA1).
+ *
+ * The registry's promise is that the card, the rail entry and the screen's own guard read one row.
+ * Six routes under `/kitchen` are not a family `href` — five of them are nested under one and ask
+ * for a code that family already names, so the promise holds. Three do not, and this is where they
+ * are written down rather than left to be discovered by somebody wondering why a role with Manage
+ * on a page still gets a forbidden screen inside it:
+ *
+ *  * the sale wizard asks for `order.create_on_behalf_organisation`, which **no family names at
+ *    all** — placing an order in somebody's name is a different authority from working the queue,
+ *    and the order-desk family is gated on reading it;
+ *  * the same wizard asks for `customer.create_on_behalf_organisation` before it will open an
+ *    account for a cold caller, which until now was an exported constant with no reader anywhere in
+ *    this application;
+ *  * unpriced receipts is nested under `/kitchen/procurement` and gated on
+ *    `inventory.view_costs_organisation`, which belongs to a *different* family (purchases) — so
+ *    Procurement→Manage with Purchases→None produces a 403 on a route nested under a page you can
+ *    manage, which is the one combination a page grid would otherwise present as impossible.
+ *
+ * The role editor renders these as indented sub-rows under their parent. With this table in place
+ * every route under `app/kitchen/**` is a family `href`, a path nested under one, or a declared
+ * extra — which `entity-registry.test.ts` walks the directory to assert, so a new screen cannot
+ * arrive with a new gate and no row.
+ */
+export interface PageExtra {
+    /** Stable, and the test id suffix in the role editor. */
+    readonly key: string;
+    /** The family this sub-row is drawn under. */
+    readonly familyKey: string;
+    readonly nameKey: string;
+    readonly href: string;
+    readonly permission: string;
+}
+
+export const PAGE_EXTRAS: readonly PageExtra[] = [
+    {
+        key: 'order-desk-sale',
+        familyKey: 'order-desk',
+        nameKey: 'accessAdmin:extras.orderDeskSale',
+        href: '/kitchen/order-desk/sale',
+        permission: ORDER_CREATE_ON_BEHALF_PERMISSION,
+    },
+    {
+        key: 'order-desk-customer',
+        familyKey: 'order-desk',
+        nameKey: 'accessAdmin:extras.orderDeskCustomer',
+        // The same screen: opening an account is a step inside the sale wizard, not a page of its
+        // own. It is a separate row because it is a separate refusal — a desk that may sell to
+        // somebody already on file is a smaller authority than one that may add people to the file.
+        href: '/kitchen/order-desk/sale',
+        permission: CUSTOMER_CREATE_ON_BEHALF_PERMISSION,
+    },
+    {
+        key: 'unpriced-receipts',
+        familyKey: 'procurement',
+        nameKey: 'accessAdmin:extras.unpricedReceipts',
+        href: '/kitchen/procurement/unpriced-receipts',
+        permission: INVENTORY_VIEW_COSTS_PERMISSION,
+    },
+];
+
+/** The extras drawn under a family, in registry order. */
+export function extrasForFamily(
+    familyKey: string,
+    extras: readonly PageExtra[] = PAGE_EXTRAS,
+): readonly PageExtra[] {
+    return extras.filter((extra) => extra.familyKey === familyKey);
+}
 
 /** Families in a group, in registry order. */
 export function familiesInGroup(

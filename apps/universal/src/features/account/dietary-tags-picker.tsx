@@ -1,11 +1,18 @@
-import { FilterChip, Inline, Stack, Text } from '@healthy360/design-system';
+import { Inline, Stack, Text } from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { PillChip } from '../../ui/pill-chip.tsx';
 import { DIET_CLASSIFICATIONS } from '../onboarding/vocabularies.ts';
 
 /**
- * The diet-classification tick-list.
+ * The diet-classification choice — one diet, or none.
+ *
+ * **One, not a tick-list.** The profile stores a single classification
+ * (`diet_classification_code`), so a picker that let somebody choose three said it had saved three
+ * and kept one. It is a radio group: choosing a diet replaces the last one, and choosing the chosen
+ * one again clears it, because "no particular diet" is a real answer and there is no separate chip
+ * for it.
  *
  * Split from {@link import('./allergy-picker.tsx').AllergyPicker} rather than folded into one
  * "dietary preferences" control, because the two answer different questions and carry different
@@ -26,8 +33,9 @@ import { DIET_CLASSIFICATIONS } from '../onboarding/vocabularies.ts';
  * have two sets of words.
  */
 export interface DietaryTagsPickerProps {
-    readonly value: readonly string[];
-    readonly onChange: (next: readonly string[]) => void;
+    /** The chosen diet's code, or `null` for none. */
+    readonly value: string | null;
+    readonly onChange: (next: string | null) => void;
     readonly disabled?: boolean | undefined;
     readonly testID?: string | undefined;
 }
@@ -50,28 +58,31 @@ export function DietaryTagsPicker({
                 {t('account:dietary.dietsSubtitle')}
             </Text>
 
-            <View role="group" aria-label={groupLabel} accessibilityLabel={groupLabel}>
+            <View
+                role="radiogroup"
+                accessibilityRole="radiogroup"
+                aria-label={groupLabel}
+                accessibilityLabel={groupLabel}
+            >
                 <Inline space="xs" wrap>
                     {DIET_CLASSIFICATIONS.map((code) => (
-                        <FilterChip
+                        <PillChip
                             key={code}
+                            mode="radio"
+                            floor="pill"
                             testID={`${testID}-${code}`}
                             label={t(`onboarding:diets.${code}`)}
-                            selected={value.includes(code)}
+                            selected={value === code}
                             disabled={disabled}
-                            onChange={() => {
-                                onChange(
-                                    value.includes(code)
-                                        ? value.filter((entry) => entry !== code)
-                                        : [...value, code],
-                                );
+                            onPress={() => {
+                                onChange(value === code ? null : code);
                             }}
                         />
                     ))}
                 </Inline>
             </View>
 
-            {value.length === 0 ? (
+            {value === null ? (
                 <Text variant="caption" tone="secondary" testID={`${testID}-empty`}>
                     {t('account:dietary.dietsEmpty')}
                 </Text>

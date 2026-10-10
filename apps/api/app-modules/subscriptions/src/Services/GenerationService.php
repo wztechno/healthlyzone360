@@ -290,6 +290,9 @@ final readonly class GenerationService
                     lines: $lines,
                     deliveryWindowCode: $subscription->delivery_window_code,
                     requestedDate: $date,
+                    // Owner decision: a map edit never starts refusing a
+                    // standing subscriber's slot.
+                    enforceWindowOffer: false,
                 ),
                 $this->idempotencyKeyFor($subscription, $date),
             );

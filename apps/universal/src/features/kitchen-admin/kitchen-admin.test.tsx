@@ -23,7 +23,7 @@ import type { ReactNode } from 'react';
 import { Dimensions } from 'react-native';
 
 import {
-    ORGANISATION_OWNER_PERMISSIONS,
+    MEMBER_PERMISSIONS,
     TEST_BRANCH_ID,
     TEST_ORGANISATION_ID,
     kitchenManagerSession,
@@ -40,6 +40,7 @@ import { ENTITY_FAMILIES, WORKSPACE_PERMISSIONS, permittedFamilies } from './ent
 import { AllergenClassesScreen } from './screens/allergen-classes-screen.tsx';
 import { IngredientEditScreen } from './screens/ingredient-edit-screen.tsx';
 import { IngredientsScreen } from './screens/ingredients-screen.tsx';
+import { forgetColumnChoice } from './catalogue/column-picker.tsx';
 import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
 
 /**
@@ -114,6 +115,14 @@ function untilVisible(testID: string) {
         },
         { timeout: 10_000 },
     );
+}
+
+/**
+ * Waits for one section of the ingredient editor. The editor is one page with every section open,
+ * so a field on any of them is there once the record has loaded.
+ */
+async function openIngredientStep(key: string) {
+    await untilVisible(`kitchen-ingredient-${key}`);
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -204,6 +213,7 @@ function ingredient(ordinal: number, overrides: Partial<IngredientAdmin> = {}): 
         id: ingredientId(ordinal),
         meta: meta(),
         name: { en: `Ingredient ${String(ordinal)}`, ar: `مكوّن ${String(ordinal)}` },
+        slug: `ingredient-${String(ordinal)}`,
         reference: `IG-00${String(ordinal)}`,
         subcategoryCode: null,
         categoryCode: 'store-cupboard',
@@ -410,8 +420,15 @@ function editorReads(library: () => readonly IngredientAdmin[]) {
     };
 }
 
-/** An organisation owner: an organisation, a branch, and no catalogue permission at all. */
-function organisationOwnerSession() {
+/**
+ * Somebody who belongs to an organisation and may do nothing in it — the registry's `member` role.
+ *
+ * This was `organisationOwnerSession`, built from a nine-code `ORGANISATION_OWNER_PERMISSIONS` that
+ * happened to lack every catalogue code. An owner holds all forty-three, so the fixture was wrong
+ * and the refusal it proved was an accident of the wrongness. `member` is the role that genuinely
+ * cannot open a kitchen screen, which is what these tests were always reaching for.
+ */
+function organisationMemberSession() {
     return testMeResponse({
         memberships: [
             testMembership({
@@ -423,13 +440,13 @@ function organisationOwnerSession() {
                 roles: [
                     {
                         id: RoleId.unsafe('test-0000-role-0002'),
-                        key: 'organisation_owner',
-                        name: 'Owner',
+                        key: 'member',
+                        name: 'Member',
                     },
                 ],
             }),
         ],
-        activeContext: testActiveContext({ permissions: ORGANISATION_OWNER_PERMISSIONS }),
+        activeContext: testActiveContext({ permissions: MEMBER_PERMISSIONS }),
     });
 }
 
@@ -491,9 +508,15 @@ describe('entity registry', () => {
             // Restated rather than read from `ENTITY_GROUPS`, on purpose: a test that took the
             // tuple would pass whatever the tuple said, and the point here is that adding a group
             // is a decision somebody looked at.
-            expect(['orderDesk', 'workbench', 'catalogue', 'commercial', 'operations']).toContain(
-                family.group,
-            );
+            expect([
+                'orderDesk',
+                'workbench',
+                'catalogue',
+                'commercial',
+                'operations',
+                // AA1. Added deliberately, which is what this restated list is for.
+                'access',
+            ]).toContain(family.group);
         }
     });
 });
@@ -537,10 +560,45 @@ describe('the kitchen hub', () => {
         expect(screen.queryByTestId('kitchen-family-allergen-classes-drafts')).toBeNull();
     });
 
+    it('lists what a kitchen cooks as one recipe book, and still counts its meals among the drafts', async () => {
+        await renderStubScreen(<KitchenHomeScreen />, {
+            session: kitchenManagerSession(),
+            repositories: hubRepositories([]),
+        });
+
+        await untilVisible('kitchen-family-recipes');
+        // One card for the book; the four pages that went into it are gone from the grid.
+        for (const departed of ['meals', 'sauces', 'dressings', 'frozenMeals']) {
+            expect(screen.queryByTestId(`kitchen-family-${departed}`)).toBeNull();
+        }
+
+        // The meal read is keyed on the catalogue code now, not on a family that left, so the
+        // Drafts figure that sums it loads rather than waiting for ever.
+        await untilVisible('kitchen-kpi-drafts-value');
+        expect(screen.getByTestId('kitchen-kpi-drafts-value')).toHaveTextContent('0');
+        // The overview carries no module descriptions and no "Open …" buttons any more.
+        expect(screen.queryByTestId('kitchen-family-recipes-description')).toBeNull();
+        expect(screen.getByTestId('kitchen-family-recipes-open')).toBeTruthy();
+    });
+
+    it('counts the recipe book’s published recipes as the ones on sale', async () => {
+        const { repositories } = await renderStubScreen(<KitchenHomeScreen />, {
+            session: kitchenManagerSession(),
+            repositories: hubRepositories([]),
+        });
+
+        // The book's "published" is what the menu shows, counted through the sellers' own status.
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.listRecipes).toHaveBeenCalledWith(
+                expect.objectContaining({ sellingStatus: 'published' }),
+            );
+        });
+    });
+
     it('refuses a signed-in person whose role carries no catalogue permission', async () => {
         // No repository overrides at all: the gate refuses before the grid can ask for anything, so
         // a screen that fetched here would fail loudly with StubNotConfiguredError.
-        await renderStubScreen(<KitchenHomeScreen />, { session: organisationOwnerSession() });
+        await renderStubScreen(<KitchenHomeScreen />, { session: organisationMemberSession() });
 
         await untilVisible('kitchen-home-forbidden');
         expect(screen.queryByTestId('kitchen-home-grid')).toBeNull();
@@ -600,9 +658,27 @@ describe('the ingredient list at desk width', () => {
         });
 
         await untilVisible('kitchen-ingredients-loading');
+        // The cards are drawn while the list loads — label, caption, and a placeholder holding the
+        // figure's line — so the toolbar and table do not drop by a card's height when it lands.
+        expect(screen.getByTestId('kitchen-ingredients-stats-draft')).toHaveTextContent(/Draft/);
+        expect(screen.getByTestId('kitchen-ingredients-stats-draft-loading')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-ingredients-stats-draft-value')).toBeNull();
+
         await untilVisible('kitchen-ingredients-table');
 
+        expect(screen.queryByTestId('kitchen-ingredients-stats-draft-loading')).toBeNull();
+        expect(screen.getByTestId('kitchen-ingredients-stats-shown-value')).toHaveTextContent('2');
+        // The rows arrive through their entrance; the row itself is the same element as ever.
+        expect(
+            screen.getByTestId(`kitchen-ingredients-table-row-${String(mapped.id)}-entrance`),
+        ).toBeTruthy();
         expect(screen.getByTestId(`kitchen-ingredient-${String(mapped.id)}-name`)).toBeTruthy();
+        // The 20px thumbnail sits in the title cell, addressed by the server's slug.
+        expect(
+            screen.getByTestId(`kitchen-ingredients-table-row-${String(mapped.id)}-image`, {
+                includeHiddenElements: true,
+            }),
+        ).toBeTruthy();
         expect(
             screen.getByTestId(`kitchen-ingredient-${String(mapped.id)}-allergens`),
         ).toBeTruthy();
@@ -622,6 +698,82 @@ describe('the ingredient list at desk width', () => {
 });
 
 describe('the ingredient list', () => {
+    beforeEach(() => {
+        forgetColumnChoice('kitchen-ingredients');
+    });
+
+    it('lets the reader choose up to six columns, keeping Item', async () => {
+        const row = ingredient(1);
+        await renderStubScreen(<IngredientsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { listIngredients: ingredientListing(() => [row]) },
+            },
+        });
+        await untilVisible('kitchen-ingredients-table');
+        const cell = (suffix: string) => `kitchen-ingredient-${String(row.id)}-${suffix}`;
+
+        // The six defaults: Allergens in, Unit one pick away.
+        expect(screen.getByTestId(cell('allergens-none'))).toBeTruthy();
+        expect(screen.queryByTestId(cell('unit'))).toBeNull();
+        expect(screen.getByTestId('kitchen-ingredients-columns-trigger')).toHaveTextContent(
+            /Show columns · 6 of 6/,
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-trigger'));
+        });
+        await untilVisible('kitchen-ingredients-columns-unit-control');
+
+        // Full: an unticked column cannot be added, and Item can never be dropped.
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-unit-control').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ disabled: true, checked: false }));
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-name-control').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ disabled: true, checked: true }));
+
+        // Drop Allergens, which frees the slot Unit then takes.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-allergens-control'));
+        });
+        expect(screen.queryByTestId(cell('allergens-none'))).toBeNull();
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-unit-control').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ disabled: false }));
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-unit-control'));
+        });
+        expect(screen.getByTestId(cell('unit'))).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-reset'));
+        });
+        expect(screen.getByTestId(cell('allergens-none'))).toBeTruthy();
+        expect(screen.queryByTestId(cell('unit'))).toBeNull();
+
+        // Clear all unticks everything but the locked title, and then has nothing left to do.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-clear'));
+        });
+        expect(screen.queryByTestId(cell('allergens-none'))).toBeNull();
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-name-control').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ checked: true }));
+        expect(screen.getByTestId('kitchen-ingredients-columns-trigger')).toHaveTextContent(
+            /Show columns · 1 of 6/,
+        );
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-clear').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ disabled: true }));
+
+        // The window stays open through every toggle and closes on Done.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-done'));
+        });
+        expect(screen.queryByTestId('kitchen-ingredients-columns-unit-control')).toBeNull();
+    });
+
     it('answers a search nothing matches with the filtered empty state', async () => {
         await renderStubScreen(<IngredientsScreen />, {
             session: kitchenManagerSession(),
@@ -810,7 +962,66 @@ describe('the ingredient editor', () => {
         });
     });
 
-    it('keeps a platform-library record read-only and offers the fork as the writable path', async () => {
+    it('names every missing required field once Save is pressed, and writes nothing', async () => {
+        const { repositories } = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => []) },
+        });
+
+        await untilVisible('kitchen-ingredient-name-en-input');
+        // Nothing is flagged on a form nobody has tried to save: a new record opens blank.
+        expect(screen.queryByTestId('kitchen-ingredient-issues-errors')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ingredient-name-en-error')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        // The banner names each field, and each field says so under itself.
+        await untilVisible('kitchen-ingredient-issues-errors');
+        expect(screen.getByTestId('kitchen-ingredient-issues-errors-summary')).toHaveTextContent(
+            '2 required',
+        );
+        expect(screen.getByTestId('kitchen-ingredient-issues-errors-name')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-ingredient-issues-errors-category')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-ingredient-name-en-error')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-ingredient-category-error')).toBeTruthy();
+        expect(repositories.kitchenAdmin.createIngredient).not.toHaveBeenCalled();
+    });
+
+    it('forks a platform-library record on arrival and lands on the copy', async () => {
+        const record = platformIngredient(5, { meta: meta({ status: 'published' }) });
+        const copy = ingredient(6, { name: record.name });
+
+        const { repositories } = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(record.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [record]),
+                        getIngredient: async () => record,
+                        forkIngredient: async () => copy,
+                    },
+                },
+            },
+        );
+
+        // Opening the row to edit it is the request: nobody presses "Edit for this kitchen".
+        await waitFor(
+            () => {
+                expect(routerMock.__replace).toHaveBeenCalledWith(
+                    `/kitchen/ingredients/${String(copy.id)}`,
+                );
+            },
+            { timeout: 10_000 },
+        );
+        expect(repositories.kitchenAdmin.forkIngredient).toHaveBeenCalledTimes(1);
+        expect(repositories.kitchenAdmin.forkIngredient).toHaveBeenCalledWith(record.id);
+        expect(screen.queryByTestId('kitchen-ingredient-platform-library')).toBeNull();
+    });
+
+    it('keeps a platform-library record read-only when the fork fails, and offers it again', async () => {
         const record = platformIngredient(5, {
             meta: meta({ status: 'published' }),
             allergens: [mapping('gluten')],
@@ -822,25 +1033,26 @@ describe('the ingredient editor', () => {
                 kitchenAdmin: {
                     ...editorReads(() => [record]),
                     getIngredient: async () => record,
+                    forkIngredient: async () =>
+                        throwFailure(apiFailure('server', { message: 'Boom.' })),
                 },
             },
         });
 
-        await untilVisible('kitchen-ingredient-platform-library');
+        await untilVisible('kitchen-ingredient-fork-error');
+        expect(screen.getByTestId('kitchen-ingredient-platform-library')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-ingredient-editor-screen-save')).toBeNull();
         expect(screen.queryByTestId('kitchen-ingredient-archive')).toBeNull();
 
         /*
-         * Fork, and nothing else.
+         * Fork, and nothing else — now as the retry.
          *
-         * This test used to end on the allergen mapping editor, on the argument that a shared
-         * library row could not be renamed but *could* have its determination corrected in place.
-         * The screen no longer works that way: composition and allergens are read-only for every
-         * record (§6.2), so there is no writable path on a platform row at all — copying it into
-         * this kitchen is the one thing that can happen next, and offering it is the whole point of
-         * the banner above.
+         * Composition and allergens are read-only for every record (§6.2), so there is no writable
+         * path on a platform row at all: copying it into this kitchen is the one thing that can
+         * happen next, and when the automatic copy fails the notice's button is how it happens.
          */
         await untilVisible('kitchen-ingredient-fork');
+        await openIngredientStep('allergens');
         // The determination is still *shown*, as a chip on the read-only panel — read-only is not
         // the same as hidden, and a kitchen deciding whether to fork needs to see what it is
         // forking.
@@ -1054,6 +1266,7 @@ describe('the ingredient editor', () => {
             },
         });
 
+        await openIngredientStep('measurement');
         await untilVisible('kitchen-ingredient-grams-per-unit-input');
         expect(screen.getByTestId('kitchen-ingredient-grams-per-unit-input').props.value).toBe(
             '1080',
@@ -1073,6 +1286,7 @@ describe('the ingredient editor', () => {
             },
         });
 
+        await openIngredientStep('measurement');
         await untilVisible('kitchen-ingredient-items-per-unit-input');
         expect(screen.queryByTestId('kitchen-ingredient-grams-per-unit')).toBeNull();
     });
@@ -1097,6 +1311,7 @@ describe('the ingredient editor', () => {
             },
         );
 
+        await openIngredientStep('measurement');
         await untilVisible('kitchen-ingredient-grams-per-unit-input');
 
         await act(async () => {
@@ -1131,28 +1346,16 @@ describe('the ingredient editor', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 /**
- * The figures moved out of the read-only panel and became inputs — and the four things that has to
- * mean.
+ * The figures come from the database, and the editor only reads them.
  *
- * They **prefill**, or an operator correcting one figure would retype seven. They **save as a slim
- * envelope**, because that is the shape the column holds and the roll-up reads. A **part-filled set
- * is refused here**, in front of the person who can fill it, even though the server would accept it
- * — completeness is the roll-up's question and the validator declines to answer it. And a record
- * whose figures a published recipe **derives** gets no inputs at all, because the server refuses the
- * write and a control that always 422s is worse than no control.
+ * They are **drawn from the record** — an em dash where it holds none, never a zero. There is **no
+ * input** to type into, and the save **never sends `per100g`**, so a save can neither change the
+ * figures nor clear them. The estimate flag and the note are a claim *about* the figures and stay
+ * editable, sent on their own. And a record whose figures a published recipe **derives** gets
+ * neither, because the server refuses both on a derivation.
  */
 describe('nutrition per 100 g', () => {
-    const NUTRIENT_IDS = [
-        'energy',
-        'protein',
-        'carbohydrate',
-        'fat',
-        'fibre',
-        'sugars',
-        'sodium',
-    ] as const;
-
-    it('prefills every figure the record carries', async () => {
+    it('draws every figure the record carries, and offers nothing to type into', async () => {
         const record = ingredient(20, { per100g: per100gFacts(), nutritionEstimated: false });
 
         await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
@@ -1165,22 +1368,21 @@ describe('nutrition per 100 g', () => {
             },
         });
 
-        await untilVisible('kitchen-ingredient-nutrient-energy-input');
+        await openIngredientStep('nutrition');
+        await untilVisible('kitchen-ingredient-nutrition-grid-figure-energy-value');
 
-        expect(screen.getByTestId('kitchen-ingredient-nutrient-energy-input').props.value).toBe(
-            '53',
-        );
-        expect(screen.getByTestId('kitchen-ingredient-nutrient-sodium-input').props.value).toBe(
-            '10600',
-        );
-        // The eighth field is drawn whether or not the record has it: absent is a state an operator
-        // may want to leave, and a field that appears only once it is filled cannot be filled.
         expect(
-            screen.getByTestId('kitchen-ingredient-nutrient-saturated_fat-input').props.value,
-        ).toBe('');
+            screen.getByTestId('kitchen-ingredient-nutrition-grid-figure-energy-value'),
+        ).toHaveTextContent(/^53/);
+        // The eighth card is drawn whether or not the record has it, as an em dash — absent is
+        // not zero.
+        expect(
+            screen.getByTestId('kitchen-ingredient-nutrition-grid-figure-saturated_fat-value'),
+        ).toHaveTextContent('—');
+        expect(screen.queryByTestId('kitchen-ingredient-nutrient-energy-input')).toBeNull();
     });
 
-    it('sends the whole set, the flag and the note when the figures are saved', async () => {
+    it('saves the flag and the note, and never the figures', async () => {
         const record = ingredient(21, { per100g: per100gFacts() });
 
         const { repositories } = await renderStubScreen(
@@ -1200,14 +1402,9 @@ describe('nutrition per 100 g', () => {
             },
         );
 
-        await untilVisible('kitchen-ingredient-nutrient-energy-input');
+        await openIngredientStep('nutrition');
+        await untilVisible('kitchen-ingredient-nutrition-estimated-control');
 
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId('kitchen-ingredient-nutrient-energy-input'),
-                '61',
-            );
-        });
         await act(async () => {
             // `-control` is the pressable; the bare testID is the row that wraps it.
             fireEvent.press(screen.getByTestId('kitchen-ingredient-nutrition-estimated-control'));
@@ -1228,78 +1425,12 @@ describe('nutrition per 100 g', () => {
         });
 
         const [, request] = (repositories.kitchenAdmin.updateIngredient as jest.Mock).mock
-            .calls[0] as [
-            IngredientId,
-            { readonly per100g: NutritionFacts | null } & Record<string, unknown>,
-        ];
+            .calls[0] as [IngredientId, Record<string, unknown>];
 
-        expect(request.per100g).not.toBeNull();
-
-        const amounts = new Map(
-            (request.per100g?.amounts ?? []).map(
-                (amount): readonly [string, { readonly unit: string; readonly value: number }] => [
-                    amount.nutrientId,
-                    amount,
-                ],
-            ),
-        );
-
-        // The edit, and the six figures nobody touched beside it. A save that sent only what
-        // changed would clear the rest: `nutrition_per_100g` is one column, replaced whole.
-        expect(amounts.get('energy')?.value).toBe(61);
-        expect(amounts.get('sodium')?.value).toBe(10600);
-        expect(amounts.get('sodium')?.unit).toBe('mg');
-        expect([...amounts.keys()]).toEqual([...NUTRIENT_IDS]);
-
+        // Absent, not `null`: a missing field is untouched, and `null` would clear the figures.
+        expect(request).not.toHaveProperty('per100g');
         expect(request.nutritionEstimated).toBe(true);
         expect(request.nutritionNote).toBe('Supplier label, March 2026 batch');
-    });
-
-    it('refuses to save a part-filled set, and says why', async () => {
-        const record = ingredient(22, { per100g: per100gFacts() });
-
-        const { repositories } = await renderStubScreen(
-            <IngredientEditScreen ingredient={String(record.id)} />,
-            {
-                session: kitchenManagerSession(),
-                repositories: {
-                    kitchenAdmin: {
-                        ...editorReads(() => [record]),
-                        getIngredient: async () => record,
-                    },
-                },
-            },
-        );
-
-        await untilVisible('kitchen-ingredient-nutrient-fibre-input');
-
-        // One figure emptied out of seven. The roll-up would read the gap as nothing at all rather
-        // than as a gap, so the save stops here instead of printing a label that understates itself.
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-nutrient-fibre-input'), '');
-        });
-
-        await untilVisible('kitchen-ingredient-nutrition-partial');
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
-        });
-
-        expect(repositories.kitchenAdmin.updateIngredient).not.toHaveBeenCalled();
-
-        // And clearing the other six releases it: "all seven or none" is the rule, not "all seven".
-        for (const id of NUTRIENT_IDS) {
-            await act(async () => {
-                fireEvent.changeText(
-                    screen.getByTestId(`kitchen-ingredient-nutrient-${id}-input`),
-                    '',
-                );
-            });
-        }
-
-        await waitFor(() => {
-            expect(screen.queryByTestId('kitchen-ingredient-nutrition-partial')).toBeNull();
-        });
     });
 
     it('offers no inputs on a record whose figures a published recipe derives', async () => {
@@ -1327,6 +1458,7 @@ describe('nutrition per 100 g', () => {
             },
         );
 
+        await openIngredientStep('nutrition');
         await untilVisible('kitchen-ingredient-nutrition-panel');
 
         // Not "the inputs are disabled" — they are not rendered, which is the difference between a
@@ -1396,6 +1528,7 @@ describe('composition and allergens, read-only', () => {
             },
         );
 
+        await openIngredientStep('allergens');
         await untilVisible('kitchen-ingredient-composition');
 
         // Both claims are drawn. `contains` and `may_contain` are two different statements and
@@ -1588,5 +1721,57 @@ describe('the allergen class reference', () => {
         expect(
             screen.queryByTestId(`kitchen-allergen-class-${String(first?.code)}-archive`),
         ).toBeNull();
+    });
+
+    it('narrows to one market from the Markets header, and counts what it narrowed to', async () => {
+        // Lupin is the one class only the EU requires; molluscs are required by no market at all.
+        const classes = ALLERGEN_CLASSES.map((entry) =>
+            String(entry.code) === 'lupin'
+                ? { ...entry, markets: ['EU'] }
+                : String(entry.code) === 'molluscs'
+                  ? { ...entry, markets: [] }
+                  : entry,
+        );
+        await renderStubScreen(<AllergenClassesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listAllergenClasses: async () => classes } },
+        });
+        await untilVisible('kitchen-allergen-classes-table');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-allergen-classes-column-markets-trigger'));
+        });
+        await untilVisible('kitchen-allergen-classes-column-markets-GCC');
+        expect(screen.getByTestId('kitchen-allergen-classes-column-markets-EU')).toBeTruthy();
+        // "No market requires it" is offered because a class really is in that position.
+        expect(screen.getByTestId('kitchen-allergen-classes-column-markets-none')).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-allergen-classes-column-markets-GCC'));
+        });
+
+        // Every class but the EU-only one and the unregulated one: twelve, and Shown says twelve.
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-allergen-class-lupin-name')).toBeNull();
+        });
+        expect(screen.queryByTestId('kitchen-allergen-class-molluscs-name')).toBeNull();
+        expect(screen.getByTestId('kitchen-allergen-class-gluten-name')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
+            /^12$/,
+        );
+
+        // A filter value leaves the menu open, so the next market is one press away.
+        await untilVisible('kitchen-allergen-classes-column-markets-none');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-allergen-classes-column-markets-none'));
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-allergen-class-molluscs-name')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('kitchen-allergen-class-gluten-name')).toBeNull();
+        expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
+            /^1$/,
+        );
     });
 });

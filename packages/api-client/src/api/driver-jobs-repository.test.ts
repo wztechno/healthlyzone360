@@ -41,6 +41,7 @@ function harness(responses: readonly { status: number; body: unknown }[]) {
 
 const JOB_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e3001';
 const OTHER_JOB_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e3002';
+const POOL_JOB_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e3003';
 const ORDER_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e3101';
 
 /** Every address part authored, so a mapper that dropped one would show as a missing field. */
@@ -88,13 +89,16 @@ describe('createApiDriverJobsRepository — listJobs', () => {
                                 tracking_status: 'en_route',
                             }),
                         ],
+                        available: [
+                            wireJob({ id: POOL_JOB_UUID, status: 'pending', assigned_at: null }),
+                        ],
                     },
                     meta: {},
                 },
             },
         ]);
 
-        const jobs = await repository.listJobs();
+        const { jobs, available } = await repository.listJobs();
 
         expect(calls[0]?.method).toBe('GET');
         // No parameters at all: the run sheet is narrowed by who is asking, not by what they ask.
@@ -107,14 +111,17 @@ describe('createApiDriverJobsRepository — listJobs', () => {
         expect(jobs[0]?.trackingStatus).toBe('awaiting_assignment');
         expect(jobs[1]?.status).toBe('in_transit');
         expect(jobs[1]?.trackingStatus).toBe('en_route');
+        // The unassigned pool, mapped through the same row.
+        expect(available.map((job) => job.id)).toEqual([POOL_JOB_UUID]);
+        expect(available[0]?.status).toBe('pending');
     });
 
     it('carries the order number, the hand-over instant and the whole address snapshot', async () => {
         const { repository } = harness([
-            { status: 200, body: { data: { jobs: [wireJob()] }, meta: {} } },
+            { status: 200, body: { data: { jobs: [wireJob()], available: [] }, meta: {} } },
         ]);
 
-        const [job] = await repository.listJobs();
+        const [job] = (await repository.listJobs()).jobs;
         if (job === undefined) throw new Error('the run sheet answered no jobs');
 
         // The number printed on the bag — what a courier matches an order to, rather than the
@@ -155,13 +162,14 @@ describe('createApiDriverJobsRepository — listJobs', () => {
                                 }),
                             }),
                         ],
+                        available: [],
                     },
                     meta: {},
                 },
             },
         ]);
 
-        const [job] = await repository.listJobs();
+        const [job] = (await repository.listJobs()).jobs;
         if (job === undefined) throw new Error('the run sheet answered no jobs');
 
         // Never defaulted to the order identifier: "no number on this job" and "here is the number"
@@ -175,9 +183,32 @@ describe('createApiDriverJobsRepository — listJobs', () => {
     });
 
     it('answers an empty run sheet as an empty array, not as a failure', async () => {
-        const { repository } = harness([{ status: 200, body: { data: { jobs: [] }, meta: {} } }]);
+        const { repository } = harness([
+            { status: 200, body: { data: { jobs: [], available: [] }, meta: {} } },
+        ]);
 
-        expect(await repository.listJobs()).toEqual([]);
+        expect(await repository.listJobs()).toEqual({ jobs: [], available: [] });
+    });
+});
+
+describe('createApiDriverJobsRepository — claimJob', () => {
+    it('posts to the claim route with no body, and passes a lost race through as a conflict', async () => {
+        const { repository, calls } = harness([
+            { status: 200, body: { data: { job: { id: JOB_UUID, status: 'assigned' } } } },
+            {
+                status: 409,
+                body: { error: { code: 'resource.conflict', message: 'Taken.', details: {} } },
+            },
+        ]);
+
+        await repository.claimJob(JOB_UUID);
+
+        expect(calls[0]?.method).toBe('POST');
+        expect(calls[0]?.path).toBe(`/driver/jobs/${JOB_UUID}/claim`);
+
+        await expect(repository.claimJob(JOB_UUID)).rejects.toSatisfy(
+            (caught: unknown) => asApiFailure(caught)?.code === 'resource.conflict',
+        );
     });
 });
 

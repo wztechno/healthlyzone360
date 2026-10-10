@@ -11,6 +11,7 @@ use Healthy360\Customers\Closure\Jobs\ProcessScheduledClosures;
 use Healthy360\Customers\Guest\Jobs\ExpireGuestData;
 use Healthy360\Customers\Guest\Jobs\PurgeExpiredGuestSessions;
 use Healthy360\Customers\Jobs\PurgeAbandonedProvisionalAccounts;
+use Healthy360\Procurement\Jobs\PublishWeeklyIngredientPrices;
 use Healthy360\Subscriptions\Jobs\GenerateSubscriptionDeliveries;
 use Healthy360\Support\Http\Middleware\EnforceIdempotency;
 use Healthy360\Verification\Jobs\PurgeExpiredOtpChallenges;
@@ -263,6 +264,36 @@ Schedule::job(new ExpireQuotations)
 Schedule::job(new GenerateSubscriptionDeliveries)
     ->hourly()
     ->name('subscriptions:generate-deliveries')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+/*
+| PROD1 — hourly. The weekly ingredient prices, published on each kitchen's own
+| Monday.
+|
+| Hourly for a requirement that says "every Monday morning", and the mismatch is
+| deliberate. Monday 06:00 is a different UTC instant in Beirut and in Dubai, and
+| one cron expression can only name one of them; asking each organisation whether
+| its Monday has arrived — and whether the week is still unpublished — is what
+| lets one entry serve all nine launch markets. `GenerateSubscriptionDeliveries`
+| above runs hourly for the same shape of reason.
+|
+| The second reason is recovery. The publisher walks the last eight completed
+| weeks oldest-first and fills whatever is missing, so an outage on the day costs
+| a delay rather than a gap. A Monday-only guard would have skipped the week in
+| silence, and the kitchen would have found out when a technical sheet quietly
+| costed itself at a fortnight-old price.
+|
+| No timezone is set, for the reason the subscription entry gives: there is no
+| hour of the day this should prefer, and every comparison the job makes is in the
+| organisation's own timezone rather than the scheduler's.
+|
+| `withoutOverlapping()` and `onOneServer()` because it is a cluster-wide sweep
+| that writes, and `name()` explicitly because both mutex keys derive from it.
+*/
+Schedule::job(new PublishWeeklyIngredientPrices)
+    ->hourly()
+    ->name('procurement:publish-weekly-prices')
     ->withoutOverlapping()
     ->onOneServer();
 

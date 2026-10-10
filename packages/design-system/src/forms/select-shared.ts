@@ -1,3 +1,6 @@
+import type { GridSpanProps } from '../primitives/grid-shared.ts';
+import type { InputSize } from './text-input.tsx';
+
 /**
  * Everything both halves of `Select` agree on.
  *
@@ -18,7 +21,11 @@ export interface SelectOption<T extends string = string> {
     readonly disabled?: boolean | undefined;
 }
 
-export interface SelectProps<T extends string = string> {
+/**
+ * `span` is read by `FormGrid` off the element, exactly as it is for `FormField`; neither half of
+ * `Select` spreads its props anywhere, so it never reaches the DOM.
+ */
+export interface SelectProps<T extends string = string> extends GridSpanProps {
     readonly label: string;
     /** See `FormField`'s `labelHidden` — for a control named by a column header. */
     readonly labelHidden?: boolean | undefined;
@@ -28,6 +35,8 @@ export interface SelectProps<T extends string = string> {
     readonly placeholder?: string | undefined;
     readonly hint?: string | undefined;
     readonly error?: string | undefined;
+    /** A non-blocking caution under the field — see `FormField`. */
+    readonly warning?: string | undefined;
     readonly required?: boolean | undefined;
     readonly disabled?: boolean | undefined;
     /**
@@ -35,6 +44,13 @@ export interface SelectProps<T extends string = string> {
      * rendered exactly as it was before this prop existed — no extra nodes, no extra live region.
      */
     readonly searchable?: boolean | undefined;
+    /**
+     * The frame's height step. Unset, it is the ladder's ordinary control — `sm` under the compact
+     * ladder, `md` on the comfortable one. `xs` is the 24px cell step `TextInputField` already has,
+     * for a picker that sits in a dense line table beside `xs` inputs: a 28px picker between two
+     * 24px boxes is the one control in the row that does not line up.
+     */
+    readonly size?: InputSize | undefined;
     readonly id?: string | undefined;
     /**
      * How many columns this select occupies inside a `FormGrid`.

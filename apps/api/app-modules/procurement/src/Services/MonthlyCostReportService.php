@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Healthy360\Procurement\Services;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Inventory\Contracts\ProductionValuationLedger;
 use Healthy360\Inventory\Models\OrderConsumptionException;
+use Healthy360\Inventory\Models\OrderLineEstimatedCost;
 use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
@@ -124,7 +126,18 @@ final readonly class MonthlyCostReportService
 
     private const int PERCENT_SCALE = 2;
 
-    public function __construct(private ProcurementSpendQuery $spend) {}
+    public function __construct(
+        private ProcurementSpendQuery $spend,
+        /*
+         * Asked through Inventory's port rather than read off
+         * `production_orders` (PROD1). Production depends on Procurement for the
+         * finished-goods blend, so a direct reference here would close a cycle —
+         * and a raw `DB::table('production_orders')` would dodge the module
+         * registry rather than satisfy it, leaving the coupling just as real and
+         * no longer visible.
+         */
+        private ProductionValuationLedger $production,
+    ) {}
 
     /**
      * Compute the report rows for one organisation, optionally bounded to a month
@@ -147,11 +160,21 @@ final readonly class MonthlyCostReportService
      *     meal_cogs_amount: numeric-string,
      *     product_cogs_amount: numeric-string,
      *     other_cogs_amount: numeric-string,
+     *     production_consumption_amount: numeric-string,
+     *     production_waste_amount: numeric-string,
+     *     production_yield_value_amount: numeric-string,
+     *     estimated_cogs_amount: numeric-string|null,
+     *     estimated_margin_amount: numeric-string|null,
+     *     estimated_margin_percent: numeric-string|null,
+     *     unestimated_line_count: int,
+     *     is_estimate_complete: bool,
      *     has_data_quality_flag: bool,
      *     exception_count: int,
      *     is_spend_complete: bool,
      *     unpriced_line_count: int,
-     *     valuation_pending_line_count: int
+     *     valuation_pending_line_count: int,
+     *     is_production_valuation_complete: bool,
+     *     unvalued_batch_count: int
      * }>
      */
     public function forOrganisation(string $organisationId, ?string $from = null, ?string $to = null): array
@@ -168,11 +191,17 @@ final readonly class MonthlyCostReportService
         $revenue = $this->revenueByMonthCurrency($organisationId, $from, $to);
         $revenueSplit = $this->revenueSplitByMonthCurrency($organisationId, $from, $to);
         $exceptions = $this->exceptionCountByMonth($organisationId, $from, $to);
+        $productionConsumption = $this->productionMovementByMonthCurrency($organisationId, 'consume', $from, $to);
+        $productionWaste = $this->productionMovementByMonthCurrency($organisationId, 'waste', $from, $to);
+        $productionYield = $this->productionMovementByMonthCurrency($organisationId, 'yield', $from, $to);
+        $estimates = $this->estimatedCogsByMonthCurrency($organisationId, $from, $to);
+        $unestimated = $this->unestimatedLineCountByMonth($organisationId, $from, $to);
+        $unvaluedBatches = $this->production->unvaluedBatchCountByMonth($organisationId, $from, $to);
 
         // Union every (month, currency) key any source produced — a month may
         // have spend without a sale, or a sale without a receipt that month.
         $keys = [];
-        foreach ([$spend, $cogs, $waste, $revenue] as $source) {
+        foreach ([$spend, $cogs, $waste, $revenue, $productionConsumption, $productionWaste, $productionYield, $estimates] as $source) {
             foreach ($source as $month => $byCurrency) {
                 foreach (array_keys($byCurrency) as $currency) {
                     $keys[$month.'|'.$currency] = ['month' => $month, 'currency' => $currency];
@@ -215,6 +244,51 @@ final readonly class MonthlyCostReportService
                 'valuation_pending_line_count' => 0,
             ];
 
+            /*
+             * Production, as three separately named figures (PROD1).
+             *
+             * `production_consumption_amount` is **not** part of `cogs_amount`:
+             * COGS joins to an order, and a batch has none. Flour that became
+             * dressing has not been sold yet, and counting it as cost of goods
+             * would charge a month for food still on the shelf.
+             *
+             * `production_waste_amount` **is** part of `waste_amount`, and is
+             * published as an "of which" breakdown rather than an addition —
+             * the waste row already sums every waste movement, and a reader who
+             * added the two would count the loss twice.
+             *
+             * `production_yield_value_amount` is **neither revenue nor expense**.
+             * It is an inventory transformation: money that was in raw materials
+             * is now in finished goods, and the same figure appears on both sides
+             * of the shelf. It is stated so a reader can see the batch happened,
+             * and named so nobody adds it to anything.
+             */
+            $productionConsumed = $productionConsumption[$month][$currency] ?? '0';
+            $productionWasted = $productionWaste[$month][$currency] ?? '0';
+            $productionYielded = $productionYield[$month][$currency] ?? '0';
+
+            /*
+             * Estimated against actual, over the same sold quantities.
+             *
+             * The estimate is withheld whenever any line of the month could not
+             * be estimated, because a margin over the priced half reads exactly
+             * like a complete one and is too high. `unestimated_line_count` says
+             * how much is missing rather than leaving the null unexplained.
+             */
+            $estimatedCogs = $estimates[$month][$currency] ?? null;
+            $unestimatedCount = $unestimated[$month] ?? 0;
+            $estimateComplete = $unestimatedCount === 0 && $estimatedCogs !== null;
+
+            $estimatedMargin = $estimateComplete && $estimatedCogs !== null
+                ? bcsub($revenueAmount, $estimatedCogs, self::SCALE)
+                : null;
+
+            $estimatedMarginPercent = $estimatedMargin !== null && bccomp($revenueAmount, '0', self::SCALE) > 0
+                ? bcmul(bcdiv($estimatedMargin, $revenueAmount, self::SCALE + self::PERCENT_SCALE), '100', self::PERCENT_SCALE)
+                : null;
+
+            $unvaluedBatches_ = $unvaluedBatches[$month] ?? 0;
+
             $rows[] = [
                 'month' => $month,
                 'currency_code' => $currency,
@@ -231,6 +305,14 @@ final readonly class MonthlyCostReportService
                 'meal_cogs_amount' => $mealCogs,
                 'product_cogs_amount' => $productCogs,
                 'other_cogs_amount' => $otherCogs,
+                'production_consumption_amount' => $productionConsumed,
+                'production_waste_amount' => $productionWasted,
+                'production_yield_value_amount' => $productionYielded,
+                'estimated_cogs_amount' => $estimateComplete ? $estimatedCogs : null,
+                'estimated_margin_amount' => $estimatedMargin,
+                'estimated_margin_percent' => $estimatedMarginPercent,
+                'unestimated_line_count' => $unestimatedCount,
+                'is_estimate_complete' => $estimateComplete,
                 'has_data_quality_flag' => $exceptionCount > 0,
                 'exception_count' => $exceptionCount,
                 // The spend side's own completeness (§3.6), kept apart from the
@@ -239,6 +321,18 @@ final readonly class MonthlyCostReportService
                     && $quality['valuation_pending_line_count'] === 0,
                 'unpriced_line_count' => $quality['unpriced_line_count'],
                 'valuation_pending_line_count' => $quality['valuation_pending_line_count'],
+                /*
+                 * A **third** completeness flag, deliberately not folded into the
+                 * other two. `is_spend_complete` undermines what a month cost to
+                 * buy; the exception count undermines what it cost to sell; this
+                 * undermines what it cost to *make*. A batch that finished
+                 * `partial` or `unvalued` put stock on a shelf whose value nobody
+                 * could compute, so the finished-goods figures and every sale
+                 * drawn from that shelf are understated. One flag covering all
+                 * three would tell a reader something is wrong and not what.
+                 */
+                'is_production_valuation_complete' => $unvaluedBatches_ === 0,
+                'unvalued_batch_count' => $unvaluedBatches_,
             ];
         }
 
@@ -451,6 +545,116 @@ final readonly class MonthlyCostReportService
         $out = [];
         foreach ($query->get() as $row) {
             $out[(string) $row->getAttribute('month')] = $this->numeric((string) $row->getAttribute('total'));
+        }
+
+        return $out;
+    }
+
+    /**
+     * One reason of production movement, by month and currency (PROD1).
+     *
+     * Three calls, three named figures, and the separation is the point:
+     * `consume` is what a batch ate, `waste` is what it dropped or rejected, and
+     * `yield` is what it put on the shelf. Summing them would be summing three
+     * different kinds of fact.
+     *
+     * `reference_type = 'production_order'` is the whole filter. COGS joins to an
+     * order and a batch has none, so nothing here is already inside `cogs_amount`
+     * — while everything the `waste` call returns *is* already inside
+     * `waste_amount`, which is exactly why it is published as a breakdown.
+     *
+     * A movement with no cost contributes nothing rather than zero: an unvalued
+     * batch is reported by `is_production_valuation_complete`, not by quietly
+     * lowering a total.
+     *
+     * @return array<string, array<string, numeric-string>>
+     */
+    private function productionMovementByMonthCurrency(string $organisationId, string $reason, ?string $from, ?string $to): array
+    {
+        $query = StockMovement::query()
+            ->where('stock_movements.organisation_id', $organisationId)
+            ->where('stock_movements.reason', $reason)
+            ->where('stock_movements.reference_type', 'production_order')
+            ->whereNotNull('stock_movements.cost_amount')
+            ->whereNotNull('stock_movements.cost_currency_code')
+            ->selectRaw("to_char(stock_movements.created_at, 'YYYY-MM') as month")
+            ->selectRaw('stock_movements.cost_currency_code as currency')
+            ->selectRaw('SUM(ABS(stock_movements.cost_amount)) as total')
+            ->groupBy('month', 'currency');
+
+        $this->boundMonths($query, "to_char(stock_movements.created_at, 'YYYY-MM')", $from, $to);
+
+        return $this->pivot($query->get());
+    }
+
+    /**
+     * What a month's sales were **expected** to cost, by currency (PROD1).
+     *
+     * Read off `order_line_estimated_costs`, which froze each line's figure at the
+     * moment the order was confirmed. Not recomputed here, and that is the whole
+     * design: recomputing would let a recipe edited in October move September's
+     * estimated margin, silently.
+     *
+     * Anchored on the **order's** `confirmed_at`, the same anchor revenue uses, so
+     * the two sides of the estimated margin are over the same sales. Cancelled
+     * orders are excluded for the reason COGS excludes them: the food was not sold.
+     *
+     * @return array<string, array<string, numeric-string>>
+     */
+    private function estimatedCogsByMonthCurrency(string $organisationId, ?string $from, ?string $to): array
+    {
+        $query = OrderLineEstimatedCost::query()
+            ->where('order_line_estimated_costs.organisation_id', $organisationId)
+            ->join('orders', 'orders.id', '=', 'order_line_estimated_costs.order_id')
+            ->whereIn('orders.status', ['confirmed', 'fulfilled'])
+            ->whereNotNull('orders.confirmed_at')
+            ->selectRaw("to_char(orders.confirmed_at, 'YYYY-MM') as month")
+            ->selectRaw('order_line_estimated_costs.currency_code as currency')
+            ->selectRaw('SUM(order_line_estimated_costs.estimated_cost_amount) as total')
+            ->groupBy('month', 'currency');
+
+        $this->boundMonths($query, "to_char(orders.confirmed_at, 'YYYY-MM')", $from, $to);
+
+        return $this->pivot($query->get());
+    }
+
+    /**
+     * Sold lines with **no** estimate, by month.
+     *
+     * The absence is the signal. A line whose ingredients could not all be priced
+     * writes no row at all, so counting the gap is how the report knows its
+     * estimated margin covers less than the month — and why the margin is withheld
+     * rather than published short.
+     *
+     * The plan-day line is excluded: it consumes nothing by design, so it can have
+     * no estimate and its absence is not a gap.
+     *
+     * @return array<string, int>
+     */
+    private function unestimatedLineCountByMonth(string $organisationId, ?string $from, ?string $to): array
+    {
+        $query = OrderLine::query()
+            ->join('orders', 'orders.id', '=', 'order_lines.order_id')
+            ->join('catalogue_items', 'catalogue_items.id', '=', 'order_lines.catalogue_item_id')
+            ->where('orders.organisation_id', $organisationId)
+            ->whereIn('orders.status', ['confirmed', 'fulfilled'])
+            ->whereNotNull('orders.confirmed_at')
+            ->where('catalogue_items.item_type', '!=', 'subscription_plan')
+            ->whereNotExists(function ($sub): void {
+                $sub->select(DB::raw(1))
+                    ->from('order_line_estimated_costs')
+                    ->whereColumn('order_line_estimated_costs.order_line_id', 'order_lines.id');
+            })
+            ->selectRaw("to_char(orders.confirmed_at, 'YYYY-MM') as month")
+            ->selectRaw('COUNT(*) as total')
+            ->groupBy('month');
+
+        $this->boundMonths($query, "to_char(orders.confirmed_at, 'YYYY-MM')", $from, $to);
+
+        $out = [];
+
+        foreach ($query->get() as $row) {
+            $out[(string) $row->getAttribute('month')] = (int) $row->getAttribute('total');
         }
 
         return $out;

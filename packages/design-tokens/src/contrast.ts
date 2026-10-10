@@ -40,6 +40,15 @@ export function hexToRgb(hex: string): Rgb {
     };
 }
 
+/**
+ * A hex colour at an opacity, as `rgba(…)` — so a translucent fill is derived from its palette
+ * colour and follows it when that colour changes, rather than being a second copy of it.
+ */
+export function withAlpha(hex: string, alpha: number): string {
+    const { r, g, b } = hexToRgb(hex);
+    return `rgba(${String(r)}, ${String(g)}, ${String(b)}, ${String(alpha)})`;
+}
+
 function channelLuminance(value8Bit: number): number {
     const channel = value8Bit / 255;
     return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;

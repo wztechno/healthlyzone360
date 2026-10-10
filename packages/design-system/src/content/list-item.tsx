@@ -31,6 +31,12 @@ export interface ListItemProps {
     readonly meta?: ReactNode | undefined;
     /** The entity's headline number. Mono, and the last thing dropped as the row narrows. */
     readonly metric?: ReactNode | undefined;
+    /**
+     * The compact row's bottom hairline. Off for the last row of a list whose frame already draws
+     * that edge — a hairline beside the frame's border reads as a 2px rule. Ignored on the
+     * comfortable ladder, which has no hairline to drop.
+     */
+    readonly divider?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -69,6 +75,7 @@ export function ListItem({
     accessibilityHint,
     meta,
     metric,
+    divider = true,
     className,
     testID,
 }: ListItemProps) {
@@ -175,7 +182,8 @@ export function ListItem({
               // below. Stacked, it has two lines of content, so the height is content-driven and
               // only the inset is stated.
               cx(
-                  'items-center border-b border-stroke-subtle px-control-sm',
+                  'items-center px-control-sm',
+                  divider ? 'border-b border-stroke-subtle' : null,
                   stacked ? 'py-tight' : 'h-row-md',
               )
             : 'items-center rounded-lg px-3 py-3 min-h-touch',

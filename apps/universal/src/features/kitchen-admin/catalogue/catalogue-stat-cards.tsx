@@ -1,10 +1,11 @@
-import { Card, Icon, Text } from '@healthy360/design-system';
+import { Card, FadeIn, Icon, Skeleton, Text } from '@healthy360/design-system';
 import type { CardTone, IconName, TextTone } from '@healthy360/design-system';
 import { cardWidth } from '@healthy360/design-tokens';
 import { View } from 'react-native';
 
 /**
- * Part three of a Catalogue list page, as cards.
+ * Part three of a Catalogue list page, as cards. (The marks in the sketch are the native glyphs; the
+ * web draws Lucide's `list`, `file-pen-line`, `languages` and `coins` in their place.)
  *
  * ```
  * ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
@@ -14,10 +15,9 @@ import { View } from 'react-native';
  * └──────────────────┘ └──────────────────┘ └──────────────────┘ └──────────────────┘
  * ```
  *
- * These are the same four figures {@link CatalogueSummaryBar} states as one 11px line, and the two
- * are alternatives rather than companions: a page draws one or the other. This screen draws the
- * cards, so the line is gone — stating "2 draft" twice, sixteen pixels apart, is not orientation,
- * it is noise.
+ * There was a one-line variant of these same four figures for a while. Nothing ever rendered it —
+ * a page that drew both would state "2 draft" twice, sixteen pixels apart, which is not
+ * orientation — so the cards are the only form now.
  *
  * ## A card is worth the vertical space only when the figure is a destination
  *
@@ -45,17 +45,25 @@ import { View } from 'react-native';
 
 export interface CatalogueStatCard {
     readonly key: string;
-    /** Translated. Rendered on the `micro` step — 10px. */
+    /** Translated. Rendered on the `title` step — 16px at 600. */
     readonly label: string;
     /** The figure. Already formatted, because the caller owns the numbering system. */
     readonly value: string;
     /** What the figure counts — "records", "of 248". Sits on the value's baseline. */
     readonly unit?: string | undefined;
-    /** One translated line under the figure, saying what the tone means. */
-    readonly caption: string;
+    /**
+     * One translated line under the figure. Optional: a strip whose labels already say it all (the
+     * kitchen overview) leaves it out rather than repeating the label in other words.
+     */
+    readonly caption?: string | undefined;
     /** The corner mark. Decorative — the label and caption carry the meaning. */
     readonly mark: IconName;
     readonly tone?: CatalogueStatTone | undefined;
+    /**
+     * This card's figure alone is still in flight. Overrides the strip's `pending` for one card, for
+     * a strip whose figures come from different reads and land at different times.
+     */
+    readonly pending?: boolean | undefined;
     /** Makes the card a filter. Omit for a figure with no filter behind it. */
     readonly onPress?: (() => void) | undefined;
     /** Required with `onPress`: the label names the figure, not the action. */
@@ -82,17 +90,11 @@ const CAPTION_TONE: Readonly<Record<CatalogueStatTone, TextTone>> = {
 };
 
 /**
- * Fill. Only `warning` takes one — see the note above on spending the fill once.
- *
- * `raised` rather than `default`: in the compact ladder `raised` is the white card on the page's
- * off-white ground and casts no shadow, which is the flat elevation §1.3 allows.
- */
-/**
  * Ink for the corner mark.
  *
- * `className`, not a `tone` prop: an icon here is a typographic glyph on React Native's own `Text`,
- * so it has no tone of its own and takes the ink token directly — the pattern every other call
- * site in the app uses. The classes are `Text`'s own `TONE_CLASS` entries, so a mark can never
+ * `className`, not a `tone` prop: an icon here is a Lucide drawing on the web and a typographic
+ * glyph on native, and neither has a tone of its own — both take the ink token directly (the SVG
+ * through `currentColor`), the pattern every other call site in the app uses. The classes are `Text`'s own `TONE_CLASS` entries, so a mark can never
  * disagree with the figure beneath it.
  */
 const MARK_CLASS: Readonly<Record<CatalogueStatTone, string>> = {
@@ -102,6 +104,12 @@ const MARK_CLASS: Readonly<Record<CatalogueStatTone, string>> = {
     danger: 'text-danger-strong',
 };
 
+/**
+ * Fill. Only `warning` takes one — see the note above on spending the fill once.
+ *
+ * `raised` rather than `default`: in the compact ladder `raised` is the white card on the page's
+ * off-white ground with the card cast, where `default` is the ground itself and stays flat.
+ */
 const CARD_TONE: Readonly<Record<CatalogueStatTone, CardTone>> = {
     default: 'raised',
     brand: 'raised',
@@ -109,12 +117,41 @@ const CARD_TONE: Readonly<Record<CatalogueStatTone, CardTone>> = {
     danger: 'raised',
 };
 
+/** A space the layout cannot collapse, so an otherwise empty line still takes its full height. */
+const NO_BREAK_SPACE = String.fromCharCode(0xa0);
+
 export interface CatalogueStatCardsProps {
     readonly cards: readonly CatalogueStatCard[];
+    /**
+     * The figures are still in flight.
+     *
+     * Each card is drawn anyway — frame, label, mark and caption, none of which wait on the data —
+     * with a placeholder holding the figure's line. The row is its loaded height from the first
+     * frame, so when the figures land the toolbar and table below do not move. A screen that drew
+     * nothing here until its list resolved pushed both down by a card's height at that moment,
+     * which is the jump a reader sees as the page arriving twice.
+     *
+     * Passing it at all is also what animates the arrival: a caller that has a pending state gets
+     * its figures faded in when they land, and one that does not draws them as they are.
+     */
+    readonly pending?: boolean | undefined;
+    /**
+     * The counts behind every card but the first are still in flight.
+     *
+     * The first card is the page's own "18 of 306", which the page query answers. The rest count
+     * every page the filters match, which a second, longer read answers — until it lands they hold
+     * a placeholder rather than a zero that reads as "none".
+     */
+    readonly countsPending?: boolean | undefined;
     readonly testID: string;
 }
 
-export function CatalogueStatCards({ cards, testID }: CatalogueStatCardsProps) {
+export function CatalogueStatCards({
+    cards,
+    pending,
+    countsPending,
+    testID,
+}: CatalogueStatCardsProps) {
     return (
         /*
          * The cards fill the row, with a gap between them.
@@ -133,7 +170,7 @@ export function CatalogueStatCards({ cards, testID }: CatalogueStatCardsProps) {
          * they are four unrelated panels.
          */
         <View testID={testID} className="flex-row flex-wrap items-stretch gap-snug">
-            {cards.map((card) => (
+            {cards.map((card, index) => (
                 /*
                  * A wrapping row of equal shares, not `CardGrid`.
                  *
@@ -170,20 +207,57 @@ export function CatalogueStatCards({ cards, testID }: CatalogueStatCardsProps) {
                     className="flex-1 flex-col"
                     style={{ minWidth: cardWidth.min }}
                 >
-                    <StatCard card={card} testID={`${testID}-${card.key}`} />
+                    <StatCard
+                        card={card}
+                        pending={
+                            card.pending ?? (index > 0 && countsPending === true ? true : pending)
+                        }
+                        testID={`${testID}-${card.key}`}
+                    />
                 </View>
             ))}
         </View>
     );
 }
 
-function StatCard({ card, testID }: { readonly card: CatalogueStatCard; readonly testID: string }) {
+function StatCard({
+    card,
+    pending,
+    testID,
+}: {
+    readonly card: CatalogueStatCard;
+    readonly pending: boolean | undefined;
+    readonly testID: string;
+}) {
     const tone = card.tone ?? 'default';
+
+    const figure = (
+        <View className="flex-row flex-wrap items-baseline gap-tight">
+            {/*
+             * `display` (20/26, 700), not the `mono` role. The design sets these figures
+             * in IBM Plex Mono, and CLAUDE.md's sequencing decision defers that family
+             * to the palette pass — "carry numerics with weight and alignment for now" —
+             * so the figure takes the ramp's one large step and nothing else.
+             */}
+            <Text variant="display" tone={VALUE_TONE[tone]} testID={`${testID}-value`}>
+                {card.value}
+            </Text>
+            {/*
+             * The unit on the figure's own step, so "18 of 18" and "1 records" read as
+             * one phrase at one size — ink, not size, separates the count from its noun.
+             */}
+            {card.unit === undefined ? null : (
+                <Text variant="display" tone="secondary">
+                    {card.unit}
+                </Text>
+            )}
+        </View>
+    );
 
     return (
         <Card
             tone={CARD_TONE[tone]}
-            padding="sm"
+            padding="md"
             interactive={card.onPress !== undefined}
             onPress={card.onPress}
             accessibilityLabel={card.accessibilityLabel}
@@ -191,36 +265,39 @@ function StatCard({ card, testID }: { readonly card: CatalogueStatCard; readonly
         >
             {/*
              * One child, so `Card`'s own 8px gap between children never applies: these three lines
-             * are a single block at 4px, which is what makes the card 70px rather than 96px.
+             * are a single block at 4px.
              */}
             <View className="flex-col gap-hair">
                 <View className="flex-row items-baseline justify-between gap-tight">
-                    <Text variant="micro" tone="secondary" numberOfLines={1}>
+                    <Text variant="title" tone="secondary" numberOfLines={1}>
                         {card.label}
                     </Text>
-                    <Icon name={card.mark} size="sm" className={MARK_CLASS[tone]} />
+                    <Icon name={card.mark} size="lg" className={MARK_CLASS[tone]} />
                 </View>
 
-                <View className="flex-row items-baseline gap-hair">
-                    {/*
-                     * `display` (20/26, 700), not the `mono` role. The design sets these figures
-                     * in IBM Plex Mono, and CLAUDE.md's sequencing decision defers that family
-                     * to the palette pass — "carry numerics with weight and alignment for now" —
-                     * so the figure takes the ramp's one large step and nothing else.
-                     */}
-                    <Text variant="display" tone={VALUE_TONE[tone]} testID={`${testID}-value`}>
-                        {card.value}
-                    </Text>
-                    {card.unit === undefined ? null : (
-                        <Text variant="caption" tone="secondary">
-                            {card.unit}
+                {pending === true ? (
+                    <View testID={`${testID}-loading`} className="flex-row items-center">
+                        {/*
+                         * The figure's own line box with nothing in it. It holds the card at its
+                         * loaded height by the type ramp itself, so the placeholder cannot drift
+                         * from the figure it stands in for when the ramp moves.
+                         */}
+                        <Text variant="display" aria-hidden>
+                            {NO_BREAK_SPACE}
                         </Text>
-                    )}
-                </View>
+                        <Skeleton heightClassName="h-5" widthClassName="w-1/3" />
+                    </View>
+                ) : pending === false ? (
+                    <FadeIn>{figure}</FadeIn>
+                ) : (
+                    figure
+                )}
 
-                <Text variant="caption" tone={CAPTION_TONE[tone]} numberOfLines={2}>
-                    {card.caption}
-                </Text>
+                {card.caption === undefined ? null : (
+                    <Text variant="body" tone={CAPTION_TONE[tone]} numberOfLines={2}>
+                        {card.caption}
+                    </Text>
+                )}
             </View>
         </Card>
     );

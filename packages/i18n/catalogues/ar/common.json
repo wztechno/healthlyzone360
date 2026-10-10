@@ -5,6 +5,7 @@
     },
     "action": {
         "continue": "متابعة",
+        "viewBasket": "عرض السلة",
         "back": "رجوع",
         "cancel": "إلغاء",
         "save": "حفظ",
@@ -72,6 +73,23 @@
         "workspace": "مساحة العمل",
         "profile": "الملف الشخصي",
         "devices": "الأجهزة والجلسات",
-        "showcase": "نظام التصميم"
+        "showcase": "نظام التصميم",
+        "sectionWorkspaces": "مساحات العمل",
+        "sectionAccount": "الحساب",
+        "current": "الحالية"
+    },
+    "photoCredit": {
+        "byline": "صورة: {{creator}}",
+        "via": "عبر",
+        "modified": "مقصوصة ومعاد تحجيمها",
+        "provider": {
+            "wikimedia": "ويكيميديا كومنز",
+            "flickr": "فليكر",
+            "rawpixel": "رو بيكسل",
+            "stocksnap": "ستوك سناب",
+            "nappy": "نابي",
+            "unsplash": "أنسبلاش",
+            "other": "الناشر الأصلي"
+        }
     }
 }

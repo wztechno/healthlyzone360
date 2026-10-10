@@ -235,6 +235,7 @@ function mapCheckoutPreview(
         total: money(wire.total_minor, currency),
         earliestDeliveryDate: request.deliveryDate ?? null,
         warnings: wire.warnings.map(mapPreviewWarning),
+        offeredWindowCodes: wire.offered_window_codes ?? null,
         paymentDeferred: true,
     };
 }

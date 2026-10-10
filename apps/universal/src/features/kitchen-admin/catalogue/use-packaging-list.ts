@@ -10,13 +10,18 @@ import { useMemo, useState } from 'react';
 
 import { toFailure } from '../../../data/hooks.ts';
 import {
+    KITCHEN_PAGE_SIZE,
     pagesInResult,
     useArchiveIngredientMutation,
     usePackagingCategoriesQuery,
     usePackagingPageQuery,
+    usePackagingWholeSetQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
+import { missingLast } from './catalogue-column-spec.ts';
 import { useListPage } from '../use-list-page.ts';
+import { useCatalogueFilters } from './use-catalogue-filters.ts';
+import { useDestructiveRow } from './use-destructive-row.ts';
 
 /**
  * The state behind `/kitchen/packaging`.
@@ -43,12 +48,23 @@ import { useListPage } from '../use-list-page.ts';
  *
  * ## Archive is the only write
  *
- * The same one the ingredient list offers, because it is now literally the same endpoint. There is
- * still no editor route behind `/kitchen/packaging/{item}`; {@link PackagingListState.openEditor}
- * sends a reader to the ingredient editor, which can edit these rows because they are ingredients.
+ * The same one the ingredient list offers, because it is now literally the same endpoint.
+ * {@link PackagingListState.openEditor} routes to `/kitchen/packaging/{item}`, which is the
+ * ingredient editor handed the packaging series, the packaging category and this list to return to
+ * — see the note on `openEditor` below. `new` is a value of the same parameter, so the create
+ * button and a row's Edit reach one place.
  */
 
-export type PackagingSortKey = 'reference' | 'name' | 'category' | 'unit' | 'purchasePrice';
+export type PackagingSortKey =
+    | 'reference'
+    | 'name'
+    | 'category'
+    | 'unit'
+    | 'purchaseUnit'
+    | 'itemsPerUnit'
+    | 'purchasePrice'
+    | 'capacity'
+    | 'waste';
 export type PackagingSortDirection = 'asc' | 'desc';
 
 /**
@@ -115,6 +131,8 @@ export interface PackagingListState {
     /** The server's count for the whole filtered set, or `null` before the first answer. */
     readonly total: number | null;
     readonly shown: number;
+    /** The whole-set read behind the other cards has not landed yet. */
+    readonly countsPending: boolean;
     /** How many rows on this page still have no price — the figure this page exists to chase. */
     readonly unpricedCount: number;
     readonly inactiveCount: number;
@@ -134,20 +152,19 @@ export interface PackagingListState {
     readonly archiveFailure: ApiFailure | null;
 }
 
-/** `null` sorts to the end in both directions rather than clustering at one. */
-function missingLast<T>(left: T | null, right: T | null, compare: (a: T, b: T) => number): number {
-    if (left === null && right === null) return 0;
-    if (left === null) return 1;
-    if (right === null) return -1;
-    return compare(left, right);
-}
-
 export function usePackagingList(): PackagingListState {
     const router = useRouter();
     const { locale } = useLocale();
 
-    const [query, setQuery] = useState('');
-    const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
+    const {
+        query,
+        setQuery,
+        trimmed,
+        statuses,
+        setStatuses,
+        isUnfiltered: searchAndStatusUnset,
+        clear: clearSearchAndStatus,
+    } = useCatalogueFilters();
     const [category, setCategory] = useState<string | null>(null);
     // Reference ascending, which is the order the codes were issued in and so the order a
     // kitchen already knows the library by. Sorting by name instead put the list in an order
@@ -155,9 +172,6 @@ export function usePackagingList(): PackagingListState {
     const [sortKey, setSortKey] = useState<PackagingSortKey>('reference');
     const [sortDirection, setSortDirection] = useState<PackagingSortDirection>('asc');
     const [viewing, setViewing] = useState<IngredientAdmin | null>(null);
-    const [archiving, setArchiving] = useState<IngredientAdmin | null>(null);
-
-    const trimmed = query.trim();
 
     const filter = useMemo(
         () => ({
@@ -170,8 +184,14 @@ export function usePackagingList(): PackagingListState {
 
     const [page, setPage] = useListPage(filter);
     const packaging = usePackagingPageQuery(filter, page);
+    // The cards count every page the filters match, not the eighteen rows on this one.
+    const wholeSet = usePackagingWholeSetQuery(filter);
+    const everyRow = wholeSet.data ?? [];
     const categories = usePackagingCategoriesQuery();
-    const archive = useArchiveIngredientMutation();
+    const archive = useDestructiveRow(useArchiveIngredientMutation(), (row: IngredientAdmin) => ({
+        ingredientId: row.id,
+        request: { lockVersion: row.meta.lockVersion },
+    }));
 
     const rows = packaging.data?.items;
 
@@ -197,6 +217,41 @@ export function usePackagingList(): PackagingListState {
             }
             if (sortKey === 'unit') {
                 return factor * left.measurementUnit.localeCompare(right.measurementUnit);
+            }
+            /*
+             * The pack, what it holds and what is thrown away sort rather than filter:
+             * `IngredientAdminFilter` carries no parameter for any of them, and narrowing the
+             * loaded page would misreport every page after it. A blank — not measured, not
+             * recorded — goes last either way, as it does for the price.
+             */
+            if (sortKey === 'purchaseUnit') {
+                return missingLast(
+                    left.purchaseUnit,
+                    right.purchaseUnit,
+                    (a, b) => factor * a.localeCompare(b),
+                );
+            }
+            if (sortKey === 'itemsPerUnit') {
+                return missingLast(
+                    left.itemsPerUnit,
+                    right.itemsPerUnit,
+                    (a, b) => factor * (a - b),
+                );
+            }
+            if (sortKey === 'capacity') {
+                // The unit first, so 0.3 kg and 300 cc are never read as one scale.
+                return missingLast(
+                    left.capacity,
+                    right.capacity,
+                    (a, b) => factor * (a.unit.localeCompare(b.unit) || a.quantity - b.quantity),
+                );
+            }
+            if (sortKey === 'waste') {
+                return missingLast(
+                    left.wastePercent,
+                    right.wastePercent,
+                    (a, b) => factor * (a - b),
+                );
             }
             if (sortKey === 'purchasePrice') {
                 // Numeric, not lexical: lexically 11.00 sorts between 1.90 and 2.00, which is
@@ -232,10 +287,9 @@ export function usePackagingList(): PackagingListState {
         setStatuses,
         category,
         setCategory,
-        isUnfiltered: trimmed === '' && statuses.length === 0 && category === null,
+        isUnfiltered: searchAndStatusUnset && category === null,
         clearFilters: () => {
-            setQuery('');
-            setStatuses([]);
+            clearSearchAndStatus();
             setCategory(null);
         },
         categories: (categories.data ?? []).filter((entry) => entry.parentCode !== null),
@@ -252,11 +306,14 @@ export function usePackagingList(): PackagingListState {
         setPage,
         totalPages: pagesInResult(packaging.data) ?? 0,
         total: packaging.data?.totalCount ?? null,
-        shown: sorted.length,
-        unpricedCount: sorted.filter((row) => row.purchasePrice === null).length,
+        countsPending: wholeSet.isPending,
+        // Rows up to the end of this page: 18 of 306 on the first, 36 on the second.
+        shown: Math.min(page * KITCHEN_PAGE_SIZE, packaging.data?.totalCount ?? sorted.length),
+        unpricedCount: everyRow.filter((row) => row.purchasePrice === null).length,
         // `draft` is what the packaging table called `inactive` — a row recorded but not in use.
-        inactiveCount: sorted.filter((row) => row.meta.status === 'draft').length,
-        missingArabicCount: sorted.filter((row) => displayName(row.name, locale).isFallback).length,
+        inactiveCount: everyRow.filter((row) => row.meta.status === 'draft').length,
+        missingArabicCount: everyRow.filter((row) => displayName(row.name, locale).isFallback)
+            .length,
 
         /*
          * `/kitchen/packaging/{item}`, which now exists.
@@ -276,28 +333,11 @@ export function usePackagingList(): PackagingListState {
             setViewing(null);
         },
 
-        archiving,
-        askToArchive: setArchiving,
-        cancelArchive: () => {
-            setArchiving(null);
-        },
-        confirmArchive: (onArchived) => {
-            const row = archiving;
-            if (row === null) return;
-            archive.mutate(
-                {
-                    ingredientId: row.id,
-                    request: { lockVersion: row.meta.lockVersion },
-                },
-                {
-                    onSuccess: () => {
-                        setArchiving(null);
-                        onArchived(displayName(row.name, locale).value);
-                    },
-                },
-            );
-        },
+        archiving: archive.target,
+        askToArchive: archive.ask,
+        cancelArchive: archive.cancel,
+        confirmArchive: archive.confirm,
         isArchivePending: archive.isPending,
-        archiveFailure: toFailure(archive.error),
+        archiveFailure: archive.failure,
     };
 }

@@ -1,6 +1,8 @@
 import {
     AppShell,
     Button,
+    Icon,
+    IconButton,
     Inline,
     OfflineIndicator,
     useBreakpoint,
@@ -17,7 +19,7 @@ import { Pressable, Text as RNText, View } from 'react-native';
 import { Gate } from '../access/gate.tsx';
 import { useLogoutMutation } from '../data/hooks.ts';
 import { isAreaAvailable } from '../features/availability.ts';
-import { permittedNavigation } from '../navigation/items.ts';
+import { workspaceGroup } from '../navigation/workspace-group.tsx';
 import { useOnlineStatus } from '../online/online-status.tsx';
 import { useAccessState } from '../session/session-provider.tsx';
 import { ThemeToggle } from './theme-toggle.tsx';
@@ -61,10 +63,16 @@ export interface AreaShellProps {
     readonly sidebarWidth?: number | undefined;
     readonly sidebarBackground?: ReactNode | undefined;
     readonly sidebarStart?: ReactNode | undefined;
+    /** `sidebarStart` for the collapsed sidebar — the brand mark alone. */
+    readonly sidebarStartCollapsed?: ReactNode | undefined;
+    /** Drawn in the top bar in place of the area title — the kitchen's breadcrumb trail. */
+    readonly topbarTitle?: ReactNode | undefined;
+    /** Leads the top bar's trailing controls — the kitchen area's page search. */
+    readonly topbarSearch?: ReactNode | undefined;
     /**
      * Move Sign out from the top bar to the bottom of the sidebar (KITCHEN.md sidebar spec). Only
      * where the sidebar exists: below `lg` the top bar keeps it, because the drawer is a light
-     * overlay and a canopy-styled control inside it would be mint on white.
+     * overlay with its own title bar.
      */
     readonly signOutInSidebar?: boolean | undefined;
     /** `auth` variant only: the brand panel beside the card from `lg` up. */
@@ -102,6 +110,9 @@ function GuardedAreaShell({
     sidebarWidth,
     sidebarBackground,
     sidebarStart,
+    sidebarStartCollapsed,
+    topbarTitle,
+    topbarSearch,
     signOutInSidebar = false,
     authAside,
     testID = 'app-shell',
@@ -123,17 +134,16 @@ function GuardedAreaShell({
     const navigation = useMemo<readonly NavigationItem[]>(() => {
         if (resolvedVariant === 'auth' || resolvedVariant === 'kiosk') return [];
         if (navigationOverride !== undefined) return navigationOverride;
-        return permittedNavigation(accessState).map((item) => ({
-            key: item.key,
-            label: t(item.labelKey),
-            icon: item.icon,
-            active: pathname === item.href,
-            testID: `nav-${item.key}`,
-            onPress: () => {
-                router.push(item.href as never);
+        return workspaceGroup({
+            state: accessState,
+            t,
+            pathname,
+            currentArea: area,
+            navigate: (href) => {
+                router.push(href as never);
             },
-        }));
-    }, [accessState, navigationOverride, pathname, resolvedVariant, router, t]);
+        });
+    }, [accessState, area, navigationOverride, pathname, resolvedVariant, router, t]);
 
     const signOut = () => {
         logout.mutate(undefined, {
@@ -152,6 +162,7 @@ function GuardedAreaShell({
     const topbarEnd =
         resolvedVariant === 'auth' || resolvedVariant === 'kiosk' ? undefined : (
             <Inline space="xs" wrap={false}>
+                {topbarSearch}
                 <Button
                     testID="locale-toggle"
                     size="sm"
@@ -185,11 +196,10 @@ function GuardedAreaShell({
             </Inline>
         );
 
-    // KITCHEN.md sidebar spec: quiet, translucent border, never filled. On the canopy the quiet
-    // button's white fill would glow, so this control states its own colours — the same
-    // translucent pair PageHero's chips use.
+    // KITCHEN.md sidebar spec: quiet, bordered, never filled — a filled button would compete with
+    // the active item.
     const sidebarSignOut = !sidebarPresent ? undefined : (
-        <View className="border-t border-content-on-canopy-muted/30 p-3">
+        <View className="border-t border-content-on-sidebar-muted/30 p-3">
             <Pressable
                 testID="sign-out"
                 role="button"
@@ -199,12 +209,25 @@ function GuardedAreaShell({
                 disabled={logout.isPending}
                 focusable
                 onPress={signOut}
-                className="min-h-touch items-center justify-center rounded-lg border border-content-on-canopy-muted/30"
+                className="min-h-touch items-center justify-center rounded-lg border border-content-on-sidebar-muted/60"
             >
-                <RNText className="text-sm font-semibold text-content-on-canopy-muted">
+                <RNText className="text-sm font-semibold text-content-on-sidebar">
                     {t('common:action.signOut')}
                 </RNText>
             </Pressable>
+        </View>
+    );
+
+    // The same control on the collapsed sidebar: its glyph, named on hover.
+    const sidebarSignOutCollapsed = !sidebarPresent ? undefined : (
+        <View className="items-center border-t border-content-on-sidebar-muted/30 py-3">
+            <IconButton
+                testID="sign-out-rail"
+                label={t('common:action.signOut')}
+                disabled={logout.isPending}
+                icon={<Icon name="signOut" size="lg" className="text-content-on-sidebar" />}
+                onPress={signOut}
+            />
         </View>
     );
 
@@ -216,10 +239,15 @@ function GuardedAreaShell({
             navigation={navigation}
             banner={banner}
             topbarEnd={topbarEnd}
+            {...(topbarTitle === undefined ? {} : { topbarTitle })}
             {...(sidebarWidth === undefined ? {} : { sidebarWidth })}
             {...(sidebarBackground === undefined ? {} : { sidebarBackground })}
             {...(sidebarStart === undefined ? {} : { sidebarStart })}
+            {...(sidebarStartCollapsed === undefined ? {} : { sidebarStartCollapsed })}
             {...(sidebarSignOut === undefined ? {} : { sidebarEnd: sidebarSignOut })}
+            {...(sidebarSignOutCollapsed === undefined
+                ? {}
+                : { sidebarEndCollapsed: sidebarSignOutCollapsed })}
             {...(authAside === undefined ? {} : { authAside })}
         >
             {children}

@@ -110,15 +110,24 @@ describe('compact density', () => {
         expect(panel).not.toContain('rounded-xl');
     });
 
-    it('leaves a card flat — the admin has no card elevation', async () => {
+    it('casts the card shadow in the admin, but does not lift on hover', async () => {
         await renderCompact(
-            <Card testID="panel" tone="raised" interactive onPress={jest.fn()}>
-                <Text>Body</Text>
-            </Card>,
+            <>
+                <Card testID="panel" tone="raised" interactive onPress={jest.fn()}>
+                    <Text>Body</Text>
+                </Card>
+                <Card testID="well" tone="sunken">
+                    <Text>Body</Text>
+                </Card>
+            </>,
         );
         const classes: string = screen.getByTestId('panel').props.className;
 
-        expect(classes).not.toContain('shadow-elevation');
+        expect(classes).toContain('shadow-elevation-card');
+        expect(classes).not.toContain('hover:shadow-elevation-card-hover');
+        expect(classes).not.toContain('hover:-translate-y-1');
+        // An inset well is the page's ground, not an object on it.
+        expect(screen.getByTestId('well').props.className).not.toContain('shadow-elevation');
     });
 
     it('sizes a tab on the ladder', async () => {
@@ -165,21 +174,29 @@ describe('compact density', () => {
         'section',
         'title',
         'display',
-    ] as const)('renders %s on the role ramp, naming no family', async (variant) => {
-        await renderCompact(
-            <Text testID="copy" variant={variant}>
-                Zaatar
-            </Text>,
-        );
-        const classes: string = screen.getByTestId('copy').props.className;
+    ] as const)(
+        'renders %s on the role ramp, naming a family only for display',
+        async (variant) => {
+            await renderCompact(
+                <Text testID="copy" variant={variant}>
+                    Zaatar
+                </Text>,
+            );
+            const classes: string = screen.getByTestId('copy').props.className;
 
-        expect(classes).toContain(`text-role-${variant.toLowerCase()}`);
-        // The ramp is the whole treatment. It used to be the ramp *plus* `font-admin`; asserting
-        // the absence is what keeps a second family from creeping back in under a role name.
-        for (const face of ['font-admin', 'font-display', 'font-mono']) {
-            expect(classes).not.toContain(face);
-        }
-    });
+            expect(classes).toContain(`text-role-${variant.toLowerCase()}`);
+            // The ramp is the whole treatment, except that `display` — one number, a KPI — is set in
+            // the mood board's display face. It used to be the ramp *plus* `font-admin` everywhere;
+            // asserting the absence is what keeps a family from creeping back in under a role name.
+            for (const face of ['font-admin', 'font-display', 'font-mono']) {
+                if (variant === 'display' && face === 'font-display') {
+                    expect(classes).toContain(face);
+                } else {
+                    expect(classes).not.toContain(face);
+                }
+            }
+        },
+    );
 
     it('gives the mono role tabular digits rather than a second family', async () => {
         await renderCompact(
@@ -195,9 +212,9 @@ describe('compact density', () => {
         expect(classes).not.toContain('font-mono');
     });
 
-    it('keeps a badge a pill — the one exception the radius rule grants', async () => {
+    it('sets a badge 18px tall, so a status sits in a 32px row without setting its height', async () => {
         await renderCompact(<Badge testID="status" label="Draft" tone="warning" />);
-        expect(screen.getByTestId('status').props.className).toContain('rounded-full');
+        expect(screen.getByTestId('status').props.className).toContain('h-[18px]');
     });
 });
 
@@ -219,8 +236,8 @@ describe('comfortable density', () => {
 
     it('names no font family, on either surface', async () => {
         // Density chooses sizes and geometry, never a typeface. It used to emit `font-admin` on the
-        // compact branch, which is what kept Schibsted Grotesk off the customer app while that app
-        // was still on Inter; one family later, any family class at all is the regression.
+        // compact branch, which put a second body face on the admin; body text naming any family
+        // at all is that regression coming back.
         await renderWithI18n(
             <>
                 <Text testID="copy">Body</Text>

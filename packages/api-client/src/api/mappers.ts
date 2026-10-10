@@ -188,6 +188,9 @@ export function mapUser(wire: WireUser, profile: Profile): SessionUser {
         email: wire.email,
         emailVerifiedAt: wire.email_verified ? EMAIL_VERIFIED_AT_UNKNOWN : null,
         twoFactorEnabled: wire.two_factor_enabled,
+        // Absent on a server that predates AA1, and absent means "no": an account nobody
+        // provisioned has nothing to be held for.
+        mustChangePassword: wire.must_change_password === true,
         profile,
         createdAt: UNKNOWN_ISO_DATE_TIME,
     };

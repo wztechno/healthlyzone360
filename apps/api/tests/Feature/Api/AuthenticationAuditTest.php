@@ -6,6 +6,7 @@ use App\Models\User;
 use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Audit\Services\AuditRecorder;
 use Illuminate\Support\Facades\Cache;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -18,9 +19,9 @@ use Illuminate\Support\Facades\Cache;
 |
 */
 
-beforeEach(function (): void {
-    $this->seed();
+pest()->use(SeedDatabaseOnce::class);
 
+beforeEach(function (): void {
     // First-party session headers, and *only* those. `X-Client-Platform` marks
     // the bearer path — its presence makes `EnsureStatefulRequest` refuse a
     // session login with 400 — so the session cases below must not carry it.

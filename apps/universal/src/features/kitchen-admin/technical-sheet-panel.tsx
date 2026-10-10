@@ -11,9 +11,9 @@ import {
     Card,
     Heading,
     Inline,
-    Skeleton,
     Stack,
     Table,
+    TableSkeleton,
     Text,
 } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -36,14 +36,42 @@ import { displayName, humaniseCode } from './format.ts';
  * cannot see is what it costs, and a panel that failed outright would hide
  * the half they are entitled to.
  *
- * ## The figures are the sheet's own
+ * ## Three cost blocks arrive; this leads with the live one
  *
- * Costs come from the `as_recorded` snapshot — the source document's numbers,
- * verbatim, including its rounding. `basisMismatch` marks a sheet whose cost
- * label claims a denominator its yield never stated; the flag travels with
- * the figures because a confident-looking number under review is worse than
- * no number.
+ * `computed` is this system's arithmetic over the lines as they stand, so it is
+ * there for a draft that was never published and it moves when a line is
+ * edited. `recalculated` is the same arithmetic frozen at publication, and
+ * `as_recorded` is the v6 import's transcription of a source workbook —
+ * verbatim, rounding errors included, which makes it evidence rather than an
+ * answer.
+ *
+ * The panel read `as_recorded` and nothing else for a while, which meant every
+ * recipe a kitchen typed in by hand showed an empty cost block: only imported
+ * rows have that snapshot, and the `estimatedCost` beside it is hard-coded null
+ * in the mapper. `basisMismatch` still travels with a snapshot, because a
+ * confident-looking number under review is worse than no number.
+ *
+ * The packaging half and the all-in total are drawn from `computed` alone. A
+ * snapshot carries neither — they are the second table the source sheet runs
+ * down the same page, with its own total and its own waste rate.
  */
+/**
+ * The subset of a cost block this panel draws, so the three sources can be normalised into one.
+ *
+ * `basisMismatch` only ever comes from a snapshot: it marks a source sheet whose cost label claimed
+ * a denominator its yield never stated, which is a fact about a transcription rather than about
+ * arithmetic this system performed.
+ */
+interface SheetFigures {
+    readonly totalInputCost: CostAmount | null;
+    readonly costPerYieldUnit: CostAmount | null;
+    readonly costPerYieldUnitWithWaste: CostAmount | null;
+    readonly costPerPiece: CostAmount | null;
+    readonly costPerPieceWithWaste: CostAmount | null;
+    readonly wastePercent: number;
+    readonly basisMismatch: boolean;
+}
+
 export function TechnicalSheetPanel({
     testID,
     recipe,
@@ -91,7 +119,77 @@ export function TechnicalSheetPanel({
         (sum: number, line: RecipeLine) => sum + line.quantity,
         0,
     );
-    const figures = sheet?.asRecorded ?? null;
+    /*
+     * Which of the three cost blocks this sheet leads with, in the order a reader should trust
+     * them.
+     *
+     * The panel used to read `asRecorded` and nothing else, and that was the wrong one of the three
+     * to pick: `as_recorded` is written by the v6 importer alone — it is the source workbook's own
+     * numbers, kept verbatim including its errors — so a recipe a kitchen typed in by hand rendered
+     * no cost block at all. The `estimatedCost` fallback beside it did not help either; the mapper
+     * hard-codes that to null.
+     *
+     * `computed` is this system's arithmetic over the lines **as they stand now**, so it is present
+     * for a draft that has never been published and it moves when somebody edits a line. The two
+     * snapshots follow it: `recalculated` is the same arithmetic frozen at publication, and
+     * `as_recorded` is the import's transcription, which is evidence rather than an answer.
+     */
+    const computed = sheet?.computed ?? null;
+    const figures: SheetFigures | null =
+        computed !== null
+            ? {
+                  totalInputCost: computed.production.total,
+                  costPerYieldUnit: computed.production.costPerYieldUnit,
+                  costPerYieldUnitWithWaste: computed.production.costPerYieldUnitWithWaste,
+                  costPerPiece: computed.production.costPerPiece,
+                  costPerPieceWithWaste: computed.production.costPerPieceWithWaste,
+                  wastePercent: computed.production.wastePercent,
+                  basisMismatch: false,
+              }
+            : (sheet?.recalculated ?? sheet?.asRecorded ?? null);
+
+    /*
+     * The packaging half, drawn only when there is one.
+     *
+     * A version that packages nothing has a complete packaging block full of zeroes — honest, and
+     * not worth three rows of nought. `costPerYieldUnit` being null is the signal that nothing was
+     * costed at all.
+     */
+    const packagingFigures =
+        computed !== null && computed.packaging.costPerYieldUnit !== null
+            ? computed.packaging
+            : null;
+
+    /*
+     * The weekly estimate, reduced to what the panel draws.
+     *
+     * Withheld entirely when nothing could be priced at this week's figures: a heading over four em
+     * dashes tells a reader less than no heading at all, and the ingredients that need a price are
+     * named by the badge rather than implied by the blanks.
+     *
+     * `effectiveFrom` is the oldest date behind any line, because that is the age of the estimate —
+     * a total resting on one fortnight-old carried price is a fortnight-old total, whatever the
+     * other lines say.
+     */
+    const weeklyBlock = sheet?.weekly ?? null;
+    const weekly =
+        weeklyBlock !== null &&
+        (weeklyBlock.production.total !== null || weeklyBlock.lineSources.length > 0)
+            ? {
+                  block: weeklyBlock,
+                  needingPrice: weeklyBlock.ingredientsNeedingInitialPrice.length,
+                  effectiveFrom: weeklyBlock.lineSources.reduce<string | null>(
+                      (oldest, source) =>
+                          source.effectiveFrom === null
+                              ? oldest
+                              : oldest === null || source.effectiveFrom < oldest
+                                ? source.effectiveFrom
+                                : oldest,
+                      null,
+                  ),
+              }
+            : null;
+
     const totalCost = figures?.totalInputCost ?? version.estimatedCost;
 
     const quantityProduced =
@@ -114,11 +212,13 @@ export function TechnicalSheetPanel({
         },
         {
             key: 'unit',
+            width: 64,
             header: t('kitchen:recipes.sheetColUnit'),
             render: (row: Row) => <Text variant="caption">{row.unit}</Text>,
         },
         {
             key: 'quantity',
+            width: 104,
             header: t('kitchen:recipes.sheetColQuantity'),
             numeric: true,
             render: (row: Row) => <Text>{formatter.formatNumber(row.quantity)}</Text>,
@@ -127,12 +227,14 @@ export function TechnicalSheetPanel({
             ? [
                   {
                       key: 'unitCost',
+                      width: 104,
                       header: t('kitchen:recipes.sheetColUnitPrice'),
                       numeric: true,
                       render: (row: Row) => <Text>{cost(row.unitCost)}</Text>,
                   },
                   {
                       key: 'lineCost',
+                      width: 104,
                       header: t('kitchen:recipes.sheetColLineTotal'),
                       numeric: true,
                       render: (row: Row) => <Text>{cost(row.lineCost)}</Text>,
@@ -181,7 +283,7 @@ export function TechnicalSheetPanel({
                 </Stack>
 
                 {isLoading ? (
-                    <Skeleton testID={`${testID}-loading`} heightClassName="h-32" />
+                    <TableSkeleton testID={`${testID}-loading`} rows={4} />
                 ) : (
                     <Stack space="sm">
                         <Table<Row>
@@ -219,7 +321,7 @@ export function TechnicalSheetPanel({
                     ) : (
                         <Stack space="xs" testID={`${testID}-cost`}>
                             <Inline space="sm">
-                                <Heading level={3}>{t('kitchen:recipes.sheetCostTitle')}</Heading>
+                                <Heading level={3}>{t('kitchen:recipes.sheetCostSaved')}</Heading>
                                 <Badge tone="warning" label={t('kitchen:rollup.confidential')} />
                                 {figures.basisMismatch ? (
                                     <Badge
@@ -268,6 +370,115 @@ export function TechnicalSheetPanel({
                                     testID={`${testID}-cost-per-piece-waste`}
                                 />
                             ) : null}
+
+                            {/*
+                             * What one batch ships in, and what the two halves come to together.
+                             *
+                             * The source workbook runs these as a second table down the same page,
+                             * with its own total and its own waste rate — so they are rows here
+                             * rather than a separate panel. `packaging_waste_percent` is a
+                             * different number from the production coefficient on purpose: sauce
+                             * left in the pot is not split film.
+                             */}
+                            {packagingFigures === null ? null : (
+                                <>
+                                    <DescriptionRow
+                                        label={t('kitchen:recipes.sheetPackagingPerUnit', {
+                                            unit: version.yieldUnit,
+                                        })}
+                                        value={cost(packagingFigures.costPerYieldUnit)}
+                                        testID={`${testID}-packaging-per-unit`}
+                                    />
+                                    {packagingFigures.costPerYieldUnitWithWaste === null ? null : (
+                                        <DescriptionRow
+                                            label={t('kitchen:recipes.sheetCostWithWaste', {
+                                                percent: formatter.formatNumber(
+                                                    packagingFigures.wastePercent,
+                                                ),
+                                            })}
+                                            value={cost(packagingFigures.costPerYieldUnitWithWaste)}
+                                            testID={`${testID}-packaging-per-unit-waste`}
+                                        />
+                                    )}
+                                </>
+                            )}
+
+                            {computed?.totalCostPerYieldUnit == null ? null : (
+                                <DescriptionRow
+                                    label={t('kitchen:recipes.sheetCostAllIn', {
+                                        unit: version.yieldUnit,
+                                    })}
+                                    value={cost(computed.totalCostPerYieldUnit)}
+                                    testID={`${testID}-cost-all-in`}
+                                />
+                            )}
+
+                            {/*
+                             * The weekly estimate, beside the saved figures and never instead of
+                             * them.
+                             *
+                             * The block above is what this sheet was costed at — the prices frozen
+                             * on its own lines, which is why a sheet costed in March still says what
+                             * it said in March. This is the same formulation at the published
+                             * average of what the kitchen is *actually paying*, which is a different
+                             * question and deserves its own heading rather than a quietly updated
+                             * number under the old one.
+                             *
+                             * `effective_from` is on screen for the reason the requirement names it:
+                             * an estimate built on a fortnight-old carried-forward price is usable,
+                             * and a reader has to be able to see how old it is.
+                             */}
+                            {weekly === null ? null : (
+                                <>
+                                    <View className="pt-2">
+                                        <Heading level={3}>
+                                            {t('kitchen:recipes.sheetCostWeekly')}
+                                        </Heading>
+                                    </View>
+
+                                    {weekly.effectiveFrom === null ? null : (
+                                        <DescriptionRow
+                                            label={t('kitchen:recipes.sheetWeeklyEffective')}
+                                            value={formatter.formatDate(weekly.effectiveFrom)}
+                                            testID={`${testID}-weekly-effective-from`}
+                                        />
+                                    )}
+
+                                    <DescriptionRow
+                                        label={t('kitchen:recipes.sheetCostTotal')}
+                                        value={cost(weekly.block.production.total)}
+                                        testID={`${testID}-weekly-total`}
+                                    />
+
+                                    {weekly.block.totalCostPerYieldUnit === null ? null : (
+                                        <DescriptionRow
+                                            label={t('kitchen:recipes.sheetCostAllIn', {
+                                                unit: version.yieldUnit,
+                                            })}
+                                            value={cost(weekly.block.totalCostPerYieldUnit)}
+                                            testID={`${testID}-weekly-all-in`}
+                                        />
+                                    )}
+
+                                    {weekly.block.hasCarriedForwardPrices ? (
+                                        <Badge
+                                            tone="warning"
+                                            label={t('kitchen:recipes.sheetWeeklyCarried')}
+                                            testID={`${testID}-weekly-carried-forward`}
+                                        />
+                                    ) : null}
+
+                                    {weekly.needingPrice > 0 ? (
+                                        <Badge
+                                            tone="warning"
+                                            label={t('kitchen:recipes.sheetWeeklyNeedsPrice', {
+                                                count: weekly.needingPrice,
+                                            })}
+                                            testID={`${testID}-weekly-needs-price`}
+                                        />
+                                    ) : null}
+                                </>
+                            )}
                         </Stack>
                     )
                 ) : (

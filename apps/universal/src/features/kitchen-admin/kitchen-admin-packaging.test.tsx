@@ -13,7 +13,7 @@ import type { ReactNode } from 'react';
 import { Dimensions } from 'react-native';
 
 import {
-    ORGANISATION_OWNER_PERMISSIONS,
+    MEMBER_PERMISSIONS,
     kitchenManagerSession,
     testActiveContext,
     testMeResponse,
@@ -23,6 +23,11 @@ import {
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { PackagingScreen } from './screens/packaging-screen.tsx';
+import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
+
+afterEach(() => {
+    forgetColumnChoice('kitchen-packaging');
+});
 
 /**
  * `/kitchen/packaging`, against a world this file authors.
@@ -127,6 +132,7 @@ function item({ ordinal, name, overrides = {} }: ItemSeed): IngredientAdmin {
         id: itemIdentifier(ordinal),
         meta: meta(),
         name: { en: label, ar: `${label} بالعربية` },
+        slug: `ingredient-${String(ordinal)}`,
         reference: `PKG-00${String(ordinal)}`,
         categoryCode: PACKAGING_CATEGORY_CODE,
         subcategoryCode: SUBCATEGORY_CODE,
@@ -207,8 +213,15 @@ function packagingListing(
     };
 }
 
-/** An organisation owner: an organisation, a branch, and no catalogue permission at all. */
-function organisationOwnerSession() {
+/**
+ * Somebody who belongs to an organisation and may do nothing in it — the registry's `member` role.
+ *
+ * This was `organisationOwnerSession`, built from a nine-code `ORGANISATION_OWNER_PERMISSIONS` that
+ * happened to lack every catalogue code. An owner holds all forty-three, so the fixture was wrong
+ * and the refusal it proved was an accident of the wrongness. `member` is the role that genuinely
+ * cannot open a kitchen screen, which is what these tests were always reaching for.
+ */
+function organisationMemberSession() {
     return testMeResponse({
         memberships: [
             testMembership({
@@ -220,13 +233,13 @@ function organisationOwnerSession() {
                 roles: [
                     {
                         id: RoleId.unsafe('test-0000-role-0002'),
-                        key: 'organisation_owner',
-                        name: 'Owner',
+                        key: 'member',
+                        name: 'Member',
                     },
                 ],
             }),
         ],
-        activeContext: testActiveContext({ permissions: ORGANISATION_OWNER_PERMISSIONS }),
+        activeContext: testActiveContext({ permissions: MEMBER_PERMISSIONS }),
     });
 }
 
@@ -276,6 +289,14 @@ describe('the packaging list', () => {
         await untilVisible('kitchen-packaging-table');
 
         const base = `kitchen-packaging-row-${String(row.id)}`;
+
+        // A packaging row is an ingredient row, so its photograph is `ingredient-<slug>`, drawn
+        // by `CatalogueList` from the spec's `thumbnail` — the packaging list had none before.
+        expect(
+            screen.getByTestId(`kitchen-packaging-table-row-${String(row.id)}-image`, {
+                includeHiddenElements: true,
+            }),
+        ).toBeTruthy();
 
         /*
          * The column that names the row, on the `label` step — what the other five Catalogue lists
@@ -353,6 +374,14 @@ describe('the packaging list', () => {
     });
 
     it('draws a sort arrow on every column that sorts, and a filter mark once one is applied', async () => {
+        // Six columns are drawn at most; these are the ones this test reads, Item being locked on.
+        rememberColumnChoice('kitchen-packaging', [
+            'reference',
+            'purchaseUnit',
+            'itemsPerUnit',
+            'capacity',
+            'status',
+        ]);
         await renderStubScreen(<PackagingScreen />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -381,18 +410,16 @@ describe('the packaging list', () => {
         const glyph = (testID: string) => screen.getByTestId(testID, hidden).props.children;
 
         // The list opens sorted by reference, so that column carries the black arrow and every
-        // other sortable column carries the grey one. A column with no menu carries neither, which
-        // is what makes the mark worth anything.
+        // other sortable column carries the grey one. Every column has a control now — the pack,
+        // what it holds and the waste sort, since the request cannot filter by them.
         expect(
             screen.getByTestId('kitchen-packaging-column-reference-sorted', hidden),
         ).toBeTruthy();
-        expect(screen.getByTestId('kitchen-packaging-column-name-affordance', hidden)).toBeTruthy();
-        expect(
-            screen.queryByTestId('kitchen-packaging-column-capacity-trigger', hidden),
-        ).toBeNull();
-        expect(
-            screen.queryByTestId('kitchen-packaging-column-capacity-affordance', hidden),
-        ).toBeNull();
+        for (const key of ['name', 'purchaseUnit', 'itemsPerUnit', 'capacity']) {
+            expect(
+                screen.getByTestId(`kitchen-packaging-column-${key}-affordance`, hidden),
+            ).toBeTruthy();
+        }
 
         // Status filters but does not sort on this list, so its arrow is never the black one a
         // sorted column earns — and, until something is applied, it points up like every other
@@ -427,6 +454,50 @@ describe('the packaging list', () => {
 
         await waitFor(() => {
             expect(glyph('kitchen-packaging-column-status-affordance')).toBe('↑');
+        });
+    });
+
+    it('sorts by what a box holds from its header, with an unmeasured box last both ways', async () => {
+        await renderStubScreen(<PackagingScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: packagingListing(() => [
+                        item({ ordinal: 1, name: 'Unmeasured bag', overrides: { capacity: null } }),
+                        item({
+                            ordinal: 2,
+                            name: 'Large box',
+                            overrides: { capacity: { quantity: 0.75, unit: 'kg' } },
+                        }),
+                        item({
+                            ordinal: 3,
+                            name: 'Small box',
+                            overrides: { capacity: { quantity: 0.3, unit: 'kg' } },
+                        }),
+                    ]),
+                    listIngredientCategories: async () => CATEGORIES,
+                },
+            },
+        });
+        await untilVisible('kitchen-packaging-table');
+
+        const names = () =>
+            screen
+                .getAllByTestId(/^kitchen-packaging-row-.+-name$/)
+                .map((node) => node.props.children as string);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-packaging-column-capacity-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()).toEqual(['Small box', 'Large box', 'Unmeasured bag']);
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-packaging-column-capacity-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()).toEqual(['Large box', 'Small box', 'Unmeasured bag']);
         });
     });
 
@@ -493,7 +564,7 @@ describe('the packaging list', () => {
         });
     });
 
-    it('offers no archive on a row the server would refuse it for', async () => {
+    it('draws archive disabled on a row the server would refuse it for', async () => {
         // A platform-library row this kitchen may read and not write. Offering Archive here earned
         // a 403 on every press, which is the failure this check exists to prevent.
         const platform = item({
@@ -517,12 +588,15 @@ describe('the packaging list', () => {
         const base = `kitchen-packaging-row-${String(platform.id)}`;
         expect(screen.getByTestId(`${base}-view`)).toBeTruthy();
         // Edit stays: the ingredient editor is what decides what a reader may change on a platform
-        // row. Archive is the one the server would refuse, so it is the one that is not offered.
+        // row. Archive is the one the server would refuse, so it is drawn — the column holds the
+        // same three controls on every row — and disabled, so it never sends the request.
         expect(screen.getByTestId(`${base}-open`)).toBeTruthy();
-        expect(screen.queryByTestId(`${base}-archive`)).toBeNull();
+        expect(screen.getByTestId(`${base}-archive`).props.accessibilityState).toEqual(
+            expect.objectContaining({ disabled: true }),
+        );
     });
 
-    it('reads the whole record in the View panel, and edits it from the panel footer', async () => {
+    it('reads the whole record on the View page, and edits it from the page header', async () => {
         const row = item({ ordinal: 1, name: 'Kraft lunch box' });
 
         await renderStubScreen(<PackagingScreen />, {
@@ -620,7 +694,7 @@ describe('the packaging list', () => {
     it('refuses a role with no catalogue permission', async () => {
         // No repository overrides at all: the gate refuses before the table can ask for anything, so
         // a screen that fetched here would fail loudly with StubNotConfiguredError.
-        await renderStubScreen(<PackagingScreen />, { session: organisationOwnerSession() });
+        await renderStubScreen(<PackagingScreen />, { session: organisationMemberSession() });
 
         await untilVisible('kitchen-packaging-forbidden');
         expect(screen.queryByTestId('kitchen-packaging-table')).toBeNull();

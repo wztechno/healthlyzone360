@@ -94,6 +94,13 @@ export interface TwoFactorChallengeRequest {
     readonly recovery?: boolean | undefined;
 }
 
+/** A password replaced from inside a live session. The session survives it. */
+export interface UpdatePasswordRequest {
+    readonly currentPassword: string;
+    readonly password: string;
+    readonly passwordConfirmation: string;
+}
+
 export interface AuthRepository {
     login(request: LoginRequest): Promise<LoginResult>;
     register(request: RegisterRequest): Promise<RegisterResult>;
@@ -101,6 +108,15 @@ export interface AuthRepository {
 
     requestPasswordReset(request: { readonly email: string }): Promise<void>;
     resetPassword(request: PasswordResetRequest): Promise<void>;
+    /**
+     * Replace a password from inside a live session — the reset flow's sibling for somebody who is
+     * already signed in, and the only way an account provisioned by an administrator stops being a
+     * credential two people hold.
+     *
+     * `currentPassword` is required even on a forced first change: a session is not a password, and
+     * the point of the route is to take the old one away from whoever else has it.
+     */
+    updatePassword(request: UpdatePasswordRequest): Promise<void>;
 
     verifyEmailStatus(): Promise<EmailVerificationStatus>;
     resendVerification(): Promise<ResendVerificationResult>;

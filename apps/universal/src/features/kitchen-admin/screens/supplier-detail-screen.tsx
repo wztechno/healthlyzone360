@@ -3,25 +3,28 @@ import {
     Badge,
     Button,
     Callout,
-    Card,
+    Cascade,
     Dialog,
     ErrorState,
-    Heading,
+    FormGrid,
+    FormSection,
+    FormSkeleton,
     Inline,
     Select,
-    Skeleton,
     Stack,
     Table,
     Text,
     TextInputField,
+    useFormSteps,
     useToast,
 } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
+import type { TabItem, TableColumn } from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -37,13 +40,16 @@ import {
     useUpsertSupplierLinkMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { BilingualField } from '../bilingual-field.tsx';
+import { TabStepNavigation } from '../editor-steps.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
-import { OpsRecordFrame } from '../ops-record-frame.tsx';
+import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { focusField } from '../field-focus.ts';
+import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { suppliedItemRowTestId } from '../ops-format.ts';
 import {
     SupplierContactCard,
@@ -67,7 +73,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * was halfway through adding. Each section tracks its own dirty flag and the frame's unsaved guard
  * is the union of them, so leaving with either half unsaved still prompts.
  *
- * ## Why {@link OpsRecordFrame} rather than `EditorFrame`
+ * ## Why no lock version, and so no conflict dialog
  *
  * A supplier carries no `updatedAt`, no `updatedByName`, no status and no lock version. `EditorFrame`
  * renders a `draft` status badge and the words "never saved" for a null meta — on a supplier the
@@ -123,6 +129,16 @@ interface DetailsDraft {
     readonly leadTimeDays: string;
     readonly notes: string;
 }
+
+type SupplierStep = 'details' | 'contacts' | 'items';
+
+const SUPPLIER_STEPS: readonly SupplierStep[] = ['details', 'contacts', 'items'];
+
+/**
+ * A supplier being created has nowhere to write contacts or supplied items yet, so the new form is
+ * Details alone — one step, which draws no progress row and saves with the frame's own Save.
+ */
+const SUPPLIER_CREATE_STEPS: readonly SupplierStep[] = ['details'];
 
 /** A stable empty set, so the memo below does not recompute on every render of a loading page. */
 const EMPTY_SUPPLIED_ITEMS: readonly SuppliedItem[] = [];
@@ -195,6 +211,16 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
     const unlinkItem = useDeleteSupplierLinkMutation();
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
+    const form = useFormSteps(isCreating ? SUPPLIER_CREATE_STEPS : SUPPLIER_STEPS);
+
+    // The page draws no heading, so the top bar's trail is where the supplier is named.
+    useKitchenTrailLeaf(
+        isCreating
+            ? t('kitchen:ops.suppliers.createTitle')
+            : record.data === undefined
+              ? null
+              : displayName(record.data.name, locale).value,
+    );
 
     const [details, setDetails] = useState<DetailsDraft>(EMPTY_DETAILS);
     const [detailsKey, setDetailsKey] = useState<string | null>(null);
@@ -206,6 +232,8 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
     const [ordinal, setOrdinal] = useState(1);
 
     const [showArchive, setShowArchive] = useState(false);
+    /** Whether Save has been pressed — what lets an empty required field call itself out. */
+    const [attempted, setAttempted] = useState(false);
 
     // The supplied-items section (SUP2). No dirty flag and no draft of the set: every action is
     // its own idempotent write, so the only local state is what the picker and the two dialogs
@@ -540,6 +568,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
         },
         {
             key: 'lastPrice',
+            numeric: true,
             header: t('kitchen:ops.suppliers.columnLastPrice'),
             flex: 2,
             render: priceCell,
@@ -623,11 +652,11 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
 
     if (!isCreating && record.isPending) {
         return (
-            <Stack space="md" testID="kitchen-supplier-loading">
-                <Skeleton testID="kitchen-supplier-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-supplier-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-supplier-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-supplier-loading"
+                partTestID="kitchen-supplier"
+                sections={3}
+            />
         );
     }
 
@@ -653,246 +682,407 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
     const contactsBlocked = !supplierContactsWellFormed(contacts);
     const linkFailure = toFailure(linkItem.error ?? unlinkItem.error);
 
+    /*
+     * What stops the save, each naming the field that fixes it. A blank waits for Save to be
+     * pressed; a lead time typed wrong is named at once.
+     */
+    const issues: readonly {
+        readonly key: string;
+        readonly label: string;
+        readonly fieldId: string;
+        readonly required: boolean;
+    }[] = [
+        ...(nameMissing
+            ? [
+                  {
+                      key: 'name',
+                      label: t('kitchen:bilingual.englishShort', {
+                          field: t('kitchen:ops.suppliers.fieldName'),
+                      }),
+                      fieldId: 'kitchen-supplier-name-en',
+                      required: true,
+                  },
+              ]
+            : []),
+        ...(leadTime === undefined
+            ? [
+                  {
+                      key: 'lead-time',
+                      label: t('kitchen:ops.suppliers.fieldLeadTime'),
+                      fieldId: 'kitchen-supplier-lead-time',
+                      required: false,
+                  },
+              ]
+            : []),
+    ];
+    const shownIssues = attempted ? issues : issues.filter((entry) => !entry.required);
+    const shows = (key: string): boolean => shownIssues.some((entry) => entry.key === key);
+
+    /*
+     * Save is pressable over an incomplete form. The press marks the form attempted and takes the
+     * reader to the first thing that stops it, on the details step where every one of them lives.
+     */
+    const attemptSave = () => {
+        if (!editable) return;
+        setAttempted(true);
+        const first = issues[0];
+        if (first !== undefined) {
+            form.goTo('details');
+            focusField(first.fieldId);
+            return;
+        }
+        saveDetails();
+    };
+
+    const stepLabels: Readonly<Record<SupplierStep, string>> = {
+        details: t('kitchen:ops.suppliers.sectionDetails'),
+        contacts: t('kitchen:ops.suppliers.sectionContacts'),
+        items: t('kitchen:ops.suppliers.itemsTitle'),
+    };
+    const detailsIssueCount = shownIssues.length;
+
+    const stepItems: readonly TabItem<SupplierStep>[] = (
+        isCreating ? SUPPLIER_CREATE_STEPS : SUPPLIER_STEPS
+    ).map((key) => ({
+        value: key,
+        label: stepLabels[key],
+        ...(key === 'contacts'
+            ? { count: contacts.length }
+            : key === 'items'
+              ? { count: suppliedItems.length }
+              : {}),
+        ...(key === 'details' && detailsIssueCount > 0
+            ? {
+                  issues: {
+                      count: detailsIssueCount,
+                      tone: 'danger' as const,
+                      label: t('kitchen:forms.toFixCount', {
+                          count: detailsIssueCount,
+                      }),
+                  },
+              }
+            : {}),
+        testID: `kitchen-supplier-screen-steps-${key}`,
+    }));
+
+    /*
+     * Hidden rather than disabled on an archived supplier: every field is locked and the callout
+     * says why, so a Save that could never work is noise.
+     */
+    const saveButton =
+        !canManage || isArchived ? null : (
+            <Button
+                testID="kitchen-supplier-screen-save"
+                label={t('kitchen:ops.suppliers.saveDetails')}
+                loading={create.isPending || update.isPending}
+                disabled={create.isPending || update.isPending}
+                onPress={attemptSave}
+            />
+        );
+
     return (
-        <OpsRecordFrame
-            testID="kitchen-supplier-screen"
-            title={
-                isCreating
-                    ? t('kitchen:ops.suppliers.createTitle')
-                    : data === undefined
-                      ? t('kitchen:ops.suppliers.editTitle')
-                      : displayName(data.name, locale).value
-            }
-            guard={guard}
-            onSave={saveDetails}
-            saveLabel={t('kitchen:ops.suppliers.saveDetails')}
-            saving={create.isPending || update.isPending}
-            saveDisabled={!editable || detailsBlocked}
-            hideSave={!canManage || isArchived}
-            backLabel={t('kitchen:ops.suppliers.backToList')}
-            onBack={() => {
-                router.push('/kitchen/suppliers' as never);
-            }}
-            primaryAction={
-                isCreating || !canManage ? null : isArchived ? (
-                    <Button
-                        testID="kitchen-supplier-restore"
-                        variant="secondary"
-                        label={t('kitchen:ops.suppliers.restore')}
-                        loading={restore.isPending}
-                        onPress={() => {
-                            if (parsed === null) return;
-                            restore.mutate(parsed, {
-                                onSuccess: () => {
-                                    toast.show({
-                                        testID: 'kitchen-supplier-restored-toast',
-                                        tone: 'success',
-                                        message: t('kitchen:ops.suppliers.restoredToast'),
+        <Cascade space="md" testID="kitchen-supplier-screen">
+            <RecordFormOpening<SupplierStep>
+                testID="kitchen-supplier-screen"
+                title={
+                    isCreating
+                        ? t('kitchen:ops.suppliers.createTitle')
+                        : data === undefined
+                          ? t('kitchen:ops.suppliers.editTitle')
+                          : displayName(data.name, locale).value
+                }
+                dirty={guard.isDirty}
+                badges={
+                    details.code.trim() === '' || isCreating ? null : (
+                        <Text
+                            testID="kitchen-supplier-screen-reference"
+                            variant="mono"
+                            tone="secondary"
+                        >
+                            {details.code}
+                        </Text>
+                    )
+                }
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-supplier-screen-back"
+                            variant="secondary"
+                            label={t('kitchen:editor.cancel')}
+                            onPress={() => {
+                                guard.intercept(() => {
+                                    router.push('/kitchen/suppliers' as never);
+                                });
+                            }}
+                        />
+                        {isCreating || !canManage ? null : isArchived ? (
+                            <Button
+                                testID="kitchen-supplier-restore"
+                                variant="secondary"
+                                label={t('kitchen:ops.suppliers.restore')}
+                                loading={restore.isPending}
+                                onPress={() => {
+                                    if (parsed === null) return;
+                                    restore.mutate(parsed, {
+                                        onSuccess: () => {
+                                            toast.show({
+                                                testID: 'kitchen-supplier-restored-toast',
+                                                tone: 'success',
+                                                message: t('kitchen:ops.suppliers.restoredToast'),
+                                            });
+                                        },
                                     });
-                                },
-                            });
-                        }}
-                    />
-                ) : (
-                    <Button
-                        testID="kitchen-supplier-archive"
-                        variant="secondary"
-                        label={t('kitchen:list.archive')}
-                        onPress={() => {
-                            setShowArchive(true);
-                        }}
-                    />
-                )
-            }
-            banner={
-                <Stack space="sm">
-                    {isArchived ? (
-                        <Callout
-                            testID="kitchen-supplier-archived"
-                            role="note"
-                            tone="info"
-                            title={t('kitchen:ops.suppliers.archivedTitle')}
-                            body={t('kitchen:ops.suppliers.archivedBody')}
-                        />
-                    ) : null}
-
-                    {saveFailure === null ? null : (
-                        <Callout
-                            testID="kitchen-supplier-save-error"
-                            role="alert"
-                            tone="danger"
-                            title={t('kitchen:editor.saveError')}
-                            body={saveFailure.message}
-                        />
-                    )}
-                </Stack>
-            }
-        >
-            <Stack space="lg">
-                {/* ── 1. the record ────────────────────────────────────────────────────────── */}
-                <Card testID="kitchen-supplier-details" padding="md">
-                    <Stack space="md">
-                        <Heading level={2}>{t('kitchen:ops.suppliers.sectionDetails')}</Heading>
-
-                        <BilingualField
-                            testID="kitchen-supplier-name"
-                            fieldLabel={t('kitchen:ops.suppliers.fieldName')}
-                            value={details.name}
-                            requiredEnglish
-                            disabled={!editable}
-                            onChange={(name) => {
-                                editDetails({ ...details, name });
-                            }}
-                            {...(nameMissing && detailsDirty
-                                ? { englishError: t('kitchen:ops.suppliers.nameRequired') }
-                                : {})}
-                        />
-
-                        <TextInputField
-                            testID="kitchen-supplier-code"
-                            label={t('kitchen:ops.suppliers.fieldCode')}
-                            hint={
-                                isCreating
-                                    ? t('kitchen:ops.suppliers.codeMintHint')
-                                    : t('kitchen:ops.suppliers.codeEditHint')
-                            }
-                            value={details.code}
-                            autoCapitalize="characters"
-                            disabled={!editable}
-                            onChangeText={(code) => {
-                                editDetails({ ...details, code });
-                            }}
-                        />
-
+                                }}
+                            />
+                        ) : (
+                            <Button
+                                testID="kitchen-supplier-archive"
+                                variant="quiet"
+                                label={t('kitchen:list.archive')}
+                                onPress={() => {
+                                    setShowArchive(true);
+                                }}
+                            />
+                        )}
                         {/*
-                         * Displayed, never picked. Every price in this system is booked in one
-                         * currency (there is no exchange rate — `MixedIngredientCostCurrency`), so a
-                         * picker here would offer a choice the receipt path then refuses.
+                         * Only while the form is one step: with more, Save is the last step's Next
+                         * and the header carries none.
                          */}
-                        <Stack space="none" testID="kitchen-supplier-currency">
-                            <Text variant="label">{t('kitchen:ops.suppliers.fieldCurrency')}</Text>
-                            <Text testID="kitchen-supplier-currency-value">
-                                {data?.currencyCode ?? t('kitchen:ops.suppliers.noCurrency')}
-                            </Text>
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:ops.suppliers.currencyHint')}
-                            </Text>
-                        </Stack>
+                        {stepItems.length > 1 ? null : saveButton}
+                    </>
+                }
+                errors={{
+                    summary: t(
+                        shownIssues.every((entry) => entry.required)
+                            ? 'kitchen:forms.requiredCount'
+                            : 'kitchen:forms.toFixCount',
+                        { count: shownIssues.length },
+                    ),
+                    items: shownIssues.map((entry) => ({
+                        key: entry.key,
+                        label: entry.label,
+                        fieldId: entry.fieldId,
+                        onPress: () => {
+                            form.goTo('details');
+                            focusField(entry.fieldId);
+                        },
+                    })),
+                }}
+                steps={{
+                    label: t('kitchen:editor.stepsLabel'),
+                    value: form.current,
+                    onChange: form.goTo,
+                    // One step until the first save: contacts and supplied items hang off a record.
+                    items: stepItems,
+                }}
+            />
 
-                        <TextInputField
-                            testID="kitchen-supplier-email"
-                            label={t('kitchen:ops.suppliers.fieldEmail')}
-                            hint={t('kitchen:ops.suppliers.generalContactHint')}
-                            value={details.contactEmail}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            disabled={!editable}
-                            onChangeText={(contactEmail) => {
-                                editDetails({ ...details, contactEmail });
-                            }}
-                        />
+            {isArchived ? (
+                <Callout
+                    testID="kitchen-supplier-archived"
+                    role="note"
+                    tone="info"
+                    title={t('kitchen:ops.suppliers.archivedTitle')}
+                />
+            ) : null}
 
-                        <TextInputField
-                            testID="kitchen-supplier-phone"
-                            label={t('kitchen:ops.suppliers.fieldPhone')}
-                            hint={t('kitchen:ops.suppliers.generalContactHint')}
-                            value={details.contactPhone}
-                            keyboardType="phone-pad"
-                            disabled={!editable}
-                            onChangeText={(contactPhone) => {
-                                editDetails({ ...details, contactPhone });
-                            }}
-                        />
+            {saveFailure === null ? null : (
+                <Callout
+                    testID="kitchen-supplier-save-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('kitchen:editor.saveError')}
+                    body={saveFailure.message}
+                />
+            )}
 
-                        <TextInputField
-                            testID="kitchen-supplier-address"
-                            label={t('kitchen:ops.suppliers.fieldAddress')}
-                            hint={t('kitchen:ops.suppliers.addressHint')}
-                            value={details.address}
-                            multiline
-                            numberOfLines={3}
-                            disabled={!editable}
-                            onChangeText={(address) => {
-                                editDetails({ ...details, address });
-                            }}
-                        />
+            {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
+            <View className="z-auto flex-col">
+                {/* ── 1. the record ────────────────────────────────────────────────────────── */}
+                {form.current !== 'details' ? null : (
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-supplier-details"
+                        title={t('kitchen:ops.suppliers.sectionDetails')}
+                    >
+                        {/*
+                         * The ingredient editor's grid: `sm` fields in tracks, the identifier first,
+                         * the bilingual name across two tracks with its halves side by side, and the
+                         * two free-text fields across the full row. A single column of full-width
+                         * default-size inputs was the one kitchen form still drawn the old way.
+                         */}
+                        <FormGrid testID="kitchen-supplier-details-grid">
+                            <TextInputField
+                                testID="kitchen-supplier-code"
+                                id="kitchen-supplier-code"
+                                label={t('kitchen:ops.suppliers.fieldCode')}
+                                placeholder={t('kitchen:ops.suppliers.codePlaceholder')}
+                                size="sm"
+                                value={details.code}
+                                autoCapitalize="characters"
+                                disabled={!editable}
+                                onChangeText={(code) => {
+                                    editDetails({ ...details, code });
+                                }}
+                            />
 
-                        <TextInputField
-                            testID="kitchen-supplier-payment-terms"
-                            label={t('kitchen:ops.suppliers.fieldPaymentTerms')}
-                            hint={t('kitchen:ops.suppliers.paymentTermsHint')}
-                            value={details.paymentTerms}
-                            disabled={!editable}
-                            onChangeText={(paymentTerms) => {
-                                editDetails({ ...details, paymentTerms });
-                            }}
-                        />
+                            <BilingualField
+                                span={2}
+                                layout="row"
+                                testID="kitchen-supplier-name"
+                                fieldLabel={t('kitchen:ops.suppliers.fieldName')}
+                                placeholder={{
+                                    en: t('kitchen:ops.suppliers.namePlaceholderEn'),
+                                    ar: t('kitchen:ops.suppliers.namePlaceholderAr'),
+                                }}
+                                value={details.name}
+                                requiredEnglish
+                                disabled={!editable}
+                                onChange={(name) => {
+                                    editDetails({ ...details, name });
+                                }}
+                                {...(shows('name')
+                                    ? { englishError: t('kitchen:forms.required') }
+                                    : {})}
+                            />
 
-                        <TextInputField
-                            testID="kitchen-supplier-lead-time"
-                            label={t('kitchen:ops.suppliers.fieldLeadTime')}
-                            hint={t('kitchen:ops.suppliers.leadTimeHint')}
-                            value={details.leadTimeDays}
-                            keyboardType="number-pad"
-                            disabled={!editable}
-                            onChangeText={(leadTimeDays) => {
-                                editDetails({ ...details, leadTimeDays });
-                            }}
-                            {...(leadTime === undefined
-                                ? { error: t('kitchen:ops.suppliers.leadTimeInvalid') }
-                                : {})}
-                        />
+                            <TextInputField
+                                testID="kitchen-supplier-email"
+                                id="kitchen-supplier-email"
+                                label={t('kitchen:ops.suppliers.fieldEmail')}
+                                placeholder={t('kitchen:ops.suppliers.emailPlaceholder')}
+                                size="sm"
+                                value={details.contactEmail}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                                disabled={!editable}
+                                onChangeText={(contactEmail) => {
+                                    editDetails({ ...details, contactEmail });
+                                }}
+                            />
 
-                        <TextInputField
-                            testID="kitchen-supplier-notes"
-                            label={t('kitchen:ops.suppliers.fieldNotes')}
-                            value={details.notes}
-                            multiline
-                            numberOfLines={3}
-                            disabled={!editable}
-                            onChangeText={(notes) => {
-                                editDetails({ ...details, notes });
-                            }}
-                        />
-                    </Stack>
-                </Card>
+                            <TextInputField
+                                testID="kitchen-supplier-phone"
+                                id="kitchen-supplier-phone"
+                                label={t('kitchen:ops.suppliers.fieldPhone')}
+                                placeholder={t('kitchen:ops.suppliers.phonePlaceholder')}
+                                size="sm"
+                                value={details.contactPhone}
+                                keyboardType="phone-pad"
+                                disabled={!editable}
+                                onChangeText={(contactPhone) => {
+                                    editDetails({ ...details, contactPhone });
+                                }}
+                            />
+
+                            {/*
+                             * Displayed, never picked. Every price in this system is booked in one
+                             * currency (there is no exchange rate — `MixedIngredientCostCurrency`), so
+                             * a picker here would offer a choice the receipt path then refuses. A
+                             * disabled field rather than a label over a line of text, so it sits in
+                             * the grid the way the ingredient editor's read-only Id does.
+                             */}
+                            <TextInputField
+                                testID="kitchen-supplier-currency"
+                                id="kitchen-supplier-currency"
+                                label={t('kitchen:ops.suppliers.fieldCurrency')}
+                                size="sm"
+                                value={data?.currencyCode ?? t('kitchen:ops.suppliers.noCurrency')}
+                                disabled
+                                onChangeText={() => undefined}
+                            />
+
+                            <TextInputField
+                                testID="kitchen-supplier-payment-terms"
+                                id="kitchen-supplier-payment-terms"
+                                label={t('kitchen:ops.suppliers.fieldPaymentTerms')}
+                                placeholder={t('kitchen:ops.suppliers.paymentTermsPlaceholder')}
+                                size="sm"
+                                value={details.paymentTerms}
+                                disabled={!editable}
+                                onChangeText={(paymentTerms) => {
+                                    editDetails({ ...details, paymentTerms });
+                                }}
+                            />
+
+                            <TextInputField
+                                testID="kitchen-supplier-lead-time"
+                                id="kitchen-supplier-lead-time"
+                                label={t('kitchen:ops.suppliers.fieldLeadTime')}
+                                placeholder={t('kitchen:ops.suppliers.leadTimePlaceholder')}
+                                size="sm"
+                                value={details.leadTimeDays}
+                                keyboardType="number-pad"
+                                disabled={!editable}
+                                onChangeText={(leadTimeDays) => {
+                                    editDetails({ ...details, leadTimeDays });
+                                }}
+                                {...(shows('lead-time')
+                                    ? { error: t('kitchen:ops.suppliers.leadTimeInvalid') }
+                                    : {})}
+                            />
+
+                            <TextInputField
+                                testID="kitchen-supplier-address"
+                                id="kitchen-supplier-address"
+                                label={t('kitchen:ops.suppliers.fieldAddress')}
+                                placeholder={t('kitchen:ops.suppliers.addressPlaceholder')}
+                                size="sm"
+                                fullWidth
+                                value={details.address}
+                                multiline
+                                numberOfLines={3}
+                                disabled={!editable}
+                                onChangeText={(address) => {
+                                    editDetails({ ...details, address });
+                                }}
+                            />
+
+                            <TextInputField
+                                testID="kitchen-supplier-notes"
+                                id="kitchen-supplier-notes"
+                                label={t('kitchen:ops.suppliers.fieldNotes')}
+                                placeholder={t('kitchen:ops.suppliers.notesPlaceholder')}
+                                size="sm"
+                                fullWidth
+                                value={details.notes}
+                                multiline
+                                numberOfLines={3}
+                                disabled={!editable}
+                                onChangeText={(notes) => {
+                                    editDetails({ ...details, notes });
+                                }}
+                            />
+                        </FormGrid>
+                    </FormSection>
+                )}
 
                 {/* ── 2. named contacts ────────────────────────────────────────────────────── */}
-                {isCreating ? (
-                    <Callout
-                        testID="kitchen-supplier-contacts-after-save"
-                        role="note"
-                        tone="info"
-                        title={t('kitchen:ops.suppliers.contactsAfterSaveTitle')}
-                        body={t('kitchen:ops.suppliers.contactsAfterSaveBody')}
-                    />
-                ) : (
-                    <Card testID="kitchen-supplier-contacts" padding="md">
+                {isCreating || form.current !== 'contacts' ? null : (
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-supplier-contacts"
+                        title={t('kitchen:ops.suppliers.sectionContacts')}
+                        actions={
+                            editable ? (
+                                <Button
+                                    testID="kitchen-supplier-contacts-add"
+                                    size="sm"
+                                    variant="secondary"
+                                    label={t('kitchen:ops.suppliers.addContact')}
+                                    onPress={() => {
+                                        editContacts([
+                                            ...contacts,
+                                            emptySupplierContact(takeKey()),
+                                        ]);
+                                    }}
+                                />
+                            ) : null
+                        }
+                    >
                         <Stack space="md">
-                            <Inline space="sm" align="center" justify="between" wrap>
-                                <Heading level={2}>
-                                    {t('kitchen:ops.suppliers.sectionContacts')}
-                                </Heading>
-                                {editable ? (
-                                    <Button
-                                        testID="kitchen-supplier-contacts-add"
-                                        size="sm"
-                                        variant="secondary"
-                                        label={t('kitchen:ops.suppliers.addContact')}
-                                        onPress={() => {
-                                            editContacts([
-                                                ...contacts,
-                                                emptySupplierContact(takeKey()),
-                                            ]);
-                                        }}
-                                    />
-                                ) : null}
-                            </Inline>
-
-                            <Text tone="secondary" variant="caption">
-                                {t('kitchen:ops.suppliers.contactsHint')}
-                            </Text>
-
                             {contactsFailure === null ? null : (
                                 <Callout
                                     testID="kitchen-supplier-contacts-error"
@@ -965,15 +1155,18 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 </Inline>
                             ) : null}
                         </Stack>
-                    </Card>
+                    </FormSection>
                 )}
 
                 {/* ── 3. what you buy here (SUP2) ──────────────────────────────────────────── */}
-                {isCreating ? null : (
-                    <Card testID="kitchen-supplier-supplied-items" padding="md">
-                        <Stack space="md">
-                            <Inline space="sm" align="center" justify="between" wrap>
-                                <Heading level={2}>{t('kitchen:ops.suppliers.itemsTitle')}</Heading>
+                {isCreating || form.current !== 'items' ? null : (
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-supplier-supplied-items"
+                        title={t('kitchen:ops.suppliers.itemsTitle')}
+                        actions={
+                            <>
                                 {/*
                                  * Behind the cost permission because the ledger it opens is: a
                                  * ghost button leading straight to a forbidden page would be a
@@ -992,12 +1185,10 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                         }}
                                     />
                                 ) : null}
-                            </Inline>
-
-                            <Text tone="secondary" variant="caption">
-                                {t('kitchen:ops.suppliers.itemsHint')}
-                            </Text>
-
+                            </>
+                        }
+                    >
+                        <Stack space="md">
                             {linkFailure === null ? null : (
                                 <Callout
                                     testID="kitchen-supplier-items-error"
@@ -1036,7 +1227,6 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                     <Select
                                         testID="kitchen-supplier-item-picker"
                                         label={t('kitchen:ops.suppliers.linkItemLabel')}
-                                        hint={t('kitchen:ops.suppliers.linkItemHint')}
                                         options={linkableItems.map((item) => ({
                                             value: String(item.id),
                                             label: `${item.code} — ${item.nameEn}`,
@@ -1061,7 +1251,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                     <TextInputField
                                         testID="kitchen-supplier-link-ref"
                                         label={t('kitchen:ops.suppliers.fieldItemRef')}
-                                        hint={t('kitchen:ops.suppliers.itemRefHint')}
+                                        placeholder={t('kitchen:ops.suppliers.itemRefPlaceholder')}
                                         value={pickedRef}
                                         autoCapitalize="characters"
                                         onChangeText={setPickedRef}
@@ -1077,9 +1267,17 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 </Inline>
                             ) : null}
                         </Stack>
-                    </Card>
+                    </FormSection>
                 )}
-            </Stack>
+            </View>
+
+            <TabStepNavigation<SupplierStep>
+                testID="kitchen-supplier-screen-steps-nav"
+                items={stepItems}
+                value={form.current}
+                onChange={form.goTo}
+                finalAction={saveButton ?? undefined}
+            />
 
             {/* ── supplier item reference ──────────────────────────────────────────────────── */}
             <Dialog
@@ -1114,7 +1312,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                 <TextInputField
                     testID="kitchen-supplier-item-ref-value"
                     label={t('kitchen:ops.suppliers.fieldItemRef')}
-                    hint={t('kitchen:ops.suppliers.itemRefHint')}
+                    placeholder={t('kitchen:ops.suppliers.itemRefPlaceholder')}
                     value={refDraft}
                     autoCapitalize="characters"
                     onChangeText={setRefDraft}
@@ -1202,6 +1400,8 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                     {t('kitchen:ops.suppliers.archiveConsequence')}
                 </Text>
             </Dialog>
-        </OpsRecordFrame>
+
+            <EditorGuardDialogs testID="kitchen-supplier-screen" guard={guard} />
+        </Cascade>
     );
 }

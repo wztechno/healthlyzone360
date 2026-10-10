@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Healthy360\Recipes\Http\Controllers;
 
+use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
 use Healthy360\Recipes\Enums\DerivationState;
 use Healthy360\Recipes\Enums\RecipeStatus;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\Recipe;
-use Healthy360\Recipes\Models\RecipeVersion;
-use Healthy360\Recipes\Presenters\RecipeAdminPresenter;
+use Healthy360\Recipes\Services\RecipeSummaries;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\CursorPage;
 use Healthy360\Support\Api\ErrorCode;
@@ -26,23 +26,41 @@ use Illuminate\Http\Request;
  * There is no platform library here, unlike ingredients: a recipe belongs to
  * exactly one organisation, always, so the list is simply what this kitchen
  * owns.
+ *
+ * **What sells a recipe** is part of the book: every row carries `kinds` and
+ * `sold_as`, the list filters by `kind` and `selling_status`, and a search
+ * finds a recipe by an item's handle or name. All of it is asked of
+ * {@see RecipeUsageRegistry}, because recipes never read catalogue tables, and
+ * all of it is behind `catalogue.view_organisation` on top of the route's
+ * recipe permission: the keys are absent for a reader without it, and the two
+ * filters are refused rather than silently ignored.
  */
 final class RecipeIndexController
 {
-    public function __construct(private readonly RecipeAdminPresenter $presenter) {}
+    private const string STATUS_FILTER_MESSAGE = 'The status filter must be one of: active, archived, draft, review_required, published, retired.';
+
+    public function __construct(
+        private readonly RecipeSummaries $summaries,
+        private readonly RecipeUsageRegistry $usage,
+    ) {}
 
     /**
      * @throws ApiException
      */
     public function __invoke(Request $request): JsonResponse
     {
+        // Asked once: the answer decides which filters are allowed, whether a search reaches the
+        // sellers, and whether the rows carry them — three places that must not disagree.
+        $sellersVisible = $this->summaries->sellersVisible();
+
         $query = Recipe::query();
 
         $this->applyStatus($request, $query);
         $this->applyCategory($request, $query);
-        $this->applySearch($request, $query);
+        $this->applySearch($request, $query, $sellersVisible);
         $this->applyAllergen($request, $query);
         $this->applyStaleOnly($request, $query);
+        $this->applySellers($request, $query, $sellersVisible);
 
         $requestedPage = OffsetPage::page($request);
 
@@ -57,7 +75,7 @@ final class RecipeIndexController
 
             $rows = $query->get();
 
-            return $this->present($rows, OffsetPage::meta($rows, $requestedPage, $perPage, $total));
+            return $this->present($rows, OffsetPage::meta($rows, $requestedPage, $perPage, $total), $sellersVisible);
         }
 
         $limit = CursorPage::limit($request);
@@ -65,34 +83,22 @@ final class RecipeIndexController
 
         $page = CursorPage::page($query->get(), $limit);
 
-        return $this->present($page['items'], $page['meta']);
+        return $this->present($page['items'], $page['meta'], $sellersVisible);
     }
 
     /**
      * Present a page of recipes, whichever way it was paginated.
      *
-     * The published-version lookup is one query for the whole page rather than
-     * one per row: "what is live" is the first thing a list is read for, and an
-     * N+1 on the recipe book is the kind of thing that only hurts once the
-     * kitchen is busy.
+     * Every lookup behind a row — what is live, the current version, its allergens and lines, and
+     * what sells it — is one query for the whole page rather than one per row, and lives in
+     * {@see RecipeSummaries} so the single-record reads build the identical row.
      *
      * @param  EloquentCollection<int, Recipe>  $recipes
      * @param  array<string, mixed>  $meta
      */
-    private function present(EloquentCollection $recipes, array $meta): JsonResponse
+    private function present(EloquentCollection $recipes, array $meta, bool $sellersVisible): JsonResponse
     {
-        $published = RecipeVersion::query()
-            ->whereIn('recipe_id', $recipes->modelKeys())
-            ->where('status', RecipeVersionStatus::Published->value)
-            ->pluck('version_number', 'recipe_id');
-
-        return ApiResponse::data(
-            $recipes->map(fn (Recipe $recipe): array => $this->presenter->recipe(
-                $recipe,
-                $published->has((string) $recipe->getKey()) ? (int) $published[(string) $recipe->getKey()] : null,
-            ))->all(),
-            $meta,
-        );
+        return ApiResponse::data($this->summaries->page($recipes, $sellersVisible), $meta);
     }
 
     /**
@@ -113,15 +119,66 @@ final class RecipeIndexController
             return;
         }
 
-        if (! is_string($status) || RecipeStatus::tryFrom($status) === null) {
-            throw new ApiException(
-                ErrorCode::RequestInvalid,
-                'The status filter must be one of: active, archived.',
-                ['parameter' => 'status'],
-            );
+        if (! is_string($status)) {
+            throw new ApiException(ErrorCode::RequestInvalid, self::STATUS_FILTER_MESSAGE, ['parameter' => 'status']);
         }
 
-        $query->where('status', $status);
+        if (RecipeStatus::tryFrom($status) !== null) {
+            $query->where('status', $status);
+
+            return;
+        }
+
+        /*
+         * A version state, not a recipe state.
+         *
+         * The recipe row carries `active | archived`; everything a reader actually filters by —
+         * draft, review_required, published — lives on the version. The client used to translate
+         * as best it could (published → active, retired → archived) and **drop draft and
+         * review_required on the floor**, so picking either sent an unfiltered request and the list
+         * answered with everything. That was invisible before a quarantine existed and is not
+         * invisible now.
+         *
+         * Narrowed against the *current* version, for the same reason the Allergens filter is: the
+         * status the row displays and the status the filter matches have to be the same one.
+         */
+        $versionStatus = RecipeVersionStatus::tryFrom($status);
+
+        if ($versionStatus === null) {
+            throw new ApiException(ErrorCode::RequestInvalid, self::STATUS_FILTER_MESSAGE, ['parameter' => 'status']);
+        }
+
+        if ($versionStatus === RecipeVersionStatus::Retired) {
+            $query->where('status', RecipeStatus::Archived->value);
+
+            return;
+        }
+
+        $query->where('status', RecipeStatus::Active->value)
+            ->whereExists(function ($sub) use ($versionStatus): void {
+                $sub->selectRaw('1')
+                    ->from('recipe_versions as rv')
+                    ->whereColumn('rv.recipe_id', 'recipes.id')
+                    ->where('rv.status', $versionStatus->value)
+                    ->whereRaw(
+                        'rv.id = (
+                            select inner_rv.id
+                            from recipe_versions as inner_rv
+                            where inner_rv.recipe_id = recipes.id
+                            order by '.str_replace(
+                            ['status', 'version_number'],
+                            ['inner_rv.status', 'inner_rv.version_number'],
+                            RecipeSummaries::CURRENT_VERSION_ORDER,
+                        ).'
+                            limit 1
+                        )',
+                        [
+                            RecipeVersionStatus::Draft->value,
+                            RecipeVersionStatus::ReviewRequired->value,
+                            RecipeVersionStatus::Published->value,
+                        ],
+                    );
+            });
     }
 
     /**
@@ -139,9 +196,17 @@ final class RecipeIndexController
     }
 
     /**
+     * Both names, the slug, the recipe's own handle (`RC-0007`) — and, for a reader who may see the
+     * catalogue, the handle and name of any item selling it (`SAC-016`, "Garlic mayo").
+     *
+     * The book prints the seller's handle in its ID column when there is one, so a search that
+     * could not find what the column shows would read as a broken search. The seller half is left
+     * out for a reader without catalogue view, exactly as the column is: finding a recipe by a
+     * name the reader cannot see would disclose it.
+     *
      * @param  Builder<Recipe>  $query
      */
-    private function applySearch(Request $request, Builder $query): void
+    private function applySearch(Request $request, Builder $query, bool $sellersVisible): void
     {
         $term = $request->query('query');
 
@@ -151,10 +216,15 @@ final class RecipeIndexController
 
         $needle = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_strtolower(trim($term))).'%';
 
-        $query->where(function (Builder $scoped) use ($needle): void {
+        $query->where(function (Builder $scoped) use ($needle, $sellersVisible): void {
             $scoped->whereRaw('lower(name_en) like ?', [$needle])
                 ->orWhereRaw('lower(name_ar) like ?', [$needle])
-                ->orWhereRaw('lower(slug) like ?', [$needle]);
+                ->orWhereRaw('lower(slug) like ?', [$needle])
+                ->orWhereRaw('lower(recipes.source_ref) like ?', [$needle]);
+
+            if ($sellersVisible) {
+                $this->usage->orWhereSellerMatches($scoped, $needle);
+            }
         });
     }
 
@@ -210,14 +280,11 @@ final class RecipeIndexController
                         select rv.id
                         from recipe_versions as rv
                         where rv.recipe_id = recipes.id
-                        order by
-                            case rv.status
-                                when ? then 2
-                                when ? then 2
-                                when ? then 1
-                                else 0
-                            end desc,
-                            rv.version_number desc
+                        order by '.str_replace(
+                        ['status', 'version_number'],
+                        ['rv.status', 'rv.version_number'],
+                        RecipeSummaries::CURRENT_VERSION_ORDER,
+                    ).'
                         limit 1
                     )',
                     [
@@ -263,5 +330,77 @@ final class RecipeIndexController
                     $editableStatuses,
                 );
         });
+    }
+
+    /**
+     * `kind` and `selling_status`: the recipe book's own axes, both about the items selling a
+     * recipe rather than the recipe.
+     *
+     * **Refused, not ignored, for a reader without catalogue view** — `403` naming the permission.
+     * Dropping the filter would answer with every recipe under a Sauces heading, and matching it
+     * would let a reader probe what the catalogue sells one request at a time; the client never
+     * sends either for such a reader, so a request that does is a mistake worth hearing about.
+     *
+     * The kind is one of the four cooked kinds or `preparation` (nothing sells it); the status is
+     * an item status, the same four words a recipe version uses. Given together they must hold of
+     * one seller — the port's rule, stated there.
+     *
+     * @param  Builder<Recipe>  $query
+     *
+     * @throws ApiException
+     */
+    private function applySellers(Request $request, Builder $query, bool $sellersVisible): void
+    {
+        $sent = array_values(array_filter(
+            ['kind', 'selling_status'],
+            static fn (string $parameter): bool => ! in_array($request->query($parameter), [null, ''], true),
+        ));
+
+        if ($sent === []) {
+            return;
+        }
+
+        if (! $sellersVisible) {
+            throw new ApiException(
+                ErrorCode::AuthzPermissionDenied,
+                'Filtering recipes by what sells them needs permission to view the catalogue.',
+                ['reason' => 'permission_not_granted', 'permission' => RecipeSummaries::SELLERS_PERMISSION],
+            );
+        }
+
+        $this->usage->constrainBySellers(
+            $query,
+            $this->sellerFilter($request, 'kind', [...RecipeUsageRegistry::KINDS, RecipeUsageRegistry::PREPARATION]),
+            // The catalogue's item statuses are the same four a recipe version carries — the two
+            // families are one vocabulary by design — and recipes may not name the catalogue enum.
+            $this->sellerFilter($request, 'selling_status', array_column(RecipeVersionStatus::cases(), 'value')),
+        );
+    }
+
+    /**
+     * One seller filter's value: null when absent, the value when it is one of `$allowed`, and a
+     * `400` naming the parameter for anything else — never a filter that quietly matches nothing.
+     *
+     * @param  list<string>  $allowed
+     *
+     * @throws ApiException
+     */
+    private function sellerFilter(Request $request, string $parameter, array $allowed): ?string
+    {
+        $value = $request->query($parameter);
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (! is_string($value) || ! in_array($value, $allowed, true)) {
+            throw new ApiException(
+                ErrorCode::RequestInvalid,
+                sprintf('The %s filter must be one of: %s.', $parameter, implode(', ', $allowed)),
+                ['parameter' => $parameter],
+            );
+        }
+
+        return $value;
     }
 }

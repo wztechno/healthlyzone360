@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import type { EnergyBand, PlanVariantCell } from '../generated/types.ts';
+import type { AdminCatalogueItem, EnergyBand, PlanVariantCell } from '../generated/types.ts';
 import {
     mapIngredientPublishableStatus,
+    mapMealAdminFromItem,
     mapPlanVariantsFromCells,
+    mapProductAdminFromItem,
+    planDurationsFromAssignments,
 } from './kitchen-admin-mappers.ts';
 
 describe('mapIngredientPublishableStatus', () => {
@@ -112,5 +115,154 @@ describe('mapPlanVariantsFromCells', () => {
 
         expect(variants).toHaveLength(1);
         expect(variants[0]?.energyBand).toEqual({ min: 0, max: 0 });
+    });
+});
+
+describe('mapMealAdminFromItem — the finished-stock chain', () => {
+    const ITEM_ID = '019ffc6a-68d2-70d1-9f6c-6ddc160642b1';
+    const ORG_ID = '019ffc6a-68d2-70d1-9f6c-6ddc160642b2';
+    const CATALOGUE_ID = '019ffc6a-68d2-70d1-9f6c-6ddc160642b3';
+    const INGREDIENT_ID = '019ffc6a-68d2-70d1-9f6c-6ddc160642b4';
+    const UNIT_ID = '019ffc6a-68d2-70d1-9f6c-6ddc160642b5';
+
+    const wire = (overrides: Partial<AdminCatalogueItem> = {}): AdminCatalogueItem => ({
+        id: ITEM_ID,
+        organisation_id: ORG_ID,
+        catalogue_id: CATALOGUE_ID,
+        item_type: 'meal',
+        slug: 'prepared-caesar-salad',
+        name_en: 'Prepared Caesar salad',
+        name_ar: 'سلطة سيزر جاهزة',
+        is_market_priced: false,
+        is_assorted: false,
+        portion_factor: '1.000',
+        sells_from_finished_stock: false,
+        status: 'draft',
+        data_quality_flags: [],
+        lock_version: 0,
+        ...overrides,
+    });
+
+    it('reads the four settings a meal sells from finished stock by', () => {
+        const meal = mapMealAdminFromItem(
+            wire({
+                production_mode: 'production',
+                ingredient_id: INGREDIENT_ID,
+                sells_from_finished_stock: true,
+                net_content_quantity: '0.3000',
+                net_content_unit_id: UNIT_ID,
+            }),
+        );
+
+        expect(meal.productionMode).toBe('production');
+        expect(meal.ingredientId).toBe(INGREDIENT_ID);
+        expect(meal.sellsFromFinishedStock).toBe(true);
+        // The server's own fixed-scale string, not a number. Parsing it here
+        // would lose the fourth place on the way back out, and the editor holds
+        // the person's typed text in any case.
+        expect(meal.netContentQuantity).toBe('0.3000');
+        expect(meal.netContentUnitId).toBe(UNIT_ID);
+    });
+
+    it('reads a meal that explodes its recipe as exactly that', () => {
+        const meal = mapMealAdminFromItem(wire());
+
+        expect(meal.sellsFromFinishedStock).toBe(false);
+        expect(meal.productionMode).toBeNull();
+        expect(meal.ingredientId).toBeNull();
+        expect(meal.netContentQuantity).toBeNull();
+        expect(meal.netContentUnitId).toBeNull();
+    });
+
+    it('reads a payload predating the column as one that explodes its recipe', () => {
+        // Not a server that omits a required field — the column is NOT NULL and
+        // the schema requires it. This is the stored default said again, so a
+        // cached response from before the migration cannot read as an opt-in.
+        const legacy = wire();
+        delete (legacy as Record<string, unknown>).sells_from_finished_stock;
+
+        expect(mapMealAdminFromItem(legacy).sellsFromFinishedStock).toBe(false);
+    });
+});
+
+describe('the admin image id for a catalogue item', () => {
+    const wire = (overrides: Partial<AdminCatalogueItem> = {}): AdminCatalogueItem => ({
+        id: '019ffc6a-68d2-70d1-9f6c-6ddc160642c1',
+        organisation_id: '019ffc6a-68d2-70d1-9f6c-6ddc160642c2',
+        catalogue_id: '019ffc6a-68d2-70d1-9f6c-6ddc160642c3',
+        item_type: 'product',
+        slug: 'chicken-crispy',
+        name_en: 'Chicken Crispy',
+        name_ar: 'Chicken Crispy',
+        is_market_priced: false,
+        is_assorted: false,
+        portion_factor: '1.000',
+        sells_from_finished_stock: false,
+        status: 'draft',
+        data_quality_flags: [],
+        lock_version: 0,
+        ...overrides,
+    });
+
+    it('keeps the id a kitchen stored', () => {
+        const stored = wire({ item_type: 'meal', image_placeholder_id: 'meal-house-special' });
+
+        expect(mapMealAdminFromItem(stored).imagePlaceholderId).toBe('meal-house-special');
+        expect(mapProductAdminFromItem(stored).imagePlaceholderId).toBe('meal-house-special');
+    });
+
+    it('derives item_type and slug when none is stored, exactly as the storefront does', () => {
+        // Every row the v6 import wrote has no stored id and is a `product`. The derived id is the
+        // one `MarketplaceMealPresenter` sends, so the admin and the shop show the same picture —
+        // for this dish, its own under `meals/`.
+        const imported = wire({ image_placeholder_id: null });
+
+        expect(mapProductAdminFromItem(imported).imagePlaceholderId).toBe('product-chicken-crispy');
+        expect(mapMealAdminFromItem(imported).imagePlaceholderId).toBe('product-chicken-crispy');
+    });
+
+    it('never falls back to an empty id, which resolves to no picture at all', () => {
+        const meal = wire({ item_type: 'meal', slug: 'freekeh-bowl', image_placeholder_id: null });
+
+        expect(mapMealAdminFromItem(meal).imagePlaceholderId).toBe('meal-freekeh-bowl');
+    });
+});
+
+describe('planDurationsFromAssignments', () => {
+    const vocabulary = [
+        { id: 'd-20', duration_kind: 'fixed_days', duration_days: 20 },
+        { id: 'd-28', duration_kind: 'fixed_days', duration_days: 28 },
+        { id: 'd-once', duration_kind: 'one_off', duration_days: null },
+    ] as unknown as Parameters<typeof planDurationsFromAssignments>[1];
+
+    const assignment = (planDurationId: string, discount: string | null, variant = 'v-1') =>
+        ({
+            id: `${variant}-${planDurationId}`,
+            catalogue_item_variant_id: variant,
+            plan_duration_id: planDurationId,
+            discount_percent: discount,
+            is_available: true,
+        }) as Parameters<typeof planDurationsFromAssignments>[0][number];
+
+    it('lists only what the plan offers, once each, with its stated discount', () => {
+        // The kitchen also has a 20-day length another plan uses; this plan does not offer it.
+        expect(
+            planDurationsFromAssignments(
+                [assignment('d-28', '5.00'), assignment('d-28', '5.00', 'v-2')],
+                vocabulary,
+            ),
+        ).toEqual([{ kind: 'fixed_days', days: 28, discountPercent: 5 }]);
+    });
+
+    it('keeps an unstated discount unstated, and orders the one-off first', () => {
+        expect(
+            planDurationsFromAssignments(
+                [assignment('d-28', null), assignment('d-once', '0.00')],
+                vocabulary,
+            ),
+        ).toEqual([
+            { kind: 'one_off', days: null, discountPercent: 0 },
+            { kind: 'fixed_days', days: 28, discountPercent: null },
+        ]);
     });
 });

@@ -11,6 +11,7 @@ import type {
     OrderDeskCustomerAddress,
     OrderDeskCustomerCreated,
     OrderDeskCustomerSearch,
+    OrderDeskDeliveryWindow,
     OrderDeskDrivers,
     OrderDeskQueue,
     OrderDeskQueueFilters,
@@ -248,6 +249,26 @@ export function useOrderDeskDriversQuery(enabled = true): UseQueryResult<OrderDe
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.orderDesk.listDrivers();
+        },
+    });
+}
+
+/**
+ * The slots a desk sale can be booked into. Kept for the drivers' five minutes: a kitchen's windows
+ * change on the timescale of its menu, not of a telephone call.
+ */
+export function useOrderDeskDeliveryWindowsQuery(
+    enabled = true,
+): UseQueryResult<readonly OrderDeskDeliveryWindow[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.deliveryWindows(),
+        enabled: enabled && repositories !== null,
+        staleTime: DRIVERS_STALE_MS,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.orderDesk.listDeliveryWindows();
         },
     });
 }

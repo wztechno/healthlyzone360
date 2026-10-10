@@ -2,6 +2,7 @@ import { View } from 'react-native';
 
 import { PICKER_FORMAT, PICKER_WIDTH } from './picker-field-shared.ts';
 import type { PickerFieldProps } from './picker-field-shared.ts';
+import { TimeField } from './time-field.tsx';
 import { TextInputField } from './text-input.tsx';
 
 export type { PickerFieldProps } from './picker-field-shared.ts';
@@ -22,10 +23,28 @@ export function PickerField({
     hint,
     error,
     disabled,
+    displayValue,
+    fullWidth = false,
     testID,
 }: PickerFieldProps) {
+    // Time has its own themed field — typed or picked from a panel — on both platforms.
+    if (kind === 'time') {
+        return (
+            <TimeField
+                label={label}
+                labelHidden={labelHidden}
+                value={value}
+                onChange={onChange}
+                hint={hint}
+                error={error}
+                disabled={disabled}
+                fullWidth={fullWidth}
+                testID={testID}
+            />
+        );
+    }
     return (
-        <View style={{ width: PICKER_WIDTH[kind] }}>
+        <View style={fullWidth ? undefined : { width: PICKER_WIDTH[kind] }}>
             <TextInputField
                 label={label}
                 labelHidden={labelHidden}
@@ -35,7 +54,9 @@ export function PickerField({
                 size="sm"
                 value={value}
                 onChangeText={onChange}
-                placeholder={PICKER_FORMAT[kind]}
+                // The value is typed here, so the page's wording of it is only useful where there
+                // is nothing typed — `Open-ended` says more about an empty end date than a format.
+                placeholder={displayValue ?? PICKER_FORMAT[kind]}
                 testID={testID}
             />
         </View>

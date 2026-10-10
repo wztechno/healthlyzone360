@@ -34,7 +34,7 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
  * | Channels |   150 |   110 |       50 | secondary, comma run                          |
  * | Flags    |   132 |    96 |       30 | badges; market-priced, assorted, import notes |
  * | Status   |   110 |    78 |       80 | badge                                         |
- * | Updated  |    96 |    72 |       20 | secondary, centred, relative                  |
+ * | Updated  |    96 |    72 |       20 | secondary, relative                           |
  *
  * The tracks and floors are the ingredient spec's, moved across a position at a time rather than
  * re-derived — a kitchen that has learnt to read one Catalogue list should not relearn the geometry
@@ -149,6 +149,7 @@ export function productColumns({
             sortable: true,
             sortType: 'text',
             value: (row) => displayName(row.name, locale).value,
+            thumbnail: (row) => row.imagePlaceholderId,
             render: (row) => {
                 const name = displayName(row.name, locale);
                 return (

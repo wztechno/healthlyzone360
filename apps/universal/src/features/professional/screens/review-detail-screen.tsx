@@ -522,6 +522,7 @@ export function ReviewDetailScreen({ reviewId }: ReviewDetailScreenProps) {
                         testID="review-approve-signature"
                         id="review-approve-signature"
                         label={t('professional:review.signatureLabel')}
+                        placeholder={t('professional:review.signaturePlaceholder')}
                         hint={t('professional:review.signatureHint')}
                         value={signature}
                         required
@@ -585,6 +586,7 @@ export function ReviewDetailScreen({ reviewId }: ReviewDetailScreenProps) {
                         testID="review-changes-note"
                         id="review-changes-note"
                         label={t('professional:review.changesNoteLabel')}
+                        placeholder={t('professional:review.changesNotePlaceholder')}
                         hint={t('professional:review.changesNoteHint')}
                         value={changeNote}
                         multiline
@@ -673,6 +675,7 @@ export function ReviewDetailScreen({ reviewId }: ReviewDetailScreenProps) {
                         testID="review-override-reason"
                         id="review-override-reason"
                         label={t('professional:review.overrideReasonLabel')}
+                        placeholder={t('professional:review.overrideReasonPlaceholder')}
                         hint={t('professional:review.overrideReasonHint')}
                         value={overrideReason}
                         multiline
@@ -724,6 +727,7 @@ export function ReviewDetailScreen({ reviewId }: ReviewDetailScreenProps) {
                     testID="review-note-input"
                     id="review-note-input"
                     label={t('professional:review.noteLabel')}
+                    placeholder={t('professional:review.notePlaceholder')}
                     hint={t('professional:review.noteHint')}
                     value={planNote}
                     multiline

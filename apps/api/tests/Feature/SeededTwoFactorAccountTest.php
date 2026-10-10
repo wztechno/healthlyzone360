@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use Laravel\Fortify\Fortify;
 use PragmaRX\Google2FA\Google2FA;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,9 +27,9 @@ use PragmaRX\Google2FA\Google2FA;
 
 const SEEDED_TOTP_SECRET = 'JBSWY3DPEHPK3PXP';
 
-beforeEach(function (): void {
-    $this->seed();
+pest()->use(SeedDatabaseOnce::class);
 
+beforeEach(function (): void {
     $this->withHeaders(firstPartyHeaders());
 });
 

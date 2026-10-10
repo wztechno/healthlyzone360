@@ -6,6 +6,7 @@ namespace Healthy360\Recipes\Models;
 
 use Carbon\CarbonImmutable;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Recipes\Database\Factories\RecipeVersionPackagingFactory;
 use Healthy360\Recipes\Enums\PackagingBasis;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Support\Attributes\Classified;
@@ -13,6 +14,7 @@ use Healthy360\Support\Enums\DataClassification;
 use Healthy360\Support\Models\BaseModel;
 use Healthy360\Tenancy\Concerns\BelongsToOrganisation;
 use Healthy360\Tenancy\Contracts\OrganisationScoped;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
@@ -54,6 +56,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class RecipeVersionPackaging extends BaseModel implements OrganisationScoped
 {
     use BelongsToOrganisation;
+
+    /** @use HasFactory<RecipeVersionPackagingFactory> */
+    use HasFactory;
 
     /**
      * The table name, stated because Laravel would pluralise the class to

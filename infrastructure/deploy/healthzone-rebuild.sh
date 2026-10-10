@@ -14,6 +14,8 @@
 #   3. kitchen:import-v6 --publish            (committed v6 catalogue)
 #   4. kitchen:import-v6-recipes              (PRIVATE v6-recipes.json, staged
 #                                              beside this script, deleted after)
+#      kitchen:formulate-unlinked             (a placeholder draft recipe for each
+#                                              cooked item no sheet formulates)
 #   5. kitchen:apply-allergen-determinations
 #   6. kitchen:publish-ready
 #   7. inventory:derive-stock-items
@@ -80,6 +82,9 @@ run api php artisan kitchen:import-v6 --org="$ORG" --publish
 
 echo "==> kitchen:import-v6-recipes"
 run api php artisan kitchen:import-v6-recipes --org="$ORG" --source=storage/app/v6-recipes.json
+
+echo "==> kitchen:formulate-unlinked"
+run api php artisan kitchen:formulate-unlinked --org="$ORG"
 
 echo "==> kitchen:apply-allergen-determinations"
 run api php artisan kitchen:apply-allergen-determinations --org="$ORG"

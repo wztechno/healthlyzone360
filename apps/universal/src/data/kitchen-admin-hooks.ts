@@ -1,6 +1,7 @@
 import type {
     AllergenClass,
     BranchOperating,
+    CreateDeliveryWindowRequest,
     CreateDeliveryZoneRequest,
     CreateIngredientRequest,
     CreateMealRequest,
@@ -8,6 +9,7 @@ import type {
     CreateProductRequest,
     CreateRecipeRequest,
     CursorPage,
+    DeliveryWindow,
     DeliveryZoneAdmin,
     DeliveryZoneAdminFilter,
     IngredientAdmin,
@@ -26,6 +28,7 @@ import type {
     RecipeAdmin,
     RecipeAdminFilter,
     RecipeAdminSummary,
+    RecipeKind,
     RecipeRollupDraft,
     RecipeRollupPreview,
     ReferenceSeries,
@@ -33,7 +36,8 @@ import type {
     ServiceArea,
     SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
-    SetDeliveryWindowsRequest,
+    ItemChannelPrices,
+    SetItemChannelPricesRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
     SetPlanCombinationsRequest,
@@ -45,6 +49,8 @@ import type {
     SetRecipeOutputsRequest,
     SetRecipeStepsRequest,
     SetZoneAreasRequest,
+    SetZoneWindowsRequest,
+    UpdateDeliveryWindowRequest,
     UpdateDeliveryZoneRequest,
     UpdateIngredientRequest,
     UpdateMealRequest,
@@ -53,12 +59,12 @@ import type {
     UpdateRecipeRequest,
     TechnicalSheetAdmin,
 } from '@healthy360/api-client/contracts';
-import { PACKAGING_CATEGORY_CODE, pageCount } from '@healthy360/api-client/contracts';
+import { PACKAGING_CATEGORY_CODE, RECIPE_KINDS, pageCount } from '@healthy360/api-client/contracts';
 import type {
+    DeliveryWindowId,
     DeliveryZoneId,
     IngredientId,
     KitchenBranchId,
-    KitchenId,
     MealId,
     PriceListId,
     ProductId,
@@ -82,6 +88,7 @@ import type {
     UseQueryResult,
 } from '@tanstack/react-query';
 
+import type { Repositories } from '@healthy360/api-client';
 import { queryKeys } from './query-keys.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 
@@ -137,27 +144,29 @@ import { useRepositories, useRepositoryContext } from './repository-provider.tsx
  *    version. There is no `getRecipeVersion(id)`, so the lines of a version that is not current
  *    cannot be read at all. {@link useRecipeQuery} is therefore the only version reader there is,
  *    and the editor says so where a reader would otherwise expect to open an older version.
- * 4. **There is no `createVersion`.** A published version is immutable, and the server opens the
- *    next draft *as a consequence of the first write to it* — which is why every line/step/output
- *    setter answers with the whole `RecipeAdmin` rather than with the version the caller thought it
- *    was editing. {@link useOpenRecipeDraftMutation} therefore sends an `updateRecipe` carrying
- *    nothing but the lock version: the smallest legal write, whose only effect is that the draft
- *    exists. "Copy from" is not a parameter because there is nothing to point it at — the copy is
- *    always taken from the current version.
- * 5. **A recipe has no category and no confidentiality flag.** `RecipeAdminSummary` carries a
- *    kitchen, a name, a slug, version counters and the publication meta, and nothing else. The list
- *    filters on {@link useRecipeKitchensQuery} — derived from the rows in use, exactly as the
- *    ingredient categories are, and backed by a real `RecipeAdminFilter.kitchenId` — rather than on
- *    a taxonomy the contract has never published.
+ * 4. ~~There is no `createVersion`.~~ **Closed.** It never was a contract gap —
+ *    `POST /catalogue/recipes/{recipe}/versions` has always opened the successor draft, and a
+ *    published version refuses every other write with `catalogue.version_immutable`. The draft
+ *    button used to stand in for it with an `updateRecipe` carrying nothing but the lock version,
+ *    on the belief that the first write to a published version opens the draft. It does not, and a
+ *    request with no fields is never sent at all: "New draft" re-read the published version and
+ *    announced it as the draft. {@link useOpenRecipeDraftMutation} now calls
+ *    `createRecipeVersion`, copying the version on screen.
+ * 5. **A recipe's kind is what sells it.** `RecipeAdminSummary` carries a kitchen, a name, a slug,
+ *    version counters, the publication meta and — for a reader who may see the catalogue — the
+ *    items that sell it. The recipe book filters on that kind, on the item's publication and on
+ *    the kitchen's own filing word (`RecipeAdminFilter.kind`, `.sellingStatus`, `.category`), all
+ *    server-side; it never filters by kitchen, because the server has no such parameter.
  *
  * ## Four more, on the product and meal half (K1.4)
  *
- * 6. **A product has no publication action.** `ProductAdmin.meta` carries the full
- *    `PublishableStatus`, and `KitchenAdminRepository` publishes `archiveProduct` and nothing else:
- *    no `publishProduct`, no `retireProduct`. So a product moves *out* of visibility from this
- *    workspace and never into it, and no hook here pretends otherwise. The screens render the status
- *    they are given and offer archive alone; when the publication actions land, they join this file
- *    beside {@link usePublishMealMutation} and the editor grows one button.
+ * 6. ~~A product has no publication action.~~ **Closed.** It never was a contract gap —
+ *    `POST /catalogue/items/{item}/publish` is generic over `item_type` and always was, and
+ *    `publishMeal` has been posting to it all along. Only the client method was missing, so a
+ *    kitchen could publish a dish and not the jar beside it, and 55 imported resale rows sat in
+ *    draft with no in-app way out. {@link usePublishProductMutation} is that method.
+ *    `retireProduct` still has no separate name because `archiveProduct` already posts to
+ *    `/retire` — one action wearing the archive label, which is the vocabulary this family uses.
  * 7. **A meal's channel availability is readable and not writable.** `MealAdmin.channelAvailability`
  *    is on the read shape, but `setProductChannelAvailability` is a *product* method and the contract
  *    has no meal counterpart. The meal editor therefore shows the channels as a fact and puts the
@@ -194,10 +203,10 @@ import { useRepositories, useRepositoryContext } from './repository-provider.tsx
  *
  * ## Four more, on the delivery half (K1.7)
  *
- * 14. **A delivery window belongs to a zone, not to the kitchen.** `setDeliveryWindows` takes a
- *     `DeliveryZoneId` and answers with the whole `DeliveryZoneAdmin`; there is no `listWindows`,
- *     no `getWindow` and no kitchen-wide window resource. So there is no windows hook here and no
- *     windows screen: the zone editor owns them, which is where the only setter is.
+ * 14. **A delivery window belongs to the kitchen; a zone only chooses among them.** Windows are
+ *     org-wide records with their own screen (`/kitchen/delivery-windows`, written through
+ *     `createDeliveryWindow` / `updateDeliveryWindow`), and a zone's assignment is a separate,
+ *     lock-versioned set (`setZoneWindows`). A new window is offered in no zone until one opts in.
  * 15. **A zone has no publication action.** The contract publishes `archiveZone` and nothing else —
  *     no `publishZone`, no `retireZone` — so a zone moves *out* of visibility from this workspace
  *     and never into it, exactly as a product does. {@link useZoneSummaryQuery} therefore counts
@@ -337,9 +346,10 @@ export function useIngredientsByIds(
                 return repositories.kitchenAdmin.getIngredient(ingredientId);
             },
         })),
-        // A plain record, for the reason `useRecipeDetails` gives: `combine` runs through the same
-        // structural sharing every other query result does, and its memoisation is what keeps the
-        // callers' `useMemo`s from rebuilding on every render.
+        // A plain record rather than a Map: `combine` runs through the same structural sharing
+        // every other query result does, so the value it returns has to be one that sharing
+        // understands, and its memoisation is what keeps the callers' `useMemo`s from rebuilding on
+        // every render.
         combine: (results): Readonly<Record<string, IngredientAdmin>> => {
             const byId: Record<string, IngredientAdmin> = {};
             for (const result of results) {
@@ -703,55 +713,6 @@ export function useRecipeQuery(recipeId: RecipeId | null): UseQueryResult<Recipe
 }
 
 /**
- * Every recipe on the page in hand, read one request at a time.
- *
- * `RecipeAdminSummary` carries a version *number* and a version *count*, and nothing about the
- * state that version is in or the allergens it derived — which are the two questions a kitchen
- * brings to a recipe index ("which of these still have a draft open?", "which declare sesame?").
- * Both live on `RecipeAdmin.currentVersion`, so the list reads the detail of every row it draws.
- *
- * It is an N+1 and it is written down rather than hidden. What changed when the list moved onto the
- * Catalogue shell is *where* it happens: three cell components each calling {@link useRecipeQuery}
- * became one call here, so the list holds the answers synchronously and its column spec stays a
- * plain array — a cell cannot call a hook, and the row-action callback that decides whether a
- * version is immutable is not a component at all.
- *
- * The cost buys something back, exactly as it did before: each entry filled is the one the editor
- * opens, so following a row costs no further request. A real `GET /kitchen/recipes` that returned
- * the derived label and the version state on the summary retires this hook and turns both columns
- * into plain fields.
- *
- * Keyed on {@link queryKeys}`.kitchenAdmin.recipe`, the same key {@link useRecipeQuery} uses, so the
- * two share one cache entry per recipe and neither refetches what the other has.
- */
-export function useRecipeDetails(
-    recipeIds: readonly RecipeId[],
-): Readonly<Record<string, RecipeAdmin>> {
-    const { repositories } = useRepositoryContext();
-
-    return useQueries({
-        queries: recipeIds.map((recipeId) => ({
-            queryKey: queryKeys.kitchenAdmin.recipe(recipeId),
-            enabled: repositories !== null,
-            queryFn: () => {
-                if (repositories === null) throw new Error('Repositories are not ready.');
-                return repositories.kitchenAdmin.getRecipe(recipeId);
-            },
-        })),
-        // A plain record rather than a Map: `combine` runs through the same structural sharing every
-        // other query result does, so the value it returns has to be one that sharing understands.
-        // Its memoisation is what keeps the column spec's `useMemo` from rebuilding every render.
-        combine: (results): Readonly<Record<string, RecipeAdmin>> => {
-            const byId: Record<string, RecipeAdmin> = {};
-            for (const result of results) {
-                if (result.data !== undefined) byId[String(result.data.id)] = result.data;
-            }
-            return byId;
-        },
-    });
-}
-
-/**
  * CONFIDENTIAL — the costed technical sheet of the version on screen.
  *
  * `null` data is a state, not an error: it is what the repository returns for
@@ -778,43 +739,6 @@ export function useRecipeTechnicalSheetQuery(
     });
 }
 
-/** One kitchen recipes are actually filed under, with how many carry it. */
-export interface RecipeKitchen {
-    readonly kitchenId: KitchenId;
-    readonly count: number;
-}
-
-/**
- * The kitchen vocabulary the recipe list filters on, derived from the rows in use.
- *
- * Same shape and the same honest limitation as {@link useIngredientCategoriesQuery}: one unfiltered
- * page rather than every page, because a filter that made the reader wait for the whole library
- * before offering a choice is worse than one that offers what the first page proves exists. Unlike
- * the ingredient categories, the value it produces *is* a real filter parameter —
- * `RecipeAdminFilter.kitchenId` — so narrowing by it is a server concern already.
- */
-export function useRecipeKitchensQuery(): UseQueryResult<readonly RecipeKitchen[]> {
-    const { repositories } = useRepositoryContext();
-
-    return useQuery({
-        queryKey: queryKeys.kitchenAdmin.recipes({ derive: 'kitchens' }),
-        enabled: repositories !== null,
-        queryFn: async (): Promise<readonly RecipeKitchen[]> => {
-            if (repositories === null) throw new Error('Repositories are not ready.');
-            const page = await repositories.kitchenAdmin.listRecipes({ limit: 100 });
-            const counts = new Map<string, number>();
-            for (const row of page.items) {
-                counts.set(String(row.kitchenId), (counts.get(String(row.kitchenId)) ?? 0) + 1);
-            }
-            return [...counts.entries()]
-                .map(([kitchenId, count]) => ({ kitchenId: kitchenId as KitchenId, count }))
-                .sort((left, right) =>
-                    String(left.kitchenId).localeCompare(String(right.kitchenId)),
-                );
-        },
-    });
-}
-
 /**
  * What a hub card reports for a family whose records have a publication state.
  *
@@ -835,11 +759,19 @@ export type RecipeFamilySummary = PublishedFamilySummary;
  *
  * Four filtered listings folded into one `queryFn`. Counts walk pages via {@link countAcrossPages}.
  */
-export function useRecipeSummaryQuery(enabled = true): UseQueryResult<RecipeFamilySummary> {
+export function useRecipeSummaryQuery(
+    enabled = true,
+    /**
+     * Count "published" as recipes with a seller on sale rather than recipes with a published
+     * version. The recipe book's card asks the first question: what is live is what the menu shows,
+     * and a recipe's own publication is a step most kitchens never take for a sauce they sell.
+     */
+    onSale = false,
+): UseQueryResult<RecipeFamilySummary> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
-        queryKey: queryKeys.kitchenAdmin.recipes({ derive: 'summary' }),
+        queryKey: queryKeys.kitchenAdmin.recipes({ derive: 'summary', onSale }),
         enabled: enabled && repositories !== null,
         queryFn: async (): Promise<RecipeFamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
@@ -853,7 +785,7 @@ export function useRecipeSummaryQuery(enabled = true): UseQueryResult<RecipeFami
                 countAcrossPages((cursor) =>
                     repositories.kitchenAdmin.listRecipes({
                         limit: SUMMARY_PAGE_LIMIT,
-                        statuses: ['published'],
+                        ...(onSale ? { sellingStatus: 'published' } : { statuses: ['published'] }),
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
@@ -877,15 +809,50 @@ export function useRecipeSummaryQuery(enabled = true): UseQueryResult<RecipeFami
     });
 }
 
+/** What the recipe book's kind strip counts: recipes per kind, `null` where the server could not say. */
+export type RecipeKindCounts = Readonly<Record<RecipeKind, number | null>>;
+
+/**
+ * One count per kind for the strip, in one query.
+ *
+ * Five numbered-page requests asking for one row each and reading `totalCount` — the figure the
+ * server already computes for the pager, so nothing walks pages. A recipe sold as two kinds is
+ * counted under both, which is what the strip's tabs then show. Cached under the recipes prefix,
+ * so any recipe or item write refreshes it with the list.
+ */
+export function useRecipeKindCountsQuery(enabled = true): UseQueryResult<RecipeKindCounts> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.recipes({ derive: 'kind-counts' }),
+        enabled: enabled && repositories !== null,
+        queryFn: async (): Promise<RecipeKindCounts> => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            const counted = await Promise.all(
+                RECIPE_KINDS.map(async (kind) => {
+                    const page = await repositories.kitchenAdmin.listRecipes({
+                        kind,
+                        page: 1,
+                        perPage: 1,
+                    });
+                    return [kind, page.totalCount] as const;
+                }),
+            );
+            return Object.fromEntries(counted) as RecipeKindCounts;
+        },
+    });
+}
+
 /* ── recipe writes ───────────────────────────────────────────────────────────────────────────── */
 
 /**
  * Writes the record into its detail entry and invalidates the workspace root.
  *
- * The recipe half needs this more than the ingredient half did, not less: one line write can move
- * the recipe's row in the list, open a *new* version, change the derived allergen label the list
- * column renders, and — on publish — add or remove a row from the consumer marketplace projection
- * the same store answers. Anything narrower would leave one of those showing something untrue.
+ * The recipe half needs this more than the ingredient half did, not less: one write can move the
+ * recipe's row in the list, put a new draft in front of the published version, change the derived
+ * allergen label the list column renders, and — on publish — add or remove a row from the consumer
+ * marketplace projection the same store answers. Anything narrower would leave one of those showing
+ * something untrue.
  */
 function useRecipeWriteEffects(): (recipe: RecipeAdmin) => void {
     const queryClient = useQueryClient();
@@ -921,8 +888,9 @@ export interface UpdateRecipeVariables {
  *
  * One request covers both because the contract puts them in one request: `UpdateRecipeRequest`
  * carries `name`/`description` (the recipe) beside `yieldQuantity`/`yieldUnit`/`yieldPieces`/
- * `wastePercent` (the current version). Writing it against a *published* version opens the next
- * draft and lands the change there — see {@link useOpenRecipeDraftMutation}.
+ * `wastePercent` (the current version). A *published* version refuses the version half
+ * (`catalogue.version_immutable`); the change goes onto a draft opened first — see
+ * {@link useOpenRecipeDraftMutation}.
  */
 export function useUpdateRecipeMutation(): UseMutationResult<
     RecipeAdmin,
@@ -941,16 +909,21 @@ export function useUpdateRecipeMutation(): UseMutationResult<
 
 export interface OpenRecipeDraftVariables {
     readonly recipeId: RecipeId;
-    readonly request: LockedRequest;
+    /** The version *number* the draft copies — the one on screen. */
+    readonly copyFromVersion: number;
 }
 
 /**
- * Opens the next draft from the current version.
+ * Opens the next draft as a copy of the version on screen.
  *
- * The contract has no `createVersion` (see the module note): a published version is immutable, and
- * the server opens the successor as a consequence of the first write to it. So this sends the
- * smallest legal `updateRecipe` — a lock version and no fields — whose only effect is that the
- * draft now exists, carrying a copy of the published version's lines, outputs and steps.
+ * A published version is immutable, so the successor is asked for rather than written into being:
+ * `createRecipeVersion` posts to `…/versions` and the server copies the version's lines, packaging,
+ * outputs, steps and declared allergens onto a new draft. The answer is the re-read recipe, whose
+ * current version is that draft. No lock version travels — nothing existing is written.
+ *
+ * The caller names the version to copy rather than this asking the server for "current" at press
+ * time: the editor's line drafts were hydrated from the version on screen, and copying exactly that
+ * one is what keeps them identical to the draft they now stand for.
  *
  * Kept as its own hook rather than as a call site of {@link useUpdateRecipeMutation} because the two
  * report differently: this one's pending state belongs to a "create a new draft" button and its
@@ -965,8 +938,8 @@ export function useOpenRecipeDraftMutation(): UseMutationResult<
     const onWritten = useRecipeWriteEffects();
 
     return useMutation({
-        mutationFn: ({ recipeId, request }: OpenRecipeDraftVariables) =>
-            repositories.kitchenAdmin.updateRecipe(recipeId, request),
+        mutationFn: ({ recipeId, copyFromVersion }: OpenRecipeDraftVariables) =>
+            repositories.kitchenAdmin.createRecipeVersion(recipeId, copyFromVersion),
         onSuccess: onWritten,
     });
 }
@@ -1216,7 +1189,7 @@ export interface ProductCategory {
  * that page's own rows carry.
  */
 export function useProductCategoriesQuery(
-    itemType: 'product' | 'sauce' | 'dressing' = 'product',
+    itemType: 'product' | 'sauce' | 'dressing' | 'frozen_meal' = 'product',
 ): UseQueryResult<readonly ProductCategory[]> {
     const { repositories } = useRepositoryContext();
 
@@ -1347,27 +1320,50 @@ export function useUpdateProductMutation(): UseMutationResult<
     });
 }
 
-export interface ArchiveProductVariables {
+export interface ProductLifecycleVariables {
     readonly productId: ProductId;
     readonly request: LockedRequest;
 }
 
 /**
- * Archives the product.
+ * Publishes the product, sauce or dressing.
  *
- * The contract's only lifecycle action for this family (see the module note): it retires the row, and
- * nothing is deleted, because price-list entries and order history still point at it.
+ * The same `POST /catalogue/items/{item}/publish` a meal takes — the route was never meal-specific,
+ * only the client method was. Readiness is the server's verdict and is unchanged: a row that cannot
+ * say what is in it, or whose linked recipe carries a quarantined version, is refused here exactly
+ * as it is refused for a meal.
  */
-export function useArchiveProductMutation(): UseMutationResult<
+export function usePublishProductMutation(): UseMutationResult<
     ProductAdmin,
     unknown,
-    ArchiveProductVariables
+    ProductLifecycleVariables
 > {
     const repositories = useRepositories();
     const onWritten = useProductWriteEffects();
 
     return useMutation({
-        mutationFn: ({ productId, request }: ArchiveProductVariables) =>
+        mutationFn: ({ productId, request }: ProductLifecycleVariables) =>
+            repositories.kitchenAdmin.publishProduct(productId, request),
+        onSuccess: onWritten,
+    });
+}
+
+/**
+ * Archives the product.
+ *
+ * It retires the row, and nothing is deleted, because price-list entries and order history still
+ * point at it.
+ */
+export function useArchiveProductMutation(): UseMutationResult<
+    ProductAdmin,
+    unknown,
+    ProductLifecycleVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useProductWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ productId, request }: ProductLifecycleVariables) =>
             repositories.kitchenAdmin.archiveProduct(productId, request),
         onSuccess: onWritten,
     });
@@ -1397,6 +1393,53 @@ export function useSetProductChannelAvailabilityMutation(): UseMutationResult<
         mutationFn: ({ productId, request }: SetProductChannelAvailabilityVariables) =>
             repositories.kitchenAdmin.setProductChannelAvailability(productId, request),
         onSuccess: onWritten,
+    });
+}
+
+/* ── B2B / B2C weight and price ──────────────────────────────────────────────────────────────── */
+
+/** An article's B2B and B2C weight and price — a product, a sauce or a meal. */
+export function useItemChannelPricesQuery(
+    itemId: ProductId | MealId | null,
+): UseQueryResult<ItemChannelPrices> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.itemChannelPrices(itemId ?? ''),
+        enabled: repositories !== null && itemId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (itemId === null) throw new Error('No item identifier.');
+            return repositories.kitchenAdmin.getItemChannelPrices(itemId);
+        },
+    });
+}
+
+export interface SetItemChannelPricesVariables {
+    readonly itemId: ProductId | MealId;
+    readonly request: SetItemChannelPricesRequest;
+}
+
+/**
+ * Writes the B2B/B2C packs and their prices together. The packs are the item's, so the item's lock
+ * version moves: everything under `kitchenAdmin` is refetched so the product or meal form on the
+ * same page picks up the new version instead of being refused on its next save.
+ */
+export function useSetItemChannelPricesMutation(): UseMutationResult<
+    ItemChannelPrices,
+    unknown,
+    SetItemChannelPricesVariables
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ itemId, request }: SetItemChannelPricesVariables) =>
+            repositories.kitchenAdmin.setItemChannelPrices(itemId, request),
+        onSuccess: (prices, { itemId }) => {
+            queryClient.setQueryData(queryKeys.kitchenAdmin.itemChannelPrices(itemId), prices);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+        },
     });
 }
 
@@ -1577,6 +1620,38 @@ export function useAdminPlanQuery(planId: SubscriptionPlanId | null): UseQueryRe
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (planId === null) throw new Error('No plan identifier.');
             return repositories.kitchenAdmin.getPlan(planId);
+        },
+    });
+}
+
+/**
+ * Whole plan records for a set of identifiers, keyed by identifier — configurations included.
+ *
+ * The plan listing carries no configurations, and a price is only ever charged against one: the
+ * server's publish gate and its quote both read a configuration's own row and ignore a row for the
+ * plan as a whole. So a screen that prices plans reads each one in full. Every read is the same cache
+ * entry the plan editor opens, so a plan that was just saved is not read twice.
+ */
+export function useAdminPlansByIds(
+    planIds: readonly SubscriptionPlanId[],
+): Readonly<Record<string, PlanAdmin>> {
+    const { repositories } = useRepositoryContext();
+
+    return useQueries({
+        queries: planIds.map((planId) => ({
+            queryKey: queryKeys.kitchenAdmin.plan(planId),
+            enabled: repositories !== null,
+            queryFn: () => {
+                if (repositories === null) throw new Error('Repositories are not ready.');
+                return repositories.kitchenAdmin.getPlan(planId);
+            },
+        })),
+        combine: (results): Readonly<Record<string, PlanAdmin>> => {
+            const byId: Record<string, PlanAdmin> = {};
+            for (const result of results) {
+                if (result.data !== undefined) byId[String(result.data.id)] = result.data;
+            }
+            return byId;
         },
     });
 }
@@ -2203,6 +2278,15 @@ export function recipeRollupHash(draft: RecipeRollupDraft): string {
             line.unit,
             line.isOptional ?? false,
         ]),
+        // The packaging half is priced from these, so an edit on the Packaging tab is a different
+        // question. Left out, the Costing tab went on showing the previous box after a new one was
+        // picked. The comment is not here: it changes no figure.
+        (draft.packaging ?? []).map((line) => [
+            String(line.ingredientId),
+            line.basis,
+            line.quantity ?? null,
+        ]),
+        draft.packagingWastePercent ?? null,
     ]);
 }
 
@@ -2348,7 +2432,7 @@ export function zoneTotalFromPages(
     return pages?.[0]?.totalCount ?? null;
 }
 
-/** The kitchen's delivery zones, with their areas and windows already resolved by the contract. */
+/** The kitchen's delivery zones, with their areas resolved and their window identifiers. */
 export function useAdminZonesQuery(
     filter?: Omit<DeliveryZoneAdminFilter, 'cursor'>,
     enabled = true,
@@ -2542,30 +2626,76 @@ export function useSetZoneAreasMutation(): UseMutationResult<
     });
 }
 
-export interface SetDeliveryWindowsVariables {
+export interface SetZoneWindowsVariables {
     readonly zoneId: DeliveryZoneId;
-    readonly request: SetDeliveryWindowsRequest;
+    readonly request: SetZoneWindowsRequest;
 }
 
 /**
- * Replaces the whole window set.
- *
- * A window sent with `id: null` is minted server-side and comes back with one, exactly as a plan
- * variant is — so the editor rebases its rows on the echo after every save. Without that, a second
- * save would send the same window with a null identifier again and create a duplicate.
+ * Replaces the whole set of windows the zone offers, under the zone's lock version, and answers
+ * with the zone — so the editor rebases its `lockVersion` on the echo. The window list is
+ * invalidated with the workspace root, because each window carries the zones that offer it.
  */
-export function useSetDeliveryWindowsMutation(): UseMutationResult<
+export function useSetZoneWindowsMutation(): UseMutationResult<
     DeliveryZoneAdmin,
     unknown,
-    SetDeliveryWindowsVariables
+    SetZoneWindowsVariables
 > {
     const repositories = useRepositories();
     const onWritten = useZoneWriteEffects();
 
     return useMutation({
-        mutationFn: ({ zoneId, request }: SetDeliveryWindowsVariables) =>
-            repositories.kitchenAdmin.setDeliveryWindows(zoneId, request),
+        mutationFn: ({ zoneId, request }: SetZoneWindowsVariables) =>
+            repositories.kitchenAdmin.setZoneWindows(zoneId, request),
         onSuccess: onWritten,
+    });
+}
+
+/* ── delivery windows ────────────────────────────────────────────────────────────────────────── */
+
+/** The kitchen's delivery windows, org-wide, inactive ones included, in display order. */
+export function useDeliveryWindowsQuery(enabled = true): UseQueryResult<readonly DeliveryWindow[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.deliveryWindows(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listDeliveryWindows();
+        },
+    });
+}
+
+/**
+ * One window write: `id: null` creates (in no zone), anything else patches. The page saves row by
+ * row, so a failure names the row it stopped at and the rows before it stay saved.
+ *
+ * Invalidates the workspace (zones read windows), the desk's slot list and the marketplace (a
+ * kitchen publishes its windows to shoppers).
+ */
+export type SaveDeliveryWindowVariables =
+    | { readonly id: null; readonly request: CreateDeliveryWindowRequest }
+    | { readonly id: DeliveryWindowId; readonly request: UpdateDeliveryWindowRequest };
+
+export function useSaveDeliveryWindowMutation(): UseMutationResult<
+    DeliveryWindow,
+    unknown,
+    SaveDeliveryWindowVariables
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (variables: SaveDeliveryWindowVariables) =>
+            variables.id === null
+                ? repositories.kitchenAdmin.createDeliveryWindow(variables.request)
+                : repositories.kitchenAdmin.updateDeliveryWindow(variables.id, variables.request),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.deliveryWindows() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.all() });
+        },
     });
 }
 
@@ -3040,4 +3170,157 @@ export function useDeliveryZonePageQuery(
             });
         },
     });
+}
+
+/**
+ * The server's largest page, used only to read a whole filtered set for the summary cards.
+ *
+ * A list screen shows eighteen rows a page, but the cards above it count the set the filters
+ * match — every page of it — and most of what they count (missing Arabic, uncosted, no pack) is not
+ * a filter the server can count by. So the set is read whole, in as few pages as the server allows.
+ */
+const WHOLE_SET_PAGE_SIZE = 100;
+/** A ceiling on the walk, so a runaway catalogue costs fifty requests rather than a frozen tab. */
+const WHOLE_SET_MAX_PAGES = 50;
+
+/** Sorting changes the order, never the set, so it is left out of the key and the request. */
+type WholeSetFilter<F> = Omit<ListFilter<F>, 'sort' | 'sortDirection' | 'sortLanguage'>;
+
+function withoutSort<F extends object>(filter: F | undefined): WholeSetFilter<F> | undefined {
+    if (filter === undefined) return undefined;
+    const {
+        sort: _sort,
+        sortDirection: _direction,
+        sortLanguage: _language,
+        ...rest
+    } = filter as F & { sort?: unknown; sortDirection?: unknown; sortLanguage?: unknown };
+    return rest as WholeSetFilter<F>;
+}
+
+export async function readEveryPage<T>(
+    load: (page: number, perPage: number) => Promise<CursorPage<T>>,
+): Promise<readonly T[]> {
+    const first = await load(1, WHOLE_SET_PAGE_SIZE);
+    const pages = Math.min(
+        pageCount(first.totalCount, WHOLE_SET_PAGE_SIZE) ?? 1,
+        WHOLE_SET_MAX_PAGES,
+    );
+    const rest = await Promise.all(
+        Array.from({ length: Math.max(0, pages - 1) }, (_, index) =>
+            load(index + 2, WHOLE_SET_PAGE_SIZE),
+        ),
+    );
+    return [first, ...rest].flatMap((page) => page.items);
+}
+
+/**
+ * Every row a list's filters match, across all its pages — what the summary cards count.
+ *
+ * Keyed under the same prefix as the list's pages (page `0`, which no pager asks for), so every
+ * write that refreshes the list refreshes its cards too.
+ */
+function useWholeSetQuery<T>(
+    key: readonly unknown[],
+    load: (repositories: Repositories, page: number, perPage: number) => Promise<CursorPage<T>>,
+    enabled: boolean,
+): UseQueryResult<readonly T[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: key,
+        enabled: enabled && repositories !== null,
+        placeholderData: keepPreviousData,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return readEveryPage((page, perPage) => load(repositories, page, perPage));
+        },
+    });
+}
+
+export function useIngredientWholeSetQuery(
+    filter: ListFilter<IngredientAdminFilter> | undefined,
+    enabled = true,
+): UseQueryResult<readonly IngredientAdmin[]> {
+    const scoped = withoutSort(filter);
+    return useWholeSetQuery(
+        queryKeys.kitchenAdmin.ingredientsPage(scoped, 0),
+        (repositories, page, perPage) =>
+            repositories.kitchenAdmin.listIngredients({ ...scoped, page, perPage }),
+        enabled,
+    );
+}
+
+export function usePackagingWholeSetQuery(
+    filter: ListFilter<IngredientAdminFilter> | undefined,
+    enabled = true,
+): UseQueryResult<readonly IngredientAdmin[]> {
+    return useIngredientWholeSetQuery(
+        { ...filter, categoryCode: filter?.categoryCode ?? PACKAGING_CATEGORY_CODE },
+        enabled,
+    );
+}
+
+export function useRecipeWholeSetQuery(
+    filter: ListFilter<RecipeAdminFilter> | undefined,
+    enabled = true,
+): UseQueryResult<readonly RecipeAdminSummary[]> {
+    const scoped = withoutSort(filter);
+    return useWholeSetQuery(
+        queryKeys.kitchenAdmin.recipesPage(scoped, 0),
+        (repositories, page, perPage) =>
+            repositories.kitchenAdmin.listRecipes({ ...scoped, page, perPage }),
+        enabled,
+    );
+}
+
+export function useProductWholeSetQuery(
+    filter: ListFilter<ProductAdminFilter> | undefined,
+    enabled = true,
+): UseQueryResult<readonly ProductAdmin[]> {
+    const scoped = withoutSort(filter);
+    return useWholeSetQuery(
+        queryKeys.kitchenAdmin.productsPage(scoped, 0),
+        (repositories, page, perPage) =>
+            repositories.kitchenAdmin.listProducts({ ...scoped, page, perPage }),
+        enabled,
+    );
+}
+
+export function useAdminPlanWholeSetQuery(
+    filter: ListFilter<PlanAdminFilter> | undefined,
+    enabled = true,
+): UseQueryResult<readonly PlanAdmin[]> {
+    const scoped = withoutSort(filter);
+    return useWholeSetQuery(
+        queryKeys.kitchenAdmin.plansPage(scoped, 0),
+        (repositories, page, perPage) =>
+            repositories.kitchenAdmin.listPlans({ ...scoped, page, perPage }),
+        enabled,
+    );
+}
+
+export function usePriceListWholeSetQuery(
+    filter: ListFilter<PriceListAdminFilter> | undefined,
+    enabled = true,
+): UseQueryResult<readonly PriceListAdmin[]> {
+    const scoped = withoutSort(filter);
+    return useWholeSetQuery(
+        queryKeys.kitchenAdmin.priceListsPage(scoped, 0),
+        (repositories, page, perPage) =>
+            repositories.kitchenAdmin.listPriceLists({ ...scoped, page, perPage }),
+        enabled,
+    );
+}
+
+export function useDeliveryZoneWholeSetQuery(
+    filter: ListFilter<DeliveryZoneAdminFilter> | undefined,
+    enabled = true,
+): UseQueryResult<readonly DeliveryZoneAdmin[]> {
+    const scoped = withoutSort(filter);
+    return useWholeSetQuery(
+        queryKeys.kitchenAdmin.zonesPage(scoped, 0),
+        (repositories, page, perPage) =>
+            repositories.kitchenAdmin.listZones({ ...scoped, page, perPage }),
+        enabled,
+    );
 }

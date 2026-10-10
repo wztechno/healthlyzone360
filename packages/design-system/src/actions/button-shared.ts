@@ -32,9 +32,12 @@ export const CONTAINER_VARIANT: Readonly<Record<ButtonVariant, string>> = {
     // because `brand-500` cannot legally carry small white text (§1.3), so there is nowhere to go
     // but darker.
     primary: 'bg-surface-brand border border-transparent hover:bg-surface-canopy',
-    secondary: 'bg-surface-raised border border-stroke',
-    quiet: 'bg-surface-raised border border-stroke-subtle',
-    ghost: 'bg-transparent border border-transparent',
+    // The outlined levels hover to the sunken fill. They used to have no hover at all, so under a
+    // pointer they read the same as a disabled control does — nothing answered until the press.
+    // A disabled button never takes it: React Native Web drops hover on a disabled `Pressable`.
+    secondary: 'bg-surface-raised border border-stroke hover:bg-surface-sunken',
+    quiet: 'bg-surface-raised border border-stroke-subtle hover:bg-surface-sunken',
+    ghost: 'bg-transparent border border-transparent hover:bg-surface-sunken',
     danger: 'bg-danger border border-transparent',
 };
 

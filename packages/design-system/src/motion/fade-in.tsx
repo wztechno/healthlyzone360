@@ -2,7 +2,9 @@ import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { Animated } from 'react-native';
 
+import { AnimatedView } from '../internal/animated-view.ts';
 import { cx } from '../internal/class-names.ts';
+import { startAfterPaint } from './start-after-paint.ts';
 import { useMotion } from './use-motion.ts';
 import type { DurationName } from './use-motion.ts';
 
@@ -47,19 +49,16 @@ export function FadeIn({
             easing: easing.decelerate,
             useNativeDriver: true,
         });
-        animation.start();
-        return () => {
-            animation.stop();
-        };
+        return startAfterPaint(animation);
     }, [enabled, progress, durations, duration, delayMs, easing]);
 
     return (
-        <Animated.View
+        <AnimatedView
             testID={testID}
             className={cx(className)}
             style={{ opacity: enabled ? progress : 1 }}
         >
             {children}
-        </Animated.View>
+        </AnimatedView>
     );
 }

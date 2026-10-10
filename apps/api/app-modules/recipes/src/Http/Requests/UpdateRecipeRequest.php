@@ -36,6 +36,9 @@ class UpdateRecipeRequest extends FormRequest
             'source_kind' => ['sometimes', 'nullable', 'string', 'max:40'],
             'confidentiality' => ['sometimes', new Enum(RecipeConfidentiality::class)],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            // On the recipe, so writable whatever state the current version is
+            // in — a live version is frozen, and this must not need a new one.
+            'shelf_life_days' => ['sometimes', 'nullable', 'integer', 'between:0,3650'],
         ];
     }
 }

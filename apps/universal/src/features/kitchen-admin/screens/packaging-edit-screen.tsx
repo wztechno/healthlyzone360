@@ -20,15 +20,21 @@ import { IngredientEditScreen, PACKAGING_FAMILY } from './ingredient-edit-screen
  * The alternative was a second 1,100-line form. It would have been identical on the day it was
  * written and wrong within a month, because every fix to validation, to the unsaved guard, to the
  * concurrency capture, to the reference preview, would have had to be made twice and would not
- * have been. `SaucesScreen` and `DressingsScreen` wrap `ProductsScreen` for exactly this reason.
+ * have been. Every kind in the recipe book renders the one `RecipeEditScreen` for exactly this
+ * reason.
  *
  * ## What a reader sees
  *
- * The Catalogue's editor chrome, unchanged from New ingredient and New recipe: the page header with
- * Cancel and Save, the meta line, then Identity — **Id first, then Item**, then Category and
- * Sub-category — and Measurement & cost under it, where the pack unit, the items per pack and the
- * price live. The Id is filled in before the record exists: it is the handle the save is about to
- * take, read from the same scan the create performs.
+ * `Catalogue Forms.dc.html`'s `isPackaging`: the page header with Cancel and Save, then three
+ * sections on one page. Description — **Reference first, then Item**, then Category (fixed to the
+ * packaging branch) and Sub-category. Pack — the purchase unit, the issue unit, the items per pack
+ * and what one item holds. Cost — the pack price, the waste rate (flagged above 10%) and the cost of
+ * one item worked out from the two. No photo, no Sale, no Nutrition, no Allergens: none of them is
+ * a packaging question.
+ *
+ * Pack price, waste and holds open on the record's stored figures and are **not saved** — the
+ * write contract carries none of the three yet. `UnstoredDraft` on the ingredient editor says why
+ * they are drawn anyway, and why they cannot block a save.
  */
 export function PackagingEditScreen({ item }: { readonly item: string | undefined }) {
     return <IngredientEditScreen ingredient={item} family={PACKAGING_FAMILY} />;

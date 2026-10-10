@@ -10,6 +10,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "healthy360/access-administration": "*",
         "healthy360/access-control": "^1.0",
         "healthy360/allergens": "^1.0",
         "healthy360/audit": "^1.0",

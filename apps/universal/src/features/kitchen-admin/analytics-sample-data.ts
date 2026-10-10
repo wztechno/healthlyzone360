@@ -5,6 +5,8 @@
  * while still looking like live kitchen ops data. Labeled as sample on the screen — not API truth.
  */
 
+import { palette } from '@healthy360/design-tokens';
+
 export const ANALYTICS_DATE_RANGES = ['7d', '30d', '90d', 'ytd'] as const;
 export type AnalyticsDateRange = (typeof ANALYTICS_DATE_RANGES)[number];
 
@@ -42,6 +44,8 @@ export interface AnalyticsTableRow {
     readonly completionPercent: number;
     readonly avgMinutes: number;
     readonly updatedLabel: string;
+    /** How long ago, in whole hours, `updatedLabel` says — what the Updated column sorts by. */
+    readonly updatedHoursAgo: number;
 }
 
 export interface KitchenAnalyticsBundle {
@@ -187,21 +191,21 @@ export function buildKitchenAnalytics(
             labelKey: 'kitchen:analytics.status.onTrack',
             value: onTrack,
             colorClass: 'bg-success',
-            colorToken: '#16a34a',
+            colorToken: palette.primary,
         },
         {
             key: 'watch',
             labelKey: 'kitchen:analytics.status.watch',
             value: watch,
             colorClass: 'bg-warning',
-            colorToken: '#f59e0b',
+            colorToken: palette.warning,
         },
         {
             key: 'blocked',
             labelKey: 'kitchen:analytics.status.blocked',
             value: blocked,
             colorClass: 'bg-danger',
-            colorToken: '#ef4444',
+            colorToken: palette.error,
         },
     ];
 
@@ -271,6 +275,7 @@ export function buildKitchenAnalytics(
             ),
             avgMinutes: Math.round(18 + rand() * 36),
             updatedLabel: hoursAgo < 1 ? 'Just now' : `${hoursAgo}h ago`,
+            updatedHoursAgo: hoursAgo,
         };
     });
 

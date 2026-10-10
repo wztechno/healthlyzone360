@@ -43,6 +43,9 @@ describe('the failure vocabulary', () => {
             'authz.permission_denied',
             'resource.not_found',
             'resource.conflict',
+            // AA1. Its own code beside the conflict it is not: the caller has not lost a race, they
+            // have asked to remove their own access, and the remedy is another administrator.
+            'access.self_lockout',
             'request.precondition_required',
             'request.idempotency_key_reused',
             'validation.failed',

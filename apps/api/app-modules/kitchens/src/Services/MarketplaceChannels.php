@@ -171,8 +171,12 @@ final class MarketplaceChannels
 
     /**
      * Which switch a kind sets, or null when the contract has none for it.
+     *
+     * Public because the recipe book states an item's channels in the same
+     * eight-word vocabulary (`sold_as[].channel_codes`), and the reconciliation
+     * is stated once, here — a second copy is how the two would come to disagree.
      */
-    private static function switchFor(SalesChannelKind $kind): ?string
+    public static function switchFor(SalesChannelKind $kind): ?string
     {
         return match ($kind) {
             SalesChannelKind::B2cWeb => 'b2c',

@@ -30,6 +30,7 @@ export type { PointerKind } from './hooks/use-pointer.ts';
 
 export {
     DIRECTIONAL_ICON_NAMES,
+    DRAWN_ICON_FALLBACKS,
     ICON_GLYPHS,
     ICON_SIZES,
     Icon,
@@ -37,6 +38,7 @@ export {
 } from './icons/icon.tsx';
 export type {
     DirectionalIconName,
+    DrawnIconName,
     IconGlyphName,
     IconName,
     IconProps,
@@ -51,11 +53,13 @@ export {
     TEXT_ALIGNMENTS,
     TEXT_TONES,
     TEXT_VARIANTS,
+    TableCellTextContext,
     Text,
 } from './primitives/text.tsx';
 export type {
     HeadingLevel,
     HeadingProps,
+    TableCellText,
     TextAlignment,
     TextProps,
     TextTone,
@@ -78,7 +82,13 @@ export type {
  * `grid-shared.ts` carries the geometry both halves agree on.
  */
 export { FormGrid } from './primitives/grid';
-export type { GridColumnCount, GridProps, GridSpanProps } from './primitives/grid-shared.ts';
+export { GRID_TRACKS, HALF_TRACK_WIDTH } from './primitives/grid-shared.ts';
+export type {
+    GridColumnCount,
+    GridProps,
+    GridSpanProps,
+    GridTrack,
+} from './primitives/grid-shared.ts';
 export {
     GRID_COLUMNS,
     GRID_GAP,
@@ -96,7 +106,12 @@ export type { ButtonProps, ButtonSize, ButtonVariant } from './actions/button.ts
 export { IconButton } from './actions/icon-button.tsx';
 export type { IconButtonProps } from './actions/icon-button.tsx';
 
-export { FormField, REQUIRED_MARK } from './forms/form-field.tsx';
+export {
+    FormField,
+    NUMBER_FIELD_MAX_WIDTH,
+    NUMBER_MAX_LENGTH,
+    REQUIRED_MARK,
+} from './forms/form-field.tsx';
 export type { FieldControlProps, FormFieldProps } from './forms/form-field.tsx';
 export {
     INPUT_SIZES,
@@ -108,6 +123,20 @@ export {
 export type { InputSize, TextInputFieldProps } from './forms/text-input.tsx';
 export { FormSection } from './forms/form-section.tsx';
 export type { FormSectionProps } from './forms/form-section.tsx';
+export {
+    FormIssueScope,
+    useFieldSummarised,
+    useSummariseFields,
+} from './forms/form-issue-scope.tsx';
+export type { FormIssueScopeProps } from './forms/form-issue-scope.tsx';
+export { FORM_ISSUE_TONES, FormIssueBanner } from './forms/form-issue-banner.tsx';
+export type {
+    FormIssueBannerProps,
+    FormIssueItem,
+    FormIssueTone,
+} from './forms/form-issue-banner.tsx';
+export { FormNavigation } from './forms/form-navigation.tsx';
+export type { FormNavigationProps } from './forms/form-navigation.tsx';
 export { SearchInput } from './forms/search-input.tsx';
 export type { SearchInputProps } from './forms/search-input.tsx';
 export { QuantityInput, parseQuantity } from './forms/quantity-input.tsx';
@@ -169,6 +198,9 @@ export { PICKER_FORMAT, PICKER_KINDS, PICKER_WIDTH } from './forms/picker-field-
 export type { PickerKind } from './forms/picker-field-shared.ts';
 export { DatePickerButton } from './forms/date-picker-button.tsx';
 export type { DatePickerButtonProps } from './forms/date-picker-button.tsx';
+export { TIME_FIELD_WIDTH, TimeField } from './forms/time-field.tsx';
+export type { TimeFieldProps } from './forms/time-field.tsx';
+export { parseTypedTime } from './forms/time-field-shared.ts';
 
 export { CARD_PADDINGS, CARD_TONES, Card } from './content/card.tsx';
 export type { CardPadding, CardProps, CardTone } from './content/card.tsx';
@@ -182,12 +214,19 @@ export type {
 } from './content/list-summary-cards.tsx';
 export { ListItem } from './content/list-item.tsx';
 export type { ListItemProps } from './content/list-item.tsx';
-export { DataList, UNDROPPABLE_PRIORITY, fitColumns, spreadColumns } from './content/data-list.tsx';
+export {
+    DataList,
+    UNDROPPABLE_PRIORITY,
+    dataListColumnAlign,
+    fitColumns,
+    growWeights,
+    spreadColumns,
+} from './content/data-list.tsx';
 export type { DataListColumn, DataListProps } from './content/data-list.tsx';
 export { RECORD_STATUSES, STATUS_TONE, StatusBadge } from './content/status-badge.tsx';
 export type { RecordStatus, StatusBadgeProps } from './content/status-badge.tsx';
-export { BADGE_TONES, Badge, NUTRITION_LEVELS } from './content/badge.tsx';
-export type { BadgeProps, BadgeTone, NutritionLevel } from './content/badge.tsx';
+export { BADGE_TONES, BADGE_VARIANTS, Badge, NUTRITION_LEVELS } from './content/badge.tsx';
+export type { BadgeProps, BadgeTone, BadgeVariant, NutritionLevel } from './content/badge.tsx';
 export { CHIP_TONES, Chip, FilterChip } from './content/chip.tsx';
 export type { ChipProps, ChipTone, FilterChipProps } from './content/chip.tsx';
 export { TAG_TONES, Tag, TagRow } from './content/tag.tsx';
@@ -214,6 +253,10 @@ export type {
 export { SegmentedControl, TABS_VARIANTS, Tabs } from './navigation/tabs.tsx';
 export type { SegmentedControlProps, TabItem, TabsProps, TabsVariant } from './navigation/tabs.tsx';
 export { Stepper } from './navigation/stepper.tsx';
+export { StepProgress } from './navigation/step-progress.tsx';
+export type { StepProgressItem, StepProgressProps } from './navigation/step-progress.tsx';
+export { useFormSteps } from './navigation/use-form-steps.ts';
+export type { FormSteps, FormStepsOptions } from './navigation/use-form-steps.ts';
 export type { StepperProps } from './navigation/stepper.tsx';
 export { BREADCRUMB_TONES, Breadcrumbs } from './navigation/breadcrumbs.tsx';
 export type {
@@ -249,6 +292,20 @@ export { SPINNER_SIZES, Spinner } from './status/spinner.tsx';
 export type { SpinnerProps, SpinnerSize } from './status/spinner.tsx';
 export { SKELETON_VARIANTS, Skeleton } from './status/skeleton.tsx';
 export type { SkeletonProps, SkeletonVariant } from './status/skeleton.tsx';
+export {
+    CardGridSkeleton,
+    FormSkeleton,
+    RecordSkeleton,
+    StatTilesSkeleton,
+    TableSkeleton,
+} from './status/skeleton-layouts.tsx';
+export type {
+    CardGridSkeletonProps,
+    FormSkeletonProps,
+    RecordSkeletonProps,
+    StatTilesSkeletonProps,
+    TableSkeletonProps,
+} from './status/skeleton-layouts.tsx';
 export { EMPTY_STATE_VARIANTS, EmptyState } from './status/empty-state.tsx';
 export type { EmptyStateProps, EmptyStateVariant } from './status/empty-state.tsx';
 export { ErrorState, FAILURE_MESSAGE_KEYS } from './status/error-state.tsx';
@@ -263,6 +320,13 @@ export {
     resolveFlip,
 } from './overlays/anchored-surface.ts';
 export type { AnchorAlign, FlipInput } from './overlays/anchored-surface.ts';
+export {
+    CommandPalette,
+    commandShortcutLabel,
+    filterCommandItems,
+    useCommandShortcut,
+} from './overlays/command-palette.tsx';
+export type { CommandPaletteItem, CommandPaletteProps } from './overlays/command-palette.tsx';
 export { Dropdown } from './overlays/dropdown.tsx';
 export type {
     DropdownProps,
@@ -299,6 +363,7 @@ export {
 } from './overlays/toast.tsx';
 export type {
     Toast,
+    ToastAction,
     ToastApi,
     ToastOptions,
     ToastProviderProps,
@@ -322,3 +387,5 @@ export { useAnimatedNumber } from './motion/use-animated-number.ts';
 export type { UseAnimatedNumberOptions } from './motion/use-animated-number.ts';
 export { PageTransition } from './motion/page-transition.tsx';
 export type { PageTransitionProps } from './motion/page-transition.tsx';
+export { Cascade, CascadeItem } from './motion/cascade.tsx';
+export type { CascadeItemProps, CascadeProps } from './motion/cascade.tsx';

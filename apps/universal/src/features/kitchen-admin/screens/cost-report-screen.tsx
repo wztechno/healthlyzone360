@@ -3,12 +3,11 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     DatePickerButton,
     EmptyState,
     ErrorState,
-    RecordWindow,
-    Skeleton,
-    Stack,
+    RecordSkeleton,
     Text,
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
@@ -33,6 +32,9 @@ import {
 } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { WithColumnPicker } from '../catalogue/column-picker.tsx';
+import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
 /**
  * `/kitchen/cost-report` — the monthly cost report (INV1.4), as `Workbench.dc.html` draws it (§3.4).
  *
@@ -177,6 +179,35 @@ function CostReport() {
                 ['spend', 'columnSpend', (row: MonthlyCostReportRow) => row.spendAmount, 70],
                 ['cogs', 'columnCogs', (row: MonthlyCostReportRow) => row.cogsAmount, 80],
                 ['revenue', 'columnRevenue', (row: MonthlyCostReportRow) => row.revenueAmount, 75],
+                /*
+                 * The three production figures (PROD1), each at a lower priority
+                 * than the four above so they hide first on a narrow viewport —
+                 * a kitchen reads spend, COGS, revenue and margin every day and
+                 * these on the days it made something.
+                 *
+                 * Rendered as columns beside the others and **never** added to
+                 * them. What a batch ate is not cost of goods sold; what it
+                 * wasted is already inside the waste figure; what it yielded is
+                 * neither revenue nor expense.
+                 */
+                [
+                    'productionConsumption',
+                    'columnProductionConsumption',
+                    (row: MonthlyCostReportRow) => row.productionConsumptionAmount,
+                    45,
+                ],
+                [
+                    'productionWaste',
+                    'columnProductionWaste',
+                    (row: MonthlyCostReportRow) => row.productionWasteAmount,
+                    40,
+                ],
+                [
+                    'productionYield',
+                    'columnProductionYield',
+                    (row: MonthlyCostReportRow) => row.productionYieldValueAmount,
+                    35,
+                ],
             ] as const
         ).map(
             ([key, labelKey, read, priority]): ControlledColumn<
@@ -187,7 +218,6 @@ function CostReport() {
                 label: t(`kitchen:ops.costReport.${labelKey}`),
                 width: 110,
                 priority,
-                align: 'end',
                 sort: (left, right, direction) =>
                     compareNumber(Number(read(left) ?? 0), Number(read(right) ?? 0), direction),
                 render: (row) => <Text variant="mono">{amount(read(row))}</Text>,
@@ -199,7 +229,6 @@ function CostReport() {
             label: t('kitchen:ops.costReport.columnMargin'),
             width: 110,
             priority: 90,
-            align: 'end',
             sort: (left, right, direction) =>
                 compareNumber(
                     Number(left.grossMarginAmount ?? 0),
@@ -218,11 +247,41 @@ function CostReport() {
             ),
         },
         {
+            /*
+             * The estimated margin, beside the actual one (PROD1). The gap
+             * between them is what a kitchen is actually looking for: it priced
+             * against the estimate and lived with the actual.
+             *
+             * An em dash where the server withheld it, and that is not the same
+             * as a zero margin: the estimate is null whenever any sold line of
+             * the month had no frozen figure, because a total over the priced
+             * half reads exactly like a complete one and is too small.
+             */
+            key: 'estimatedMargin',
+            label: t('kitchen:ops.costReport.columnEstimatedMargin'),
+            width: 110,
+            priority: 55,
+            sort: (left, right, direction) =>
+                compareNumber(
+                    Number(left.estimatedMarginAmount ?? 0),
+                    Number(right.estimatedMarginAmount ?? 0),
+                    direction,
+                ),
+            render: (row) => (
+                <Text
+                    variant="mono"
+                    tone="secondary"
+                    testID={`kitchen-cost-report-${row.month}-estimated-margin`}
+                >
+                    {amount(row.estimatedMarginAmount)}
+                </Text>
+            ),
+        },
+        {
             key: 'marginPercent',
             label: t('kitchen:ops.costReport.columnMarginPercent'),
             width: 90,
             priority: 50,
-            align: 'end',
             sort: (left, right, direction) =>
                 compareNumber(
                     Number(left.grossMarginPercent ?? 0),
@@ -257,49 +316,121 @@ function CostReport() {
             share: Math.max(0, value) / total,
         }));
     })();
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-cost-report-window"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={viewing.month}
+                kind={t('kitchen:ops.costReport.window.kind')}
+                {...(viewing.hasDataQualityFlag
+                    ? {
+                          status: {
+                              label: t('kitchen:ops.costReport.flagged'),
+                              tone: 'warning' as const,
+                          },
+                          note: t('kitchen:ops.costReport.window.flaggedNote'),
+                      }
+                    : {})}
+                fields={[
+                    {
+                        key: 'spend',
+                        label: t('kitchen:ops.costReport.columnSpend'),
+                        value: withCode(viewing.spendAmount),
+                        mono: true,
+                    },
+                    {
+                        key: 'cogs',
+                        label: t('kitchen:ops.costReport.columnCogs'),
+                        value: withCode(viewing.cogsAmount),
+                        mono: true,
+                    },
+                    {
+                        key: 'revenue',
+                        label: t('kitchen:ops.costReport.columnRevenue'),
+                        value: withCode(viewing.revenueAmount),
+                        mono: true,
+                    },
+                    {
+                        key: 'margin',
+                        label: t('kitchen:ops.costReport.columnMargin'),
+                        value: withCode(viewing.grossMarginAmount),
+                        mono: true,
+                    },
+                    {
+                        key: 'marginPercent',
+                        label: t('kitchen:ops.costReport.columnMarginPercent'),
+                        value: percent(viewing.grossMarginPercent),
+                        mono: true,
+                    },
+                    {
+                        key: 'currency',
+                        label: t('kitchen:ops.costReport.currencyLabel'),
+                        value: t('kitchen:ops.costReport.window.currencyValue', {
+                            currency: viewing.currencyCode,
+                        }),
+                    },
+                ]}
+                primaryAction={{
+                    label: t('kitchen:ops.costReport.window.openLedger'),
+                    icon: null,
+                    onPress: () => {
+                        setViewing(null);
+                        router.push('/kitchen/purchases-ledger' as never);
+                    },
+                }}
+            />
+        );
+    }
+
+    /*
+     * The window sits under the figures it produced — the same order as the order desk's pages —
+     * and at the top only while there are no figures to sit under, so it is never out of reach.
+     */
+    const showsReport =
+        !report.isPending && failure === null && currencyRows.length > 0 && latest !== null;
+    const filterBar = (
+        <ToolbarPanel testID="kitchen-cost-report-filters">
+            {/* The order desk's date picker. The report is monthly, so a picked day stands for
+                        its month — the query sends `YYYY-MM`. */}
+            <DatePickerButton
+                testID="kitchen-cost-report-filter-from"
+                label={t('kitchen:ops.costReport.filterFrom')}
+                value={fromDate}
+                max={toDate === '' ? undefined : toDate}
+                onChange={(next) => {
+                    setFromDate(next);
+                    setViewing(null);
+                }}
+            />
+            <Text variant="caption" tone="secondary" aria-hidden>
+                {t('kitchen:ops.requirements.windowTo')}
+            </Text>
+            <DatePickerButton
+                testID="kitchen-cost-report-filter-to"
+                label={t('kitchen:ops.costReport.filterTo')}
+                value={toDate}
+                min={fromDate === '' ? undefined : fromDate}
+                onChange={(next) => {
+                    setToDate(next);
+                    setViewing(null);
+                }}
+            />
+        </ToolbarPanel>
+    );
+
     return (
-        <Stack space="md" testID="kitchen-cost-report-screen">
-            <View
-                testID="kitchen-cost-report-filters"
-                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight"
-            >
-                {/* The order desk's date picker. The report is monthly, so a picked day stands for
-                    its month — the query sends `YYYY-MM`. */}
-                <DatePickerButton
-                    testID="kitchen-cost-report-filter-from"
-                    label={t('kitchen:ops.costReport.filterFrom')}
-                    value={fromDate}
-                    max={toDate === '' ? undefined : toDate}
-                    onChange={(next) => {
-                        setFromDate(next);
-                        setViewing(null);
-                    }}
-                />
-                <Text variant="caption" tone="secondary" aria-hidden>
-                    {t('kitchen:ops.requirements.windowTo')}
-                </Text>
-                <DatePickerButton
-                    testID="kitchen-cost-report-filter-to"
-                    label={t('kitchen:ops.costReport.filterTo')}
-                    value={toDate}
-                    min={fromDate === '' ? undefined : fromDate}
-                    onChange={(next) => {
-                        setToDate(next);
-                        setViewing(null);
-                    }}
-                />
-            </View>
+        <Cascade space="md" testID="kitchen-cost-report-screen">
+            {showsReport ? null : filterBar}
             {report.isPending ? (
-                <View testID="kitchen-cost-report-loading" className="flex-col">
-                    {Array.from({ length: 6 }, (_, index) => (
-                        <View
-                            key={index}
-                            className="h-row-md flex-row items-center border-b border-stroke-subtle"
-                        >
-                            <Skeleton heightClassName="h-2" />
-                        </View>
-                    ))}
-                </View>
+                <RecordSkeleton
+                    testID="kitchen-cost-report-loading"
+                    heading={false}
+                    tiles={4}
+                    rows={6}
+                />
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-cost-report-error"
@@ -316,7 +447,12 @@ function CostReport() {
                     body={t('kitchen:ops.costReport.emptyBody')}
                 />
             ) : (
-                <Stack space="md">
+                /*
+                 * The report's own run of sections, as a cascade that continues the page's count:
+                 * when the months land they arrive in order in place of the skeleton, rather than
+                 * all at once.
+                 */
+                <Cascade space="md">
                     {flaggedCount > 0 ? (
                         <Callout
                             testID="kitchen-cost-report-data-quality"
@@ -357,21 +493,27 @@ function CostReport() {
                         testID="kitchen-cost-report-tile"
                         cards={(
                             [
-                                ['spend', 'tileSpend', latest.spendAmount, 'hintSpend', 'basket'],
-                                ['cogs', 'tileCogs', latest.cogsAmount, 'hintCogs', 'warning'],
+                                [
+                                    'spend',
+                                    'tileSpend',
+                                    latest.spendAmount,
+                                    'hintSpend',
+                                    'shoppingCart',
+                                ],
+                                ['cogs', 'tileCogs', latest.cogsAmount, 'hintCogs', 'cookingPot'],
                                 [
                                     'revenue',
                                     'tileRevenue',
                                     latest.revenueAmount,
                                     'hintRevenue',
-                                    'calendar',
+                                    'trendingUp',
                                 ],
                                 [
                                     'margin',
                                     'tileMargin',
                                     latest.grossMarginAmount,
                                     'hintMargin',
-                                    'check',
+                                    'percent',
                                 ],
                             ] as const
                         ).map(([key, labelKey, value, hintKey, mark]) => ({
@@ -384,6 +526,7 @@ function CostReport() {
                             tone: key === 'margin' ? ('brand' as const) : ('default' as const),
                         }))}
                     />
+                    {filterBar}
                     <View className="flex-row flex-wrap gap-4">
                         <View className="min-w-[300px] flex-1 flex-col gap-snug">
                             <WorkbenchSectionHeading
@@ -417,83 +560,19 @@ function CostReport() {
                             </View>
                         )}
                     </View>
-                    <CatalogueList<MonthlyCostReportRow>
-                        testID="kitchen-cost-report-table"
-                        label={t('kitchen:ops.costReport.caption')}
-                        columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={(row) => `${row.month}-${row.currencyCode}`}
-                        onRowPress={setViewing}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                    />
-                </Stack>
+                    <WithColumnPicker picker={controls.picker}>
+                        <CatalogueList<MonthlyCostReportRow>
+                            testID="kitchen-cost-report-table"
+                            label={t('kitchen:ops.costReport.caption')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => `${row.month}-${row.currencyCode}`}
+                            onRowPress={setViewing}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
+                    </WithColumnPicker>
+                </Cascade>
             )}
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-cost-report-window"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={viewing.month}
-                    kind={t('kitchen:ops.costReport.window.kind')}
-                    {...(viewing.hasDataQualityFlag
-                        ? {
-                              status: {
-                                  label: t('kitchen:ops.costReport.flagged'),
-                                  tone: 'warning' as const,
-                              },
-                              note: t('kitchen:ops.costReport.window.flaggedNote'),
-                          }
-                        : {})}
-                    fields={[
-                        {
-                            key: 'spend',
-                            label: t('kitchen:ops.costReport.columnSpend'),
-                            value: withCode(viewing.spendAmount),
-                            mono: true,
-                        },
-                        {
-                            key: 'cogs',
-                            label: t('kitchen:ops.costReport.columnCogs'),
-                            value: withCode(viewing.cogsAmount),
-                            mono: true,
-                        },
-                        {
-                            key: 'revenue',
-                            label: t('kitchen:ops.costReport.columnRevenue'),
-                            value: withCode(viewing.revenueAmount),
-                            mono: true,
-                        },
-                        {
-                            key: 'margin',
-                            label: t('kitchen:ops.costReport.columnMargin'),
-                            value: withCode(viewing.grossMarginAmount),
-                            mono: true,
-                        },
-                        {
-                            key: 'marginPercent',
-                            label: t('kitchen:ops.costReport.columnMarginPercent'),
-                            value: percent(viewing.grossMarginPercent),
-                            mono: true,
-                        },
-                        {
-                            key: 'currency',
-                            label: t('kitchen:ops.costReport.currencyLabel'),
-                            value: t('kitchen:ops.costReport.window.currencyValue', {
-                                currency: viewing.currencyCode,
-                            }),
-                        },
-                    ]}
-                    primaryAction={{
-                        label: t('kitchen:ops.costReport.window.openLedger'),
-                        onPress: () => {
-                            setViewing(null);
-                            router.push('/kitchen/purchases-ledger' as never);
-                        },
-                    }}
-                />
-            )}
-        </Stack>
+        </Cascade>
     );
 }

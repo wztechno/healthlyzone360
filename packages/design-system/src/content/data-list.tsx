@@ -5,25 +5,29 @@ import { Platform, Pressable, Text as RNText, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 
 import { cx } from '../internal/class-names.ts';
+import { truncationHoverProps } from '../internal/truncation-hover.ts';
+import { CascadeItem } from '../motion/cascade.tsx';
 import { GRID_CONTENT_ATTR } from '../overlays/anchored-surface.ts';
+import { TableCellTextContext } from '../primitives/text.tsx';
+import type { TableCellText } from '../primitives/text.tsx';
 
 /**
  * DataList — the Catalogue's list, driven by a column spec.
  *
  * Ingredients, Recipes and Sauces differ by an array and nothing else (§4.1). That is the whole
  * design goal: a new entity is a spec, not a screen. What this component owns is the geometry those
- * specs share — the track widths, the hairline, the hover tint, the row height, and the two things
+ * specs share — the track widths, the header rule, the hover tint, the row height, and the two things
  * below that are easy to get wrong.
  *
- * **No card, no panel outline, no vertical rules, no zebra** (§4.1). The only line is the row's
- * bottom hairline. A list of 25 rows is already a grid to the eye; drawing that grid a second time
- * in ink is what made the previous tables feel like spreadsheets.
+ * **No vertical rules, no zebra, no rule between rows** (§4.1). The only line is the header's
+ * bottom rule. A list of 25 rows is already a grid to the eye; drawing that grid a second time
+ * in ink is what made the previous tables feel like spreadsheets. A caller may frame the list in a
+ * panel (`framed`), as the Catalogue does.
  *
  * ## The row box must be as wide as the tracks, not as wide as the port
  *
  * Rows carry an explicit minimum width equal to the sum of their tracks — the `min-width:
- * max-content` the handoff calls for, stated as the number it resolves to. Without it the hairline,
- * the hover tint and the overflow menu's anchor all stop at the scroll port's edge while the cells
+ * max-content` the handoff calls for, stated as the number it resolves to. Without it the hover tint and the overflow menu's anchor all stop at the scroll port's edge while the cells
  * carry on past it: you hover a row and the highlight ends mid-record.
  *
  * Stating the sum rather than the keyword is not a compromise. Every track here is a fixed number,
@@ -38,14 +42,24 @@ import { GRID_CONTENT_ATTR } from '../overlays/anchored-surface.ts';
  * scrolls hides its overflow menu — the one control that must always be reachable. Designation
  * (100) and the action column (95) are pinned above the drop threshold and never leave.
  *
- * ## And the tracks fill the port they fit in
+ * ## Each column starts at its content, and the slack is shared in proportion
  *
- * Dropping answers the narrow case. The wide one is the opposite problem: eight fixed tracks add up
- * to about 1050px and the shell's content area on a laptop is nearer 1450, so the list drew itself
- * against the leading edge with 400px of nothing after the last column — while the cells inside
- * those tracks clipped their values to one line. `spreadColumns` shares the leftover out over the
- * columns in proportion to their declared width, so the row ends where the page ends and the
- * designation column gets most of what was going spare.
+ * Dropping answers the narrow case. The wide one is the opposite problem: six tracks add up to
+ * about 950px and the shell's content area on a laptop is nearer 1450, so something has to take the
+ * other 500px.
+ *
+ * Not one column, and not every column equally. Handing it all to the long-text column parked a
+ * 300px hole after every name; an equal share gave a three-letter `Unit` the same extra as the
+ * name. So a column is drawn at the width it declares, measured from its content, and the slack is
+ * shared in proportion to those widths — what a browser's automatic table layout does — which keeps
+ * the gap after each value a similar fraction of its track. A caller that really wants one column
+ * to take the lot marks it `fill`. {@link spreadColumns} states the arithmetic.
+ *
+ * ## A value longer than its column ends in an ellipsis
+ *
+ * Every cell is one line. A value that does not fit its track is clipped with an ellipsis instead of
+ * wrapping the row or running into the next column, and on the web hovering it shows the whole value
+ * — see `TableCellTextContext`, which carries the same rule into a renderer's own text.
  */
 
 export const UNDROPPABLE_PRIORITY = 95;
@@ -55,9 +69,10 @@ export interface DataListColumn<Row> {
     /** Column label, translated. Rendered on the `label` step — 12px, sentence case. */
     readonly label: string;
     /**
-     * The track's floor in dp — what {@link fitColumns} charges against the port, and what the
-     * column is drawn at when the tracks exactly fill it. It is not the final width: leftover port
-     * width is shared out over the growable columns by {@link spreadColumns}.
+     * The track's width in dp: what {@link fitColumns} charges against the port when it decides
+     * which columns are worth drawing, what the whole row's minimum width is summed from, and —
+     * for every column but the one that fills — the width it is drawn at. Declare what the content
+     * needs: a unit's three letters, a status badge, a name's usual length.
      */
     readonly width: number;
     /**
@@ -67,18 +82,24 @@ export interface DataListColumn<Row> {
      */
     readonly priority: number;
     /**
-     * Whether the column takes a share of the port's leftover width. Defaults to `true`.
+     * Whether the column may take the row's slack at all. Defaults to `true`.
      *
      * `false` is for a track whose width is its content and nothing else — the row-action column,
-     * which is sized to the buttons in it. Widening that one only pushes the buttons away from the
-     * edge they are anchored to, and spends on padding the width the designation column needs to
-     * say `Condiments and sweeteners` without an ellipsis.
+     * which is sized to the buttons in it. It is never chosen to fill, even as the widest column,
+     * because widening it would only push the buttons away from the edge they are anchored to.
      */
     readonly grow?: boolean | undefined;
     /**
-     * Cell and header alignment. Defaults to `start`, which is where the Catalogue's numeric
-     * columns sit too: a price read down a left edge lines up with the label above it, and the
-     * tracks are no longer narrow enough for `end` or `center` to be doing any work.
+     * Takes all of the width the row has left once every other column has its own — for a list
+     * that wants one column of long text to absorb it. More than one may fill; they share the slack
+     * equally. With none marked, every growable column shares it in proportion to its `width`, so
+     * every list still ends where the page does (see {@link growWeights}).
+     */
+    readonly fill?: boolean | undefined;
+    /**
+     * Cell and header alignment. Defaults to `start` for every column, figures included — see
+     * {@link dataListColumnAlign}. `end` is for a control column: the row's ⋯ or its buttons,
+     * anchored to the edge the reader's eye finishes the row on.
      */
     readonly align?: 'start' | 'end' | 'center' | undefined;
     /** Sets the cell in the mono role. Quantities, costs, references and versions (§1.2). */
@@ -135,33 +156,35 @@ export function fitColumns<Row>(
 }
 
 /**
- * The drawn width of each column, once the port's leftover width has been shared out.
+ * The drawn width of each column.
  *
  * `fitColumns` answers "which columns"; this answers "how wide". They are separate because the
- * first is charged against a floor — the narrowest a column is worth drawing at — and the widths
- * that come out of it almost never add up to the port. On a 1440px window with the nav open that
- * is roughly 400px of nothing after the last column, and every text cell clipped to one line
- * *inside* its track while the space it needed sat unused beside it.
+ * first is charged against the port and the widths it keeps almost never add up to it: on a 1440px
+ * window with the nav open that is roughly 400px still to place.
  *
- * ## The share is equal, not proportional
+ * ## The slack goes to the long text, not to every column
  *
- * Every growable column takes the same number of pixels. The first version of this shared the slack
- * out in proportion to the declared width, on the argument that a column declared at 260 holds a
- * sentence and one declared at 88 holds `4%`, so the wide one has more use for the space. What that
- * actually does is compound the widest track: `Designation` was already the biggest gap on the row
- * and proportional handed it the biggest share of the remainder as well, so the run between a short
- * name and the category beside it opened to nearly 200px while `Condiment & Sweetener` wrapped in
- * the column next door.
+ * Every column is drawn at its declared width — what its content needs — and what the row has left
+ * goes to the column that fills: the ones marked `fill`, sharing equally, or the widest growable
+ * column when none is marked. A `Unit` stays as narrow as `kg`, a status as wide as its badge, and a
+ * name gets the room it was being denied.
  *
- * Equal shares put the leftover where it is least visible — spread thinly across every boundary
- * instead of banked behind one. The declared width still says how much room a column's *content*
- * needs, which is what `fitColumns` ranks and drops on; it just stops being a claim on the page's
- * spare width too.
+ * Earlier answers gave every growable column an equal share (and before that, an equal total), on
+ * the reasoning that boundaries on a constant pitch read as a grid. They did, and the grid was mostly
+ * empty: the short columns carried a run of blank space after every value while the names that
+ * needed the width wrapped inside a share no bigger than theirs.
+ *
+ * ## A port narrower than the tracks is not a narrower row
+ *
+ * The row carries `min-width: <track sum>`, so a port below that sum does not squeeze the
+ * columns — the box stays at the sum and scrolls. This mirrors that: the slack is computed against
+ * the port *or* the track sum, whichever is larger, so the numbers it returns are the numbers on
+ * screen.
  *
  * Exported and pure for the same reason as `fitColumns`: "nine columns in a 1213px port" is
  * arithmetic, and arithmetic is worth a test rather than a screenshot.
  *
- * Integer widths throughout, with the division's remainder given to the widest growable column, so
+ * Integer widths throughout, with the division's remainder given to the first filling column, so
  * the tracks sum to the port exactly and no sub-pixel seam opens between the header and its rows.
  */
 export function spreadColumns<Row>(
@@ -170,29 +193,61 @@ export function spreadColumns<Row>(
 ): readonly number[] {
     const widths = columns.map((column) => column.width);
     const floor = widths.reduce((sum, width) => sum + width, 0);
-    const slack = Math.floor(available) - floor;
-    if (slack <= 0) return widths;
+    const port = Math.max(Math.floor(available), floor);
 
-    const growable = columns.map((column) => column.grow !== false);
-    const count = growable.filter((grows) => grows).length;
-    if (count === 0) return widths;
+    const weights = growWeights(columns);
+    const totalWeight = [...weights.values()].reduce((sum, weight) => sum + weight, 0);
+    if (totalWeight === 0) return widths;
 
-    // `count > 0` guarantees a growable column, so this always resolves to one of them.
-    let widest = 0;
-    let widestWidth = -1;
-    widths.forEach((width, index) => {
-        if (growable[index] !== true || width <= widestWidth) return;
-        widest = index;
-        widestWidth = width;
+    const spare = port - floor;
+    const shares = widths.map((_, index) => {
+        const column = columns[index];
+        const weight = column === undefined ? 0 : (weights.get(column.key) ?? 0);
+        return Math.floor((spare * weight) / totalWeight);
     });
+    const remainder = spare - shares.reduce((sum, share) => sum + share, 0);
+    const first = columns.findIndex((column) => weights.has(column.key));
 
-    const share = Math.floor(slack / count);
-    const remainder = slack - share * count;
+    return widths.map(
+        (width, index) => width + (shares[index] ?? 0) + (index === first ? remainder : 0),
+    );
+}
 
-    return widths.map((width, index) => {
-        if (growable[index] !== true) return width;
-        return width + share + (index === widest ? remainder : 0);
-    });
+/**
+ * How the row's slack is shared: key → weight, for every column that takes any of it.
+ *
+ * Columns marked `fill` take all of it, equally. With none marked — the usual case — every
+ * growable column takes a share in proportion to its declared width. That is what a browser's
+ * automatic table layout does, and it is the answer that leaves no hole: the one-column answer
+ * parked 300px of nothing after every name, and the equal one gave a three-letter unit the same
+ * extra as a designation. Proportional keeps the ratios the specs measured from content and spreads
+ * the leftover evenly over them, so the gap after each value is a similar fraction of its track.
+ *
+ * Empty only when no column may grow at all.
+ */
+export function growWeights<Row>(
+    columns: readonly DataListColumn<Row>[],
+): ReadonlyMap<string, number> {
+    const growable = columns.filter((column) => column.grow !== false);
+    const marked = growable.filter((column) => column.fill === true);
+    if (marked.length > 0) return new Map(marked.map((column) => [column.key, 1]));
+
+    return new Map(growable.map((column) => [column.key, column.width]));
+}
+
+/**
+ * One column's track, as flex — `spreadColumns` done by the layout engine. Every column is based on
+ * its declared width and grows from there by its weight (see {@link growWeights}); the ones that
+ * may not grow stay put. The header and every row use the same style on the same content width,
+ * so the tracks line up without a number ever being passed between them.
+ */
+function trackStyle<Row>(column: DataListColumn<Row>, weights: ReadonlyMap<string, number>) {
+    return {
+        flexBasis: column.width,
+        flexGrow: weights.get(column.key) ?? 0,
+        flexShrink: 0,
+        minWidth: 0,
+    } as const;
 }
 
 export interface DataListProps<Row> {
@@ -206,18 +261,44 @@ export interface DataListProps<Row> {
     /** Opens the editor. The row body's behaviour is unchanged from today's list (§4.1). */
     readonly onRowPress?: ((row: Row) => void) | undefined;
     readonly emptyState?: ReactNode | undefined;
+    /**
+     * The list sits inside a `rounded-panel` frame drawn by the caller. The header takes the frame's
+     * top corners and the last row its bottom ones, so neither the header's ground nor a hover tint
+     * squares off the curve. The frame itself stays with the caller: a border on this root would be inside
+     * the box the port is measured from, and the tracks would overrun it by two pixels.
+     */
+    readonly framed?: boolean | undefined;
+    /**
+     * Rows fade and rise into place as they mount, cascading down the list — when its data lands,
+     * and again for each page the pager brings in. The header does not move: it is the frame the
+     * rows arrive into, and the skeleton before it already drew one in the same place.
+     *
+     * Off by default, so a list that re-renders from a form or a filter it sits beside does not
+     * animate unless its screen asked for it.
+     */
+    readonly rowEntrance?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
 
 /**
+ * A row's entrance is a {@link CascadeItem}: a shorter rise and a quicker fade than a page band's,
+ * because a row is one line of a list rather than a section of a page.
+ *
+ * The item takes its delay once, at mount, so a re-sort — which moves every row's index — does not
+ * send the rows back through their entrance. `stagger` caps the cascade at `MAX_STAGGERED_ITEMS`:
+ * on a 25-row page the first eight arrive one after another and the rest arrive with the eighth, so
+ * the bottom of the list never waits a second behind the top.
+ */
+const ROW_DISTANCE = 'subtle';
+const ROW_DURATION = 'normal';
+
+/**
  * The density ladder, as a *floor* rather than a fixed height.
  *
- * `h-row-md` clipped: a cell whose value does not fit its track was cut mid-word — `Condiments and
- * sweet…` — and there was nothing a reader could do about it short of opening the row. Every track
- * now grows to fill the port (see {@link spreadColumns}), which is enough for almost every value,
- * and `min-h-` is what covers the rest: the outliers wrap to a second line and take the row with
- * them instead of losing their tail. A page of ordinary rows is the same 28 / 32 / 36px it was.
+ * A floor because a cell's content is not always text: a stacked name-and-code, or a badge taller
+ * than the line, still has to fit. Text itself is one line with an ellipsis (see
+ * `TableCellTextContext`), so a page of ordinary rows is the same 28 / 32 / 36px whatever its values.
  */
 const ROW_HEIGHT_CLASS: Readonly<Record<RowDensity, string>> = {
     sm: 'min-h-row-sm',
@@ -237,13 +318,35 @@ const JUSTIFY_CLASS: Readonly<Record<'start' | 'end' | 'center', string>> = {
     center: 'justify-center',
 };
 
+/**
+ * Where a column's header and cells sit: the inline start, figures included.
+ *
+ * A row whose every value starts at its track's leading edge reads from one edge to the next: the
+ * gap between a value and the column after it is that track's spare room and nothing else. Centring
+ * the figure columns split that room either side and the row read as unevenly spaced. `mono` still
+ * sets the figures in tabular numerals, so a column of them lines up digit for digit.
+ *
+ * A column that states its own alignment keeps it — `end` for the row's control column.
+ *
+ * Exported so a custom header — the Catalogue's sort-and-filter header — sits where its cells do.
+ */
+export function dataListColumnAlign(
+    column: Pick<DataListColumn<unknown>, 'align' | 'mono'>,
+): 'start' | 'end' | 'center' {
+    return column.align ?? 'start';
+}
+
+/** The text of a cell with no renderer — the one size and ink every cell is set in. */
 function cellClass(column: DataListColumn<unknown>): string {
     return cx(
         'text-role-body text-content-primary',
         column.mono === true ? 'tabular-nums' : null,
-        TEXT_ALIGN_CLASS[column.align ?? 'start'],
+        TEXT_ALIGN_CLASS[dataListColumnAlign(column)],
     );
 }
+
+/** One value for every cell: the context is compared by identity, so a new object each time would re-render every text. */
+const CELL_TEXT: TableCellText = {};
 
 export function DataList<Row>({
     columns,
@@ -253,6 +356,8 @@ export function DataList<Row>({
     density = 'md',
     onRowPress,
     emptyState,
+    framed = false,
+    rowEntrance = false,
     className,
     testID,
 }: DataListProps<Row>) {
@@ -262,16 +367,37 @@ export function DataList<Row>({
     const [available, setAvailable] = useState(0);
     const visible = fitColumns(columns, available);
     const trackSum = visible.reduce((sum, column) => sum + column.width, 0);
-    // `width` is the floor; this is what each column is actually drawn at once the port's leftover
-    // width has been shared out. Before the first measurement there is no port to share, and
-    // `spreadColumns` returns the declared widths unchanged.
-    const tracks = spreadColumns(visible, available);
+    // Chosen from what is drawn, so a dropped column hands its share to the ones that remain.
+    const fills = growWeights(visible);
+
+    /*
+     * The port is measured only to decide *which* columns fit. *How wide* each one is drawn is the
+     * browser's job: every track is `flex-basis: width` and the filling ones grow by an equal share of
+     * the leftover (see `trackStyle`) — the same arithmetic as `spreadColumns`, run by the layout
+     * engine instead of by React.
+     *
+     * That split is what keeps a width change smooth. When the shell's page panel slides open or
+     * shut, the port changes width on every frame. Pixel tracks computed here were either stale for
+     * the whole slide and then snapped, or recomputed by re-rendering every row on every frame; both
+     * read as the columns lagging behind the cards around them. Flex tracks follow the port inside
+     * the browser's own layout pass, and React is asked to re-render only when a column actually has
+     * to be dropped or brought back.
+     */
+    const columnsRef = useRef(columns);
+    columnsRef.current = columns;
+    const fitSignature = (width: number) =>
+        fitColumns(columnsRef.current, width)
+            .map((column) => column.key)
+            .join('|');
 
     // A zero is never a port. It is what a node reports before it has been laid out, and taking it
-    // would fit every column against nothing and then need a second pass to undo that.
+    // would fit every column against nothing and then need a second pass to undo that. A width
+    // that fits the same columns as the one in hand changes nothing on screen, so it is not stored.
     const measure = (width: number) => {
         if (width <= 0) return;
-        setAvailable((current) => (current === width ? current : width));
+        setAvailable((current) =>
+            current === width || fitSignature(current) === fitSignature(width) ? current : width,
+        );
     };
 
     /**
@@ -304,8 +430,8 @@ export function DataList<Row>({
         } | null;
         const rect = node?.getBoundingClientRect?.();
         if (rect === undefined) return;
-        if (rect.width <= 0) return;
-        setAvailable((current) => (current === rect.width ? current : rect.width));
+        measure(rect.width);
+        // `measure` reads the columns through a ref, so this callback never needs to change.
     }, []);
 
     useLayoutEffect(() => {
@@ -328,7 +454,9 @@ export function DataList<Row>({
             aria-label={label}
             accessibilityLabel={label}
             ref={port}
-            onLayout={onLayout}
+            // Native only: on the web `onLayout` is a ResizeObserver that fires on every frame of a
+            // width transition, and the node is read directly instead (see `readPort`).
+            {...(Platform.OS === 'web' ? {} : { onLayout })}
             className={cx('flex-col', className)}
         >
             <View
@@ -361,10 +489,13 @@ export function DataList<Row>({
                      */
                     className={cx(
                         'min-h-row-sm z-raised flex-row items-center border-b border-stroke-subtle',
-                        'bg-surface-base web:sticky web:top-0',
+                        // The brand's subtle ground: the header reads as the table's green band.
+                        // Opaque, which the sticky header needs so rows do not show through.
+                        'bg-surface-brand-subtle web:sticky web:top-0',
+                        framed ? 'rounded-t-panel' : null,
                     )}
                 >
-                    {visible.map((column, index) => (
+                    {visible.map((column) => (
                         <View
                             key={column.key}
                             role="columnheader"
@@ -373,7 +504,7 @@ export function DataList<Row>({
                                     ? undefined
                                     : `${testID}-columnheader-${column.key}`
                             }
-                            style={{ width: tracks[index] ?? column.width }}
+                            style={trackStyle(column, fills)}
                             className="px-control-sm"
                         >
                             {column.renderHeader === undefined ? (
@@ -384,13 +515,16 @@ export function DataList<Row>({
                                  * §4.3 calls this out by name, and the action column is exactly it.
                                  */
                                 <RNText
+                                    numberOfLines={1}
+                                    {...truncationHoverProps}
                                     className={cx(
-                                        // `label`, not `micro`: the same 12px the cells under it
-                                        // take, one weight heavier. A header two steps smaller
-                                        // than its own column reads as a footnote to the data
-                                        // rather than as its name.
-                                        'text-role-label text-content-secondary',
-                                        TEXT_ALIGN_CLASS[column.align ?? 'start'],
+                                        // `strong`: a step larger and heavier than the 12px cells
+                                        // under it, so the header reads as the column's name — the
+                                        // same role the sort and filter headers draw with.
+                                        'text-role-strong text-content-on-brand-subtle',
+                                        TEXT_ALIGN_CLASS[
+                                            dataListColumnAlign(column as DataListColumn<unknown>)
+                                        ],
                                     )}
                                 >
                                     {column.label}
@@ -404,72 +538,113 @@ export function DataList<Row>({
 
                 {rows.length === 0
                     ? null
-                    : rows.map((row) => {
+                    : rows.map((row, index) => {
                           const key = rowKey(row);
-                          const cells = visible.map((column, index) => (
+                          const cells = visible.map((column) => (
                               <View
                                   key={column.key}
                                   role="cell"
-                                  style={{ width: tracks[index] ?? column.width }}
+                                  style={trackStyle(column, fills)}
                                   className={cx(
                                       // No vertical padding: `min-h-row-*` is what sets the row's
                                       // floor, and a padded cell would raise every row above the
-                                      // density it was asked for.
+                                      // density it was asked for. No `overflow-hidden`: a cell
+                                      // can hold a select whose panel has to escape it.
                                       'flex-row items-center px-control-sm',
-                                      JUSTIFY_CLASS[column.align ?? 'start'],
+                                      JUSTIFY_CLASS[
+                                          dataListColumnAlign(column as DataListColumn<unknown>)
+                                      ],
                                   )}
                               >
                                   {column.render === undefined ? (
-                                      // No `numberOfLines`. A track wide enough for its value is
-                                      // the fix for a long one; the clamp was the fix for a track
-                                      // that was not, and all it ever did was hide the problem
-                                      // behind an ellipsis.
+                                      // One line, ellipsis, the whole value on hover — the rule
+                                      // `TableCellTextContext` gives a renderer's own text.
                                       <RNText
-                                          className={cellClass(column as DataListColumn<unknown>)}
+                                          numberOfLines={1}
+                                          {...truncationHoverProps}
+                                          className={cx(
+                                              cellClass(column as DataListColumn<unknown>),
+                                              'min-w-0 shrink',
+                                          )}
                                       >
                                           {column.value?.(row) ?? ''}
                                       </RNText>
                                   ) : (
-                                      column.render(row)
+                                      /*
+                                       * A renderer's own text takes the cell's size and ink — see
+                                       * `TableCellTextContext` — so a column reads in one voice
+                                       * whatever variant each renderer reached for.
+                                       */
+                                      <TableCellTextContext.Provider value={CELL_TEXT}>
+                                          {column.render(row)}
+                                      </TableCellTextContext.Provider>
                                   )}
                               </View>
                           ));
 
+                          const last = index === rows.length - 1;
+                          /*
+                           * No hairline between rows — the header's rule is the table's one line.
+                           * The rows are told apart by their height and the hover tint, and a rule
+                           * under every one of them striped a dense page into a ledger. The last
+                           * row of a framed list takes the frame's bottom corners, so its tint does
+                           * not square them off.
+                           */
                           const rowClass = cx(
                               ROW_HEIGHT_CLASS[density],
-                              'flex-row items-center border-b border-stroke-subtle',
+                              'flex-row items-center',
+                              framed && last ? 'rounded-b-panel' : null,
                           );
 
-                          if (onRowPress === undefined) {
-                              return (
+                          const rowTestID =
+                              testID === undefined ? undefined : `${testID}-row-${key}`;
+                          const drawn =
+                              onRowPress === undefined ? (
                                   <View
                                       key={key}
                                       role="row"
-                                      testID={
-                                          testID === undefined ? undefined : `${testID}-row-${key}`
-                                      }
+                                      testID={rowTestID}
                                       className={rowClass}
                                   >
                                       {cells}
                                   </View>
+                              ) : (
+                                  <Pressable
+                                      key={key}
+                                      role="row"
+                                      testID={rowTestID}
+                                      onPress={() => {
+                                          onRowPress(row);
+                                      }}
+                                      // The hover tint is the row's only affordance — there is no
+                                      // chevron and no button — so it covers the whole track sum
+                                      // rather than the port, which is what the `minWidth` above
+                                      // buys.
+                                      className={cx(rowClass, 'hover:bg-surface-sunken')}
+                                  >
+                                      {cells}
+                                  </Pressable>
                               );
-                          }
 
-                          return (
-                              <Pressable
+                          /*
+                           * The entrance wraps the row rather than animating it, so the row keeps
+                           * its own element, id and hover — the wrapper is a plain box between the
+                           * table and its row, which ARIA 1.2 allows for a required context.
+                           */
+                          return rowEntrance ? (
+                              <CascadeItem
                                   key={key}
-                                  role="row"
-                                  testID={testID === undefined ? undefined : `${testID}-row-${key}`}
-                                  onPress={() => {
-                                      onRowPress(row);
-                                  }}
-                                  // The hover tint is the row's only affordance — there is no
-                                  // chevron and no button — so it covers the whole track sum rather
-                                  // than the port, which is what the `minWidth` above buys.
-                                  className={cx(rowClass, 'hover:bg-surface-sunken')}
+                                  index={index}
+                                  distance={ROW_DISTANCE}
+                                  duration={ROW_DURATION}
+                                  testID={
+                                      rowTestID === undefined ? undefined : `${rowTestID}-entrance`
+                                  }
                               >
-                                  {cells}
-                              </Pressable>
+                                  {drawn}
+                              </CascadeItem>
+                          ) : (
+                              drawn
                           );
                       })}
             </View>

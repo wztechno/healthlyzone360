@@ -26,10 +26,17 @@ if [ -f apps/api/storage/app/v6-recipes.json ]; then
 else
     echo "v6-recipes.json not staged - skipping technical sheets (regenerate with scripts/convert-v6-workbook.py --recipes)."
 fi
+# Every meal, sauce, dressing and frozen meal the sheets did not formulate gets a
+# placeholder draft recipe, so the whole kitchen appears in the recipe book.
+(cd apps/api && php artisan kitchen:formulate-unlinked --org=healthzone360-kitchen)
 # After the recipes: they mint ingredients, and the determinations file carries the
 # owner's readings for them. Then publish whatever now clears its gates.
 (cd apps/api && php artisan kitchen:apply-allergen-determinations --org=healthzone360-kitchen)
 (cd apps/api && php artisan kitchen:publish-ready --org=healthzone360-kitchen)
+# The workbook prices no frozen row, so the shelf imports unpriced and on no channel;
+# this prices it (placeholder figures in database/data/frozen-shelf-prices.json) and
+# lists it on the web shop.
+(cd apps/api && php artisan kitchen:price-frozen-shelf --org=healthzone360-kitchen)
 (cd apps/api && php artisan inventory:derive-stock-items)
 # The way in: owner@/staff@/customer@healthzone360.test, all "password".
 (cd apps/api && php artisan db:seed --class=HealthZoneKitchenSeeder --force)

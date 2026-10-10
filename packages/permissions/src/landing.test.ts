@@ -31,6 +31,38 @@ describe('resolveLandingRoute', () => {
         });
     });
 
+    it('holds a provisioned account on the change-password screen', () => {
+        expect(
+            resolveLandingRoute(makeAccessState({ mode: 'staff', mustChangePassword: true })),
+        ).toEqual({
+            href: ROUTE_PATHS.changePassword,
+            reason: 'password_change_required',
+        });
+    });
+
+    it('holds it there ahead of email verification, not behind it', () => {
+        // A new employee may have no mailbox yet. Sending them to verify an address first would
+        // strand them on the one screen they cannot finish, still carrying the password their
+        // administrator chose.
+        expect(
+            resolveLandingRoute(
+                makeAccessState({ emailVerified: false, mustChangePassword: true }),
+            ),
+        ).toEqual({
+            href: ROUTE_PATHS.changePassword,
+            reason: 'password_change_required',
+        });
+    });
+
+    it('lets them through once the flag clears', () => {
+        expect(
+            resolveLandingRoute(makeAccessState({ mode: 'customer', mustChangePassword: false })),
+        ).toEqual({
+            href: ROUTE_PATHS.customerHome,
+            reason: 'workspace',
+        });
+    });
+
     it('sends verified users without an organisation to the organisation picker', () => {
         expect(resolveLandingRoute(makeAccessState({ mode: 'staff' }))).toEqual({
             href: ROUTE_PATHS.selectOrganisation,

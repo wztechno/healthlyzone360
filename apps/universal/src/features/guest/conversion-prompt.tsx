@@ -101,6 +101,7 @@ export function ConversionPrompt({
                 <TextInputField
                     testID={`${testID}-full-name`}
                     label={t('guest:convert.fullName')}
+                    placeholder={t('guest:convert.fullNamePlaceholder')}
                     value={fullName}
                     onChangeText={setFullName}
                     required
@@ -110,6 +111,7 @@ export function ConversionPrompt({
                 <TextInputField
                     testID={`${testID}-password`}
                     label={t('guest:convert.password')}
+                    placeholder={t('guest:convert.passwordPlaceholder')}
                     hint={t('guest:convert.passwordHint')}
                     value={password}
                     onChangeText={setPassword}

@@ -665,22 +665,28 @@ describe('the 24-hour cut-off', () => {
             expect(screen.getByText('Tuesday, Thursday')).toBeTruthy();
         });
 
-        // The delivery whose cut-off has already passed survives, on its original Friday, even
-        // though Friday is no longer one of the chosen weekdays. The deliveries table refetches
-        // independently of the configuration text awaited above, so the first read of it waits.
+        /*
+         * Everything the change could touch has moved onto the new weekdays. The deliveries table
+         * refetches independently of the configuration text awaited above, so this first read of
+         * it waits — and waits on rows only the re-planned table has. It used to wait on the
+         * surviving Friday, which was Scheduled before the change as well, so on a slow runner the
+         * wait passed on the old table and the new dates were read before they had landed.
+         */
         await waitFor(() => {
-            expect(
-                screen.getByTestId(`subscription-deliveries-status-${NEXT_DELIVERY}`),
-            ).toHaveTextContent(/Scheduled/);
+            for (const date of REPLANNED_DATES) {
+                expect(
+                    screen.getByTestId(`subscription-deliveries-status-${date}`),
+                ).toHaveTextContent(/Scheduled/);
+            }
         });
 
-        // Everything the change could touch has moved onto the new weekdays, and none of the old
-        // Monday/Wednesday/Friday dates is still planned.
-        for (const date of REPLANNED_DATES) {
-            expect(screen.getByTestId(`subscription-deliveries-status-${date}`)).toHaveTextContent(
-                /Scheduled/,
-            );
-        }
+        // The delivery whose cut-off has already passed survives, on its original Friday, even
+        // though Friday is no longer one of the chosen weekdays.
+        expect(
+            screen.getByTestId(`subscription-deliveries-status-${NEXT_DELIVERY}`),
+        ).toHaveTextContent(/Scheduled/);
+
+        // None of the old Monday/Wednesday/Friday dates is still planned.
         for (const date of SCHEDULED_DATES.filter((value) => value !== NEXT_DELIVERY)) {
             expect(screen.queryByTestId(`subscription-deliveries-status-${date}`)).toBeNull();
         }

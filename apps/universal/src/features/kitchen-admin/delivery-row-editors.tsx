@@ -3,19 +3,26 @@ import {
     Badge,
     Button,
     Callout,
-    Card,
     Checkbox,
-    Chip,
-    FilterChip,
+    cx,
+    DataList,
+    fieldWidth,
     Icon,
     Inline,
+    TimeField,
+    Select,
     Stack,
+    Tag,
     Text,
     TextInputField,
+    useBreakpoint,
 } from '@healthy360/design-system';
+import type { DataListColumn } from '@healthy360/design-system';
 import type { ServiceAreaId } from '@healthy360/domain-types';
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Pressable, View } from 'react-native';
 
 import { weekdayKey } from '../marketplace/format.ts';
 import { BilingualField } from './bilingual-field.tsx';
@@ -26,9 +33,14 @@ import {
     toggleArea,
     withDayClosed,
 } from './delivery-model.ts';
-import type { DeliveryWindowDraft, OperatingDayDraft } from './delivery-model.ts';
+import type {
+    DeliveryWindowDraft,
+    OperatingDayDraft,
+    OperatingField,
+    OperatingIssue,
+} from './delivery-model.ts';
 import { ISO_WEEKDAYS, displayName } from './format.ts';
-import { RowAnnouncer, RowShell, UndoBar } from './row-editor-shell.tsx';
+import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
 
 /**
  * The three repeated editors of the delivery slice (K1.7).
@@ -37,26 +49,37 @@ import { RowAnnouncer, RowShell, UndoBar } from './row-editor-shell.tsx';
  * place* that has no design-system control behind it, and each therefore has to compose one out of
  * the primitives without inventing a widget.
  *
- * ## There is no time field in the design system, and this slice does not add one
+ * ## Every time is the design system's `TimeField`
  *
- * `@healthy360/design-system` exports `DateField` (platform-split, web and native halves) and no
- * time equivalent. Adding one is a design-system change with its own platform split, its own
- * keyboard model and its own accessibility surface — not something a feature slice should land as a
- * side effect. So every time here is a constrained text field: `inputMode="numeric"`, a stated
- * `HH:mm` format in the hint, `parseClockTime` as the only accepted spelling, and a per-row error
- * that names the field rather than the row. That is the same shape the meal availability editor's
- * order cut-off already uses (`./catalogue-row-editors.tsx`), so the workspace has one way of
- * typing a time rather than two. **The gap is recorded, not papered over**: a real `TimeField`
- * belongs in the design system, and when it lands these three call sites change and nothing else
- * does.
+ * Typed (`930` reads as `09:30`) or picked from its panel, always stored as ISO `HH:mm`. A time that
+ * must follow another — a window's end, a day's closing — passes the earlier one as `min`, so the
+ * panel does not offer the wrong answer; the per-row errors below still catch a typed one.
  *
- * ## Weekday chips are in ISO order and are not mirrored by hand
+ * ## Weekday toggles are in ISO order and are not mirrored by hand
  *
- * Monday is 1 in every language. The chips are laid out with `Inline`, whose direction follows the
+ * Monday is 1 in every language. The toggles are laid out in a flex row, whose direction follows the
  * document, so Arabic renders Monday on the right *automatically* — and nothing here reverses the
  * array, because reversing it would produce a left-to-right week inside a right-to-left interface
  * exactly once, on the day somebody "fixed" the order.
  */
+
+/**
+ * The window table's tracks (Commercial §3.4), each including the `DataList` cell's own 8px inline
+ * padding either side. Name takes the rest. The weekday track keeps the 260px the seven toggles were
+ * drawn at; the time and offered tracks are the trading week's time and trading tracks, so the two
+ * tables of the delivery slice size a time and a select alike. The control track is wide enough for
+ * its "Actions" header to read whole. The zones track is the 180px the page's read-only "Offered
+ * in" cell was drawn at, plus the cell's padding.
+ */
+export const WINDOW_TRACKS = {
+    name: 220,
+    days: 276,
+    starts: 120,
+    ends: 120,
+    offered: 112,
+    zones: 196,
+    remove: 72,
+} as const;
 
 /* ------------------------------------------------------------------------------------------------
  * Delivery windows
@@ -68,19 +91,38 @@ export interface DeliveryWindowRowsProps {
     readonly errors: ReadonlyMap<string, string>;
     readonly canManage: boolean;
     readonly onAdd: () => void;
+    /** Drawn beside "Add a window" — the section's save, which the screen owns. */
+    readonly saveAction?: ReactNode | undefined;
+    /** A read-only trailing cell per row — the zones that offer the window. */
+    readonly zonesCell?: ((row: DeliveryWindowDraft) => ReactNode) | undefined;
     readonly testID: string;
 }
 
+type Offered = 'yes' | 'no';
+
 /**
- * The delivery windows of one zone.
+ * The kitchen's delivery windows, as a `DataList` at the desk's small density — the trading week's
+ * shape, so the header is the table's green band and every column but the zones one is an editable
+ * control. Each row's id is `${testID}-row-${key}`, and its fields hang off that.
  *
  * No move controls, unlike the recipe-line and pack editors. A window's array position carries no
  * meaning anywhere — the consumer `DeliveryZone` has no window list at all, so nothing downstream
- * reads the order — and a permanently pointless Move up button is furniture (see `RowShell`).
+ * reads the order — and a permanently pointless Move up button is furniture.
  *
  * One window spans several weekdays rather than one row per day, because that is what the contract
  * models and what a person maintains: "Morning, 08:00–11:00, Monday to Friday" is one rule, and five
  * rows of it is five chances for an inconsistent Wednesday.
+ *
+ * Every column is undroppable: each is a field of the rule, and a narrow port scrolls the table
+ * rather than hiding one.
+ *
+ * Each row carries at most one note, in order of what a person must act on first: the row's error,
+ * then "not offered". It sits in the name cell, under the name: the error can be about any field of
+ * the window, the name track is the one wide enough for a sentence, and a `DataList` row has no line
+ * of its own beneath it.
+ *
+ * Only a row not yet saved can be removed: there is no window delete, so a saved window is
+ * withdrawn with Offered → No instead.
  */
 export function DeliveryWindowRows({
     rows,
@@ -88,6 +130,8 @@ export function DeliveryWindowRows({
     errors,
     canManage,
     onAdd,
+    saveAction,
+    zonesCell,
     testID,
 }: DeliveryWindowRowsProps) {
     const { t } = useTranslation();
@@ -100,170 +144,269 @@ export function DeliveryWindowRows({
         onChange(rows.map((row, position) => (position === index ? { ...row, ...next } : row)));
     };
 
-    return (
-        <Stack space="sm" testID={testID}>
-            {rows.length === 0 ? (
-                <Text testID={`${testID}-empty`} tone="secondary">
-                    {t('kitchen:windows.none')}
-                </Text>
-            ) : null}
+    /** A row's position, id and spoken name — what every cell of it needs. */
+    const describe = (row: DeliveryWindowDraft) => {
+        const index = rows.findIndex((entry) => entry.key === row.key);
+        return {
+            index,
+            rowTestId: `${testID}-row-${row.key}`,
+            rowName: t('kitchen:windows.rowTitle', { position: index + 1 }),
+        };
+    };
 
-            {rows.map((row, index) => {
-                const rowTestId = `${testID}-row-${row.key}`;
+    const columns: readonly DataListColumn<DeliveryWindowDraft>[] = [
+        {
+            key: 'name',
+            label: t('kitchen:windows.labelField'),
+            width: WINDOW_TRACKS.name,
+            priority: 100,
+            fill: true,
+            render: (row) => {
+                const { index, rowTestId, rowName } = describe(row);
                 const error = errors.get(row.key);
-                const weekdays = normaliseWeekdays(row.weekdays);
-
                 return (
-                    <RowShell
-                        key={row.key}
-                        testID={rowTestId}
-                        title={t('kitchen:windows.rowTitle', { position: index + 1 })}
-                        position={index + 1}
-                        total={rows.length}
-                        canManage={canManage}
-                        badge={
-                            row.isActive ? null : (
-                                <Badge
-                                    testID={`${rowTestId}-inactive`}
-                                    tone="neutral"
-                                    icon="eyeOff"
-                                    label={t('kitchen:windows.inactiveBadge')}
-                                />
-                            )
-                        }
-                        onRemove={() => {
-                            setRemoved({ row, index });
-                            onChange(rows.filter((_, position) => position !== index));
-                        }}
-                    >
-                        <Stack space="sm">
-                            <BilingualField
-                                testID={`${rowTestId}-label`}
-                                fieldLabel={t('kitchen:windows.labelField')}
-                                value={row.label}
-                                requiredEnglish
-                                onChange={(next) => {
-                                    patch(index, { label: next });
-                                }}
-                            />
-
-                            <Stack space="xs">
-                                <Text variant="label" testID={`${rowTestId}-weekdays-label`}>
-                                    {t('kitchen:windows.weekdaysLabel')}
-                                </Text>
-                                <Text variant="caption" tone="secondary">
-                                    {t('kitchen:windows.weekdaysHint')}
-                                </Text>
-                                <Inline space="xs" wrap testID={`${rowTestId}-weekdays`}>
-                                    {ISO_WEEKDAYS.map((weekday) => (
-                                        <FilterChip
-                                            key={weekday}
-                                            testID={`${rowTestId}-weekday-${String(weekday)}`}
-                                            label={t(weekdayKey(weekday))}
-                                            selected={weekdays.includes(weekday)}
-                                            disabled={!canManage}
-                                            onChange={(selected) => {
-                                                patch(index, {
-                                                    weekdays: selected
-                                                        ? normaliseWeekdays([
-                                                              ...row.weekdays,
-                                                              weekday,
-                                                          ])
-                                                        : row.weekdays.filter(
-                                                              (entry) => entry !== weekday,
-                                                          ),
-                                                });
-                                            }}
-                                        />
-                                    ))}
-                                </Inline>
-                            </Stack>
-
-                            <Inline space="sm" wrap>
-                                <Stack space="none" grow>
-                                    <TextInputField
-                                        testID={`${rowTestId}-starts`}
-                                        id={`${rowTestId}-starts`}
-                                        label={t('kitchen:windows.startsLabel')}
-                                        hint={t('kitchen:time.formatHint')}
-                                        placeholder={t('kitchen:time.placeholder')}
-                                        value={row.startsAt}
-                                        inputMode="numeric"
-                                        autoCorrect={false}
-                                        required
-                                        disabled={!canManage}
-                                        onChangeText={(next) => {
-                                            patch(index, { startsAt: next });
-                                        }}
-                                    />
-                                </Stack>
-                                <Stack space="none" grow>
-                                    <TextInputField
-                                        testID={`${rowTestId}-ends`}
-                                        id={`${rowTestId}-ends`}
-                                        label={t('kitchen:windows.endsLabel')}
-                                        hint={t('kitchen:time.formatHint')}
-                                        placeholder={t('kitchen:time.placeholder')}
-                                        value={row.endsAt}
-                                        inputMode="numeric"
-                                        autoCorrect={false}
-                                        required
-                                        disabled={!canManage}
-                                        onChangeText={(next) => {
-                                            patch(index, { endsAt: next });
-                                        }}
-                                    />
-                                </Stack>
-                            </Inline>
-
-                            <TextInputField
-                                testID={`${rowTestId}-capacity`}
-                                id={`${rowTestId}-capacity`}
-                                label={t('kitchen:windows.capacityLabel')}
-                                hint={t('kitchen:windows.capacityHint')}
-                                value={row.capacity}
-                                inputMode="numeric"
-                                autoCorrect={false}
-                                disabled={!canManage}
-                                onChangeText={(next) => {
-                                    patch(index, { capacity: next });
-                                }}
-                            />
-
-                            {row.capacity.trim() === '' ? (
-                                <Text
-                                    testID={`${rowTestId}-capacity-state`}
-                                    variant="caption"
-                                    tone="secondary"
-                                >
-                                    {t('kitchen:windows.capacityUncapped')}
-                                </Text>
-                            ) : null}
-
-                            <Checkbox
-                                testID={`${rowTestId}-active`}
-                                id={`${rowTestId}-active`}
-                                label={t('kitchen:windows.activeLabel')}
-                                description={t('kitchen:windows.activeHint')}
-                                checked={row.isActive}
-                                disabled={!canManage}
-                                onChange={(checked) => {
-                                    patch(index, { isActive: checked });
-                                }}
-                            />
-
-                            {error === undefined ? null : (
-                                <Text testID={`${rowTestId}-error`} tone="danger" variant="caption">
-                                    {error}
-                                </Text>
-                            )}
-                        </Stack>
-                    </RowShell>
+                    <View className="z-auto w-full flex-col gap-hair py-tight">
+                        <BilingualField
+                            testID={`${rowTestId}-label`}
+                            fieldLabel={`${rowName} — ${t('kitchen:windows.labelField')}`}
+                            value={row.label}
+                            requiredEnglish
+                            labelHidden
+                            layout="fill"
+                            // What a window is called, by example: the name a customer picks a
+                            // delivery slot by — "Morning", not "Window 1".
+                            placeholder={{
+                                en: t('kitchen:windows.labelPlaceholderEn'),
+                                ar: t('kitchen:windows.labelPlaceholderAr'),
+                            }}
+                            disabled={!canManage}
+                            onChange={(next) => {
+                                patch(index, { label: next });
+                            }}
+                        />
+                        {/* Two lines rather than the cell's one: a note is a sentence. */}
+                        {error !== undefined ? (
+                            <Text
+                                testID={`${rowTestId}-error`}
+                                tone="danger"
+                                variant="caption"
+                                numberOfLines={2}
+                            >
+                                {error}
+                            </Text>
+                        ) : !row.isActive ? (
+                            <Text
+                                testID={`${rowTestId}-active-state`}
+                                tone="secondary"
+                                variant="caption"
+                                numberOfLines={2}
+                            >
+                                {t('kitchen:windows.activeHint')}
+                            </Text>
+                        ) : null}
+                    </View>
                 );
-            })}
+            },
+        },
+        {
+            key: 'weekdays',
+            label: t('kitchen:windows.weekdaysLabel'),
+            width: WINDOW_TRACKS.days,
+            priority: 99,
+            grow: false,
+            render: (row) => {
+                const { index, rowTestId, rowName } = describe(row);
+                const weekdays = normaliseWeekdays(row.weekdays);
+                return (
+                    <View className="w-full py-tight">
+                        <View
+                            className="w-full flex-row gap-hair"
+                            role="group"
+                            aria-label={`${rowName} — ${t('kitchen:windows.weekdaysLabel')}`}
+                            testID={`${rowTestId}-weekdays`}
+                        >
+                            {ISO_WEEKDAYS.map((weekday) => (
+                                <DayToggle
+                                    key={weekday}
+                                    testID={`${rowTestId}-weekday-${String(weekday)}`}
+                                    initial={t(`kitchen:windows.dayInitial.${String(weekday)}`)}
+                                    name={t(weekdayKey(weekday))}
+                                    selected={weekdays.includes(weekday)}
+                                    disabled={!canManage}
+                                    onChange={(selected) => {
+                                        patch(index, {
+                                            weekdays: selected
+                                                ? normaliseWeekdays([...row.weekdays, weekday])
+                                                : row.weekdays.filter((entry) => entry !== weekday),
+                                        });
+                                    }}
+                                />
+                            ))}
+                        </View>
+                    </View>
+                );
+            },
+        },
+        {
+            key: 'starts',
+            label: t('kitchen:windows.startsLabel'),
+            width: WINDOW_TRACKS.starts,
+            priority: 98,
+            grow: false,
+            render: (row) => {
+                const { index, rowTestId, rowName } = describe(row);
+                return (
+                    <View className="w-full py-tight">
+                        <TimeField
+                            fullWidth
+                            testID={`${rowTestId}-starts`}
+                            label={`${rowName} — ${t('kitchen:windows.startsLabel')}`}
+                            labelHidden
+                            value={row.startsAt}
+                            disabled={!canManage}
+                            onChange={(next) => {
+                                patch(index, { startsAt: next });
+                            }}
+                        />
+                    </View>
+                );
+            },
+        },
+        {
+            key: 'ends',
+            label: t('kitchen:windows.endsLabel'),
+            width: WINDOW_TRACKS.ends,
+            priority: 98,
+            grow: false,
+            render: (row) => {
+                const { index, rowTestId, rowName } = describe(row);
+                return (
+                    <View className="w-full py-tight">
+                        <TimeField
+                            fullWidth
+                            testID={`${rowTestId}-ends`}
+                            label={`${rowName} — ${t('kitchen:windows.endsLabel')}`}
+                            labelHidden
+                            value={row.endsAt}
+                            min={row.startsAt === '' ? undefined : row.startsAt}
+                            disabled={!canManage}
+                            onChange={(next) => {
+                                patch(index, { endsAt: next });
+                            }}
+                        />
+                    </View>
+                );
+            },
+        },
+        {
+            key: 'offered',
+            label: t('kitchen:windows.offeredColumn'),
+            width: WINDOW_TRACKS.offered,
+            priority: 97,
+            grow: false,
+            render: (row) => {
+                const { index, rowTestId, rowName } = describe(row);
+                return (
+                    <View className="z-auto w-full py-tight">
+                        <Select<Offered>
+                            testID={`${rowTestId}-active`}
+                            id={`${rowTestId}-active`}
+                            label={`${rowName} — ${t('kitchen:windows.activeLabel')}`}
+                            labelHidden
+                            size="sm"
+                            disabled={!canManage}
+                            value={row.isActive ? 'yes' : 'no'}
+                            options={[
+                                { value: 'yes', label: t('kitchen:windows.offeredYes') },
+                                { value: 'no', label: t('kitchen:windows.inactiveBadge') },
+                            ]}
+                            onChange={(next) => {
+                                patch(index, { isActive: next === 'yes' });
+                            }}
+                        />
+                    </View>
+                );
+            },
+        },
+        ...(zonesCell === undefined
+            ? []
+            : [
+                  {
+                      key: 'zones',
+                      label: t('kitchen:deliveryWindows.zonesColumn'),
+                      width: WINDOW_TRACKS.zones,
+                      priority: 97,
+                      grow: false,
+                      sortable: false,
+                      filterable: false,
+                      render: (row) => (
+                          <View
+                              className="w-full py-tight"
+                              testID={`${describe(row).rowTestId}-zones`}
+                          >
+                              {zonesCell(row)}
+                          </View>
+                      ),
+                  } satisfies DataListColumn<DeliveryWindowDraft>,
+              ]),
+        ...(canManage
+            ? [
+                  {
+                      key: 'remove',
+                      label: t('kitchen:list.actionHeader'),
+                      width: WINDOW_TRACKS.remove,
+                      priority: 96,
+                      grow: false,
+                      align: 'end',
+                      sortable: false,
+                      filterable: false,
+                      render: (row) => {
+                          // A saved window has no delete; it is withdrawn with Offered → No.
+                          if (row.id !== null) return null;
+                          const { index, rowTestId, rowName } = describe(row);
+                          const name = `${t('kitchen:rows.remove')} — ${rowName}`;
+                          return (
+                              <Pressable
+                                  testID={`${rowTestId}-remove`}
+                                  role="button"
+                                  accessibilityRole="button"
+                                  accessibilityLabel={name}
+                                  aria-label={name}
+                                  onPress={() => {
+                                      setRemoved({ row, index });
+                                      onChange(rows.filter((_, position) => position !== index));
+                                  }}
+                                  className="h-6 w-6 items-center justify-center rounded-sm border border-stroke bg-surface-raised hover:bg-surface-sunken"
+                              >
+                                  <Icon name="close" size="sm" className="text-content-secondary" />
+                              </Pressable>
+                          );
+                      },
+                  } satisfies DataListColumn<DeliveryWindowDraft>,
+              ]
+            : []),
+    ];
 
-            {canManage ? (
-                <Inline space="sm" wrap align="center">
+    return (
+        <Stack space="sm">
+            <DataList<DeliveryWindowDraft>
+                testID={testID}
+                label={t('kitchen:zones.sectionWindows')}
+                columns={columns}
+                rows={rows}
+                rowKey={(row) => row.key}
+                density="sm"
+                emptyState={
+                    <View className="px-control-sm py-2">
+                        <Text testID={`${testID}-empty`} tone="secondary" variant="caption">
+                            {t('kitchen:windows.none')}
+                        </Text>
+                    </View>
+                }
+            />
+
+            <Inline space="sm" wrap align="center">
+                {canManage ? (
                     <Button
                         testID={`${testID}-add`}
                         size="sm"
@@ -272,21 +415,72 @@ export function DeliveryWindowRows({
                         label={t('kitchen:windows.add')}
                         onPress={onAdd}
                     />
-                    {removed === null ? null : (
-                        <UndoBar
-                            testID={`${testID}-removed-bar`}
-                            label={t('kitchen:windows.removed')}
-                            onUndo={() => {
-                                const next = [...rows];
-                                next.splice(Math.min(removed.index, next.length), 0, removed.row);
-                                onChange(next);
-                                setRemoved(null);
-                            }}
-                        />
-                    )}
-                </Inline>
-            ) : null}
+                ) : null}
+                {saveAction}
+                {removed === null || !canManage ? null : (
+                    <UndoBar
+                        testID={`${testID}-removed-bar`}
+                        label={t('kitchen:windows.removed')}
+                        onUndo={() => {
+                            const next = [...rows];
+                            next.splice(Math.min(removed.index, next.length), 0, removed.row);
+                            onChange(next);
+                            setRemoved(null);
+                        }}
+                    />
+                )}
+            </Inline>
         </Stack>
+    );
+}
+
+/**
+ * One weekday of a window: the design's 34px lettered square. The letter is what is drawn; the
+ * whole day name is what is announced, because "T" is two days.
+ */
+export function DayToggle({
+    initial,
+    name,
+    selected,
+    disabled,
+    onChange,
+    testID,
+}: {
+    readonly initial: string;
+    readonly name: string;
+    readonly selected: boolean;
+    readonly disabled: boolean;
+    readonly onChange: (selected: boolean) => void;
+    readonly testID: string;
+}) {
+    return (
+        <Pressable
+            testID={testID}
+            role="checkbox"
+            accessibilityRole="checkbox"
+            accessibilityLabel={name}
+            aria-label={name}
+            aria-checked={selected}
+            accessibilityState={{ checked: selected, disabled }}
+            disabled={disabled}
+            onPress={() => {
+                onChange(!selected);
+            }}
+            className={cx(
+                'h-control-sm flex-1 items-center justify-center rounded-sm border',
+                selected
+                    ? 'border-surface-brand bg-surface-brand-subtle'
+                    : 'border-stroke bg-surface-raised hover:bg-surface-sunken',
+                disabled ? 'opacity-50' : null,
+            )}
+        >
+            <Text
+                variant="caption"
+                className={selected ? 'text-content-on-brand-subtle' : 'text-content-secondary'}
+            >
+                {initial}
+            </Text>
+        </Pressable>
     );
 }
 
@@ -294,10 +488,15 @@ export function DeliveryWindowRows({
  * Branch operating week
  * ---------------------------------------------------------------------------------------------- */
 
+/** The time tracks: wide enough for a 12-hour value with its clock glyph. */
+const TIME_TRACK = 120;
+const CUT_OFF_TRACK = 148;
+
 export interface OperatingWeekRowsProps {
     readonly rows: readonly OperatingDayDraft[];
     readonly onChange: (rows: readonly OperatingDayDraft[]) => void;
-    readonly errors: ReadonlyMap<number, string>;
+    /** One problem per day, drawn under the field it belongs to. */
+    readonly issues: ReadonlyMap<number, OperatingIssue>;
     readonly canManage: boolean;
     /** Copies this day's three times onto every other open day. */
     readonly onCopyToOpenDays: (weekday: number) => void;
@@ -305,15 +504,33 @@ export interface OperatingWeekRowsProps {
     readonly testID: string;
 }
 
+type Trading = 'open' | 'closed';
+
 /**
- * A branch's trading week: seven rows, always, one per ISO weekday.
+ * A branch's trading week: seven rows, always, one per ISO weekday, as a `DataList` at the desk's
+ * small density — the supply-order rows' shape, with `sm` controls rather than full-height fields.
  *
- * ## Closed removes the fields; it does not disable them
+ * ```
+ * Day             Trading     Opens        Closes       Last same-day order
+ * Monday          [Open ▾]    [08:00 ◷]    [22:00 ◷]    [20:30 ◷]             Copy to every open day
+ * Sunday CLOSED   [Closed ▾]  [--:-- ◷]    [--:-- ◷]    [--:-- ◷]
+ * ```
  *
- * The same rule the price editor's amount follows, and for a sharper reason here. A closed day is
- * three nulls on the wire, so a disabled field still holding `08:00` would show a time that is not
- * being saved — and an order cut-off is the last rule in this application that should be readable
- * one way and stored another. Closing therefore clears and hides; re-opening starts empty.
+ * Each day's id is `${testID}-day-${weekday}`, on its name cell, and its fields hang off that.
+ *
+ * ## Closed clears the fields and leaves them drawn
+ *
+ * A closed day is three nulls on the wire, so a field still holding `08:00` would show a time that is
+ * not being saved — and an order cut-off is the last rule here that should be readable one way and
+ * stored another. Choosing **Closed** therefore clears all three times in one action
+ * (`withDayClosed`) and the fields stay where they are, empty and disabled: the column is still
+ * there, it has nothing in it. Re-opening starts empty.
+ *
+ * ## A problem sits under the field it is about
+ *
+ * The rules are checked in field order and stop at the first, so each day has at most one problem
+ * and it names one field. It is drawn as that field's own error rather than as a sentence under the
+ * whole row, so the box to change is the box that turned red.
  *
  * ## Copy-to-every-open-day, not copy-to-all
  *
@@ -326,7 +543,7 @@ export interface OperatingWeekRowsProps {
 export function OperatingWeekRows({
     rows,
     onChange,
-    errors,
+    issues,
     canManage,
     onCopyToOpenDays,
     announcement,
@@ -334,150 +551,177 @@ export function OperatingWeekRows({
 }: OperatingWeekRowsProps) {
     const { t } = useTranslation();
 
-    const patch = (weekday: number, next: Partial<OperatingDayDraft>) => {
-        onChange(rows.map((row) => (row.weekday === weekday ? { ...row, ...next } : row)));
+    const update = (next: OperatingDayDraft) => {
+        onChange(rows.map((row) => (row.weekday === next.weekday ? next : row)));
     };
 
-    return (
-        <Stack space="sm" testID={testID}>
-            {rows.map((row) => {
-                const rowTestId = `${testID}-day-${String(row.weekday)}`;
-                const error = errors.get(row.weekday);
+    /*
+     * One time column. Padded off the row's hairlines, as the supply order's quantity box is: a
+     * DataList cell has no vertical padding, so a 28px box in a 28px row sat on both edges.
+     */
+    const timeColumn = (
+        key: string,
+        field: OperatingField,
+        label: string,
+        width: number,
+        priority: number,
+        read: (day: OperatingDayDraft) => string,
+        write: (day: OperatingDayDraft, value: string) => OperatingDayDraft,
+        /** The earliest time the panel offers for this day — closing after opening. */
+        earliest?: (day: OperatingDayDraft) => string,
+    ): DataListColumn<OperatingDayDraft> => ({
+        key,
+        label,
+        width,
+        priority,
+        render: (day) => {
+            const issue = issues.get(day.weekday);
+            return (
+                <View className="w-full py-tight">
+                    <TimeField
+                        fullWidth
+                        min={
+                            earliest === undefined || earliest(day) === ''
+                                ? undefined
+                                : earliest(day)
+                        }
+                        testID={`${testID}-day-${String(day.weekday)}-${key}`}
+                        label={`${t(weekdayKey(day.weekday))} — ${label}`}
+                        labelHidden
+                        value={read(day)}
+                        disabled={!canManage || day.isClosed}
+                        error={issue?.field === field ? issue.message : undefined}
+                        onChange={(next) => {
+                            update(write(day, next));
+                        }}
+                    />
+                </View>
+            );
+        },
+    });
 
+    const columns: readonly DataListColumn<OperatingDayDraft>[] = [
+        {
+            key: 'day',
+            label: t('kitchen:branchHours.columnDay'),
+            width: 128,
+            priority: 100,
+            render: (day) => {
+                const dayID = `${testID}-day-${String(day.weekday)}`;
                 return (
-                    <Card key={row.weekday} testID={rowTestId} padding="sm">
-                        <Stack space="sm">
-                            <Inline space="sm" align="center" justify="between" wrap>
-                                <Inline space="sm" align="center" wrap>
-                                    <Text variant="label" testID={`${rowTestId}-name`}>
-                                        {t(weekdayKey(row.weekday))}
-                                    </Text>
-                                    {row.isClosed ? (
-                                        <Badge
-                                            testID={`${rowTestId}-closed-badge`}
-                                            tone="neutral"
-                                            icon="dot"
-                                            label={t('kitchen:branchHours.closedBadge')}
-                                        />
-                                    ) : null}
-                                </Inline>
-
-                                <Checkbox
-                                    testID={`${rowTestId}-closed`}
-                                    id={`${rowTestId}-closed`}
-                                    label={t('kitchen:branchHours.closedLabel')}
-                                    checked={row.isClosed}
-                                    disabled={!canManage}
-                                    onChange={(checked) => {
-                                        onChange(
-                                            rows.map((candidate) =>
-                                                candidate.weekday === row.weekday
-                                                    ? withDayClosed(candidate, checked)
-                                                    : candidate,
-                                            ),
-                                        );
-                                    }}
-                                />
-                            </Inline>
-
-                            {row.isClosed ? (
-                                <Text
-                                    testID={`${rowTestId}-closed-note`}
-                                    tone="secondary"
-                                    variant="caption"
-                                >
-                                    {t('kitchen:branchHours.closedNote')}
-                                </Text>
-                            ) : (
-                                <Stack space="sm">
-                                    <Inline space="sm" wrap>
-                                        <Stack space="none" grow>
-                                            <TextInputField
-                                                testID={`${rowTestId}-opens`}
-                                                id={`${rowTestId}-opens`}
-                                                label={t('kitchen:branchHours.opensLabel')}
-                                                hint={t('kitchen:time.formatHint')}
-                                                placeholder={t('kitchen:time.placeholder')}
-                                                value={row.opensAt}
-                                                inputMode="numeric"
-                                                autoCorrect={false}
-                                                required
-                                                disabled={!canManage}
-                                                onChangeText={(next) => {
-                                                    patch(row.weekday, { opensAt: next });
-                                                }}
-                                            />
-                                        </Stack>
-                                        <Stack space="none" grow>
-                                            <TextInputField
-                                                testID={`${rowTestId}-closes`}
-                                                id={`${rowTestId}-closes`}
-                                                label={t('kitchen:branchHours.closesLabel')}
-                                                hint={t('kitchen:time.formatHint')}
-                                                placeholder={t('kitchen:time.placeholder')}
-                                                value={row.closesAt}
-                                                inputMode="numeric"
-                                                autoCorrect={false}
-                                                required
-                                                disabled={!canManage}
-                                                onChangeText={(next) => {
-                                                    patch(row.weekday, { closesAt: next });
-                                                }}
-                                            />
-                                        </Stack>
-                                    </Inline>
-
-                                    <TextInputField
-                                        testID={`${rowTestId}-cut-off`}
-                                        id={`${rowTestId}-cut-off`}
-                                        label={t('kitchen:branchHours.cutOffLabel')}
-                                        hint={t('kitchen:branchHours.cutOffHint')}
-                                        placeholder={t('kitchen:time.placeholder')}
-                                        value={row.orderCutOffAt}
-                                        inputMode="numeric"
-                                        autoCorrect={false}
-                                        disabled={!canManage}
-                                        onChangeText={(next) => {
-                                            patch(row.weekday, { orderCutOffAt: next });
-                                        }}
-                                    />
-
-                                    {row.orderCutOffAt.trim() === '' ? (
-                                        <Text
-                                            testID={`${rowTestId}-cut-off-state`}
-                                            variant="caption"
-                                            tone="secondary"
-                                        >
-                                            {t('kitchen:branchHours.cutOffNone')}
-                                        </Text>
-                                    ) : null}
-
-                                    {canManage ? (
-                                        <Inline space="sm" wrap>
-                                            <Button
-                                                testID={`${rowTestId}-copy`}
-                                                size="sm"
-                                                variant="ghost"
-                                                label={t('kitchen:branchHours.copyToOpenDays')}
-                                                onPress={() => {
-                                                    onCopyToOpenDays(row.weekday);
-                                                }}
-                                            />
-                                        </Inline>
-                                    ) : null}
-                                </Stack>
-                            )}
-
-                            {error === undefined ? null : (
-                                <Text testID={`${rowTestId}-error`} tone="danger" variant="caption">
-                                    {error}
-                                </Text>
-                            )}
-                        </Stack>
-                    </Card>
+                    <View testID={dayID} className="min-w-0 flex-row items-center gap-hair">
+                        <Text variant="strong" numberOfLines={1} testID={`${dayID}-name`}>
+                            {t(weekdayKey(day.weekday))}
+                        </Text>
+                        {day.isClosed ? (
+                            <Badge
+                                testID={`${dayID}-closed-badge`}
+                                tone="neutral"
+                                label={t('kitchen:branchHours.closedBadge')}
+                            />
+                        ) : null}
+                    </View>
                 );
-            })}
+            },
+        },
+        {
+            key: 'trading',
+            label: t('kitchen:branchHours.columnTrading'),
+            width: 112,
+            priority: 95,
+            render: (day) => {
+                const dayID = `${testID}-day-${String(day.weekday)}`;
+                return (
+                    <View className="z-auto min-w-0 flex-1">
+                        <Select<Trading>
+                            testID={`${dayID}-trading`}
+                            id={`${dayID}-trading`}
+                            label={t('kitchen:branchHours.tradingLabel', {
+                                day: t(weekdayKey(day.weekday)),
+                            })}
+                            labelHidden
+                            size="sm"
+                            disabled={!canManage}
+                            value={day.isClosed ? 'closed' : 'open'}
+                            options={[
+                                { value: 'open', label: t('kitchen:branchHours.tradingOpen') },
+                                { value: 'closed', label: t('kitchen:branchHours.closedLabel') },
+                            ]}
+                            onChange={(next) => {
+                                update(withDayClosed(day, next === 'closed'));
+                            }}
+                        />
+                    </View>
+                );
+            },
+        },
+        timeColumn(
+            'opens',
+            'opens',
+            t('kitchen:branchHours.opensLabel'),
+            TIME_TRACK,
+            90,
+            (day) => day.opensAt,
+            (day, value) => ({ ...day, opensAt: value }),
+        ),
+        timeColumn(
+            'closes',
+            'closes',
+            t('kitchen:branchHours.closesLabel'),
+            TIME_TRACK,
+            90,
+            (day) => day.closesAt,
+            (day, value) => ({ ...day, closesAt: value }),
+            (day) => day.opensAt,
+        ),
+        timeColumn(
+            'cut-off',
+            'cutOff',
+            t('kitchen:branchHours.cutOffLabel'),
+            CUT_OFF_TRACK,
+            85,
+            (day) => day.orderCutOffAt,
+            (day, value) => ({ ...day, orderCutOffAt: value }),
+        ),
+        ...(canManage
+            ? [
+                  {
+                      key: 'copy',
+                      label: t('kitchen:list.actionHeader'),
+                      width: 168,
+                      priority: 80,
+                      grow: false,
+                      align: 'end',
+                      sortable: false,
+                      filterable: false,
+                      // Only on an open day: a closed day has no times to copy.
+                      render: (day) =>
+                          day.isClosed ? null : (
+                              <Button
+                                  testID={`${testID}-day-${String(day.weekday)}-copy`}
+                                  size="sm"
+                                  variant="ghost"
+                                  label={t('kitchen:branchHours.copyShort')}
+                                  onPress={() => {
+                                      onCopyToOpenDays(day.weekday);
+                                  }}
+                              />
+                          ),
+                  } satisfies DataListColumn<OperatingDayDraft>,
+              ]
+            : []),
+    ];
 
+    return (
+        <Stack space="none">
+            <DataList<OperatingDayDraft>
+                testID={testID}
+                label={t('kitchen:branchHours.weekTitle')}
+                columns={columns}
+                rows={rows}
+                rowKey={(day) => `day-${String(day.weekday)}`}
+                density="sm"
+            />
             <RowAnnouncer testID={`${testID}-announcer`} message={announcement} />
         </Stack>
     );
@@ -495,8 +739,12 @@ export function OperatingWeekRows({
  * always drawn — a chip that could not be found again would be a chip nobody can remove — and the
  * rest is capped with a stated count and a search box, which is how somebody finds Jumeirah without
  * reading Ras Al Khor.
+ *
+ * The cap is 100 — the contract's own page limit — rather than the 40 it was while the options ran
+ * down a single column: at three and four columns a hundred short place names is a dozen lines, and
+ * the cap existed to stop a page of scrolling rather than to stop rendering.
  */
-const VISIBLE_AREA_LIMIT = 40;
+const VISIBLE_AREA_LIMIT = 100;
 
 export interface ServiceAreaPickerProps {
     /** The gazetteer as loaded. Platform reference data; this screen never writes it. */
@@ -536,7 +784,17 @@ export function ServiceAreaPicker({
     testID,
 }: ServiceAreaPickerProps) {
     const { t } = useTranslation();
+    const { atLeast } = useBreakpoint();
     const [query, setQuery] = useState('');
+
+    /*
+     * The gazetteer runs to ~125 rows, and one row per line means a page of scrolling to read a
+     * list of short place names. The options therefore flow into as many columns as the viewport
+     * holds — six on a desk screen — as a percentage rather than a fixed track, so the last column
+     * ends where the rule does.
+     */
+    const columns = atLeast('xl') ? 6 : atLeast('lg') ? 4 : atLeast('md') ? 2 : 1;
+    const columnWidth: `${number}%` = `${100 / columns}%`;
 
     const selectedSet = useMemo(() => new Set(selected.map(String)), [selected]);
     const byId = useMemo(
@@ -566,10 +824,19 @@ export function ServiceAreaPicker({
     const groups = useMemo(() => groupServiceAreas(visible), [visible]);
     const hidden = matched.length - visible.length;
 
+    /*
+     * Commercial §3.4 draws this as a desk list rather than a form: small removable chips, a
+     * 280px search, then the gazetteer as ruled rows under sunken governorate bands.
+     */
     return (
-        <Stack space="sm" testID={testID}>
+        <Stack space="md" testID={testID}>
             <Stack space="xs">
-                <Text variant="label" testID={`${testID}-selected-label`}>
+                <Text
+                    variant="micro"
+                    tone="secondary"
+                    className="uppercase"
+                    testID={`${testID}-selected-label`}
+                >
                     {t('kitchen:areas.selectedLabel')}
                 </Text>
                 {selected.length === 0 ? (
@@ -585,11 +852,11 @@ export function ServiceAreaPicker({
                                     ? t('kitchen:areas.unknownArea')
                                     : displayName(area.name, locale).value;
                             return (
-                                <Chip
+                                <AreaChip
                                     key={String(areaId)}
                                     testID={`${testID}-chip-${String(areaId)}`}
                                     label={label}
-                                    tone="brand"
+                                    removeLabel={t('designSystem:chip.remove', { label })}
                                     {...(canManage
                                         ? {
                                               onRemove: () => {
@@ -611,33 +878,38 @@ export function ServiceAreaPicker({
                 )}
             </Stack>
 
-            <TextInputField
-                testID={`${testID}-search`}
-                id={`${testID}-search`}
-                label={t('kitchen:areas.searchLabel')}
-                hint={t('kitchen:areas.searchHint')}
-                placeholder={t('kitchen:areas.searchPlaceholder')}
-                value={query}
-                onChangeText={setQuery}
-                autoCapitalize="none"
-                autoCorrect={false}
-                inputMode="search"
-                returnKeyType="search"
-                trailing={<Icon name="search" />}
-            />
-
-            <Text
-                testID={`${testID}-count`}
-                role="status"
-                aria-live="polite"
-                variant="caption"
-                tone="secondary"
-            >
-                {t('kitchen:areas.matchCount', {
-                    count: matched.length,
-                    total: gazetteer.length,
-                })}
-            </Text>
+            <Inline space="sm" align="center" wrap>
+                <View style={{ width: fieldWidth }}>
+                    <TextInputField
+                        testID={`${testID}-search`}
+                        id={`${testID}-search`}
+                        label={t('kitchen:areas.searchLabel')}
+                        labelHidden
+                        size="sm"
+                        placeholder={t('kitchen:areas.searchPlaceholder')}
+                        value={query}
+                        onChangeText={setQuery}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        inputMode="search"
+                        returnKeyType="search"
+                        trailing={<Icon name="search" />}
+                    />
+                </View>
+                {/* A polite live region: filtering silently shortens the list below. */}
+                <Text
+                    testID={`${testID}-count`}
+                    role="status"
+                    aria-live="polite"
+                    variant="caption"
+                    tone="secondary"
+                >
+                    {t('kitchen:areas.matchCount', {
+                        count: matched.length,
+                        total: gazetteer.length,
+                    })}
+                </Text>
+            </Inline>
 
             {truncated ? (
                 <Callout
@@ -654,38 +926,60 @@ export function ServiceAreaPicker({
                     {t('kitchen:areas.noMatches')}
                 </Text>
             ) : (
-                <Stack space="sm" role="group" aria-label={t('kitchen:areas.groupLabel')}>
+                <View
+                    role="group"
+                    aria-label={t('kitchen:areas.groupLabel')}
+                    className="flex-col border-t border-stroke"
+                >
                     {groups.map((group) => (
-                        <Stack key={group.key} space="xs" testID={`${testID}-group-${group.key}`}>
-                            <Text variant="label" tone="secondary">
-                                {group.parentName === null
-                                    ? t('kitchen:areas.noParent')
-                                    : displayName(group.parentName, locale).value}
-                            </Text>
-                            {group.areas.map((area) => {
-                                const name = displayName(area.name, locale);
-                                return (
-                                    <Checkbox
-                                        key={String(area.id)}
-                                        testID={`${testID}-option-${String(area.id)}`}
-                                        id={`${testID}-option-${String(area.id)}`}
-                                        label={name.value}
-                                        {...(area.isActive
-                                            ? {}
-                                            : { description: t('kitchen:areas.inactive') })}
-                                        checked={selectedSet.has(String(area.id))}
-                                        disabled={!canManage}
-                                        onChange={(checked) => {
-                                            onChange(
-                                                toggleArea(selected, area.id, checked, gazetteer),
-                                            );
-                                        }}
-                                    />
-                                );
-                            })}
-                        </Stack>
+                        <View key={group.key} testID={`${testID}-group-${group.key}`}>
+                            <View className="bg-surface-sunken px-tight pb-1 pt-tight">
+                                <Text variant="micro" tone="secondary" className="uppercase">
+                                    {group.parentName === null
+                                        ? t('kitchen:areas.noParent')
+                                        : displayName(group.parentName, locale).value}
+                                </Text>
+                            </View>
+                            <View className="flex-row flex-wrap">
+                                {group.areas.map((area) => {
+                                    const name = displayName(area.name, locale);
+                                    return (
+                                        <View
+                                            key={String(area.id)}
+                                            style={{ width: columnWidth }}
+                                            className="min-h-control-sm flex-row items-center gap-tight border-b border-stroke-subtle px-tight"
+                                        >
+                                            <Checkbox
+                                                testID={`${testID}-option-${String(area.id)}`}
+                                                id={`${testID}-option-${String(area.id)}`}
+                                                className="min-w-0 flex-1"
+                                                label={name.value}
+                                                checked={selectedSet.has(String(area.id))}
+                                                disabled={!canManage}
+                                                onChange={(checked) => {
+                                                    onChange(
+                                                        toggleArea(
+                                                            selected,
+                                                            area.id,
+                                                            checked,
+                                                            gazetteer,
+                                                        ),
+                                                    );
+                                                }}
+                                            />
+                                            {area.isActive ? null : (
+                                                <Tag
+                                                    testID={`${testID}-option-${String(area.id)}-inactive`}
+                                                    label={t('kitchen:areas.inactiveTag')}
+                                                />
+                                            )}
+                                        </View>
+                                    );
+                                })}
+                            </View>
+                        </View>
                     ))}
-                </Stack>
+                </View>
             )}
 
             {hidden > 0 ? (
@@ -694,5 +988,47 @@ export function ServiceAreaPicker({
                 </Text>
             ) : null}
         </Stack>
+    );
+}
+
+/**
+ * A chosen area: the design's 24px brand-subtle pill with its own remove control.
+ *
+ * Not the design-system `Chip`, which carries the customer surfaces' 44px touch floor — the kitchen
+ * admin is a desk surface and sizes from `control.ts` (CLAUDE.md, touch targets).
+ */
+function AreaChip({
+    label,
+    removeLabel,
+    onRemove,
+    testID,
+}: {
+    readonly label: string;
+    readonly removeLabel: string;
+    readonly onRemove?: (() => void) | undefined;
+    readonly testID: string;
+}) {
+    return (
+        <View
+            testID={testID}
+            className="h-control-xs flex-row items-center gap-1 rounded-full bg-surface-brand-subtle pe-1 ps-2"
+        >
+            <Text variant="caption" className="text-content-on-brand-subtle">
+                {label}
+            </Text>
+            {onRemove === undefined ? null : (
+                <Pressable
+                    testID={`${testID}-remove`}
+                    role="button"
+                    accessibilityRole="button"
+                    accessibilityLabel={removeLabel}
+                    aria-label={removeLabel}
+                    onPress={onRemove}
+                    className="h-4 w-4 items-center justify-center rounded-full hover:bg-surface-raised"
+                >
+                    <Icon name="close" size="sm" className="text-content-on-brand-subtle" />
+                </Pressable>
+            )}
+        </View>
     );
 }

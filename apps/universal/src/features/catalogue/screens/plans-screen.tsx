@@ -1,65 +1,62 @@
-import { Button, Collapse, Select, Stack, Tabs } from '@healthy360/design-system';
-import type { SelectOption } from '@healthy360/design-system';
-import type { SubscriptionPlan } from '@healthy360/api-client/contracts';
+import { Button } from '@healthy360/design-system';
+import type { Subscription, SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
-import { useDietCategoriesQuery, usePlansQuery } from '../../../data/catalogue-hooks.ts';
-import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
-import { isFeatureAvailable } from '../../availability.ts';
-import { FilterBar, useMarketplaceFilters } from '../../marketplace/filter-bar.tsx';
-import type { FilterGroup } from '../../marketplace/filter-bar.tsx';
+import { usePlansQuery } from '../../../data/catalogue-hooks.ts';
+import { useKitchensQuery, useSubscriptionsQuery } from '../../../data/marketplace-hooks.ts';
+import { useSession } from '../../../session/session-provider.tsx';
+import { PillChip } from '../../../ui/pill-chip.tsx';
+import { useMarketplaceFilters } from '../../marketplace/filter-bar.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
-import { CardGrid, CardGridItem } from '../../marketplace/section-header.tsx';
-import {
-    CALORIE_PRESETS,
-    PLAN_SORTS,
-    distinctKitchenIds,
-    isPlanSort,
-    sortPlans,
-    toPlanFilter,
-} from '../plan-catalogue.ts';
-import type { PlanSort } from '../plan-catalogue.ts';
-import { ToolbarRow } from '../../marketplace/toolbar-row.tsx';
-import type { ActiveFilterChip } from '../../marketplace/toolbar-row.tsx';
-import { PageHero } from '../../../ui/page-hero.tsx';
-import { NutritionMethodologyNotice } from '../nutrition-methodology-notice.tsx';
+import { distinctKitchenIds, toPlanFilter } from '../plan-catalogue.ts';
 import { PlanCard } from '../plan-card.tsx';
 import { PlanComparisonTray } from '../plan-comparison-tray.tsx';
-import { PlanRecommendationCta } from '../plan-recommendation-cta.tsx';
+import { PlanGrid, PlanGridItem, PlansIntro } from '../plans-intro.tsx';
+import { PlanSubscriberPanel } from '../plan-subscriber-panel.tsx';
 
 /**
- * `/plans` — the subscription-plan catalogue.
+ * `/plans` — the subscription-plan catalogue, laid out as HealthZone's `plans` screen: the intro
+ * (eyebrow, two-line title, lede, "How plans work →"), the plan cards three across, and for a
+ * subscriber the "Your week" card beside the "Active subscription" card.
  *
- * ## Two kinds of state in the URL, kept apart on purpose
+ * ## The design's structure over a many-kitchen catalogue
  *
- * The *filters* — search, category, kitchen, calorie band — go through `useMarketplaceFilters`, so
- * "Clear" resets exactly them. The *comparison selection* and the *sort* are their own parameters,
- * read and written directly, because neither is a filter: clearing the filters must not empty the
- * tray a person has been filling, and re-sorting must not be undone by it. All of it still lives in
- * the address bar, so the whole state — what you searched, what you are comparing, how it is ordered
- * — is one shareable, reloadable, back-button-safe place.
+ * The design draws one kitchen's three plans. The catalogue here is every kitchen's, so the card row
+ * simply continues into further rows of three, and two things the drawing has no slot for were
+ * folded into the vocabulary it already uses rather than kept as a toolbar of their own:
  *
- * ## Why the comparison is three
+ * - **Choosing a kitchen** is one row of the design's `chip()` pills between the intro and the
+ *   cards — "All kitchens" and one per kitchen that publishes a plan — shown only when there are at
+ *   least two to choose between. It is URL-backed (`?kitchen=`), which is how the kitchen finder and
+ *   the kitchen spotlight link into this page. The old filter panel's search, calorie band, sort
+ *   and "Showing N of M" line are gone: none is in the design, and over a catalogue of a handful of
+ *   plans each narrowed nothing a glance at the cards does not.
+ * - **Comparing** is a "Compare" chip in each card's header — the slot the design gives its
+ *   "Current" mark — and the tray that opens the comparison appears under the cards only once a
+ *   plan is selected. The selection is its own URL parameter, so a shared link still opens it.
  *
- * Neither reference product offers comparison at all (doc 17, IA-10 / MKT-07), so the limit is ours.
- * Three is what fits as equal-width columns at 1024 px without shrinking the figures below legibility
- * or introducing the horizontal scroll the responsive rules forbid (doc 08, RSP-01). A fourth column
- * would come at the cost of one of those.
+ * The "How to read the nutrition figures" notice is gone from this page: a plan card states calorie
+ * bands, not nutrition figures, and the plan page that does show them keeps it.
  *
- * ## Honest filters only
+ * ## The subscriber band is real data
  *
- * Search, category, kitchen and calorie band each map to a real `PlanFilter` field, and their
- * options are built from the plans that exist — the kitchen facet lists only the four kitchens that
- * actually publish a plan, not all six on the marketplace, so no chip can select an empty result on
- * purpose. There is deliberately no duration filter: every plan offers every duration, so it would
- * narrow nothing. Sort is done on the client because the contract has none, and the plan listing is
- * small and unpaged, so ordering the whole answer is correct rather than a per-page illusion.
+ * It renders only for a signed-in person who holds a live subscription — for anybody else it would
+ * be sample data — and its actions are the subscription's own transitions
+ * (`plan-subscriber-panel.tsx`).
  */
 
-const FILTER_KEYS = ['category', 'kitchen', 'calorie'] as const;
+const FILTER_KEYS = ['kitchen'] as const;
 export const MAX_COMPARED_PLANS = 3;
+
+/** States in which a subscription still delivers, or will again — the plan a person is "on". */
+const LIVE_STATES: ReadonlySet<Subscription['state']> = new Set([
+    'active',
+    'paused',
+    'skipped_today',
+]);
 
 /** Reads a route parameter that expo-router may hand back as a string or a one-element array. */
 function readParam(raw: string | string[] | undefined): string {
@@ -71,17 +68,11 @@ export function PlansScreen() {
     const { t } = useTranslation();
     const router = useRouter();
     const params = useLocalSearchParams();
+    const { me } = useSession();
     const filters = useMarketplaceFilters(FILTER_KEYS);
-    const { selected, query } = filters;
+    const kitchenIds = useMemo(() => filters.selected['kitchen'] ?? [], [filters.selected]);
 
-    const category = selected['category']?.[0] ?? 'all';
-    const kitchenIds = useMemo(() => selected['kitchen'] ?? [], [selected]);
-    const calorie = selected['calorie']?.[0];
-
-    const sortParam = readParam(params['sort'] as string | string[] | undefined);
-    const sort: PlanSort = isPlanSort(sortParam) ? sortParam : 'recommended';
-
-    // The comparison selection is its own parameter, so clearing the filters never empties it.
+    // The comparison selection is its own parameter, so choosing a kitchen never empties it.
     const compared = useMemo(() => {
         const raw = readParam(params['compare'] as string | string[] | undefined);
         return raw === '' ? [] : raw.split(',').filter((value) => value !== '');
@@ -101,21 +92,34 @@ export function PlansScreen() {
     );
 
     const filter = useMemo(
-        () => toPlanFilter({ query, category, kitchenIds, calorie }),
-        [query, category, kitchenIds, calorie],
+        () => toPlanFilter({ query: '', category: 'all', kitchenIds, calorie: undefined }),
+        [kitchenIds],
     );
 
     const plans = usePlansQuery(filter);
-    // The unfiltered set backs two things the filtered list cannot: the kitchen facet (its options
-    // must survive a filter that hides some kitchens) and the tray (you compare across the whole
-    // catalogue, including plans the current filters have hidden).
+    // The unfiltered set backs two things the filtered list cannot: the kitchen chips (they must
+    // survive a choice that hides some kitchens) and the tray (you compare across the whole
+    // catalogue, including plans the kitchen choice has hidden).
     const allPlans = usePlansQuery({});
-    // The diet-category tabs are the diet-category feature wearing a different shape: without those
-    // endpoints there are no categories to tab through, so the request is not made at all.
-    const categories = useDietCategoriesQuery(isFeatureAvailable('dietCategories'));
     const kitchens = useKitchensQuery({ channels: ['marketplace'], limit: 20 });
 
-    const items = useMemo(() => sortPlans(plans.data?.items ?? [], sort), [plans.data, sort]);
+    const items = plans.data?.items ?? [];
+
+    // Only asked for a signed-in person: the list is theirs, and an anonymous request is a 401.
+    const subscriptions = useSubscriptionsQuery(me !== null);
+    const liveSubscription = useMemo<Subscription | undefined>(
+        () =>
+            (subscriptions.data?.items ?? []).find((subscription) =>
+                LIVE_STATES.has(subscription.state),
+            ),
+        [subscriptions.data],
+    );
+    const openSubscription = useCallback(
+        (subscription: Subscription) => {
+            router.push(`/customer/subscriptions/${String(subscription.id)}` as never);
+        },
+        [router],
+    );
 
     const kitchenNameById = useMemo(() => {
         const map = new Map<string, string>();
@@ -123,6 +127,8 @@ export function PlansScreen() {
         return map;
     }, [kitchens.data]);
 
+    // Only kitchens that actually publish a plan become chips: a chip whose only outcome is the
+    // empty state is a control that exists to disappoint.
     const kitchenOptions = useMemo(
         () =>
             distinctKitchenIds(allPlans.data?.items ?? [])
@@ -145,293 +151,132 @@ export function PlansScreen() {
         [compared, fullById],
     );
 
-    // Only categories that actually hold a plan become tabs: an empty tab is a control whose only
-    // possible outcome is the empty state.
-    const categoryTabs = (categories.data ?? []).filter((entry) => entry.planCount > 0);
-
-    const groups = useMemo<FilterGroup[]>(() => {
-        const result: FilterGroup[] = [];
-        if (kitchenOptions.length > 1) {
-            result.push({
-                key: 'kitchen',
-                label: t('catalogue:plans.kitchenFilter'),
-                options: kitchenOptions,
-                mode: 'multiple',
-            });
-        }
-        result.push({
-            key: 'calorie',
-            label: t('catalogue:plans.calorieFilter'),
-            mode: 'single',
-            options: CALORIE_PRESETS.map((preset) => ({
-                value: preset.value,
-                label: t(`catalogue:plans.calorie.${preset.value}`),
-            })),
-        });
-        return result;
-    }, [kitchenOptions, t]);
-
-    const sortOptions: readonly SelectOption<PlanSort>[] = PLAN_SORTS.map((value) => ({
-        value,
-        label: t(`catalogue:plans.sort.${value}`),
-    }));
-
-    // "Showing 6 of 18 · 4 kitchens" — shown, the whole catalogue, and the spread (§8: a count
-    // states a total). The total is the unfiltered listing, which this screen already fetches.
-    const resultSummary = t('catalogue:plans.showing', {
-        shown: items.length,
-        total: allPlans.data?.items.length ?? items.length,
-        kitchens: t('catalogue:plans.kitchenCount', {
-            count: distinctKitchenIds(items).length,
-        }),
-    });
-
-    // Closed on arrival unless a filter is already applied — the /meals behaviour. The category
-    // lives in its own tab strip, so it neither opens the panel nor becomes a chip.
-    const [showFilters, setShowFilters] = useState(
-        query !== '' || kitchenIds.length > 0 || calorie !== undefined,
-    );
-
-    const activeChips: readonly ActiveFilterChip[] = useMemo(() => {
-        const chips: ActiveFilterChip[] = [];
-        if (query !== '') {
-            chips.push({
-                key: 'query',
-                label: query,
-                removeLabel: t('catalogue:filters.removeFilter', { filter: query }),
-                onRemove: () => {
-                    filters.setQuery('');
-                },
-            });
-        }
-        for (const id of kitchenIds) {
-            const label = kitchenNameById.get(id) ?? id;
-            chips.push({
-                key: `kitchen-${id}`,
-                label,
-                removeLabel: t('catalogue:filters.removeFilter', { filter: label }),
-                onRemove: () => {
-                    filters.toggle('kitchen', id, false);
-                },
-            });
-        }
-        if (calorie !== undefined) {
-            const label = t(`catalogue:plans.calorie.${calorie}`);
-            chips.push({
-                key: 'calorie',
-                label,
-                removeLabel: t('catalogue:filters.removeFilter', { filter: label }),
-                onRemove: () => {
-                    filters.select('calorie', null);
-                },
-            });
-        }
-        return chips;
-    }, [query, kitchenIds, calorie, kitchenNameById, filters, t]);
-
     return (
-        <Stack space="xl" testID="plans-screen">
-            {/*
-             * Rule 3: the page opens with weight. The canopy band replaces the green-to-violet
-             * banner this screen carried — violet is machine-origin's colour (Rule 5), and a
-             * catalogue hero has no claim on it. Breadcrumbs move inside the band, the two
-             * orientation CTAs take the trailing rail, and the trust lines become its chips.
-             */}
-            <PageHero
-                testID="plans"
-                breadcrumbs={[
-                    {
-                        key: 'home',
-                        label: t('catalogue:nav.home'),
-                        onPress: () => {
-                            router.push('/');
-                        },
-                    },
-                    { key: 'plans', label: t('catalogue:nav.plans') },
-                ]}
-                title={t('catalogue:plans.title')}
-                subtitle={t('catalogue:plans.subtitle')}
-                chips={[
-                    t('catalogue:plans.trust.reviewed'),
-                    t('catalogue:plans.trust.kitchens'),
-                    t('catalogue:plans.trust.flexible'),
-                ]}
-                trailing={
-                    <Stack space="sm">
-                        <Button
-                            testID="plans-hero-how"
-                            variant="secondary"
-                            label={t('catalogue:plans.heroHowItWorks')}
-                            onPress={() => {
-                                router.push('/how-it-works');
-                            }}
-                        />
-                        {isFeatureAvailable('dietitianDirectory') ? (
-                            <Button
-                                testID="plans-hero-dietitian"
-                                variant="secondary"
-                                label={t('catalogue:plans.heroSpeakToDietitian')}
+        <View testID="plans-screen" className="flex-col">
+            <PlansIntro
+                onHowItWorks={() => {
+                    router.push('/plans/how-it-works' as never);
+                }}
+            />
+
+            {kitchenOptions.length > 1 ? (
+                <View
+                    testID="plans-kitchens"
+                    role="group"
+                    aria-label={t('catalogue:plans.kitchenFilterLabel')}
+                    className="mt-6 flex-row flex-wrap gap-1.5"
+                >
+                    <PillChip
+                        size="sm"
+                        floor="coarse"
+                        testID="plans-kitchen-all"
+                        label={t('catalogue:plans.allKitchens')}
+                        selected={kitchenIds.length === 0}
+                        onPress={() => {
+                            filters.select('kitchen', null);
+                        }}
+                    />
+                    {kitchenOptions.map((option) => {
+                        const on = kitchenIds.includes(option.value);
+                        return (
+                            <PillChip
+                                key={option.value}
+                                size="sm"
+                                floor="coarse"
+                                testID={`plans-kitchen-${option.value}`}
+                                label={option.label}
+                                selected={on}
                                 onPress={() => {
-                                    router.push('/dietitians');
+                                    filters.toggle('kitchen', option.value, !on);
                                 }}
                             />
-                        ) : null}
-                    </Stack>
-                }
-            />
-
-            <Stack space="md" testID="plans-toolbar">
-                {/*
-                 * "All" plus nothing is not a choice. The strip renders only when a real category
-                 * exists to switch to; without the diet-category endpoints there are none, and a
-                 * one-tab tab bar is a control whose only state is the one it is already in.
-                 */}
-                {categoryTabs.length === 0 ? null : (
-                    <Tabs
-                        testID="plans-categories"
-                        label={t('catalogue:plans.categoryLabel')}
-                        value={category}
-                        onChange={(next) => {
-                            filters.select('category', next === 'all' ? null : next);
-                        }}
-                        items={[
-                            {
-                                value: 'all',
-                                label: t('catalogue:plans.categoryAll'),
-                                testID: 'plans-category-all',
-                            },
-                            ...categoryTabs.map((entry) => ({
-                                value: entry.slug,
-                                label: entry.name,
-                                testID: `plans-category-${entry.slug}`,
-                            })),
-                        ]}
-                    />
-                )}
-
-                {/* Rule 2: one row — the disclosure, the filters in force, the count stating a
-                    total, and the sort share a baseline. The search lives inside the panel here
-                    (the hero's rail carries CTAs, not a search box), so an applied query stays
-                    visible as a removable chip on the row. */}
-                <ToolbarRow
-                    testID="plans-toolbar-row"
-                    countTestID="plans-result-summary"
-                    filtersLabel={
-                        activeChips.length === 0
-                            ? t('catalogue:plans.filters')
-                            : t('catalogue:plans.filtersActive', { n: activeChips.length })
-                    }
-                    filtersActive={activeChips.length}
-                    filtersExpanded={showFilters}
-                    filtersPanelId="plans-filter-panel"
-                    onToggleFilters={() => {
-                        setShowFilters((open) => !open);
-                    }}
-                    activeFilters={activeChips}
-                    onClearAll={filters.clear}
-                    clearAllLabel={t('catalogue:filters.clear')}
-                    resultSummary={resultSummary}
-                    sort={
-                        <Select<PlanSort>
-                            testID="plans-sort"
-                            label={t('catalogue:plans.sortLabel')}
-                            options={sortOptions}
-                            value={sort}
-                            onChange={(next) => {
-                                router.setParams({ sort: next });
-                            }}
-                            className="min-w-[220px]"
-                        />
-                    }
-                />
-
-                <Collapse
-                    open={showFilters}
-                    nativeID="plans-filter-panel"
-                    testID="plans-filter-panel"
-                >
-                    <FilterBar
-                        testID="plans-filter"
-                        state={filters}
-                        searchLabel={t('catalogue:plans.searchLabel')}
-                        searchPlaceholder={t('catalogue:plans.searchPlaceholder')}
-                        groups={groups}
-                    />
-                </Collapse>
-            </Stack>
-
-            <QueryStates
-                query={plans}
-                isEmpty={items.length === 0}
-                emptyTitle={t('catalogue:plans.emptyTitle')}
-                emptyBody={t('catalogue:plans.emptyBody')}
-                emptyActions={
-                    filters.isFiltered ? (
-                        <Button
-                            testID="plans-empty-clear"
-                            variant="secondary"
-                            label={t('catalogue:filters.clear')}
-                            onPress={filters.clear}
-                        />
-                    ) : undefined
-                }
-                testID="plans"
-            >
-                <CardGrid testID="plans-grid">
-                    {items.map((plan) => {
-                        const isSelected = compared.includes(String(plan.id));
-                        return (
-                            <CardGridItem key={plan.id}>
-                                <PlanCard
-                                    plan={plan}
-                                    kitchenName={kitchenNameById.get(String(plan.kitchenId))}
-                                    onOpen={() => {
-                                        router.push(`/plans/${String(plan.id)}` as never);
-                                    }}
-                                    comparison={{
-                                        selected: isSelected,
-                                        disabled:
-                                            !isSelected && compared.length >= MAX_COMPARED_PLANS,
-                                        onChange: (next) => {
-                                            toggleCompare(String(plan.id), next);
-                                        },
-                                    }}
-                                />
-                            </CardGridItem>
                         );
                     })}
-                </CardGrid>
-            </QueryStates>
+                </View>
+            ) : null}
 
-            <PlanComparisonTray
-                plans={comparedPlans}
-                selectedCount={compared.length}
-                max={MAX_COMPARED_PLANS}
-                onRemove={(id) => {
-                    toggleCompare(id, false);
-                }}
-                onClear={() => {
-                    setCompared([]);
-                }}
-                onCompare={() => {
-                    router.push(`/plans/compare?plans=${compared.join(',')}` as never);
-                }}
-            />
+            <View className="mt-6">
+                <QueryStates
+                    query={plans}
+                    isEmpty={items.length === 0}
+                    emptyTitle={t('catalogue:plans.emptyTitle')}
+                    emptyBody={t('catalogue:plans.emptyBody')}
+                    emptyActions={
+                        filters.isFiltered ? (
+                            <Button
+                                testID="plans-empty-clear"
+                                variant="secondary"
+                                label={t('catalogue:plans.allKitchens')}
+                                onPress={filters.clear}
+                            />
+                        ) : undefined
+                    }
+                    testID="plans"
+                >
+                    <PlanGrid testID="plans-grid">
+                        {items.map((plan) => {
+                            const isSelected = compared.includes(String(plan.id));
+                            const isCurrent =
+                                liveSubscription !== undefined &&
+                                String(liveSubscription.configuration.planId) === String(plan.id);
+                            return (
+                                <PlanGridItem key={plan.id}>
+                                    <PlanCard
+                                        plan={plan}
+                                        kitchenName={kitchenNameById.get(String(plan.kitchenId))}
+                                        current={
+                                            isCurrent
+                                                ? {
+                                                      onManage: () => {
+                                                          openSubscription(liveSubscription);
+                                                      },
+                                                  }
+                                                : undefined
+                                        }
+                                        onOpen={() => {
+                                            router.push(`/plans/${String(plan.id)}` as never);
+                                        }}
+                                        comparison={{
+                                            selected: isSelected,
+                                            disabled:
+                                                !isSelected &&
+                                                compared.length >= MAX_COMPARED_PLANS,
+                                            onChange: (next) => {
+                                                toggleCompare(String(plan.id), next);
+                                            },
+                                        }}
+                                    />
+                                </PlanGridItem>
+                            );
+                        })}
+                    </PlanGrid>
+                </QueryStates>
+            </View>
 
-            <NutritionMethodologyNotice />
+            {compared.length === 0 ? null : (
+                <View className="mt-4">
+                    <PlanComparisonTray
+                        plans={comparedPlans}
+                        selectedCount={compared.length}
+                        max={MAX_COMPARED_PLANS}
+                        onRemove={(id) => {
+                            toggleCompare(id, false);
+                        }}
+                        onClear={() => {
+                            setCompared([]);
+                        }}
+                        onCompare={() => {
+                            router.push(`/plans/compare?plans=${compared.join(',')}` as never);
+                        }}
+                    />
+                </View>
+            )}
 
-            <PlanRecommendationCta
-                {...(isFeatureAvailable('dietitianDirectory')
-                    ? {
-                          onSpeakToDietitian: () => {
-                              router.push('/dietitians');
-                          },
-                      }
-                    : {})}
-                onHowItWorks={() => {
-                    router.push('/how-it-works');
-                }}
-            />
-        </Stack>
+            {liveSubscription === undefined ? null : (
+                <View className="mt-6">
+                    <PlanSubscriberPanel subscription={liveSubscription} />
+                </View>
+            )}
+        </View>
     );
 }

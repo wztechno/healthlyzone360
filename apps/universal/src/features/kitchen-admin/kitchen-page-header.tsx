@@ -31,6 +31,11 @@ export interface KitchenPageHeaderProps {
     readonly back?: ReactNode | undefined;
     /** Right-aligned on the title row. One primary maximum. */
     readonly actions?: ReactNode | undefined;
+    /**
+     * Draw no heading. `title` still names the page to the caller; a stepped form leaves its name to
+     * the top bar's trail and opens on the progress line instead.
+     */
+    readonly hideTitle?: boolean | undefined;
     /** Overrides for the two ids the existing suites already point at. */
     readonly titleTestID?: string | undefined;
     readonly subtitleTestID?: string | undefined;
@@ -46,6 +51,7 @@ export function KitchenPageHeader({
     meta,
     back,
     actions,
+    hideTitle = false,
     titleTestID,
     subtitleTestID,
 }: KitchenPageHeaderProps) {
@@ -62,7 +68,9 @@ export function KitchenPageHeader({
             {back}
             <View className="flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <View className="min-w-0 flex-1 gap-1">
-                    {statusChip === undefined ? (
+                    {hideTitle ? (
+                        statusChip
+                    ) : statusChip === undefined ? (
                         <Heading level={1} testID={titleTestID ?? `${testID}-title`}>
                             {title}
                         </Heading>

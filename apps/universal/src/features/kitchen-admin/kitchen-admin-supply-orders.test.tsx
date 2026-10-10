@@ -26,6 +26,16 @@ import { SupplyOrderBuilderScreen } from './screens/supply-order-builder-screen.
 import { SupplyOrderDetailScreen } from './screens/supply-order-detail-screen.tsx';
 import { SupplyOrdersScreen } from './screens/supply-orders-screen.tsx';
 
+/*
+ * The Operations lists are desk surfaces: at desk width a row draws every column the spec declares.
+ * Jest's default window is phone-sized, where the same list collapses to two-line rows, so these
+ * suites render at the width the screens are built for.
+ */
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+    __esModule: true,
+    default: () => ({ width: 1280, height: 900, scale: 1, fontScale: 1 }),
+}));
+
 /**
  * The supply-orders landing page, the builder and one order's own page (SUP3, SUP4), against a
  * world this file authors.
@@ -105,6 +115,17 @@ function untilVisible(testID: string) {
         },
         { timeout: 10_000 },
     );
+}
+
+/** The builder is one page: every region is drawn at once, so "opening" one is waiting for it. */
+const BUILDER_REGIONS = {
+    needs: 'kitchen-supply-order-needs',
+    unlinked: 'kitchen-supply-order-unlinked',
+    review: 'kitchen-supply-order-preview',
+} as const;
+
+async function openBuilderStep(step: keyof typeof BUILDER_REGIONS) {
+    await untilVisible(BUILDER_REGIONS[step]);
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -328,6 +349,8 @@ function landingOverrides(
             countSupplyNeeds: async () => counts(items),
             getOrderProposal: async () => proposal(items),
             listPurchaseOrders: async () => page(orders),
+            // The Supplier header's values are the supplier book.
+            listSuppliers: async () => [supplierRecord(1), supplierRecord(2)],
         },
     };
 }
@@ -374,9 +397,9 @@ describe('supply orders landing', () => {
 
         // Two of the three numbers, never a third claiming a total: they partition the count.
         expect(
-            screen.getByTestId('kitchen-supply-orders-panel-metric-outOfStock'),
+            screen.getByTestId('kitchen-supply-orders-stats-outOfStock-value'),
         ).toHaveTextContent(/2/);
-        expect(screen.getByTestId('kitchen-supply-orders-panel-metric-low')).toHaveTextContent(/1/);
+        expect(screen.getByTestId('kitchen-supply-orders-stats-low-value')).toHaveTextContent(/1/);
 
         const both = supplyOrderRowTestId(String(OUT_AND_LOW.stockItemId));
         // Both rules at once is one row wearing the Out badge — the label the server chose.
@@ -388,19 +411,29 @@ describe('supply orders landing', () => {
         expect(screen.getByTestId(`${low}-reorder-at`)).toHaveTextContent('5');
     });
 
-    it('counts the rest of the queue rather than listing it', async () => {
-        const many = Array.from({ length: 11 }, (_, index) => proposalRow(index + 1));
+    it('pages the queue rather than cutting it off', async () => {
+        const many = Array.from({ length: 20 }, (_, index) => proposalRow(index + 1));
 
         await renderStubScreen(<SupplyOrdersScreen />, {
             session: kitchenManagerSession(),
             repositories: landingOverrides(many),
         });
 
-        await untilVisible('kitchen-supply-orders-and-more');
+        await untilVisible('kitchen-supply-orders-preview-pagination');
 
-        // Eight shown, three counted — enough to tell "four things" from "forty" at a glance.
-        expect(screen.getByTestId('kitchen-supply-orders-and-more')).toHaveTextContent(/3/);
-        expect(screen.queryByTestId(supplyOrderRowTestId(String(itemId(9))))).toBeNull();
+        // A page of the queue, and the rest one press away — never a count of rows nobody can reach.
+        expect(screen.getByTestId('kitchen-supply-orders-needs-count')).toHaveTextContent(/20/);
+        expect(screen.getByTestId(supplyOrderRowTestId(String(itemId(18))))).toBeTruthy();
+        expect(screen.queryByTestId(supplyOrderRowTestId(String(itemId(19))))).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-supply-orders-preview-pagination-pages-page-2'),
+            );
+        });
+
+        expect(screen.getByTestId(supplyOrderRowTestId(String(itemId(19))))).toBeTruthy();
+        expect(screen.queryByTestId(supplyOrderRowTestId(String(itemId(1))))).toBeNull();
     });
 
     it('reads an empty queue as good news and still offers a way in', async () => {
@@ -411,9 +444,9 @@ describe('supply orders landing', () => {
 
         await untilVisible('kitchen-supply-orders-empty');
 
-        // A fully stocked kitchen is not a screen with no content. The primary Prepare button steps
-        // aside, because there is nothing to prepare — but the escape hatch stays.
-        expect(screen.queryByTestId('kitchen-supply-orders-prepare')).toBeNull();
+        // A fully stocked kitchen is not a screen with no content: the good-news state keeps its own
+        // way in beside the toolbar's Prepare order.
+        expect(screen.getByTestId('kitchen-supply-orders-prepare')).toBeTruthy();
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-supply-orders-order-anyway'));
@@ -467,7 +500,7 @@ describe('supply order builder', () => {
         const suggested = screen.getByTestId(
             `${supplyOrderRowTestId(String(LOW_ONLY.stockItemId))}-quantity-input`,
         );
-        expect(suggested.props.value).toBe('15.0000');
+        expect(suggested.props.value).toBe('15');
 
         // Blank, never "0". Zero is a decision; empty is the absence of one, and prefilling zero
         // would make "not ordering" the default for the rows that most need a human number.
@@ -491,15 +524,19 @@ describe('supply order builder', () => {
 
         await untilVisible('kitchen-supply-order-rows');
 
+        // The picker names the chosen supplier; the badge beside it says it is the preferred one.
         const preferred = supplyOrderRowTestId(String(LOW_ONLY.stockItemId));
-        expect(screen.getByTestId(`${preferred}-supplier`)).toHaveTextContent('Supplier 1');
+        // The trigger also carries its chevron glyph, so the name is matched rather than equated.
+        expect(screen.getByTestId(`${preferred}-supplier-select-trigger`)).toHaveTextContent(
+            /Supplier 1/,
+        );
         expect(screen.getByTestId(`${preferred}-preferred`)).toBeTruthy();
 
         // Two candidates and no preference recorded: the system declines to guess and says so,
         // which is a different state from having nobody to choose from.
         const choose = supplyOrderRowTestId(String(undecided.stockItemId));
         expect(screen.getByTestId(`${choose}-choose-supplier`)).toBeTruthy();
-        expect(screen.queryByTestId(`${choose}-supplier`)).toBeNull();
+        expect(screen.queryByTestId(`${choose}-preferred`)).toBeNull();
     });
 
     it('separates shelves with no supplier on file and names the archived case differently', async () => {
@@ -514,6 +551,7 @@ describe('supply order builder', () => {
             repositories: builderOverrides([LOW_ONLY, unlinked, archived]),
         });
 
+        await openBuilderStep('unlinked');
         await untilVisible('kitchen-supply-order-unlinked');
 
         // Different problems, different fixes — one empty dropdown for both would leave the person
@@ -545,6 +583,7 @@ describe('supply order builder', () => {
             repositories: builderOverrides([unlinked], { upsertSupplierLink }),
         });
 
+        await openBuilderStep('unlinked');
         await untilVisible('kitchen-supply-order-unlinked');
 
         const testID = supplyOrderRowTestId(String(unlinked.stockItemId));
@@ -603,6 +642,7 @@ describe('supply order builder', () => {
             repositories: builderOverrides([LOW_ONLY, OUT_ONLY, unlinked]),
         });
 
+        await openBuilderStep('review');
         await untilVisible('kitchen-supply-order-preview');
 
         // The suggested row is already in the preview: it opened with a quantity and a supplier.
@@ -614,6 +654,8 @@ describe('supply order builder', () => {
         expect(screen.queryByTestId('kitchen-supply-order-unassigned-warning')).toBeNull();
 
         // Typing a quantity on a row with nobody to buy it from moves it into the warning.
+        await openBuilderStep('unlinked');
+        await untilVisible(`${supplyOrderRowTestId(String(unlinked.stockItemId))}-quantity-input`);
         await act(async () => {
             fireEvent.changeText(
                 screen.getByTestId(
@@ -623,6 +665,7 @@ describe('supply order builder', () => {
             );
         });
 
+        await openBuilderStep('review');
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-supply-order-unassigned-warning')).toHaveTextContent(
                 /1/,
@@ -669,11 +712,21 @@ describe('supply order builder', () => {
                 '9',
             );
         });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-supply-order-refresh'));
-        });
 
-        await untilVisible('kitchen-supply-order-refresh-confirm');
+        /*
+         * Pressed until the screen takes the press. Waiting for "not busy" above narrows the race
+         * but cannot close it: on a loaded CI runner a fetch was still holding the button in its
+         * loading state at this press, and the run failed with the typed 9 on screen, the page
+         * marked unsaved, and no dialog. Once something has been typed a press never refetches —
+         * it only asks — so pressing again cannot change what this test is checking.
+         */
+        await waitFor(
+            () => {
+                fireEvent.press(screen.getByTestId('kitchen-supply-order-refresh'));
+                expect(screen.getByTestId('kitchen-supply-order-refresh-confirm')).toBeTruthy();
+            },
+            { timeout: 10_000 },
+        );
     });
 
     it('counts what it is about to create and sends exactly the plan the preview shows', async () => {
@@ -687,18 +740,19 @@ describe('supply order builder', () => {
             }),
         });
 
-        await untilVisible('kitchen-supply-order-commit');
+        await openBuilderStep('review');
+        await untilVisible('kitchen-supply-order-preview-total');
 
         // One supplier, one line — LOW_ONLY opened with a suggestion and a preferred supplier, and
         // the other two rows carry no quantity.
-        expect(screen.getByTestId('kitchen-supply-order-commit-orders')).toHaveTextContent(/1/);
-        expect(screen.getByTestId('kitchen-supply-order-commit-lines')).toHaveTextContent(/1/);
-        expect(screen.getByTestId('kitchen-supply-order-commit-left-behind')).toHaveTextContent(
+        expect(screen.getByTestId('kitchen-supply-order-preview-total')).toHaveTextContent(/1/);
+        expect(screen.getByTestId('kitchen-supply-order-preview-lines')).toHaveTextContent(/1/);
+        expect(screen.getByTestId('kitchen-supply-order-preview-left-behind')).toHaveTextContent(
             /2/,
         );
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-supply-order-create'));
+            fireEvent.press(screen.getByTestId('kitchen-supply-order-builder-create'));
         });
         await untilVisible('kitchen-supply-order-create-confirm');
 
@@ -710,14 +764,14 @@ describe('supply order builder', () => {
             fireEvent.press(screen.getByTestId('kitchen-supply-order-create-confirm-action'));
         });
 
-        // Exactly `toBatchPayload(plan)` — the same object the accordion above was built from.
+        // Exactly `toBatchPayload(plan)` — the same object the supplier rows were built from.
         await waitFor(() => {
             expect(repositories.kitchenOps.createPurchaseOrders).toHaveBeenCalledWith({
                 orders: [
                     {
                         supplierId: supplierId(1),
                         branchId: BRANCH,
-                        lines: [{ stockItemId: LOW_ONLY.stockItemId, quantity: '15.0000' }],
+                        lines: [{ stockItemId: LOW_ONLY.stockItemId, quantity: '15' }],
                     },
                 ],
             });
@@ -747,10 +801,12 @@ describe('supply order builder', () => {
             repositories: builderOverrides([LOW_ONLY], { createPurchaseOrders }),
         });
 
-        await untilVisible('kitchen-supply-order-commit');
+        await openBuilderStep('review');
+        await untilVisible('kitchen-supply-order-builder-create');
 
+        // Create is at the foot of Ready to order, under what it creates.
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-supply-order-create'));
+            fireEvent.press(screen.getByTestId('kitchen-supply-order-builder-create'));
         });
         await untilVisible('kitchen-supply-order-create-confirm');
         await act(async () => {
@@ -772,15 +828,19 @@ describe('supply order builder', () => {
 
         await untilVisible('kitchen-supply-order-add-select');
 
+        // Items are named, never coded: the catalogue code is a slug of the name beside it.
+        expect(screen.queryByText(LOW_ONLY.itemCode)).toBeNull();
+
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-supply-order-add-select-trigger'));
         });
+        const option = await screen.findByTestId(
+            `kitchen-supply-order-add-select-option-${String(itemId(9))}`,
+        );
+        expect(option).toHaveTextContent(/^Item 9/);
+        expect(option).not.toHaveTextContent(/ITM-09/);
         await act(async () => {
-            fireEvent.press(
-                await screen.findByTestId(
-                    `kitchen-supply-order-add-select-option-${String(itemId(9))}`,
-                ),
-            );
+            fireEvent.press(option);
         });
 
         // One place decides what a proposal row looks like, suppliers resolved and all — so a shelf
@@ -872,9 +932,14 @@ describe('supply orders book', () => {
 
         await untilVisible('kitchen-supply-orders-book-empty');
 
-        // No "drafts" metric tile is derived from the page: the list is a keyset walk with a null
-        // total, so a count from the rows in hand would be right only on short lists.
-        expect(screen.queryByTestId('kitchen-supply-orders-panel-metric-drafts')).toBeNull();
+        // The draft card counts the rows in hand and says so — "on this page", never a kitchen-wide
+        // total, because the list is a keyset walk with a null total.
+        expect(screen.getByTestId('kitchen-supply-orders-stats-draft-value')).toHaveTextContent(
+            '0',
+        );
+        expect(screen.getByTestId('kitchen-supply-orders-stats-draft')).toHaveTextContent(
+            /on this page/,
+        );
     });
 });
 
@@ -899,17 +964,29 @@ describe('purchase order detail', () => {
 
         await untilVisible('kitchen-supply-order-detail-lines-table');
 
-        // A draft reads the live supplier, and says so: the order is still being addressed.
-        expect(screen.getByTestId('kitchen-supply-order-detail-supplier-name')).toHaveTextContent(
-            'Supplier 1',
+        // A draft names the live supplier: the order is still being addressed.
+        expect(
+            screen.getByTestId('kitchen-supply-order-detail-summary-supplier'),
+        ).toHaveTextContent(/Supplier 1$/);
+
+        // The summary states the order; its buttons live in the opening only.
+        expect(screen.queryByTestId('kitchen-supply-order-detail-summary-issue')).toBeNull();
+
+        // The summary beside the form counts the lines being edited, not the ones last saved.
+        expect(screen.getByTestId('kitchen-supply-order-detail-summary-total')).toHaveTextContent(
+            '2',
         );
-        expect(screen.getByTestId('kitchen-supply-order-detail-supplier-live')).toBeTruthy();
 
         await act(async () => {
             fireEvent.press(
                 screen.getByTestId(`${purchaseOrderLineTestId(String(itemId(2)))}-remove`),
             );
         });
+
+        expect(screen.getByTestId('kitchen-supply-order-detail-summary-total')).toHaveTextContent(
+            '1',
+        );
+        expect(screen.getByTestId('kitchen-supply-order-detail-screen-dirty')).toBeTruthy();
 
         await act(async () => {
             fireEvent.changeText(
@@ -948,13 +1025,12 @@ describe('purchase order detail', () => {
 
         // The document, not the live record (§3.5). A supplier that has since been renamed must not
         // rewrite the copy they are holding.
-        expect(screen.getByTestId('kitchen-supply-order-detail-supplier-name')).toHaveTextContent(
-            'Supplier 1 as it was',
-        );
         expect(
-            screen.getByTestId('kitchen-supply-order-detail-supplier-address'),
-        ).toHaveTextContent(/Gate 4/);
-        expect(screen.getByTestId('kitchen-supply-order-detail-contact-Samir')).toBeTruthy();
+            screen.getByTestId('kitchen-supply-order-detail-summary-supplier'),
+        ).toHaveTextContent(/Supplier 1 as it was$/);
+        expect(screen.getByTestId('kitchen-supply-order-detail-subtitle')).toHaveTextContent(
+            /Supplier 1 as it was/,
+        );
 
         // Frozen: no save, no quantity box, no add picker, no issue — and cancel survives, because
         // an issued order can still be called off.

@@ -8,6 +8,7 @@ use Healthy360\Consent\Models\ConsentGrant;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Tenancy\Tests\Fixtures\RuntimeRole;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -29,9 +30,9 @@ use Healthy360\Tenancy\Tests\Fixtures\RuntimeRole;
 
 uses()->group('rls');
 
-beforeEach(function (): void {
-    $this->seed();
+pest()->use(SeedDatabaseOnce::class);
 
+beforeEach(function (): void {
     $this->withHeaders(firstPartyHeaders());
 
     $this->cedar = Organisation::query()->where('slug', 'cedar-clinic')->sole();

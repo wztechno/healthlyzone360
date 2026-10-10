@@ -91,8 +91,13 @@ final readonly class IngredientCatalogueService
      *     is_sellable?: bool,
      *     yield_factor?: float|string|null,
      *     availability_tier?: string|null,
-     *     notes?: string|null
+     *     notes?: string|null,
+     *     source_ref?: string|null
      * }  $attributes
+     *
+     * `source_ref` is for a server-side caller only — a sauce's twin carries the sauce's own
+     * `SAC-` handle rather than the next `ING-` one. `StoreIngredientRequest` validates a fixed set
+     * of keys that does not include it, so a client cannot choose a handle.
      *
      * @throws ApiException
      */
@@ -161,7 +166,8 @@ final readonly class IngredientCatalogueService
         // row typed in by hand joins the same sequence at 307 rather than arriving without one —
         // which is what a column of references a cook reads down is for. `source_system` stays null,
         // so nothing here can be mistaken for an imported row: the import matches on the pair.
-        $ingredient->source_ref = $this->nextReferenceFor($organisationId, self::REFERENCE_PREFIX);
+        $ingredient->source_ref = $this->trimmedOrNull($attributes['source_ref'] ?? null)
+            ?? $this->nextReferenceFor($organisationId, self::REFERENCE_PREFIX);
         $ingredient->save();
 
         $this->audit->record(

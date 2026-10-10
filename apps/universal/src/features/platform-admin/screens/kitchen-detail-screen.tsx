@@ -8,7 +8,7 @@ import {
     ErrorState,
     Heading,
     Inline,
-    Skeleton,
+    RecordSkeleton,
     Stack,
     Table,
     Text,
@@ -89,11 +89,12 @@ function KitchenDetail() {
 
     if (kitchen.isPending) {
         return (
-            <Stack space="sm" testID="platform-admin-kitchen-loading">
-                <Skeleton testID="platform-admin-kitchen-skeleton" heightClassName="h-8" />
-                <Skeleton heightClassName="h-24" />
-                <Skeleton heightClassName="h-24" />
-            </Stack>
+            <RecordSkeleton
+                testID="platform-admin-kitchen-loading"
+                partTestID="platform-admin-kitchen"
+                tiles={0}
+                rows={3}
+            />
         );
     }
 
@@ -376,6 +377,7 @@ function KitchenDetail() {
                 <TextInputField
                     testID="platform-admin-suspend-reason"
                     label={t('platformAdmin:lifecycle.suspendReasonLabel')}
+                    placeholder={t('platformAdmin:lifecycle.suspendReasonPlaceholder')}
                     hint={t('platformAdmin:lifecycle.suspendReasonHint')}
                     value={suspendReason}
                     onChangeText={setSuspendReason}
@@ -591,6 +593,7 @@ function InviteOwnerCard({ kitchen }: { readonly kitchen: PlatformKitchen }) {
                 <TextInputField
                     testID="platform-admin-invite-name"
                     label={t('platformAdmin:invite.nameLabel')}
+                    placeholder={t('platformAdmin:invite.namePlaceholder')}
                     hint={t('platformAdmin:invite.nameHint')}
                     value={name}
                     onChangeText={setName}
@@ -599,6 +602,7 @@ function InviteOwnerCard({ kitchen }: { readonly kitchen: PlatformKitchen }) {
                 <TextInputField
                     testID="platform-admin-invite-message"
                     label={t('platformAdmin:invite.messageLabel')}
+                    placeholder={t('platformAdmin:invite.messagePlaceholder')}
                     hint={t('platformAdmin:invite.messageHint')}
                     value={message}
                     onChangeText={setMessage}

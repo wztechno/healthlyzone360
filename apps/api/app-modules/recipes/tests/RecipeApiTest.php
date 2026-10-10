@@ -57,9 +57,9 @@ it('creates a recipe together with its first draft version', function (): void {
         ->assertJsonPath('data.recipe.lock_version', 0)
         ->assertJsonPath('data.version.version_number', 1)
         ->assertJsonPath('data.version.status', 'draft')
-        // Nothing has been derived yet, and `current` on an empty label would
-        // be the most dangerous default available.
-        ->assertJsonPath('data.version.derivation_state', 'stale')
+        // Current: version 1 has no lines, so there is nothing to derive and its
+        // empty label is the true one. The first line written marks it stale.
+        ->assertJsonPath('data.version.derivation_state', 'current')
         ->assertHeader('ETag', '"0"');
 
     $recipeId = $response->json('data.recipe.id');
@@ -70,6 +70,45 @@ it('creates a recipe together with its first draft version', function (): void {
 
     expect(AuditLog::query()->where('action', 'catalogue.recipe_created')->count())->toBe(1)
         ->and(AuditLog::query()->where('action', 'catalogue.recipe_version_created')->count())->toBe(1);
+});
+
+it('marks the empty first version stale as soon as it has a line', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+
+    $recipeId = $this->postJson('/api/v1/catalogue/recipes', ['name_en' => 'Green Tahini'], $headers)
+        ->assertCreated()
+        ->assertJsonPath('data.version.derivation_state', 'current')
+        ->json('data.recipe.id');
+
+    $ingredient = RecipeWorld::mappedIngredient($this->a->organisation, 'Tahini', 'sesame');
+
+    // The first content write is what gives the label something to be derived from, so it is what
+    // makes the label stale — in the same transaction as the write, never a step later.
+    $this->putJson('/api/v1/catalogue/recipes/'.$recipeId.'/versions/1/lines', [
+        'lines' => [['ingredient_id' => (string) $ingredient->getKey(), 'quantity' => 250, 'unit_id' => RecipeWorld::unit()]],
+    ], $headers + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->assertJsonPath('data.version.derivation_state', 'stale');
+
+    expect(RecipeVersion::withoutTenancy()->where('recipe_id', $recipeId)->sole()->derivation_state)
+        ->toBe(DerivationState::Stale);
+});
+
+it('never takes a recipe’s provenance from the request', function (): void {
+    $this->actingAs($this->a->user);
+
+    // `source_system` is how the catalogue backfill marks its placeholders, and its `--undo` deletes
+    // by it. A client able to write it could dress a hand-made recipe up as a placeholder.
+    $recipeId = $this->postJson('/api/v1/catalogue/recipes', [
+        'name_en' => 'Hand-made Toum',
+        'source_system' => 'catalogue_backfill',
+    ], RecipeWorld::headers($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.recipe.source_system', null)
+        ->json('data.recipe.id');
+
+    expect(Recipe::withoutTenancy()->whereKey($recipeId)->value('source_system'))->toBeNull();
 });
 
 it('keeps one kitchens recipes invisible and unreachable to the other', function (): void {
@@ -251,6 +290,194 @@ it('refuses a cursor it did not issue', function (): void {
     $this->getJson('/api/v1/catalogue/recipes?cursor=not-a-cursor', RecipeWorld::headers($this->a))
         ->assertStatus(400)
         ->assertJsonPath('error.details.parameter', 'cursor');
+});
+
+/*
+|--------------------------------------------------------------------------
+| What the listing says about a recipe's current version
+|--------------------------------------------------------------------------
+|
+| A recipe row carries `active | archived`. Everything a kitchen thinks of as a
+| recipe's state — draft, under review, published — belongs to a version, so a
+| listing that returned only the identity could not describe a quarantine at
+| all. These four cover the fields that close that, and the filter built on
+| them.
+|
+*/
+
+it('states the current version, preferring an open draft over the published one', function (): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 1,
+        'status' => 'published',
+    ]);
+    RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 2,
+        'status' => 'draft',
+    ]);
+
+    $this->actingAs($this->a->user);
+
+    // Both facts, and they differ on purpose: v1 is what a customer can see,
+    // v2 is what a chef is working on, and the list has to be able to say so.
+    $this->getJson('/api/v1/catalogue/recipes', RecipeWorld::headers($this->a))
+        ->assertOk()
+        ->assertJsonPath('data.0.published_version_number', 1)
+        ->assertJsonPath('data.0.current_version_status', 'draft');
+});
+
+it('states a quarantine, which the identity alone could never express', function (): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 1,
+        'status' => 'published',
+    ]);
+    RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 2,
+        'status' => 'review_required',
+    ]);
+
+    $this->actingAs($this->a->user);
+
+    /*
+     * The regression this locks. A client deriving state from `status` plus
+     * `published_version_number` reported this recipe as `published` — so the
+     * Review card read zero, the review queue never listed it, and the one
+     * screen built to surface a quarantine could not see one.
+     */
+    $this->getJson('/api/v1/catalogue/recipes', RecipeWorld::headers($this->a))
+        ->assertOk()
+        ->assertJsonPath('data.0.current_version_status', 'review_required');
+});
+
+it('carries the current version’s allergen codes, so a list needs no read per row', function (): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    $published = RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 1,
+        'status' => 'published',
+    ]);
+    $draft = RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 2,
+        'status' => 'draft',
+    ]);
+
+    foreach ([[$published, 'peanuts'], [$draft, 'sesame'], [$draft, 'gluten']] as [$version, $code]) {
+        // The class has to exist before a version can declare it — the column is a real foreign key
+        // into the regulated fourteen, which is the point of that table.
+        RecipeWorld::allergen($code);
+
+        RecipeVersionAllergen::factory()->create([
+            'recipe_version_id' => $version->getKey(),
+            'organisation_id' => $this->a->organisation->getKey(),
+            'allergen_code' => $code,
+            'containment' => AllergenContainment::Contains->value,
+            'derivation' => AllergenDerivation::Derived->value,
+        ]);
+    }
+
+    $this->actingAs($this->a->user);
+
+    // The draft's classes, not the published one's — the same version the
+    // status above names, and the same one the allergen filter selects on. A
+    // cell and a filter disagreeing about which version they describe is how a
+    // row gets hidden by a filter it visibly matches.
+    $this->getJson('/api/v1/catalogue/recipes', RecipeWorld::headers($this->a))
+        ->assertOk()
+        ->assertJsonPath('data.0.current_version_allergen_codes', ['gluten', 'sesame']);
+});
+
+it('counts the current version’s lines on the page', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+
+    // Zero is what the book marks "Not formulated", so the empty first version has to say so.
+    $recipeId = $this->postJson('/api/v1/catalogue/recipes', ['name_en' => 'Counted Sauce'], $headers)
+        ->assertCreated()
+        ->assertJsonPath('data.recipe.current_version_line_count', 0)
+        ->json('data.recipe.id');
+
+    $tahini = RecipeWorld::mappedIngredient($this->a->organisation, 'Tahini', 'sesame');
+    $lemon = RecipeWorld::verifiedCleanIngredient($this->a->organisation, 'Lemon juice');
+
+    $this->putJson('/api/v1/catalogue/recipes/'.$recipeId.'/versions/1/lines', [
+        'lines' => [
+            ['ingredient_id' => (string) $tahini->getKey(), 'quantity' => 250, 'unit_id' => RecipeWorld::unit()],
+            ['ingredient_id' => (string) $lemon->getKey(), 'quantity' => 40, 'unit_id' => RecipeWorld::unit()],
+        ],
+    ], $headers + ['If-Match' => '"0"'])->assertOk();
+
+    // One grouped count for the page, on both pagination paths.
+    $this->getJson('/api/v1/catalogue/recipes?page=1&per_page=25', $headers)
+        ->assertOk()
+        ->assertJsonPath('data.0.current_version_line_count', 2);
+
+    $this->getJson('/api/v1/catalogue/recipes?limit=25', $headers)
+        ->assertOk()
+        ->assertJsonPath('data.0.current_version_line_count', 2);
+});
+
+it('narrows by a version state the recipe identity has no column for', function (): void {
+    $quarantined = Recipe::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_en' => 'Under review',
+    ]);
+    RecipeVersion::factory()->create([
+        'recipe_id' => $quarantined->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 1,
+        'status' => 'review_required',
+    ]);
+
+    $live = Recipe::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_en' => 'Perfectly fine',
+    ]);
+    RecipeVersion::factory()->create([
+        'recipe_id' => $live->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 1,
+        'status' => 'published',
+    ]);
+
+    $this->actingAs($this->a->user);
+
+    /*
+     * `review_required` used to be dropped on the client rather than sent,
+     * because the identity has no such state — so picking it in the Status
+     * column sent no filter and the page answered with everything, which reads
+     * as a filter that does not work.
+     */
+    $this->getJson('/api/v1/catalogue/recipes?status=review_required', RecipeWorld::headers($this->a))
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.name_en', 'Under review');
+
+    $this->getJson('/api/v1/catalogue/recipes?status=published', RecipeWorld::headers($this->a))
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.name_en', 'Perfectly fine');
+
+    // And a word in neither vocabulary is still refused rather than becoming a
+    // filter that quietly matches nothing. `request.invalid` is a 400 here: a
+    // malformed query parameter, not a failed validation rule.
+    $this->getJson('/api/v1/catalogue/recipes?status=nonsense', RecipeWorld::headers($this->a))
+        ->assertStatus(400)
+        ->assertJsonPath('error.details.parameter', 'status');
 });
 
 it('denies a member without the recipe permissions', function (): void {
@@ -634,3 +861,71 @@ it('carries the list prices into the next draft', function (): void {
         ->assertJsonPath('data.version.b2c_price_amount', '24.000000')
         ->assertJsonPath('data.version.price_currency_code', 'AED');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Shelf life — on the recipe, not the version (D-143)
+|--------------------------------------------------------------------------
+|
+| How long a batch keeps is how the kitchen keeps the food, not what the food
+| is. So it is written on the recipe identity, under the recipe's own lock, and
+| stays writable while the formulation is published and frozen.
+|
+*/
+
+it('takes a shelf life when the recipe is created', function (): void {
+    $this->actingAs($this->a->user);
+
+    $this->postJson('/api/v1/catalogue/recipes', ['name_en' => 'Caesar Dressing', 'shelf_life_days' => 5], RecipeWorld::headers($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.recipe.shelf_life_days', 5);
+
+    // Omitted is null — nobody has said — never a default number of days.
+    $this->postJson('/api/v1/catalogue/recipes', ['name_en' => 'Toum'], RecipeWorld::headers($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.recipe.shelf_life_days', null);
+});
+
+it('corrects a shelf life while the recipe’s version is published', function (): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+    RecipeVersion::factory()->published()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+    $url = '/api/v1/catalogue/recipes/'.$recipe->getKey();
+
+    // No new version and no review: the formulation did not change.
+    $this->patchJson($url, ['shelf_life_days' => 5], $headers + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->assertJsonPath('data.recipe.shelf_life_days', 5)
+        ->assertJsonPath('data.recipe.current_version_status', 'published');
+
+    expect(AuditLog::query()->where('action', 'catalogue.recipe_updated')->sole()->metadata['changed_fields'])
+        ->toBe(['shelf_life_days']);
+
+    // Null clears it, and the cook types the date by hand again.
+    $this->patchJson($url, ['shelf_life_days' => null], $headers + ['If-Match' => '"1"'])
+        ->assertOk()
+        ->assertJsonPath('data.recipe.shelf_life_days', null);
+
+    expect(RecipeVersion::withoutTenancy()->where('recipe_id', $recipe->getKey())->sole()->lock_version)->toBe(0);
+});
+
+it('refuses a shelf life that is not a number of days a food could keep', function (mixed $days): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    $this->actingAs($this->a->user);
+
+    $this->patchJson('/api/v1/catalogue/recipes/'.$recipe->getKey(), ['shelf_life_days' => $days],
+        RecipeWorld::headers($this->a) + ['If-Match' => '"0"'])
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed')
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['shelf_life_days']]]]);
+})->with([
+    'negative' => -1,
+    'past ten years' => 3651,
+    'not a number' => 'x',
+]);

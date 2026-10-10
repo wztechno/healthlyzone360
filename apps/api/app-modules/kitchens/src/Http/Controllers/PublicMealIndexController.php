@@ -86,7 +86,7 @@ final class PublicMealIndexController
             if ($unknown !== []) {
                 throw new ApiException(
                     ErrorCode::RequestInvalid,
-                    'item_types accepts only meal, product, sauce and dressing.',
+                    'item_types accepts only meal, product, sauce, dressing and frozen_meal.',
                     ['parameter' => 'item_types', 'unknown' => $unknown],
                 );
             }

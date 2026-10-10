@@ -8,6 +8,7 @@ use Healthy360\Delivery\Enums\DeliveryZoneStatus;
 use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Models\DeliveryZoneArea;
+use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\ReferenceData\Models\DeliveryArea;
 
 /**
@@ -36,6 +37,12 @@ use Healthy360\ReferenceData\Models\DeliveryArea;
  * `starts_at` and `ends_at` are therefore NULL — the half-finished state the
  * schema explicitly permits — and `weekdays` is `[]`, which this system defines
  * as every day rather than as none.
+ *
+ * **The zone offers the windows.** A newly created zone is given every active
+ * window of the organisation, and a newly created window is offered in the
+ * import's zone — otherwise every imported delivery would be refused
+ * `window_not_offered`. Re-runs add nothing: an assignment a kitchen removed
+ * stays removed.
  */
 final readonly class DeliveryWriter
 {
@@ -84,14 +91,23 @@ final readonly class DeliveryWriter
             );
         }
 
-        $this->writeZone(array_values($areas->all()), $organisationId, $report);
-        $this->writeWindows($parsed['delivery_windows'], $organisationId, $report);
+        [$zone, $zoneCreated] = $this->writeZone(array_values($areas->all()), $organisationId, $report);
+        $newWindowIds = $this->writeWindows($parsed['delivery_windows'], $organisationId, $report);
+
+        if ($zoneCreated || $newWindowIds !== []) {
+            app(ZoneWindowService::class)->assignAll(
+                $organisationId,
+                $zoneCreated ? null : $newWindowIds,
+                [(string) $zone->getKey()],
+            );
+        }
     }
 
     /**
      * @param  list<DeliveryArea>  $areas
+     * @return array{0: DeliveryZone, 1: bool} the zone, and whether this run created it
      */
-    private function writeZone(array $areas, string $organisationId, ImportReport $report): void
+    private function writeZone(array $areas, string $organisationId, ImportReport $report): array
     {
         $existing = DeliveryZone::withoutTenancy()
             ->where('organisation_id', $organisationId)
@@ -102,7 +118,7 @@ final readonly class DeliveryWriter
             $report->skipped('delivery_zone');
             $this->writeZoneAreas($existing, $areas, $organisationId, $report);
 
-            return;
+            return [$existing, false];
         }
 
         $report->created('delivery_zone');
@@ -125,6 +141,8 @@ final readonly class DeliveryWriter
         $zone->save();
 
         $this->writeZoneAreas($zone, $areas, $organisationId, $report);
+
+        return [$zone, true];
     }
 
     /**
@@ -164,9 +182,12 @@ final readonly class DeliveryWriter
 
     /**
      * @param  list<array{code: string, name: string}>  $windows
+     * @return list<string> the windows this run created
      */
-    private function writeWindows(array $windows, string $organisationId, ImportReport $report): void
+    private function writeWindows(array $windows, string $organisationId, ImportReport $report): array
     {
+        $created = [];
+
         foreach ($windows as $index => $definition) {
             $exists = DeliveryWindow::withoutTenancy()
                 ->where('organisation_id', $organisationId)
@@ -194,6 +215,10 @@ final readonly class DeliveryWriter
             $window->display_order = $index + 1;
             $window->is_active = true;
             $window->save();
+
+            $created[] = (string) $window->getKey();
         }
+
+        return $created;
     }
 }

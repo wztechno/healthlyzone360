@@ -1,10 +1,181 @@
 {
-  "_comment": "Curated corrections to sheet \"1. Ingredients\" of the v6 workbook, keyed by source_ref and merged into the generated rows by scripts/convert-v6-workbook.py. Only `default_unit_code` is merged today, and only where an entry states one; everything else a row carries still comes from the sheet. This is an input to the conversion rather than an output of it, in the same way packaging-overlay.json is. The workbook itself is not in this repository, so the same change has ALSO been applied by hand to the committed platform-ingredients.json — the overlay is what makes it survive the next regeneration, not what produced the committed row.",
+  "_comment": "Curated corrections to sheet \"1. Ingredients\" of the v6 workbook, keyed by source_ref and merged into the generated rows by scripts/convert-v6-workbook.py. `default_unit_code` and `purchase_unit_code` are merged where an entry states one; everything else a row carries still comes from the sheet. This is an input to the conversion rather than an output of it, in the same way packaging-overlay.json is. The workbook itself is not in this repository, so the same changes have ALSO been applied by hand to the committed platform-ingredients.json — the overlay is what makes them survive the next regeneration, not what produced the committed rows.",
+  "_source": "The owner's unit table, September 2026: every ING row stocks in KG or LTR. Thirteen rows are LTR (citric acid, the vinegars, the waters, soya sauce, vanilla syrup, condensed milk, full-fat milk); the other 293 are KG. The five edible oils were considered for LTR and deliberately left in KG — nutrition already resolves for a mass row, and moving them would restate every oil line in the recipe book to satisfy a purchasing convention.",
   "items": [
     {
+      "source_ref": "ING-007",
+      "name_en": "Croutons",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states piece issued from bag."
+    },
+    {
+      "source_ref": "ING-010",
+      "name_en": "Rkakat dough",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states piece."
+    },
+    {
+      "source_ref": "ING-011",
+      "name_en": "Vermicelli (fine pasta)",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states piece issued from bag."
+    },
+    {
+      "source_ref": "ING-016",
+      "name_en": "Ketchup",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states l issued from gallon."
+    },
+    {
+      "source_ref": "ING-017",
+      "name_en": "Mayonnaise",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states l issued from gallon."
+    },
+    {
+      "source_ref": "ING-019",
+      "name_en": "Mustard",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states l issued from gallon."
+    },
+    {
+      "source_ref": "ING-020",
+      "name_en": "Mustard, Dijon",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states l issued from gallon."
+    },
+    {
+      "source_ref": "ING-021",
+      "name_en": "Mustard, wholegrain (a l'ancienne)",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states l issued from gallon."
+    },
+    {
+      "source_ref": "ING-022",
+      "name_en": "Mustard, yellow (American)",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states l issued from gallon."
+    },
+    {
+      "source_ref": "ING-026",
+      "name_en": "Soya sauce",
+      "default_unit_code": "l",
+      "purchase_unit_code": "l",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states l issued from gallon."
+    },
+    {
+      "source_ref": "ING-027",
+      "name_en": "Tomato paste",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states piece issued from can."
+    },
+    {
+      "source_ref": "ING-036",
+      "name_en": "Chocolate",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states piece issued from pack."
+    },
+    {
+      "source_ref": "ING-039",
+      "name_en": "Chocolate, dark",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states piece issued from pack."
+    },
+    {
+      "source_ref": "ING-045",
+      "name_en": "Sugar, brown",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states piece issued from pack."
+    },
+    {
+      "source_ref": "ING-046",
+      "name_en": "Sugar, powdered (icing)",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states piece issued from pack."
+    },
+    {
+      "source_ref": "ING-047",
+      "name_en": "Sugar, white",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states piece issued from pack."
+    },
+    {
+      "source_ref": "ING-059",
+      "name_en": "Shanklish",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states kg issued from piece."
+    },
+    {
+      "source_ref": "ING-060",
+      "name_en": "Butter",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states kg issued from pack."
+    },
+    {
+      "source_ref": "ING-063",
+      "name_en": "Ice cream, vanilla",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states kg issued from pack."
+    },
+    {
+      "source_ref": "ING-070",
+      "name_en": "Lady Finger Biscuits",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states piece issued from pack."
+    },
+    {
+      "source_ref": "ING-076",
+      "name_en": "Tuna",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states piece issued from can."
+    },
+    {
+      "source_ref": "ING-077",
+      "name_en": "Calamari",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states piece."
+    },
+    {
+      "source_ref": "ING-079",
+      "name_en": "Crab sticks (surimi)",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states piece."
+    },
+    {
+      "source_ref": "ING-080",
+      "name_en": "Shrimps",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Owner unit table (2026-09): every ING row stocks in KG or LTR so a line can always be weighed. The workbook states piece."
+    },
+    {
       "source_ref": "ING-207",
-      "default_unit_code": "piece",
-      "note": "Eggs are counted, not weighed: every technical sheet states them in pieces. The workbook leaves the Unit column blank, so the generator defaulted the row to kg and a line reading \"4 piece\" could not be costed or weighed. The mass of one piece is supplied separately, by scripts/convert-nutrition-table.py."
+      "name_en": "Eggs",
+      "default_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "note": "Eggs. The owner unit table (2026-09) supersedes the 2026-09 piece correction: the library stocks and prices by mass so nutrition resolves without a per-piece weight. The 50 g USDA figure survives in the migration that converts existing recipe lines."
     }
   ]
 }

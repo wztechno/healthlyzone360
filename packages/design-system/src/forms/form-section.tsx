@@ -38,6 +38,21 @@ export interface FormSectionProps {
     readonly actions?: ReactNode | undefined;
     /** Suppresses the leading hairline. Pass on the first section of a form. */
     readonly first?: boolean | undefined;
+    /**
+     * Where the section's one rule goes.
+     *
+     * `divided` (the default) is described above: a hairline *between* sections, none over the
+     * first. `underlined` is the Catalogue Forms heading — the title with the hairline directly *under*
+     * it, on every section including the first — for a long one-page editor where
+     * each section is a place the reader jumps to rather than the next paragraph of one form. The
+     * rule then belongs to the heading it closes, so `first` has nothing to suppress and is ignored.
+     *
+     * `card` is `underlined` inside the admin's raised panel — the same border, radius, cast and
+     * inset `Card density="compact" tone="raised"` draws — so each section reads as its own object
+     * on the page. Every kitchen record editor draws its sections this way. It does not clip: a
+     * dropdown opened in the last field still has to escape the panel.
+     */
+    readonly variant?: 'divided' | 'underlined' | 'card' | undefined;
     readonly children: ReactNode;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
@@ -49,18 +64,36 @@ export function FormSection({
     aside,
     actions,
     first = false,
+    variant = 'divided',
     children,
     className,
     testID,
 }: FormSectionProps) {
+    const card = variant === 'card';
+    const underlined = variant === 'underlined' || card;
+
     return (
         // `z-auto` for the reason `FormField` states: every React Native Web `View` is a stacking
         // context at z-0, and a section that is one traps a dropdown opened in its first field
         // under the section below it.
-        <View testID={testID} className={cx('z-auto flex-col', className)}>
-            {first ? null : <Separator className="mb-loose" />}
+        <View
+            testID={testID}
+            className={cx(
+                'z-auto flex-col',
+                card
+                    ? 'rounded border border-stroke-subtle bg-surface-raised p-base shadow-elevation-card'
+                    : null,
+                className,
+            )}
+        >
+            {first || underlined ? null : <Separator className="mb-loose" />}
 
-            <View className="mb-snug flex-col gap-hair">
+            <View
+                className={cx(
+                    'mb-snug flex-col gap-hair',
+                    underlined ? 'border-b border-stroke-subtle pb-1.5' : null,
+                )}
+            >
                 <View className="flex-row items-center justify-between gap-tight">
                     {/*
                      * The title and its aside are one group so `justify-between` separates *them*

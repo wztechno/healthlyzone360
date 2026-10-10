@@ -76,6 +76,14 @@ use Healthy360\Orders\Enums\PaymentMethod;
  * stated by the caller, defaulting to the one it used to be. What actually
  * arrived is `order_payment_receipts`, deliberately not constrained to agree.
  *
+ * ## `enforceWindowOffer` is the subscription exemption
+ *
+ * A delivery normally has to name a window its zone offers
+ * (`window_not_offered`). Subscription generation sets this false: the
+ * subscriber chose the slot when it was offered, and a later edit to the
+ * kitchen's map must not start skipping their deliveries. Every other caller
+ * leaves it at the default.
+ *
  * `requestedDate` is effectively required for a composed placement: a
  * subscription delivery is for one named day, and the branch cut-off cannot be
  * asked about a day nobody named. It is nullable only because the type mirrors
@@ -88,6 +96,7 @@ final readonly class ComposedPlacement
      * @param  CustomerAddress|null  $address  delivery only; a pickup or a counter sale carrying one is refused
      * @param  list<ComposedLine>  $lines
      * @param  string|null  $placedOnBehalfBy  the staff `users` id; non-null IS the staff marker
+     * @param  bool  $enforceWindowOffer  false only for subscription generation
      */
     public function __construct(
         public ?CustomerAccount $account,
@@ -102,5 +111,6 @@ final readonly class ComposedPlacement
         public FulfilmentType $fulfilmentType = FulfilmentType::Delivery,
         public ?string $placedOnBehalfBy = null,
         public PaymentMethod $paymentMethod = PaymentMethod::CashOnDelivery,
+        public bool $enforceWindowOffer = true,
     ) {}
 }

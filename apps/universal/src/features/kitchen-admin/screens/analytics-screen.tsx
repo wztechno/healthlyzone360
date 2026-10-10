@@ -1,11 +1,4 @@
-import {
-    Badge,
-    RecordWindow,
-    SegmentedControl,
-    Select,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
+import { Badge, Cascade, SegmentedControl, Select, Text } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -40,6 +33,8 @@ import {
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { WithColumnPicker } from '../catalogue/column-picker.tsx';
 /**
  * `/kitchen/analytics` — the sample-data dashboard, as `Workbench.dc.html` draws it (§3.3).
  *
@@ -166,7 +161,6 @@ function AnalyticsDashboard() {
             label: t('kitchen:analytics.table.volume'),
             width: 80,
             priority: 85,
-            align: 'center',
             sort: (left, right, direction) => compareNumber(left.volume, right.volume, direction),
             render: (row) => <Text variant="mono">{formatter.formatNumber(row.volume)}</Text>,
         },
@@ -175,7 +169,6 @@ function AnalyticsDashboard() {
             label: t('kitchen:analytics.table.completion'),
             width: 64,
             priority: 50,
-            align: 'center',
             sort: (left, right, direction) =>
                 compareNumber(left.completionPercent, right.completionPercent, direction),
             render: (row) => (
@@ -189,7 +182,6 @@ function AnalyticsDashboard() {
             label: t('kitchen:analytics.table.avgMinutes'),
             width: 76,
             priority: 45,
-            align: 'center',
             sort: (left, right, direction) =>
                 compareNumber(left.avgMinutes, right.avgMinutes, direction),
             render: (row) => <Text variant="mono">{formatter.formatNumber(row.avgMinutes)}</Text>,
@@ -199,6 +191,10 @@ function AnalyticsDashboard() {
             label: t('kitchen:analytics.table.updated'),
             width: 110,
             priority: 20,
+            // Oldest first when ascending, as a timestamp sorts: the label is "5h ago", so the
+            // larger the hours, the earlier the change.
+            sort: (left, right, direction) =>
+                compareNumber(right.updatedHoursAgo, left.updatedHoursAgo, direction),
             render: (row) => (
                 <Text variant="caption" tone="secondary" numberOfLines={1}>
                     {row.updatedLabel}
@@ -207,8 +203,60 @@ function AnalyticsDashboard() {
         },
     ];
     const controls = useColumnControls(bundle.rows, columns, 'kitchen-analytics-table');
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-analytics-window"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={viewing.name}
+                kind={t('kitchen:analytics.window.kind')}
+                status={{
+                    label: t(statusKey(viewing.status)),
+                    tone: STATUS_TONE[viewing.status],
+                }}
+                note={t('kitchen:analytics.window.note')}
+                fields={[
+                    {
+                        key: 'segment',
+                        label: t('kitchen:analytics.table.segment'),
+                        value: t(`kitchen:analytics.segments.${viewing.segment}`),
+                    },
+                    {
+                        key: 'volume',
+                        label: t('kitchen:analytics.table.volume'),
+                        value: formatter.formatNumber(viewing.volume),
+                        mono: true,
+                    },
+                    {
+                        key: 'done',
+                        label: t('kitchen:analytics.table.completion'),
+                        value: formatter.formatNumber(viewing.completionPercent / 100, {
+                            style: 'percent',
+                        }),
+                        mono: true,
+                    },
+                    {
+                        key: 'avg',
+                        label: t('kitchen:analytics.table.avgMinutes'),
+                        value: formatter.formatNumber(viewing.avgMinutes),
+                        mono: true,
+                    },
+                    {
+                        key: 'updated',
+                        label: t('kitchen:analytics.table.updated'),
+                        value: viewing.updatedLabel,
+                    },
+                ]}
+                // No primary: a sample line item has no record to open, and a button that went
+                // nowhere would be the one dishonest control on an honestly labelled screen.
+            />
+        );
+    }
+
     return (
-        <Stack space="md" testID="kitchen-analytics-panel">
+        <Cascade space="md" testID="kitchen-analytics-panel">
             {/* Every figure on this screen is `analytics-sample-data.ts` — the label says so first. */}
             <View className="flex-row">
                 <Badge
@@ -336,67 +384,19 @@ function AnalyticsDashboard() {
                     title={t('kitchen:analytics.table.title')}
                     aside={t('kitchen:analytics.table.sampleNote')}
                 />
-                <CatalogueList<AnalyticsTableRow>
-                    testID="kitchen-analytics-table"
-                    label={t('kitchen:analytics.table.caption')}
-                    columns={controls.columns}
-                    rows={controls.rows}
-                    rowKey={(row) => row.id}
-                    onRowPress={setViewing}
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                />
+                <WithColumnPicker picker={controls.picker}>
+                    <CatalogueList<AnalyticsTableRow>
+                        testID="kitchen-analytics-table"
+                        label={t('kitchen:analytics.table.caption')}
+                        columns={controls.columns}
+                        rows={controls.rows}
+                        rowKey={(row) => row.id}
+                        onRowPress={setViewing}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                    />
+                </WithColumnPicker>
             </View>
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-analytics-window"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={viewing.name}
-                    kind={t('kitchen:analytics.window.kind')}
-                    status={{
-                        label: t(statusKey(viewing.status)),
-                        tone: STATUS_TONE[viewing.status],
-                    }}
-                    note={t('kitchen:analytics.window.note')}
-                    fields={[
-                        {
-                            key: 'segment',
-                            label: t('kitchen:analytics.table.segment'),
-                            value: t(`kitchen:analytics.segments.${viewing.segment}`),
-                        },
-                        {
-                            key: 'volume',
-                            label: t('kitchen:analytics.table.volume'),
-                            value: formatter.formatNumber(viewing.volume),
-                            mono: true,
-                        },
-                        {
-                            key: 'done',
-                            label: t('kitchen:analytics.table.completion'),
-                            value: formatter.formatNumber(viewing.completionPercent / 100, {
-                                style: 'percent',
-                            }),
-                            mono: true,
-                        },
-                        {
-                            key: 'avg',
-                            label: t('kitchen:analytics.window.fieldAvgMinutes'),
-                            value: formatter.formatNumber(viewing.avgMinutes),
-                            mono: true,
-                        },
-                        {
-                            key: 'updated',
-                            label: t('kitchen:analytics.table.updated'),
-                            value: viewing.updatedLabel,
-                        },
-                    ]}
-                    // No primary: a sample line item has no record to open, and a button that went
-                    // nowhere would be the one dishonest control on an honestly labelled screen.
-                />
-            )}
-        </Stack>
+        </Cascade>
     );
 }
 const DAY_MS = 86_400_000;
@@ -455,7 +455,13 @@ function kpiCard(
         value: formatter.formatNumber(kpi.value),
         unit: t(`kitchen:analytics.units.${kpi.unit}`),
         caption,
-        mark: kpi.deltaPercent === 0 || good ? 'calendar' : 'warning',
+        // The mark follows the direction; the tone says whether that direction is good.
+        mark:
+            kpi.deltaPercent > 0
+                ? 'trendingUp'
+                : kpi.deltaPercent < 0
+                  ? 'trendingDown'
+                  : 'trendFlat',
         tone: kpi.deltaPercent === 0 || good ? 'default' : 'danger',
     };
 }

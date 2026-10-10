@@ -1,9 +1,11 @@
 import { screen } from '@testing-library/react-native';
 
-import { DataList, fitColumns, spreadColumns } from './data-list.tsx';
+import { DataList, fitColumns, growWeights, spreadColumns } from './data-list.tsx';
 import type { DataListColumn } from './data-list.tsx';
 import { StatusBadge } from './status-badge.tsx';
 import { DensityProvider } from '../hooks/use-density.tsx';
+import { isClipped } from '../internal/truncation-hover.ts';
+import { Text } from '../primitives/text.tsx';
 import { FormSection } from '../forms/form-section.tsx';
 import { QuantityInput, parseQuantity } from '../forms/quantity-input.tsx';
 import { SearchInput } from '../forms/search-input.tsx';
@@ -69,14 +71,15 @@ describe('fitColumns', () => {
 });
 
 describe('spreadColumns', () => {
-    /** `COLUMNS` without the action track, which opts out of the share. */
+    /** `COLUMNS` without the action track, which may never take the slack. */
     const GROWING = COLUMNS.filter((column) => column.key !== 'actions');
 
-    it('leaves the declared widths alone when there is nothing spare', () => {
-        // 680 is exactly the sum, and 0 is the port before `onLayout` has reported one.
-        expect(spreadColumns(GROWING, 680)).toEqual([240, 100, 100, 120, 120]);
-        expect(spreadColumns(GROWING, 400)).toEqual([240, 100, 100, 120, 120]);
-        expect(spreadColumns(GROWING, 0)).toEqual([240, 100, 100, 120, 120]);
+    it('shares the slack in proportion to the declared widths', () => {
+        // Two complaints bound this. Giving it all to the designation left a hole after every
+        // name; an equal share gave `Cost` and `Status` the same extra as the designation. With
+        // nothing marked, each column grows by its own width's share: 340 spare over 680 declared
+        // is exactly half again of every track.
+        expect(spreadColumns(GROWING, 1020)).toEqual([360, 150, 150, 180, 180]);
     });
 
     it('fills the port exactly, leaving no dead space after the last column', () => {
@@ -86,45 +89,73 @@ describe('spreadColumns', () => {
         }
     });
 
-    it('shares the slack equally rather than in proportion to the declared width', () => {
-        // 340 spare over five columns is 68 each. Proportional would have given Designation 120 of
-        // it — compounding the widest gap on the row, which is what it was drawing before.
-        expect(spreadColumns(GROWING, 1020)).toEqual([308, 168, 168, 188, 188]);
+    it('draws the declared widths when the port is narrower than them, or not yet measured', () => {
+        // The row carries `min-width: <track sum>` and scrolls rather than squeezing, so a port
+        // under the sum is not a narrower row. Zero is the port before anything has been measured.
+        expect(spreadColumns(GROWING, 400)).toEqual([240, 100, 100, 120, 120]);
+        expect(spreadColumns(GROWING, 0)).toEqual([240, 100, 100, 120, 120]);
     });
 
-    it('holds a column that opted out at its declared width', () => {
+    it('never fills a column that opted out, however wide it is', () => {
         // The action track is sized to its buttons. Widening it only pushes them off the end.
         const [name, actions] = spreadColumns(
             [
-                { key: 'name', label: 'Designation', width: 240, priority: 100 },
-                { key: 'actions', label: '', width: 40, priority: 95, grow: false },
+                { key: 'name', label: 'Designation', width: 120, priority: 100 },
+                { key: 'actions', label: '', width: 160, priority: 95, grow: false },
             ],
             1000,
         );
 
-        expect(actions).toBe(40);
-        expect(name).toBe(960);
+        expect(actions).toBe(160);
+        expect(name).toBe(840);
     });
 
-    it('gives the division remainder to the widest growable column', () => {
-        // 1 spare over five tracks floors to nothing anywhere, so it lands on Designation rather
-        // than opening a seam between the header and its rows.
-        expect(spreadColumns(GROWING, 681)).toEqual([241, 100, 100, 120, 120]);
+    it('fills the columns marked to, sharing the slack and giving the remainder to the first', () => {
+        // 681 leaves one pixel over 680; a floor everywhere would leave the row a pixel short of
+        // the port — a seam between the header and the rows under it.
+        const marked = GROWING.map((column) =>
+            column.key === 'name' || column.key === 'reference'
+                ? { ...column, fill: true }
+                : column,
+        );
+        expect(spreadColumns(marked, 681)).toEqual([241, 100, 100, 120, 120]);
+        expect(spreadColumns(marked, 880)).toEqual([340, 100, 100, 220, 120]);
     });
+});
 
-    it('does not widen a narrow column past a wide one', () => {
-        // The reason the share is equal and not proportional: whatever the port, the order the spec
-        // declared is the order the tracks come out in. A `Cost` column can catch `Designation` up
-        // but never overtake it.
-        for (const port of [700, 1020, 1600, 2400]) {
-            const [name, cost] = spreadColumns(GROWING, port);
-            expect(name).toBeGreaterThan(cost ?? 0);
-        }
+describe('isClipped', () => {
+    it('is true only for text that overflows its box, sideways or downward', () => {
+        const box = { clientWidth: 100, clientHeight: 16, textContent: 'x' };
+        expect(isClipped({ ...box, scrollWidth: 100, scrollHeight: 16 })).toBe(false);
+        expect(isClipped({ ...box, scrollWidth: 180, scrollHeight: 16 })).toBe(true);
+        expect(isClipped({ ...box, scrollWidth: 100, scrollHeight: 32 })).toBe(true);
+    });
+});
+
+describe('growWeights', () => {
+    it('weights every growable column by its width, unless some are marked to fill', () => {
+        expect([...growWeights(COLUMNS)]).toEqual([
+            ['name', 240],
+            ['actions', 40],
+            ['cost', 100],
+            ['status', 100],
+            ['reference', 120],
+            ['updated', 120],
+        ]);
+        expect([
+            ...growWeights([
+                { key: 'code', label: 'Code', width: 300, priority: 70 },
+                { key: 'notes', label: 'Notes', width: 120, priority: 20, fill: true },
+            ]),
+        ]).toEqual([['notes', 1]]);
+        expect(
+            growWeights([{ key: 'actions', label: '', width: 40, priority: 95, grow: false }]).size,
+        ).toBe(0);
     });
 });
 
 describe('DataList', () => {
-    it('draws one hairline per row and no card, outline or zebra', async () => {
+    it('rules the header alone — no line between rows, and no zebra', async () => {
         await renderWithI18n(
             compact(
                 <DataList
@@ -140,10 +171,15 @@ describe('DataList', () => {
             ),
         );
 
+        // The header row is the column header's own parent.
+        const header = screen.getByTestId(`list-columnheader-${COLUMNS[0]!.key}`).parent!.props
+            .className as string;
+        expect(header).toContain('border-b');
+        expect(header).toContain('border-stroke-subtle');
+
         for (const id of ['list-row-a', 'list-row-b']) {
             const className = screen.getByTestId(id).props.className as string;
-            expect(className).toContain('border-b');
-            expect(className).toContain('border-stroke-subtle');
+            expect(className).not.toContain('border-b');
             // No zebra: the tint is a hover state, never an alternating background.
             expect(className).not.toMatch(/bg-surface-(base|raised|sunken)(\s|$)/);
         }
@@ -186,7 +222,7 @@ describe('DataList', () => {
         expect(screen.queryByRole('button')).toBeNull();
     });
 
-    it('never clamps a cell to one line, and floors the row rather than fixing it', async () => {
+    it('sets a cell on one line with an ellipsis, and floors the row rather than fixing it', async () => {
         await renderWithI18n(
             compact(
                 <DataList
@@ -200,12 +236,62 @@ describe('DataList', () => {
             ),
         );
 
-        // The clamp is what turned `Condiments and sweeteners` into `Condiments and sweet…`, and a
-        // fixed `h-row-sm` is what would have hidden the second line it wraps onto instead. The
-        // density ladder still sets where a row starts — that is asserted in `control-height`.
+        // A value longer than its column ends in an ellipsis instead of wrapping the row or running
+        // into the next column; the whole value is a hover away on the web. The row keeps a floor,
+        // not a fixed height, for a cell whose content is taller than a line of text.
         const value = screen.getByText('Condiments and sweeteners');
-        expect(value.props.numberOfLines).toBeUndefined();
+        expect(value.props.numberOfLines).toBe(1);
         expect(screen.getByTestId('list-row-a').props.className).toContain('min-h-row-sm');
+    });
+
+    it('clips a renderer’s own text to one line too, but not a run nested inside it', async () => {
+        await renderWithI18n(
+            compact(
+                <DataList
+                    testID="list"
+                    label="Ingredients"
+                    rows={[{ id: 'a', name: 'Flour, all-purpose (wheat)' }]}
+                    rowKey={(row) => row.id}
+                    columns={[
+                        {
+                            ...COLUMNS[0]!,
+                            render: (row) => (
+                                <Text testID="outer">
+                                    {row.name} <Text testID="inner">(stone-ground)</Text>
+                                </Text>
+                            ),
+                        },
+                    ]}
+                />,
+            ),
+        );
+
+        expect(screen.getByTestId('outer').props.numberOfLines).toBe(1);
+        // A nested text is a run inside its parent's line; a clamp of its own would break it.
+        expect(screen.getByTestId('inner').props.numberOfLines).toBeUndefined();
+    });
+
+    it('bases each track on its width and grows it by that width, so the slack is shared in proportion', async () => {
+        await renderWithI18n(
+            compact(
+                <DataList
+                    testID="list"
+                    label="Ingredients"
+                    rows={[{ id: 'a', name: 'Tahini' }]}
+                    rowKey={(row) => row.id}
+                    columns={[COLUMNS[0]!, COLUMNS[2]!]}
+                />,
+            ),
+        );
+
+        expect(screen.getByTestId('list-columnheader-name').props.style).toMatchObject({
+            flexBasis: 240,
+            flexGrow: 240,
+        });
+        expect(screen.getByTestId('list-columnheader-cost').props.style).toMatchObject({
+            flexBasis: 100,
+            flexGrow: 100,
+        });
     });
 });
 
@@ -232,11 +318,16 @@ describe('StatusBadge', () => {
         expect(className).toContain(expected);
     });
 
-    it('carries a mark as well as a colour', async () => {
-        // Meaning is never carried by colour alone — an archived ingredient and a live one must
-        // differ in greyscale too.
+    it('marks a state and leaves an archived record unmarked', async () => {
+        // An archived ingredient and a draft one must differ in greyscale too: the draft carries
+        // the dot, the archived one does not.
         await renderWithI18n(compact(<StatusBadge testID="badge" status="draft" label="Draft" />));
-        expect(screen.getByTestId('badge-icon')).toBeTruthy();
+        expect(screen.getByTestId('badge-mark')).toBeTruthy();
+
+        await renderWithI18n(
+            compact(<StatusBadge testID="gone" status="archived" label="Archived" />),
+        );
+        expect(screen.queryByTestId('gone-mark')).toBeNull();
     });
 });
 

@@ -1,8 +1,8 @@
 import type {
     BranchOperating,
     BranchOperatingDay,
+    CreateDeliveryWindowRequest,
     DeliveryWindow,
-    DeliveryWindowInput,
     DeliveryZoneAdmin,
     LocalisedText,
     ServiceArea,
@@ -14,7 +14,7 @@ import { ISO_WEEKDAYS, parseClockTime, parseMinorAmount } from './format.ts';
 /**
  * The delivery slice's model, with no React in it (K1.7).
  *
- * Three editors sit on top of this — the zone's areas, the zone's delivery windows and a branch's
+ * Three editors sit on top of this — the zone's areas, the kitchen's delivery windows and a branch's
  * trading week — and every rule that decides whether they may be saved lives here, as a pure
  * function over plain data. The plan matrix (`./plan-matrix.ts`) made the case for the shape; this
  * slice needs it more, because two of its three rules are *time* rules and a time rule asserted
@@ -98,9 +98,10 @@ export function moneyInputValue(value: string, currency: CurrencyCode): number |
 /**
  * One delivery window as the editor holds it.
  *
- * `startsAt`, `endsAt` and `capacity` are strings for the reason every numeric draft in this
- * workspace is: `08:` is a time half-typed, not a time, and a draft that parsed on every keystroke
- * would fight the person typing.
+ * `startsAt` and `endsAt` are strings for the reason every numeric draft in this workspace is:
+ * `08:` is a time half-typed, not a time, and a draft that parsed on every keystroke would fight the
+ * person typing. There is no capacity: the window wire carries none, so a field for it would be a
+ * value nobody stores.
  */
 export interface DeliveryWindowDraft {
     /** Stable across removals and undo. Never the array index. */
@@ -111,7 +112,6 @@ export interface DeliveryWindowDraft {
     readonly weekdays: readonly number[];
     readonly startsAt: string;
     readonly endsAt: string;
-    readonly capacity: string;
     readonly isActive: boolean;
 }
 
@@ -123,7 +123,6 @@ export function windowDraft(window: DeliveryWindow, index: number): DeliveryWind
         weekdays: normaliseWeekdays(window.weekdays),
         startsAt: window.startsAt,
         endsAt: window.endsAt,
-        capacity: window.capacity === null ? '' : String(window.capacity),
         isActive: window.isActive,
     };
 }
@@ -137,7 +136,6 @@ export function emptyWindow(key: string): DeliveryWindowDraft {
         weekdays: [1, 2, 3, 4, 5],
         startsAt: '',
         endsAt: '',
-        capacity: '',
         isActive: true,
     };
 }
@@ -148,7 +146,6 @@ export interface DeliveryWindowMessages {
     readonly startInvalid: string;
     readonly endInvalid: string;
     readonly endBeforeStart: string;
-    readonly capacityInvalid: string;
 }
 
 /**
@@ -186,42 +183,53 @@ export function windowErrors(
             errors.set(row.key, messages.endInvalid);
             continue;
         }
-        if (endsAt <= startsAt) {
-            errors.set(row.key, messages.endBeforeStart);
-            continue;
-        }
-
-        if (row.capacity.trim() !== '') {
-            const capacity = Number(row.capacity.trim());
-            if (!/^\d+$/.test(row.capacity.trim()) || !Number.isSafeInteger(capacity)) {
-                errors.set(row.key, messages.capacityInvalid);
-                continue;
-            }
-            if (capacity === 0) errors.set(row.key, messages.capacityInvalid);
-        }
+        if (endsAt <= startsAt) errors.set(row.key, messages.endBeforeStart);
     }
 
     return errors;
 }
 
 /**
- * The windows as `setDeliveryWindows` takes them.
+ * One window as `createDeliveryWindow` / `updateDeliveryWindow` take it.
  *
  * Only ever called once {@link windowErrors} is empty, so the parses here cannot fail; the fallbacks
  * exist because a total function is easier to reason about than one that throws from inside a save.
  */
-export function windowRequest(
-    rows: readonly DeliveryWindowDraft[],
-): readonly DeliveryWindowInput[] {
-    return rows.map((row) => ({
-        id: row.id,
-        label: row.label,
+export function windowWrite(row: DeliveryWindowDraft): CreateDeliveryWindowRequest {
+    return {
+        label: { en: row.label.en.trim(), ar: row.label.ar.trim() },
         weekdays: normaliseWeekdays(row.weekdays),
         startsAt: parseClockTime(row.startsAt) ?? row.startsAt,
         endsAt: parseClockTime(row.endsAt) ?? row.endsAt,
-        capacity: row.capacity.trim() === '' ? null : Number(row.capacity.trim()),
         isActive: row.isActive,
-    }));
+    };
+}
+
+/**
+ * The rows a save has to write: every new row, and every saved row whose write differs from the
+ * server's copy. An untouched row is never sent — the page never deactivates what nobody changed.
+ */
+export function changedWindows(
+    rows: readonly DeliveryWindowDraft[],
+    saved: readonly DeliveryWindow[],
+): readonly DeliveryWindowDraft[] {
+    const byId = new Map(saved.map((window) => [String(window.id), window]));
+    return rows.filter((row) => {
+        const server = row.id === null ? undefined : byId.get(String(row.id));
+        if (server === undefined) return true;
+        return (
+            JSON.stringify(windowWrite(row)) !== JSON.stringify(windowWrite(windowDraft(server, 0)))
+        );
+    });
+}
+
+/** The windows a zone offers, resolved from the kitchen's list in the kitchen's display order. */
+export function assignedWindows(
+    windowIds: readonly string[],
+    windows: readonly DeliveryWindow[],
+): readonly DeliveryWindow[] {
+    const ids = new Set(windowIds.map(String));
+    return windows.filter((window) => ids.has(String(window.id)));
 }
 
 export interface WindowCoverage {
@@ -358,8 +366,16 @@ export interface OperatingDayMessages {
     readonly cutOffAfterCloses: string;
 }
 
+/** The time field a day's problem belongs to — the one its message is drawn under. */
+export type OperatingField = 'opens' | 'closes' | 'cutOff';
+
+export interface OperatingIssue {
+    readonly field: OperatingField;
+    readonly message: string;
+}
+
 /**
- * What is wrong with each day, keyed by weekday.
+ * What is wrong with each day, keyed by weekday, and which field it is wrong in.
  *
  * Two rules, and deliberately not a third. A branch must close after it opens, and a same-day order
  * cut-off must not fall after closing time — an order accepted after the doors shut is an order
@@ -368,41 +384,56 @@ export interface OperatingDayMessages {
  * not have. A blank cut-off is legal and means "no same-day cut-off recorded"; blank opening or
  * closing times on an open day are not, because an open day with no hours is the ambiguity the
  * closed toggle exists to remove.
+ *
+ * One problem per day, the first in field order, so the day's row carries one message under the
+ * field a person has to change rather than a sentence under the whole row.
  */
-export function operatingErrors(
+export function operatingIssues(
     rows: readonly OperatingDayDraft[],
     messages: OperatingDayMessages,
-): ReadonlyMap<number, string> {
-    const errors = new Map<number, string>();
+): ReadonlyMap<number, OperatingIssue> {
+    const issues = new Map<number, OperatingIssue>();
 
     for (const row of rows) {
         if (row.isClosed) continue;
 
         const opensAt = parseClockTime(row.opensAt);
         if (opensAt === null) {
-            errors.set(row.weekday, messages.opensInvalid);
+            issues.set(row.weekday, { field: 'opens', message: messages.opensInvalid });
             continue;
         }
         const closesAt = parseClockTime(row.closesAt);
         if (closesAt === null) {
-            errors.set(row.weekday, messages.closesInvalid);
+            issues.set(row.weekday, { field: 'closes', message: messages.closesInvalid });
             continue;
         }
         if (closesAt <= opensAt) {
-            errors.set(row.weekday, messages.closesBeforeOpens);
+            issues.set(row.weekday, { field: 'closes', message: messages.closesBeforeOpens });
             continue;
         }
 
         if (row.orderCutOffAt.trim() === '') continue;
         const cutOffAt = parseClockTime(row.orderCutOffAt);
         if (cutOffAt === null) {
-            errors.set(row.weekday, messages.cutOffInvalid);
+            issues.set(row.weekday, { field: 'cutOff', message: messages.cutOffInvalid });
             continue;
         }
-        if (cutOffAt > closesAt) errors.set(row.weekday, messages.cutOffAfterCloses);
+        if (cutOffAt > closesAt) {
+            issues.set(row.weekday, { field: 'cutOff', message: messages.cutOffAfterCloses });
+        }
     }
 
-    return errors;
+    return issues;
+}
+
+/** {@link operatingIssues} as messages alone, keyed by weekday. */
+export function operatingErrors(
+    rows: readonly OperatingDayDraft[],
+    messages: OperatingDayMessages,
+): ReadonlyMap<number, string> {
+    return new Map(
+        [...operatingIssues(rows, messages)].map(([weekday, issue]) => [weekday, issue.message]),
+    );
 }
 
 /** The week as `setBranchOperating` takes it: seven rows, in order, closed days carrying nulls. */

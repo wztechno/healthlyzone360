@@ -178,6 +178,17 @@ export function useCataloguePort(): CataloguePort {
         return subscribe(measure);
     }, [subscribe, measure]);
 
+    // The shell's page panel changes this port's width without the window resizing, and announces
+    // the settled width with one `resize` once its slide ends — so the fit is re-read then, once,
+    // rather than on every frame of the slide.
+    useEffect(() => {
+        if (Platform.OS !== 'web' || typeof window === 'undefined') return undefined;
+        window.addEventListener('resize', measure);
+        return () => {
+            window.removeEventListener('resize', measure);
+        };
+    }, [measure]);
+
     const ref = useCallback(
         (next: View | null) => {
             node.current = next;

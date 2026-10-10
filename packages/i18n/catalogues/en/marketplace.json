@@ -12,7 +12,7 @@
         "home": "Home",
         "discover": "Discover",
         "kitchens": "Kitchens",
-        "meals": "Meals",
+        "meals": "Menu",
         "plans": "Plans",
         "dietitians": "Dietitians",
         "howItWorks": "How it works",
@@ -20,12 +20,14 @@
         "signIn": "Sign in",
         "register": "Create account",
         "myHome": "My home",
+        "account": "Your account",
         "accountMenu": "Account menu for {{name}}",
         "searchLabel": "Search the menu",
         "searchPlaceholder": "Meals, ingredients, kitchens",
         "skipToContent": "Skip to content",
         "plannedSuffix": "{{label}} (soon)",
-        "plannedNotice": "{{label}} is not built yet. Nothing was changed."
+        "plannedNotice": "{{label}} is not built yet. Nothing was changed.",
+        "imageCredits": "Image credits"
     },
     "footer": {
         "about": "An original meal-planning and kitchen marketplace prototype. Every kitchen, meal, plan and professional shown here is synthetic.",
@@ -43,75 +45,47 @@
         "body": "Figures shown here come from a prototype calculator and a synthetic data set. They are an estimate, and they are not a diagnosis. Speak to a qualified dietitian or doctor before acting on them, particularly if you are managing a health condition, are pregnant, or are feeding a child."
     },
     "landing": {
-        "heroTitle": "Eat to a plan you actually chose",
-        "heroBody": "Set a target, see what it means in real food, and fill the week from kitchens that deliver near you — or from your own kitchen. Browse everything before you create an account.",
         "browseKitchens": "Browse kitchens",
-        "howItWorks": "See how it works",
-        "valueTitle": "What Healthy360 does",
-        "value": {
-            "plan": {
-                "title": "A week you can hold in your head",
-                "body": "One target, one week, and every meal counted against it. Change one thing and the totals move with you."
-            },
-            "kitchens": {
-                "title": "Kitchens that publish their numbers",
-                "body": "Every meal carries its energy, protein and allergens on the card, not three taps away."
-            },
-            "review": {
-                "title": "A qualified person in the loop",
-                "body": "Suggestions are labelled as suggestions. A registered dietitian can review a plan and override anything on it."
-            }
-        },
-        "featuredKitchens": "Kitchens on the marketplace",
-        "featuredKitchensBody": "A few of the kitchens cooking to a published energy and protein figure.",
-        "seeAllKitchens": "See all kitchens",
-        "howItWorksTeaserTitle": "New here?",
-        "howItWorksTeaserBody": "Four steps, from a target to a week of food.",
-        "forBusinessTeaserTitle": "Feeding a team?",
-        "forBusinessTeaserBody": "Corporate, clinic, gym and wholesale programmes.",
-        "authTitle": "Ready to plan your own week?",
-        "authBody": "Creating an account sets your target, keeps your restrictions and remembers what you like."
+        "howItWorks": "See how it works"
     },
     "discover": {
-        "title": "Discover",
-        "subtitle": "Kitchens, meals and the people who review them.",
-        "searchLabel": "Search kitchens",
-        "searchPlaceholder": "A cuisine, a kitchen, an area",
-        "searchSubmit": "Search",
-        "kitchensTitle": "Kitchens",
-        "kitchensBody": "Cooking for delivery, collection or a weekly subscription.",
-        "dietitiansTitle": "Dietitians",
-        "dietitiansBody": "Registered professionals who review plans and set restrictions.",
-        "comingTitle": "Also on the way",
-        "comingBody": "These parts of the catalogue are being built. Each one explains what it will do.",
-        "family": {
-            "meals": "Individual meals",
-            "plans": "Meal plans",
-            "diets": "Diet categories",
-            "tools": "Calculators"
-        },
-        "familyBody": {
-            "meals": "Every meal on the marketplace, filterable by energy, macros, allergens and price.",
-            "plans": "Subscription plans, side by side, with calorie bands and duration discounts.",
-            "diets": "Browse by the way you eat rather than by the kitchen that cooked it.",
-            "tools": "Work out a calorie and macro target with no account, and see the method."
-        },
-        "heroEyebrow": "Fresh today · delivered near you",
-        "heroTitle": "Real food, cooked today, eaten today.",
-        "heroBody": "Chef-built bowls, salads and plates from kitchens that publish their numbers. Energy and protein on every dish, no subscription required.",
+        "heroEyebrow": "From the kitchens on the marketplace",
+        "heroTitle": "Real food,\ncooked today,\neaten today.",
+        "heroBody": "Chef-built bowls, salads and plates made fresh by the kitchens on our marketplace. Macros on every dish, no subscription required.",
         "heroImageLabel": "A dish from one of the kitchens on the marketplace",
-        "heroOverlayLabel": "Top rated today",
+        "heroOverlayLabel": "Today's hero",
         "heroBrowseMeals": "Browse today's menu",
         "categoriesTitle": "Browse by category",
-        "allMeals": "All meals",
-        "popularTitle": "Top rated this week",
-        "popularMeta": "Rated by people who ordered",
-        "offerEyebrow": "On the menu this week",
-        "offerTitle": "Build a week from the kitchens near you",
-        "offerBody": "Fill a week from any kitchen on the marketplace. Every dish carries its energy and protein, so the week adds up before you order.",
-        "offerAction": "Start a week",
-        "railTitle": "More like {{meal}}",
-        "railFigures": "{{energy}} cal · {{protein}}g protein"
+        "allMeals": "All meals →",
+        "popularTitle": "Top rated right now",
+        "popularMeta": "Ranked by customer rating",
+        "offerEyebrow": "Offer · weekly plans",
+        "offerBody": "Save versus paying week by week. The discount is already in the plan's price.",
+        "offerAction": "Build a plan",
+        "railTitle": "Also rated highly",
+        "railFigures": "{{energy}} cal · {{protein}}g protein",
+        "heroEyebrowKitchens_one": "From {{count}} kitchen",
+        "heroEyebrowKitchens_other": "From {{count}} kitchens",
+        "heroEyebrowMeals_one": "{{count}} meal on the menu",
+        "heroEyebrowMeals_other": "{{count}} meals on the menu",
+        "heroTrackOrder": "Track order {{reference}}",
+        "allMealsCount_one": "All {{count}} meal →",
+        "allMealsCount_other": "All {{count}} meals →",
+        "tileCount_one": "{{count}} meal",
+        "tileCount_other": "{{count}} meals",
+        "cardEnergy": "{{value}} cal",
+        "cardProtein": "{{value}}g protein",
+        "cardRating": "★ {{value}}",
+        "cardRatingLabel": "{{meal}} is rated {{value}} out of 5",
+        "notRated": "Not rated yet",
+        "addLabel": "Add {{meal}} to the basket",
+        "offerTitle_one": "Weekly plans: up to {{percent}}% off a {{count}}-week run",
+        "offerTitle_other": "Weekly plans: up to {{percent}}% off a {{count}}-week run",
+        "offerFallbackEyebrow": "Weekly plans",
+        "offerFallbackTitle": "Build a week from the kitchens on the marketplace",
+        "offerFallbackBody": "Fill a week from any kitchen on the marketplace. Every dish carries its energy and protein, so the week adds up before you order.",
+        "offerFallbackAction": "Start a week",
+        "becauseYouOrdered": "Because you ordered {{meal}}"
     },
     "kitchens": {
         "title": "Kitchens",
@@ -128,25 +102,110 @@
         "emptyTitle": "No kitchens match",
         "emptyBody": "Try a different cuisine, or clear the filters to see everything on the marketplace.",
         "noPublishedZone": "No delivery zone published",
-        "heroEyebrow_one": "{{count}} kitchen delivering right now",
-        "heroEyebrow_other": "{{count}} kitchens delivering right now",
-        "heroEyebrowPending": "Kitchens delivering right now",
-        "heroTitle": "Find a kitchen that cooks the way you eat.",
-        "allKitchens": "All kitchens",
-        "resultsTitle": "Kitchens on the marketplace",
-        "matches_one": "{{count}} match",
-        "matches_other": "{{count}} matches",
         "etaMinutes": "About {{minutes}} min",
         "deliveryFee": "{{fee}} delivery",
         "freeDelivery": "Free delivery",
         "collectionOnly": "Collection only",
         "areaSeparator": " · ",
-        "goalsTitle": "Eat by goal",
-        "goalBody": {
-            "high_protein": "Kitchens whose dishes lead on protein.",
-            "vegan": "Plant-based cooking, no animal products.",
-            "low_carb": "Plates built around protein and vegetables.",
-            "halal_friendly": "Kitchens cooking to halal requirements."
+        "finder": {
+            "eyebrowOpen_one": "{{count}} kitchen cooking today",
+            "eyebrowOpen_other": "{{count}} kitchens cooking today",
+            "eyebrowListed_one": "{{count}} kitchen on the marketplace",
+            "eyebrowListed_other": "{{count}} kitchens on the marketplace",
+            "eyebrowPending": "Kitchens on the marketplace",
+            "title": "Find a kitchen that cooks the way you eat.",
+            "searchLabel": "Search kitchens by name",
+            "searchPlaceholder": "Search kitchens by name…",
+            "filtersLabel": "Narrow the kitchens",
+            "toggle": {
+                "openToday": "Open today",
+                "pickup": "Collection",
+                "subscription": "Offers plans"
+            },
+            "sortLabel": "Sort",
+            "sortFieldLabel": "Sort kitchens",
+            "sort": {
+                "rating": "Top rated",
+                "fastest": "Fastest",
+                "fee": "Lowest fee",
+                "name": "Name A–Z",
+                "match": "Best match"
+            },
+            "openToday": "Open today · {{opensAt}}–{{closesAt}}",
+            "closedToday": "Closed today",
+            "topRated": "Top rated",
+            "fact": {
+                "rating": "Rating",
+                "delivery": "Delivery",
+                "fee": "Fee",
+                "minimum": "Minimum"
+            },
+            "minutes": "{{minutes}} min",
+            "free": "Free",
+            "from": "From {{amount}}",
+            "openKitchen": "Open kitchen",
+            "seePlans": "See its plans",
+            "listAll": "All kitchens",
+            "listMatching": "Matching kitchens",
+            "count_one": "{{shown}} of {{count}} kitchen · sorted by {{sort}}",
+            "count_other": "{{shown}} of {{count}} kitchens · sorted by {{sort}}",
+            "emptyTitle": "No kitchen matches all of that",
+            "emptyBody": "Try removing a filter — or widen your search.",
+            "dishFigures": "{{energy}} cal · {{protein}}g P",
+            "openDish": "{{meal}} — open the dish",
+            "addDish": "Add {{meal}} to the basket",
+            "term": {
+                "delivery": "Delivery",
+                "fee": "Fee",
+                "minimum": "Min"
+            },
+            "viewMenu": "View menu",
+            "plans": "Plans",
+            "noPlans": "No plans",
+            "goalsTitle": "Eat by goal",
+            "goalsMeta": "Meals across all kitchens",
+            "goalAction": "Browse meals",
+            "goal": {
+                "high_protein": {
+                    "title": "High protein",
+                    "body": "Dishes that lead on protein."
+                },
+                "vegan": {
+                    "title": "Plant based",
+                    "body": "Vegan cooking, no animal products."
+                },
+                "under500": {
+                    "title": "Under 500 kcal",
+                    "body": "Lighter plates that still eat well."
+                },
+                "low_carb": {
+                    "title": "Low carb",
+                    "body": "Plates built around protein and vegetables."
+                }
+            },
+            "ledeMatched": "Matched against your profile — ",
+            "ledeUnmatched": "Match kitchens to your profile — ",
+            "ledeSetPreferences": "set your preferences",
+            "ledeTail": ". Every dish lists its macros and allergens.",
+            "deliveringTo": "Delivering to ",
+            "addressChange": "Change",
+            "addressAdd": "Add",
+            "addressNone": "no saved address",
+            "addressPending": "…",
+            "addressSignedOut": "Sign in to use a saved address",
+            "addressSignIn": "Sign in",
+            "under30": "Under 30 min",
+            "dietMatch": "Matches your diet",
+            "bestFit": "Your best fit · cooks {{diets}}",
+            "whyMatch": "Cooks {{diets}} — your diet.",
+            "whyDiets": "Cooks {{diets}}.",
+            "ratingValue": "★ {{rating}}",
+            "noFigure": "—",
+            "signatureDishes": "Signature dishes",
+            "noDishes": "No dishes on the menu yet.",
+            "goalCount_one": "{{count}} meal →",
+            "goalCount_other": "{{count}} meals →",
+            "whyWithSummary": "{{why}} {{summary}}"
         }
     },
     "kitchen": {
@@ -295,10 +354,6 @@
         "enquiryBody": "A quotation is priced against your organisation — volume, specification, sites and delivery pattern — so it is raised from inside a business account rather than from a public page. Sign in if you have one, or create an account and we will take it from there."
     },
     "consumer": {
-        "title": "Your Healthy360",
-        "greeting": "Good to see you, {{name}}",
-        "greetingAnonymous": "Your Healthy360",
-        "subtitle": "What you are eating next, how it sits against your target, and what is on its way.",
         "nav": {
             "home": "Home",
             "discover": "Discover",
@@ -306,8 +361,9 @@
             "nutrition": "Nutrition",
             "virtualDietitian": "Virtual Dietitian",
             "subscriptions": "Subscriptions",
-            "cart": "Basket",
+            "cart": "Cart",
             "cartWithCount": "{{label}} ({{items}})",
+            "account": "Account",
             "profile": "Profile"
         },
         "resume": {
@@ -316,34 +372,15 @@
             "continue": "Continue",
             "dismiss": "Not now"
         },
-        "onboarding": {
-            "title": "Let us work out your target",
-            "body": "A few questions about your measurements, how you move and what you cannot eat, and the planner has something to aim at.",
-            "start": "Start setting up"
-        },
-        "today": {
-            "title": "Next up",
-            "forToday": "Today",
-            "forDate": "{{date}}",
-            "locked": "Locked",
-            "emptyTitle": "Nothing planned yet",
-            "emptyBody": "Meal planning is not live on the API yet. Browse kitchens and meals to order for now.",
-            "openPlanner": "Open the planner"
-        },
-        "nutrition": {
-            "title": "Against your target",
-            "emptyTitle": "No target set yet",
-            "emptyBody": "Nutrition targets are not live on the API yet. Ordering and subscriptions still work without them.",
-            "whyThisTarget": "Why this target?"
+        "links": {
+            "title": "Your account"
         },
         "subscription": {
-            "title": "Your subscription",
             "nextDelivery": "Next delivery {{date}}",
-            "noNextDelivery": "No delivery is scheduled at the moment.",
+            "noNextDelivery": "No delivery scheduled",
             "weeklyPrice": "{{price}} per week",
-            "emptyTitle": "No subscription running",
-            "emptyBody": "A subscription delivers on the days you choose, so the week fills itself.",
-            "manage": "Manage subscription"
+            "manage": "Manage subscription",
+            "eyebrow": "Your subscription · {{state}}"
         }
     },
     "resume": {
@@ -405,7 +442,8 @@
         "meal": "Meal",
         "product": "Product",
         "sauce": "Sauce",
-        "dressing": "Dressing"
+        "dressing": "Dressing",
+        "frozen_meal": "Frozen meal"
     },
     "diets": {
         "omnivore": "Omnivore",
@@ -473,27 +511,169 @@
         "vegetables": "Vegetables"
     },
     "storefront": {
-        "openToday": "Today {{opensAt}} – {{closesAt}}",
+        "eyebrow": "Kitchen",
+        "eyebrowArea": "Kitchen · {{areas}}",
+        "separator": " · ",
+        "openToday": "Open today · {{opensAt}}–{{closesAt}}",
         "closedToday": "Closed today",
-        "factRating": "Rating",
-        "factDelivery": "Delivery",
-        "factDeliveryValue": "about {{minutes}} min",
-        "factCuisine": "Cuisine",
-        "factBranches": "Branches",
-        "dietsEyebrow": "Diets on this menu",
-        "orderEyebrow": "Order from this kitchen",
-        "minimum": "Minimum order",
-        "fee": "Delivery fee",
-        "fromAmount": "from {{amount}}",
-        "collectFrom": "Collect from",
-        "startOrder": "Start an order",
-        "seePlans": "See weekly plans",
-        "productsTitle": "Pantry and packs",
-        "sectionNote_one": "{{count}} dish",
-        "sectionNote_other": "{{count}} dishes",
-        "emptyTitle": "Nothing on the menu yet",
-        "emptyBody": "This kitchen has not published anything to order. Browse the directory to find another.",
+        "verified": "Verified kitchen",
+        "ways": {
+            "delivery": "Delivery",
+            "pickup": "Pickup",
+            "plans": "Plans"
+        },
+        "facts": {
+            "rating": "Rating",
+            "ratingValue_one": "{{rating}} · {{formattedCount}} rating",
+            "ratingValue_other": "{{rating}} · {{formattedCount}} ratings",
+            "notRated": "Not rated yet",
+            "delivery": "Delivery",
+            "minutes": "{{minutes}} min",
+            "minutesRange": "{{min}}–{{max}} min",
+            "cuisine": "Cuisine",
+            "branches": "Branches",
+            "branchCount_one": "{{formattedCount}} branch",
+            "branchCount_other": "{{formattedCount}} branches",
+            "none": "—"
+        },
+        "tabs": {
+            "label": "About this kitchen",
+            "menu": "Menu",
+            "today": "Today in the kitchen",
+            "plans": "Plans",
+            "safety": "Safety & allergens",
+            "reviews": "Reviews"
+        },
+        "menu": {
+            "shelvesLabel": "Show one shelf of the menu",
+            "all": "All",
+            "other": "Other",
+            "chip": "{{label}} · {{count}}",
+            "count_one": "{{formattedCount}} dish",
+            "count_other": "{{formattedCount}} dishes",
+            "countCutOff_one": "{{formattedCount}} dish · order by {{time}}",
+            "countCutOff_other": "{{formattedCount}} dishes · order by {{time}}",
+            "emptyTitle": "Nothing on the menu yet",
+            "emptyBody": "This kitchen has not published anything to order. Browse the directory to find another."
+        },
+        "row": {
+            "energy": "{{value}} cal",
+            "protein": "{{value}}g protein"
+        },
         "addLabel": "Add {{meal}} to the basket",
-        "openMeal": "{{meal}} — open the dish"
+        "openMeal": "{{meal}} — open the dish",
+        "order": {
+            "eyebrow": "Order from this kitchen",
+            "modesLabel": "How the order reaches you",
+            "delivery": "Delivery",
+            "pickup": "Pickup",
+            "minimum": "Minimum",
+            "fee": "Fee",
+            "fromAmount": "from {{amount}}",
+            "collectFrom": "Collect from",
+            "readyIn": "Ready in",
+            "cutOff": "Same-day cutoff",
+            "minutesLeft": "{{minutes}} min left",
+            "hoursLeft": "{{hours}} h {{minutes}} min left",
+            "passed": "Closed · {{time}}",
+            "start": "Start an order",
+            "seePlans": "See plans from this kitchen"
+        },
+        "today": {
+            "eyebrow": "Today's schedule",
+            "eyebrowDate": "Today's schedule · {{date}}",
+            "title": "Here is how today runs in this kitchen.",
+            "clock": "Kitchen time · {{time}}",
+            "none": "This kitchen has published no hours or delivery windows for today.",
+            "events": {
+                "opens": "Kitchen opens",
+                "opensNote": "Orders open for the day",
+                "cutoff": "Same-day cutoff",
+                "cutoffNote": "Last call for today's deliveries",
+                "window": "Delivery window",
+                "windowNote": "Delivered {{startsAt}}–{{endsAt}}",
+                "closes": "Kitchen closes",
+                "closesNote": "Closed until the next opening"
+            },
+            "line": {
+                "eyebrow": "On the line right now",
+                "empty": "Batch progress from this kitchen's line is not published on the marketplace yet."
+            },
+            "cutoff": {
+                "eyebrow": "Same-day cutoff",
+                "eyebrowTime": "Same-day cutoff {{time}}",
+                "inMinutes": "Order in the next {{minutes}} min",
+                "inHours": "Order in the next {{hours}} h {{minutes}} min",
+                "orderBy": "Order by {{time}}",
+                "passed": "Today's cutoff has passed",
+                "none": "No same-day cutoff today",
+                "body": "Orders placed before {{time}} can still be delivered today.",
+                "bodyPassed": "Same-day orders closed at {{time}}. New orders are for a later day.",
+                "bodyNone": "This kitchen has not published a same-day cutoff for today.",
+                "windowsLabel": "Today's delivery windows",
+                "window": "{{startsAt}}–{{endsAt}}",
+                "pick": "Pick from the menu"
+            }
+        },
+        "plans": {
+            "title": "Plans from {{kitchen}}",
+            "subtitle": "Weekly plans this kitchen cooks. Pick a size, a length and your delivery days.",
+            "howItWorks": "How plans work",
+            "perWeek": "per week",
+            "choose": "Choose",
+            "chooseLabel": "Choose the {{plan}} plan",
+            "empty": "This kitchen has not published a weekly plan yet. Everything on its menu can still be ordered."
+        },
+        "safety": {
+            "allergensTitle": "Allergens declared",
+            "allergensBody": "Declared across the menu: {{list}}. Open a dish for its full declaration.",
+            "allergenCount": "{{allergen}} ({{count}})",
+            "noAllergens": "No dish on this menu declares an allergen. Each dish's own page states its declaration in full.",
+            "nutritionFigure": "{{count}} of {{total}}",
+            "nutritionTitle": "Dishes with nutrition figures",
+            "nutritionBody": "Energy and macros are on each dish's card where the kitchen publishes them.",
+            "verifiedFigure": "Verified",
+            "verifiedTitle": "Verified kitchen",
+            "verifiedBody": "Healthy360 has verified this kitchen.",
+            "unverifiedBody": "This kitchen has not been verified yet.",
+            "dietsEyebrow": "Diets this kitchen cooks for",
+            "noDiets": "This kitchen has not listed the diets it cooks for.",
+            "noteJoin": ". "
+        },
+        "reviews": {
+            "notRated": "Not rated yet",
+            "outOfFive": "{{rating}} out of 5",
+            "count_one": "{{formattedCount}} rating",
+            "count_other": "{{formattedCount}} ratings",
+            "barLabel": "{{star}} stars: no breakdown published",
+            "emptyTitle": "No reviews yet",
+            "emptyBody": "This kitchen has no written reviews yet."
+        }
+    },
+    "imageCredits": {
+        "title": "Image credits",
+        "intro": "Photography used across Healthy360 is openly licensed and bundled with the app. Where a licence requires attribution, the credit is shown here and beside the image itself. Every photograph has been cropped to a fixed frame and re-encoded.",
+        "synthetic": "These are stock photographs chosen to match each record — not photographs of real Healthy360 products, premises or staff. Public-domain and CC0 images require no attribution and are recorded in the project’s provenance file rather than listed here.",
+        "none": "No image currently in use requires attribution."
+    },
+    "packSize": {
+        "per": "/ {{size}}",
+        "units": {
+            "g": "{{value}} g",
+            "kg": "{{value}} kg",
+            "ml": "{{value}} ml",
+            "l": "{{value}} L",
+            "piece": "{{value}} pc",
+            "slice": "{{value}} slice",
+            "portion": "{{value}} portion",
+            "cup": "{{value}} cup",
+            "tbsp": "{{value}} tbsp",
+            "tsp": "{{value}} tsp",
+            "pack": "{{value}} pack",
+            "bag": "{{value}} bag",
+            "can": "{{value}} can",
+            "bottle": "{{value}} bottle",
+            "gallon": "{{value}} gal"
+        }
     }
 }

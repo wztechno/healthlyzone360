@@ -1,7 +1,8 @@
-import { Menu, Text, cx } from '@healthy360/design-system';
+import { Icon, Menu, Text, cx } from '@healthy360/design-system';
 import type { DataListColumn, MenuSection } from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
-import { Pressable } from 'react-native';
+import type { ReactNode } from 'react';
+import { Pressable, View } from 'react-native';
 
 /**
  * One column header, with its sort-and-filter menu — §4.3, drawn so the affordance is visible
@@ -11,7 +12,8 @@ import { Pressable } from 'react-native';
  * CATEGORY ↑        sorts, and is not the column currently sorted — grey arrow
  * CATEGORY ↑        sorted ascending — black arrow, black label
  * CATEGORY ↓        sorted descending
- * CATEGORY ↑ ▽      sorted, and filtered
+ * STATUS ↓         filters only, a value applied — the arrow is the menu's mark
+ * CATEGORY ▽  ↑     filters and sorts: the label opens the values, the arrow sorts
  * ```
  *
  * ## One arrow, always drawn, ascending until told otherwise
@@ -38,13 +40,13 @@ import { Pressable } from 'react-native';
  * narrowing, so clearing it meant remembering which header you had pressed and hoping the menu
  * still held a `Clear`. That is the bug this component exists to close.
  *
- * A filtered column gains the filter mark `▽`, absent until something is applied. A glyph that
- * *arrives* is the strongest signal available here and the only one that survives the package's
- * standing rule that meaning is never colour alone — a reader who cannot separate
- * `content-secondary` from `content-primary` at 10px, which is most readers at that size, still
- * sees a shape appear. For the same reason it takes an accessible `label` in that state and only in
- * that state: `Icon` is decorative by default because meaning normally lives in the text beside it,
- * and this is the one case where it does not.
+ * A filtered column gains the filter mark — Lucide's funnel (`funnel`) on the web, `▽` on native —
+ * absent until something is applied. A glyph that *arrives* is the strongest signal available here
+ * and the only one that survives the package's standing rule that meaning is never colour alone —
+ * a reader who cannot separate `content-secondary` from `content-primary` at 10px, which is most
+ * readers at that size, still sees a shape appear. For the same reason it takes an accessible
+ * `label` in that state and only in that state: `Icon` is decorative by default because meaning
+ * normally lives in the text beside it, and this is the one case where it does not.
  *
  * It is a *second* mark rather than a replacement for the arrow, because sorting and filtering are
  * independent — a column can be sorted, filtered, both or neither, and one glyph made to mean four
@@ -77,8 +79,8 @@ export interface CatalogueColumnHeaderProps {
      * by a column with no value list, and it flips the direction the way a table header has flipped
      * it since tables had headers.
      *
-     * The filtering columns keep the menu, because there the sort pair shares the panel with the
-     * values and a press has to be able to mean either.
+     * Passed together with `sections`, the head splits in two: the label opens the values and the
+     * arrow — a target of its own, `-sort` — flips the order.
      */
     readonly onToggleSort?: (() => void) | undefined;
     /** `kitchen-ingredients-column-category` — the trigger takes `-trigger`, the arrow
@@ -105,82 +107,121 @@ export function CatalogueColumnHeader({
 }: CatalogueColumnHeaderProps) {
     const { t } = useTranslation();
     const active = sortDirection === 'asc' || sortDirection === 'desc';
-    const marked = active || filtered;
+    const filters = sections.length > 0;
+    const sorts = onToggleSort !== undefined;
+    // A column that both filters and sorts splits its head: the label opens the values, the arrow
+    // sorts. Only there does the arrow stop standing in for the filter state, because only there
+    // is it a sort control of its own — the filter mark carries that state instead.
+    const split = filters && sorts;
 
     /*
-     * One glyph on every header, and it is always the arrow.
+     * One arrow on every header, drawn at `title` size so it reads as a control rather than as
+     * punctuation after the label, and set a `tight` gap away from it.
      *
-     * The filtering columns briefly carried `⌄`, and a filtered one carried `▽` on top of it -
-     * three different marks across a row of seven headers, which is what "don't mix them" was
-     * about. So the arrow is the only mark there is: it shows the direction on the column the list
-     * is ordered by, sits grey on every other column, and on a filtering column it is *also* the
-     * thing you press to open the values.
-     *
-     * The filtered state turns the arrow **down**, and that is what gives it a shape of its own
-     * again. `▽` used to carry it, and dropping that glyph left the state on ink and weight alone -
-     * honest, since the label also promotes and the menu ticks the value in force, but weaker than
-     * a mark that changes. A filtering column now reads at a glance: `↑` nothing applied, `↓`
-     * narrowed. The direction is not a sort on these columns and never claims to be - they do not
-     * sort at all - it is "this column is doing something to the list".
+     * On a sorting column it shows the direction — black on the column the list is ordered by,
+     * grey on every other. On a column that only filters it is the menu's mark, and turns down
+     * while a value is narrowing the list: `↑` nothing applied, `↓` narrowed.
      */
+    const arrowDown = sortDirection === 'desc' || (!split && filtered);
+    const arrowInk = active || (!split && filtered);
+    // Lucide's `arrow-up` / `arrow-down` on the web, the same two characters on native. `Icon` is
+    // decorative by default, which is what the bare `Text` here used to set by hand.
     const arrow = (
-        <Text
-            variant="label"
-            tone={marked ? 'primary' : 'disabled'}
-            aria-hidden
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
+        <Icon
+            name={arrowDown ? 'arrowDown' : 'arrowUp'}
+            // On the header's green ground: the brand ink, full strength on the sorted column.
+            className={
+                arrowInk ? 'text-content-primary' : 'text-content-on-brand-subtle opacity-60'
+            }
             testID={active ? `${testID}-sorted` : `${testID}-affordance`}
-        >
-            {sortDirection === 'desc' || filtered ? '↓' : '↑'}
-        </Text>
+        />
     );
 
+    // `strong`: 13px at 600 — a column's name, set heavier and larger than the 12px cells under it.
     const labelText = (
-        <Text variant="label" tone={marked ? 'primary' : 'secondary'}>
+        <Text variant="strong" tone={active || filtered ? 'primary' : 'brand'}>
             {label}
         </Text>
     );
 
-    const className = cx('flex-row items-center gap-hair', JUSTIFY_CLASS[align ?? 'start']);
+    const className = cx('flex-row items-center gap-tight', JUSTIFY_CLASS[align ?? 'start']);
+
+    const menu = (content: ReactNode, accessibilityLabel: string) => (
+        <Menu
+            label={accessibilityLabel}
+            align="start"
+            // The header cell is inside the list's own stacking context and the rows paint
+            // after it, so a panel hanging from the header lands *under* the first rows.
+            className="z-sticky"
+            sections={sections}
+            trigger={({ triggerProps, toggle }) => (
+                <Pressable
+                    {...triggerProps}
+                    role="button"
+                    accessibilityRole="button"
+                    accessibilityLabel={accessibilityLabel}
+                    onPress={toggle}
+                    testID={`${testID}-trigger`}
+                    className={className}
+                >
+                    {content}
+                </Pressable>
+            )}
+            testID={testID}
+        />
+    );
 
     /*
-     * A filtering column is one target, and it filters.
-     *
-     * These three - Category, Status, Allergens - do not sort. Their menu is a value list and the
-     * whole head opens it, so there is nothing to press that would order the list by them. The
-     * arrow is still drawn, because a row where three headers out of seven carry no mark is the
-     * mixture this component spent several passes removing; here it sits grey and inert, part of
-     * the trigger rather than a control of its own.
-     *
-     * `sortDirection` is `undefined` on these columns, which is what keeps the mark honest: it is
-     * never the primary ink an ordered column earns, and it never points down.
+     * Filters and sorts — Category on a server-sorted list, say. Two targets side by side: the
+     * label opens the value list, the arrow flips the order. The filter state keeps a mark of its
+     * own, `▽` beside the label, because the arrow now means the sort and cannot also mean that.
      */
-    if (sections.length > 0) {
+    if (split) {
         return (
-            <Menu
-                label={t('kitchen:catalogue.columnMenu', { column: label })}
-                align="start"
-                // The header cell is inside the list's own stacking context and the rows paint
-                // after it, so a panel hanging from the header lands *under* the first rows.
-                className="z-sticky"
-                sections={sections}
-                trigger={({ triggerProps, toggle }) => (
-                    <Pressable
-                        {...triggerProps}
-                        role="button"
-                        accessibilityRole="button"
-                        accessibilityLabel={t('kitchen:catalogue.columnMenu', { column: label })}
-                        onPress={toggle}
-                        testID={`${testID}-trigger`}
-                        className={className}
-                    >
+            <View className={className}>
+                {menu(
+                    <>
                         {labelText}
-                        {arrow}
-                    </Pressable>
+                        {filtered ? (
+                            <Icon
+                                name="funnel"
+                                size="sm"
+                                label={t('kitchen:catalogue.columnFiltered')}
+                                className="text-content-primary"
+                                testID={`${testID}-filtered`}
+                            />
+                        ) : null}
+                    </>,
+                    t('kitchen:catalogue.columnFilter', { column: label }),
                 )}
-                testID={testID}
-            />
+                <Pressable
+                    role="button"
+                    accessibilityRole="button"
+                    accessibilityLabel={t('kitchen:catalogue.columnSort', { column: label })}
+                    aria-sort={
+                        active ? (sortDirection === 'desc' ? 'descending' : 'ascending') : 'none'
+                    }
+                    onPress={onToggleSort}
+                    testID={`${testID}-sort`}
+                    className="items-center justify-center"
+                >
+                    {arrow}
+                </Pressable>
+            </View>
+        );
+    }
+
+    /*
+     * A column that only filters is one target, and it filters. The arrow sits inside the trigger
+     * as the menu's mark; `sortDirection` is `undefined` here, so it never claims an order.
+     */
+    if (filters) {
+        return menu(
+            <>
+                {labelText}
+                {arrow}
+            </>,
+            t('kitchen:catalogue.columnMenu', { column: label }),
         );
     }
 

@@ -6,7 +6,9 @@ namespace Healthy360\Customers\Http\Requests;
 
 use Healthy360\Customers\Enums\AllergenSeverity;
 use Healthy360\Customers\Enums\FoodExclusionKind;
+use Healthy360\ReferenceData\Models\DietClassification;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 use Illuminate\Validation\Validator;
 
@@ -32,6 +34,17 @@ use Illuminate\Validation\Validator;
  * No `exists` rules on `ingredient_id` or `diet_classification_id`: those are
  * foreign keys the database already refuses, and a rule here would be a second
  * answer to a question one table already owns.
+ *
+ * **The diet is named by its code.** `diet_classification_code` is the
+ * vocabulary member a client actually holds — `vegetarian`, `halal_friendly` —
+ * because the public diet list (`GET /reference/diet-classifications`) publishes
+ * codes and never identifiers, so a client had no way to send the UUID
+ * `diet_classification_id` asks for. The code is checked against the *active*
+ * classifications (an unknown or retired code is a validation error on that
+ * field, not a 500 from the foreign key) and resolved to the identifier the
+ * profile stores. `diet_classification_id` is still accepted for callers that
+ * already hold one; sending both is refused, since two names for one choice can
+ * disagree.
  */
 class ReplaceDietaryProfileRequest extends FormRequest
 {
@@ -62,6 +75,13 @@ class ReplaceDietaryProfileRequest extends FormRequest
             'exclusions.*.free_text' => ['nullable', 'string', 'max:200'],
 
             'diet_classification_id' => ['nullable', 'uuid'],
+            'diet_classification_code' => [
+                'nullable',
+                'string',
+                'max:60',
+                'prohibits:diet_classification_id',
+                Rule::exists(DietClassification::class, 'code')->where('is_active', true),
+            ],
             'religious_requirement' => ['nullable', 'string', 'max:120'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ];
@@ -115,6 +135,17 @@ class ReplaceDietaryProfileRequest extends FormRequest
          * } $validated
          */
         $validated = $this->validated();
+
+        // The code, when sent, is the diet: resolved here to the identifier the
+        // profile stores, so the service keeps one input. A `null` code clears
+        // the diet exactly as a `null` identifier does.
+        if (array_key_exists('diet_classification_code', $validated)) {
+            $code = $validated['diet_classification_code'];
+            unset($validated['diet_classification_code']);
+            $validated['diet_classification_id'] = $code === null
+                ? null
+                : (string) DietClassification::query()->where('code', $code)->value('id');
+        }
 
         return $validated;
     }

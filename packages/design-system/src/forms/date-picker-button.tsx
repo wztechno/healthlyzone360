@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, Text as RNText, View } from 'react-native';
 
+import { useDensity } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
 import { Text } from '../primitives/text.tsx';
@@ -14,13 +15,27 @@ import {
     partsFromIso,
     withinBounds,
 } from './date-field-shared.ts';
+import { fieldLabelClassName } from './field-label-shared.ts';
 
 export interface DatePickerButtonProps {
     /** Accessible name of the trigger, and the panel's heading. */
     readonly label: string;
-    /** ISO `YYYY-MM-DD`. */
+    /**
+     * Draws `label` above the trigger in the form fields' label style, for a picker that stands in
+     * a row of labelled fields rather than in a toolbar. The trigger's accessible name already
+     * carries it, so the drawn copy is hidden from assistive tech.
+     */
+    readonly labelVisible?: boolean | undefined;
+    /** ISO `YYYY-MM-DD`, or `''` for no day chosen — an open bound on a filter. */
     readonly value: string;
     readonly onChange: (value: string) => void;
+    /** What the trigger says while `value` is empty, in the secondary tone. */
+    readonly placeholder?: string | undefined;
+    /**
+     * Offers **Clear date** under the month while a day is chosen. For an optional date — a filter's
+     * bound — where the empty state is a real answer and needs a way back to it.
+     */
+    readonly onClear?: (() => void) | undefined;
     /** Inclusive ISO bounds; days outside them are drawn but cannot be chosen. */
     readonly min?: string | undefined;
     readonly max?: string | undefined;
@@ -44,15 +59,19 @@ const WEEK_START_OFFSET = 1;
  */
 export function DatePickerButton({
     label,
+    labelVisible = false,
     value,
     onChange,
     min,
     max,
+    placeholder,
+    onClear,
     align = 'start',
     testID,
 }: DatePickerButtonProps) {
     const { t } = useTranslation();
     const { locale } = useLocale();
+    const density = useDensity();
     const generated = useId();
     const base = testID ?? `date-picker-${generated.replace(/:/g, '')}`;
     const panelId = `${base}-panel`;
@@ -99,7 +118,8 @@ export function DatePickerButton({
         });
     };
 
-    const triggerText = formatDay(locale, value);
+    const empty = value === '';
+    const triggerText = empty ? (placeholder ?? '') : formatDay(locale, value);
     const monthTitle = `${monthNames(locale)[view.month - 1] ?? ''} ${String(view.year)}`;
     const weekdays = weekdayNames(locale);
     const today = new Date().toISOString().slice(0, 10);
@@ -117,7 +137,14 @@ export function DatePickerButton({
     );
 
     return (
-        <View ref={containerRef} testID={testID} className="flex-col">
+        // `z-auto`, as `FormField` has it: React Native Web gives every View `z-index: 0`, a stacking
+        // context that would trap the panel under whatever the page draws after the picker.
+        <View ref={containerRef} testID={testID} className="z-auto flex-col gap-hair">
+            {labelVisible ? (
+                <RNText aria-hidden className={fieldLabelClassName(density, false)}>
+                    {label}
+                </RNText>
+            ) : null}
             <Pressable
                 testID={`${base}-trigger`}
                 role="button"
@@ -130,7 +157,11 @@ export function DatePickerButton({
                 className="h-control-sm flex-row items-center gap-tight self-start rounded border border-stroke bg-surface-raised px-control-sm"
             >
                 <Icon name="calendar" size="sm" className="text-content-secondary" />
-                <Text variant="mono" testID={`${base}-value`}>
+                <Text
+                    variant={empty ? 'body' : 'mono'}
+                    tone={empty ? 'secondary' : 'primary'}
+                    testID={`${base}-value`}
+                >
                     {triggerText}
                 </Text>
             </Pressable>
@@ -257,6 +288,25 @@ export function DatePickerButton({
                             })}
                         </View>
                     ))}
+
+                    {onClear !== undefined && !empty ? (
+                        <View className="flex-row justify-end border-t border-stroke-subtle pt-2">
+                            <Pressable
+                                testID={`${base}-clear`}
+                                role="button"
+                                accessibilityRole="button"
+                                onPress={() => {
+                                    onClear();
+                                    setOpen(false);
+                                }}
+                                className="h-control-sm items-center justify-center rounded px-control-sm"
+                            >
+                                <Text variant="caption" tone="brand">
+                                    {t('designSystem:datePicker.clear')}
+                                </Text>
+                            </Pressable>
+                        </View>
+                    ) : null}
                 </View>
             ) : null}
         </View>

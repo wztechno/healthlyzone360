@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Database\Seeders\DatabaseSeeder;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Pricing\Models\PriceList;
@@ -10,6 +9,7 @@ use Healthy360\Pricing\Models\PriceListItem;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
+use Tests\SeedDatabaseOnce;
 
 /*
 |--------------------------------------------------------------------------
@@ -232,9 +232,9 @@ function sweptResponse(object $test, string $path): array
     return ['content' => $response->content(), 'json' => $response->json()];
 }
 
-beforeEach(function (): void {
-    $this->seed(DatabaseSeeder::class);
+pest()->use(SeedDatabaseOnce::class);
 
+beforeEach(function (): void {
     // The confidential world, written after the seed so it lands on rows the
     // marketplace really does read: this kitchen's ingredients feed the
     // published menu's allergen derivation, and its wholesale desk prices the

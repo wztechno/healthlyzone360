@@ -3,10 +3,10 @@ import type { CSSProperties, ReactElement, ReactNode } from 'react';
 
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
 import { cx } from '../internal/class-names.ts';
-import { GRID_GAP, RESPONSIVE_COLUMNS, fieldWidth, resolveSpan } from './grid-shared.ts';
-import type { GridColumnCount, GridProps, GridSpanProps } from './grid-shared.ts';
+import { GRID_GAP, resolveColumns, resolveSpan, trackWidthOf } from './grid-shared.ts';
+import type { GridProps, GridSpanProps } from './grid-shared.ts';
 
-export type { GridColumnCount, GridProps, GridSpanProps } from './grid-shared.ts';
+export type { GridColumnCount, GridProps, GridSpanProps, GridTrack } from './grid-shared.ts';
 
 /**
  * Grid — web.
@@ -21,12 +21,6 @@ export type { GridColumnCount, GridProps, GridSpanProps } from './grid-shared.ts
  * for the web, and its native sibling is a `View`. Nothing above or below it needs to know which
  * one it got.
  */
-
-function columnsFor(atLeast: (name: 'md' | 'lg') => boolean): GridColumnCount {
-    if (atLeast('lg')) return RESPONSIVE_COLUMNS.lg;
-    if (atLeast('md')) return RESPONSIVE_COLUMNS.md;
-    return RESPONSIVE_COLUMNS.sm;
-}
 
 /**
  * Wraps each child in a cell whose `grid-column` carries its resolved span.
@@ -61,12 +55,14 @@ function cells(children: ReactNode, columns: number): ReactNode {
 function GridBase({
     children,
     columns,
+    track,
+    maxColumns,
     className,
     testID,
     template,
 }: GridProps & { readonly template: string }) {
     const { atLeast } = useBreakpoint();
-    const resolved = columns ?? columnsFor(atLeast);
+    const resolved = resolveColumns(atLeast, { columns, track, maxColumns });
 
     const style = useMemo<CSSProperties>(
         () => ({
@@ -87,11 +83,12 @@ function GridBase({
 }
 
 /**
- * FormGrid — the field layout. `sm: 1 · md: 2 · lg+: 3`, 280px tracks at every one of them.
+ * FormGrid — the field layout. `sm: 1 · md: 2 · lg+: 3`, 280px tracks at every one of them; with
+ * `track="half"`, `2 · 4 · 6` tracks of 132px, which is the same width at every breakpoint.
  *
  * `span={2}` and `fullWidth` are the only routes to a wider field, and both are stated by the
  * field rather than emerging from the container. A textarea is the intended `span={2}` user.
  */
 export function FormGrid(props: GridProps) {
-    return <GridBase {...props} template={`minmax(0, ${String(fieldWidth)}px)`} />;
+    return <GridBase {...props} template={`minmax(0, ${String(trackWidthOf(props.track))}px)`} />;
 }

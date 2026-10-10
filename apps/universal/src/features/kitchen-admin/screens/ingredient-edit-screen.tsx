@@ -13,23 +13,25 @@ import {
     Badge,
     Button,
     Callout,
+    Cascade,
     Checkbox,
     Dialog,
     ErrorState,
     FormGrid,
+    FormIssueBanner,
     FormSection,
+    FormSkeleton,
     Inline,
     QuantityInput,
     Select,
-    TextInputField,
-    Skeleton,
     Stack,
     Switch,
     Tag,
     Text,
+    TextInputField,
     useToast,
 } from '@healthy360/design-system';
-import type { SelectOption, TagTone } from '@healthy360/design-system';
+import type { FormIssueItem, SelectOption, TagTone } from '@healthy360/design-system';
 import { IngredientId } from '@healthy360/domain-types';
 import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -38,8 +40,9 @@ import { MEASURE_UNITS, coreNutrientDefinition, findAmount } from '@healthy360/n
 import type { MeasureUnit, NutritionFacts } from '@healthy360/nutrition';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -60,6 +63,7 @@ import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import { focusField } from '../field-focus.ts';
 import {
     UNIT_DIMENSIONS,
     amountToInput,
@@ -67,6 +71,7 @@ import {
     humaniseCode,
     marginPercent,
     parseAmount,
+    parseQuantity,
     statusKey,
     statusTone,
     unitDimension,
@@ -74,40 +79,54 @@ import {
     unitKey,
     unitShortKey,
 } from '../format.ts';
+import { ImageSlot } from '../image-slot.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
- * `/kitchen/ingredients/{ingredient}` — the record editor, as `Catalogue.dc.html` draws it
- * (`isIngredientEdit`, around line 640).
+ * `/kitchen/ingredients/{ingredient}` — the record editor, as `Catalogue Forms.dc.html` draws it
+ * (`isIngredient` and `isPackaging`).
  *
  * ```
- * Kitchen workspace › Ingredients › Mayonnaise      <- the shell's trail, now three crumbs
- * Mayonnaise                                  [ Cancel ]  [ Save ]
- * IG-019 · Condiments · Live · last changed 2 days ago
- * IDENTITY ─────────────────────────────────────────────────────────────────────
- *   Designation (EN)   Designation (AR)   Category
- *   Sub-category
- * MEASUREMENT & COST ───────────────────────────────────────────────────────────
- *   Stock unit    Purchase unit    Unit price
- *   Items per purchase unit
- * SALE  Sold as-is, outside recipes ─────────────────────────────────────────────
- *   ●━━  Available for sale   On — pricing required
- *   B2B price     B2C price        Margin on cost
- * NUTRITION PER 100 G ─────────────────────────────────────────────────────────
- *   Energy    Protein    Carbohydrate    Fat    Fibre    Sugars    Sodium
- *   Saturates (optional)
- *   [x] These figures are an estimate      Note on the figures
- * COMPOSITION & ALLERGENS  FROM DATABASE ───────────────────────────────────────
+ * New ingredient  DRAFT  ING-307                            [ Cancel ]  [ Save ]
+ * ✖ 3 required  [ Designation (EN) ] [ Category ] [ Unit price ]   <- once Save is pressed
+ * ───────────────────────────────────────────────────────────────────────────────
+ * Description ──────────────────────────────────────────────────────────────────
+ *   ┌╌╌╌╌╌╌┐  Item (EN)             Item (AR)
+ *   ╎ (+)  ╎  Category              Sub-category
+ *   └╌╌╌╌╌╌┘
+ * Measurement & cost ────────────────────────────────────────────────────────────
+ *   Purchase unit  Stock unit  Items per unit  Unit price
+ * Sale ──────────────────────────────────────────────────────────────────────────
+ *   ●━━  Available for sale
+ *   B2B price  B2C price  Margin on cost
+ * Nutrition · 100 g   ⚠ Estimated ──────────────────────────────────────────────
+ *   Energy  Protein  Carbohydrate  Fat
+ *   Fibre   Sugars   Sodium        Saturates
+ * Allergens   ⓘ From database ──────────────────────────────────────────────────
  *   ( Egg ) ( Mustard )
  * ```
  *
- * Five sections, in the design's order, holding the design's fields and nothing else. Sections, not
- * cards: §1.3 retires panel outlines in the Catalogue, so a section is a title, a hairline and its
- * content. Every field sits on a fixed 280px track (`FormGrid`'s no-stretch rule, §2), so a
- * two-character unit picker is 280px on a laptop and 280px on a desk monitor; what a wider viewport
- * buys is a third column, never a wider field.
+ * One page, every section open at once, in the design's order. Sections, not cards: §1.3 retires
+ * panel outlines in the Catalogue, so a section is a title, a hairline and its content.
+ *
+ * ## The half track
+ *
+ * Fields sit on `FormGrid`'s half track — 132px, two of them and their gap being exactly one 280px
+ * field. A unit, a count or a price takes one; a designation, a category or a reference takes two.
+ * That is still the no-stretch rule (§2), one size down: a two-character unit in a 280px box was the
+ * last stretch left on this form, and the design sets four figures on the row where three fields
+ * used to sit.
+ *
+ * ## Save always answers
+ *
+ * Save is pressable over an incomplete form. Pressing it marks the form *attempted*: the required
+ * fields that are still empty say so under themselves, and one banner under the header names each
+ * of them, each name taking the reader to its field. Before the first press nothing is flagged — a
+ * new record opens with every required field blank, and a page of red before anyone has typed is
+ * an accusation rather than help. A value that parses badly (a price of `abc`) is flagged at once,
+ * because it is about something the reader has already typed.
  *
  * Every control is `sm` — 28px under the `compact` ladder `KitchenOpsShell` supplies — except Save,
  * the page's one `md`. Those numbers are only real under that provider; there is no second one here.
@@ -131,29 +150,26 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * March. Reference and category lead the line as drawn; publication status and the changed line
  * follow, because a draft that looks published is the one mistake this header can prevent.
  *
- * ## Nutrition is typed here; allergens are still read-only — handoff §6.2
+ * ## Nutrition and allergens are both read-only — handoff §6.2
  *
- * The per-100 g figures used to sit in the read-only panel beside the allergen chips, on the
- * strength of "it resolves from the reference food database". That was true of the 306 seeded rows
- * and of nothing a kitchen creates: a row typed in here had seven blanks and no way to fill them,
- * and the 56 rows the reference document flags as estimated told the kitchen to replace them with a
- * supplier's label from a screen that offered no input. So they are inputs — seven required and
- * saturated fat optional — with the estimate flag and the source's own sentence beside them.
+ * The per-100 g figures come from the database and only from the database. They were inputs for a
+ * while, so a kitchen could copy a supplier's label onto a row it had created; that path is closed.
+ * The cards draw what the record holds — an em dash where it holds nothing — and **the save never
+ * sends `per100g`**, so a save can neither change the figures nor clear them. That is also why there
+ * is no "all seven or none" gate any more: a gate over figures nobody can type could only ever block
+ * a record the database stored part-filled, with no way for the reader to clear it.
  *
- * **All seven or none.** A part-filled set is refused before the save, because the recipe roll-up
- * adds one nutrient at a time across every line and a missing term prints a label that understates
- * itself. The server accepts a partial set on purpose (completeness is the roll-up's question, not
- * the validator's), which is exactly why the refusal has to be here, in front of the person who can
- * fill the gap.
+ * The estimate flag and the source's own sentence stay editable beside the cards. They are a claim
+ * *about* the figures, which a kitchen is in a position to make, and the server takes either one on
+ * its own.
  *
  * **Except where the figures are a recipe's.** An ingredient a published version *outputs* — a
- * pesto mix — has its facts derived from the formulation that makes it, and the server refuses a
- * write to them. That record gets the read-only panel and a `Derived from a recipe` badge instead,
- * and the save sends nothing about nutrition at all: `null` would be a clear, and a refused clear
- * would fail the whole save including the name somebody came here to fix.
+ * pesto mix — has its facts derived from the formulation that makes it, and the server refuses the
+ * flag and the note on it too. That record gets a `Derived from a recipe` badge and no flag or note,
+ * and the save sends nothing about nutrition at all.
  *
  * Allergen classes still resolve from the reference food database and are still rendered for
- * confirmation on the sunken fill under a `From database` badge. No input, no override; a correction
+ * confirmation on the sunken fill. No input, no override; a correction
  * happens on the reference record.
  *
  * The mapping editor that stood here wrote `setIngredientAllergens` and enforced D-041's
@@ -197,14 +213,6 @@ interface DetailsDraft {
     readonly b2cPrice: string;
     readonly isSellable: boolean;
     /**
-     * The per-100 g figures as typed, keyed by nutrient id — `''` for a field nobody has filled.
-     *
-     * Strings rather than numbers, like every other figure on this form: a half-typed `1.` is a
-     * state a `number` cannot hold, and a draft that re-formatted what somebody was in the middle
-     * of typing would move the caret while they typed it.
-     */
-    readonly nutrition: Readonly<Record<string, string>>;
-    /**
      * `boolean`, though the contract's field has three states.
      *
      * A checkbox has two, and there is no third control to draw: "nobody has said" is the state of
@@ -217,79 +225,61 @@ interface DetailsDraft {
 }
 
 /**
- * The per-100 g figures this form collects, in the order the reference document writes them.
+ * The per-100 g figures this form draws, in the order the reference document writes them — the
+ * seven the recipe roll-up needs, then saturated fat, which the source table has no column for.
  *
- * Seven required and one optional, and that split is the roll-up's contract rather than a
- * preference: the recipe sum treats an ingredient missing one of the seven as unusable rather than
- * partially usable, because a blank is not a zero and a sum with a term missing prints a label that
- * understates itself. Saturated fat is outside the seven because the source table has no column for
- * it — a kitchen reading it off a packet can still record it, and the envelope carries it when they
- * do.
- *
- * Both keys are written out rather than assembled from the id, for the reason {@link PANEL_NUTRIENTS}
- * states: `nutrition:nutrients.${id}` is a coincidence that holds for some of these and breaks on
- * the rest, and an interpolated key that does not exist is an English string appearing in Arabic at
- * run time instead of a compile error.
+ * Both keys are written out rather than assembled from the id. The two vocabularies are not the
+ * same list and only look like it: `nutrientId` is the nutrition package's identifier and the
+ * catalogue key is a translator-facing name, so `nutrition:nutrients.${id}` is a coincidence that
+ * holds for some of these and breaks on the rest — and an interpolated key that does not exist is
+ * an English string appearing in Arabic at run time instead of a compile error.
  */
 const NUTRITION_FIELDS: readonly {
     readonly id: string;
     readonly labelKey: string;
     readonly unitKey: string;
-    readonly required: boolean;
 }[] = [
     {
         id: 'energy',
         labelKey: 'nutrition:nutrients.energy',
         unitKey: 'kitchen:nutritionFacts.unitKcal',
-        required: true,
     },
     {
         id: 'protein',
         labelKey: 'nutrition:nutrients.protein',
         unitKey: 'kitchen:nutritionFacts.unitGrams',
-        required: true,
     },
     {
         id: 'carbohydrate',
         labelKey: 'nutrition:nutrients.carbohydrate',
         unitKey: 'kitchen:nutritionFacts.unitGrams',
-        required: true,
     },
     {
         id: 'fat',
         labelKey: 'nutrition:nutrients.fat',
         unitKey: 'kitchen:nutritionFacts.unitGrams',
-        required: true,
     },
     {
         id: 'fibre',
         labelKey: 'nutrition:nutrients.fibre',
         unitKey: 'kitchen:nutritionFacts.unitGrams',
-        required: true,
     },
     {
         id: 'sugars',
         labelKey: 'nutrition:nutrients.sugars',
         unitKey: 'kitchen:nutritionFacts.unitGrams',
-        required: true,
     },
     {
         id: 'sodium',
         labelKey: 'nutrition:nutrients.sodium',
         unitKey: 'kitchen:nutritionFacts.unitMilligrams',
-        required: true,
     },
     {
         id: 'saturated_fat',
         labelKey: 'nutrition:nutrients.saturatedFat',
         unitKey: 'kitchen:nutritionFacts.unitGrams',
-        required: false,
     },
 ];
-
-const EMPTY_NUTRITION: Readonly<Record<string, string>> = Object.fromEntries(
-    NUTRITION_FIELDS.map((field): readonly [string, string] => [field.id, '']),
-);
 
 const EMPTY_DETAILS: DetailsDraft = {
     name: { en: '', ar: '' },
@@ -304,7 +294,6 @@ const EMPTY_DETAILS: DetailsDraft = {
     b2bPrice: '',
     b2cPrice: '',
     isSellable: false,
-    nutrition: EMPTY_NUTRITION,
     nutritionEstimated: false,
     nutritionNote: '',
 };
@@ -323,17 +312,6 @@ function detailsFrom(ingredient: IngredientAdmin): DetailsDraft {
         b2bPrice: amountToInput(ingredient.b2bPrice),
         b2cPrice: amountToInput(ingredient.b2cPrice),
         isSellable: ingredient.isSellable,
-        nutrition: Object.fromEntries(
-            NUTRITION_FIELDS.map((field): readonly [string, string] => {
-                const amount =
-                    ingredient.per100g === null ? null : findAmount(ingredient.per100g, field.id);
-
-                // `String(value)`, not a formatter: this is the contents of an input, and a
-                // thousands separator or a locale's decimal comma would be typed straight back
-                // into a save as text that does not parse.
-                return [field.id, amount === null ? '' : String(amount.value)];
-            }),
-        ),
         // `?? false`: the row's null is "nobody has said", and an unticked box is what that looks
         // like. Saving resolves it, which is the same answer the server reaches on its own.
         nutritionEstimated: ingredient.nutritionEstimated ?? false,
@@ -342,76 +320,54 @@ function detailsFrom(ingredient: IngredientAdmin): DetailsDraft {
 }
 
 /**
- * A typed nutrition figure, or `null` for blank and for anything that is not a number at or above
- * zero.
+ * The design's fields that nothing on the write path accepts yet — drawn, editable, and never sent.
  *
- * Deliberately not {@link positiveNumberOf}. Zero is a real answer for a nutrient — water has no
- * protein, and `0 g` is a measurement rather than a gap — so a rule that threw it away would
- * silently drop the one figure a reader most wants to see stated. What is refused is a negative,
- * which is not a quantity of anything.
+ * - **Image.** No image column exists on the ingredient, and no endpoint takes one.
+ * - **Pack price, waste, holds** (packaging). `purchasePrice`, `wastePercent` and `capacity` are on
+ *   `IngredientAdmin` — the import writes them and the packaging list reads them — but neither
+ *   `CreateIngredientRequest` nor `UpdateIngredientRequest` carries any of the three, and the
+ *   server's own request rules refuse them. So they open on the stored figures and a save leaves
+ *   those figures as they were.
+ *
+ * Kept outside {@link DetailsDraft} on purpose. Editing one does not mark the record dirty — there
+ * is nothing for the unsaved guard to protect, because nothing would have been saved — and none of
+ * them can block the save, which is why the pack price carries no required mark here although the
+ * design draws one. A required field whose value is thrown away is a gate with nothing behind it.
  */
-function nutrientValueOf(raw: string): number | null {
-    const trimmed = raw.trim();
-    if (trimmed === '') return null;
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+interface UnstoredDraft {
+    readonly image: string | null;
+    readonly packPrice: string;
+    readonly wastePercent: string;
+    readonly capacity: string;
+    readonly capacityUnit: MeasureUnit;
+}
+
+const EMPTY_UNSTORED: UnstoredDraft = {
+    image: null,
+    packPrice: '',
+    wastePercent: '',
+    capacity: '',
+    capacityUnit: 'ml',
+};
+
+function unstoredFrom(ingredient: IngredientAdmin, image: string | null): UnstoredDraft {
+    return {
+        // The one field with no stored counterpart at all survives a rehydration rather than
+        // resetting: a save answers with a record that has no image, and the photo somebody just
+        // dropped should not vanish because the name was saved.
+        image,
+        packPrice: amountToInput(ingredient.purchasePrice),
+        wastePercent: ingredient.wastePercent === null ? '' : String(ingredient.wastePercent),
+        capacity: ingredient.capacity === null ? '' : String(ingredient.capacity.quantity),
+        capacityUnit: ingredient.capacity?.unit ?? 'ml',
+    };
 }
 
 /**
- * The typed figures as the contract's facts envelope.
- *
- * **Only `amounts` survives.** `kitchen-admin-writes` flattens this to the slim `{basis, amounts}`
- * the column actually holds, and the panels that render facts read the record the server sends
- * back, never this object — `mapIngredientPer100g` rebuilds the source and calculation lines from
- * the row's own timestamp and its estimate flag on every read. The rest of the envelope is here
- * because `NutritionFacts` is the shape the contract speaks, and it carries no user-facing copy for
- * exactly that reason: the two English strings below are the ones the mapper regenerates a moment
- * later, and nothing displays the pair written here.
+ * Above this, a packaging loss is flagged — the design's `Above 10%`. A warning and not a refusal:
+ * a film that tears on the sealer really can lose a fifth, and saying so is the record doing its job.
  */
-function per100gFrom(
-    nutrition: Readonly<Record<string, string>>,
-    recordedAt: string,
-): NutritionFacts {
-    return {
-        basis: 'per_100g',
-        kind: 'actual',
-        serving: null,
-        totalGrams: 100,
-        amounts: NUTRITION_FIELDS.flatMap((field) => {
-            const value = nutrientValueOf(nutrition[field.id] ?? '');
-            // The canonical unit comes from the nutrient's own definition rather than a second
-            // table here. It is not a label: the server refuses a nutrient stated in anything else,
-            // because the roll-up sums across ingredients and a sum is only a sum when every term is
-            // denominated the same way. A local copy would be a second answer waiting to disagree.
-            const definition = coreNutrientDefinition(field.id);
-            if (value === null || definition === null) return [];
-
-            return [
-                {
-                    nutrientId: field.id,
-                    unit: definition.unit,
-                    value,
-                    kind: 'actual' as const,
-                    tolerance: null,
-                },
-            ];
-        }),
-        source: {
-            kind: 'professional_entry',
-            label: 'Kitchen-recorded reference facts',
-            version: 'ingredient-record',
-            calculatedAt: recordedAt,
-        },
-        calculation: {
-            method: 'as_recorded',
-            basis: 'per_100g',
-            calculatedAt: recordedAt,
-            prototype: false,
-            rounding: 'as_entered',
-            notes: [],
-        },
-    };
-}
+const WASTE_WARNING_PERCENT = 10;
 
 /**
  * A typed positive figure, or null for blank and for anything that is not one.
@@ -428,47 +384,29 @@ function positiveNumberOf(raw: string): number | null {
 }
 
 /**
- * The four figures the design's composition panel shows, in its order.
- *
- * The label keys are written out rather than assembled from the id. The two vocabularies are not the
- * same list and only look like it: `nutrientId` is the nutrition package's identifier and the
- * catalogue key is a translator-facing name, so `nutrition:nutrients.${id}` is a coincidence that
- * holds for these four and breaks on the fifth. Written out, a key that does not exist is a compile
- * error against `keys.generated.ts`; interpolated, it is an English string appearing in Arabic at
- * run time.
- */
-const PANEL_NUTRIENTS: readonly { readonly id: string; readonly labelKey: string }[] = [
-    { id: 'energy', labelKey: 'nutrition:nutrients.energy' },
-    { id: 'fat', labelKey: 'nutrition:nutrients.fat' },
-    { id: 'carbohydrate', labelKey: 'nutrition:nutrients.carbohydrate' },
-    { id: 'protein', labelKey: 'nutrition:nutrients.protein' },
-];
-
-/**
- * The four tiles, always four, whether or not the record has facts behind them.
+ * The eight tiles the nutrition section draws, from the record — in the order of the table above.
  *
  * A figure the record has not got comes back `null` and the panel draws an em dash in its place.
  * The row does not collapse to a sentence: see `DerivedPanel` for why an absent figure is still a
- * tile, and why it is never a zero.
- *
- * The unit falls back to the nutrient's own definition when there is no amount to read it from —
- * `kcal / 100 g` is true of the energy tile whether or not this ingredient has an energy figure.
+ * tile, and why it is never a zero. The unit is the bare unit — `kcal`, `g` — because the section
+ * title already says `· 100 g`, and repeating the basis on eight tiles is eight times the same
+ * words.
  */
 function nutrientFigures(
     facts: NutritionFacts | null,
     t: TFunction,
     formatter: Formatter,
 ): readonly DerivedFigure[] {
-    return PANEL_NUTRIENTS.flatMap((nutrient) => {
-        const definition = coreNutrientDefinition(nutrient.id);
+    return NUTRITION_FIELDS.flatMap((field) => {
+        const definition = coreNutrientDefinition(field.id);
         if (definition === null) return [];
 
-        const amount = facts === null ? null : findAmount(facts, nutrient.id);
+        const amount = facts === null ? null : findAmount(facts, field.id);
 
         return [
             {
-                key: nutrient.id,
-                label: t(nutrient.labelKey),
+                key: field.id,
+                label: t(field.labelKey),
                 value:
                     amount === null
                         ? null
@@ -476,9 +414,7 @@ function nutrientFigures(
                               minimumFractionDigits: definition.precision,
                               maximumFractionDigits: definition.precision,
                           }),
-                unit: t('kitchen:composition.per100g', {
-                    unit: amount?.unit ?? definition.unit,
-                }),
+                unit: t(field.unitKey),
             },
         ];
     });
@@ -538,6 +474,18 @@ export interface IngredientEditFamily {
      */
     readonly food: boolean;
 }
+
+/**
+ * What a raw material may be stocked in.
+ *
+ * Two, and the list is the whole rule: `RecipeNutritionService` weighs a mass line directly and
+ * bridges a volume one through `grams_per_unit`, and there is no third branch. Anything else makes
+ * a line that cannot be weighed, which withholds the label of every recipe that names it.
+ */
+const STOCK_UNITS: readonly MeasureUnit[] = ['kg', 'l'];
+
+/** What a packaging item's capacity is stated in — the design's four, volume first. */
+const CAPACITY_UNITS: readonly MeasureUnit[] = ['ml', 'l', 'g', 'kg'];
 
 export const INGREDIENT_FAMILY: IngredientEditFamily = {
     series: 'ING-',
@@ -619,6 +567,10 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
+    /** Whether Save has been pressed — what lets an empty required field call itself out. */
+    const [attempted, setAttempted] = useState(false);
+    const [unstored, setUnstored] = useState<UnstoredDraft>(EMPTY_UNSTORED);
+
     /*
      * A new record opens already filed where the list that launched it looks.
      *
@@ -662,6 +614,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     if (data !== undefined && serverKey !== detailsKey && !detailsDirty) {
         setDetailsKey(serverKey);
         setDetails(detailsFrom(data));
+        setUnstored(unstoredFrom(data, unstored.image));
     }
 
     const title = isCreating
@@ -715,17 +668,39 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
      * choice the schema constraint exists to prevent. `Select` has no option-group API, so the
      * dimension travels in the option description and the list is ordered by it, which reads the
      * same way and needs no new design-system component.
+     *
+     * ## Food stocks in kilograms or litres, and the picker says so
+     *
+     * The owner's unit table: nutrition is only ever held per 100 g, so a raw material has to be
+     * weighable, and a count has no mass without a per-piece figure nobody records. Offering
+     * `piece` here is offering the state the library was just normalised out of — and it would
+     * come back one ingredient at a time, which is how it arrived in the first place.
+     *
+     * Packaging keeps the full list. A cap is counted, a roll of film is a roll, and none of it
+     * carries nutrition for a gram to matter to.
+     *
+     * `slice` and `portion` are gone from both. They have no `measurement_units` row, so
+     * `MeasurementUnitLookup` could not resolve either and the write layer dropped the field
+     * without a word — picking "Slices" saved nothing and reported success. They stay in
+     * `MEASURE_UNITS` because they are the *serving* vocabulary the marketplace uses; they were
+     * never stock units.
      */
     const unitOptions: readonly SelectOption[] = useMemo(
         () =>
             UNIT_DIMENSIONS.flatMap((dimension) =>
-                MEASURE_UNITS.filter((unit) => unitDimension(unit) === dimension).map((unit) => ({
+                MEASURE_UNITS.filter(
+                    (unit) =>
+                        unitDimension(unit) === dimension &&
+                        (family.food
+                            ? STOCK_UNITS.includes(unit)
+                            : unit !== 'slice' && unit !== 'portion'),
+                ).map((unit) => ({
                     value: unit,
                     label: t(unitKey(unit)),
                     description: t(unitDimensionKey(dimension)),
                 })),
             ),
-        [t],
+        [t, family.food],
     );
 
     /**
@@ -871,14 +846,57 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     // as a refusal.
     const platformNotice = data?.organisationId === null && !editable;
 
+    /**
+     * Take a library row into this kitchen, then land on the copy.
+     *
+     * `router.replace`, not `push`: the library row is not somewhere the reader
+     * wants to go back to — they came here to edit, and Back from the fork
+     * should return to the catalogue, not to the read-only row they just left.
+     *
+     * The guard is not consulted. A platform row has no editable field, so
+     * there is no draft to lose; `settle` is likewise unnecessary for the same
+     * reason.
+     */
+    const forkForKitchen = (): void => {
+        if (data === undefined) return;
+
+        fork.mutate(data.id, {
+            onSuccess: (created) => {
+                toast.show({
+                    testID: 'kitchen-ingredient-forked-toast',
+                    tone: 'success',
+                    message: t('kitchen:editor.forkedToast', {
+                        name: displayName(created.name, locale).value,
+                    }),
+                });
+                router.replace(`${family.listRoute}/${String(created.id)}` as never);
+            },
+        });
+    };
+
+    /*
+     * Opening a library row to edit it *is* asking for the kitchen's copy, so the fork fires on
+     * arrival instead of waiting behind the notice's button. The page holds its skeleton meanwhile —
+     * a read-only form flashed on the way to an editable one reads as a refusal. The notice is left
+     * for a fork that failed, where its button is the retry, and for a reader who cannot fork.
+     *
+     * Once per row, not per render: the ref keeps StrictMode's second effect and every re-render from
+     * posting again, and a failure is retried by the button rather than by a loop.
+     */
+    const autoFork = platformNotice && canManage && !fork.isError;
+    const forkedRow = useRef<IngredientId | null>(null);
+    useEffect(() => {
+        if (!autoFork || data === undefined || forkedRow.current === data.id) return;
+        forkedRow.current = data.id;
+        forkForKitchen();
+    });
+
     const nameMissing = details.name.en.trim() === '';
     const categoryMissing = details.categoryCode.trim() === '';
 
     const unitPriceValue = parseAmount(details.unitPrice);
     const b2bPriceValue = parseAmount(details.b2bPrice);
     const b2cPriceValue = parseAmount(details.b2cPrice);
-    const pricesInvalid =
-        unitPriceValue === undefined || b2bPriceValue === undefined || b2cPriceValue === undefined;
 
     // A price cannot be written without a currency to write it in, so an amount typed with no
     // currency resolved is a blocked save rather than a guess.
@@ -887,38 +905,142 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         [unitPriceValue, b2bPriceValue, b2cPriceValue].some((value) => typeof value === 'number');
 
     /*
-     * Nutrition is typed here only where it is this screen's to type.
+     * Whether this screen may annotate the figures — the estimate flag and the note. The figures
+     * themselves are never written here.
      *
      * Packaging has no entry in the reference food database and never will (see `food` on the
      * family), and an ingredient a published recipe *outputs* has its figures derived from that
-     * formulation — the server refuses a write to either field while the link stands, so offering
-     * the inputs would be offering a control whose save 422s.
+     * formulation — the server refuses the flag and the note while the link stands, so offering
+     * them would be offering a control whose save 422s.
      */
     const nutritionDerived = data?.nutritionDerivedFromVersionId ?? null;
     const nutritionEditable = family.food && nutritionDerived === null;
 
     /*
-     * All seven, or none of them.
+     * The unit price is required of a new food record, as the design draws it: it is the figure a
+     * raw material is costed at until a receipt says otherwise, and the margin under Sale divides by
+     * it. Three limits on that, each load-bearing:
      *
-     * A part-filled set is not a fact the roll-up can use. The recipe sum adds one nutrient at a
-     * time across every line, so a missing term is not a smaller answer — it is a label that
-     * understates itself with nothing on it to say so, which is the one failure a nutrition panel
-     * cannot afford. The server accepts a partial set (an ingredient nobody has measured fat on is
-     * a real row, and the *validator* is not where completeness is decided), so the refusal lives
-     * here, where the person who can fix it is standing.
-     *
-     * "Filled" and "parses" are separate questions on purpose: a field holding `abc` or `-2` is
-     * filled and does not parse, and blocking on it is what stops a typo from being saved as a
-     * cleared figure.
+     * - **Food only.** Packaging states its cost as a pack price instead (see `UnstoredDraft`).
+     * - **On create only.** Hundreds of imported rows carry no list price, and a rule that refused
+     *   every save of one would stop a kitchen correcting a name until somebody found a price.
+     * - **Only once a currency is known.** A price cannot be written without one, so in a kitchen
+     *   that has priced nothing yet the field would be required and unsaveable at the same time —
+     *   a form nobody could ever submit.
      */
-    const requiredNutrients = NUTRITION_FIELDS.filter((field) => field.required);
-    const nutritionTouched = requiredNutrients.some(
-        (field) => (details.nutrition[field.id] ?? '').trim() !== '',
-    );
-    const nutritionComplete = requiredNutrients.every(
-        (field) => nutrientValueOf(details.nutrition[field.id] ?? '') !== null,
-    );
-    const nutritionPartial = nutritionEditable && nutritionTouched && !nutritionComplete;
+    const unitPriceMissing =
+        family.food && isCreating && currency !== null && details.unitPrice.trim() === '';
+
+    /*
+     * Everything that stops the save, in the order the fields appear, each naming the field it is
+     * about and the control that fixes it. The banner reads this list; the fields read the same
+     * flags, so the two cannot disagree about what is wrong.
+     *
+     * `required` separates the two kinds: a blank that only matters once Save is pressed, against a
+     * value already typed that does not parse — which is flagged as it is typed, and counted here so
+     * a Save over it still says why nothing happened.
+     */
+    const blockers: readonly {
+        readonly key: string;
+        readonly label: string;
+        readonly fieldId: string;
+        readonly required: boolean;
+    }[] = [
+        ...(nameMissing
+            ? [
+                  {
+                      key: 'name',
+                      label: t('kitchen:bilingual.englishShort', {
+                          field: t('kitchen:list.columnItem'),
+                      }),
+                      fieldId: 'kitchen-ingredient-name-en',
+                      required: true,
+                  },
+              ]
+            : []),
+        ...(categoryMissing
+            ? [
+                  {
+                      key: 'category',
+                      label: t('kitchen:fields.category'),
+                      fieldId: 'kitchen-ingredient-category',
+                      required: true,
+                  },
+              ]
+            : []),
+        ...(unitPriceMissing || unitPriceValue === undefined
+            ? [
+                  {
+                      key: 'unit-price',
+                      label: t('kitchen:fields.unitPrice'),
+                      fieldId: 'kitchen-ingredient-unit-price',
+                      required: unitPriceMissing,
+                  },
+              ]
+            : []),
+        ...(b2bPriceValue === undefined
+            ? [
+                  {
+                      key: 'b2b-price',
+                      label: t('kitchen:sale.b2bPrice'),
+                      fieldId: 'kitchen-ingredient-b2b-price',
+                      required: false,
+                  },
+              ]
+            : []),
+        ...(b2cPriceValue === undefined
+            ? [
+                  {
+                      key: 'b2c-price',
+                      label: t('kitchen:sale.b2cPrice'),
+                      fieldId: 'kitchen-ingredient-b2c-price',
+                      required: false,
+                  },
+              ]
+            : []),
+    ];
+
+    /*
+     * The same list as the reader sees it: before the first Save, only what has already been typed
+     * wrong; after it, everything.
+     */
+    const shownBlockers = attempted ? blockers : blockers.filter((entry) => !entry.required);
+    const flag = (key: string, message: string): { readonly error?: string } =>
+        shownBlockers.some((entry) => entry.key === key) ? { error: message } : {};
+    const flagEnglish: { readonly englishError?: string } = shownBlockers.some(
+        (entry) => entry.key === 'name',
+    )
+        ? { englishError: t('kitchen:forms.required') }
+        : {};
+
+    /*
+     * Packaging's one caution: a loss above a tenth is unusual enough to say so. Never blocks — and
+     * it could not, because the rate is not saved (see `UnstoredDraft`).
+     */
+    const wasteHigh =
+        !family.food && (parseQuantity(unstored.wastePercent) ?? 0) > WASTE_WARNING_PERCENT;
+
+    const blockerItems: readonly FormIssueItem[] = shownBlockers.map((entry) => ({
+        key: entry.key,
+        label: entry.label,
+        // The chip says what the field's own line would, so the field drops that line.
+        fieldId: entry.fieldId,
+        onPress: () => {
+            focusField(entry.fieldId);
+        },
+    }));
+    const warningItems: readonly FormIssueItem[] = wasteHigh
+        ? [
+              {
+                  key: 'waste',
+                  label: t('kitchen:forms.waste'),
+                  fieldId: 'kitchen-ingredient-waste',
+                  onPress: () => {
+                      focusField('kitchen-ingredient-waste');
+                  },
+              },
+          ]
+        : [];
 
     /*
      * The denominator is `unitPrice`, which reads oddly beside the label until you read the
@@ -935,13 +1057,13 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         typeof value === 'number' && currency !== null ? { amount: value, currency } : null;
 
     const save = () => {
-        if (!editable || nameMissing || categoryMissing || pricesInvalid || currencyMissing) return;
-        if (nutritionPartial) return;
-
-        // The moment the figures were stated, for the envelope's own provenance line. Only
-        // `amounts` reaches the server — which dates the row itself — so this is what the optimistic
-        // copy shows until the next read replaces it.
-        const recordedAt = new Date().toISOString();
+        if (!editable || currencyMissing) return;
+        setAttempted(true);
+        if (blockers.length > 0) {
+            // The banner names every field; the first one is also where the reader is taken.
+            focusField(blockers[0]!.fieldId);
+            return;
+        }
 
         if (isCreating) {
             create.mutate(
@@ -964,16 +1086,14 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         : { unitPrice: costOf(unitPriceValue)! }),
                     ...(costOf(b2bPriceValue) === null ? {} : { b2bPrice: costOf(b2bPriceValue)! }),
                     ...(costOf(b2cPriceValue) === null ? {} : { b2cPrice: costOf(b2cPriceValue)! }),
-                    // Omitted rather than sent as null: a create has nothing to clear, and
-                    // `CreateIngredientRequest` has no null state for any of the three.
-                    ...(nutritionEditable && nutritionComplete
-                        ? {
-                              per100g: per100gFrom(details.nutrition, recordedAt),
-                              nutritionEstimated: details.nutritionEstimated,
-                              ...(details.nutritionNote.trim() === ''
-                                  ? {}
-                                  : { nutritionNote: details.nutritionNote.trim() }),
-                          }
+                    // Never `per100g`: the figures come from the database. The flag and the note
+                    // go only when somebody stated one — sent unasked, an unticked box would record
+                    // `false` ("a declared figure") on a row that has no figure to declare.
+                    ...(nutritionEditable && details.nutritionEstimated
+                        ? { nutritionEstimated: true }
+                        : {}),
+                    ...(nutritionEditable && details.nutritionNote.trim() !== ''
+                        ? { nutritionNote: details.nutritionNote.trim() }
                         : {}),
                     isSellable: details.isSellable,
                 },
@@ -1017,27 +1137,19 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     b2bPrice: costOf(b2bPriceValue),
                     b2cPrice: costOf(b2cPriceValue),
                     /*
-                     * Absent entirely on a record whose nutrition this screen does not own — a
-                     * packaging row, or one a recipe derives. Absent is not the same as null here:
-                     * `null` is a clear, and clearing a derivation is refused with a 422 that would
-                     * fail the whole save, including the name somebody came here to fix.
-                     *
-                     * When the set is incomplete the save has already been blocked unless every
-                     * field is blank, so the only `null` that reaches this line is a deliberate
-                     * clear. The server clears the flag and the note beside it — the provenance
-                     * belongs to the figures — so neither is sent.
+                     * `per100g` is never sent: the figures come from the database, and a missing
+                     * field is untouched where `null` would be a clear. The flag and the note go on
+                     * their own — the server takes either without the figures — and are absent
+                     * entirely on a record a recipe derives, where the server refuses both.
                      */
                     ...(nutritionEditable
-                        ? nutritionComplete
-                            ? {
-                                  per100g: per100gFrom(details.nutrition, recordedAt),
-                                  nutritionEstimated: details.nutritionEstimated,
-                                  nutritionNote:
-                                      details.nutritionNote.trim() === ''
-                                          ? null
-                                          : details.nutritionNote.trim(),
-                              }
-                            : { per100g: null }
+                        ? {
+                              nutritionEstimated: details.nutritionEstimated,
+                              nutritionNote:
+                                  details.nutritionNote.trim() === ''
+                                      ? null
+                                      : details.nutritionNote.trim(),
+                          }
                         : {}),
                     isSellable: details.isSellable,
                 },
@@ -1087,13 +1199,13 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         );
     }
 
-    if (!isCreating && record.isPending) {
+    if (!isCreating && (record.isPending || autoFork)) {
         return (
-            <Stack space="md" testID="kitchen-ingredient-editor-loading">
-                <Skeleton testID="kitchen-ingredient-skeleton-1" heightClassName="h-8" />
-                <Skeleton testID="kitchen-ingredient-skeleton-2" heightClassName="h-32" />
-                <Skeleton testID="kitchen-ingredient-skeleton-3" heightClassName="h-32" />
-            </Stack>
+            <FormSkeleton
+                testID="kitchen-ingredient-editor-loading"
+                partTestID="kitchen-ingredient"
+                sections={3}
+            />
         );
     }
 
@@ -1114,77 +1226,210 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         );
     }
 
-    /**
-     * Take a library row into this kitchen, then land on the copy.
-     *
-     * `router.replace`, not `push`: the library row is not somewhere the reader
-     * wants to go back to — they came here to edit, and Back from the fork
-     * should return to the catalogue, not to the read-only row they just left.
-     *
-     * The guard is not consulted. A platform row has no editable field, so
-     * there is no draft to lose; `settle` is likewise unnecessary for the same
-     * reason.
-     */
-    const forkForKitchen = (): void => {
-        if (data === undefined) return;
-
-        fork.mutate(data.id, {
-            onSuccess: (created) => {
-                toast.show({
-                    testID: 'kitchen-ingredient-forked-toast',
-                    tone: 'success',
-                    message: t('kitchen:editor.forkedToast', {
-                        name: displayName(created.name, locale).value,
-                    }),
-                });
-                router.replace(`${family.listRoute}/${String(created.id)}` as never);
-            },
-        });
-    };
-
     const forkFailure = toFailure(fork.error);
 
     const saveFailure = toFailure(update.error ?? create.error);
     const figures = nutrientFigures(data?.per100g ?? null, t, formatter);
 
-    // `IG-019 · Condiments`. Built from the draft rather than the record so the line tracks an edit
-    // in progress: change the category and the header agrees with the field under it before the
-    // save, which is the whole reason a reader looks up there.
-    // The catalogue's own name for the chosen category, via the options the picker is showing --
-    // which always contain the chosen code, so this never falls through on a real value.
-    const categoryLabel =
-        categoryOptions.find((option) => option.value === details.categoryCode)?.label ?? '';
-
     // Creating, the reference is the one the save is about to assign rather than one the record
-    // carries — the meta line is where this screen states a record's handle, so it is where the
-    // number belongs. Empty while the read is in flight, and empty if it fails: a blank is what
-    // this line held before the series existed, and better than a number nothing stands behind.
+    // carries. Empty while the read is in flight, and empty if it fails: better a blank than a
+    // number nothing stands behind.
     const reference = isCreating ? (nextReference.data ?? '') : details.reference.trim();
 
-    const identity = [reference, categoryLabel]
-        .filter((part) => part !== '')
-        .join(t('kitchen:editor.metaSeparator'));
+    const busy = create.isPending || update.isPending;
+    const priceUnit = currency === null ? {} : { unit: currency };
+
+    /** One field of the draft, and the dirty flag with it — the shape every input below writes. */
+    const edit = (patch: Partial<DetailsDraft>) => {
+        setDetails({ ...details, ...patch });
+        markDetailsDirty();
+    };
+
+    /** One of the fields nothing saves yet. No dirty flag: there is nothing for the guard to keep. */
+    const editUnstored = (patch: Partial<UnstoredDraft>) => {
+        setUnstored((current) => ({ ...current, ...patch }));
+    };
+
+    /*
+     * Cost per item: the pack's price over the items in it — a figure somebody checks a delivery
+     * note against. Empty rather than a zero when either half is missing, for the reason every
+     * derived cell on this workspace gives: a `0.0000` would claim the item is free.
+     */
+    const packPriceValue = parseAmount(unstored.packPrice);
+    const itemsPerPack = positiveNumberOf(details.itemsPerUnit);
+    const costPerItem =
+        typeof packPriceValue === 'number' && itemsPerPack !== null
+            ? packPriceValue / itemsPerPack
+            : null;
+
+    const nutritionEmpty = nutritionEditable && (data?.per100g ?? null) === null;
+    const allergens = data?.allergens ?? [];
+
+    const onlyRequired = shownBlockers.every((entry) => entry.required);
+
+    /*
+     * The purchase pack and the unit, drawn by both families — the pack first, because it is what
+     * the delivery note states and what a reader copies from, and the stock unit is then how that
+     * pack is broken down. Packaging calls the stock unit what it is on a packing bench — the unit an
+     * item is issued in — and the design keeps the rest.
+     */
+    const unitFields = [
+        <Select
+            key="purchase-unit"
+            testID="kitchen-ingredient-purchase-unit"
+            id="kitchen-ingredient-purchase-unit"
+            label={t('kitchen:fields.purchaseUnit')}
+            placeholder={t('kitchen:fields.unitPlaceholder')}
+            searchable
+            disabled={!editable}
+            options={[
+                { value: 'none', label: t('kitchen:fields.purchaseUnitNone') },
+                ...unitOptions,
+            ]}
+            value={details.purchaseUnit === '' ? 'none' : details.purchaseUnit}
+            onChange={(next) => {
+                edit({
+                    purchaseUnit: next === 'none' ? '' : (next as DetailsDraft['purchaseUnit']),
+                });
+            }}
+        />,
+        <Select
+            key="unit"
+            testID="kitchen-ingredient-unit"
+            id="kitchen-ingredient-unit"
+            label={t(family.food ? 'kitchen:fields.stockUnit' : 'kitchen:forms.issueUnit')}
+            placeholder={t('kitchen:fields.unitPlaceholder')}
+            searchable
+            disabled={!editable}
+            options={unitOptions}
+            value={details.measurementUnit}
+            onChange={(next) => {
+                /*
+                 * The mass goes with the unit it was measured against.
+                 *
+                 * Load-bearing, not tidiness: this form always sends `gramsPerUnit` on a save, so a
+                 * kg→l switch that kept the old figure would write the mass of a kilogram onto a
+                 * litre — a plausible number nothing downstream can tell is wrong. The server clears
+                 * it too, for the callers that are not this screen; here it also has to leave the
+                 * field looking like what will be saved.
+                 */
+                edit({ measurementUnit: next as MeasureUnit, gramsPerUnit: '' });
+            }}
+        />,
+        <QuantityInput
+            key="items-per-unit"
+            testID="kitchen-ingredient-items-per-unit"
+            id="kitchen-ingredient-items-per-unit"
+            size="sm"
+            label={t(family.food ? 'kitchen:forms.itemsPerUnit' : 'kitchen:forms.itemsPerPack')}
+            placeholder={t('kitchen:fields.itemsPerUnitPlaceholder')}
+            value={details.itemsPerUnit}
+            disabled={!editable}
+            onChangeText={(next) => {
+                edit({ itemsPerUnit: next });
+            }}
+        />,
+    ];
+
+    /*
+     * Asked only where the answer is not already known.
+     *
+     * A kilogram weighs a kilogram; drawing this field beside a mass unit would be asking an
+     * operator to restate the unit table, and whatever they typed would become a second source of
+     * truth for it. A litre and a piece are the units that genuinely need weighing, and the roll-up
+     * cannot convert their lines without this figure.
+     */
+    const gramsField =
+        unitDimension(details.measurementUnit) === 'mass' ? null : (
+            <QuantityInput
+                testID="kitchen-ingredient-grams-per-unit"
+                id="kitchen-ingredient-grams-per-unit"
+                size="sm"
+                label={t('kitchen:fields.gramsPerUnit', {
+                    unit: t(unitShortKey(details.measurementUnit)),
+                })}
+                placeholder={t('kitchen:fields.gramsPerUnitPlaceholder')}
+                unit={t(unitShortKey('g'))}
+                value={details.gramsPerUnit}
+                disabled={!editable}
+                onChangeText={(next) => {
+                    edit({ gramsPerUnit: next });
+                }}
+            />
+        );
+
+    const referenceField =
+        (
+            /*
+             * Read, never written: the series is the server's to issue, and while creating this is the
+             * number the save is about to take rather than one the record carries.
+             */
+            <TextInputField
+                span={2}
+                testID="kitchen-ingredient-reference"
+                id="kitchen-ingredient-reference"
+                label={t('kitchen:list.columnReference')}
+                size="sm"
+                placeholder={t('kitchen:fields.referencePlaceholder')}
+                value={reference}
+                disabled
+                onChangeText={() => undefined}
+            />
+        );
 
     return (
-        <Stack space="md" testID="kitchen-ingredient-editor-screen">
+        <Cascade space="md" testID="kitchen-ingredient-editor-screen">
             {/*
-             * The opening — title, actions and the meta line — is one 4px block inside the page's
-             * 16px rhythm, exactly as the list next door tightens its own header. No trail here:
+             * The opening: the title with its status and handle beside it, Cancel and Save at the
+             * inline end, the banners under it and one rule closing it. No trail here —
              * `KitchenOpsShell` draws it, and this screen names its last crumb instead.
              */}
-            <Stack space="xs">
+            <Stack space="sm">
                 <CataloguePageHeader
                     testID="kitchen-ingredient-editor-screen-header"
                     titleTestID="kitchen-ingredient-editor-screen-title"
                     title={title}
+                    titleAside={
+                        <Inline
+                            space="xs"
+                            align="center"
+                            wrap
+                            testID="kitchen-ingredient-editor-screen-meta"
+                        >
+                            <Badge
+                                variant="caps"
+                                testID="kitchen-ingredient-editor-screen-status"
+                                tone={statusTone(data?.meta.status ?? 'draft')}
+                                icon={null}
+                                label={t(statusKey(data?.meta.status ?? 'draft'))}
+                            />
+                            {reference === '' ? null : (
+                                <Text
+                                    testID="kitchen-ingredient-editor-screen-identity"
+                                    tone="secondary"
+                                    variant="mono"
+                                >
+                                    {reference}
+                                </Text>
+                            )}
+                            {guard.isDirty ? (
+                                <Badge
+                                    variant="label"
+                                    testID="kitchen-ingredient-editor-screen-dirty"
+                                    tone="warning"
+                                    icon="warning"
+                                    label={t('kitchen:editor.unsaved')}
+                                />
+                            ) : null}
+                        </Inline>
+                    }
                     primaryAction={
                         <Inline space="xs" align="center">
                             {/*
-                             * Both actions are `md`, matching the list page's `Import` and
-                             * `New ingredient` pair — an editor's Cancel and Save are the same
-                             * decision at the same weight, and the design draws them at one height.
-                             * This is the exception §3 allows to the Catalogue's `sm` default, and
-                             * the only place on the page that takes it.
+                             * Both `md`, matching the list page's `Import` and `New ingredient`
+                             * pair — an editor's Cancel and Save are the same decision at the same
+                             * weight. Save is hidden rather than permanently disabled on a record
+                             * this caller cannot write: the callout below says why.
                              */}
                             <Button
                                 testID="kitchen-ingredient-editor-screen-back"
@@ -1194,31 +1439,12 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                     guard.intercept(goBack);
                                 }}
                             />
-                            {/*
-                             * The page's one `md`, per §3. Hidden rather than permanently disabled
-                             * on a record this caller cannot write: a save that can never be
-                             * pressed is furniture, and the callout above already says why. A
-                             * platform row an operator *can* write keeps its Save.
-                             */}
                             {platformNotice ? null : (
                                 <Button
                                     testID="kitchen-ingredient-editor-screen-save"
                                     label={t('kitchen:editor.save')}
-                                    loading={create.isPending || update.isPending}
-                                    disabled={
-                                        !editable ||
-                                        nameMissing ||
-                                        categoryMissing ||
-                                        pricesInvalid ||
-                                        currencyMissing ||
-                                        // Disabled as well as refused: `save()` returns early on a
-                                        // part-filled set, and a button that silently does nothing
-                                        // is the worst of the three answers available here. The
-                                        // callout beside the fields says what to do about it.
-                                        nutritionPartial ||
-                                        create.isPending ||
-                                        update.isPending
-                                    }
+                                    loading={busy}
+                                    disabled={!editable || currencyMissing || busy}
                                     onPress={save}
                                 />
                             )}
@@ -1226,73 +1452,46 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     }
                 />
 
-                <Inline
-                    space="xs"
-                    align="center"
-                    wrap
-                    testID="kitchen-ingredient-editor-screen-meta"
-                >
-                    {identity === '' ? null : (
-                        <Text
-                            testID="kitchen-ingredient-editor-screen-identity"
-                            tone="secondary"
-                            variant="caption"
-                        >
-                            {identity}
-                        </Text>
-                    )}
-                    {data === undefined ? (
-                        <Badge
-                            testID="kitchen-ingredient-editor-screen-status"
-                            tone="neutral"
-                            icon="dot"
-                            label={t('kitchen:status.draft')}
-                        />
-                    ) : (
-                        <Badge
-                            testID="kitchen-ingredient-editor-screen-status"
-                            tone={statusTone(data.meta.status)}
-                            label={t(statusKey(data.meta.status))}
-                        />
-                    )}
-                    {guard.isDirty ? (
-                        <Badge
-                            testID="kitchen-ingredient-editor-screen-dirty"
-                            tone="warning"
-                            icon="warning"
-                            label={t('kitchen:editor.unsaved')}
-                        />
-                    ) : null}
-                    <Text
-                        testID="kitchen-ingredient-editor-screen-updated"
-                        tone="secondary"
-                        variant="caption"
-                    >
-                        {data === undefined
-                            ? t('kitchen:editor.neverSaved')
-                            : data.meta.updatedByName === null
-                              ? t('kitchen:editor.lastUpdatedBySeed', {
-                                    when: formatter.formatRelativeTime(data.meta.updatedAt),
-                                })
-                              : t('kitchen:editor.lastUpdatedBy', {
-                                    when: formatter.formatRelativeTime(data.meta.updatedAt),
-                                    name: data.meta.updatedByName,
+                {blockerItems.length === 0 && warningItems.length === 0 ? null : (
+                    <Inline space="xs" wrap testID="kitchen-ingredient-issues">
+                        {blockerItems.length === 0 ? null : (
+                            <FormIssueBanner
+                                testID="kitchen-ingredient-issues-errors"
+                                tone="danger"
+                                summary={t(
+                                    onlyRequired
+                                        ? 'kitchen:forms.requiredCount'
+                                        : 'kitchen:forms.toFixCount',
+                                    { count: blockerItems.length },
+                                )}
+                                items={blockerItems}
+                            />
+                        )}
+                        {warningItems.length === 0 ? null : (
+                            <FormIssueBanner
+                                testID="kitchen-ingredient-issues-warnings"
+                                tone="warning"
+                                summary={t('kitchen:forms.warningCount', {
+                                    count: warningItems.length,
                                 })}
-                    </Text>
-                </Inline>
+                                items={warningItems}
+                            />
+                        )}
+                    </Inline>
+                )}
+
+                <View className="border-b border-stroke" />
             </Stack>
 
             {platformNotice ? (
                 /*
-                 * The notice states the constraint and offers the way out of it in the
-                 * same breath. It used to state the constraint alone, which left "cannot
-                 * be edited here" as a dead end — the row *can* be edited, once the
-                 * kitchen takes a copy, and a reader has no way to discover that from a
-                 * sentence saying it cannot.
+                 * The notice states the constraint and offers the way out of it in the same breath.
+                 * It used to state the constraint alone, which left "cannot be edited here" as a
+                 * dead end — the row *can* be edited, once the kitchen takes a copy.
                  *
-                 * The action is withheld from a reader without manage permission rather
-                 * than shown disabled: forking is a write, and a control that exists only
-                 * to be refused tells them less than its absence does.
+                 * The action is withheld from a reader without manage permission rather than shown
+                 * disabled: forking is a write, and a control that exists only to be refused tells
+                 * them less than its absence does.
                  */
                 <Callout
                     testID="kitchen-ingredient-platform-library"
@@ -1326,22 +1525,6 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     body={forkFailure.message}
                 />
             )}
-            {data?.forkedFromId == null ? null : (
-                /*
-                 * Provenance on the copy. Without it a fork is indistinguishable from a
-                 * row the kitchen typed itself, and the one question it raises — "why is
-                 * there no library row for this?" — has no answer on the page. It also
-                 * says plainly that the link is one-way, because a reader who assumes
-                 * platform corrections still flow through would be wrong.
-                 */
-                <Callout
-                    testID="kitchen-ingredient-forked-from"
-                    role="note"
-                    tone="info"
-                    title={t('kitchen:editor.forkedFromTitle')}
-                    body={t('kitchen:editor.forkedFromBody')}
-                />
-            )}
             {quarantined ? (
                 <Callout
                     testID="kitchen-ingredient-quarantine"
@@ -1369,316 +1552,338 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 />
             ) : null}
 
-            {/* ── identity ─────────────────────────────────────────────────────────────────── */}
-            <FormSection
-                first
-                testID="kitchen-ingredient-identity"
-                title={t('kitchen:editor.sectionIdentity')}
-            >
-                <FormGrid testID="kitchen-ingredient-identity-grid">
-                    {/*
-                     * Id first, before the designation — and on the form at all, which it was not.
-                     *
-                     * The handle was stated in the meta line under the title and nowhere else, so
-                     * the editor's first field was a name while every list beside it opens with an
-                     * identifier. Read, never written: the series is the server's to issue, and
-                     * while creating this is the number the save is about to take rather than one
-                     * the record carries.
-                     */}
-                    <TextInputField
-                        testID="kitchen-ingredient-reference"
-                        id="kitchen-ingredient-reference"
-                        label={t('kitchen:list.columnReference')}
-                        size="sm"
-                        placeholder={t('kitchen:fields.referencePlaceholder')}
-                        value={reference}
-                        disabled
-                        onChangeText={() => undefined}
-                    />
+            {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
+            <View className="z-auto flex-col gap-loose">
+                {/* ── identity ─────────────────────────────────────────────────────────────── */}
+                <FormSection
+                    first
+                    variant="card"
+                    testID="kitchen-ingredient-identity"
+                    title={t('kitchen:forms.description')}
+                >
+                    <View className="z-auto flex-row flex-wrap items-start gap-base">
+                        {/*
+                         * The photo leads a food record and packaging has none — a bin liner is
+                         * identified by its reference, and the design draws no slot for it. Not
+                         * saved yet: see `UnstoredDraft`.
+                         */}
+                        {!family.food ? null : (
+                            <ImageSlot
+                                testID="kitchen-ingredient-image"
+                                uri={unstored.image}
+                                disabled={!editable}
+                                onChange={(next) => {
+                                    editUnstored({ image: next });
+                                }}
+                            />
+                        )}
 
-                    {/*
-                     * Two cells of the same row, as the design draws them — `layout="row"` puts the
-                     * halves side by side inside the two tracks `span={2}` claims. It stays one
-                     * `BilingualField` rather than two inputs because that component owns the
-                     * per-language writing direction, the missing-Arabic badge and the copy-across
-                     * control, none of which the design's bare pair has and all of which the Arabic
-                     * surfaces need.
-                     */}
-                    <BilingualField
-                        span={2}
-                        layout="row"
-                        testID="kitchen-ingredient-name"
-                        // The word the ingredient list's own title column uses, so the form and
-                        // the table name the same thing the same way.
-                        fieldLabel={t('kitchen:list.columnItem')}
-                        value={details.name}
-                        requiredEnglish
-                        disabled={!editable}
-                        {...(nameMissing ? { englishError: t('kitchen:editor.nameRequired') } : {})}
-                        onChange={(next) => {
-                            setDetails({ ...details, name: next });
-                            markDetailsDirty();
-                        }}
-                    />
+                        {/*
+                         * Beside the photo a food record has four half tracks, which is two 280px
+                         * fields — the item pair on the first row, the filing on the second. It
+                         * draws no reference field: the handle is beside the title already, and a
+                         * read-only box repeating it was a field nobody could use. Packaging has no
+                         * photo and opens on its handle, so the reference leads and the row takes
+                         * all six.
+                         */}
+                        <FormGrid
+                            track="half"
+                            {...(family.food ? { maxColumns: 4 } : {})}
+                            testID="kitchen-ingredient-identity-grid"
+                        >
+                            {/*
+                             * Not on a new record either: nothing has been issued yet, so the box
+                             * could only ever say "Assigned on save". The handle is beside the
+                             * title once it exists.
+                             */}
+                            {family.food || isCreating ? null : referenceField}
 
-                    <Select
-                        testID="kitchen-ingredient-category"
-                        id="kitchen-ingredient-category"
-                        label={t('kitchen:fields.category')}
-                        placeholder={t('kitchen:fields.categoryPlaceholder')}
-                        searchable
-                        required
-                        // Locked for a family whose branch is the family - see `categoryOptions`.
-                        disabled={!editable || family.categoryCode !== ''}
-                        options={categoryOptions}
-                        value={details.categoryCode === '' ? null : details.categoryCode}
-                        {...(categoryMissing
-                            ? { error: t('kitchen:editor.categoryRequired') }
-                            : {})}
-                        onChange={(next) => {
-                            // Changing the parent invalidates the leaf: a sub-category from the
-                            // previous branch would be refused by the server on save, and refusing
-                            // it here costs the reader nothing they have not already decided.
-                            setDetails({ ...details, categoryCode: next, subcategoryCode: '' });
-                            markDetailsDirty();
-                        }}
-                    />
+                            {/*
+                             * One `BilingualField` rather than two inputs, because that component
+                             * owns the per-language writing direction; `row` puts the halves side
+                             * by side inside the four tracks `span={4}` claims.
+                             */}
+                            <BilingualField
+                                span={4}
+                                layout="row"
+                                testID="kitchen-ingredient-name"
+                                fieldLabel={t('kitchen:list.columnItem')}
+                                placeholder={
+                                    family.food
+                                        ? {
+                                              en: t('kitchen:fields.ingredientNamePlaceholderEn'),
+                                              ar: t('kitchen:fields.ingredientNamePlaceholderAr'),
+                                          }
+                                        : {
+                                              en: t('kitchen:fields.packagingNamePlaceholderEn'),
+                                              ar: t('kitchen:fields.packagingNamePlaceholderAr'),
+                                          }
+                                }
+                                value={details.name}
+                                requiredEnglish
+                                disabled={!editable}
+                                {...flagEnglish}
+                                onChange={(next) => {
+                                    edit({ name: next });
+                                }}
+                            />
 
-                    <Select
-                        testID="kitchen-ingredient-subcategory"
-                        id="kitchen-ingredient-subcategory"
-                        label={t('kitchen:fields.subcategory')}
-                        placeholder={t('kitchen:fields.subcategoryPlaceholder')}
-                        searchable
-                        disabled={!editable || details.categoryCode === ''}
-                        options={subcategoryOptions}
-                        value={details.subcategoryCode === '' ? 'none' : details.subcategoryCode}
-                        onChange={(next) => {
-                            setDetails({
-                                ...details,
-                                subcategoryCode: next === 'none' ? '' : next,
-                            });
-                            markDetailsDirty();
-                        }}
-                    />
-                </FormGrid>
-            </FormSection>
+                            <Select
+                                span={2}
+                                testID="kitchen-ingredient-category"
+                                id="kitchen-ingredient-category"
+                                label={t('kitchen:fields.category')}
+                                placeholder={t('kitchen:fields.categoryPlaceholder')}
+                                searchable
+                                required
+                                // Locked for a family whose branch is the family - see
+                                // `categoryOptions`.
+                                disabled={!editable || family.categoryCode !== ''}
+                                options={categoryOptions}
+                                value={details.categoryCode === '' ? null : details.categoryCode}
+                                {...flag('category', t('kitchen:forms.required'))}
+                                onChange={(next) => {
+                                    // Changing the parent invalidates the leaf: a sub-category
+                                    // from the previous branch would be refused on save.
+                                    edit({ categoryCode: next, subcategoryCode: '' });
+                                }}
+                            />
 
-            {/* ── measurement & cost ───────────────────────────────────────────────────────── */}
-            <FormSection
-                testID="kitchen-ingredient-measurement"
-                title={t('kitchen:editor.sectionMeasurement')}
-            >
-                <FormGrid testID="kitchen-ingredient-measurement-grid">
-                    <Select
-                        testID="kitchen-ingredient-unit"
-                        id="kitchen-ingredient-unit"
-                        label={t('kitchen:fields.stockUnit')}
-                        placeholder={t('kitchen:fields.unitPlaceholder')}
-                        searchable
-                        disabled={!editable}
-                        options={unitOptions}
-                        value={details.measurementUnit}
-                        onChange={(next) => {
-                            /*
-                             * The mass goes with the unit it was measured against.
-                             *
-                             * Load-bearing, not tidiness: this form always sends `gramsPerUnit` on
-                             * a save, so a kg→l switch that kept the old figure would write the
-                             * mass of a kilogram onto a litre — a plausible number nothing
-                             * downstream can tell is wrong. The server clears it too, for the
-                             * callers that are not this screen; here it also has to leave the
-                             * field looking like what will be saved.
-                             */
-                            setDetails({
-                                ...details,
-                                measurementUnit: next as MeasureUnit,
-                                gramsPerUnit: '',
-                            });
-                            markDetailsDirty();
-                        }}
-                    />
+                            <Select
+                                span={2}
+                                testID="kitchen-ingredient-subcategory"
+                                id="kitchen-ingredient-subcategory"
+                                label={t('kitchen:fields.subcategory')}
+                                placeholder={t('kitchen:fields.subcategoryPlaceholder')}
+                                searchable
+                                disabled={!editable || details.categoryCode === ''}
+                                options={subcategoryOptions}
+                                value={
+                                    details.subcategoryCode === ''
+                                        ? 'none'
+                                        : details.subcategoryCode
+                                }
+                                onChange={(next) => {
+                                    edit({ subcategoryCode: next === 'none' ? '' : next });
+                                }}
+                            />
+                        </FormGrid>
+                    </View>
+                </FormSection>
 
-                    <Select
-                        testID="kitchen-ingredient-purchase-unit"
-                        id="kitchen-ingredient-purchase-unit"
-                        label={t('kitchen:fields.purchaseUnit')}
-                        placeholder={t('kitchen:fields.unitPlaceholder')}
-                        searchable
-                        disabled={!editable}
-                        options={[
-                            { value: 'none', label: t('kitchen:fields.purchaseUnitNone') },
-                            ...unitOptions,
-                        ]}
-                        value={details.purchaseUnit === '' ? 'none' : details.purchaseUnit}
-                        onChange={(next) => {
-                            setDetails({
-                                ...details,
-                                purchaseUnit:
-                                    next === 'none' ? '' : (next as DetailsDraft['purchaseUnit']),
-                            });
-                            markDetailsDirty();
-                        }}
-                    />
-
-                    {/*
-                     * `QuantityInput`, not `TextInputField`: the design sets every figure on this
-                     * screen in IBM Plex Mono, flush to the trailing edge, which is the whole reason
-                     * that component exists (§1.2). The currency rides in the unit slot as a static
-                     * suffix rather than in the value — a price carrying its own currency is a
-                     * string no cost cascade can multiply.
-                     */}
-                    <QuantityInput
-                        testID="kitchen-ingredient-unit-price"
-                        id="kitchen-ingredient-unit-price"
-                        size="sm"
-                        label={t('kitchen:fields.unitPrice')}
-                        // `QuantityInput` sets every figure in the mono role flush to the trailing
-                        // edge already — that is what the component is for (§1.2) — so a number
-                        // field on this form needs no alignment of its own, only the shape of the
-                        // value it expects.
-                        placeholder={t('kitchen:fields.unitPricePlaceholder')}
-                        value={details.unitPrice}
-                        disabled={!editable}
-                        {...(currency === null ? {} : { unit: currency })}
-                        {...(unitPriceValue === undefined
-                            ? { error: t('kitchen:sale.priceInvalid') }
-                            : {})}
-                        onChangeText={(next) => {
-                            setDetails({ ...details, unitPrice: next });
-                            markDetailsDirty();
-                        }}
-                    />
-
-                    <QuantityInput
-                        testID="kitchen-ingredient-items-per-unit"
-                        id="kitchen-ingredient-items-per-unit"
-                        size="sm"
-                        label={t('kitchen:fields.itemsPerPurchaseUnit')}
-                        placeholder={t('kitchen:fields.itemsPerUnitPlaceholder')}
-                        value={details.itemsPerUnit}
-                        disabled={!editable}
-                        onChangeText={(next) => {
-                            setDetails({ ...details, itemsPerUnit: next });
-                            markDetailsDirty();
-                        }}
-                    />
-
-                    {/*
-                     * Asked only where the answer is not already known.
-                     *
-                     * A kilogram weighs a kilogram; drawing this field beside a mass unit would be
-                     * asking an operator to restate the unit table, and whatever they typed would
-                     * become a second source of truth for it. A litre and a piece are the units
-                     * that genuinely need weighing, and the roll-up cannot convert their lines
-                     * without this figure.
-                     */}
-                    {unitDimension(details.measurementUnit) === 'mass' ? null : (
-                        <QuantityInput
-                            testID="kitchen-ingredient-grams-per-unit"
-                            id="kitchen-ingredient-grams-per-unit"
-                            size="sm"
-                            label={t('kitchen:fields.gramsPerUnit', {
-                                unit: t(unitShortKey(details.measurementUnit)),
-                            })}
-                            hint={t('kitchen:fields.gramsPerUnitHint')}
-                            placeholder={t('kitchen:fields.gramsPerUnitPlaceholder')}
-                            unit={t(unitShortKey('g'))}
-                            value={details.gramsPerUnit}
-                            disabled={!editable}
-                            onChangeText={(next) => {
-                                setDetails({ ...details, gramsPerUnit: next });
-                                markDetailsDirty();
-                            }}
-                        />
+                {/* ── measurement & cost / pack ────────────────────────────────────────────── */}
+                <FormSection
+                    first
+                    variant="card"
+                    testID="kitchen-ingredient-measurement"
+                    title={t(
+                        family.food ? 'kitchen:editor.sectionMeasurement' : 'kitchen:forms.pack',
                     )}
-                </FormGrid>
-            </FormSection>
+                >
+                    <FormGrid track="half" testID="kitchen-ingredient-measurement-grid">
+                        {unitFields}
 
-            {/*
-             * Sale and Composition are food questions - see `food` on the family. A packaging
-             * record draws neither, rather than drawing both and answering neither.
-             */}
-            {!family.food ? null : (
-                <>
-                    {/* ── sale ─────────────────────────────────────────────────────────────────────── */}
+                        {/*
+                         * `QuantityInput`, not `TextInputField`: every figure on this screen is set
+                         * in the mono role, flush to the trailing edge (§1.2). The currency rides in
+                         * the unit slot as a static suffix — a price carrying its own currency is a
+                         * string no cost cascade can multiply.
+                         */}
+                        {!family.food ? null : (
+                            <QuantityInput
+                                testID="kitchen-ingredient-unit-price"
+                                id="kitchen-ingredient-unit-price"
+                                size="sm"
+                                required={isCreating && currency !== null}
+                                label={t('kitchen:fields.unitPrice')}
+                                placeholder={t('kitchen:fields.unitPricePlaceholder')}
+                                value={details.unitPrice}
+                                disabled={!editable}
+                                {...priceUnit}
+                                {...flag(
+                                    'unit-price',
+                                    unitPriceMissing
+                                        ? t('kitchen:forms.required')
+                                        : t('kitchen:sale.priceInvalid'),
+                                )}
+                                onChangeText={(next) => {
+                                    edit({ unitPrice: next });
+                                }}
+                            />
+                        )}
+
+                        {/*
+                         * What one item holds, in two cells: the figure and its unit. Packaging
+                         * only — a cap or a label holds nothing and leaves it blank. Not saved yet:
+                         * see `UnstoredDraft`.
+                         */}
+                        {family.food ? null : (
+                            <QuantityInput
+                                testID="kitchen-ingredient-capacity"
+                                id="kitchen-ingredient-capacity"
+                                size="sm"
+                                label={t('kitchen:forms.holds')}
+                                placeholder={t('kitchen:fields.quantityPlaceholder')}
+                                value={unstored.capacity}
+                                disabled={!editable}
+                                onChangeText={(next) => {
+                                    editUnstored({ capacity: next });
+                                }}
+                            />
+                        )}
+                        {family.food ? null : (
+                            <Select
+                                testID="kitchen-ingredient-capacity-unit"
+                                id="kitchen-ingredient-capacity-unit"
+                                label={t('kitchen:forms.holdsUnit')}
+                                placeholder={t('kitchen:fields.unitPlaceholder')}
+                                disabled={!editable}
+                                options={CAPACITY_UNITS.map((unit) => ({
+                                    value: unit,
+                                    label: t(unitShortKey(unit)),
+                                }))}
+                                value={unstored.capacityUnit}
+                                onChange={(next) => {
+                                    editUnstored({ capacityUnit: next as MeasureUnit });
+                                }}
+                            />
+                        )}
+
+                        {gramsField}
+                    </FormGrid>
+                </FormSection>
+
+                {/* ── cost (packaging) ─────────────────────────────────────────────────────── */}
+                {family.food ? null : (
                     <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-ingredient-cost"
+                        title={t('kitchen:forms.cost')}
+                    >
+                        <FormGrid track="half" testID="kitchen-ingredient-cost-grid">
+                            <QuantityInput
+                                testID="kitchen-ingredient-pack-price"
+                                id="kitchen-ingredient-pack-price"
+                                size="sm"
+                                label={t('kitchen:packaging.columnPackPrice')}
+                                placeholder={t('kitchen:fields.unitPricePlaceholder')}
+                                value={unstored.packPrice}
+                                disabled={!editable}
+                                {...priceUnit}
+                                {...(packPriceValue === undefined
+                                    ? { error: t('kitchen:sale.priceInvalid') }
+                                    : {})}
+                                onChangeText={(next) => {
+                                    editUnstored({ packPrice: next });
+                                }}
+                            />
+                            <QuantityInput
+                                testID="kitchen-ingredient-waste"
+                                id="kitchen-ingredient-waste"
+                                size="sm"
+                                label={t('kitchen:forms.waste')}
+                                placeholder={t('kitchen:fields.percentPlaceholder')}
+                                unit="%"
+                                value={unstored.wastePercent}
+                                disabled={!editable}
+                                {...(wasteHigh
+                                    ? {
+                                          warning: t('kitchen:forms.aboveWaste', {
+                                              percent: WASTE_WARNING_PERCENT,
+                                          }),
+                                      }
+                                    : {})}
+                                onChangeText={(next) => {
+                                    editUnstored({ wastePercent: next });
+                                }}
+                            />
+                            {/*
+                             * The derived third cell, in the `readOnly` variant — a figure on the
+                             * sunken fill, in a field's shape, that nobody types into. Four places:
+                             * a cap costs a fraction of a unit, and two would round it to nothing.
+                             */}
+                            <QuantityInput
+                                testID="kitchen-ingredient-cost-per-item"
+                                id="kitchen-ingredient-cost-per-item"
+                                size="sm"
+                                readOnly
+                                label={t('kitchen:forms.costPerItem')}
+                                placeholder={t('kitchen:sale.marginUnavailable')}
+                                {...priceUnit}
+                                value={
+                                    costPerItem === null
+                                        ? ''
+                                        : formatter.formatNumber(costPerItem, {
+                                              minimumFractionDigits: 4,
+                                              maximumFractionDigits: 4,
+                                          })
+                                }
+                                onChangeText={() => undefined}
+                            />
+                        </FormGrid>
+                    </FormSection>
+                )}
+
+                {/* ── sale (food) ──────────────────────────────────────────────────────────── */}
+                {!family.food ? null : (
+                    <FormSection
+                        first
+                        variant="card"
                         testID="kitchen-ingredient-sale"
                         title={t('kitchen:sale.title')}
-                        aside={
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:sale.eyebrow')}
-                            </Text>
-                        }
                     >
                         <Stack space="sm">
                             <Switch
                                 testID="kitchen-ingredient-sellable"
                                 id="kitchen-ingredient-sellable"
                                 label={t('kitchen:sale.toggleLabel')}
-                                stateLabel={
-                                    details.isSellable
-                                        ? t('kitchen:sale.stateOn')
-                                        : t('kitchen:sale.stateOff')
-                                }
                                 checked={details.isSellable}
                                 disabled={!editable}
                                 onChange={(next) => {
-                                    setDetails({ ...details, isSellable: next });
-                                    markDetailsDirty();
+                                    edit({ isSellable: next });
                                 }}
                             />
 
                             {/*
-                             * The prices appear only while the ingredient is sold, as the design's `sc-if`
-                             * does. They are not cleared on toggling off: an ingredient taken off sale for a
-                             * season keeps the prices it had, and re-listing it is one switch rather than one
-                             * switch and two figures somebody has to find again.
+                             * The prices appear only while the ingredient is sold. They are not
+                             * cleared on toggling off: an ingredient taken off sale for a season
+                             * keeps the prices it had, and re-listing it is one switch.
                              */}
                             {details.isSellable ? (
-                                <FormGrid testID="kitchen-ingredient-sale-grid">
+                                <FormGrid track="half" testID="kitchen-ingredient-sale-grid">
                                     <QuantityInput
                                         testID="kitchen-ingredient-b2b-price"
                                         id="kitchen-ingredient-b2b-price"
                                         size="sm"
                                         label={t('kitchen:sale.b2bPrice')}
-                                        hint={t('kitchen:sale.b2bPriceHint')}
+                                        placeholder={t('kitchen:fields.unitPricePlaceholder')}
                                         value={details.b2bPrice}
                                         disabled={!editable}
-                                        {...(currency === null ? {} : { unit: currency })}
-                                        {...(b2bPriceValue === undefined
-                                            ? { error: t('kitchen:sale.priceInvalid') }
-                                            : {})}
+                                        {...priceUnit}
+                                        {...flag('b2b-price', t('kitchen:sale.priceInvalid'))}
                                         onChangeText={(next) => {
-                                            setDetails({ ...details, b2bPrice: next });
-                                            markDetailsDirty();
+                                            edit({ b2bPrice: next });
                                         }}
                                     />
-
                                     <QuantityInput
                                         testID="kitchen-ingredient-b2c-price"
                                         id="kitchen-ingredient-b2c-price"
                                         size="sm"
                                         label={t('kitchen:sale.b2cPrice')}
-                                        hint={t('kitchen:sale.b2cPriceHint')}
+                                        placeholder={t('kitchen:fields.unitPricePlaceholder')}
                                         value={details.b2cPrice}
                                         disabled={!editable}
-                                        {...(currency === null ? {} : { unit: currency })}
-                                        {...(b2cPriceValue === undefined
-                                            ? { error: t('kitchen:sale.priceInvalid') }
-                                            : {})}
+                                        {...priceUnit}
+                                        {...flag('b2c-price', t('kitchen:sale.priceInvalid'))}
                                         onChangeText={(next) => {
-                                            setDetails({ ...details, b2cPrice: next });
-                                            markDetailsDirty();
+                                            edit({ b2cPrice: next });
                                         }}
                                     />
-
                                     {/*
-                                     * The derived third cell, drawn with the same `readOnly` variant the
-                                     * cost cascade's totals use — a figure on the sunken fill, in a field's
-                                     * shape, that nobody types into. Empty rather than a stand-in figure
-                                     * when the sum cannot be stated: the placeholder's em dash says "not
-                                     * calculable", where a `0.0` would claim the margin is nil.
+                                     * Empty rather than a stand-in figure when the sum cannot be
+                                     * stated: the placeholder's em dash says "not calculable",
+                                     * where a `0.0` would claim the margin is nil.
                                      */}
                                     <QuantityInput
                                         testID="kitchen-ingredient-margin"
@@ -1697,137 +1902,109 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                                       signDisplay: 'exceptZero',
                                                   })
                                         }
-                                        hint={
-                                            margin === null || typeof unitPriceValue !== 'number'
-                                                ? t('kitchen:sale.marginNoBasis')
-                                                : t('kitchen:sale.marginHint', {
-                                                      price: formatter.formatNumber(
-                                                          unitPriceValue,
-                                                          {
-                                                              minimumFractionDigits: 2,
-                                                              maximumFractionDigits: 2,
-                                                          },
-                                                      ),
-                                                  })
-                                        }
                                         onChangeText={() => undefined}
                                     />
                                 </FormGrid>
                             ) : null}
                         </Stack>
                     </FormSection>
+                )}
 
-                    {/* ── nutrition per 100 g ──────────────────────────────────────────────────────── */}
+                {/* ── nutrition · 100 g (food) ─────────────────────────────────────────────── */}
+                {!family.food ? null : (
                     <FormSection
+                        first
+                        variant="card"
                         testID="kitchen-ingredient-nutrition"
-                        title={t('kitchen:nutritionFacts.title')}
-                        // The derived case says it once, in the panel, beside the figures it is
-                        // about. Said here as well it would be the same sentence twice, ten pixels
-                        // apart.
-                        {...(nutritionDerived === null
-                            ? { description: t('kitchen:nutritionFacts.hint') }
-                            : {})}
+                        title={t('kitchen:forms.nutritionTitle')}
                         aside={
-                            nutritionDerived === null ? null : (
-                                <Badge
-                                    testID="kitchen-ingredient-nutrition-derived"
-                                    tone="info"
-                                    icon={null}
-                                    label={t('kitchen:nutritionFacts.derivedBadge')}
-                                />
-                            )
+                            /*
+                             * Where the figures stand, as labels on the heading rather than a
+                             * paragraph under it: derived from a recipe, read from the shared
+                             * library, flagged as an estimate, or not recorded at all.
+                             */
+                            <Inline space="xs" align="center" wrap>
+                                {nutritionDerived !== null ? (
+                                    <Badge
+                                        variant="label"
+                                        testID="kitchen-ingredient-nutrition-derived"
+                                        tone="info"
+                                        label={t('kitchen:nutritionFacts.derivedBadge')}
+                                    />
+                                ) : data?.organisationId === null ? (
+                                    <Badge
+                                        variant="label"
+                                        testID="kitchen-ingredient-nutrition-source"
+                                        tone="info"
+                                        label={t('kitchen:composition.fromDatabase')}
+                                    />
+                                ) : null}
+                                {details.nutritionEstimated ? (
+                                    <Badge
+                                        variant="label"
+                                        testID="kitchen-ingredient-nutrition-estimated-badge"
+                                        tone="warning"
+                                        label={t('kitchen:nutritionFacts.estimatedBadge')}
+                                    />
+                                ) : null}
+                                {nutritionEmpty ? (
+                                    <Badge
+                                        variant="label"
+                                        testID="kitchen-ingredient-nutrition-empty"
+                                        tone="warning"
+                                        label={t('kitchen:forms.noFigures')}
+                                    />
+                                ) : null}
+                            </Inline>
                         }
                     >
                         {nutritionDerived === null ? (
                             <Stack space="sm">
-                                <FormGrid testID="kitchen-ingredient-nutrition-grid">
-                                    {NUTRITION_FIELDS.map((field) => (
-                                        <QuantityInput
-                                            key={field.id}
-                                            testID={`kitchen-ingredient-nutrient-${field.id}`}
-                                            id={`kitchen-ingredient-nutrient-${field.id}`}
-                                            size="sm"
-                                            label={t(field.labelKey)}
-                                            unit={t(field.unitKey)}
-                                            value={details.nutrition[field.id] ?? ''}
-                                            disabled={!editable}
-                                            {...(field.required
-                                                ? {}
-                                                : {
-                                                      hint: t(
-                                                          'kitchen:nutritionFacts.saturatedFatHint',
-                                                      ),
-                                                  })}
-                                            {...(nutritionPartial && field.required
-                                                ? {
-                                                      error: t(
-                                                          'kitchen:nutritionFacts.partialError',
-                                                      ),
-                                                  }
-                                                : {})}
-                                            onChangeText={(next) => {
-                                                setDetails({
-                                                    ...details,
-                                                    nutrition: {
-                                                        ...details.nutrition,
-                                                        [field.id]: next,
-                                                    },
-                                                });
-                                                markDetailsDirty();
-                                            }}
-                                        />
-                                    ))}
-                                </FormGrid>
-
                                 {/*
-                                 * Said once, under the row rather than on each of the seven fields:
-                                 * the rule is about the *set*, and repeating it seven times would
-                                 * read as seven separate problems.
+                                 * The same cards the recipe's technical sheet draws — one shape
+                                 * for an ingredient's nutrition and a recipe's, which is how the
+                                 * design sets them. Read from the record, never typed: see the
+                                 * file header.
                                  */}
-                                {!nutritionPartial ? null : (
-                                    <Callout
-                                        testID="kitchen-ingredient-nutrition-partial"
-                                        role="alert"
-                                        tone="warning"
-                                        title={t('kitchen:nutritionFacts.partialError')}
-                                        body={t('kitchen:nutritionFacts.partialHint')}
-                                    />
-                                )}
+                                <DerivedPanel
+                                    testID="kitchen-ingredient-nutrition-grid"
+                                    variant="outline"
+                                    figures={figures}
+                                    emptyValue={t('kitchen:sale.marginUnavailable')}
+                                />
 
                                 <Checkbox
                                     testID="kitchen-ingredient-nutrition-estimated"
                                     id="kitchen-ingredient-nutrition-estimated"
                                     label={t('kitchen:nutritionFacts.estimateLabel')}
-                                    description={t('kitchen:nutritionFacts.estimateDescription')}
                                     checked={details.nutritionEstimated}
                                     disabled={!editable}
                                     onChange={(next) => {
-                                        setDetails({ ...details, nutritionEstimated: next });
-                                        markDetailsDirty();
+                                        edit({ nutritionEstimated: next });
                                     }}
                                 />
 
-                                <FormGrid testID="kitchen-ingredient-nutrition-note-grid">
+                                <FormGrid
+                                    track="half"
+                                    maxColumns={4}
+                                    testID="kitchen-ingredient-nutrition-note-grid"
+                                >
                                     {/*
-                                     * Two tracks, the `span={2}` case the grid's own note names: a
-                                     * 300-character sentence in a 280px box is read four words at a
-                                     * time. Clamped to one column on a phone by `resolveSpan`, so
-                                     * this is a ceiling rather than a minimum.
+                                     * Four half tracks: a 300-character sentence in a 132px box is
+                                     * read two words at a time.
                                      */}
                                     <TextInputField
                                         testID="kitchen-ingredient-nutrition-note"
                                         id="kitchen-ingredient-nutrition-note"
-                                        span={2}
+                                        span={4}
                                         size="sm"
                                         label={t('kitchen:nutritionFacts.noteLabel')}
-                                        hint={t('kitchen:nutritionFacts.noteHint')}
                                         placeholder={t('kitchen:nutritionFacts.notePlaceholder')}
                                         maxLength={300}
                                         value={details.nutritionNote}
                                         disabled={!editable}
                                         onChangeText={(next) => {
-                                            setDetails({ ...details, nutritionNote: next });
-                                            markDetailsDirty();
+                                            edit({ nutritionNote: next });
                                         }}
                                     />
                                 </FormGrid>
@@ -1835,61 +2012,72 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         ) : (
                             <DerivedPanel
                                 testID="kitchen-ingredient-nutrition-panel"
-                                description={t('kitchen:nutritionFacts.derivedDescription')}
+                                variant="outline"
                                 figures={figures}
                                 emptyValue={t('kitchen:sale.marginUnavailable')}
                             />
                         )}
                     </FormSection>
+                )}
 
-                    {/* ── allergens, read-only per §6.2 ────────────────────────────────────────────── */}
+                {/* ── allergens, read-only per §6.2 (food) ─────────────────────────────────── */}
+                {!family.food ? null : (
                     <FormSection
+                        first
+                        variant="card"
                         testID="kitchen-ingredient-allergens"
-                        title={t('kitchen:composition.title')}
+                        title={t('kitchen:forms.allergensTitle')}
                         aside={
                             <Badge
+                                variant="label"
+                                testID="kitchen-ingredient-allergens-source"
                                 tone="info"
-                                icon={null}
                                 label={t('kitchen:composition.fromDatabase')}
                             />
                         }
                     >
-                        {/*
-                         * Figures deliberately empty: the four nutrient tiles moved up into the
-                         * section above, where they are now inputs. `DerivedPanel` draws no tile row
-                         * for an empty set, which leaves this panel as what it has become — the
-                         * allergen determination, still resolved elsewhere and still read-only.
-                         */}
-                        <DerivedPanel
-                            testID="kitchen-ingredient-composition"
-                            description={t('kitchen:composition.allergensDescription')}
-                            figures={[]}
-                            emptyValue={t('kitchen:sale.marginUnavailable')}
-                            chips={(data?.allergens ?? []).map((mapping) => {
-                                const code = String(mapping.allergenCode);
-                                const known = classByCode.get(code);
-                                // `contains` and `may_contain` are two different claims and never one
-                                // colour: the tone separates them, and the class name carries the rest.
-                                const tone: TagTone =
-                                    mapping.containment === 'contains' ? 'danger' : 'warning';
+                        {allergens.length === 0 ? (
+                            // An em dash, not a sentence: "none recorded" and "free of all
+                            // fourteen" are different claims, and this panel can state neither.
+                            <Text
+                                testID="kitchen-ingredient-allergens-none"
+                                variant="mono"
+                                tone="secondary"
+                            >
+                                {t('kitchen:list.noValue')}
+                            </Text>
+                        ) : (
+                            <DerivedPanel
+                                testID="kitchen-ingredient-composition"
+                                figures={[]}
+                                emptyValue={t('kitchen:sale.marginUnavailable')}
+                                chips={allergens.map((mapping) => {
+                                    const code = String(mapping.allergenCode);
+                                    const known = classByCode.get(code);
+                                    // `contains` and `may_contain` are two different claims and
+                                    // never one colour: the tone separates them, and the class
+                                    // name carries the rest.
+                                    const tone: TagTone =
+                                        mapping.containment === 'contains' ? 'danger' : 'warning';
 
-                                return (
-                                    <Tag
-                                        key={code}
-                                        testID={`kitchen-ingredient-allergen-${code}`}
-                                        tone={tone}
-                                        label={
-                                            known === undefined
-                                                ? code
-                                                : displayName(known.name, locale).value
-                                        }
-                                    />
-                                );
-                            })}
-                        />
+                                    return (
+                                        <Tag
+                                            key={code}
+                                            testID={`kitchen-ingredient-allergen-${code}`}
+                                            tone={tone}
+                                            label={
+                                                known === undefined
+                                                    ? code
+                                                    : displayName(known.name, locale).value
+                                            }
+                                        />
+                                    );
+                                })}
+                            />
+                        )}
                     </FormSection>
-                </>
-            )}
+                )}
+            </View>
 
             <Dialog
                 testID="kitchen-ingredient-editor-screen-unsaved-dialog"
@@ -1949,6 +2137,6 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     </Text>
                 )}
             </Dialog>
-        </Stack>
+        </Cascade>
     );
 }

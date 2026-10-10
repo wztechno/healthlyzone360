@@ -32,7 +32,7 @@ final class DeliveryZoneStoreController
     {
         $zone = $this->zones->create($request->payload());
 
-        return ApiResponse::data(['delivery_zone' => $this->presenter->zone($zone)], status: 201)
+        return ApiResponse::data(['delivery_zone' => $this->presenter->zone($zone, [])], status: 201)
             ->withHeaders(['ETag' => '"'.$zone->lock_version.'"']);
     }
 }

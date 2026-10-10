@@ -113,7 +113,7 @@ it('gives one item exactly one default variant, at the database level', function
         ->toBe('a');
 });
 
-it('refuses variants on a meal and a pack on a plan configuration', function (): void {
+it('sizes a meal sold by weight in packs, and refuses a sizeless one or a pack on a plan configuration', function (): void {
     $meal = CatalogueItem::factory()->meal()->create([
         'catalogue_id' => $this->a->catalogue->getKey(),
         'organisation_id' => $this->a->organisation->getKey(),
@@ -127,10 +127,20 @@ it('refuses variants on a meal and a pack on a plan configuration', function ():
     $this->actingAs($this->a->user);
     $headers = CatalogueWorld::headers($this->a) + ['If-Match' => '"0"'];
 
-    // A meal is sold as itself.
+    // A meal may be sold in packs — 1 kg to a kitchen, 200 g to a diner — but
+    // a pack with no size is not a pack.
     $this->putJson('/api/v1/catalogue/items/'.$meal->getKey().'/variants', [
         'variants' => [['code' => 'anything']],
     ], $headers)->assertStatus(422);
+
+    $this->putJson('/api/v1/catalogue/items/'.$meal->getKey().'/variants', [
+        'variants' => [['code' => 'b2c', 'pack' => ['pack_quantity' => 0.2, 'pack_unit_id' => CatalogueWorld::unit('kg')]]],
+    ], $headers)
+        ->assertOk()
+        ->assertJsonPath('data.variants.0.variant_type', 'pack');
+
+    expect(CatalogueItemPackVariant::sizeOf((string) CatalogueItemVariant::withoutTenancy()->where('catalogue_item_id', $meal->getKey())->value('id')))
+        ->toBe(['size' => '0.2', 'unit' => 'kg']);
 
     // A plan configuration is not sold in a pack, and a pack with no size is
     // not a pack.
@@ -145,7 +155,8 @@ it('refuses variants on a meal and a pack on a plan configuration', function ():
         ->assertJsonPath('data.variants.0.variant_type', 'plan_configuration')
         ->assertJsonPath('data.variants.0.pack', null);
 
-    expect(CatalogueItemPackVariant::withoutTenancy()->count())->toBe(0);
+    // Only the meal's pack: the plan's refused write left nothing behind.
+    expect(CatalogueItemPackVariant::withoutTenancy()->count())->toBe(1);
 });
 
 it('replaces the public ingredient list in the order it was given', function (): void {

@@ -139,6 +139,27 @@ modules:
     description: Platform-level administration surface (kitchen tenant lifecycle, owner invitations, suspension; reference-data management); no broadly privileged runtime DB role.
     depends_on: [Support, Organisations, AccessControl, Features, Audit, B2B, Catalogues, Identity, Tenancy]
 
+  # AA1: a tenant's own access console — the other half of the sentence
+  # PlatformAdministration's entry writes above. That module is the platform
+  # administering somebody else's kitchen; this one is a kitchen administering
+  # itself.
+  #
+  # It could not go into AccessControl, and the reason is the one PA1 gives,
+  # pointed at a different edge. The console offers a staff account by
+  # invitation as well as by direct creation, so it reuses `InvitationService`
+  # — which lives in B2B, which already depends on AccessControl. Hosting the
+  # console in the kernel would close that edge into a cycle. Independently,
+  # AccessControl is the kernel twelve modules import, and it deliberately has
+  # no HTTP surface at all: giving it controllers would make every module that
+  # wants the permission checker carry them too.
+  #
+  # Nothing depends on this module, so the graph gains a sink and stays acyclic.
+  - name: AccessAdministration
+    status: active
+    phase: 1
+    description: A tenant's own access console — bespoke organisation roles and their permission grants, membership role assignment and branch scope, membership lifecycle, and staff account provisioning by invitation or by direct creation.
+    depends_on: [Support, Identity, Organisations, Tenancy, AccessControl, Audit, B2B]
+
   # ── Planned modules (documented only — no code, no directories) ───────────
   - name: Nutrition
     status: planned
@@ -240,11 +261,15 @@ modules:
   # branch operating data is served and unreachable from api-mode (R-030), and
   # the importer is a console command with no surface at all. F1 is where the
   # rest of a kitchen's capability lives.
+  #
+  # `kitchen:seed-test-accounts` adds Identity, Consent, Verification, Customers and B2B: it stands
+  # up a checkout-ready consumer and a corporate buyer under a signed agreement on one kitchen,
+  # through those modules' own services. None of the five depends on Kitchens, so it stays acyclic.
   - name: Kitchens
     status: foundation
     phase: 2
     description: Branch operating data — opening hours per weekday and order cut-offs — and the private Healthy360 kitchen workbook importer that stands a kitchen up from its own workbook. Menus, approved meal-plan receipt and kitchen instructions are still to come.
-    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Allergens, Recipes, Catalogues, Pricing, Delivery]
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Allergens, Recipes, Catalogues, Pricing, Delivery, Identity, Consent, Verification, Customers, B2B]
 
   # INV1.2 widens the edges. The auto-deduction path answers the orders module's
   # `OrderStockConsumption` port, so it reads an order and its lines (Orders),
@@ -303,11 +328,25 @@ modules:
     description: Suppliers, purchase orders and goods receipts that post quantity and cost into the inventory ledger, blending each priced purchase into an ingredient's weighted moving-average cost; and the monthly cost report reconciling purchasing spend and COGS against selling revenue per month and currency (INV1.4).
     depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Inventory, Orders, Catalogues]
 
+  # PROD1 turned this from a stub into the Internal Production Order Desk: a
+  # batch is planned from a recipe version and a factor, confirmed against real
+  # stock (which opens reservations), started, and completed with what actually
+  # came out — produced, rejected and input waste kept as three different facts.
+  #
+  # Three edges are added and each is used rather than reserved. `Ingredients`
+  # for the produced item and the weekly-price port declared there.
+  # `ReferenceData` for unit conversion, which is what lets a recipe written in
+  # grams reserve off a shelf counted in kilos. `Procurement` for
+  # `IngredientCostService`, because a finished batch is valued into the *same*
+  # moving average a purchase is — two blends would be two answers to what a
+  # kilo of dressing is worth. All three are acyclic: nothing in Procurement,
+  # Ingredients or ReferenceData depends on Production, whose only dependants
+  # are QualityControl and Kds.
   - name: Production
     status: foundation
     phase: 2
-    description: Production orders from recipe versions, tasks, and consume/yield movements into inventory.
-    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Kitchens, Inventory, Recipes]
+    description: Internal production orders — a batch planned from a recipe version and a batch factor, with required/available/missing against reserved stock and an estimated cost at published weekly prices; confirm opens reservations, completion consumes inputs, records input waste separately, posts the yield and blends it into the produced ingredient's moving average; planned-versus-actual yield, storage, and an expiry computed at completion from the recipe's shelf life on the branch-local production date; a lot number (YYMMDD + daily sequence + GS1 check digit) minted when usable units reach a shelf, the GS1-128 label string derived from it, and a scan lookup that resolves a label, a typed lot or a PB- reference back to its batch; and the technical sheet read back off the confirm-time snapshot.
+    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Kitchens, Inventory, Recipes, Ingredients, ReferenceData, Procurement]
 
   - name: QualityControl
     status: foundation

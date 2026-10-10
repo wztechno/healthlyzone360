@@ -11,6 +11,16 @@ import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { QuotationsScreen } from './screens/quotations-screen.tsx';
 
+/*
+ * The Commercial lists are desk surfaces: above  a row draws every column the spec declares.
+ * Jest's default window is phone-sized, where the same list collapses to two-line rows, so these
+ * suites render at the width the screens are built for.
+ */
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+    __esModule: true,
+    default: () => ({ width: 1280, height: 900, scale: 1, fontScale: 1 }),
+}));
+
 jest.mock('expo-router', () => ({
     __esModule: true,
     useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
@@ -255,7 +265,7 @@ describe('kitchen quotations', () => {
 
         await waitForTable();
 
-        fireEvent.press(screen.getByTestId('kitchen-quotations-filter-quoted'));
+        fireEvent.press(screen.getByTestId('kitchen-quotations-toolbar-status-quoted'));
 
         await waitFor(() => {
             expect(

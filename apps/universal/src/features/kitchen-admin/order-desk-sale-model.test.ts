@@ -14,25 +14,23 @@ import {
     setQuantity,
     toWire,
 } from './order-desk/basket.ts';
-import type { SaleWizardState } from './order-desk/steps.ts';
+import type { SaleState } from './order-desk/sale-state.ts';
 import {
-    applicableSteps,
-    canProceed,
-    clampStep,
     defaultPaymentMethodFor,
-    initialSaleWizardState,
+    initialSaleState,
     isCounterPaymentComplete,
-    nextStep,
+    needsAddress,
+    needsCustomer,
     paymentMethodsFor,
-    previousStep,
-    stepApplies,
-    stepProgress,
+    saleShortfall,
+    scheduleFor,
     withCustomer,
     withFulfilmentType,
-} from './order-desk/steps.ts';
+    withPaymentMethod,
+} from './order-desk/sale-state.ts';
 
 /**
- * The sale wizard's two pure models.
+ * The desk sale's two pure models.
  *
  * These are tested apart from the screen deliberately. Every rule here is a **refusal the wire would
  * otherwise return** — a payment block on a delivery, an address on a counter sale, a line the
@@ -55,70 +53,28 @@ function line(overrides: Partial<BasketLine> = {}): BasketLine {
     };
 }
 
-function counterState(overrides: Partial<SaleWizardState> = {}): SaleWizardState {
-    return { ...initialSaleWizardState(), ...overrides };
+function counterState(overrides: Partial<SaleState> = {}): SaleState {
+    return { ...initialSaleState(), ...overrides };
 }
 
 /* ------------------------------------------------------------------------------------------------
- * Applicability
+ * Shape
  * ---------------------------------------------------------------------------------------------- */
 
-describe('sale wizard — which steps a sale has', () => {
-    it('gives a counter sale the four steps it can answer, and no customer or address', () => {
-        expect(applicableSteps('counter')).toEqual(['type', 'basket', 'payment', 'review']);
+describe('desk sale — what each kind of sale asks for', () => {
+    it('asks a counter sale for nobody and nowhere', () => {
+        expect(needsCustomer('counter')).toBe(false);
+        expect(needsAddress('counter')).toBe(false);
     });
 
-    it('gives a pickup a customer but no address and no payment step', () => {
-        // A collection needs to know whose it is; it has no destination, and the money arrives
-        // when the customer does.
-        expect(applicableSteps('pickup')).toEqual(['type', 'customer', 'basket', 'review']);
+    it('asks a collection whose it is, but not where it goes', () => {
+        expect(needsCustomer('pickup')).toBe(true);
+        expect(needsAddress('pickup')).toBe(false);
     });
 
-    it('gives a delivery every step except the till', () => {
-        expect(applicableSteps('delivery')).toEqual([
-            'type',
-            'customer',
-            'address',
-            'basket',
-            'review',
-        ]);
-    });
-
-    it('keeps one ordering for all three, so no step is reachable in one direction only', () => {
-        for (const type of ['counter', 'pickup', 'delivery'] as const) {
-            const steps = applicableSteps(type);
-            const walked: string[] = [steps[0] ?? ''];
-            let cursor = nextStep({ ...initialSaleWizardState(), fulfilmentType: type }, steps[0]!);
-            while (cursor !== null) {
-                walked.push(cursor);
-                cursor = nextStep({ ...initialSaleWizardState(), fulfilmentType: type }, cursor);
-            }
-            expect(walked).toEqual([...steps]);
-        }
-    });
-
-    it('answers the ends of the walk as null rather than wrapping round', () => {
-        const state = counterState();
-        expect(previousStep(state, 'type')).toBeNull();
-        expect(nextStep(state, 'review')).toBeNull();
-        // Skipped steps are not neighbours: counter's `basket` follows `type` directly.
-        expect(nextStep(state, 'type')).toBe('basket');
-        expect(previousStep(state, 'basket')).toBe('type');
-    });
-
-    it('counts progress against this sale rather than against the whole wizard', () => {
-        expect(stepProgress(counterState(), 'review')).toEqual({ position: 4, total: 4 });
-        expect(stepProgress({ ...counterState(), fulfilmentType: 'delivery' }, 'review')).toEqual({
-            position: 5,
-            total: 5,
-        });
-    });
-
-    it('states applicability per step so a new step cannot be missing from one shape', () => {
-        expect(stepApplies('customer', 'counter')).toBe(false);
-        expect(stepApplies('address', 'pickup')).toBe(false);
-        expect(stepApplies('payment', 'delivery')).toBe(false);
-        expect(stepApplies('basket', 'counter')).toBe(true);
+    it('asks a delivery for both', () => {
+        expect(needsCustomer('delivery')).toBe(true);
+        expect(needsAddress('delivery')).toBe(true);
     });
 });
 
@@ -126,7 +82,7 @@ describe('sale wizard — which steps a sale has', () => {
  * Clearing — every one of these is a 422 or a 409 the wire would answer
  * ---------------------------------------------------------------------------------------------- */
 
-describe('sale wizard — what changing the type clears', () => {
+describe('desk sale — what changing the kind clears', () => {
     it('drops the customer and the address when a delivery becomes a counter sale', () => {
         const delivery = withFulfilmentType(counterState(), 'delivery');
         const named = {
@@ -136,8 +92,8 @@ describe('sale wizard — what changing the type clears', () => {
 
         const counter = withFulfilmentType(named, 'counter');
 
-        // A counter body carrying an address is refused `address_not_applicable`, and this wizard
-        // has no step on which the agent could see the customer it was still sending.
+        // A counter body carrying an address is refused `address_not_applicable`, and the page has
+        // no card on which the agent could see the customer it was still sending.
         expect(counter.customerAddressId).toBeNull();
         expect(counter.customerAccountId).toBeNull();
     });
@@ -195,7 +151,7 @@ describe('sale wizard — what changing the type clears', () => {
         ).toHaveLength(1);
     });
 
-    it('returns the same object when the type has not moved', () => {
+    it('returns the same object when the kind has not moved', () => {
         const state = counterState();
         expect(withFulfilmentType(state, 'counter')).toBe(state);
     });
@@ -212,79 +168,150 @@ describe('sale wizard — what changing the type clears', () => {
         expect(withCustomer(state, 'account-1')).toBe(state);
     });
 
-    it('lands the agent on the nearest step they had reached, not back at the start', () => {
-        const delivery = withFulfilmentType(counterState(), 'delivery');
-        const counter = withFulfilmentType(delivery, 'counter');
+    it('moves the till receipt with the method on a counter sale, keeping a typed reference', () => {
+        const wish = withPaymentMethod(counterState(), 'wish');
+        expect(wish.paymentMethod).toBe('wish');
+        expect(wish.payment?.method).toBe('wish');
 
-        // `address` does not exist for a counter sale; the step before it that does is `type`.
-        expect(clampStep(counter, 'address')).toBe('type');
-        expect(clampStep(counter, 'customer')).toBe('type');
-        // A step this sale still has is left exactly where it is.
-        expect(clampStep(counter, 'basket')).toBe('basket');
+        const typed = {
+            ...wish,
+            payment: { method: 'wish' as const, reference: 'WSH-1', notes: '' },
+        };
+        expect(
+            withPaymentMethod(withPaymentMethod(typed, 'cash_at_counter'), 'wish').payment,
+        ).toEqual({ method: 'wish', reference: 'WSH-1', notes: '' });
+
+        // No receipt appears on a sale that forbids one.
+        expect(
+            withPaymentMethod(withFulfilmentType(counterState(), 'pickup'), 'wish').payment,
+        ).toBeNull();
+    });
+
+    it('keeps the driver only on a delivery, which is the only sale with a run', () => {
+        const delivery = {
+            ...withFulfilmentType(counterState(), 'delivery'),
+            driverUserId: 'user-1',
+        };
+
+        // The wire refuses `driver_user_id` on anything but a delivery.
+        expect(withFulfilmentType(delivery, 'pickup').driverUserId).toBeNull();
+        expect(withFulfilmentType(delivery, 'counter').driverUserId).toBeNull();
+        expect(initialSaleState().driverUserId).toBeNull();
+    });
+
+    it('keeps the day and slot between pickup and delivery and drops them on a counter sale', () => {
+        const delivery = {
+            ...withFulfilmentType(counterState(), 'delivery'),
+            requestedDeliveryDate: '2026-10-09',
+            deliveryWindowCode: 'evening',
+        };
+
+        const pickup = withFulfilmentType(delivery, 'pickup');
+        expect(pickup.requestedDeliveryDate).toBe('2026-10-09');
+        expect(pickup.deliveryWindowCode).toBe('evening');
+
+        // A counter sale is handed over now and is never slotted.
+        const counter = withFulfilmentType(delivery, 'counter');
+        expect(counter.requestedDeliveryDate).toBeNull();
+        expect(counter.deliveryWindowCode).toBeNull();
     });
 });
 
 /* ------------------------------------------------------------------------------------------------
- * Proceeding
+ * Schedule
  * ---------------------------------------------------------------------------------------------- */
 
-describe('sale wizard — what each step needs before it may be left', () => {
-    it('never blocks the type step, which always holds an answer', () => {
-        expect(canProceed(counterState(), 'type')).toBe(true);
+describe('desk sale — the schedule a sale is placed for', () => {
+    const TODAY = '2026-10-07';
+
+    it('sends nothing on a counter sale', () => {
+        expect(scheduleFor(counterState(), TODAY, ['midday'])).toBeNull();
     });
 
-    it('waits for a customer and then for an address', () => {
-        const delivery = withFulfilmentType(counterState(), 'delivery');
-        expect(canProceed(delivery, 'customer')).toBe(false);
+    it('defaults to today and the checkout’s midday slot when the kitchen offers it', () => {
+        const pickup = withFulfilmentType(counterState(), 'pickup');
 
-        const named = withCustomer(delivery, 'account-1');
-        expect(canProceed(named, 'customer')).toBe(true);
-        expect(canProceed(named, 'address')).toBe(false);
-
-        expect(canProceed({ ...named, customerAddressId: 'address-1' }, 'address')).toBe(true);
+        expect(scheduleFor(pickup, TODAY, ['morning', 'midday', 'evening'])).toEqual({
+            requestedDeliveryDate: TODAY,
+            deliveryWindowCode: 'midday',
+        });
+        // No midday: the kitchen's first window, in its own display order.
+        expect(scheduleFor(pickup, TODAY, ['evening', 'morning'])?.deliveryWindowCode).toBe(
+            'evening',
+        );
+        // No windows at all: no slot is sent, rather than a code nothing answers to.
+        expect(scheduleFor(pickup, TODAY, [])?.deliveryWindowCode).toBeNull();
     });
 
-    it('waits for a basket that holds something sellable', () => {
-        expect(canProceed(counterState(), 'basket')).toBe(false);
-        expect(canProceed({ ...counterState(), lines: [line()] }, 'basket')).toBe(true);
+    it('keeps what the agent chose, unless the kitchen no longer offers that slot', () => {
+        const delivery = {
+            ...withFulfilmentType(counterState(), 'delivery'),
+            requestedDeliveryDate: '2026-10-09',
+            deliveryWindowCode: 'evening',
+        };
+
+        expect(scheduleFor(delivery, TODAY, ['midday', 'evening'])).toEqual({
+            requestedDeliveryDate: '2026-10-09',
+            deliveryWindowCode: 'evening',
+        });
+        expect(scheduleFor(delivery, TODAY, ['midday'])?.deliveryWindowCode).toBe('midday');
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Completeness
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('desk sale — what still stands between the page and the place button', () => {
+    it('asks a counter sale only for something to sell', () => {
+        expect(saleShortfall(counterState())).toBe('items');
+        expect(saleShortfall({ ...counterState(), lines: [line()] })).toBeNull();
         // A zero-quantity row would be a 422 the agent cannot act on.
-        expect(canProceed({ ...counterState(), lines: [line({ quantity: '0' })] }, 'basket')).toBe(
-            false,
+        expect(saleShortfall({ ...counterState(), lines: [line({ quantity: '0' })] })).toBe(
+            'items',
         );
     });
 
-    it('requires a transfer reference for WISH and nothing extra for cash', () => {
-        const cash = counterState();
-        expect(canProceed(cash, 'payment')).toBe(true);
+    it('asks for the customer, then the address, in the order the page shows them', () => {
+        const delivery = { ...withFulfilmentType(counterState(), 'delivery'), lines: [line()] };
+        expect(saleShortfall(delivery)).toBe('customer');
 
-        const wish = {
-            ...cash,
-            payment: { method: 'wish' as const, reference: '', notes: '' },
-        };
-        // The agent is asserting they watched a transfer land. An assertion with no transfer
-        // identifier is one nobody can check afterwards, which is the whole value of writing it
-        // down — a stricter rule than the wire's, deliberately.
-        expect(canProceed(wish, 'payment')).toBe(false);
-        expect(
-            canProceed({ ...wish, payment: { ...wish.payment, reference: 'WSH-1' } }, 'payment'),
-        ).toBe(true);
+        const named = withCustomer(delivery, 'account-1');
+        expect(saleShortfall(named)).toBe('address');
 
-        expect(isCounterPaymentComplete(null)).toBe(false);
+        expect(saleShortfall({ ...named, customerAddressId: 'address-1' })).toBeNull();
+
+        // A collection is done once it is named.
+        const pickup = withCustomer(
+            { ...withFulfilmentType(counterState(), 'pickup'), lines: [line()] },
+            'account-1',
+        );
+        expect(saleShortfall(pickup)).toBeNull();
     });
 
-    it('lets review through only when every applicable step before it is answered', () => {
-        const counter = { ...counterState(), lines: [line()] };
-        expect(canProceed(counter, 'review')).toBe(true);
+    it('requires a transfer reference for WISH at the till and nothing extra for cash', () => {
+        const cash = { ...counterState(), lines: [line()] };
+        expect(saleShortfall(cash)).toBeNull();
 
-        const delivery = withFulfilmentType(counter, 'delivery');
-        // Customer and address are now applicable and unanswered.
-        expect(canProceed(delivery, 'review')).toBe(false);
+        const wish = withPaymentMethod(cash, 'wish');
+        // The agent is asserting they watched a transfer land. An assertion with no transfer
+        // identifier is one nobody can check afterwards — a stricter rule than the wire's.
+        expect(saleShortfall(wish)).toBe('reference');
+        expect(
+            saleShortfall({
+                ...wish,
+                payment: { method: 'wish', reference: 'WSH-1', notes: '' },
+            }),
+        ).toBeNull();
 
-        const ready = {
-            ...withCustomer(delivery, 'account-1'),
-            customerAddressId: 'address-1',
-        };
-        expect(canProceed(ready, 'review')).toBe(true);
+        // WISH on a collection is an intent for later: there is no transfer to name yet.
+        const pickupWish = withPaymentMethod(
+            withCustomer(withFulfilmentType(cash, 'pickup'), 'account-1'),
+            'wish',
+        );
+        expect(saleShortfall(pickupWish)).toBeNull();
+
+        expect(isCounterPaymentComplete(null)).toBe(false);
     });
 });
 

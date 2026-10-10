@@ -6,6 +6,9 @@ namespace Healthy360\Recipes\Services;
 
 use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
 use Healthy360\Recipes\Models\Recipe;
+use Healthy360\Recipes\Presenters\RecipeAdminPresenter;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * The answer when nothing sells recipes: nobody is.
@@ -15,6 +18,8 @@ use Healthy360\Recipes\Models\Recipe;
  * recipe lifecycle keeps working — and keeps being testable — without the
  * modules above it, rather than resolving to an unbound interface and failing
  * at the container.
+ *
+ * @phpstan-import-type RecipeSeller from RecipeAdminPresenter
  */
 final class NullRecipeUsageRegistry implements RecipeUsageRegistry
 {
@@ -38,4 +43,37 @@ final class NullRecipeUsageRegistry implements RecipeUsageRegistry
     {
         return [];
     }
+
+    /**
+     * @param  list<string>  $recipeIds
+     * @return array<string, list<RecipeSeller>>
+     */
+    public function sellersByRecipe(array $recipeIds): array
+    {
+        return [];
+    }
+
+    /**
+     * With no sellers, every recipe is a preparation and no seller has a
+     * status: `preparation` alone keeps everything, and anything else — a
+     * cooked kind, or any sale status — matches nothing. The honest reading of
+     * "nothing sells recipes", and the one the rows agree with.
+     *
+     * @param  Builder<Recipe>  $recipes
+     */
+    public function constrainBySellers(Builder $recipes, ?string $kind, ?string $sellingStatus): void
+    {
+        if ($sellingStatus === null && ($kind === null || $kind === self::PREPARATION)) {
+            return;
+        }
+
+        $recipes->whereRaw('false');
+    }
+
+    /**
+     * No item sells anything, so no item's name can widen a search.
+     *
+     * @param  Builder<covariant Model>  $scoped
+     */
+    public function orWhereSellerMatches(Builder $scoped, string $needle): void {}
 }

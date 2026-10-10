@@ -54,7 +54,10 @@ use Illuminate\Validation\ValidationException;
  * ## What is counted
  *
  * Rows whose `short` is strictly greater than zero — ingredients the shelf
- * cannot cover — and nothing else. Not `not_computable`: a hole is a different
+ * cannot cover — and nothing else. `short` is net of what confirmed production
+ * orders have claimed (PROD1), so a shelf whose flour is entirely spoken for by
+ * Thursday's batch lights this badge even though the flour is visibly there. That
+ * is the point: it is short for the sales the badge is about. Not `not_computable`: a hole is a different
  * problem with a different remedy (write the recipe, publish the menu) and
  * folding it into a shortfall count would send a buyer looking for something to
  * order. The requirements screen shows both, separately, which is where somebody

@@ -55,10 +55,10 @@ use Illuminate\Validation\Rules\Enum;
  * Those three are about **what the order is**, and a placement wrong in two ways
  * should say both at once. This one is about **which endpoint behaviour runs**:
  * a counter body carrying a payment block takes `CounterSale::complete()` and
- * comes back fulfilled; every other body takes the bare placement and comes back
- * placed. That is not a fact about the order, it is the branch itself, and a
- * branch chosen by whether an optional object happened to be present is a
- * branch nobody can predict from the request.
+ * comes back fulfilled; every other body takes the ordinary placement (a
+ * delivery is then confirmed too). That is not a fact about the order, it is the
+ * branch itself, and a branch chosen by whether an optional object happened to
+ * be present is a branch nobody can predict from the request.
  *
  * **Required for `counter`.** A walk-in pays now — that is what "counter" means.
  * The customer is in the room, the food is in front of them, and there is no
@@ -119,6 +119,15 @@ class PlaceOrderDeskRequest extends FormRequest
             'customer_address_id' => ['nullable', 'uuid'],
             'requested_delivery_date' => ['nullable', 'date_format:Y-m-d'],
             'delivery_window_code' => ['nullable', 'string', 'max:40'],
+            // The driver to hand the run to, on a delivery only: a pickup or a
+            // counter sale has nowhere to be driven to, so naming one is a
+            // belief about the order that is not true of it. Who may be named
+            // is the assign endpoint's rule, applied by `DeliveryJobAssignment`.
+            'driver_user_id' => [
+                Rule::prohibitedIf(fn (): bool => $this->input('fulfilment_type') !== FulfilmentType::Delivery->value),
+                'nullable',
+                'uuid',
+            ],
             // Required on a counter sale and refused on the other two — see the
             // class docblock for why this one rule is decided here while the
             // three customer/address rules are decided in the refusal envelope.
@@ -188,7 +197,8 @@ class PlaceOrderDeskRequest extends FormRequest
      *     customer_account_id: string|null,
      *     customer_address_id: string|null,
      *     requested_delivery_date: string|null,
-     *     delivery_window_code: string|null
+     *     delivery_window_code: string|null,
+     *     driver_user_id: string|null
      * }
      */
     public function payload(): array
@@ -217,6 +227,7 @@ class PlaceOrderDeskRequest extends FormRequest
             'customer_address_id' => $this->stated($validated['customer_address_id'] ?? null),
             'requested_delivery_date' => $this->stated($validated['requested_delivery_date'] ?? null),
             'delivery_window_code' => $this->stated($validated['delivery_window_code'] ?? null),
+            'driver_user_id' => $this->stated($validated['driver_user_id'] ?? null),
         ];
     }
 
