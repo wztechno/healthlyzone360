@@ -297,6 +297,60 @@ it('carries the allergen declaration on the list as well as the record', functio
         ->assertJsonPath('data.ingredient.allergens.0.allergen_code', 'gluten');
 });
 
+it('resolves an ids lookup in one request, each row carrying what the record carries', function (): void {
+    $sesame = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'name_en' => 'Lookup Sesame']);
+    $retired = Ingredient::factory()->archived()->create(['organisation_id' => $this->a->organisation->getKey(), 'name_en' => 'Lookup Retired']);
+    $unasked = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'name_en' => 'Lookup Unasked']);
+    $theirs = Ingredient::factory()->create(['organisation_id' => $this->b->organisation->getKey(), 'name_en' => 'Lookup Theirs']);
+    $platform = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('slug', 'chickpeas')->sole();
+    // Packaging is not an `ING-` row; a lookup applies no reference series it was not sent.
+    $packaging = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', '~', '^PKG-[0-9]+$')->firstOrFail();
+    IngredientAlias::factory()->create(['ingredient_id' => $sesame->getKey(), 'alias' => 'Tahini Seed']);
+
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+
+    $requested = [$sesame, $retired, $theirs, $platform, $packaging, $sesame];
+    $rows = collect($this->getJson('/api/v1/catalogue/ingredients?limit=100&'.http_build_query([
+        'ids' => array_map(fn (Ingredient $row): string => (string) $row->getKey(), $requested),
+    ]), $headers)->assertOk()->json('data'))->keyBy('id');
+
+    // Exactly the named rows this kitchen can see — the archived one included, as the record
+    // endpoint would return it — and neither the unasked row nor another kitchen's.
+    expect($rows->keys()->sort()->values()->all())->toBe(collect([$sesame, $retired, $platform, $packaging])
+        ->map(fn (Ingredient $row): string => (string) $row->getKey())->sort()->values()->all())
+        ->and($rows->has((string) $unasked->getKey()))->toBeFalse()
+        ->and($rows->has((string) $theirs->getKey()))->toBeFalse();
+
+    // Each row is the record's `ingredient` plus its `aliases`.
+    $record = $this->getJson('/api/v1/catalogue/ingredients/'.$sesame->getKey(), $headers)->assertOk()->json('data');
+    $row = $rows[(string) $sesame->getKey()];
+    expect($row['aliases'])->toBe($record['aliases'])
+        ->and($row['aliases'][0]['alias'])->toBe('Tahini Seed')
+        ->and(collect($row)->except('aliases')->all())->toEqual($record['ingredient'])
+        ->and($rows[(string) $platform->getKey()]['aliases'])->toBeArray();
+
+    // A browse is unchanged: no aliases on its rows.
+    $browsed = collect($this->getJson('/api/v1/catalogue/ingredients?limit=100&query=Lookup', $headers)->assertOk()->json('data'));
+    expect($browsed->pluck('id')->all())->toContain((string) $sesame->getKey())
+        ->and($browsed->every(fn (array $listed): bool => ! array_key_exists('aliases', $listed)))->toBeTrue();
+});
+
+it('refuses an ids lookup naming more than a hundred, or something that is not an identifier', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+
+    $this->getJson('/api/v1/catalogue/ingredients?'.http_build_query([
+        'ids' => array_map(fn (): string => (string) Str::uuid(), range(1, 101)),
+    ]), $headers)
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed');
+
+    $this->getJson('/api/v1/catalogue/ingredients?'.http_build_query(['ids' => ['not-an-id']]), $headers)
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed');
+});
+
 it('reports an empty allergen set as empty rather than as absent', function (): void {
     $this->actingAs($this->a->user);
 
