@@ -986,10 +986,6 @@ describe('the ingredient editor', () => {
         expect(screen.getByTestId('kitchen-ingredient-issues-errors-category')).toBeTruthy();
         expect(screen.getByTestId('kitchen-ingredient-name-en-error')).toBeTruthy();
         expect(screen.getByTestId('kitchen-ingredient-category-error')).toBeTruthy();
-        // The summary rail lists the same fields under "Items to review".
-        expect(screen.getByTestId('kitchen-ingredient-review-name')).toHaveTextContent(
-            'Item (EN)Required',
-        );
         expect(repositories.kitchenAdmin.createIngredient).not.toHaveBeenCalled();
     });
 

@@ -2472,10 +2472,7 @@
         "stepsLabel": "Form steps",
         "previous": "Previous",
         "next": "Next",
-        "stepCounter": "Step {{current}} of {{total}} · {{label}}",
-        "summaryTitle": "Summary",
-        "reviewTitle": "Items to review",
-        "reviewNothing": "Nothing to review"
+        "stepCounter": "Step {{current}} of {{total}} · {{label}}"
     },
     "bilingual": {
         "englishLabel": "{{field}} (English)",

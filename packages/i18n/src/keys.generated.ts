@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8270 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8267 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3441,8 +3441,6 @@ export interface NamespaceKeys {
     | 'editor.platformLibraryBody'
     | 'editor.platformLibraryTitle'
     | 'editor.previous'
-    | 'editor.reviewNothing'
-    | 'editor.reviewTitle'
     | 'editor.save'
     | 'editor.saveError'
     | 'editor.savedToast'
@@ -3457,7 +3455,6 @@ export interface NamespaceKeys {
     | 'editor.sectionOtherNames'
     | 'editor.stepCounter'
     | 'editor.stepsLabel'
-    | 'editor.summaryTitle'
     | 'editor.unsaved'
     | 'families.allergenClasses.description'
     | 'families.allergenClasses.name'
@@ -11729,8 +11726,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:editor.platformLibraryBody',
   'kitchen:editor.platformLibraryTitle',
   'kitchen:editor.previous',
-  'kitchen:editor.reviewNothing',
-  'kitchen:editor.reviewTitle',
   'kitchen:editor.save',
   'kitchen:editor.saveError',
   'kitchen:editor.savedToast',
@@ -11745,7 +11740,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:editor.sectionOtherNames',
   'kitchen:editor.stepCounter',
   'kitchen:editor.stepsLabel',
-  'kitchen:editor.summaryTitle',
   'kitchen:editor.unsaved',
   'kitchen:families.allergenClasses.description',
   'kitchen:families.allergenClasses.name',
