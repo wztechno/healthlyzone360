@@ -233,11 +233,9 @@ function ChannelPricesEditor({
             variant="underlined"
             testID={testID}
             title={t('kitchen:channelPrices.title')}
-            aside={
-                <Text variant="caption" tone="secondary">
-                    {t('kitchen:channelPrices.hint')}
-                </Text>
-            }
+            // A sentence, so it takes the wrapping slot under the title: on the aside, beside the
+            // title, it never wrapped and pushed the header past a 772px SectionGrid cell.
+            description={t('kitchen:channelPrices.hint')}
             actions={
                 canManage ? (
                     <Button
