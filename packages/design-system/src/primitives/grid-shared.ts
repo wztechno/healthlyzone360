@@ -21,14 +21,14 @@ export type GridColumnCount = (typeof GRID_COLUMNS)[number];
 /**
  * The responsive ladder: one column on a phone, two on a tablet, three from `lg` up.
  *
- * `lg` is the top of the ladder on purpose, and a measured (`fit`) grid is capped by it too. Three
+ * `lg` is the top of the ladder on purpose, and a measured grid is capped by it too. Three
  * tracks is what a bounded form card holds (`formWidth`), and a fourth would read as a different
  * layout rather than the same one, wider. Callers that genuinely want four pass `columns`
  * explicitly.
  *
  * The ladder reads the *window*, and the kitchen's content area is narrower by the shell's nav (a
  * 56px module rail plus a 232px panel, collapsible) and by any rail beside the form — which is why
- * a grid that has to fit its own box sets `fit` instead.
+ * the web grid measures its own box and takes the ladder only as a ceiling.
  */
 export const RESPONSIVE_COLUMNS = { sm: 1, md: 2, lg: 3 } as const;
 
@@ -81,9 +81,11 @@ export interface GridProps {
      */
     readonly maxColumns?: number | undefined;
     /**
-     * Measure the grid's own box and fit the track count to it ({@link fitTracks}), still capped by
-     * the ladder's top and by `maxColumns`. Default false until the kitchen migration flips it.
-     * Web only; native ignores it.
+     * On the web the grid measures its own box and fits the track count to it ({@link fitTracks}),
+     * still capped by the ladder's top and by `maxColumns`; `false` opts back into the window
+     * ladder. Default true. Native ignores it. A grid beside a sibling in a `flex-row` must sit in
+     * a region that owns its width (see the ingredient editor's identity row), or its own intrinsic
+     * width is what it measures and the count ratchets down.
      */
     readonly fit?: boolean | undefined;
     readonly className?: string | undefined;

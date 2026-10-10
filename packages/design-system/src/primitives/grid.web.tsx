@@ -58,13 +58,13 @@ function GridBase({
     columns,
     track,
     maxColumns,
-    fit = false,
+    fit = true,
     className,
     testID,
     template,
 }: GridProps & { readonly template: string }) {
     const { atLeast } = useBreakpoint();
-    // Always called (hooks are unconditional); its width is only read when `fit` is set. A grid is a
+    // Always called (hooks are unconditional); its width is ignored when `fit` is off. A grid is a
     // block-level div, so its own box is the region it was allocated. The bucket is the track
     // count, so a sliding panel re-renders the grid only when a track appears or goes.
     const port = usePortWidth({ bucket: (width) => fitTracks(width, track) });
