@@ -41,6 +41,7 @@ import { scaleLine } from '../batch-scaling.ts';
 import { focusField } from '../field-focus.ts';
 import { displayName, statusKey, statusTone, unitShortKey } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { SideRailLayout } from '../side-rail-layout.tsx';
 import {
     BATCH_QUANTITY_FORMAT,
     BatchSheet,
@@ -526,302 +527,305 @@ function ProductionBatchNew() {
             )}
 
             {/*
-             * The form beside what it will make. Below `xl` the summary drops under the form: with
-             * the admin rail open, `lg` leaves the summary narrower than a field. `z-auto` down the
-             * column — see `FormSection` on why a View would trap the recipe dropdown.
+             * The form beside what it will make. `z-auto` down the column — see `FormSection` on
+             * why a View would trap the recipe dropdown.
              */}
-            <View
-                testID="kitchen-production-batch-new-body"
-                className="z-auto flex-col gap-base xl:flex-row xl:items-start"
-            >
-                <View className="z-auto min-w-0 flex-col gap-loose xl:flex-[21]">
-                    {/*
-                     * One card: recipe, scale and amount on one row, the notes under it.
-                     * `relative z-raised`, or the picker's panel opens underneath the preview
-                     * below it — react-native-web gives every View `z-index: 0`.
-                     */}
-                    <View className="relative z-raised">
-                        <FormSection
-                            first
-                            variant="card"
-                            testID="kitchen-production-batch-new-batch-section"
-                            title={t('kitchen:ops.production.batchSection')}
-                        >
-                            <Stack space="md">
-                                {/*
-                                 * Recipe, scale and amount on one row of the half grid: the recipe
-                                 * and the scale at a field each, the amount at half of one — a
-                                 * figure and its unit, which a whole field would only stretch. No
-                                 * hints: the summary beside the form names the version and what
-                                 * the figure makes.
-                                 */}
-                                <FormGrid track="half">
-                                    <Select
-                                        span={2}
-                                        testID="kitchen-production-batch-new-recipe"
-                                        id="kitchen-production-batch-new-recipe"
-                                        label={t('kitchen:ops.production.recipeLabel')}
-                                        placeholder={t('kitchen:ops.production.recipePlaceholder')}
-                                        searchable
-                                        required
-                                        options={recipeOptions}
-                                        value={recipeId === null ? null : String(recipeId)}
-                                        {...(recipeError === undefined
-                                            ? recipeHint === undefined
-                                                ? {}
-                                                : { hint: recipeHint }
-                                            : { error: recipeError })}
-                                        onChange={(value) => {
-                                            setRecipeId(RecipeId.safeParse(value));
-                                            setFromPlanner(false);
-                                            edited();
-                                        }}
-                                    />
-
+            <SideRailLayout
+                testID="kitchen-production-batch-new"
+                main={
+                    <View className="z-auto flex-col gap-loose">
+                        {/*
+                         * One card: recipe, scale and amount on one row, the notes under it.
+                         * `relative z-raised`, or the picker's panel opens underneath the preview
+                         * below it — react-native-web gives every View `z-index: 0`.
+                         */}
+                        <View className="relative z-raised">
+                            <FormSection
+                                first
+                                variant="card"
+                                testID="kitchen-production-batch-new-batch-section"
+                                title={t('kitchen:ops.production.batchSection')}
+                            >
+                                <Stack space="md">
                                     {/*
-                                     * One of the two scales, never both: the segmented control
-                                     * is the question and the figure beside it the answer.
+                                     * Recipe, scale and amount on one row of the half grid: the recipe
+                                     * and the scale at a field each, the amount at half of one — a
+                                     * figure and its unit, which a whole field would only stretch. No
+                                     * hints: the summary beside the form names the version and what
+                                     * the figure makes.
                                      */}
-                                    <GridCell span={2}>
-                                        <View className="flex-col gap-hair">
-                                            <Text variant="caption" className="font-medium">
-                                                {t('kitchen:ops.production.scaleLabel')}
-                                            </Text>
-                                            <SegmentedControl<Scale>
-                                                testID="kitchen-production-batch-new-scale"
-                                                label={t('kitchen:ops.production.scaleLabel')}
-                                                value={scale}
-                                                block
-                                                onChange={(next) => {
-                                                    setScale(next);
-                                                    // The number means something different
-                                                    // under each option — litres against
-                                                    // multiples — so carrying it across would
-                                                    // silently plan a batch four hundred times
-                                                    // the size of the one somebody typed.
-                                                    setAmount('');
-                                                    setFromPlanner(false);
-                                                    edited();
-                                                }}
-                                                items={[
-                                                    {
-                                                        value: 'yield',
-                                                        label: t(
-                                                            'kitchen:ops.production.scaleYield',
-                                                        ),
-                                                        testID: 'kitchen-production-batch-new-scale-yield',
-                                                    },
-                                                    {
-                                                        value: 'factor',
-                                                        label: t(
-                                                            'kitchen:ops.production.scaleFactor',
-                                                        ),
-                                                        testID: 'kitchen-production-batch-new-scale-factor',
-                                                    },
-                                                ]}
-                                            />
-                                        </View>
-                                    </GridCell>
+                                    <FormGrid fit track="half">
+                                        <Select
+                                            span={2}
+                                            testID="kitchen-production-batch-new-recipe"
+                                            id="kitchen-production-batch-new-recipe"
+                                            label={t('kitchen:ops.production.recipeLabel')}
+                                            placeholder={t(
+                                                'kitchen:ops.production.recipePlaceholder',
+                                            )}
+                                            searchable
+                                            required
+                                            options={recipeOptions}
+                                            value={recipeId === null ? null : String(recipeId)}
+                                            {...(recipeError === undefined
+                                                ? recipeHint === undefined
+                                                    ? {}
+                                                    : { hint: recipeHint }
+                                                : { error: recipeError })}
+                                            onChange={(value) => {
+                                                setRecipeId(RecipeId.safeParse(value));
+                                                setFromPlanner(false);
+                                                edited();
+                                            }}
+                                        />
 
-                                    <GridCell>
-                                        <View className="flex-col gap-hair">
-                                            <QuantityInput
-                                                testID="kitchen-production-batch-new-amount"
-                                                id="kitchen-production-batch-new-amount"
-                                                size="sm"
-                                                label={t(
-                                                    scale === 'yield'
-                                                        ? 'kitchen:ops.production.plannedYieldLabel'
-                                                        : 'kitchen:ops.production.batchFactorLabel',
-                                                )}
-                                                required
-                                                placeholder={t(
-                                                    scale === 'yield'
-                                                        ? 'kitchen:fields.quantityPlaceholder'
-                                                        : 'kitchen:ops.production.batchFactorPlaceholder',
-                                                )}
-                                                // The suffix only appears once the unit is actually
-                                                // known. A box labelled with a unit the screen guessed
-                                                // is worse than one with none: the figure is typed
-                                                // against it.
-                                                {...(scale === 'yield' && outputUnit !== null
-                                                    ? { unit: t(unitShortKey(outputUnit)) }
-                                                    : {})}
-                                                value={amount}
-                                                {...(submitted && !amountValid
-                                                    ? {
-                                                          error: t(
-                                                              'kitchen:ops.production.amountRequired',
-                                                          ),
-                                                      }
-                                                    : {})}
-                                                onChangeText={(next) => {
-                                                    setAmount(next);
-                                                    setFromPlanner(false);
-                                                    edited();
-                                                }}
-                                            />
-                                            {/*
-                                             * The factors a kitchen actually runs at, one press
-                                             * each. Only under the factor: a yield has no common
-                                             * sizes worth offering.
-                                             */}
-                                            {scale === 'factor' ? (
-                                                <View
-                                                    testID="kitchen-production-batch-new-quick"
-                                                    className="flex-row flex-wrap gap-hair"
-                                                >
-                                                    {QUICK_FACTORS.map((factor) => (
-                                                        <FilterChip
-                                                            key={factor}
-                                                            testID={`kitchen-production-batch-new-quick-${factor}`}
-                                                            size="sm"
-                                                            label={t(
-                                                                'kitchen:ops.production.quickFactor',
-                                                                { factor },
-                                                            )}
-                                                            selected={amount === factor}
-                                                            onChange={() => {
-                                                                setAmount(factor);
-                                                                setFromPlanner(false);
-                                                                edited();
-                                                            }}
-                                                        />
-                                                    ))}
-                                                </View>
-                                            ) : null}
-                                        </View>
-                                    </GridCell>
-                                </FormGrid>
+                                        {/*
+                                         * One of the two scales, never both: the segmented control
+                                         * is the question and the figure beside it the answer.
+                                         */}
+                                        <GridCell span={2}>
+                                            <View className="flex-col gap-hair">
+                                                <Text variant="caption" className="font-medium">
+                                                    {t('kitchen:ops.production.scaleLabel')}
+                                                </Text>
+                                                <SegmentedControl<Scale>
+                                                    testID="kitchen-production-batch-new-scale"
+                                                    label={t('kitchen:ops.production.scaleLabel')}
+                                                    value={scale}
+                                                    block
+                                                    onChange={(next) => {
+                                                        setScale(next);
+                                                        // The number means something different
+                                                        // under each option — litres against
+                                                        // multiples — so carrying it across would
+                                                        // silently plan a batch four hundred times
+                                                        // the size of the one somebody typed.
+                                                        setAmount('');
+                                                        setFromPlanner(false);
+                                                        edited();
+                                                    }}
+                                                    items={[
+                                                        {
+                                                            value: 'yield',
+                                                            label: t(
+                                                                'kitchen:ops.production.scaleYield',
+                                                            ),
+                                                            testID: 'kitchen-production-batch-new-scale-yield',
+                                                        },
+                                                        {
+                                                            value: 'factor',
+                                                            label: t(
+                                                                'kitchen:ops.production.scaleFactor',
+                                                            ),
+                                                            testID: 'kitchen-production-batch-new-scale-factor',
+                                                        },
+                                                    ]}
+                                                />
+                                            </View>
+                                        </GridCell>
 
-                                <FormGrid track="half">
-                                    <TextInputField
-                                        span={4}
-                                        testID="kitchen-production-batch-new-notes"
-                                        id="kitchen-production-batch-new-notes"
-                                        size="sm"
-                                        label={t('kitchen:ops.production.notesLabel')}
-                                        hint={t('kitchen:ops.production.notesHint')}
-                                        placeholder={t('kitchen:ops.production.notesPlaceholder')}
-                                        value={notes}
-                                        multiline
-                                        onChangeText={(next) => {
-                                            setNotes(next);
-                                            edited();
-                                        }}
-                                    />
-                                </FormGrid>
+                                        <GridCell>
+                                            <View className="flex-col gap-hair">
+                                                <QuantityInput
+                                                    testID="kitchen-production-batch-new-amount"
+                                                    id="kitchen-production-batch-new-amount"
+                                                    size="sm"
+                                                    label={t(
+                                                        scale === 'yield'
+                                                            ? 'kitchen:ops.production.plannedYieldLabel'
+                                                            : 'kitchen:ops.production.batchFactorLabel',
+                                                    )}
+                                                    required
+                                                    placeholder={t(
+                                                        scale === 'yield'
+                                                            ? 'kitchen:fields.quantityPlaceholder'
+                                                            : 'kitchen:ops.production.batchFactorPlaceholder',
+                                                    )}
+                                                    // The suffix only appears once the unit is actually
+                                                    // known. A box labelled with a unit the screen guessed
+                                                    // is worse than one with none: the figure is typed
+                                                    // against it.
+                                                    {...(scale === 'yield' && outputUnit !== null
+                                                        ? { unit: t(unitShortKey(outputUnit)) }
+                                                        : {})}
+                                                    value={amount}
+                                                    {...(submitted && !amountValid
+                                                        ? {
+                                                              error: t(
+                                                                  'kitchen:ops.production.amountRequired',
+                                                              ),
+                                                          }
+                                                        : {})}
+                                                    onChangeText={(next) => {
+                                                        setAmount(next);
+                                                        setFromPlanner(false);
+                                                        edited();
+                                                    }}
+                                                />
+                                                {/*
+                                                 * The factors a kitchen actually runs at, one press
+                                                 * each. Only under the factor: a yield has no common
+                                                 * sizes worth offering.
+                                                 */}
+                                                {scale === 'factor' ? (
+                                                    <View
+                                                        testID="kitchen-production-batch-new-quick"
+                                                        className="flex-row flex-wrap gap-hair"
+                                                    >
+                                                        {QUICK_FACTORS.map((factor) => (
+                                                            <FilterChip
+                                                                key={factor}
+                                                                testID={`kitchen-production-batch-new-quick-${factor}`}
+                                                                size="sm"
+                                                                label={t(
+                                                                    'kitchen:ops.production.quickFactor',
+                                                                    { factor },
+                                                                )}
+                                                                selected={amount === factor}
+                                                                onChange={() => {
+                                                                    setAmount(factor);
+                                                                    setFromPlanner(false);
+                                                                    edited();
+                                                                }}
+                                                            />
+                                                        ))}
+                                                    </View>
+                                                ) : null}
+                                            </View>
+                                        </GridCell>
+                                    </FormGrid>
 
-                                {draftOnTop === null ? null : (
-                                    <Callout
-                                        testID="kitchen-production-batch-new-draft-on-top"
-                                        tone="warning"
-                                        title={t(
-                                            'kitchen:ops.production.draftOnTopTitle',
-                                            draftOnTop,
-                                        )}
-                                        body={t(
-                                            'kitchen:ops.production.draftOnTopBody',
-                                            draftOnTop,
-                                        )}
-                                    />
-                                )}
-                            </Stack>
-                        </FormSection>
+                                    <FormGrid fit track="half">
+                                        <TextInputField
+                                            span={4}
+                                            testID="kitchen-production-batch-new-notes"
+                                            id="kitchen-production-batch-new-notes"
+                                            size="sm"
+                                            label={t('kitchen:ops.production.notesLabel')}
+                                            hint={t('kitchen:ops.production.notesHint')}
+                                            placeholder={t(
+                                                'kitchen:ops.production.notesPlaceholder',
+                                            )}
+                                            value={notes}
+                                            multiline
+                                            onChangeText={(next) => {
+                                                setNotes(next);
+                                                edited();
+                                            }}
+                                        />
+                                    </FormGrid>
+
+                                    {draftOnTop === null ? null : (
+                                        <Callout
+                                            testID="kitchen-production-batch-new-draft-on-top"
+                                            tone="warning"
+                                            title={t(
+                                                'kitchen:ops.production.draftOnTopTitle',
+                                                draftOnTop,
+                                            )}
+                                            body={t(
+                                                'kitchen:ops.production.draftOnTopBody',
+                                                draftOnTop,
+                                            )}
+                                        />
+                                    )}
+                                </Stack>
+                            </FormSection>
+                        </View>
+
+                        <ConsumePreview
+                            recipeChosen={recipe !== null}
+                            draftOnTop={draftOnTop}
+                            shortCount={shortCount}
+                            onOrderShortfall={() => {
+                                guard.intercept(() => {
+                                    router.push('/kitchen/supply-orders/new');
+                                });
+                            }}
+                            version={previewVersion}
+                            factor={runs}
+                            ingredients={ingredients}
+                            availability={availability}
+                        />
                     </View>
+                }
+                rail={
+                    <>
+                        <Card
+                            testID="kitchen-production-batch-new-summary"
+                            tone="brand"
+                            padding="md"
+                            title={t('kitchen:ops.production.summaryTitle')}
+                        >
+                            <SummaryRow
+                                testID="kitchen-production-batch-new-summary-recipe"
+                                label={t('kitchen:ops.production.recipeLabel')}
+                                value={
+                                    recipe === null ? dash : displayName(recipe.name, locale).value
+                                }
+                            />
+                            <SummaryRow
+                                testID="kitchen-production-batch-new-summary-version"
+                                label={t('kitchen:ops.production.summaryVersion')}
+                                value={
+                                    publishedVersion === null
+                                        ? dash
+                                        : t('kitchen:ops.batch.versionCell', {
+                                              number: publishedVersion.versionNumber,
+                                          })
+                                }
+                            />
+                            <SummaryRow
+                                testID="kitchen-production-batch-new-summary-runs"
+                                label={t('kitchen:ops.production.summaryRuns')}
+                                value={
+                                    runs === null
+                                        ? dash
+                                        : t('kitchen:ops.production.summaryRunsValue', {
+                                              factor: number(runs),
+                                          })
+                                }
+                            />
+                            <SummaryRow
+                                testID="kitchen-production-batch-new-summary-makes"
+                                label={t('kitchen:ops.production.summaryMakes')}
+                                value={
+                                    makes === null
+                                        ? dash
+                                        : outputUnit === null
+                                          ? number(makes)
+                                          : `${number(makes)} ${t(unitShortKey(outputUnit))}`
+                                }
+                            />
+                            <SummaryRow
+                                testID="kitchen-production-batch-new-summary-portions"
+                                label={t('kitchen:ops.production.summaryPortions')}
+                                value={portions === null ? dash : number(portions)}
+                            />
+                            <SummaryRow
+                                testID="kitchen-production-batch-new-summary-short"
+                                label={t('kitchen:ops.production.summaryShort')}
+                                value={
+                                    shortCount === null || previewVersion === null
+                                        ? dash
+                                        : shortCount === 0
+                                          ? t('kitchen:ops.production.summaryShortNone')
+                                          : t('kitchen:ops.production.summaryShortValue', {
+                                                short: shortCount,
+                                                total: previewVersion.lines.length,
+                                            })
+                                }
+                                danger={shortCount !== null && shortCount > 0}
+                            />
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:ops.production.summaryFoot')}
+                            </Text>
+                        </Card>
 
-                    <ConsumePreview
-                        recipeChosen={recipe !== null}
-                        draftOnTop={draftOnTop}
-                        shortCount={shortCount}
-                        onOrderShortfall={() => {
-                            guard.intercept(() => {
-                                router.push('/kitchen/supply-orders/new');
-                            });
-                        }}
-                        version={previewVersion}
-                        factor={runs}
-                        ingredients={ingredients}
-                        availability={availability}
-                    />
-                </View>
-
-                <View
-                    testID="kitchen-production-batch-new-rail"
-                    className="min-w-0 flex-col gap-base xl:flex-[10]"
-                >
-                    <Card
-                        testID="kitchen-production-batch-new-summary"
-                        tone="brand"
-                        padding="md"
-                        title={t('kitchen:ops.production.summaryTitle')}
-                    >
-                        <SummaryRow
-                            testID="kitchen-production-batch-new-summary-recipe"
-                            label={t('kitchen:ops.production.recipeLabel')}
-                            value={recipe === null ? dash : displayName(recipe.name, locale).value}
-                        />
-                        <SummaryRow
-                            testID="kitchen-production-batch-new-summary-version"
-                            label={t('kitchen:ops.production.summaryVersion')}
-                            value={
-                                publishedVersion === null
-                                    ? dash
-                                    : t('kitchen:ops.batch.versionCell', {
-                                          number: publishedVersion.versionNumber,
-                                      })
-                            }
-                        />
-                        <SummaryRow
-                            testID="kitchen-production-batch-new-summary-runs"
-                            label={t('kitchen:ops.production.summaryRuns')}
-                            value={
-                                runs === null
-                                    ? dash
-                                    : t('kitchen:ops.production.summaryRunsValue', {
-                                          factor: number(runs),
-                                      })
-                            }
-                        />
-                        <SummaryRow
-                            testID="kitchen-production-batch-new-summary-makes"
-                            label={t('kitchen:ops.production.summaryMakes')}
-                            value={
-                                makes === null
-                                    ? dash
-                                    : outputUnit === null
-                                      ? number(makes)
-                                      : `${number(makes)} ${t(unitShortKey(outputUnit))}`
-                            }
-                        />
-                        <SummaryRow
-                            testID="kitchen-production-batch-new-summary-portions"
-                            label={t('kitchen:ops.production.summaryPortions')}
-                            value={portions === null ? dash : number(portions)}
-                        />
-                        <SummaryRow
-                            testID="kitchen-production-batch-new-summary-short"
-                            label={t('kitchen:ops.production.summaryShort')}
-                            value={
-                                shortCount === null || previewVersion === null
-                                    ? dash
-                                    : shortCount === 0
-                                      ? t('kitchen:ops.production.summaryShortNone')
-                                      : t('kitchen:ops.production.summaryShortValue', {
-                                            short: shortCount,
-                                            total: previewVersion.lines.length,
-                                        })
-                            }
-                            danger={shortCount !== null && shortCount > 0}
-                        />
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:ops.production.summaryFoot')}
-                        </Text>
-                    </Card>
-
-                    <NextSteps />
-                </View>
-            </View>
+                        <NextSteps />
+                    </>
+                }
+            />
 
             <Dialog
                 testID="kitchen-production-batch-new-unsaved-dialog"

@@ -39,6 +39,7 @@ import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { SideRailLayout } from '../side-rail-layout.tsx';
 import { BATCH_QUANTITY_FORMAT } from '../operations/batch-sheet.tsx';
 import {
     ledgerQuantity,
@@ -399,193 +400,191 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                 cards={batchFacts(batch, detail.plan, detail.lines.length, figure, t)}
             />
 
-            {/*
-             * The work beside the record. Below `xl` the rail drops under the main column: with the
-             * admin rail open, `lg` leaves it narrower than a field.
-             */}
-            <View
-                testID="kitchen-production-batch-body"
-                className="flex-col gap-base xl:flex-row xl:items-start"
-            >
-                <View className="min-w-0 flex-col gap-base xl:flex-[21]">
-                    {batch.producedQuantity === null ? null : (
+            {/* The work beside the record. */}
+            <SideRailLayout
+                testID="kitchen-production-batch"
+                main={
+                    <>
+                        {batch.producedQuantity === null ? null : (
+                            <Card
+                                testID="kitchen-production-batch-yield"
+                                tone="raised"
+                                padding="md"
+                                title={t('kitchen:ops.production.headingYield')}
+                            >
+                                <View className="flex-row flex-wrap gap-x-8 gap-y-3">
+                                    <Figure
+                                        testID="kitchen-production-batch-yield-planned"
+                                        label={t('kitchen:ops.production.yieldPlanned')}
+                                        value={figure(
+                                            batch.plannedYield,
+                                            batch.plannedYieldUnitCode,
+                                        )}
+                                    />
+                                    <Figure
+                                        testID="kitchen-production-batch-yield-produced"
+                                        label={t('kitchen:ops.production.yieldProduced')}
+                                        value={figure(
+                                            batch.producedQuantity,
+                                            batch.plannedYieldUnitCode,
+                                        )}
+                                    />
+                                    <Figure
+                                        testID="kitchen-production-batch-yield-rejected"
+                                        label={t('kitchen:ops.production.yieldRejected')}
+                                        value={figure(
+                                            batch.rejectedQuantity,
+                                            batch.plannedYieldUnitCode,
+                                        )}
+                                        caption={
+                                            Number(batch.rejectedQuantity ?? '0') > 0
+                                                ? t('kitchen:ops.production.yieldRejectedCaption')
+                                                : undefined
+                                        }
+                                    />
+                                    <Figure
+                                        testID="kitchen-production-batch-yield-usable"
+                                        label={t('kitchen:ops.production.yieldUsable')}
+                                        value={figure(
+                                            batch.usableYieldQuantity,
+                                            batch.plannedYieldUnitCode,
+                                        )}
+                                        strong
+                                    />
+                                    <Figure
+                                        testID="kitchen-production-batch-yield-variance"
+                                        label={t('kitchen:ops.production.yieldVariance')}
+                                        value={figure(
+                                            batch.yieldVarianceQuantity,
+                                            batch.plannedYieldUnitCode,
+                                        )}
+                                        caption={varianceCaption(batch, t)}
+                                    />
+                                </View>
+                            </Card>
+                        )}
+
                         <Card
-                            testID="kitchen-production-batch-yield"
+                            testID="kitchen-production-batch-needs"
                             tone="raised"
                             padding="md"
-                            title={t('kitchen:ops.production.headingYield')}
+                            title={t(
+                                detail.plan === null
+                                    ? 'kitchen:ops.production.headingLines'
+                                    : 'kitchen:ops.production.headingPlan',
+                            )}
+                            subtitle={
+                                detail.plan === null
+                                    ? undefined
+                                    : t('kitchen:ops.production.planLiveCaption')
+                            }
                         >
-                            <View className="flex-row flex-wrap gap-x-8 gap-y-3">
-                                <Figure
-                                    testID="kitchen-production-batch-yield-planned"
-                                    label={t('kitchen:ops.production.yieldPlanned')}
-                                    value={figure(batch.plannedYield, batch.plannedYieldUnitCode)}
+                            {detail.plan === null ? (
+                                <BatchLinesPanel
+                                    headless
+                                    testID="kitchen-production-batch-lines"
+                                    lines={detail.lines}
+                                    costsVisible={detail.costsVisible}
+                                    withOutcome={batch.producedQuantity !== null}
                                 />
-                                <Figure
-                                    testID="kitchen-production-batch-yield-produced"
-                                    label={t('kitchen:ops.production.yieldProduced')}
-                                    value={figure(
-                                        batch.producedQuantity,
-                                        batch.plannedYieldUnitCode,
-                                    )}
+                            ) : (
+                                <BatchPlanPanel
+                                    headless
+                                    testID="kitchen-production-batch-plan"
+                                    plan={detail.plan}
+                                    costsVisible={detail.costsVisible}
                                 />
-                                <Figure
-                                    testID="kitchen-production-batch-yield-rejected"
-                                    label={t('kitchen:ops.production.yieldRejected')}
-                                    value={figure(
-                                        batch.rejectedQuantity,
-                                        batch.plannedYieldUnitCode,
-                                    )}
-                                    caption={
-                                        Number(batch.rejectedQuantity ?? '0') > 0
-                                            ? t('kitchen:ops.production.yieldRejectedCaption')
-                                            : undefined
-                                    }
-                                />
-                                <Figure
-                                    testID="kitchen-production-batch-yield-usable"
-                                    label={t('kitchen:ops.production.yieldUsable')}
-                                    value={figure(
-                                        batch.usableYieldQuantity,
-                                        batch.plannedYieldUnitCode,
-                                    )}
-                                    strong
-                                />
-                                <Figure
-                                    testID="kitchen-production-batch-yield-variance"
-                                    label={t('kitchen:ops.production.yieldVariance')}
-                                    value={figure(
-                                        batch.yieldVarianceQuantity,
-                                        batch.plannedYieldUnitCode,
-                                    )}
-                                    caption={varianceCaption(batch, t)}
-                                />
-                            </View>
+                            )}
                         </Card>
-                    )}
+                    </>
+                }
+                rail={
+                    <>
+                        <Card
+                            testID="kitchen-production-batch-state"
+                            tone="brand"
+                            padding="md"
+                            title={t('kitchen:ops.production.statusTitle')}
+                        >
+                            {statusCaptionKey === undefined ? null : (
+                                <Text variant="caption" tone="secondary">
+                                    {t(statusCaptionKey)}
+                                </Text>
+                            )}
+                            {/*
+                             * The stamps, and only the ones that happened. A row of five labels with
+                             * four em dashes under them says nothing about a draft; the batch's own
+                             * history is what this card is for, and a batch that was never cancelled
+                             * has no cancellation.
+                             */}
+                            {history.map((stamp) => (
+                                <RailRow
+                                    key={stamp.key}
+                                    testID={`kitchen-production-batch-stamp-${stamp.key}`}
+                                    label={t(stamp.labelKey)}
+                                    value={formatter.formatDate(stamp.at, {
+                                        dateStyle: 'medium',
+                                        timeStyle: 'short',
+                                    })}
+                                />
+                            ))}
+                            {batch.notes === null ? null : (
+                                <Text tone="secondary" testID="kitchen-production-batch-notes">
+                                    {batch.notes}
+                                </Text>
+                            )}
+                        </Card>
 
-                    <Card
-                        testID="kitchen-production-batch-needs"
-                        tone="raised"
-                        padding="md"
-                        title={t(
-                            detail.plan === null
-                                ? 'kitchen:ops.production.headingLines'
-                                : 'kitchen:ops.production.headingPlan',
-                        )}
-                        subtitle={
-                            detail.plan === null
-                                ? undefined
-                                : t('kitchen:ops.production.planLiveCaption')
-                        }
-                    >
-                        {detail.plan === null ? (
-                            <BatchLinesPanel
-                                headless
-                                testID="kitchen-production-batch-lines"
-                                lines={detail.lines}
-                                costsVisible={detail.costsVisible}
-                                withOutcome={batch.producedQuantity !== null}
-                            />
+                        {detail.costsVisible ? (
+                            <CostCard batch={batch} plan={detail.plan} formatter={formatter} />
                         ) : (
-                            <BatchPlanPanel
-                                headless
-                                testID="kitchen-production-batch-plan"
-                                plan={detail.plan}
-                                costsVisible={detail.costsVisible}
+                            <Callout
+                                testID="kitchen-production-batch-costs-hidden"
+                                tone="info"
+                                title={t('kitchen:ops.production.costsHiddenTitle')}
+                                body={t('kitchen:ops.production.costsHiddenBody')}
                             />
                         )}
-                    </Card>
-                </View>
 
-                <View
-                    testID="kitchen-production-batch-rail"
-                    className="min-w-0 flex-col gap-base xl:flex-[10]"
-                >
-                    <Card
-                        testID="kitchen-production-batch-state"
-                        tone="brand"
-                        padding="md"
-                        title={t('kitchen:ops.production.statusTitle')}
-                    >
-                        {statusCaptionKey === undefined ? null : (
-                            <Text variant="caption" tone="secondary">
-                                {t(statusCaptionKey)}
-                            </Text>
-                        )}
-                        {/*
-                         * The stamps, and only the ones that happened. A row of five labels with
-                         * four em dashes under them says nothing about a draft; the batch's own
-                         * history is what this card is for, and a batch that was never cancelled
-                         * has no cancellation.
-                         */}
-                        {history.map((stamp) => (
+                        <Card
+                            testID="kitchen-production-batch-record"
+                            tone="raised"
+                            padding="md"
+                            title={t('kitchen:ops.production.headingRecord')}
+                        >
                             <RailRow
-                                key={stamp.key}
-                                testID={`kitchen-production-batch-stamp-${stamp.key}`}
-                                label={t(stamp.labelKey)}
-                                value={formatter.formatDate(stamp.at, {
-                                    dateStyle: 'medium',
-                                    timeStyle: 'short',
-                                })}
+                                testID="kitchen-production-batch-lot"
+                                label={t('kitchen:ops.production.lotLabel')}
+                                value={formatLot(batch.lotNumber) ?? noValue}
+                                strong
                             />
-                        ))}
-                        {batch.notes === null ? null : (
-                            <Text tone="secondary" testID="kitchen-production-batch-notes">
-                                {batch.notes}
-                            </Text>
-                        )}
-                    </Card>
-
-                    {detail.costsVisible ? (
-                        <CostCard batch={batch} plan={detail.plan} formatter={formatter} />
-                    ) : (
-                        <Callout
-                            testID="kitchen-production-batch-costs-hidden"
-                            tone="info"
-                            title={t('kitchen:ops.production.costsHiddenTitle')}
-                            body={t('kitchen:ops.production.costsHiddenBody')}
-                        />
-                    )}
-
-                    <Card
-                        testID="kitchen-production-batch-record"
-                        tone="raised"
-                        padding="md"
-                        title={t('kitchen:ops.production.headingRecord')}
-                    >
-                        <RailRow
-                            testID="kitchen-production-batch-lot"
-                            label={t('kitchen:ops.production.lotLabel')}
-                            value={formatLot(batch.lotNumber) ?? noValue}
-                            strong
-                        />
-                        <RailRow
-                            testID="kitchen-production-batch-production-date"
-                            label={t('kitchen:ops.production.productionDateLabel')}
-                            value={batch.productionDate ?? noValue}
-                        />
-                        {/* What a cook typed before lots were minted — only old batches have it. */}
-                        {batch.batchReference === null ? null : (
                             <RailRow
-                                testID="kitchen-production-batch-reference"
-                                label={t('kitchen:ops.production.batchReferenceLabel')}
-                                value={batch.batchReference}
+                                testID="kitchen-production-batch-production-date"
+                                label={t('kitchen:ops.production.productionDateLabel')}
+                                value={batch.productionDate ?? noValue}
                             />
-                        )}
-                        <RailRow
-                            testID="kitchen-production-batch-storage"
-                            label={t('kitchen:ops.production.storageLocationLabel')}
-                            value={batch.storageLocation ?? noValue}
-                        />
-                        <RailRow
-                            testID="kitchen-production-batch-expiry"
-                            label={t('kitchen:ops.production.expiryDateLabel')}
-                            value={batch.expiryDate ?? t('kitchen:ops.production.noExpiry')}
-                        />
-                    </Card>
-                </View>
-            </View>
+                            {/* What a cook typed before lots were minted — only old batches have it. */}
+                            {batch.batchReference === null ? null : (
+                                <RailRow
+                                    testID="kitchen-production-batch-reference"
+                                    label={t('kitchen:ops.production.batchReferenceLabel')}
+                                    value={batch.batchReference}
+                                />
+                            )}
+                            <RailRow
+                                testID="kitchen-production-batch-storage"
+                                label={t('kitchen:ops.production.storageLocationLabel')}
+                                value={batch.storageLocation ?? noValue}
+                            />
+                            <RailRow
+                                testID="kitchen-production-batch-expiry"
+                                label={t('kitchen:ops.production.expiryDateLabel')}
+                                value={batch.expiryDate ?? t('kitchen:ops.production.noExpiry')}
+                            />
+                        </Card>
+                    </>
+                }
+            />
 
             <BatchSettlementDialog
                 testID="kitchen-production-batch-settlement"

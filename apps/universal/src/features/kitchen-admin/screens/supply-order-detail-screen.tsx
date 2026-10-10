@@ -24,7 +24,6 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
-import type { LayoutChangeEvent } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -49,6 +48,7 @@ import {
 } from '../ops-format.ts';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
+import { SideRailLayout } from '../side-rail-layout.tsx';
 import { readQuantity } from '../supply-order-model.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -140,11 +140,6 @@ export function SupplyOrderDetailScreen({ order }: SupplyOrderDetailScreenProps)
 
 const EM_DASH = '—';
 
-/** The summary's fixed track, and the least the cards beside it keep before it drops under them. */
-const ASIDE_WIDTH = 300;
-const FORM_MIN_WIDTH = 620;
-const COLUMN_GAP = 16;
-
 /** One editable line in the draft form. `quantity` is the person's text, never a number. */
 interface LineDraft {
     readonly stockItemId: string;
@@ -197,7 +192,6 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
     const [dirty, setDirty] = useState(false);
     const [confirmingIssue, setConfirmingIssue] = useState(false);
     const [confirmingCancel, setConfirmingCancel] = useState(false);
-    const [bodyWidth, setBodyWidth] = useState(0);
 
     const data = record.data;
 
@@ -601,7 +595,6 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
         data.createdAt === null
             ? EM_DASH
             : formatter.formatDate(data.createdAt, { dateStyle: 'medium' });
-    const sideBySide = bodyWidth >= ASIDE_WIDTH + FORM_MIN_WIDTH + COLUMN_GAP;
     const lineCount = t('kitchen:ops.supplyOrders.receiptLineCount', { count: lines.length });
     const issueBlocked = dirty || invalid || empty;
 
@@ -754,208 +747,206 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                 />
             )}
 
-            <View
-                onLayout={(event: LayoutChangeEvent) => {
-                    setBodyWidth(event.nativeEvent.layout.width);
-                }}
-                className={
-                    sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
-                }
-            >
-                {/* The form is the row's filler beside the fixed summary. */}
-                <View className="z-auto min-w-0 flex-1 flex-col gap-base">
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-supply-order-detail-lines"
-                        title={t('kitchen:ops.supplyOrders.linesTitle')}
-                        aside={
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                testID="kitchen-supply-order-detail-line-count"
-                            >
-                                {lineCount}
-                            </Text>
-                        }
-                    >
-                        <Stack space="sm">
-                            <DataList<LineDraft>
-                                testID="kitchen-supply-order-detail-lines-table"
-                                label={t('kitchen:ops.supplyOrders.linesCaption')}
-                                columns={columns}
-                                rows={lines}
-                                rowKey={(line) => line.stockItemId}
-                                density="sm"
-                            />
-
-                            {empty && editable ? (
+            {/* The form is the row's filler beside the fixed summary. */}
+            <SideRailLayout
+                bounded
+                sticky
+                testID="kitchen-supply-order-detail-editor"
+                main={
+                    <>
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-supply-order-detail-lines"
+                            title={t('kitchen:ops.supplyOrders.linesTitle')}
+                            aside={
                                 <Text
                                     variant="caption"
-                                    tone="warning"
-                                    testID="kitchen-supply-order-detail-no-lines"
+                                    tone="secondary"
+                                    testID="kitchen-supply-order-detail-line-count"
                                 >
-                                    {t('kitchen:ops.supplyOrders.noLines')}
+                                    {lineCount}
                                 </Text>
-                            ) : null}
+                            }
+                        >
+                            <Stack space="sm">
+                                <DataList<LineDraft>
+                                    testID="kitchen-supply-order-detail-lines-table"
+                                    label={t('kitchen:ops.supplyOrders.linesCaption')}
+                                    columns={columns}
+                                    rows={lines}
+                                    rowKey={(line) => line.stockItemId}
+                                    density="sm"
+                                />
 
-                            {/* Under the rows it joins, as the builder's "Add something else". */}
+                                {empty && editable ? (
+                                    <Text
+                                        variant="caption"
+                                        tone="warning"
+                                        testID="kitchen-supply-order-detail-no-lines"
+                                    >
+                                        {t('kitchen:ops.supplyOrders.noLines')}
+                                    </Text>
+                                ) : null}
+
+                                {/* Under the rows it joins, as the builder's "Add something else". */}
+                                {editable ? (
+                                    <View className="z-tooltip w-full max-w-field">
+                                        <Select
+                                            testID="kitchen-supply-order-detail-add-line"
+                                            label={t('kitchen:ops.supplyOrders.addLineLabel')}
+                                            labelHidden
+                                            size="sm"
+                                            options={addOptions}
+                                            searchable
+                                            value={null}
+                                            placeholder={t(
+                                                'kitchen:ops.supplyOrders.addLinePlaceholder',
+                                            )}
+                                            onChange={(value) => {
+                                                const item = (stockItems.data ?? []).find(
+                                                    (candidate: StockItem) =>
+                                                        String(candidate.id) === value,
+                                                );
+
+                                                if (item === undefined) return;
+
+                                                edit([
+                                                    ...lines,
+                                                    {
+                                                        stockItemId: String(item.id),
+                                                        // Blank, never zero. The person types what they
+                                                        // want; a prefilled zero would read as a
+                                                        // decision.
+                                                        quantity: '',
+                                                        itemCode: item.code,
+                                                        itemNameEn: item.nameEn,
+                                                        unitCode: item.unitCode,
+                                                        // Resolved server-side from the saved supplier
+                                                        // link on save — the client never invents one.
+                                                        supplierItemRef: null,
+                                                        // A line nobody has ordered yet has nothing
+                                                        // against it, and the whole of it is to come.
+                                                        receivedQuantity: '0',
+                                                        outstandingQuantity: '',
+                                                    },
+                                                ]);
+                                            }}
+                                        />
+                                    </View>
+                                ) : null}
+                            </Stack>
+                        </FormSection>
+
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-supply-order-detail-notes"
+                            title={t('kitchen:ops.supplyOrders.notesTitle')}
+                        >
                             {editable ? (
-                                <View className="z-tooltip w-full max-w-field">
-                                    <Select
-                                        testID="kitchen-supply-order-detail-add-line"
-                                        label={t('kitchen:ops.supplyOrders.addLineLabel')}
-                                        labelHidden
-                                        size="sm"
-                                        options={addOptions}
-                                        searchable
-                                        value={null}
-                                        placeholder={t(
-                                            'kitchen:ops.supplyOrders.addLinePlaceholder',
-                                        )}
-                                        onChange={(value) => {
-                                            const item = (stockItems.data ?? []).find(
-                                                (candidate: StockItem) =>
-                                                    String(candidate.id) === value,
-                                            );
-
-                                            if (item === undefined) return;
-
-                                            edit([
-                                                ...lines,
-                                                {
-                                                    stockItemId: String(item.id),
-                                                    // Blank, never zero. The person types what they
-                                                    // want; a prefilled zero would read as a
-                                                    // decision.
-                                                    quantity: '',
-                                                    itemCode: item.code,
-                                                    itemNameEn: item.nameEn,
-                                                    unitCode: item.unitCode,
-                                                    // Resolved server-side from the saved supplier
-                                                    // link on save — the client never invents one.
-                                                    supplierItemRef: null,
-                                                    // A line nobody has ordered yet has nothing
-                                                    // against it, and the whole of it is to come.
-                                                    receivedQuantity: '0',
-                                                    outstandingQuantity: '',
-                                                },
-                                            ]);
-                                        }}
-                                    />
-                                </View>
-                            ) : null}
-                        </Stack>
-                    </FormSection>
-
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-supply-order-detail-notes"
-                        title={t('kitchen:ops.supplyOrders.notesTitle')}
-                    >
-                        {editable ? (
-                            <TextInputField
-                                testID="kitchen-supply-order-detail-notes-input"
-                                label={t('kitchen:ops.supplyOrders.notesLabel')}
-                                hint={t('kitchen:ops.supplyOrders.notesHint')}
-                                placeholder={t('kitchen:ops.supplyOrders.notesPlaceholder')}
-                                size="sm"
-                                multiline
-                                value={notes}
-                                onChangeText={(next) => {
-                                    edit(lines, next);
-                                }}
-                            />
-                        ) : (
-                            <Text
-                                tone={notes === '' ? 'secondary' : 'primary'}
-                                testID="kitchen-supply-order-detail-notes-text"
-                            >
-                                {notes === '' ? t('kitchen:ops.supplyOrders.noNotes') : notes}
-                            </Text>
-                        )}
-                    </FormSection>
-                </View>
-
-                {/*
+                                <TextInputField
+                                    testID="kitchen-supply-order-detail-notes-input"
+                                    label={t('kitchen:ops.supplyOrders.notesLabel')}
+                                    hint={t('kitchen:ops.supplyOrders.notesHint')}
+                                    placeholder={t('kitchen:ops.supplyOrders.notesPlaceholder')}
+                                    size="sm"
+                                    multiline
+                                    value={notes}
+                                    onChangeText={(next) => {
+                                        edit(lines, next);
+                                    }}
+                                />
+                            ) : (
+                                <Text
+                                    tone={notes === '' ? 'secondary' : 'primary'}
+                                    testID="kitchen-supply-order-detail-notes-text"
+                                >
+                                    {notes === '' ? t('kitchen:ops.supplyOrders.noNotes') : notes}
+                                </Text>
+                            )}
+                        </FormSection>
+                    </>
+                }
+                /*
                  * The order in a few facts, what has arrived against it, and the next thing to do
                  * with it. Deliveries are a list, not links: there is no receipt screen, and the
                  * money on them is behind a permission this screen does not check — the purchases
                  * ledger is where a cost holder reads it.
-                 */}
-                <RecordSummaryAside
-                    testID="kitchen-supply-order-detail-summary"
-                    title={t('kitchen:ops.supplyOrders.detailSummaryTitle')}
-                    width={sideBySide ? ASIDE_WIDTH : null}
-                    rows={[
-                        {
-                            key: 'supplier',
-                            label: t('kitchen:ops.supplyOrders.columnSupplier'),
-                            value: supplierName,
-                        },
-                        {
-                            key: 'branch',
-                            label: t('kitchen:ops.supplyOrders.viewBranch'),
-                            value: branchName,
-                        },
-                        {
-                            key: 'made-on',
-                            label: t('kitchen:ops.supplyOrders.columnMadeOn'),
-                            value: madeOn,
-                        },
-                        ...(data.issuedAt === null
-                            ? []
-                            : [
-                                  {
-                                      key: 'issued-on',
-                                      label: t('kitchen:ops.supplyOrders.summaryIssuedOn'),
-                                      value: formatter.formatDate(data.issuedAt, {
-                                          dateStyle: 'medium',
-                                      }),
-                                  },
-                              ]),
-                    ]}
-                    total={{
-                        label: t('kitchen:ops.supplyOrders.summaryLineTotal'),
-                        value: formatter.formatNumber(lines.length),
-                    }}
-                    list={{
-                        title: t('kitchen:ops.supplyOrders.receiptsTitle'),
-                        empty: t('kitchen:ops.supplyOrders.receiptsEmpty'),
-                        testID: 'kitchen-supply-order-detail-receipts',
-                        emptyTestID: 'kitchen-supply-order-detail-receipts-empty',
-                        items: data.receipts.map((receipt) => ({
-                            key: String(receipt.id),
-                            testID: `kitchen-supply-order-detail-receipt-${String(receipt.id)}`,
-                            name: `${
-                                receipt.receivedOn === null
-                                    ? EM_DASH
-                                    : formatter.formatDate(receipt.receivedOn, {
-                                          dateStyle: 'medium',
-                                      })
-                            } · ${
-                                receipt.documentRef ??
-                                t('kitchen:ops.supplyOrders.receiptNoDocumentRef')
-                            }`,
-                            value: t('kitchen:ops.supplyOrders.receiptLineCount', {
-                                count: receipt.lineCount,
-                            }),
-                        })),
-                    }}
-                    note={
-                        data.receipts.length === 0 ? null : (
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                testID="kitchen-supply-order-detail-receipts-note"
-                            >
-                                {t('kitchen:ops.supplyOrders.receiptsNote')}
-                            </Text>
-                        )
-                    }
-                />
-            </View>
+                 */
+                rail={
+                    <RecordSummaryAside
+                        testID="kitchen-supply-order-detail-summary"
+                        title={t('kitchen:ops.supplyOrders.detailSummaryTitle')}
+                        rows={[
+                            {
+                                key: 'supplier',
+                                label: t('kitchen:ops.supplyOrders.columnSupplier'),
+                                value: supplierName,
+                            },
+                            {
+                                key: 'branch',
+                                label: t('kitchen:ops.supplyOrders.viewBranch'),
+                                value: branchName,
+                            },
+                            {
+                                key: 'made-on',
+                                label: t('kitchen:ops.supplyOrders.columnMadeOn'),
+                                value: madeOn,
+                            },
+                            ...(data.issuedAt === null
+                                ? []
+                                : [
+                                      {
+                                          key: 'issued-on',
+                                          label: t('kitchen:ops.supplyOrders.summaryIssuedOn'),
+                                          value: formatter.formatDate(data.issuedAt, {
+                                              dateStyle: 'medium',
+                                          }),
+                                      },
+                                  ]),
+                        ]}
+                        total={{
+                            label: t('kitchen:ops.supplyOrders.summaryLineTotal'),
+                            value: formatter.formatNumber(lines.length),
+                        }}
+                        list={{
+                            title: t('kitchen:ops.supplyOrders.receiptsTitle'),
+                            empty: t('kitchen:ops.supplyOrders.receiptsEmpty'),
+                            testID: 'kitchen-supply-order-detail-receipts',
+                            emptyTestID: 'kitchen-supply-order-detail-receipts-empty',
+                            items: data.receipts.map((receipt) => ({
+                                key: String(receipt.id),
+                                testID: `kitchen-supply-order-detail-receipt-${String(receipt.id)}`,
+                                name: `${
+                                    receipt.receivedOn === null
+                                        ? EM_DASH
+                                        : formatter.formatDate(receipt.receivedOn, {
+                                              dateStyle: 'medium',
+                                          })
+                                } · ${
+                                    receipt.documentRef ??
+                                    t('kitchen:ops.supplyOrders.receiptNoDocumentRef')
+                                }`,
+                                value: t('kitchen:ops.supplyOrders.receiptLineCount', {
+                                    count: receipt.lineCount,
+                                }),
+                            })),
+                        }}
+                        note={
+                            data.receipts.length === 0 ? null : (
+                                <Text
+                                    variant="caption"
+                                    tone="secondary"
+                                    testID="kitchen-supply-order-detail-receipts-note"
+                                >
+                                    {t('kitchen:ops.supplyOrders.receiptsNote')}
+                                </Text>
+                            )
+                        }
+                    />
+                }
+            />
 
             <EditorGuardDialogs guard={guard} testID="kitchen-supply-order-detail-screen" />
 
