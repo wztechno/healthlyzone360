@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8267 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8271 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3264,11 +3264,13 @@ export interface NamespaceKeys {
     | 'desk.sale.addressUndeliverableTitle'
     | 'desk.sale.areaLabel'
     | 'desk.sale.areaPlaceholder'
+    | 'desk.sale.backToMenu'
     | 'desk.sale.buildingLabel'
     | 'desk.sale.buildingPlaceholder'
     | 'desk.sale.change'
     | 'desk.sale.charge'
     | 'desk.sale.chargeEmpty'
+    | 'desk.sale.chargeTotal'
     | 'desk.sale.completedNumber'
     | 'desk.sale.customerCancelCreate'
     | 'desk.sale.customerCapped'
@@ -3302,6 +3304,8 @@ export interface NamespaceKeys {
     | 'desk.sale.driverNone'
     | 'desk.sale.each'
     | 'desk.sale.itemCount'
+    | 'desk.sale.kindPending'
+    | 'desk.sale.kindTitle'
     | 'desk.sale.lineOneLabel'
     | 'desk.sale.lineOnePlaceholder'
     | 'desk.sale.lineTwoLabel'
@@ -11549,11 +11553,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.addressUndeliverableTitle',
   'kitchen:desk.sale.areaLabel',
   'kitchen:desk.sale.areaPlaceholder',
+  'kitchen:desk.sale.backToMenu',
   'kitchen:desk.sale.buildingLabel',
   'kitchen:desk.sale.buildingPlaceholder',
   'kitchen:desk.sale.change',
   'kitchen:desk.sale.charge',
   'kitchen:desk.sale.chargeEmpty',
+  'kitchen:desk.sale.chargeTotal',
   'kitchen:desk.sale.completedNumber',
   'kitchen:desk.sale.customerCancelCreate',
   'kitchen:desk.sale.customerCapped',
@@ -11587,6 +11593,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.driverNone',
   'kitchen:desk.sale.each',
   'kitchen:desk.sale.itemCount',
+  'kitchen:desk.sale.kindPending',
+  'kitchen:desk.sale.kindTitle',
   'kitchen:desk.sale.lineOneLabel',
   'kitchen:desk.sale.lineOnePlaceholder',
   'kitchen:desk.sale.lineTwoLabel',

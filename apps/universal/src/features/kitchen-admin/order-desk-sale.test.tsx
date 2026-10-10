@@ -38,8 +38,9 @@ jest.mock('expo-router', () => ({
  *
  * The sale's state rules and the basket are proved in `order-desk-sale-model.test.ts`; what is
  * asserted here is what only a rendered page can answer — that a tile's price is the quote's answer
- * for one of it, that a tap lands on the ticket, that the kind of sale opens exactly the cards it
- * needs and the ticket says what is still missing, that a counter sale clears for the next customer
+ * for one of it, that a tap lands on the ticket, that Charge opens a checkout asking how the order
+ * leaves, that the kind of sale opens exactly the cards it needs and the ticket says what is still
+ * missing, that a counter sale clears for the next customer
  * while a collection goes back to the queue, and that a refusal is rendered as reasons.
  *
  * Every `fireEvent` that changes a debounced value is followed by a real wait, because the quote and
@@ -281,6 +282,7 @@ async function settle() {
 const MEAL_TILE = `kitchen-order-desk-sale-tile-${String(MEAL_ID)}`;
 const MEAL_LINE = `kitchen-order-desk-sale-line-${String(MEAL_ID)}`;
 const SUBMIT = 'kitchen-order-desk-sale-submit';
+const CHARGE = 'kitchen-order-desk-sale-charge';
 
 /** Tap the seeded meal `times` times, each tap its own commit as a finger's would be. */
 async function tapMeal(times = 1) {
@@ -293,7 +295,22 @@ async function tapMeal(times = 1) {
     await settle();
 }
 
+/** Charge, from the menu: the ticket must already hold a line the desk sells. */
+async function charge() {
+    await waitFor(
+        () => {
+            expect(screen.getByTestId(CHARGE)).toBeEnabled();
+        },
+        { timeout: 5000 },
+    );
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(CHARGE));
+    });
+}
+
+/** Into the checkout, if not there yet, and choose how the order leaves. */
 async function chooseKind(kind: 'counter' | 'pickup' | 'delivery') {
+    if (screen.queryByTestId(CHARGE) !== null) await charge();
     await untilVisible(`kitchen-order-desk-sale-kind-${kind}`);
     await act(async () => {
         fireEvent.press(screen.getByTestId(`kitchen-order-desk-sale-kind-${kind}`));
@@ -337,7 +354,10 @@ describe('sale — the menu', () => {
             ],
         });
         expect(screen.getByTestId('kitchen-order-desk-sale-ticket-empty')).toBeTruthy();
-        expect(screen.getByTestId(SUBMIT)).toBeDisabled();
+        expect(screen.getByTestId(CHARGE)).toBeDisabled();
+        // How the order leaves is asked after Charge, never above the menu.
+        expect(screen.queryByTestId('kitchen-order-desk-sale-kind')).toBeNull();
+        expect(screen.queryByTestId(SUBMIT)).toBeNull();
     });
 
     it('marks a product the desk does not sell, and will not add it', async () => {
@@ -399,9 +419,9 @@ describe('sale — the ticket is priced by the quote alone', () => {
         expect(screen.getByTestId('kitchen-order-desk-sale-total')).toHaveTextContent('AED 64.00');
         // Null is not zero: a counter sale has no fee at all.
         expect(screen.queryByTestId('kitchen-order-desk-sale-fee')).toBeNull();
-        expect(screen.getByTestId(SUBMIT)).toHaveTextContent(
-            'Charge AED 64.00 · Cash at the counter',
-        );
+        expect(screen.getByTestId(CHARGE)).toHaveTextContent('Charge AED 64.00');
+        // How it is paid depends on how it leaves, which is not asked yet.
+        expect(screen.queryByTestId('kitchen-order-desk-sale-method')).toBeNull();
     });
 
     it('asks the ticket quote once, debounced, rather than per tap', async () => {
@@ -452,7 +472,7 @@ describe('sale — the ticket is priced by the quote alone', () => {
         await untilVisible(`${MEAL_LINE}-refusal-channel_unavailable`);
         // No price to show, and an em dash rather than a confident zero.
         expect(screen.getByTestId(`${MEAL_LINE}-total`)).toHaveTextContent('—');
-        expect(screen.getByTestId(SUBMIT)).toBeDisabled();
+        expect(screen.getByTestId(CHARGE)).toBeDisabled();
     });
 });
 
@@ -461,6 +481,10 @@ describe('sale — a counter sale', () => {
         const placeSale = jest.fn(async () => placedOrder());
         await renderSale({ placeSale });
         await tapMeal(2);
+        await chooseKind('counter');
+        expect(screen.getByTestId(SUBMIT)).toHaveTextContent(
+            'Charge AED 64.00 · Cash at the counter',
+        );
         await waitFor(() => {
             expect(screen.getByTestId(SUBMIT)).toBeEnabled();
         });
@@ -470,6 +494,9 @@ describe('sale — a counter sale', () => {
         });
 
         await untilVisible('kitchen-order-desk-sale-sold');
+        // Back on the menu for the next customer, with nothing chosen for them.
+        expect(screen.getByTestId(CHARGE)).toBeDisabled();
+        expect(screen.queryByTestId('kitchen-order-desk-sale-kind')).toBeNull();
         expect(placeSale).toHaveBeenCalledWith({
             fulfilmentType: 'counter',
             lines: [
@@ -491,6 +518,7 @@ describe('sale — a counter sale', () => {
         const placeSale = jest.fn(async () => placedOrder());
         await renderSale({ placeSale });
         await tapMeal();
+        await chooseKind('counter');
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-method-wish'));
@@ -536,6 +564,7 @@ describe('sale — a counter sale', () => {
         });
         await renderSale({ placeSale });
         await tapMeal();
+        await chooseKind('counter');
         await waitFor(() => {
             expect(screen.getByTestId(SUBMIT)).toBeEnabled();
         });
@@ -569,12 +598,13 @@ describe('sale — collections and deliveries', () => {
         });
         expect(screen.queryByTestId('kitchen-order-desk-sale-customer')).toBeNull();
 
+        await tapMeal();
         await chooseKind('pickup');
         await untilVisible('kitchen-order-desk-sale-customer');
         // A collection has nowhere to go.
         expect(screen.queryByTestId('kitchen-order-desk-sale-address')).toBeNull();
 
-        await tapMeal();
+        await settle();
         expect(screen.getByTestId(SUBMIT)).toBeDisabled();
         expect(screen.getByTestId('kitchen-order-desk-sale-shortfall')).toHaveTextContent(
             'Choose the customer to place this order.',
@@ -589,6 +619,7 @@ describe('sale — collections and deliveries', () => {
             placedOrder({ fulfilmentType: 'pickup', status: 'confirmed' }),
         );
         await renderSale({ placeSale });
+        await tapMeal();
         await chooseKind('pickup');
         await untilVisible('kitchen-order-desk-sale-customer');
         await chooseLayla();
@@ -599,7 +630,7 @@ describe('sale — collections and deliveries', () => {
             /Layla Haddad/,
         );
 
-        await tapMeal();
+        await settle();
         await waitFor(() => {
             expect(screen.getByTestId(SUBMIT)).toBeEnabled();
         });
@@ -628,6 +659,7 @@ describe('sale — collections and deliveries', () => {
 
     it('opens the address card for a delivery and asks for it once the customer is known', async () => {
         await renderSale();
+        await tapMeal();
         await chooseKind('delivery');
         await untilVisible('kitchen-order-desk-sale-customer');
         await untilVisible('kitchen-order-desk-sale-address');
@@ -635,7 +667,7 @@ describe('sale — collections and deliveries', () => {
         expect(screen.getByTestId('kitchen-order-desk-sale-method-cash_on_delivery')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-order-desk-sale-method-cash_at_counter')).toBeNull();
 
-        await tapMeal();
+        await settle();
         expect(screen.getByTestId('kitchen-order-desk-sale-shortfall')).toHaveTextContent(
             'Choose the customer to place this order.',
         );
@@ -651,10 +683,10 @@ describe('sale — collections and deliveries', () => {
 
     it('drops the customer and closes both cards when the sale goes back to the counter', async () => {
         await renderSale();
+        await tapMeal();
         await chooseKind('delivery');
         await untilVisible('kitchen-order-desk-sale-customer');
         await chooseLayla();
-        await tapMeal();
 
         await chooseKind('counter');
 
@@ -666,6 +698,7 @@ describe('sale — collections and deliveries', () => {
 
     it('never spends a request on a customer search shorter than the server accepts', async () => {
         const { repositories } = await renderSale();
+        await tapMeal();
         await chooseKind('pickup');
         await untilVisible('kitchen-order-desk-sale-customer');
 
@@ -690,6 +723,7 @@ describe('sale — collections and deliveries', () => {
                 possibleDuplicates: [other],
             }),
         });
+        await tapMeal();
         await chooseKind('pickup');
         await untilVisible('kitchen-order-desk-sale-customer');
 
@@ -718,8 +752,74 @@ describe('sale — collections and deliveries', () => {
             screen.getByTestId(`kitchen-order-desk-sale-customer-duplicate-${other.id}-choose`),
         ).toBeTruthy();
         // The new customer was chosen straight away, so the ticket no longer asks for one.
-        await tapMeal();
+        await settle();
         expect(screen.queryByTestId('kitchen-order-desk-sale-shortfall')).toBeNull();
+    });
+});
+
+describe('sale — Charge opens the checkout', () => {
+    it('swaps the menu for the checkout, and asks how the order leaves before offering payment', async () => {
+        await renderSale();
+        await tapMeal();
+        await charge();
+
+        await untilVisible('kitchen-order-desk-sale-kind');
+        // The menu is out of the way; the ticket stays beside the checkout.
+        expect(screen.queryByTestId(MEAL_TILE)).toBeNull();
+        expect(screen.getByTestId(MEAL_LINE)).toBeTruthy();
+        // Nothing is chosen for the agent, so there is nothing to pay or press yet.
+        for (const kind of ['counter', 'pickup', 'delivery']) {
+            expect(
+                screen.getByTestId(`kitchen-order-desk-sale-kind-${kind}`).props.accessibilityState,
+            ).toEqual(expect.objectContaining({ checked: false }));
+        }
+        expect(screen.getByTestId('kitchen-order-desk-sale-kind-pending')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-order-desk-sale-method')).toBeNull();
+        expect(screen.queryByTestId(SUBMIT)).toBeNull();
+
+        await chooseKind('counter');
+        expect(screen.getByTestId('kitchen-order-desk-sale-method')).toBeTruthy();
+        expect(screen.getByTestId(SUBMIT)).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-order-desk-sale-customer')).toBeNull();
+    });
+
+    it('goes back to the menu with the ticket and the chosen customer kept', async () => {
+        await renderSale();
+        await tapMeal();
+        await chooseKind('pickup');
+        await untilVisible('kitchen-order-desk-sale-customer');
+        await chooseLayla();
+        await untilVisible('kitchen-order-desk-sale-customer-chosen');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-back'));
+        });
+        await untilVisible(MEAL_TILE);
+        expect(screen.getByTestId(MEAL_LINE)).toBeTruthy();
+
+        await tapMeal();
+        await charge();
+        // Still a collection for Layla, folded as it was left.
+        await untilVisible('kitchen-order-desk-sale-customer-chosen');
+        expect(
+            screen.getByTestId('kitchen-order-desk-sale-kind-pickup').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ checked: true }));
+        expect(screen.getByTestId(`${MEAL_LINE}-quantity`)).toHaveTextContent('2');
+    });
+
+    it('returns to the menu when the ticket is emptied during checkout', async () => {
+        await renderSale();
+        await tapMeal();
+        await chooseKind('counter');
+        await untilVisible(SUBMIT);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${MEAL_LINE}-decrement`));
+        });
+
+        await untilVisible(MEAL_TILE);
+        expect(screen.getByTestId('kitchen-order-desk-sale-ticket-empty')).toBeTruthy();
+        expect(screen.getByTestId(CHARGE)).toBeDisabled();
     });
 });
 
@@ -731,8 +831,9 @@ describe('sale — the slots the address zone offers', () => {
                     offeredWindowCodes: request.fulfilmentType === 'delivery' ? ['morning'] : null,
                 }),
         });
-        await chooseKind('delivery');
         await tapMeal();
+        await chooseKind('delivery');
+        await settle();
 
         await waitFor(() => {
             expect(screen.queryByTestId('kitchen-order-desk-sale-slot-midday')).toBeNull();
@@ -749,8 +850,9 @@ describe('sale — the slots the address zone offers', () => {
                     offeredWindowCodes: request.fulfilmentType === 'delivery' ? [] : null,
                 }),
         });
-        await chooseKind('delivery');
         await tapMeal();
+        await chooseKind('delivery');
+        await settle();
 
         await untilVisible('kitchen-order-desk-sale-no-slots');
         expect(screen.getByTestId('kitchen-order-desk-sale-no-slots')).toHaveTextContent(
@@ -760,8 +862,8 @@ describe('sale — the slots the address zone offers', () => {
 
     it('keeps every slot on a collection, where no zone applies', async () => {
         await renderSale();
-        await chooseKind('pickup');
         await tapMeal();
+        await chooseKind('pickup');
 
         await untilVisible('kitchen-order-desk-sale-slot-midday');
         expect(screen.getByTestId('kitchen-order-desk-sale-slot-morning')).toBeTruthy();

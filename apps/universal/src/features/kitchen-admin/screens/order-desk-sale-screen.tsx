@@ -20,7 +20,6 @@ import {
     FormSection,
     Icon,
     IconButton,
-    SegmentedControl,
     Select,
     Skeleton,
     Text,
@@ -49,12 +48,14 @@ import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { ORDER_CREATE_ON_BEHALF_PERMISSION, ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
+import { ChoiceTiles } from '../choice-tiles.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import type { BasketLine } from '../order-desk/basket.ts';
 import {
     MAX_LINE_QUANTITY,
     addItem,
+    isQuotableBasket,
     basketKey,
     lineKey,
     quantityAsNumber,
@@ -85,11 +86,17 @@ import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
  *
  * This used to be a six-step wizard, and for a while a separate counter screen stood beside it. It
  * is one page now, laid out the way `4f` draws the till: the menu as a grid of products, tapped onto
- * a ticket that runs beside it, with payment the last thing on the ticket. The kind of sale sits
- * above the menu. A counter sale needs nothing else; a **collection** opens a Customer card and a
- * **delivery** a Customer card and an Address card, between the kind and the menu, each folding to
- * one line once it is answered. The ticket says what is still missing — `saleShortfall` in
- * `order-desk/sale-state.ts`, which also owns what switching the kind clears.
+ * a ticket that runs beside it.
+ *
+ * The page has two stages, and the ticket stays beside both. In the **menu** stage the agent picks
+ * the food and the ticket's one button is Charge. Charge opens the **checkout** stage in the
+ * menu's column: a Back button, then how the order leaves — counter, collection or delivery, three
+ * cards with none chosen yet. A counter sale needs nothing else; a **collection** opens a Customer
+ * card and a **delivery** a Customer card and an Address card, each folding to one line once it is
+ * answered. Only once the kind is chosen does the ticket offer the payment methods and the button
+ * that places the sale, and it says what is still missing — `saleShortfall` in
+ * `order-desk/sale-state.ts`, which also owns what choosing the kind clears. The stage is this
+ * screen's own state, not the sale's: emptying the ticket goes back to the menu.
  *
  * It sits on the admin's compact ladder, the Ingredients screen's sizes: the search and the menu's
  * sections are that screen's `CatalogueToolbar`, and the cards are the record editors'
@@ -175,6 +182,12 @@ const FULFILMENT_LABEL_KEYS: Readonly<Record<OrderDeskFulfilmentType, string>> =
     delivery: 'kitchen:desk.sale.type.delivery',
 };
 
+/** The page's two stages — see the file header. */
+type SaleStage = 'menu' | 'checkout';
+
+/** The column the other stage is in: kept mounted, out of layout and out of the a11y tree. */
+const HIDDEN = { display: 'none' } as const;
+
 /**
  * The menu's sections, in the order they are drawn.
  *
@@ -223,6 +236,14 @@ function Sale() {
     const toast = useToast();
 
     const [state, setState] = useState<SaleState>(initialSaleState);
+    /** Picking the food, or — after Charge — saying how it leaves and taking the money. */
+    const [stage, setStage] = useState<SaleStage>('menu');
+    /**
+     * Whether the agent has said how the order leaves. `state.fulfilmentType` is never empty — it
+     * stays `counter` underneath, which is the tariff the menu is priced on — so "not chosen yet"
+     * is this screen's to remember, and the ticket offers no payment until it is.
+     */
+    const [kindChosen, setKindChosen] = useState(false);
     const [section, setSection] = useState<MenuSection>('meals');
     const [query, setQuery] = useState('');
     /** The counter sale just rung up, said on the ticket until the next tap starts another. */
@@ -244,9 +265,14 @@ function Sale() {
      * (`order.manage_organisation`), because the placement refuses a driver from anybody else and
      * offering the picker would invite that refusal.
      */
-    const windows = useOrderDeskDeliveryWindowsQuery(state.fulfilmentType !== 'counter');
+    const checkingOut = stage === 'checkout' && kindChosen;
+    const windows = useOrderDeskDeliveryWindowsQuery(
+        checkingOut && state.fulfilmentType !== 'counter',
+    );
     const canAssign = useCan(ORDER_MANAGE_PERMISSION);
-    const drivers = useOrderDeskDriversQuery(canAssign && state.fulfilmentType === 'delivery');
+    const drivers = useOrderDeskDriversQuery(
+        checkingOut && canAssign && state.fulfilmentType === 'delivery',
+    );
 
     // Naming the leaf is what makes "Order desk" in the trail a link back.
     useKitchenTrailLeaf(t('kitchen:desk.sale.title'));
@@ -255,6 +281,8 @@ function Sale() {
         setState(next);
         setSold(null);
         place.reset();
+        // A checkout with nothing on the ticket has nothing to check out.
+        if (next.lines.length === 0) setStage('menu');
     }
 
     /*
@@ -339,6 +367,8 @@ function Sale() {
                         // done and the next customer is already waiting, so the ticket clears and
                         // the page stays where it is.
                         setState(initialSaleState());
+                        setStage('menu');
+                        setKindChosen(false);
                         setSold(order);
                         toast.show({
                             testID: 'kitchen-order-desk-sale-sold-toast',
@@ -384,66 +414,11 @@ function Sale() {
         ? { columns: besideColumns, tileWidth: TILE_WIDTH }
         : stackedGrid(bodyWidth);
     const menuWidth = grid.columns * grid.tileWidth + (grid.columns - 1) * TILE_GAP;
+    // The menu and the checkout take the same column.
+    const column = sideBySide ? { width: menuWidth } : { alignSelf: 'stretch' as const };
 
     return (
         <View testID="kitchen-order-desk-sale-screen" className="z-auto flex-col gap-base">
-            {/* The kind of sale, above everything it decides. */}
-            <View className="flex-row flex-wrap items-center gap-snug">
-                <SegmentedControl<OrderDeskFulfilmentType>
-                    testID="kitchen-order-desk-sale-kind"
-                    label={t('kitchen:desk.sale.typeLabel')}
-                    items={ORDER_DESK_FULFILMENT_TYPES.map((candidate) => ({
-                        value: candidate,
-                        label: t(FULFILMENT_LABEL_KEYS[candidate]),
-                        testID: `kitchen-order-desk-sale-kind-${candidate}`,
-                    }))}
-                    value={state.fulfilmentType}
-                    onChange={(type) => {
-                        update(withFulfilmentType(state, type));
-                    }}
-                />
-                <Text variant="caption" tone="secondary" testID="kitchen-order-desk-sale-kind-hint">
-                    {t(`kitchen:desk.sale.typeHint.${state.fulfilmentType}`)}
-                </Text>
-            </View>
-
-            {needsCustomer(state.fulfilmentType) ? (
-                <CustomerSection
-                    customerAccountId={state.customerAccountId}
-                    onChoose={(customer) => {
-                        update(withCustomer(state, customer.id));
-                    }}
-                />
-            ) : null}
-
-            {needsAddress(state.fulfilmentType) ? (
-                <AddressSection
-                    customerAccountId={state.customerAccountId}
-                    customerAddressId={state.customerAddressId}
-                    onSaved={(addressId) => {
-                        update({ ...state, customerAddressId: addressId });
-                    }}
-                />
-            ) : null}
-
-            {schedule === null ? null : (
-                <WhenSection
-                    windows={windowList}
-                    zoneOffersNone={offeredCodes !== null && windowList.length === 0}
-                    schedule={schedule}
-                    onSchedule={(next) => {
-                        update({ ...state, ...next });
-                    }}
-                    drivers={
-                        state.fulfilmentType === 'delivery' ? (drivers.data?.rows ?? null) : null
-                    }
-                    driverUserId={state.driverUserId}
-                    onDriver={(driverUserId) => {
-                        update({ ...state, driverUserId });
-                    }}
-                />
-            )}
-
             <View
                 // Both measurement paths, each inert on the other's platform — as `CatalogueList`.
                 ref={Platform.OS === 'web' ? port.ref : undefined}
@@ -452,9 +427,79 @@ function Sale() {
                     sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
                 }
             >
+                {/*
+                 * Both columns stay mounted and the stage hides one: Back must find the customer and
+                 * the address cards as they were left, folded, not reset to an empty search.
+                 */}
+                <View
+                    testID="kitchen-order-desk-sale-checkout"
+                    className="z-auto min-w-0 flex-col gap-base"
+                    style={[column, stage === 'checkout' ? null : HIDDEN]}
+                >
+                    <View className="flex-row">
+                        <Button
+                            testID="kitchen-order-desk-sale-back"
+                            size="sm"
+                            variant="secondary"
+                            label={t('kitchen:desk.sale.backToMenu')}
+                            iconStart={<Icon name="chevronBackward" size="sm" />}
+                            onPress={() => {
+                                setStage('menu');
+                            }}
+                        />
+                    </View>
+
+                    <KindPicker
+                        value={kindChosen ? state.fulfilmentType : null}
+                        onChange={(type) => {
+                            setKindChosen(true);
+                            update(withFulfilmentType(state, type));
+                        }}
+                    />
+
+                    {kindChosen && needsCustomer(state.fulfilmentType) ? (
+                        <CustomerSection
+                            customerAccountId={state.customerAccountId}
+                            onChoose={(customer) => {
+                                update(withCustomer(state, customer.id));
+                            }}
+                        />
+                    ) : null}
+
+                    {kindChosen && needsAddress(state.fulfilmentType) ? (
+                        <AddressSection
+                            customerAccountId={state.customerAccountId}
+                            customerAddressId={state.customerAddressId}
+                            onSaved={(addressId) => {
+                                update({ ...state, customerAddressId: addressId });
+                            }}
+                        />
+                    ) : null}
+
+                    {!kindChosen || schedule === null ? null : (
+                        <WhenSection
+                            windows={windowList}
+                            zoneOffersNone={offeredCodes !== null && windowList.length === 0}
+                            schedule={schedule}
+                            onSchedule={(next) => {
+                                update({ ...state, ...next });
+                            }}
+                            drivers={
+                                state.fulfilmentType === 'delivery'
+                                    ? (drivers.data?.rows ?? null)
+                                    : null
+                            }
+                            driverUserId={state.driverUserId}
+                            onDriver={(driverUserId) => {
+                                update({ ...state, driverUserId });
+                            }}
+                        />
+                    )}
+                </View>
+
                 <View
                     className="z-auto min-w-0 flex-col gap-snug"
-                    style={sideBySide ? { width: menuWidth } : { alignSelf: 'stretch' }}
+                    style={[column, stage === 'menu' ? null : HIDDEN]}
                 >
                     <CatalogueToolbar<MenuSection>
                         testID="kitchen-order-desk-sale-menu-toolbar"
@@ -492,6 +537,11 @@ function Sale() {
 
                 <Ticket
                     beside={sideBySide}
+                    stage={stage}
+                    kindChosen={kindChosen}
+                    onCharge={() => {
+                        setStage('checkout');
+                    }}
                     state={state}
                     quote={quote}
                     quoteStale={quoteStale}
@@ -505,6 +555,46 @@ function Sale() {
                 />
             </View>
         </View>
+    );
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * How the order leaves
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * Counter, collection or delivery, as three cards side by side — the checkout's first question.
+ * `null` is "not chosen yet": nothing is preselected, because a sale that leaves the wrong way is
+ * not a slip the till should make on the agent's behalf. The tiles are the Catalogue's own
+ * `ChoiceTiles`, which say under each choice what it will ask for.
+ */
+function KindPicker({
+    value,
+    onChange,
+}: {
+    readonly value: OrderDeskFulfilmentType | null;
+    readonly onChange: (type: OrderDeskFulfilmentType) => void;
+}) {
+    const { t } = useTranslation();
+
+    return (
+        <FormSection
+            variant="card"
+            testID="kitchen-order-desk-sale-kind-card"
+            title={t('kitchen:desk.sale.kindTitle')}
+        >
+            <ChoiceTiles<OrderDeskFulfilmentType>
+                testID="kitchen-order-desk-sale-kind"
+                label={t('kitchen:desk.sale.typeLabel')}
+                value={value}
+                onChange={onChange}
+                tiles={ORDER_DESK_FULFILMENT_TYPES.map((candidate) => ({
+                    value: candidate,
+                    title: t(FULFILMENT_LABEL_KEYS[candidate]),
+                    body: t(`kitchen:desk.sale.typeHint.${candidate}`),
+                }))}
+            />
+        </FormSection>
     );
 }
 
@@ -550,99 +640,106 @@ function WhenSection({
             testID="kitchen-order-desk-sale-when"
             title={t('kitchen:desk.sale.whenLabel')}
         >
-            <View className="flex-row flex-wrap items-end gap-snug">
-                <DateField
-                    testID="kitchen-order-desk-sale-date"
-                    id="kitchen-order-desk-sale-date"
-                    label={t('kitchen:desk.sale.dateLabel')}
-                    value={schedule.requestedDeliveryDate}
-                    min={todayIso()}
-                    onChange={(requestedDeliveryDate) => {
-                        onSchedule({
-                            requestedDeliveryDate,
-                            deliveryWindowCode: schedule.deliveryWindowCode,
-                        });
-                    }}
-                />
-                {drivers === null ? null : (
-                    <Select<string>
-                        testID="kitchen-order-desk-sale-driver"
-                        label={t('kitchen:desk.sale.driverLabel')}
-                        hint={t('kitchen:desk.sale.driverHint')}
-                        size="sm"
-                        value={driverUserId ?? NO_DRIVER}
-                        options={[
-                            { value: NO_DRIVER, label: t('kitchen:desk.sale.driverNone') },
-                            ...drivers.map((driver) => ({
-                                value: driver.userId,
-                                label: driver.displayName ?? EM_DASH,
-                            })),
-                        ]}
-                        onChange={(value) => {
-                            onDriver(value === NO_DRIVER ? null : value);
+            {/* The day and the slot are two questions, so they sit a block apart, not a line. */}
+            <View className="flex-col gap-base">
+                <View className="flex-row flex-wrap items-end gap-snug">
+                    <DateField
+                        testID="kitchen-order-desk-sale-date"
+                        id="kitchen-order-desk-sale-date"
+                        label={t('kitchen:desk.sale.dateLabel')}
+                        value={schedule.requestedDeliveryDate}
+                        min={todayIso()}
+                        onChange={(requestedDeliveryDate) => {
+                            onSchedule({
+                                requestedDeliveryDate,
+                                deliveryWindowCode: schedule.deliveryWindowCode,
+                            });
                         }}
                     />
+                    {drivers === null ? null : (
+                        <Select<string>
+                            testID="kitchen-order-desk-sale-driver"
+                            label={t('kitchen:desk.sale.driverLabel')}
+                            hint={t('kitchen:desk.sale.driverHint')}
+                            size="sm"
+                            value={driverUserId ?? NO_DRIVER}
+                            options={[
+                                { value: NO_DRIVER, label: t('kitchen:desk.sale.driverNone') },
+                                ...drivers.map((driver) => ({
+                                    value: driver.userId,
+                                    label: driver.displayName ?? EM_DASH,
+                                })),
+                            ]}
+                            onChange={(value) => {
+                                onDriver(value === NO_DRIVER ? null : value);
+                            }}
+                        />
+                    )}
+                </View>
+                {windows.length === 0 ? (
+                    <Text
+                        testID="kitchen-order-desk-sale-no-slots"
+                        variant="caption"
+                        tone="secondary"
+                    >
+                        {t(
+                            zoneOffersNone
+                                ? 'kitchen:desk.sale.zoneNoSlots'
+                                : 'kitchen:desk.sale.noSlots',
+                        )}
+                    </Text>
+                ) : (
+                    <View
+                        testID="kitchen-order-desk-sale-slot"
+                        role="radiogroup"
+                        aria-label={t('kitchen:desk.sale.slotLabel')}
+                        className="flex-row flex-wrap gap-tight"
+                    >
+                        {windows.map((window) => {
+                            const selected = schedule.deliveryWindowCode === window.code;
+                            const name = locale.startsWith('ar') ? window.nameAr : window.nameEn;
+                            const hours =
+                                window.startsAt === null || window.endsAt === null
+                                    ? null
+                                    : t('kitchen:desk.sale.slotHours', {
+                                          from: window.startsAt,
+                                          to: window.endsAt,
+                                      });
+                            return (
+                                <Pressable
+                                    key={window.code}
+                                    testID={`kitchen-order-desk-sale-slot-${window.code}`}
+                                    role="radio"
+                                    accessibilityRole="radio"
+                                    aria-checked={selected}
+                                    accessibilityState={{ checked: selected }}
+                                    aria-label={hours === null ? name : `${name}. ${hours}`}
+                                    onPress={() => {
+                                        onSchedule({
+                                            requestedDeliveryDate: schedule.requestedDeliveryDate,
+                                            deliveryWindowCode: window.code,
+                                        });
+                                    }}
+                                    className={
+                                        selected
+                                            ? 'h-control-md flex-row items-center gap-hair rounded-sm border border-surface-brand bg-surface-brand-subtle px-control-sm'
+                                            : 'h-control-md flex-row items-center gap-hair rounded-sm border border-stroke bg-surface-raised px-control-sm web:hover:border-surface-brand'
+                                    }
+                                >
+                                    <Text variant="label" numberOfLines={1}>
+                                        {name}
+                                    </Text>
+                                    {hours === null ? null : (
+                                        <Text variant="mono" tone="secondary" numberOfLines={1}>
+                                            {hours}
+                                        </Text>
+                                    )}
+                                </Pressable>
+                            );
+                        })}
+                    </View>
                 )}
             </View>
-            {windows.length === 0 ? (
-                <Text testID="kitchen-order-desk-sale-no-slots" variant="caption" tone="secondary">
-                    {t(
-                        zoneOffersNone
-                            ? 'kitchen:desk.sale.zoneNoSlots'
-                            : 'kitchen:desk.sale.noSlots',
-                    )}
-                </Text>
-            ) : (
-                <View
-                    testID="kitchen-order-desk-sale-slot"
-                    role="radiogroup"
-                    aria-label={t('kitchen:desk.sale.slotLabel')}
-                    className="flex-row flex-wrap gap-tight"
-                >
-                    {windows.map((window) => {
-                        const selected = schedule.deliveryWindowCode === window.code;
-                        const name = locale.startsWith('ar') ? window.nameAr : window.nameEn;
-                        const hours =
-                            window.startsAt === null || window.endsAt === null
-                                ? null
-                                : t('kitchen:desk.sale.slotHours', {
-                                      from: window.startsAt,
-                                      to: window.endsAt,
-                                  });
-                        return (
-                            <Pressable
-                                key={window.code}
-                                testID={`kitchen-order-desk-sale-slot-${window.code}`}
-                                role="radio"
-                                accessibilityRole="radio"
-                                aria-checked={selected}
-                                accessibilityState={{ checked: selected }}
-                                aria-label={hours === null ? name : `${name}. ${hours}`}
-                                onPress={() => {
-                                    onSchedule({
-                                        requestedDeliveryDate: schedule.requestedDeliveryDate,
-                                        deliveryWindowCode: window.code,
-                                    });
-                                }}
-                                className={
-                                    selected
-                                        ? 'h-control-md flex-row items-center gap-hair rounded-sm border border-surface-brand bg-surface-brand-subtle px-control-sm'
-                                        : 'h-control-md flex-row items-center gap-hair rounded-sm border border-stroke bg-surface-raised px-control-sm web:hover:border-surface-brand'
-                                }
-                            >
-                                <Text variant="label" numberOfLines={1}>
-                                    {name}
-                                </Text>
-                                {hours === null ? null : (
-                                    <Text variant="mono" tone="secondary" numberOfLines={1}>
-                                        {hours}
-                                    </Text>
-                                )}
-                            </Pressable>
-                        );
-                    })}
-                </View>
-            )}
         </FormSection>
     );
 }
@@ -913,6 +1010,9 @@ function MenuTileButton({
 
 function Ticket({
     beside,
+    stage,
+    kindChosen,
+    onCharge,
     state,
     quote,
     quoteStale,
@@ -926,6 +1026,11 @@ function Ticket({
 }: {
     /** Beside the menu, taking the row the tiles leave; otherwise the full width under it. */
     readonly beside: boolean;
+    readonly stage: SaleStage;
+    /** Whether the checkout's first question is answered; until then nothing is offered to pay. */
+    readonly kindChosen: boolean;
+    /** Charge, from the menu: opens the checkout. */
+    readonly onCharge: () => void;
     readonly state: SaleState;
     readonly quote: OrderDeskQuote | null;
     readonly quoteStale: boolean;
@@ -961,6 +1066,26 @@ function Ticket({
 
     // The two gates: nothing missing on the page, and a fresh price the server says it can sell.
     const placeable = shortfall === null && quote !== null && quote.quotable && !quoteStale;
+
+    /*
+     * Charge asks less: food the desk will sell, freshly priced. It does not wait for the whole
+     * quote to be `quotable`, because an order-level refusal — no customer on a collection — is
+     * about how the order leaves, which is what the checkout behind this button settles.
+     */
+    const chargeable =
+        isQuotableBasket(lines) &&
+        quote !== null &&
+        !quoteStale &&
+        quote.lines.every((line) => line.refusals.length === 0);
+    const chargeLabel =
+        lines.length === 0
+            ? t('kitchen:desk.sale.chargeEmpty')
+            : quote === null || quoteStale
+              ? t('kitchen:desk.sale.quoteUpdating')
+              : t('kitchen:desk.sale.chargeTotal', {
+                    total: money(quote.totalMinor, quote.currencyCode),
+                });
+    const paying = stage === 'checkout' && kindChosen;
 
     const actionLabel =
         lines.length === 0
@@ -1151,15 +1276,17 @@ function Ticket({
                         <Totals quote={quote} money={money} />
                     )}
 
-                    <PaymentMethods
-                        type={state.fulfilmentType}
-                        value={state.paymentMethod}
-                        onChange={(method) => {
-                            onState(withPaymentMethod(state, method));
-                        }}
-                    />
+                    {paying ? (
+                        <PaymentMethods
+                            type={state.fulfilmentType}
+                            value={state.paymentMethod}
+                            onChange={(method) => {
+                                onState(withPaymentMethod(state, method));
+                            }}
+                        />
+                    ) : null}
 
-                    {counter && state.payment?.method === 'wish' ? (
+                    {paying && counter && state.payment?.method === 'wish' ? (
                         <TextInputField
                             testID="kitchen-order-desk-sale-reference"
                             id="kitchen-order-desk-sale-reference"
@@ -1217,28 +1344,48 @@ function Ticket({
                         </Callout>
                     )}
 
-                    <View className="flex-col gap-hair">
+                    {stage === 'menu' ? (
                         <Button
-                            testID="kitchen-order-desk-sale-submit"
+                            testID="kitchen-order-desk-sale-charge"
                             size="md"
                             block
-                            label={actionLabel}
-                            loading={placing}
-                            disabled={!placeable || placing}
-                            onPress={onPlace}
+                            label={chargeLabel}
+                            disabled={!chargeable}
+                            onPress={onCharge}
                         />
-                        {/* What is still missing, said once, under the button it is holding shut. */}
-                        {shortfall === null || shortfall === 'items' ? null : (
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                align="center"
-                                testID="kitchen-order-desk-sale-shortfall"
-                            >
-                                {t(SHORTFALL_KEYS[shortfall])}
-                            </Text>
-                        )}
-                    </View>
+                    ) : !kindChosen ? (
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            align="center"
+                            testID="kitchen-order-desk-sale-kind-pending"
+                        >
+                            {t('kitchen:desk.sale.kindPending')}
+                        </Text>
+                    ) : (
+                        <View className="flex-col gap-hair">
+                            <Button
+                                testID="kitchen-order-desk-sale-submit"
+                                size="md"
+                                block
+                                label={actionLabel}
+                                loading={placing}
+                                disabled={!placeable || placing}
+                                onPress={onPlace}
+                            />
+                            {/* What is still missing, said once, under the button it is holding shut. */}
+                            {shortfall === null || shortfall === 'items' ? null : (
+                                <Text
+                                    variant="caption"
+                                    tone="secondary"
+                                    align="center"
+                                    testID="kitchen-order-desk-sale-shortfall"
+                                >
+                                    {t(SHORTFALL_KEYS[shortfall])}
+                                </Text>
+                            )}
+                        </View>
+                    )}
                 </View>
             </FormSection>
         </View>

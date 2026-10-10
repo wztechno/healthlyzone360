@@ -12,7 +12,8 @@ export interface ChoiceTilesProps<Value extends string> {
     /** The group's accessible name — the section it answers. */
     readonly label: string;
     readonly tiles: readonly ChoiceTile<Value>[];
-    readonly value: Value;
+    /** `null` when nothing is chosen yet — every tile unchecked. */
+    readonly value: Value | null;
     readonly onChange: (value: Value) => void;
     /** The group; each tile is `{testID}-{value}`. */
     readonly testID: string;
