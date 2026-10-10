@@ -20,9 +20,9 @@ const COMFORTABLE_TONE_CLASS: Readonly<Record<CardTone, string>> = {
 /**
  * The admin's cards sit on the page with the same card cast as its panels.
  *
- * Every surface the admin draws by hand — KPI tiles, the toolbar, the page header's summary strip,
- * `OpsPanel` — already carries `shadow-elevation-card`, so a flat `Card` beside them read as a
- * different kind of object. The cast is on every tone that is a card *on* the page, status tones
+ * Every surface the admin draws by hand — KPI tiles, the toolbar, the page header's summary
+ * strip — already carries `shadow-elevation-card`, so a flat `Card` beside them read as a different
+ * kind of object. The cast is on every tone that is a card *on* the page, status tones
  * included, so a row of stat cards where one is `warning` does not have one box sitting lower than
  * the rest. `default` and `sunken` stay flat: they are the page's own ground and an inset well, and
  * a shadow on either would contradict the fill.

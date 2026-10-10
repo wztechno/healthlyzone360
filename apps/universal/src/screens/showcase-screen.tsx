@@ -26,7 +26,6 @@ import {
     DateField,
     DatePickerButton,
     DerivedChipPanel,
-    ListSummaryCards,
     PickerField,
     TimeField,
     RecordSkeleton,
@@ -2703,40 +2702,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         label: 'Open the record',
                         onPress: () => setRecordOpen(false),
                     }}
-                />
-                <Text variant="section" tone="secondary">
-                    List summary cards
-                </Text>
-                <ListSummaryCards
-                    testID={id('summary-cards')}
-                    cards={[
-                        {
-                            key: 'shown',
-                            label: 'Shown',
-                            count: 6,
-                            value: '6',
-                            unit: 'of 6',
-                            caption: '3 families',
-                        },
-                        {
-                            key: 'blocked',
-                            label: 'Blocked',
-                            count: 2,
-                            value: '2',
-                            unit: 'records',
-                            caption: 'publication refused',
-                            tone: 'danger',
-                        },
-                        {
-                            key: 'zero',
-                            label: 'Blocked (zero)',
-                            count: 0,
-                            value: '0',
-                            unit: 'records',
-                            caption: 'a zero is never red',
-                            tone: 'danger',
-                        },
-                    ]}
                 />
                 <DerivedChipPanel
                     testID={id('derived-chips')}

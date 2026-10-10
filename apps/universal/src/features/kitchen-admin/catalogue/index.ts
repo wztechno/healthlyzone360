@@ -1,18 +1,15 @@
 /**
- * The Catalogue's shell — handoff §4.1's six parts, plus §4.2's collapsible nav.
+ * The Catalogue's shell — handoff §4.1's six parts.
  *
  * A list screen is these in order and nothing else:
  *
  * ```tsx
- * <CataloguePageHeader … />     // breadcrumb (with the ☰), optional title, the actions
+ * <CataloguePageHeader … />     // optional title, the actions
  * <CatalogueStatCards … />      // the four figures
  * <CatalogueToolbar … />        // one 28px row: search and the status segments
  * <CatalogueList … />           // the spec-driven grid, or two-line rows below `md`
  * <CataloguePager … />          // range + compact buttons
  * ```
- *
- * All of it wrapped once, high up, in `CatalogueNavProvider` — the open state has to outlive the
- * screen for the rail not to reappear on every navigation.
  */
 
 export { CataloguePageHeader } from './catalogue-page-header.tsx';
@@ -57,20 +54,6 @@ export {
     columnForRole,
 } from './catalogue-column-spec.ts';
 export type { CatalogueColumn, CatalogueColumnRole } from './catalogue-column-spec.ts';
-
-export {
-    CATALOGUE_NAV_TRANSITION_MS,
-    CatalogueNavProvider,
-    CatalogueNavToggle,
-    useCatalogueNav,
-    useCataloguePort,
-} from './catalogue-nav.tsx';
-export type {
-    CatalogueNavProviderProps,
-    CatalogueNavState,
-    CatalogueNavToggleProps,
-    CataloguePort,
-} from './catalogue-nav.tsx';
 
 /* ── the per-entity specs and their list state ───────────────────────────────────────────────── */
 

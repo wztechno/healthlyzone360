@@ -83,23 +83,6 @@ export interface EditorFrameProps {
      */
     readonly chromeless?: boolean | undefined;
     /**
-     * Where the save and back controls sit.
-     *
-     * `footer` is the treatment eight of the nine editors ship: a bar at the end of the flow, for
-     * the reason the bar's own note gives. `header` puts the same two controls right-aligned on the
-     * title row instead — the meal editor's handoff draws them there, beside the status the save
-     * changes. Opt-in rather than a switch, so adopting it is a decision each editor makes with its
-     * own design in hand.
-     */
-    readonly actionsPlacement?: 'footer' | 'header' | undefined;
-    /**
-     * `band` wraps the title, status and actions in their own raised panel — the treatment eight of
-     * the nine editors ship. `plain` drops the panel and its padding, leaving the same content on
-     * the page canvas: a header card above a form card is two rectangles for one page, and on a desk
-     * surface it costs a fifth of the viewport before a single field is visible.
-     */
-    readonly headerVariant?: 'band' | 'plain' | undefined;
-    /**
      * A right-hand column beside the form on wide screens — the meal editor's publication gate.
      * Stacks after the form below `lg`, so the reading order is the same at every width.
      */
@@ -144,8 +127,6 @@ export function EditorFrame({
     backLabel,
     hideBack = false,
     chromeless = false,
-    actionsPlacement = 'footer',
-    headerVariant = 'band',
     rail,
     steps,
     embedded = false,
@@ -174,11 +155,9 @@ export function EditorFrame({
      * The Catalogue editor's opening (Commercial handoff §2.3): the title with Cancel and Save at its
      * inline end, then one record-facts line — status, unsaved, last changed. No band, no subtitle
      * (§3y), no footer bar: an editor's Cancel and Save are one decision at one height, drawn where
-     * the ingredient editor draws them. The test ids did not move, and `actionsPlacement` /
-     * `headerVariant` are accepted and ignored, because there is now one treatment.
+     * the ingredient editor draws them — one treatment for every editor, so there is no placement
+     * or header variant to choose.
      */
-    void actionsPlacement;
-    void headerVariant;
 
     // The summary cards say what the status badge would, so a header carrying them drops it and
     // keeps only the dirty flag. Embedded there are no cards and nothing else states any of this.

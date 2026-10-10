@@ -211,12 +211,6 @@ export { CARD_PADDINGS, CARD_TONES, Card } from './content/card.tsx';
 export type { CardPadding, CardProps, CardTone } from './content/card.tsx';
 export { DerivedChipPanel } from './content/derived-chip-panel.tsx';
 export type { DerivedChipPanelProps } from './content/derived-chip-panel.tsx';
-export { ListSummaryCards, SUMMARY_CARD_TONES } from './content/list-summary-cards.tsx';
-export type {
-    ListSummaryCardsProps,
-    SummaryCard,
-    SummaryCardTone,
-} from './content/list-summary-cards.tsx';
 export { ListItem } from './content/list-item.tsx';
 export type { ListItemProps } from './content/list-item.tsx';
 export {
