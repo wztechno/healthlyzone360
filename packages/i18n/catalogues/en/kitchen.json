@@ -1884,7 +1884,6 @@
             },
             "addItem": "Add {{item}}",
             "addItemPriced": "Add {{item}}, {{price}}",
-            "more": "Showing {{shown}} of {{total}}. Search to find the rest.",
             "ticketTitle": "Ticket",
             "ticketEmpty": "Tap a product to start the ticket.",
             "each": "{{price}} each",

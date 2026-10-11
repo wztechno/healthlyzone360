@@ -2111,7 +2111,6 @@
             },
             "addItem": "أضف {{item}}",
             "addItemPriced": "أضف {{item}}، {{price}}",
-            "more": "يُعرض {{shown}} من {{total}}. ابحث للوصول إلى الباقي.",
             "ticketTitle": "الفاتورة",
             "ticketEmpty": "اضغط على منتج لبدء الفاتورة.",
             "each": "{{price}} للقطعة",

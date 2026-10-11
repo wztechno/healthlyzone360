@@ -3868,6 +3868,15 @@ export function ShowcaseScreen() {
                             setBoundDate('');
                         }}
                     />
+                    {/* Near the foot of a card: the month opens upward, clear of the frame. */}
+                    <DatePickerButton
+                        testID="showcase-date-picker-above"
+                        label={t('designSystem:showcase.dateLabel')}
+                        labelVisible
+                        side="above"
+                        value={startDate ?? '2026-08-03'}
+                        onChange={setStartDate}
+                    />
                     <CalendarGrid
                         testID="showcase-calendar"
                         label={t('designSystem:showcase.calendarLabel')}

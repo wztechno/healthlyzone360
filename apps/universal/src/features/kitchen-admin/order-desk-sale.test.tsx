@@ -823,6 +823,74 @@ describe('sale — Charge opens the checkout', () => {
     });
 });
 
+describe('sale — the menu turns pages, and the ticket says only what applies', () => {
+    it('pages the menu with the page buttons rather than a count to search past', async () => {
+        const listMeals = jest.fn(async (): Promise<CursorPage<MealAdmin>> => ({
+            ...pageOf([adminMeal()]),
+            totalCount: 19,
+            hasMore: true,
+        }));
+        await renderSale({ listMeals });
+        await untilVisible('kitchen-order-desk-sale-menu-pager');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-menu-pager-pages-page-2'));
+        });
+
+        await waitFor(() => {
+            expect(listMeals).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
+        });
+    });
+
+    it('says nothing about a missing customer once Back returns to the menu', async () => {
+        await renderSale({
+            quoteSale: async (request) =>
+                quoteFor(request, {
+                    orderRefusals:
+                        request.fulfilmentType !== 'counter' &&
+                        request.customerAccountId === undefined
+                            ? [{ reason: 'customer_required', context: {} }]
+                            : [],
+                }),
+        });
+        await tapMeal();
+        await chooseKind('pickup');
+        await untilVisible('kitchen-order-desk-sale-order-refusal-customer_required');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-back'));
+        });
+
+        await untilVisible(MEAL_TILE);
+        expect(
+            screen.queryByTestId('kitchen-order-desk-sale-order-refusal-customer_required'),
+        ).toBeNull();
+        // And the food alone can still be charged.
+        expect(screen.getByTestId(CHARGE)).toBeEnabled();
+    });
+
+    it('draws a subtotal only when there is a fee to add to it', async () => {
+        await renderSale({
+            quoteSale: async (request) => {
+                const quote = quoteFor(request);
+                return request.fulfilmentType === 'delivery'
+                    ? { ...quote, deliveryFeeMinor: 500, totalMinor: quote.subtotalMinor + 500 }
+                    : quote;
+            },
+        });
+        await tapMeal();
+        await untilVisible('kitchen-order-desk-sale-totals');
+        expect(screen.queryByTestId('kitchen-order-desk-sale-subtotal')).toBeNull();
+
+        await chooseKind('delivery');
+        await untilVisible('kitchen-order-desk-sale-fee');
+        expect(screen.getByTestId('kitchen-order-desk-sale-subtotal')).toHaveTextContent(
+            'AED 32.00',
+        );
+        expect(screen.getByTestId('kitchen-order-desk-sale-total')).toHaveTextContent('AED 37.00');
+    });
+});
+
 describe('sale — the slots the address zone offers', () => {
     it('offers only the zone’s slots on a delivery, and defaults among them', async () => {
         await renderSale({
@@ -877,6 +945,11 @@ describe('sale — the slots the address zone offers', () => {
                 }),
         });
         await tapMeal();
+        // A slot is a question of how the order leaves, so it is said in the checkout.
+        expect(
+            screen.queryByTestId('kitchen-order-desk-sale-order-refusal-window_not_offered'),
+        ).toBeNull();
+        await chooseKind('pickup');
 
         await untilVisible('kitchen-order-desk-sale-order-refusal-window_not_offered');
         expect(

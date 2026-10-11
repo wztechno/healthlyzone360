@@ -2950,6 +2950,20 @@ function keepAcrossPages<T>(key: readonly unknown[]) {
  */
 export const KITCHEN_PAGE_SIZE = 18;
 
+/**
+ * A list's cache scope with its page size, for the one caller that asks for another — the order
+ * desk menu, which pages by whole rows of its tile grid. The default size keeps the plain filter, so
+ * every other list's keys are what they were; a second size can never be served the first's pages.
+ */
+function scopedToPageSize<F extends object>(filter: F | undefined, perPage: number) {
+    return perPage === KITCHEN_PAGE_SIZE ? filter : { ...filter, perPage };
+}
+
+/** Pages in a numbered result asked at `perPage` rather than {@link KITCHEN_PAGE_SIZE}. */
+export function pagesInResultOf(page: CursorPage<unknown> | undefined, perPage: number) {
+    return page === undefined ? null : pageCount(page.totalCount, perPage);
+}
+
 export type PagedListResult<T> = UseQueryResult<CursorPage<T>, Error>;
 
 /**
@@ -3056,10 +3070,11 @@ export function useProductPageQuery(
     filter: ListFilter<ProductAdminFilter> | undefined,
     page: number,
     enabled = true,
+    perPage: number = KITCHEN_PAGE_SIZE,
 ): PagedListResult<ProductAdmin> {
     const { repositories } = useRepositoryContext();
 
-    const key = queryKeys.kitchenAdmin.productsPage(filter, page);
+    const key = queryKeys.kitchenAdmin.productsPage(scopedToPageSize(filter, perPage), page);
 
     return useQuery({
         queryKey: key,
@@ -3070,7 +3085,7 @@ export function useProductPageQuery(
             return repositories.kitchenAdmin.listProducts({
                 ...filter,
                 page,
-                perPage: KITCHEN_PAGE_SIZE,
+                perPage,
             });
         },
     });
@@ -3080,10 +3095,11 @@ export function useAdminMealPageQuery(
     filter: ListFilter<MealAdminFilter> | undefined,
     page: number,
     enabled = true,
+    perPage: number = KITCHEN_PAGE_SIZE,
 ): PagedListResult<MealAdmin> {
     const { repositories } = useRepositoryContext();
 
-    const key = queryKeys.kitchenAdmin.mealsPage(filter, page);
+    const key = queryKeys.kitchenAdmin.mealsPage(scopedToPageSize(filter, perPage), page);
 
     return useQuery({
         queryKey: key,
@@ -3094,7 +3110,7 @@ export function useAdminMealPageQuery(
             return repositories.kitchenAdmin.listMeals({
                 ...filter,
                 page,
-                perPage: KITCHEN_PAGE_SIZE,
+                perPage,
             });
         },
     });
