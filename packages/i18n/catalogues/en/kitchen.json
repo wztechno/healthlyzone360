@@ -28,14 +28,11 @@
         "countUnavailable": "Count unavailable",
         "emptyTitle": "Nothing in this workspace is open to you",
         "emptyBody": "Your role carries no catalogue permission in this organisation. Ask an administrator to grant one.",
-        "errorTitle": "The workspace summary could not be loaded",
         "publishedCount_one": "{{count}} published",
         "publishedCount_other": "{{count}} published",
         "kpi": {
             "needsReview": "Needs review",
             "drafts": "Catalogue drafts",
-            "publishedMeals": "Published meals",
-            "deliveryZones": "Delivery zones",
             "lowStock": "Low stock",
             "consumptionExceptions": "Stock gaps",
             "requirementShortfalls": "Short for the week"

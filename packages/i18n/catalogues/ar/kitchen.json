@@ -40,7 +40,6 @@
         "countUnavailable": "العدد غير متاح",
         "emptyTitle": "لا يوجد في هذه المساحة ما هو متاح لك",
         "emptyBody": "لا يحمل دورك أي صلاحية على الكتالوج في هذه المؤسسة. اطلب من أحد المسؤولين منحك واحدة.",
-        "errorTitle": "تعذّر تحميل ملخّص مساحة العمل",
         "publishedCount_zero": "لا شيء منشور",
         "publishedCount_one": "وصفة منشورة واحدة",
         "publishedCount_two": "وصفتان منشورتان",
@@ -50,8 +49,6 @@
         "kpi": {
             "needsReview": "يحتاج مراجعة",
             "drafts": "مسودات الكتالوج",
-            "publishedMeals": "وجبات منشورة",
-            "deliveryZones": "مناطق التوصيل",
             "lowStock": "مخزون منخفض",
             "consumptionExceptions": "نواقص المخزون",
             "requirementShortfalls": "نقص هذا الأسبوع"
