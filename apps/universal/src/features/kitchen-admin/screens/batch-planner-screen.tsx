@@ -143,16 +143,17 @@ function BatchPlanner() {
     const mode: BatchMode = version === null || version.yieldPieces === null ? 'yield' : modeChoice;
     const factor = version === null ? null : batchFactor(version, mode, parseQuantity(target));
 
+    /*
+     * The name on the list's one line, and the status only when it is not the ordinary one. The
+     * reference is searched, not shown: an import locator beside every name doubled the list.
+     */
     const recipeOptions: readonly SelectOption[] = recipeRows.map((row) => ({
         value: String(row.id),
         label: displayName(row.name, locale).value,
-        description: [
-            row.reference,
-            t('kitchen:ops.batch.versionCell', { number: row.currentVersionNumber }),
-            t(statusShortKey(row.meta.status)),
-        ]
-            .filter((part): part is string => part !== null)
-            .join(' · '),
+        ...(row.meta.status === 'published'
+            ? {}
+            : { description: t(statusShortKey(row.meta.status)) }),
+        ...(row.reference === null ? {} : { keywords: row.reference }),
     }));
 
     const recipesFailure = toFailure(recipes.error);

@@ -1231,7 +1231,8 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                         label={t('kitchen:ops.suppliers.linkItemLabel')}
                                         options={linkableItems.map((item) => ({
                                             value: String(item.id),
-                                            label: `${item.code} — ${item.nameEn}`,
+                                            label: item.nameEn,
+                                            keywords: item.code,
                                         }))}
                                         value={pickedItem}
                                         onChange={setPickedItem}

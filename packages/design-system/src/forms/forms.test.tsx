@@ -666,6 +666,29 @@ describe('Select', () => {
             expect(screen.queryByTestId('org-option-closed')).toBeNull();
         });
 
+        it('matches keywords it never draws, so a code can be typed without being shown', async () => {
+            await renderWithI18n(
+                <Select
+                    testID="org"
+                    id="org"
+                    label="Organisation"
+                    options={[
+                        { value: 'cedar', label: 'Cedar Clinic', keywords: 'ORG-0042' },
+                        { value: 'verdant', label: 'Verdant Kitchen' },
+                    ]}
+                    value={null}
+                    onChange={jest.fn()}
+                    searchable
+                />,
+            );
+            await fireEvent.press(screen.getByTestId('org-trigger'));
+            await fireEvent.changeText(screen.getByTestId('org-search-input'), 'org-0042');
+
+            expect(screen.getByTestId('org-option-cedar')).toBeTruthy();
+            expect(screen.queryByTestId('org-option-verdant')).toBeNull();
+            expect(screen.queryByText('ORG-0042')).toBeNull();
+        });
+
         /** A list that silently shrinks is a list a screen reader user never learns about. */
         it('announces the remaining count in a polite live region', async () => {
             await renderWithI18n(

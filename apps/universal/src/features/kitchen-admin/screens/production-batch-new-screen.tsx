@@ -193,13 +193,13 @@ function ProductionBatchNew() {
         () =>
             recipeRows.map((row) => ({
                 value: String(row.id),
-                // The reference and the status ride in the description because `Select`'s search
-                // matches on both fields, which makes `RC-0001` a way to find a row as well as a
-                // way to recognise one.
+                // The reference is a keyword: `RC-0001` still finds the row, without being drawn
+                // beside every name. The status is said only when it is not the ordinary one.
                 label: displayName(row.name, locale).value,
-                description: [row.reference, t(statusKey(row.meta.status))]
-                    .filter((part): part is string => part !== null)
-                    .join(' · '),
+                ...(row.meta.status === 'published'
+                    ? {}
+                    : { description: t(statusKey(row.meta.status)) }),
+                ...(row.reference === null ? {} : { keywords: row.reference }),
             })),
         [recipeRows, locale, t],
     );

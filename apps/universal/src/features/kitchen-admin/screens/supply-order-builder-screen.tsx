@@ -518,9 +518,11 @@ function SupplyOrderBuilder() {
                     (option: SupplierOption) => ({
                         value: String(option.id),
                         label: option.nameEn,
-                        description: option.isPreferred
-                            ? t('kitchen:ops.supplyOrders.preferredBadge')
-                            : option.code,
+                        // "Preferred" is worth the room; the code is searched, not drawn.
+                        ...(option.isPreferred
+                            ? { description: t('kitchen:ops.supplyOrders.preferredBadge') }
+                            : {}),
+                        keywords: option.code,
                     }),
                 );
                 const current = row.supplierOptions.find(
@@ -584,7 +586,7 @@ function SupplyOrderBuilder() {
                     (supplier) => ({
                         value: String(supplier.id),
                         label: supplier.nameEn,
-                        description: supplier.code,
+                        keywords: supplier.code,
                     }),
                 );
 

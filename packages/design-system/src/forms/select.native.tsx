@@ -333,16 +333,21 @@ export function Select<T extends string = string>({
                                                     />
                                                 ) : null}
                                             </View>
-                                            <View className="flex-1 flex-col gap-0.5">
-                                                <RNText className="text-base text-content-primary text-start">
-                                                    {option.label}
+                                            {/* One line, as on the web: the context at the end. */}
+                                            <RNText
+                                                numberOfLines={1}
+                                                className="min-w-0 flex-1 text-base text-content-primary text-start"
+                                            >
+                                                {option.label}
+                                            </RNText>
+                                            {option.description === undefined ? null : (
+                                                <RNText
+                                                    numberOfLines={1}
+                                                    className="shrink-0 text-xs text-content-secondary text-end"
+                                                >
+                                                    {option.description}
                                                 </RNText>
-                                                {option.description === undefined ? null : (
-                                                    <RNText className="text-xs text-content-secondary text-start">
-                                                        {option.description}
-                                                    </RNText>
-                                                )}
-                                            </View>
+                                            )}
                                         </Pressable>
                                     );
                                 })}

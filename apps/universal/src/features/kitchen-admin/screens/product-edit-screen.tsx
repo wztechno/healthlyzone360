@@ -468,7 +468,8 @@ function ProductEditor({
             ...recipeRows.map((row) => ({
                 value: String(row.id),
                 label: displayName(row.name, locale).value,
-                description: row.slug,
+                // Searched, not shown — see `SelectOption.keywords`.
+                keywords: row.slug,
             })),
         ],
         [recipeRows, locale, t],

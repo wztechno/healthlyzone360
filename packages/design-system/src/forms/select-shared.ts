@@ -17,7 +17,13 @@ import type { InputSize } from './text-input.tsx';
 export interface SelectOption<T extends string = string> {
     readonly value: T;
     readonly label: string;
+    /** A word or two of context, drawn at the end of the option's one line — a unit, a status. */
     readonly description?: string | undefined;
+    /**
+     * Text the search matches and the list never draws — a reference or a code a reader may type
+     * ("RC-0001", "SUP-01") but does not need to see beside every name.
+     */
+    readonly keywords?: string | undefined;
     readonly disabled?: boolean | undefined;
 }
 
@@ -64,8 +70,9 @@ export interface SelectProps<T extends string = string> extends GridSpanProps {
     readonly testID?: string | undefined;
 }
 
-/** Case-insensitive substring match over the two strings an option shows the reader. */
+/** Case-insensitive substring match over what an option shows the reader, and its keywords. */
 export function optionMatches(option: SelectOption, needle: string): boolean {
-    const haystack = `${option.label} ${option.description ?? ''}`.toLocaleLowerCase();
+    const haystack =
+        `${option.label} ${option.description ?? ''} ${option.keywords ?? ''}`.toLocaleLowerCase();
     return haystack.includes(needle);
 }

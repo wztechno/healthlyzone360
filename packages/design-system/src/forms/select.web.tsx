@@ -156,9 +156,10 @@ export function Select<T extends string = string>({
                         }}
                         className={cx(
                             'flex-row items-center gap-control-sm px-control-md',
-                            // §5's 28px rows, as a floor: an option with a description is two
-                            // lines and must not be clipped.
-                            density === 'compact' ? 'min-h-control-sm py-hair' : 'min-h-touch py-2',
+                            // One line per option, so the desk's list takes the smallest step and
+                            // shows twice the options a two-line row did. The phone keeps its
+                            // 44px target.
+                            density === 'compact' ? 'h-control-xs' : 'min-h-touch py-2',
                             // The row under the pointer or the keyboard is lit, so the reader sees
                             // which one a press or Enter will take — the chosen one keeps its brand
                             // tint over it.
@@ -180,25 +181,30 @@ export function Select<T extends string = string>({
                                 />
                             ) : null}
                         </View>
-                        <View className="min-w-0 flex-1 flex-col">
+                        {/*
+                         * The name and its context on one line: the name takes what is left and
+                         * truncates, the description keeps its own width at the row's end.
+                         */}
+                        <RNText
+                            className={cx(
+                                'min-w-0 flex-1 text-content-primary text-start',
+                                textClass,
+                            )}
+                            numberOfLines={1}
+                        >
+                            {option.label}
+                        </RNText>
+                        {option.description === undefined ? null : (
                             <RNText
-                                className={cx('text-content-primary text-start', textClass)}
+                                className={cx(
+                                    'shrink-0 text-content-secondary text-end',
+                                    density === 'compact' ? 'text-role-caption' : 'text-xs',
+                                )}
                                 numberOfLines={1}
                             >
-                                {option.label}
+                                {option.description}
                             </RNText>
-                            {option.description === undefined ? null : (
-                                <RNText
-                                    className={cx(
-                                        'text-content-secondary text-start',
-                                        density === 'compact' ? 'text-role-caption' : 'text-xs',
-                                    )}
-                                    numberOfLines={1}
-                                >
-                                    {option.description}
-                                </RNText>
-                            )}
-                        </View>
+                        )}
                     </Pressable>
                 );
             })}

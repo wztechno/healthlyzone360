@@ -264,9 +264,11 @@ function PostReceipt() {
     const orderSupplierId = order?.supplier == null ? null : String(order.supplier.id);
 
     const supplierOptions = useMemo(() => {
+        // Named by name; the code is searched, not drawn — see `SelectOption.keywords`.
         const options: SelectOption<string>[] = (suppliers.data ?? []).map((row) => ({
             value: String(row.id),
-            label: `${row.code} — ${displayName(row.name, locale).value}`,
+            label: displayName(row.name, locale).value,
+            keywords: row.code,
         }));
         // An order's supplier is shown even when the book has since archived it.
         if (
@@ -275,7 +277,8 @@ function PostReceipt() {
         ) {
             options.push({
                 value: String(order.supplier.id),
-                label: `${order.supplier.code} — ${order.supplier.nameEn}`,
+                label: order.supplier.nameEn,
+                keywords: order.supplier.code,
             });
         }
         return options;
@@ -283,20 +286,16 @@ function PostReceipt() {
 
     const orderOptions = useMemo(
         () =>
+            // The order's number and supplier on the list's one line, its status at the end —
+            // as the receiving screen's order picker reads.
             orderRows.map((row) => ({
                 value: String(row.id),
-                label: t('kitchen:ops.procurement.orderOption', {
-                    number: row.number,
-                    supplier:
-                        row.supplier === null
-                            ? t('kitchen:ops.procurement.noSupplier')
-                            : (supplierNameById.get(String(row.supplier.id)) ??
-                              row.supplier.nameEn),
-                    status: t(purchaseOrderStatusKey(row.status)),
-                    outstanding: t('kitchen:ops.procurement.orderOutstanding', {
-                        count: row.outstandingLineCount,
-                    }),
-                }),
+                label: `${row.number} — ${
+                    row.supplier === null
+                        ? t('kitchen:ops.procurement.noSupplier')
+                        : (supplierNameById.get(String(row.supplier.id)) ?? row.supplier.nameEn)
+                }`,
+                description: t(purchaseOrderStatusKey(row.status)),
             })),
         [orderRows, supplierNameById, t],
     );
@@ -384,6 +383,7 @@ function PostReceipt() {
             value: String(item.id),
             label: item.nameEn,
             ...((nameCount.get(item.nameEn) ?? 0) > 1 ? { description: item.code } : {}),
+            keywords: item.code,
         }));
     }, [stockItems.data]);
 
