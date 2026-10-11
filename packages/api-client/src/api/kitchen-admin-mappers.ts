@@ -487,6 +487,29 @@ export function mapDeliveryZonePublishableStatus(status: DeliveryZoneStatus): Pu
 }
 
 /**
+ * The inverses of the two mappers above, for the index endpoints' single `status` filter.
+ *
+ * Stated per family because the words differ: a price list's not-yet-live state is `draft` on the
+ * wire, a zone's is `inactive`. `review_required` is `null` in both — neither mapper produces it, so
+ * no row of either family can be in it.
+ */
+export const PRICE_LIST_WIRE_STATUS: Readonly<Record<PublishableStatus, PriceListStatus | null>> = {
+    published: 'active',
+    draft: 'draft',
+    retired: 'archived',
+    review_required: null,
+};
+
+export const DELIVERY_ZONE_WIRE_STATUS: Readonly<
+    Record<PublishableStatus, DeliveryZoneStatus | null>
+> = {
+    published: 'active',
+    draft: 'inactive',
+    retired: 'archived',
+    review_required: null,
+};
+
+/**
  * A recipe's state as a list renders it: the current version's, unless the identity is archived.
  *
  * The archive check comes first because it is the one fact the *identity* owns. `recipes.status` is

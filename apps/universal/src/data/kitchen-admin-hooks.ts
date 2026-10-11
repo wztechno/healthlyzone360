@@ -1515,7 +1515,7 @@ export function priceListTotalFromPages(
 /**
  * The kitchen's price lists.
  *
- * `listPriceLists` answers with whole {@link PriceListAdmin} records — **entries included** — so the
+ * `listPriceLists` answers this hook with whole {@link PriceListAdmin} records (`includeEntries`), so the
  * list screen's confirmed/placeholder/market split costs no extra request per row. That is worth
  * stating because it is also the reason the list is capped rather than infinite in spirit: a
  * thousand-entry list is a large page, and the "load more" control is the honest place that shows.
@@ -1534,6 +1534,7 @@ export function usePriceListsQuery(
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenAdmin.listPriceLists({
                 ...filter,
+                includeEntries: true,
                 ...(pageParam === undefined ? {} : { cursor: pageParam }),
             });
         },
@@ -2863,7 +2864,7 @@ export function useReviewQueueQuery(enabled = true): UseQueryResult<ReviewQueueS
                 repositories.kitchenAdmin.listProducts({ ...quarantine }),
                 repositories.kitchenAdmin.listMeals({ ...quarantine }),
                 repositories.kitchenAdmin.listPlans({ ...quarantine }),
-                repositories.kitchenAdmin.listPriceLists({ limit }),
+                repositories.kitchenAdmin.listPriceLists({ limit, includeEntries: true }),
             ]);
 
             const pages = [
@@ -3189,6 +3190,7 @@ export function usePriceListPageQuery(
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenAdmin.listPriceLists({
                 ...filter,
+                includeEntries: true,
                 page,
                 perPage: KITCHEN_PAGE_SIZE,
             });
@@ -3355,7 +3357,12 @@ export function usePriceListWholeSetQuery(
     return useWholeSetQuery(
         queryKeys.kitchenAdmin.priceListsPage(scoped, 0),
         (repositories, page, perPage) =>
-            repositories.kitchenAdmin.listPriceLists({ ...scoped, page, perPage }),
+            repositories.kitchenAdmin.listPriceLists({
+                ...scoped,
+                includeEntries: true,
+                page,
+                perPage,
+            }),
         enabled,
     );
 }

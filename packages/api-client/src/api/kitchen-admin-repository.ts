@@ -31,6 +31,7 @@ import type {
     PlanMenu,
     PriceListAdmin,
     PriceListAdminFilter,
+    PublishableStatus,
     ProductAdmin,
     ProductAdminFilter,
     RecipeAdmin,
@@ -77,6 +78,8 @@ import type {
 import {
     apiStatusForPublishableFilter,
     buildCategoryLookup,
+    DELIVERY_ZONE_WIRE_STATUS,
+    PRICE_LIST_WIRE_STATUS,
     mapIngredientCategoryAdmin,
     type WireRecipePackagingLine,
     buildSalesChannelLookup,
@@ -259,6 +262,35 @@ function cursorQuery(
     const rendered = search.toString();
     return rendered === '' ? '' : `?${rendered}`;
 }
+
+/**
+ * The single wire `status` a price-list or zone index takes, from the contract's `statuses`.
+ *
+ * `undefined` is no filter; `null` is a filter no row can satisfy (only unreachable states such as
+ * `review_required`), answered without a request. Two distinct wire states are refused: the index
+ * takes one, and dropping the filter would widen the answer while the default also hides archived.
+ */
+function soleLifecycleStatus<TWire extends string>(
+    statuses: readonly PublishableStatus[] | undefined,
+    toWire: Readonly<Record<PublishableStatus, TWire | null>>,
+): TWire | null | undefined {
+    if (statuses === undefined || statuses.length === 0) return undefined;
+
+    const wire = [...new Set(statuses.map((status) => toWire[status]))].filter(
+        (status): status is TWire => status !== null,
+    );
+    if (wire.length === 0) return null;
+    if (wire.length > 1) {
+        throwFailure(
+            apiFailure('server', {
+                message: `The list filters on one status at a time; ${wire.join(' and ')} were both asked for.`,
+            }),
+        );
+    }
+    return wire[0];
+}
+
+const NOTHING_MATCHES = { items: [], nextCursor: null, hasMore: false, totalCount: 0 } as const;
 
 /**
  * The one allergen class an endpoint can take, out of a filter that is typed to carry several.
@@ -455,8 +487,16 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
 
             const statuses = filter?.statuses;
             if (statuses !== undefined && statuses.length === 1) {
-                const apiStatus = apiStatusForPublishableFilter(statuses[0]!);
-                if (apiStatus !== null) search.set('status', apiStatus);
+                const only = statuses[0]!;
+                // `review_required` is the verification axis, not the lifecycle one (see
+                // `mapIngredientPublishableStatus`): unarchived and `requires_review`. Unarchived
+                // is the browse default, so the verification filter alone is the whole predicate.
+                if (only === 'review_required') {
+                    search.set('verification_status', 'requires_review');
+                } else {
+                    const apiStatus = apiStatusForPublishableFilter(only);
+                    if (apiStatus !== null) search.set('status', apiStatus);
+                }
             }
 
             if (filter?.categoryCode !== undefined) {
@@ -561,12 +601,9 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 mapIngredientAdmin(wire, lookup),
             );
 
+            // A single status is answered by the server above; only a union is left.
             const needsClientStatusFilter =
-                filter?.statuses !== undefined &&
-                (filter.statuses.length > 1 ||
-                    filter.statuses.some(
-                        (status) => apiStatusForPublishableFilter(status) === null,
-                    ));
+                filter?.statuses !== undefined && filter.statuses.length > 1;
 
             if (!needsClientStatusFilter && filter?.ownedOnly !== true) {
                 // The single-code case was answered by the server above; only a union is left.
@@ -989,21 +1026,26 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         },
 
         async listPriceLists(filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {
+            const status = soleLifecycleStatus(filter?.statuses, PRICE_LIST_WIRE_STATUS);
+            if (status === null) return NOTHING_MATCHES;
+
             const envelope = await transport.requestEnvelope<AdminPriceList[]>({
                 method: 'GET',
-                path: `/catalogue/price-lists${cursorQuery(pickCursorFilter(filter))}`,
+                path: `/catalogue/price-lists${cursorQuery(pickCursorFilter(filter), { status })}`,
             });
 
             const meta = envelope.meta as PaginatedOrNumberedMeta;
             const page = mapAdminCursorPage(envelope.data, meta, (wire) => mapPriceListAdmin(wire));
 
             /*
-             * Whole records, entries and channels included — the contract every caller reads this
-             * with. The plan editor's publish gate counts a plan's confirmed prices from it, and the
-             * price-list screen its entry counts; the index endpoint carries neither, and mapping
-             * it alone drew every list as "Nothing priced yet" and refused to publish any plan.
-             * One full read per list, in parallel: a kitchen has a handful of lists, not hundreds.
+             * Whole records only on request. The plan editor's publish gate counts a plan's
+             * confirmed prices from the entries, the price-list screen its entry split and the
+             * review queue its inconsistent rows, so those callers pass `includeEntries`; mapping the
+             * index alone drew every list as "Nothing priced yet" for them. A count passes nothing
+             * and costs one request rather than 1 + 2 per row.
              */
+            if (filter?.includeEntries !== true) return page;
+
             const items = await Promise.all(page.items.map((list) => reads.getPriceList(list.id)));
             return { ...page, items };
         },
@@ -1077,9 +1119,12 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         },
 
         async listZones(filter?: DeliveryZoneAdminFilter): Promise<CursorPage<DeliveryZoneAdmin>> {
+            const status = soleLifecycleStatus(filter?.statuses, DELIVERY_ZONE_WIRE_STATUS);
+            if (status === null) return NOTHING_MATCHES;
+
             const envelope = await transport.requestEnvelope<DeliveryZone[]>({
                 method: 'GET',
-                path: `/catalogue/delivery-zones${cursorQuery(pickCursorFilter(filter))}`,
+                path: `/catalogue/delivery-zones${cursorQuery(pickCursorFilter(filter), { status })}`,
             });
 
             const meta = envelope.meta as PaginatedOrNumberedMeta;

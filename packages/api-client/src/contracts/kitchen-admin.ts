@@ -1589,6 +1589,12 @@ export interface PriceListAdminFilter extends CursorPageRequest, OffsetPageReque
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly channels?: readonly SalesChannel[] | undefined;
     readonly currency?: CurrencyCode | undefined;
+    /**
+     * Answer whole records — every entry and the channel assignments — at two extra requests per
+     * list. Without it the rows are the index's headers: `entries` empty and `channels` read off
+     * `customer_scope`, which is all a count or a picker needs.
+     */
+    readonly includeEntries?: boolean | undefined;
 }
 
 export interface SetPriceListEntriesRequest extends LockedRequest {

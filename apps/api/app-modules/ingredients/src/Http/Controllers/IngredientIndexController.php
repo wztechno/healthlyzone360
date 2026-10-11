@@ -6,6 +6,7 @@ namespace Healthy360\Ingredients\Http\Controllers;
 
 use Closure;
 use Healthy360\Ingredients\Enums\IngredientStatus;
+use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAlias;
 use Healthy360\Ingredients\Presenters\IngredientPresenter;
@@ -74,6 +75,7 @@ final class IngredientIndexController
         }
 
         $this->applyStatus($request, $query, $byIds);
+        $this->applyVerificationStatus($request, $query);
         $this->applyCategory($request, $query);
         $this->applyExcludedCategory($request, $query);
         $this->applyReferenceSeries($request, $query);
@@ -372,6 +374,36 @@ final class IngredientIndexController
         }
 
         $query->where('status', $status);
+    }
+
+    /**
+     * Restrict to one verification state — the kitchen list's "needs review" is
+     * `verification_status=requires_review` over the default (unarchived) browse.
+     *
+     * The client derives `review_required` from this axis, so without it a count of that state had
+     * to walk every page and filter in the browser. Here it is one `WHERE` before the count.
+     *
+     * @param  Builder<Ingredient>  $query
+     *
+     * @throws ApiException
+     */
+    private function applyVerificationStatus(Request $request, Builder $query): void
+    {
+        $verification = $request->query('verification_status');
+
+        if ($verification === null || $verification === '') {
+            return;
+        }
+
+        if (! is_string($verification) || IngredientVerificationStatus::tryFrom($verification) === null) {
+            throw new ApiException(
+                ErrorCode::RequestInvalid,
+                'The verification status filter must be one of: verified, unverified, requires_review.',
+                ['parameter' => 'verification_status'],
+            );
+        }
+
+        $query->where('verification_status', $verification);
     }
 
     /**

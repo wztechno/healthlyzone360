@@ -10220,6 +10220,7 @@ export const zListIngredientsQuery = z.object({
     per_page: z.int().gte(1).lte(100).optional().default(25),
     query: z.string().max(160).optional(),
     status: zIngredientStatus.optional(),
+    verification_status: zIngredientVerificationStatus.optional(),
     category: zUuid.optional(),
     exclude_category: zUuid.optional(),
     reference_series: z.enum(['ING-', 'PKG-']).optional(),

@@ -9,6 +9,7 @@ use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Ingredients\Enums\IngredientStatus;
+use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAlias;
 use Healthy360\Ingredients\Models\IngredientAllergen;
@@ -692,6 +693,38 @@ it('states the keyset total of the filtered set, whatever the limit and cursor',
         ->assertOk()
         ->assertJsonCount(5, 'data')
         ->assertJsonPath('meta.total', 5);
+});
+
+it('narrows to the review state the kitchen list derives, counted before the page', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $org = $this->a->organisation->getKey();
+
+    // The client's `review_required` is unarchived *and* `requires_review`; these are exactly the
+    // rows it kept when it filtered the page itself.
+    $kept = [
+        Ingredient::factory()->create(['organisation_id' => $org, 'name_en' => 'Reviewprobe active', 'status' => IngredientStatus::Active, 'verification_status' => IngredientVerificationStatus::RequiresReview]),
+        Ingredient::factory()->create(['organisation_id' => $org, 'name_en' => 'Reviewprobe inactive', 'status' => IngredientStatus::Inactive, 'verification_status' => IngredientVerificationStatus::RequiresReview]),
+    ];
+    Ingredient::factory()->archived()->create(['organisation_id' => $org, 'name_en' => 'Reviewprobe archived', 'verification_status' => IngredientVerificationStatus::RequiresReview]);
+    Ingredient::factory()->create(['organisation_id' => $org, 'name_en' => 'Reviewprobe verified', 'status' => IngredientStatus::Active, 'verification_status' => IngredientVerificationStatus::Verified]);
+    Ingredient::factory()->create(['organisation_id' => $org, 'name_en' => 'Reviewprobe unverified', 'status' => IngredientStatus::Inactive, 'verification_status' => IngredientVerificationStatus::Unverified]);
+
+    $all = $this->getJson('/api/v1/catalogue/ingredients?query=reviewprobe&verification_status=requires_review&limit=100', $headers)
+        ->assertOk()
+        ->assertJsonPath('meta.total', 2);
+
+    expect(collect($all->json('data'))->pluck('id')->sort()->values()->all())
+        ->toBe(collect($kept)->map(fn (Ingredient $row): string => (string) $row->getKey())->sort()->values()->all());
+
+    $this->getJson('/api/v1/catalogue/ingredients?query=reviewprobe&verification_status=requires_review&limit=1', $headers)
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('meta.total', 2);
+
+    $this->getJson('/api/v1/catalogue/ingredients?verification_status=doubtful', $headers)
+        ->assertStatus(400)
+        ->assertJsonPath('error.code', 'request.invalid');
 });
 
 it('refuses a page past the end, and a page size outside the range', function (): void {

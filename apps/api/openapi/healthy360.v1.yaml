@@ -1622,6 +1622,16 @@ paths:
           description: Restrict to one lifecycle state. Omitted, the list covers `active` and `inactive`.
           schema:
             $ref: '#/components/schemas/IngredientStatus'
+        - name: verification_status
+          in: query
+          required: false
+          description: |
+            Restrict to one verification state. Combines with `status`, so
+            `verification_status=requires_review` alone is the kitchen's
+            "needs review" set: unarchived rows awaiting a human. Applied before
+            the count, so `meta.total` describes the filtered set.
+          schema:
+            $ref: '#/components/schemas/IngredientVerificationStatus'
         - name: category
           in: query
           required: false

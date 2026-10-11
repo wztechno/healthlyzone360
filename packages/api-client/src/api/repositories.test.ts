@@ -2877,14 +2877,43 @@ describe('numbered pages on the kitchen catalogue (docs/api/conventions.md)', ()
             },
         ]);
 
-        // `review_required` has no server filter, so the page is filtered here and the server's
-        // 412 counts rows this answer does not describe.
+        // A union of statuses has no server filter, so the page is filtered here and the
+        // server's 412 counts rows this answer does not describe.
+        const page = await repositories.kitchenAdmin.listIngredients({
+            limit: 1,
+            statuses: ['review_required', 'draft'],
+        });
+
+        expect(page.totalCount).toBeNull();
+    });
+
+    it('asks the server for review_required and keeps its total', async () => {
+        const { repositories, calls } = harness([
+            CATEGORIES_OK,
+            {
+                status: 200,
+                body: {
+                    data: [ingredientRow('a')],
+                    meta: {
+                        correlation_id: 'c-review',
+                        count: 1,
+                        next_cursor: 'abc',
+                        has_more: true,
+                        total: 7,
+                    },
+                },
+            },
+        ]);
+
         const page = await repositories.kitchenAdmin.listIngredients({
             limit: 1,
             statuses: ['review_required'],
         });
 
-        expect(page.totalCount).toBeNull();
+        const url = new URL(calls[1]!.url);
+        expect(url.searchParams.get('verification_status')).toBe('requires_review');
+        expect(url.searchParams.has('status')).toBe(false);
+        expect(page.totalCount).toBe(7);
     });
 });
 

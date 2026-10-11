@@ -15436,6 +15436,14 @@ export type ListIngredientsData = {
          */
         status?: IngredientStatus;
         /**
+         * Restrict to one verification state. Combines with `status`, so
+         * `verification_status=requires_review` alone is the kitchen's
+         * "needs review" set: unarchived rows awaiting a human. Applied before
+         * the count, so `meta.total` describes the filtered set.
+         *
+         */
+        verification_status?: IngredientVerificationStatus;
+        /**
          * Restrict to one category or sub-category identifier.
          */
         category?: Uuid;
