@@ -701,7 +701,6 @@ function ProductionBatchNew() {
                                         id="kitchen-production-batch-new-notes"
                                         size="sm"
                                         label={t('kitchen:ops.production.notesLabel')}
-                                        hint={t('kitchen:ops.production.notesHint')}
                                         placeholder={t('kitchen:ops.production.notesPlaceholder')}
                                         value={notes}
                                         multiline
@@ -814,9 +813,6 @@ function ProductionBatchNew() {
                             }
                             danger={shortCount !== null && shortCount > 0}
                         />
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:ops.production.summaryFoot')}
-                        </Text>
                     </Card>
 
                     <NextSteps />

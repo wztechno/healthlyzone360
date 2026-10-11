@@ -96,6 +96,9 @@
         "month": "Month",
         "year": "Year"
     },
+    "infoTip": {
+        "label": "About {{label}}"
+    },
     "datePicker": {
         "previousMonth": "Previous month",
         "nextMonth": "Next month",

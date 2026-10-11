@@ -27,6 +27,7 @@ import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
 import { ActionSheet } from './action-sheet.tsx';
 import { Dialog } from './dialog.tsx';
 import { DRAWER_PLACEMENTS, Drawer } from './drawer.tsx';
+import { InfoTip } from './info-tip.tsx';
 import { Popover } from './popover.tsx';
 import { ToastProvider, useToast } from './toast.tsx';
 
@@ -645,5 +646,41 @@ describe('Popover', () => {
 
         await fireEvent.press(screen.getByTestId('why-trigger'));
         assertSubtreeIsLogical(screen.getByTestId('why'));
+    });
+});
+
+describe('InfoTip', () => {
+    it('names itself after what it explains and carries the sentence as its description', async () => {
+        await renderWithI18n(
+            <InfoTip
+                testID="tip"
+                label="Driver"
+                text="Leave it empty and any driver can claim it."
+            />,
+        );
+
+        const trigger = screen.getByTestId('tip-trigger');
+        expect(trigger).toHaveAccessibleName('About Driver');
+        expect(trigger.props.accessibilityHint).toBe('Leave it empty and any driver can claim it.');
+        // Nothing is drawn until somebody asks — the tip takes no room on the page.
+        expect(screen.queryByTestId('tip-bubble')).toBeNull();
+    });
+
+    it('opens on press and closes on a second press', async () => {
+        await renderWithI18n(
+            <InfoTip testID="tip" label="Driver" text="Any driver can claim it." />,
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('tip-trigger'));
+        });
+        expect(screen.getByTestId('tip-bubble', { includeHiddenElements: true })).toHaveTextContent(
+            'Any driver can claim it.',
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('tip-trigger'));
+        });
+        expect(screen.queryByTestId('tip-bubble', { includeHiddenElements: true })).toBeNull();
     });
 });

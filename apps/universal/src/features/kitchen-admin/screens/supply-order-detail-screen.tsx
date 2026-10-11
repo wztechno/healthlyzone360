@@ -943,17 +943,6 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                             }),
                         })),
                     }}
-                    note={
-                        data.receipts.length === 0 ? null : (
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                testID="kitchen-supply-order-detail-receipts-note"
-                            >
-                                {t('kitchen:ops.supplyOrders.receiptsNote')}
-                            </Text>
-                        )
-                    }
                 />
             </View>
 

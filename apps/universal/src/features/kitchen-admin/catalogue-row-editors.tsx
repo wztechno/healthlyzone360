@@ -332,10 +332,6 @@ export function PackVariantEditor({ rows, onChange, errors, canManage, testID }:
                         rowKey={(row) => row.key}
                         density="sm"
                     />
-
-                    <Text testID={`${testID}-caption`} variant="caption" tone="secondary">
-                        {t('kitchen:products.packsCaption')}
-                    </Text>
                 </>
             )}
 
@@ -778,10 +774,6 @@ export function MealAvailabilityEditor({
                         rowKey={(row) => row.key}
                         density="sm"
                     />
-
-                    <Text testID={`${testID}-caption`} variant="caption" tone="secondary">
-                        {t('kitchen:availability.rowCaption')}
-                    </Text>
                 </>
             )}
 

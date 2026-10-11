@@ -651,7 +651,6 @@ function Stock() {
                         value: lastPurchaseText(viewing),
                     },
                 ]}
-                footNote={t('kitchen:ops.stock.ledgerNote')}
                 {...(canManage
                     ? {
                           primaryAction: {

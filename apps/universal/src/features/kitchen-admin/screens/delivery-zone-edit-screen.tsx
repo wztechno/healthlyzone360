@@ -1154,9 +1154,6 @@ function ZoneWindowAssignment({
 
     return (
         <Stack space="sm">
-            <Text variant="caption" tone="secondary">
-                {t('kitchen:zoneWindows.intro')}
-            </Text>
             {all.length === 0 ? (
                 <Text testID="kitchen-zone-windows-none" tone="secondary">
                     {t('kitchen:zoneWindows.none')}

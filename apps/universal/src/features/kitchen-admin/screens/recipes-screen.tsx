@@ -952,9 +952,6 @@ function channelSection(row: RecipeAdminSummary, t: TFunction): RecordViewSectio
                         ))}
                     </Inline>
                 )}
-                <Text variant="caption" tone="secondary">
-                    {t('kitchen:products.viewChannelsCaption')}
-                </Text>
             </Stack>
         ),
     };

@@ -9,7 +9,6 @@ import {
     Button,
     Callout,
     Cascade,
-    DataList,
     EmptyState,
     ErrorState,
     FormSection,
@@ -59,7 +58,7 @@ import {
     kitchenQuotationTotalMinor,
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ColumnPicker, WithColumnPicker } from '../catalogue/column-picker.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/quotations` — what corporate buyers have asked this kitchen to price (B4), as
@@ -628,21 +627,25 @@ function QuotationPricing({
                     <FormSection
                         title={t('kitchen:ops.quotations.linesHeading')}
                         testID="kitchen-quotations-detail-lines-section"
+                        actions={
+                            lines.length === 0 ? undefined : (
+                                <ColumnPicker {...lineControls.picker} />
+                            )
+                        }
                     >
                         {lines.length === 0 ? (
                             <Text testID="kitchen-quotations-detail-no-lines" tone="secondary">
                                 {t('kitchen:ops.quotations.noLines')}
                             </Text>
                         ) : (
-                            <WithColumnPicker picker={lineControls.picker}>
-                                <DataList<KitchenQuotationLine>
-                                    testID="kitchen-quotations-detail-lines"
-                                    label={t('kitchen:ops.quotations.linesHeading')}
-                                    columns={lineControls.columns}
-                                    rows={lineControls.rows}
-                                    rowKey={(line) => line.id}
-                                />
-                            </WithColumnPicker>
+                            <CatalogueList<KitchenQuotationLine>
+                                testID="kitchen-quotations-detail-lines"
+                                label={t('kitchen:ops.quotations.linesHeading')}
+                                columns={lineControls.columns}
+                                rows={lineControls.rows}
+                                rowKey={(line) => line.id}
+                                rowActionsLabel={t('kitchen:list.rowActions')}
+                            />
                         )}
                         <View
                             testID="kitchen-quotations-detail-totals"

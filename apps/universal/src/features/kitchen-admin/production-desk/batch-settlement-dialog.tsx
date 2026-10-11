@@ -4,6 +4,8 @@ import {
     DateField,
     Dialog,
     Heading,
+    InfoTip,
+    Inline,
     QuantityInput,
     Stack,
     Text,
@@ -183,13 +185,18 @@ export function BatchSettlementDialog({
 
                 {rows.length === 0 ? null : (
                     <Stack space="sm">
-                        <Heading level={3}>{t('kitchen:ops.production.consumedHeading')}</Heading>
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:ops.production.consumedHint')}
-                        </Text>
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:ops.production.wasteHint')}
-                        </Text>
+                        <Inline space="xs" align="center">
+                            <Heading level={3}>
+                                {t('kitchen:ops.production.consumedHeading')}
+                            </Heading>
+                            <InfoTip
+                                testID="kitchen-batch-settle-consumed-info"
+                                label={t('kitchen:ops.production.consumedHeading')}
+                                text={`${t('kitchen:ops.production.consumedHint')} ${t(
+                                    'kitchen:ops.production.wasteHint',
+                                )}`}
+                            />
+                        </Inline>
                         {rows.map((line) => {
                             const id = String(line.stockItemId);
 
@@ -297,7 +304,6 @@ export function BatchSettlementDialog({
                         testID={`${testID}-reason`}
                         id={`${testID}-reason`}
                         label={t('kitchen:ops.production.abandonReasonLabel')}
-                        hint={t('kitchen:ops.production.abandonReasonHint')}
                         placeholder={t('kitchen:ops.production.abandonReasonPlaceholder')}
                         value={draft.reason}
                         required

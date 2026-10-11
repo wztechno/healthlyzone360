@@ -1741,6 +1741,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                                 testID="kitchen-plan-menu-cycle-days"
                                                 id="kitchen-plan-menu-cycle-days"
                                                 label={t('kitchen:plans.menuCycleDaysLabel')}
+                                                hint={t('kitchen:plans.menuExplainer')}
                                                 /*
                                                  * The day number counts calendar days from day 1,
                                                  * so only a whole number of weeks keeps Monday's
@@ -1830,13 +1831,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                             )}
                                         </View>
                                     </View>
-                                    <Text
-                                        testID="kitchen-plan-menu-explainer"
-                                        variant="caption"
-                                        tone="secondary"
-                                    >
-                                        {t('kitchen:plans.menuExplainer')}
-                                    </Text>
 
                                     {menuBlockers.length === 0 ? null : (
                                         <Callout

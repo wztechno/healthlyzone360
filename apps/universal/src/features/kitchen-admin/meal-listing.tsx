@@ -16,6 +16,7 @@ import {
     FormSection,
     FormSkeleton,
     Icon,
+    InfoTip,
     Inline,
     Select,
     Stack,
@@ -699,6 +700,19 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                             <Text variant="micro" tone="secondary">
                                 {t('kitchen:meals.allergensRailTitle')}
                             </Text>
+                            {data === undefined ? null : (
+                                <InfoTip
+                                    testID="kitchen-meal-allergens-provenance"
+                                    label={t('kitchen:meals.allergensRailTitle')}
+                                    text={
+                                        data.recipeVersionId == null
+                                            ? t('kitchen:meals.allergensRailFrozen')
+                                            : t('kitchen:meals.allergensProvenance', {
+                                                  version: String(data.recipeVersionId),
+                                              })
+                                    }
+                                />
+                            )}
                             <Badge
                                 testID="kitchen-meal-allergens-source"
                                 tone="neutral"
@@ -726,18 +740,6 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                                 ))}
                             </Inline>
                         )}
-
-                        <Text
-                            testID="kitchen-meal-allergens-provenance"
-                            variant="caption"
-                            tone="secondary"
-                        >
-                            {data?.recipeVersionId == null
-                                ? t('kitchen:meals.allergensRailFrozen')
-                                : t('kitchen:meals.allergensProvenance', {
-                                      version: String(data.recipeVersionId),
-                                  })}
-                        </Text>
                     </View>
 
                     <View
@@ -764,9 +766,6 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                                     tone="secondary"
                                 >
                                     {t('kitchen:meals.marginEmpty')}
-                                </Text>
-                                <Text variant="caption" tone="secondary">
-                                    {t('kitchen:meals.marginUnknown')}
                                 </Text>
                             </>
                         ) : (
@@ -948,11 +947,6 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                     variant="card"
                     testID="kitchen-meal-production"
                     title={t('kitchen:meals.sectionProduction')}
-                    aside={
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:meals.sectionProductionHint')}
-                        </Text>
-                    }
                 >
                     <Stack space="md">
                         <View className="z-auto flex-col gap-base md:flex-row">
@@ -1095,11 +1089,6 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                     variant="card"
                     testID="kitchen-meal-types-section"
                     title={t('kitchen:meals.sectionWhen')}
-                    aside={
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:meals.sectionWhenHint')}
-                        </Text>
-                    }
                 >
                     <Inline space="xs" wrap testID="kitchen-meal-types">
                         {MEAL_TYPES.map((type) => (

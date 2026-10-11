@@ -389,11 +389,6 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
                         rowSize="sm"
                     />
                 )}
-                {version.packaging.length === 0 ? null : (
-                    <Text variant="caption" tone="secondary">
-                        {t('kitchen:ops.batch.roundingFoot')}
-                    </Text>
-                )}
             </FormSection>
         </>
     );

@@ -258,7 +258,6 @@ export function CustomerSection({
                                     testID="kitchen-order-desk-sale-customer-name"
                                     id="kitchen-order-desk-sale-customer-name"
                                     label={t('kitchen:desk.sale.customerNameLabel')}
-                                    hint={t('kitchen:desk.sale.customerNameHint')}
                                     placeholder={t('kitchen:desk.sale.customerNamePlaceholder')}
                                     size="sm"
                                     required

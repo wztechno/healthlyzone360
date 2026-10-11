@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Text as RNText, View } from 'react-native';
 
+import { InfoTip } from '../overlays/info-tip.tsx';
 import { Separator } from '../primitives/separator.tsx';
 import { cx } from '../internal/class-names.ts';
 
@@ -21,7 +22,7 @@ import { cx } from '../internal/class-names.ts';
 export interface FormSectionProps {
     /** Renders on the `section` step — 13px, 600, sentence case. */
     readonly title: string;
-    /** One line under the title. Long enough to explain a rule, short enough not to be read twice. */
+    /** Guidance the section genuinely needs, behind an (i) beside the title — see `InfoTip`. */
     readonly description?: string | undefined;
     /**
      * Sits immediately after the title, on its baseline — a `From database` badge, or the one line
@@ -110,16 +111,24 @@ export function FormSection({
                         >
                             {title}
                         </RNText>
+                        {/*
+                         * The description is a tip beside the title, not a paragraph under it:
+                         * a sentence there pushed every section's fields down by a line and read
+                         * as fine print. See `InfoTip`.
+                         */}
+                        {description === undefined ? null : (
+                            <View className="self-center">
+                                <InfoTip
+                                    label={title}
+                                    text={description}
+                                    {...(testID === undefined ? {} : { testID: `${testID}-info` })}
+                                />
+                            </View>
+                        )}
                         {aside}
                     </View>
                     {actions}
                 </View>
-
-                {description === undefined ? null : (
-                    <RNText className="text-role-caption text-content-secondary text-start">
-                        {description}
-                    </RNText>
-                )}
             </View>
 
             {children}

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8269 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8245 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2344,6 +2344,7 @@ export interface NamespaceKeys {
     | 'fileUpload.remove'
     | 'fileUpload.replace'
     | 'fileUpload.uploading'
+    | 'infoTip.label'
     | 'numberStepper.decrease'
     | 'numberStepper.increase'
     | 'pagination.label'
@@ -2920,18 +2921,15 @@ export interface NamespaceKeys {
     | 'availability.remainingInvalid'
     | 'availability.remainingLabel'
     | 'availability.removeDay'
-    | 'availability.rowCaption'
     | 'availability.save'
     | 'availability.saveError'
     | 'availability.savedToast'
     | 'availability.sectionServiceDays'
     | 'availability.sectionTitle'
     | 'availability.servingHeader'
-    | 'bilingual.arabicHint'
     | 'bilingual.arabicLabel'
     | 'bilingual.arabicShort'
     | 'bilingual.copyFromEnglish'
-    | 'bilingual.englishHint'
     | 'bilingual.englishLabel'
     | 'bilingual.englishShort'
     | 'bilingual.missingArabic'
@@ -3226,9 +3224,7 @@ export interface NamespaceKeys {
     | 'desk.recordPayment.cancelledTitle'
     | 'desk.recordPayment.confirm'
     | 'desk.recordPayment.description'
-    | 'desk.recordPayment.methodHint'
     | 'desk.recordPayment.methodLabel'
-    | 'desk.recordPayment.notesHint'
     | 'desk.recordPayment.notesPlaceholder'
     | 'desk.recordPayment.open'
     | 'desk.recordPayment.recordedToast'
@@ -3278,7 +3274,6 @@ export interface NamespaceKeys {
     | 'desk.sale.customerCreateTitle'
     | 'desk.sale.customerDuplicatesBody'
     | 'desk.sale.customerDuplicatesTitle'
-    | 'desk.sale.customerNameHint'
     | 'desk.sale.customerNameLabel'
     | 'desk.sale.customerNamePlaceholder'
     | 'desk.sale.customerNew'
@@ -3778,7 +3773,6 @@ export interface NamespaceKeys {
     | 'meals.loadErrorTitle'
     | 'meals.marginEmpty'
     | 'meals.marginRailTitle'
-    | 'meals.marginUnknown'
     | 'meals.marginValue'
     | 'meals.mealTypesLabel'
     | 'meals.nameRequired'
@@ -3826,10 +3820,8 @@ export interface NamespaceKeys {
     | 'meals.sectionIdentity'
     | 'meals.sectionMargin'
     | 'meals.sectionProduction'
-    | 'meals.sectionProductionHint'
     | 'meals.sectionRecipe'
     | 'meals.sectionWhen'
-    | 'meals.sectionWhenHint'
     | 'meals.subtitle'
     | 'meals.title'
     | 'meals.typeFilterAll'
@@ -3888,8 +3880,6 @@ export interface NamespaceKeys {
     | 'ops.batch.factPortionsProduced'
     | 'ops.batch.factVersion'
     | 'ops.batch.factYieldCaption'
-    | 'ops.batch.factorLine'
-    | 'ops.batch.factorNone'
     | 'ops.batch.fromDatabase'
     | 'ops.batch.ingredientsHeading'
     | 'ops.batch.lineCount'
@@ -3916,7 +3906,6 @@ export interface NamespaceKeys {
     | 'ops.batch.recipesErrorTitle'
     | 'ops.batch.roundedFrom'
     | 'ops.batch.roundedUpFrom'
-    | 'ops.batch.roundingFoot'
     | 'ops.batch.targetNeededBody'
     | 'ops.batch.targetNeededTitle'
     | 'ops.batch.targetPortionsLabel'
@@ -3930,7 +3919,6 @@ export interface NamespaceKeys {
     | 'ops.cashReport.columnCount'
     | 'ops.cashReport.columnCurrency'
     | 'ops.cashReport.columnMethod'
-    | 'ops.cashReport.dateHint'
     | 'ops.cashReport.dateInvalidBody'
     | 'ops.cashReport.dateInvalidTitle'
     | 'ops.cashReport.dateLabel'
@@ -4137,7 +4125,6 @@ export interface NamespaceKeys {
     | 'ops.orders.conflictBody'
     | 'ops.orders.conflictRefresh'
     | 'ops.orders.conflictTitle'
-    | 'ops.orders.currencyNote'
     | 'ops.orders.deliveryAddress'
     | 'ops.orders.deliveryArea'
     | 'ops.orders.deliveryDate'
@@ -4198,7 +4185,6 @@ export interface NamespaceKeys {
     | 'ops.orders.viewKind'
     | 'ops.orders.viewPlacedNote'
     | 'ops.procurement.addLine'
-    | 'ops.procurement.arrivalAside'
     | 'ops.procurement.arrivalSection'
     | 'ops.procurement.columnCostStatus'
     | 'ops.procurement.columnLines'
@@ -4297,7 +4283,6 @@ export interface NamespaceKeys {
     | 'ops.procurement.summaryTitle'
     | 'ops.procurement.supplierCodePlaceholder'
     | 'ops.procurement.supplierCreatedToast'
-    | 'ops.procurement.supplierCurrencyNote'
     | 'ops.procurement.supplierNamePlaceholder'
     | 'ops.procurement.supplierNameRequired'
     | 'ops.procurement.supplierPlaceholder'
@@ -4308,7 +4293,6 @@ export interface NamespaceKeys {
     | 'ops.procurement.viewKind'
     | 'ops.procurement.viewUnpricedNote'
     | 'ops.production.abandon'
-    | 'ops.production.abandonReasonHint'
     | 'ops.production.abandonReasonLabel'
     | 'ops.production.abandonReasonPlaceholder'
     | 'ops.production.abandonReasonRequired'
@@ -4416,7 +4400,6 @@ export interface NamespaceKeys {
     | 'ops.production.noRecipeAccessTitle'
     | 'ops.production.notFoundBody'
     | 'ops.production.notFoundTitle'
-    | 'ops.production.notesHint'
     | 'ops.production.notesLabel'
     | 'ops.production.notesPlaceholder'
     | 'ops.production.openBatch'
@@ -4513,7 +4496,6 @@ export interface NamespaceKeys {
     | 'ops.production.stepsTitle'
     | 'ops.production.storageLocationLabel'
     | 'ops.production.storageLocationPlaceholder'
-    | 'ops.production.summaryFoot'
     | 'ops.production.summaryMakes'
     | 'ops.production.summaryPortions'
     | 'ops.production.summaryRuns'
@@ -4704,7 +4686,6 @@ export interface NamespaceKeys {
     | 'ops.quotations.viewKind'
     | 'ops.readyForApi'
     | 'ops.receiving.backToProcurement'
-    | 'ops.receiving.chargesHint'
     | 'ops.receiving.chipPostsStock'
     | 'ops.receiving.closeShortHint'
     | 'ops.receiving.closeShortLabel'
@@ -4729,7 +4710,6 @@ export interface NamespaceKeys {
     | 'ops.receiving.fieldDelivery'
     | 'ops.receiving.fieldDiscount'
     | 'ops.receiving.fieldDocumentRef'
-    | 'ops.receiving.fieldDocumentRefHint'
     | 'ops.receiving.fieldInvoiceDate'
     | 'ops.receiving.fieldInvoiceRef'
     | 'ops.receiving.fieldInvoiceRefHint'
@@ -4743,7 +4723,6 @@ export interface NamespaceKeys {
     | 'ops.receiving.fieldReceivedOnHint'
     | 'ops.receiving.fieldTax'
     | 'ops.receiving.fieldVarianceNote'
-    | 'ops.receiving.fieldVarianceNoteHint'
     | 'ops.receiving.hideCharges'
     | 'ops.receiving.invoiceRefPlaceholder'
     | 'ops.receiving.lineOverReceipt'
@@ -5019,7 +4998,6 @@ export interface NamespaceKeys {
     | 'ops.suppliers.unlinkedToast'
     | 'ops.suppliers.viewFoot'
     | 'ops.suppliers.viewKind'
-    | 'ops.suppliers.whatsappHint'
     | 'ops.supplyOrders.addLineHint'
     | 'ops.supplyOrders.addLineLabel'
     | 'ops.supplyOrders.addLinePlaceholder'
@@ -5169,7 +5147,6 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.receiptLineCount'
     | 'ops.supplyOrders.receiptNoDocumentRef'
     | 'ops.supplyOrders.receiptsEmpty'
-    | 'ops.supplyOrders.receiptsNote'
     | 'ops.supplyOrders.receiptsTitle'
     | 'ops.supplyOrders.receiveDelivery'
     | 'ops.supplyOrders.refresh'
@@ -6271,7 +6248,6 @@ export interface NamespaceKeys {
     | 'zoneWindows.everyDay'
     | 'zoneWindows.groupLabel'
     | 'zoneWindows.inactiveBadge'
-    | 'zoneWindows.intro'
     | 'zoneWindows.manage'
     | 'zoneWindows.none'
     | 'zones.amountInvalid'
@@ -10635,6 +10611,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:fileUpload.remove',
   'designSystem:fileUpload.replace',
   'designSystem:fileUpload.uploading',
+  'designSystem:infoTip.label',
   'designSystem:numberStepper.decrease',
   'designSystem:numberStepper.increase',
   'designSystem:pagination.label',
@@ -11207,18 +11184,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:availability.remainingInvalid',
   'kitchen:availability.remainingLabel',
   'kitchen:availability.removeDay',
-  'kitchen:availability.rowCaption',
   'kitchen:availability.save',
   'kitchen:availability.saveError',
   'kitchen:availability.savedToast',
   'kitchen:availability.sectionServiceDays',
   'kitchen:availability.sectionTitle',
   'kitchen:availability.servingHeader',
-  'kitchen:bilingual.arabicHint',
   'kitchen:bilingual.arabicLabel',
   'kitchen:bilingual.arabicShort',
   'kitchen:bilingual.copyFromEnglish',
-  'kitchen:bilingual.englishHint',
   'kitchen:bilingual.englishLabel',
   'kitchen:bilingual.englishShort',
   'kitchen:bilingual.missingArabic',
@@ -11513,9 +11487,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.recordPayment.cancelledTitle',
   'kitchen:desk.recordPayment.confirm',
   'kitchen:desk.recordPayment.description',
-  'kitchen:desk.recordPayment.methodHint',
   'kitchen:desk.recordPayment.methodLabel',
-  'kitchen:desk.recordPayment.notesHint',
   'kitchen:desk.recordPayment.notesPlaceholder',
   'kitchen:desk.recordPayment.open',
   'kitchen:desk.recordPayment.recordedToast',
@@ -11565,7 +11537,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.customerCreateTitle',
   'kitchen:desk.sale.customerDuplicatesBody',
   'kitchen:desk.sale.customerDuplicatesTitle',
-  'kitchen:desk.sale.customerNameHint',
   'kitchen:desk.sale.customerNameLabel',
   'kitchen:desk.sale.customerNamePlaceholder',
   'kitchen:desk.sale.customerNew',
@@ -12065,7 +12036,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.loadErrorTitle',
   'kitchen:meals.marginEmpty',
   'kitchen:meals.marginRailTitle',
-  'kitchen:meals.marginUnknown',
   'kitchen:meals.marginValue',
   'kitchen:meals.mealTypesLabel',
   'kitchen:meals.nameRequired',
@@ -12113,10 +12083,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.sectionIdentity',
   'kitchen:meals.sectionMargin',
   'kitchen:meals.sectionProduction',
-  'kitchen:meals.sectionProductionHint',
   'kitchen:meals.sectionRecipe',
   'kitchen:meals.sectionWhen',
-  'kitchen:meals.sectionWhenHint',
   'kitchen:meals.subtitle',
   'kitchen:meals.title',
   'kitchen:meals.typeFilterAll',
@@ -12175,8 +12143,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.factPortionsProduced',
   'kitchen:ops.batch.factVersion',
   'kitchen:ops.batch.factYieldCaption',
-  'kitchen:ops.batch.factorLine',
-  'kitchen:ops.batch.factorNone',
   'kitchen:ops.batch.fromDatabase',
   'kitchen:ops.batch.ingredientsHeading',
   'kitchen:ops.batch.lineCount',
@@ -12203,7 +12169,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.recipesErrorTitle',
   'kitchen:ops.batch.roundedFrom',
   'kitchen:ops.batch.roundedUpFrom',
-  'kitchen:ops.batch.roundingFoot',
   'kitchen:ops.batch.targetNeededBody',
   'kitchen:ops.batch.targetNeededTitle',
   'kitchen:ops.batch.targetPortionsLabel',
@@ -12217,7 +12182,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.cashReport.columnCount',
   'kitchen:ops.cashReport.columnCurrency',
   'kitchen:ops.cashReport.columnMethod',
-  'kitchen:ops.cashReport.dateHint',
   'kitchen:ops.cashReport.dateInvalidBody',
   'kitchen:ops.cashReport.dateInvalidTitle',
   'kitchen:ops.cashReport.dateLabel',
@@ -12424,7 +12388,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.conflictBody',
   'kitchen:ops.orders.conflictRefresh',
   'kitchen:ops.orders.conflictTitle',
-  'kitchen:ops.orders.currencyNote',
   'kitchen:ops.orders.deliveryAddress',
   'kitchen:ops.orders.deliveryArea',
   'kitchen:ops.orders.deliveryDate',
@@ -12485,7 +12448,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.viewKind',
   'kitchen:ops.orders.viewPlacedNote',
   'kitchen:ops.procurement.addLine',
-  'kitchen:ops.procurement.arrivalAside',
   'kitchen:ops.procurement.arrivalSection',
   'kitchen:ops.procurement.columnCostStatus',
   'kitchen:ops.procurement.columnLines',
@@ -12584,7 +12546,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.summaryTitle',
   'kitchen:ops.procurement.supplierCodePlaceholder',
   'kitchen:ops.procurement.supplierCreatedToast',
-  'kitchen:ops.procurement.supplierCurrencyNote',
   'kitchen:ops.procurement.supplierNamePlaceholder',
   'kitchen:ops.procurement.supplierNameRequired',
   'kitchen:ops.procurement.supplierPlaceholder',
@@ -12595,7 +12556,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.viewKind',
   'kitchen:ops.procurement.viewUnpricedNote',
   'kitchen:ops.production.abandon',
-  'kitchen:ops.production.abandonReasonHint',
   'kitchen:ops.production.abandonReasonLabel',
   'kitchen:ops.production.abandonReasonPlaceholder',
   'kitchen:ops.production.abandonReasonRequired',
@@ -12703,7 +12663,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.noRecipeAccessTitle',
   'kitchen:ops.production.notFoundBody',
   'kitchen:ops.production.notFoundTitle',
-  'kitchen:ops.production.notesHint',
   'kitchen:ops.production.notesLabel',
   'kitchen:ops.production.notesPlaceholder',
   'kitchen:ops.production.openBatch',
@@ -12800,7 +12759,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.stepsTitle',
   'kitchen:ops.production.storageLocationLabel',
   'kitchen:ops.production.storageLocationPlaceholder',
-  'kitchen:ops.production.summaryFoot',
   'kitchen:ops.production.summaryMakes',
   'kitchen:ops.production.summaryPortions',
   'kitchen:ops.production.summaryRuns',
@@ -12991,7 +12949,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.viewKind',
   'kitchen:ops.readyForApi',
   'kitchen:ops.receiving.backToProcurement',
-  'kitchen:ops.receiving.chargesHint',
   'kitchen:ops.receiving.chipPostsStock',
   'kitchen:ops.receiving.closeShortHint',
   'kitchen:ops.receiving.closeShortLabel',
@@ -13016,7 +12973,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.receiving.fieldDelivery',
   'kitchen:ops.receiving.fieldDiscount',
   'kitchen:ops.receiving.fieldDocumentRef',
-  'kitchen:ops.receiving.fieldDocumentRefHint',
   'kitchen:ops.receiving.fieldInvoiceDate',
   'kitchen:ops.receiving.fieldInvoiceRef',
   'kitchen:ops.receiving.fieldInvoiceRefHint',
@@ -13030,7 +12986,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.receiving.fieldReceivedOnHint',
   'kitchen:ops.receiving.fieldTax',
   'kitchen:ops.receiving.fieldVarianceNote',
-  'kitchen:ops.receiving.fieldVarianceNoteHint',
   'kitchen:ops.receiving.hideCharges',
   'kitchen:ops.receiving.invoiceRefPlaceholder',
   'kitchen:ops.receiving.lineOverReceipt',
@@ -13306,7 +13261,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.unlinkedToast',
   'kitchen:ops.suppliers.viewFoot',
   'kitchen:ops.suppliers.viewKind',
-  'kitchen:ops.suppliers.whatsappHint',
   'kitchen:ops.supplyOrders.addLineHint',
   'kitchen:ops.supplyOrders.addLineLabel',
   'kitchen:ops.supplyOrders.addLinePlaceholder',
@@ -13456,7 +13410,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.receiptLineCount',
   'kitchen:ops.supplyOrders.receiptNoDocumentRef',
   'kitchen:ops.supplyOrders.receiptsEmpty',
-  'kitchen:ops.supplyOrders.receiptsNote',
   'kitchen:ops.supplyOrders.receiptsTitle',
   'kitchen:ops.supplyOrders.receiveDelivery',
   'kitchen:ops.supplyOrders.refresh',
@@ -14558,7 +14511,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:zoneWindows.everyDay',
   'kitchen:zoneWindows.groupLabel',
   'kitchen:zoneWindows.inactiveBadge',
-  'kitchen:zoneWindows.intro',
   'kitchen:zoneWindows.manage',
   'kitchen:zoneWindows.none',
   'kitchen:zones.amountInvalid',

@@ -5,6 +5,7 @@ import { Text as RNText, View } from 'react-native';
 
 import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
+import { InfoTip } from '../overlays/info-tip.tsx';
 import {
     clampIso,
     daysInMonth,
@@ -79,21 +80,21 @@ export function DateField({
             className={cx('flex-col gap-1', className)}
         >
             {labelHidden ? null : (
-                <RNText
-                    nativeID={labelId}
-                    testID={testID === undefined ? undefined : `${testID}-label`}
-                    className={cx(
-                        'text-sm font-medium text-start',
-                        disabled ? 'text-content-disabled' : 'text-content-primary',
-                    )}
-                >
-                    {label}
-                    {required ? <RNText className="text-danger-strong">{' *'}</RNText> : null}
-                </RNText>
-            )}
-
-            {hint === undefined ? null : (
-                <RNText className="text-xs text-content-secondary text-start">{hint}</RNText>
+                <View className="z-auto flex-row items-center gap-hair">
+                    <RNText
+                        nativeID={labelId}
+                        testID={testID === undefined ? undefined : `${testID}-label`}
+                        className={cx(
+                            'text-sm font-medium text-start',
+                            disabled ? 'text-content-disabled' : 'text-content-primary',
+                        )}
+                    >
+                        {label}
+                        {required ? <RNText className="text-danger-strong">{' *'}</RNText> : null}
+                    </RNText>
+                    {/* A tip on the label's line rather than a line of its own — see `InfoTip`. */}
+                    {hint === undefined ? null : <InfoTip label={label} text={hint} />}
+                </View>
             )}
 
             <View className="flex-row items-end gap-2">

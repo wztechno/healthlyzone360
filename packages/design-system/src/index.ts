@@ -343,6 +343,8 @@ export { DRAWER_PLACEMENTS, Drawer } from './overlays/drawer.tsx';
 export type { DrawerPlacement, DrawerProps } from './overlays/drawer.tsx';
 export { ACTION_TONES, ActionSheet } from './overlays/action-sheet.tsx';
 export type { ActionSheetAction, ActionSheetProps, ActionTone } from './overlays/action-sheet.tsx';
+export { InfoTip } from './overlays/info-tip.tsx';
+export type { InfoTipProps } from './overlays/info-tip.tsx';
 export {
     POPOVER_ALIGNS,
     POPOVER_TRIGGER_VARIANTS,

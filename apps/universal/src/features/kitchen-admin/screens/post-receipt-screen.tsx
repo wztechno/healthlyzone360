@@ -798,11 +798,6 @@ function PostReceipt() {
                             variant="card"
                             testID="kitchen-post-receipt-arrival-section"
                             title={t('kitchen:ops.procurement.arrivalSection')}
-                            aside={
-                                <Text variant="caption" tone="secondary">
-                                    {t('kitchen:ops.procurement.arrivalAside')}
-                                </Text>
-                            }
                         >
                             <ChoiceTiles<ArrivalMode>
                                 testID="kitchen-post-receipt-arrival"
@@ -1056,9 +1051,6 @@ function PostReceipt() {
                                                 testID="kitchen-procurement-post-variance-note"
                                                 id="kitchen-procurement-post-variance-note"
                                                 label={t('kitchen:ops.receiving.fieldVarianceNote')}
-                                                hint={t(
-                                                    'kitchen:ops.receiving.fieldVarianceNoteHint',
-                                                )}
                                                 placeholder={t(
                                                     'kitchen:ops.receiving.varianceNotePlaceholder',
                                                 )}
@@ -1239,11 +1231,6 @@ function PostReceipt() {
                             keyboardType="phone-pad"
                         />
                     </FormGrid>
-                    <Text variant="caption" tone="secondary">
-                        {t('kitchen:ops.procurement.supplierCurrencyNote', {
-                            currency: RECEIPT_CURRENCY,
-                        })}
-                    </Text>
                 </Stack>
             </Dialog>
 

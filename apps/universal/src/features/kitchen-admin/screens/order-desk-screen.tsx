@@ -693,7 +693,6 @@ function RecordPaymentDialog({
                 testID="kitchen-order-desk-payment-method"
                 id="kitchen-order-desk-payment-method"
                 label={t('kitchen:desk.recordPayment.methodLabel')}
-                hint={t('kitchen:desk.recordPayment.methodHint')}
                 value={method}
                 onChange={setMethod}
                 options={KITCHEN_ORDER_PAYMENT_METHODS.map((candidate) => ({
@@ -764,7 +763,6 @@ function RecordPaymentDialog({
                 testID="kitchen-order-desk-payment-notes"
                 id="kitchen-order-desk-payment-notes"
                 label={t('kitchen:desk.sale.notesLabel')}
-                hint={t('kitchen:desk.recordPayment.notesHint')}
                 placeholder={t('kitchen:desk.recordPayment.notesPlaceholder')}
                 value={notes}
                 onChangeText={setNotes}

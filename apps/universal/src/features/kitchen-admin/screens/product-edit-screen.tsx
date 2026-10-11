@@ -1251,6 +1251,7 @@ function ProductEditor({
                     variant="card"
                     testID="kitchen-product-packs"
                     title={t('kitchen:products.sectionPacks')}
+                    description={t('kitchen:products.packsCaption')}
                     actions={
                         canManage ? (
                             <Button
@@ -1323,6 +1324,7 @@ function ProductEditor({
                                         id="kitchen-product-net-content"
                                         size="sm"
                                         label={t('kitchen:products.netContentLabel')}
+                                        hint={t('kitchen:products.netContentHint')}
                                         placeholder={t('kitchen:fields.quantityPlaceholder')}
                                         value={details.netContentQuantity}
                                         disabled={!canManage}
@@ -1350,13 +1352,6 @@ function ProductEditor({
                                         }}
                                     />
                                 </FormGrid>
-                                <Text
-                                    testID="kitchen-product-net-content-hint"
-                                    variant="caption"
-                                    tone="secondary"
-                                >
-                                    {t('kitchen:products.netContentHint')}
-                                </Text>
                             </Stack>
                         ) : details.netContentQuantity === '' ? null : (
                             <Callout

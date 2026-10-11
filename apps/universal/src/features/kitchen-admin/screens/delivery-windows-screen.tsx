@@ -250,11 +250,7 @@ function DeliveryWindowsEditor() {
                     variant="card"
                     testID="kitchen-windows-section"
                     title={title}
-                    aside={
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:deliveryWindows.intro')}
-                        </Text>
-                    }
+                    description={t('kitchen:deliveryWindows.intro')}
                 >
                     <DeliveryWindowRows
                         testID="kitchen-windows-rows"

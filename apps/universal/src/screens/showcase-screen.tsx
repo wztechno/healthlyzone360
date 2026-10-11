@@ -65,6 +65,7 @@ import {
     PageTransition,
     Pagination,
     PasswordInput,
+    InfoTip,
     Popover,
     ProgressRing,
     QuantityInput,
@@ -4493,6 +4494,16 @@ export function ShowcaseScreen() {
                     >
                         <Text variant="caption">{t('designSystem:showcase.popoverBody')}</Text>
                     </Popover>
+
+                    {/* A sentence of guidance beside a label: hover, focus or press. */}
+                    <Inline space="xs" align="center">
+                        <Text variant="label">{t('designSystem:showcase.popoverTitle')}</Text>
+                        <InfoTip
+                            testID="showcase-info-tip"
+                            label={t('designSystem:showcase.popoverTitle')}
+                            text={t('designSystem:showcase.popoverBody')}
+                        />
+                    </Inline>
 
                     <Dialog
                         testID="showcase-dialog"

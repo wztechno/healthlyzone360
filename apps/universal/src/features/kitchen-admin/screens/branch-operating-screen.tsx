@@ -7,7 +7,6 @@ import {
     ErrorState,
     FormSection,
     FormSkeleton,
-    Text,
     useToast,
 } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
@@ -348,11 +347,7 @@ function BranchOperatingEditor() {
                         variant="card"
                         testID="kitchen-branch-hours-week"
                         title={t('kitchen:branchHours.weekTitle')}
-                        aside={
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:branchHours.cutOffHint')}
-                            </Text>
-                        }
+                        description={t('kitchen:branchHours.cutOffHint')}
                     >
                         <OperatingWeekRows
                             testID="kitchen-branch-hours-rows"

@@ -60,6 +60,20 @@ describe('FormField', () => {
         );
     });
 
+    it('draws the hint as an info tip beside the label, never as a line above the control', async () => {
+        await renderWithI18n(
+            <FormField testID="field" id="name" label="Full name" hint="As it appears on your ID.">
+                {(control) => <Text testID="control" {...control} />}
+            </FormField>,
+        );
+        // The tip is on the label's row and named for the field; the sentence itself is the
+        // unseen text the control is described by, so the field is no taller than one without.
+        expect(screen.getByTestId('field-info-trigger')).toHaveAccessibleName('About Full name');
+        expect(screen.getByTestId('field-hint', { includeHiddenElements: true })).toHaveTextContent(
+            'As it appears on your ID.',
+        );
+    });
+
     it('prefers the error over the hint for the native announcement', async () => {
         await renderWithI18n(
             <FormField testID="field" id="name" label="Full name" hint="A hint." error="A problem.">
