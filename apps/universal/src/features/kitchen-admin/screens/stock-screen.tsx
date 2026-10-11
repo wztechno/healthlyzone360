@@ -329,7 +329,7 @@ function Stock() {
         {
             key: 'reorder',
             label: t('kitchen:ops.stock.columnReorderPar'),
-            width: 130,
+            width: 152,
             priority: 50,
             value: reorderText,
             // By the threshold, the figure that raises the alarm; par breaks a tie. A shelf with no

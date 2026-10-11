@@ -17,6 +17,7 @@ import {
     ErrorState,
     FormSection,
     Icon,
+    InfoTip,
     QuantityInput,
     Select,
     Stack,
@@ -396,7 +397,8 @@ function SupplyOrderBuilder() {
                 // One column for both numbers: they are read together — "reorder at 5, fill to 20" —
                 // and two columns of mostly em dashes would be two columns of nothing.
                 label: t('kitchen:ops.supplyOrders.columnLevels'),
-                width: 136,
+                // Wide enough for its header whole: a truncated "Reorder at / Rest…" named neither.
+                width: 152,
                 priority: 60,
                 grow: false,
                 render: (row) => (
@@ -591,31 +593,40 @@ function SupplyOrderBuilder() {
                 );
 
                 return (
-                    <View className="min-w-0 flex-1 flex-col gap-hair py-1">
-                        {/*
-                         * The two reasons get different words because they have different fixes: a
-                         * shelf nobody was ever linked to needs a supplier; a shelf whose suppliers
-                         * are all archived needs one restored, or a different one linked.
-                         */}
-                        <Text variant="caption" tone="secondary" testID={`${testID}-reason`}>
-                            {row.unassignedReason === 'suppliersArchived'
-                                ? t('kitchen:ops.supplyOrders.reasonArchived')
-                                : t('kitchen:ops.supplyOrders.reasonNoSupplier')}
-                        </Text>
-                        <Select
-                            testID={`${testID}-supplier-select`}
-                            label={t('kitchen:ops.supplyOrders.supplierLabel', {
-                                item: row.itemNameEn,
-                            })}
-                            labelHidden
-                            options={options}
-                            searchable
-                            value={chosen === null ? null : String(chosen)}
-                            placeholder={t('kitchen:ops.supplyOrders.supplierPlaceholder')}
-                            onChange={(value) => {
-                                chooseSupplier(row, value as SupplierId);
-                            }}
-                        />
+                    <View className="z-auto min-w-0 flex-1 flex-col gap-hair py-1">
+                        <View className="z-auto flex-row items-center gap-hair">
+                            <View className="z-auto min-w-0 flex-1">
+                                <Select
+                                    testID={`${testID}-supplier-select`}
+                                    label={t('kitchen:ops.supplyOrders.supplierLabel', {
+                                        item: row.itemNameEn,
+                                    })}
+                                    labelHidden
+                                    options={options}
+                                    searchable
+                                    value={chosen === null ? null : String(chosen)}
+                                    placeholder={t('kitchen:ops.supplyOrders.supplierPlaceholder')}
+                                    onChange={(value) => {
+                                        chooseSupplier(row, value as SupplierId);
+                                    }}
+                                />
+                            </View>
+                            {/*
+                             * The two reasons get different words because they have different fixes: a
+                             * shelf nobody was ever linked to needs a supplier; a shelf whose suppliers
+                             * are all archived needs one restored, or a different one linked. A tip
+                             * beside the picker rather than a line above it, so the row stays level.
+                             */}
+                            <InfoTip
+                                testID={`${testID}-reason`}
+                                label={t('kitchen:ops.supplyOrders.columnFrom')}
+                                text={
+                                    row.unassignedReason === 'suppliersArchived'
+                                        ? t('kitchen:ops.supplyOrders.reasonArchived')
+                                        : t('kitchen:ops.supplyOrders.reasonNoSupplier')
+                                }
+                            />
+                        </View>
                         <Checkbox
                             testID={`${testID}-remember`}
                             checked={remember[key] ?? true}
