@@ -61,9 +61,10 @@ final class PlatformKitchenIndexController
         $this->applySearch($request, $query);
 
         $limit = CursorPage::limit($request);
+        $total = $query->toBase()->getCountForPagination();
         CursorPage::constrain($query, $limit, CursorPage::cursor($request), true);
 
-        $page = CursorPage::page($query->get(), $limit);
+        $page = CursorPage::page($query->get(), $limit, $total);
 
         /** @var list<Organisation> $kitchens */
         $kitchens = $page['items']->all();

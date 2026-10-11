@@ -2830,8 +2830,60 @@ describe('numbered pages on the kitchen catalogue (docs/api/conventions.md)', ()
 
         expect(page.nextCursor).toBe('abc');
         expect(page.hasMore).toBe(true);
-        // Null rather than 0: the keyset path reads one row beyond the page instead of counting,
-        // so there is no total to report and a 0 here would read as "the list is empty".
+        // Null rather than 0: this meta states no `total`, and a 0 here would read as "the list
+        // is empty".
+        expect(page.totalCount).toBeNull();
+    });
+
+    it('reads the keyset total from `meta.total`', async () => {
+        const { repositories } = harness([
+            CATEGORIES_OK,
+            {
+                status: 200,
+                body: {
+                    data: [ingredientRow('a')],
+                    meta: {
+                        correlation_id: 'c-total',
+                        count: 1,
+                        next_cursor: 'abc',
+                        has_more: true,
+                        total: 412,
+                    },
+                },
+            },
+        ]);
+
+        const page = await repositories.kitchenAdmin.listIngredients({ limit: 1 });
+
+        expect(page.totalCount).toBe(412);
+        expect(page.hasMore).toBe(true);
+    });
+
+    it('drops the keyset total when the page was narrowed client-side', async () => {
+        const { repositories } = harness([
+            CATEGORIES_OK,
+            {
+                status: 200,
+                body: {
+                    data: [ingredientRow('a')],
+                    meta: {
+                        correlation_id: 'c-narrowed',
+                        count: 1,
+                        next_cursor: 'abc',
+                        has_more: true,
+                        total: 412,
+                    },
+                },
+            },
+        ]);
+
+        // `review_required` has no server filter, so the page is filtered here and the server's
+        // 412 counts rows this answer does not describe.
+        const page = await repositories.kitchenAdmin.listIngredients({
+            limit: 1,
+            statuses: ['review_required'],
+        });
+
         expect(page.totalCount).toBeNull();
     });
 });

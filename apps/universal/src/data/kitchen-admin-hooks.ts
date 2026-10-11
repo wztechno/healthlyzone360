@@ -487,38 +487,42 @@ export interface FamilySummary {
 }
 
 /**
- * Live kitchen listings map `totalCount` to `null` (cursor meta has page size, not a match total).
- * Walk pages until the cursor ends so a kitchen with more than one page of ingredients still gets
- * an exact figure; stop and admit "unavailable" only if the walk hits the safety ceiling.
+ * A count is one `limit: 1` request: the listing's `meta.total` arrives as `totalCount`.
+ *
+ * An endpoint that states no total (or a page the client narrowed, which makes the server's total
+ * describe a wider set) answers `totalCount: null`; then the walk carries on from that first row's
+ * cursor in pages of {@link SUMMARY_PAGE_LIMIT} until the cursor ends, and admits "unavailable"
+ * only if it hits the safety ceiling.
  */
 const SUMMARY_PAGE_LIMIT = 100;
 const SUMMARY_MAX_PAGES = 50;
 
 async function countAcrossPages<T>(
-    load: (cursor: string | undefined) => Promise<CursorPage<T>>,
+    load: (limit: number, cursor: string | undefined) => Promise<CursorPage<T>>,
 ): Promise<number | null> {
-    let total = 0;
-    let cursor: string | undefined;
-    let pages = 0;
+    const first = await load(1, undefined);
+    if (first.totalCount !== null) return first.totalCount;
 
-    do {
-        const page = await load(cursor);
-        if (page.totalCount !== null) return page.totalCount;
+    let total = first.items.length;
+    let hasMore = first.hasMore;
+    let cursor = first.nextCursor ?? undefined;
+
+    for (let pages = 0; hasMore && cursor !== undefined; pages += 1) {
+        if (pages === SUMMARY_MAX_PAGES) return null;
+        const page = await load(SUMMARY_PAGE_LIMIT, cursor);
         total += page.items.length;
-        if (!page.hasMore) return total;
+        hasMore = page.hasMore;
         cursor = page.nextCursor ?? undefined;
-        pages += 1;
-    } while (pages < SUMMARY_MAX_PAGES && cursor !== undefined);
+    }
 
-    return null;
+    return hasMore ? null : total;
 }
 
 /**
  * The ingredient counts behind the hub card, in one query.
  *
  * Three filtered listings folded into one `queryFn` so a card gets one pending state, one error and
- * one `refetch`. Counts walk every page ({@link countAcrossPages}) because a live kitchen library
- * routinely exceeds one cursor page.
+ * one `refetch`. Each count is one `limit: 1` request ({@link countAcrossPages}).
  */
 export function useIngredientSummaryQuery(enabled = true): UseQueryResult<FamilySummary> {
     const { repositories } = useRepositoryContext();
@@ -529,22 +533,22 @@ export function useIngredientSummaryQuery(enabled = true): UseQueryResult<Family
         queryFn: async (): Promise<FamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             const [total, drafts, quarantined] = await Promise.all([
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listIngredients({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listIngredients({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listIngredients({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['review_required'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -801,7 +805,7 @@ export type RecipeFamilySummary = PublishedFamilySummary;
 /**
  * The recipe counts behind the hub card, in one query.
  *
- * Four filtered listings folded into one `queryFn`. Counts walk pages via {@link countAcrossPages}.
+ * Four filtered listings folded into one `queryFn`, one request each via {@link countAcrossPages}.
  */
 export function useRecipeSummaryQuery(
     enabled = true,
@@ -820,29 +824,29 @@ export function useRecipeSummaryQuery(
         queryFn: async (): Promise<RecipeFamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             const [total, published, drafts, quarantined] = await Promise.all([
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listRecipes({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listRecipes({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         ...(onSale ? { sellingStatus: 'published' } : { statuses: ['published'] }),
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listRecipes({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listRecipes({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['review_required'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -1273,32 +1277,32 @@ export function useProductSummaryQuery(
         queryFn: async (): Promise<PublishedFamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             const [total, published, drafts, quarantined] = await Promise.all([
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listProducts({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         itemType,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listProducts({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         itemType,
                         statuses: ['published'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listProducts({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         itemType,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listProducts({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         itemType,
                         statuses: ['review_required'],
                         ...(cursor === undefined ? {} : { cursor }),
@@ -1571,29 +1575,29 @@ export function usePriceListSummaryQuery(enabled = true): UseQueryResult<PriceLi
         queryFn: async (): Promise<PriceListFamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             const [total, published, drafts, quarantined] = await Promise.all([
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listPriceLists({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listPriceLists({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['published'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listPriceLists({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listPriceLists({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['review_required'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -1732,29 +1736,29 @@ export function usePlanSummaryQuery(enabled = true): UseQueryResult<PublishedFam
         queryFn: async (): Promise<PublishedFamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             const [total, published, drafts, quarantined] = await Promise.all([
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listPlans({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listPlans({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['published'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listPlans({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listPlans({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['review_required'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -2128,29 +2132,29 @@ export function useMealSummaryQuery(enabled = true): UseQueryResult<PublishedFam
         queryFn: async (): Promise<PublishedFamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             const [total, published, drafts, quarantined] = await Promise.all([
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listMeals({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listMeals({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['published'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listMeals({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listMeals({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['review_required'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -2532,22 +2536,22 @@ export function useZoneSummaryQuery(enabled = true): UseQueryResult<PublishedFam
         queryFn: async (): Promise<PublishedFamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             const [total, published, drafts] = await Promise.all([
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listZones({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listZones({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['published'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listZones({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),

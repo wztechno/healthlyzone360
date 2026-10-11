@@ -176,9 +176,9 @@ function mapAdminCursorPage<TWire, TDomain>(
         items,
         nextCursor: meta.next_cursor,
         hasMore: meta.has_more,
-        // The keyset path answers `has_more` by reading one row beyond the page rather than by
-        // counting, so there is no total to report and `null` is the truthful answer.
-        totalCount: null,
+        // `has_more` is still the look-ahead row; `total` is the endpoint's separate count of the
+        // filtered set, absent from an endpoint that cannot say — `null` then, as before.
+        totalCount: meta.total ?? null,
     };
 }
 
@@ -595,7 +595,10 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 return true;
             });
 
-            return { ...page, items };
+            // The page was narrowed here, so the server's keyset `total` describes a wider set than
+            // these rows. A numbered page keeps its `total_count`: its pager needs one, and that
+            // caveat is the one the page-local filter above has always carried.
+            return { ...page, items, totalCount: isNumbered(meta) ? page.totalCount : null };
         },
 
         async getIngredient(ingredientId: IngredientId): Promise<IngredientAdmin> {

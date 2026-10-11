@@ -142,3 +142,8 @@ it('closes an empty page without a cursor to nowhere', function (): void {
     expect($page['items'])->toHaveCount(0)
         ->and($page['meta'])->toBe(['count' => 0, 'next_cursor' => null, 'has_more' => false]);
 });
+
+it('states the caller’s total only when it has one', function (): void {
+    expect(CursorPage::page(cursorRows(6), 5, 42)['meta'])->toMatchArray(['count' => 5, 'total' => 42])
+        ->and(CursorPage::page(cursorRows(6), 5)['meta'])->not->toHaveKey('total');
+});

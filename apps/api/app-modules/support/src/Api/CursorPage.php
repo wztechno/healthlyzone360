@@ -92,25 +92,34 @@ final class CursorPage
     /**
      * Trim the extra row off and describe the page.
      *
+     * `$total` is the caller's `COUNT` of the filtered query, taken *before* `constrain()` (a
+     * constrained builder counts the page, not the collection) — `$query->toBase()->getCountForPagination()`.
+     * It is a figure for display and for summary cards, never an input to `has_more`: under
+     * concurrent writes it may disagree with the walk by a row, and the look-ahead row stays the
+     * only thing that decides whether there is another page. Omitted from the meta when null.
+     *
      * @template TItem of Model
      *
      * @param  EloquentCollection<int, TItem>  $rows  the result of a query passed through constrain()
-     * @return array{items: EloquentCollection<int, TItem>, meta: array{count: int, next_cursor: string|null, has_more: bool}}
+     * @return array{items: EloquentCollection<int, TItem>, meta: array{count: int, next_cursor: string|null, has_more: bool, total?: int}}
      */
-    public static function page(EloquentCollection $rows, int $limit): array
+    public static function page(EloquentCollection $rows, int $limit, ?int $total = null): array
     {
         $hasMore = $rows->count() > $limit;
         $items = $hasMore ? $rows->take($limit) : $rows;
         $last = $items->last();
 
-        return [
-            'items' => $items,
-            'meta' => [
-                'count' => $items->count(),
-                'next_cursor' => $hasMore && $last !== null ? self::encode($last) : null,
-                'has_more' => $hasMore,
-            ],
+        $meta = [
+            'count' => $items->count(),
+            'next_cursor' => $hasMore && $last !== null ? self::encode($last) : null,
+            'has_more' => $hasMore,
         ];
+
+        if ($total !== null) {
+            $meta['total'] = $total;
+        }
+
+        return ['items' => $items, 'meta' => $meta];
     }
 
     /**

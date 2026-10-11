@@ -69,9 +69,10 @@ final class PublicMealPlanIndexController
         }
 
         $limit = CursorPage::limit($request);
+        $total = $query->toBase()->getCountForPagination();
         CursorPage::constrain($query, $limit, CursorPage::cursor($request));
 
-        $page = CursorPage::page($query->get(), $limit);
+        $page = CursorPage::page($query->get(), $limit, $total);
 
         return ApiResponse::data(
             $page['items']->map(fn (CatalogueItem $plan): array => $this->projector->plan($plan, $locale))->all(),

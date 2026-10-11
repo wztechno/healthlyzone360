@@ -144,7 +144,7 @@ export function createApiPlatformAdminRepository(transport: Transport): Platform
                 items: envelope.data.map(mapSummary),
                 nextCursor: meta.next_cursor,
                 hasMore: meta.has_more,
-                totalCount: null,
+                totalCount: meta.total ?? null,
             };
         },
 

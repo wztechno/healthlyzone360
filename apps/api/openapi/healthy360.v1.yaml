@@ -23609,6 +23609,14 @@ components:
                 Whether another page exists. Answered by reading one row
                 beyond the page rather than by a separate count, which would
                 disagree with the page under concurrent writes.
+            total:
+              type: integer
+              minimum: 0
+              description: |
+                Rows matching the filters, ignoring cursor and limit; absent
+                when the endpoint cannot say. Counted separately from the page,
+                so it is a figure for display — it can disagree with the walk
+                by a row under concurrent writes, and never decides `has_more`.
 
     PaginatedOrNumberedMeta:
       description: |

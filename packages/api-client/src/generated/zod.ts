@@ -242,7 +242,8 @@ export const zTwoFactorChallengeRequest = z.object({
 export const zPaginationMeta = zMeta.and(z.object({
     count: z.int().gte(0),
     next_cursor: z.string().nullable(),
-    has_more: z.boolean()
+    has_more: z.boolean(),
+    total: z.int().gte(0).optional()
 }));
 
 /**

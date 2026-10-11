@@ -666,6 +666,34 @@ it('leaves the cursor walk untouched when no page is asked for', function (): vo
         ->and($response->json('meta'))->not->toHaveKey('page');
 });
 
+it('states the keyset total of the filtered set, whatever the limit and cursor', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+
+    foreach (range(1, 5) as $index) {
+        Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'name_en' => 'Totalprobe '.$index]);
+    }
+
+    // Another kitchen's matching rows are invisible, so they are not counted either.
+    foreach (range(1, 3) as $index) {
+        Ingredient::factory()->create(['organisation_id' => $this->b->organisation->getKey(), 'name_en' => 'Totalprobe '.$index]);
+    }
+
+    $first = $this->getJson('/api/v1/catalogue/ingredients?query=totalprobe&limit=2', $headers)->assertOk();
+
+    expect($first->json('meta.total'))->toBe(5)
+        ->and($first->json('meta.count'))->toBe(2);
+
+    $this->getJson('/api/v1/catalogue/ingredients?query=totalprobe&limit=2&cursor='.urlencode((string) $first->json('meta.next_cursor')), $headers)
+        ->assertOk()
+        ->assertJsonPath('meta.total', 5);
+
+    $this->getJson('/api/v1/catalogue/ingredients?query=totalprobe&limit=100', $headers)
+        ->assertOk()
+        ->assertJsonCount(5, 'data')
+        ->assertJsonPath('meta.total', 5);
+});
+
 it('refuses a page past the end, and a page size outside the range', function (): void {
     $this->actingAs($this->a->user);
     $headers = catalogueHeaders($this->a);

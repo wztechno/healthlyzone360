@@ -364,10 +364,8 @@ export function mapMarketplaceMeal(wire: WireMeal): MarketplaceMeal | null {
 /**
  * `data` + `meta` → `CursorPage`.
  *
- * `totalCount` is **null**, always, and that is the wire telling the truth rather than the mapper
- * losing information: the marketplace pages a keyset, which cannot know a total without a second
- * count that would disagree with the page under concurrent writes. The contract reserves `null`
- * for exactly that, and every consumer already handles it.
+ * `totalCount` is `meta.total` when the endpoint counts its filtered set, and **null** when it does
+ * not — the meal walk drops rows a resolver rejects after the fetch, so it has no total to state. The contract reserves `null` for exactly that, and every consumer already handles it.
  */
 export function mapCursorPage<TWire, TDomain>(
     data: readonly TWire[],
@@ -384,7 +382,7 @@ export function mapCursorPage<TWire, TDomain>(
         items,
         nextCursor: meta.next_cursor,
         hasMore: meta.has_more,
-        totalCount: null,
+        totalCount: meta.total ?? null,
     };
 }
 

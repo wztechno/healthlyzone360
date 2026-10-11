@@ -284,6 +284,30 @@ it('walks a cursor-paginated recipe book with no gaps and no duplicates', functi
         ->and(count($seen))->toBe(count(array_unique($seen)));
 });
 
+it('states the keyset total of the recipe book, whatever the limit and cursor', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+
+    Recipe::factory()->count(5)->create(['organisation_id' => $this->a->organisation->getKey()]);
+    Recipe::factory()->count(3)->create(['organisation_id' => $this->b->organisation->getKey()]);
+
+    $expected = Recipe::withoutTenancy()->where('organisation_id', $this->a->organisation->getKey())->count();
+
+    $first = $this->getJson('/api/v1/catalogue/recipes?limit=2', $headers)
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('meta.total', $expected);
+
+    $this->getJson('/api/v1/catalogue/recipes?limit=2&cursor='.urlencode((string) $first->json('meta.next_cursor')), $headers)
+        ->assertOk()
+        ->assertJsonPath('meta.total', $expected);
+
+    $this->getJson('/api/v1/catalogue/recipes?limit=100', $headers)
+        ->assertOk()
+        ->assertJsonCount($expected, 'data')
+        ->assertJsonPath('meta.total', $expected);
+});
+
 it('refuses a cursor it did not issue', function (): void {
     $this->actingAs($this->a->user);
 

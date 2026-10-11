@@ -168,6 +168,7 @@ Collection endpoints paginate by keyset over `(created_at, id)`, never by offset
 - `limit` — 1 to 100, default 25. Outside the range is `400 request.invalid` with `details.parameter`.
 - `cursor` — the previous page's `meta.next_cursor`. Opaque: clients echo it back and never construct one.
 - `meta` carries `next_cursor` (null on the last page) and `has_more`, answered by reading one row beyond the page rather than by a separate count that would disagree with the page under concurrent writes.
+- `meta.total`, where an endpoint states it, is the number of rows matching the filters, ignoring cursor and limit — a separate `COUNT`, so it is a figure for display and never decides `has_more`. A summary card reads it from a `limit=1` request.
 - A cursor the endpoint did not issue is `400 request.invalid`, never a silent restart from the beginning — that would turn a client bug into an infinite loop that looks like a working list.
 
 ### The one exception: numbered pages on the kitchen catalogue

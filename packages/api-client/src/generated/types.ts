@@ -279,6 +279,14 @@ export type PaginationMeta = Meta & {
      *
      */
     has_more: boolean;
+    /**
+     * Rows matching the filters, ignoring cursor and limit; absent
+     * when the endpoint cannot say. Counted separately from the page,
+     * so it is a figure for display — it can disagree with the walk
+     * by a row under concurrent writes, and never decides `has_more`.
+     *
+     */
+    total?: number;
 };
 
 /**

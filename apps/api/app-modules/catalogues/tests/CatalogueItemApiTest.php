@@ -369,6 +369,39 @@ it('filters by type, status and category and walks the cursor', function (): voi
     expect($seen)->toHaveCount(4)->and(array_unique($seen))->toHaveCount(4);
 });
 
+it('states the keyset total of the filtered set, whatever the limit and cursor', function (): void {
+    $owner = [
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+    ];
+
+    CatalogueItem::factory()->count(5)->create($owner);
+    CatalogueItem::factory()->meal()->count(2)->create($owner);
+    CatalogueItem::factory()->retired()->create($owner);
+
+    // Another kitchen's products are not this kitchen's count.
+    CatalogueItem::factory()->count(4)->create([
+        'catalogue_id' => $this->b->catalogue->getKey(),
+        'organisation_id' => $this->b->organisation->getKey(),
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = CatalogueWorld::headers($this->a);
+
+    $first = $this->getJson('/api/v1/catalogue/items?item_type=product&limit=1', $headers)
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('meta.total', 5);
+
+    $this->getJson('/api/v1/catalogue/items?item_type=product&limit=2&cursor='.urlencode((string) $first->json('meta.next_cursor')), $headers)
+        ->assertOk()
+        ->assertJsonPath('meta.total', 5);
+
+    // Retired rows are outside the default filter, so outside its total too.
+    $this->getJson('/api/v1/catalogue/items?limit=1', $headers)->assertOk()->assertJsonPath('meta.total', 7);
+    $this->getJson('/api/v1/catalogue/items?status=retired&limit=1', $headers)->assertOk()->assertJsonPath('meta.total', 1);
+});
+
 it('never writes an audit metadata key the redactor would blank', function (): void {
     $item = CatalogueWorld::publishableProduct($this->a);
 
