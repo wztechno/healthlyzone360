@@ -468,13 +468,16 @@ describe('order desk calendar — the squares', () => {
         ).toBeNull();
 
         // The unslotted bucket carries nothing on this day and the server said so by sending it
-        // with three zeroes — so the square reads `0`, not a dash.
+        // with three zeroes — so the square reads `0` on each of its three books, not a dash, and
+        // has the same rows as a square that carries something.
         const unslotted = screen.getByTestId(
             `kitchen-order-desk-calendar-${FIRST}-${UNSLOTTED_SLOT_KEY}`,
         );
-        expect(screen.getByTestId(`${unslotted.props.testID as string}-empty`)).toHaveTextContent(
-            '0',
-        );
+        const square = unslotted.props.testID as string;
+        for (const basis of ['order', 'scheduled', 'projected']) {
+            expect(screen.getByTestId(`${square}-${basis}`)).toHaveTextContent('0');
+        }
+        expect(screen.queryByTestId(`${square}-unknown`)).toBeNull();
     });
 
     it('renders an em dash for a day the answer did not carry, never a zero', async () => {

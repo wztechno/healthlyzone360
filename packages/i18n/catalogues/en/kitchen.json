@@ -2001,8 +2001,7 @@
         "a11y": {
             "showing": "Showing {{from}} to {{to}}.",
             "projected": "Forecast: {{count}}. Worked out from subscription patterns, not a booking.",
-            "unknown": "This day was not answered.",
-            "nothing": "Nothing on any book."
+            "unknown": "This day was not answered."
         },
         "today": "Today",
         "dayTotal": "Day total",

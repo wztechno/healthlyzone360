@@ -235,7 +235,6 @@ function CalendarSquare({
 }) {
     const { t } = useTranslation();
     const unknown = isUnknown(readings);
-    const empty = !unknown && isEmpty(readings);
 
     return (
         <View
@@ -260,18 +259,11 @@ function CalendarSquare({
                     >
                         {EM_DASH}
                     </Text>
-                ) : empty ? (
-                    // A single figure rather than three zeroes: they are all the same zero, and
-                    // seven columns of "0 0 0" would bury the days that carry something. It is a
-                    // *zero* and not a dash, because the server walked this day and found nothing.
-                    <Text
-                        tone="secondary"
-                        testID={`${testID}-empty`}
-                        accessibilityLabel={t('kitchen:calendar.a11y.nothing')}
-                    >
-                        {'0'}
-                    </Text>
                 ) : (
+                    // All three books, zeroes included: a quiet square has the same rows as a busy
+                    // one, so every card in the grid is one size and reads the same way. A zero
+                    // is set in the secondary tone (`Reading`), so it stays quieter than a count —
+                    // and it is a zero, not a dash, because the server walked this day.
                     readings.map((reading) => (
                         <Reading
                             key={reading.basis}
