@@ -16,10 +16,11 @@ import {
     EmptyState,
     ErrorState,
     FormSection,
+    Icon,
+    QuantityInput,
     Select,
     Stack,
     TableSkeleton,
-    QuantityInput,
     Text,
     useToast,
 } from '@healthy360/design-system';
@@ -849,6 +850,7 @@ function SupplyOrderBuilder() {
                                                 variant="ghost"
                                                 size="sm"
                                                 label={t('kitchen:ops.supplyOrders.addSupplier')}
+                                                iconStart={<Icon name="plus" size="sm" />}
                                                 onPress={() => {
                                                     router.push('/kitchen/suppliers/new' as never);
                                                 }}

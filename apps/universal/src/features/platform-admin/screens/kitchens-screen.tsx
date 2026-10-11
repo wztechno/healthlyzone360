@@ -7,6 +7,7 @@ import {
     EmptyState,
     ErrorState,
     Heading,
+    Icon,
     Inline,
     Select,
     Stack,
@@ -191,6 +192,7 @@ function KitchensList() {
                         <Button
                             testID="platform-admin-kitchens-create"
                             label={t('platformAdmin:kitchens.create')}
+                            iconStart={<Icon name="plus" size="sm" />}
                             onPress={() => {
                                 router.push('/platform-admin/kitchens/new' as never);
                             }}

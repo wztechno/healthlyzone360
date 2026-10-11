@@ -5,6 +5,7 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
+    Icon,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
@@ -407,6 +408,7 @@ function SuppliersList() {
                     <Button
                         testID="kitchen-suppliers-toolbar-create"
                         label={t('kitchen:ops.suppliers.create')}
+                        iconStart={<Icon name="plus" size="sm" />}
                         onPress={() => {
                             router.push('/kitchen/suppliers/new' as never);
                         }}

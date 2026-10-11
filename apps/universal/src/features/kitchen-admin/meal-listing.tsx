@@ -15,6 +15,7 @@ import {
     FilterChip,
     FormSection,
     FormSkeleton,
+    Icon,
     Inline,
     Select,
     Stack,
@@ -1177,6 +1178,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                                 size="sm"
                                 variant="secondary"
                                 label={t('kitchen:availability.addDay')}
+                                iconStart={<Icon name="plus" size="sm" />}
                                 onPress={() => {
                                     setDays([...days, emptyAvailabilityDay(takeDayKey())]);
                                     markDaysDirty();

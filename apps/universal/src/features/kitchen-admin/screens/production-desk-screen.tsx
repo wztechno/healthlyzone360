@@ -5,6 +5,7 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
+    Icon,
     TableSkeleton,
     Text,
     useToast,
@@ -395,6 +396,7 @@ function ProductionDesk() {
                         testID="kitchen-production-desk-new"
                         size="sm"
                         label={t('kitchen:ops.production.create')}
+                        iconStart={<Icon name="plus" size="sm" />}
                         onPress={() => {
                             router.push('/kitchen/production-desk/new');
                         }}

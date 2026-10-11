@@ -13,6 +13,7 @@ import {
     FormIssueBanner,
     FormSection,
     FormSkeleton,
+    Icon,
     Inline,
     Skeleton,
     spanWidth,
@@ -1370,6 +1371,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                         size="sm"
                                         variant="secondary"
                                         label={t('kitchen:plans.categoryAddAction')}
+                                        iconStart={<Icon name="plus" size="sm" />}
                                         disabled={newCategory.trim() === ''}
                                         onPress={() => {
                                             const slug = newCategory.trim().toLocaleLowerCase();
@@ -1470,6 +1472,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                         size="sm"
                                         variant="secondary"
                                         label={t('kitchen:plans.addVariant')}
+                                        iconStart={<Icon name="plus" size="sm" />}
                                         onPress={() => {
                                             markDirty(() => {
                                                 setVariants([
@@ -1538,6 +1541,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                         size="sm"
                                         variant="secondary"
                                         label={t('kitchen:plans.addDuration')}
+                                        iconStart={<Icon name="plus" size="sm" />}
                                         onPress={() => {
                                             markDirty(() => {
                                                 setDurations([

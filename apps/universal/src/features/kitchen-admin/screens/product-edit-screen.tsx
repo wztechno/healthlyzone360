@@ -16,6 +16,7 @@ import {
     FormIssueBanner,
     FormSection,
     FormSkeleton,
+    Icon,
     Inline,
     QuantityInput,
     Select,
@@ -1257,6 +1258,7 @@ function ProductEditor({
                                 size="sm"
                                 variant="secondary"
                                 label={t('kitchen:products.addPack')}
+                                iconStart={<Icon name="plus" size="sm" />}
                                 onPress={() => {
                                     edit({ packs: [...details.packs, emptyPack(takePackKey())] });
                                 }}
