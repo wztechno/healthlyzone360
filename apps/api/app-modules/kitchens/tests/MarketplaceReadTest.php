@@ -99,6 +99,12 @@ it('lists published products beside meals and filters by item type', function ()
         ->assertJsonPath('error.code', 'request.invalid');
 });
 
+it('accepts every listing item type in one filter', function (): void {
+    // The menu and discover grids ask for all of them at once; the cap once lagged the list by one.
+    $this->getJson('/api/v1/marketplace/meals?item_types=meal,product,sauce,dressing,frozen_meal')
+        ->assertOk();
+});
+
 it('lists a frozen meal on the menu and filters by it', function (): void {
     $listed = collect($this->getJson('/api/v1/marketplace/meals?item_types=product')->assertOk()->json('data'))->first();
 
