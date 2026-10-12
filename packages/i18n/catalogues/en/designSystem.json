@@ -57,7 +57,8 @@
         "searchPlaceholder": "Type to filter",
         "searchResults_one": "{{count}} matching option",
         "searchResults_other": "{{count}} matching options",
-        "noResults": "No option matches your search."
+        "noResults": "No option matches your search.",
+        "loading": "Loading the options…"
     },
     "fileUpload": {
         "choose": "Choose a file",

@@ -582,6 +582,7 @@ function ProductionBatchNew() {
                                         placeholder={t('kitchen:ops.production.recipePlaceholder')}
                                         searchable
                                         required
+                                        loading={recipes.isPending}
                                         options={recipeOptions}
                                         value={recipeId === null ? null : String(recipeId)}
                                         {...(recipeError === undefined

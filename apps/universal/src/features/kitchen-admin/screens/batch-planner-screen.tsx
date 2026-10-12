@@ -223,6 +223,7 @@ function BatchPlanner() {
                             label={t('kitchen:ops.batch.recipeLabel')}
                             placeholder={t('kitchen:ops.batch.recipePlaceholder')}
                             searchable
+                            loading={recipes.isPending}
                             options={recipeOptions}
                             value={recipeId === null ? null : String(recipeId)}
                             onChange={(value) => {

@@ -55,6 +55,7 @@ export function Select<T extends string = string>({
     required = false,
     disabled = false,
     searchable = false,
+    loading = false,
     size: sizeProp,
     id,
     className,
@@ -282,7 +283,7 @@ export function Select<T extends string = string>({
                                 {...(searchable ? { 'aria-describedby': statusId } : {})}
                                 className="max-h-[360px]"
                             >
-                                {!searchable || visible.length > 0 ? null : (
+                                {(!searchable && !loading) || visible.length > 0 ? null : (
                                     <RNText
                                         testID={
                                             testID === undefined
@@ -291,7 +292,11 @@ export function Select<T extends string = string>({
                                         }
                                         className="px-4 py-3 text-sm text-content-secondary text-start"
                                     >
-                                        {t('designSystem:select.noResults')}
+                                        {t(
+                                            loading
+                                                ? 'designSystem:select.loading'
+                                                : 'designSystem:select.noResults',
+                                        )}
                                     </RNText>
                                 )}
                                 {visible.map((option) => {
