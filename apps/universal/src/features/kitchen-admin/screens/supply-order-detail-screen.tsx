@@ -732,7 +732,11 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                     title={t('kitchen:ops.supplyOrders.issuedNoticeTitle', {
                         date: formatter.formatDate(data.issuedAt, { dateStyle: 'medium' }),
                     })}
-                    body={t('kitchen:ops.supplyOrders.issuedNoticeBody')}
+                    // "You can still cancel it" only while it can be: a received order has no
+                    // Cancel, and the line promised one.
+                    {...(cancellable
+                        ? { body: t('kitchen:ops.supplyOrders.issuedNoticeBody') }
+                        : {})}
                 />
             ) : null}
 
