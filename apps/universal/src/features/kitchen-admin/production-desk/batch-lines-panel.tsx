@@ -1,13 +1,16 @@
 import type { ProductionOrderLine } from '@healthy360/api-client/contracts';
-import { Heading, Stack, Table, Text } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
+import { Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import { compareAmount, compareText } from '../catalogue/use-column-controls.tsx';
 import { formatMoney, knownCurrency } from '../format.ts';
 import { BATCH_QUANTITY_FORMAT } from '../operations/batch-sheet.tsx';
 import { ledgerQuantity } from '../ops-format.ts';
 import { orderedLines } from './completion-model.ts';
+import { ProductionTable } from './production-table.tsx';
 
 /**
  * What a batch claimed and what it actually took (PROD1).
@@ -30,6 +33,9 @@ import { orderedLines } from './completion-model.ts';
  * `reservedQuantity` is what the shelf could actually give at confirm. Where a physical correction
  * left it short it is below `requiredQuantity`, and a cook needs to see that before they start
  * rather than discover it at the mixer.
+ *
+ * Drawn as every production table is — {@link ProductionTable} — so a shelf reads the same here as
+ * on the planner and the new batch's preview.
  */
 
 export interface BatchLinesPanelProps {
@@ -38,16 +44,18 @@ export interface BatchLinesPanelProps {
     readonly costsVisible: boolean;
     /** The completion columns are noise on a batch that has not settled. */
     readonly withOutcome: boolean;
-    /** Leave the heading to a card title that already says it. */
-    readonly headless?: boolean | undefined;
+    /** No hairline over the section: the first in its column. */
+    readonly first?: boolean | undefined;
 }
+
+type LineColumn = ControlledColumn<ProductionOrderLine, CatalogueColumn<ProductionOrderLine>>;
 
 export function BatchLinesPanel({
     testID,
     lines,
     costsVisible,
     withOutcome,
-    headless = false,
+    first = false,
 }: BatchLinesPanelProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -64,42 +72,74 @@ export function BatchLinesPanel({
             noValue,
         );
 
-    const columns: readonly TableColumn<ProductionOrderLine>[] = [
+    /** By the figure the wire sends, blanks last either way: "not yet" is not the smallest. */
+    const byQuantity =
+        (pick: (line: ProductionOrderLine) => string | null) =>
+        (left: ProductionOrderLine, right: ProductionOrderLine, direction: 'asc' | 'desc') =>
+            compareAmount(pick(left), pick(right), direction);
+
+    const kindLabel = (kind: ProductionOrderLine['lineKind']): string =>
+        t(
+            kind === 'packaging'
+                ? 'kitchen:ops.production.lineKindPackaging'
+                : 'kitchen:ops.production.lineKindIngredient',
+        );
+
+    /** The settled figure once there is one, the estimate until then. */
+    const unitCost = (line: ProductionOrderLine): string | null =>
+        line.actualUnitCostAmount ?? line.estimatedUnitCostAmount ?? null;
+
+    const columns: readonly LineColumn[] = [
         {
             key: 'item',
-            header: t('kitchen:ops.production.columnItem'),
-            rowHeader: true,
-            flex: 3,
-            render: (line) => (
-                <Stack space="none">
-                    <Text variant="bodyStrong" numberOfLines={1}>
-                        {line.stockItemNameEn ?? noValue}
-                    </Text>
-                    <Text variant="caption" tone="secondary" numberOfLines={1}>
-                        {t(
-                            line.lineKind === 'packaging'
-                                ? 'kitchen:ops.production.lineKindPackaging'
-                                : 'kitchen:ops.production.lineKindIngredient',
-                        )}
-                        {line.stockItemCode === null ? '' : ` · ${line.stockItemCode}`}
-                    </Text>
-                </Stack>
-            ),
+            role: 'title',
+            label: t('kitchen:ops.production.columnItem'),
+            width: 200,
+            priority: 100,
+            sort: (left, right, direction) =>
+                compareText(left.stockItemNameEn, right.stockItemNameEn, direction),
+            value: (line) => line.stockItemNameEn ?? noValue,
+            // The name alone: a long one ends in an ellipsis and reads whole on hover.
+            render: (line) => <Text variant="strong">{line.stockItemNameEn ?? noValue}</Text>,
+        },
+        {
+            key: 'kind',
+            role: 'meta',
+            label: t('kitchen:ops.production.columnKind'),
+            width: 104,
+            priority: 40,
+            filter: {
+                values: (loaded) =>
+                    [...new Set(loaded.map((line) => line.lineKind))].map((kind) => ({
+                        key: kind,
+                        label: kindLabel(kind),
+                    })),
+                match: (line, value) => line.lineKind === value,
+            },
+            value: (line) => kindLabel(line.lineKind),
         },
         {
             key: 'required',
+            role: 'meta',
             width: 104,
-            header: t('kitchen:ops.production.planRequired'),
-            numeric: true,
+            label: t('kitchen:ops.production.planRequired'),
+            priority: 90,
+            mono: true,
+            sort: byQuantity((line) => line.requiredQuantity),
+            value: (line) => quantity(line.requiredQuantity, line.unitCode),
             render: (line) => (
                 <Text variant="mono">{quantity(line.requiredQuantity, line.unitCode)}</Text>
             ),
         },
         {
             key: 'claimed',
+            role: 'metric',
             width: 104,
-            header: t('kitchen:ops.production.columnClaimed'),
-            numeric: true,
+            label: t('kitchen:ops.production.columnClaimed'),
+            priority: 85,
+            mono: true,
+            sort: byQuantity((line) => line.reservedQuantity),
+            value: (line) => quantity(line.reservedQuantity, line.unitCode),
             render: (line) => (
                 <Text
                     variant="mono"
@@ -116,10 +156,12 @@ export function BatchLinesPanel({
                   {
                       key: 'used',
                       width: 104,
-                      header: t('kitchen:ops.production.columnUsed'),
-                      numeric: true,
-                      primary: true,
-                      render: (line: ProductionOrderLine) => (
+                      label: t('kitchen:ops.production.columnUsed'),
+                      priority: 95,
+                      mono: true,
+                      sort: byQuantity((line) => line.consumedQuantity),
+                      value: (line) => quantity(line.consumedQuantity, line.unitCode),
+                      render: (line) => (
                           <Text variant="mono">
                               {quantity(line.consumedQuantity, line.unitCode)}
                           </Text>
@@ -128,9 +170,12 @@ export function BatchLinesPanel({
                   {
                       key: 'wasted',
                       width: 104,
-                      header: t('kitchen:ops.production.columnWasted'),
-                      numeric: true,
-                      render: (line: ProductionOrderLine) => (
+                      label: t('kitchen:ops.production.columnWasted'),
+                      priority: 80,
+                      mono: true,
+                      sort: byQuantity((line) => line.wasteQuantity),
+                      value: (line) => quantity(line.wasteQuantity, line.unitCode),
+                      render: (line) => (
                           <Text
                               variant="mono"
                               tone={Number(line.wasteQuantity ?? '0') > 0 ? 'danger' : 'secondary'}
@@ -139,24 +184,36 @@ export function BatchLinesPanel({
                           </Text>
                       ),
                   },
-              ] satisfies readonly TableColumn<ProductionOrderLine>[])
+              ] satisfies readonly LineColumn[])
             : []),
         ...(costsVisible
             ? ([
                   {
                       key: 'unitCost',
                       width: 104,
-                      header: t('kitchen:ops.production.columnUnitCost'),
-                      numeric: true,
-                      render: (line: ProductionOrderLine) => {
-                          // The settled figure once there is one, the estimate until then. An
-                          // uncosted line is the em dash and never a zero: a zero reads as free,
-                          // and a kitchen would price against it.
-                          const amount = line.actualUnitCostAmount ?? line.estimatedUnitCostAmount;
+                      label: t('kitchen:ops.production.columnUnitCost'),
+                      priority: 50,
+                      mono: true,
+                      sort: byQuantity(unitCost),
+                      // An uncosted line is the em dash and never a zero: a zero reads as free,
+                      // and a kitchen would price against it.
+                      value: (line) => {
+                          const amount = unitCost(line);
+
+                          return amount === null
+                              ? noValue
+                              : formatMoney(
+                                    formatter,
+                                    Number(amount),
+                                    knownCurrency(line.costCurrencyCode),
+                                );
+                      },
+                      render: (line) => {
+                          const amount = unitCost(line);
 
                           return (
                               <Text variant="mono" tone="secondary">
-                                  {amount === null || amount === undefined
+                                  {amount === null
                                       ? noValue
                                       : formatMoney(
                                             formatter,
@@ -167,25 +224,25 @@ export function BatchLinesPanel({
                           );
                       },
                   },
-              ] satisfies readonly TableColumn<ProductionOrderLine>[])
+              ] satisfies readonly LineColumn[])
             : []),
     ];
 
     return (
-        <Stack space="sm" testID={testID}>
-            {headless ? null : (
-                <Heading level={2}>{t('kitchen:ops.production.headingLines')}</Heading>
-            )}
-            <Table<ProductionOrderLine>
-                testID={`${testID}-table`}
-                caption={t('kitchen:ops.production.headingLines')}
-                captionHidden
-                columns={columns}
-                rows={rows}
-                rowKey={(line) => line.id}
-                rowSize="sm"
-            />
-        </Stack>
+        <ProductionTable<ProductionOrderLine>
+            first={first}
+            sectionTestID={testID}
+            testID={`${testID}-table`}
+            title={t('kitchen:ops.production.headingLines')}
+            aside={
+                <Text variant="caption" tone="secondary">
+                    {t('kitchen:ops.batch.lineCount', { count: rows.length })}
+                </Text>
+            }
+            rows={rows}
+            columns={columns}
+            rowKey={(line) => line.id}
+        />
     );
 }
 

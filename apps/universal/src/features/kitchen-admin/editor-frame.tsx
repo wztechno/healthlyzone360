@@ -1,5 +1,14 @@
 import type { AdminEntityMeta, AdminRecordMeta } from '@healthy360/api-client/contracts';
-import { Badge, Button, Cascade, Dialog, Inline, Stack, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    Dialog,
+    Inline,
+    Stack,
+    Text,
+    useContentWidth,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +16,7 @@ import { View } from 'react-native';
 
 import type { BadgeTone } from '@healthy360/design-system';
 
+import { EDITOR_FORM_MIN } from './desk-layout.ts';
 import { statusKey, statusTone } from './format.ts';
 import { CataloguePageHeader } from './catalogue/catalogue-page-header.tsx';
 import { EditorStepNavigation, EditorStepProgress } from './editor-steps.tsx';
@@ -14,6 +24,9 @@ import type { EditorStepsProps } from './editor-steps.tsx';
 import { useKitchenTrailLeaf } from './kitchen-ops-shell.tsx';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
+
+/** The editor rail's width beside the form. A style: there is no rail-width token. */
+const EDITOR_RAIL_WIDTH = 330;
 
 /**
  * The chrome every record editor in this workspace shares.
@@ -153,6 +166,8 @@ export function EditorFrame({
     testID,
 }: EditorFrameProps) {
     const { t } = useTranslation();
+    // The rail beside the form only while the form keeps its width — on the page, not the window.
+    const railBeside = useContentWidth().atLeast(EDITOR_RAIL_WIDTH + 16 + EDITOR_FORM_MIN);
     const formatter = useFormatter();
 
     const updatedLine = (): string => {
@@ -313,10 +328,15 @@ export function EditorFrame({
             {rail === undefined ? (
                 <View className="flex-col">{children}</View>
             ) : (
-                <View className="flex-col gap-base lg:flex-row lg:items-start">
-                    {}
+                <View
+                    className={railBeside ? 'flex-row items-start gap-base' : 'flex-col gap-base'}
+                >
                     <View className="min-w-0 flex-1 flex-col">{children}</View>
-                    <View testID={`${testID}-rail`} className="lg:w-[330px] lg:shrink-0">
+                    <View
+                        testID={`${testID}-rail`}
+                        className={railBeside ? 'shrink-0' : 'flex-col'}
+                        style={railBeside ? { width: EDITOR_RAIL_WIDTH } : undefined}
+                    >
                         {rail}
                     </View>
                 </View>

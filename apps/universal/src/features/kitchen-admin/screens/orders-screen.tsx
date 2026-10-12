@@ -857,9 +857,6 @@ function OrderRecord({
                     value={money(formatter, shown.totalMinor, shown.currencyCode)}
                     strong
                 />
-                <Text variant="caption" tone="secondary">
-                    {t('kitchen:ops.orders.currencyNote', { currency: shown.currencyCode })}
-                </Text>
             </Stack>
         ),
     };

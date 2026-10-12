@@ -65,6 +65,7 @@ import {
     PageTransition,
     Pagination,
     PasswordInput,
+    InfoTip,
     Popover,
     ProgressRing,
     QuantityInput,
@@ -2359,6 +2360,55 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
             </Stack>
 
             {/*
+             * The same toolbar on a laptop's page, with a filter of the entity's own and the row's
+             * actions. Narrowed to 640px so the break is visible: the search and the filters wrap
+             * inside their zone, and New keeps the end of the first line — it is never the control
+             * left on a line of its own.
+             */}
+            <Stack space="xs">
+                <Text variant="section" tone="secondary">
+                    Catalogue toolbar — filters and actions, 640px
+                </Text>
+                <View style={{ maxWidth: 640 }}>
+                    <CatalogueToolbar
+                        testID={id('toolbar-narrow')}
+                        search={toolbarSearch}
+                        onSearchChange={setToolbarSearch}
+                        searchLabel="Search the catalogue"
+                        searchPlaceholder="Search ingredients"
+                        statusLabel="Status"
+                        statusSegments={[
+                            { value: 'all', label: 'All' },
+                            { value: 'live', label: 'Live' },
+                            { value: 'draft', label: 'Draft' },
+                            { value: 'review', label: 'Review' },
+                        ]}
+                        status={toolbarStatus}
+                        onStatusChange={setToolbarStatus}
+                        filters={
+                            <SegmentedControl
+                                testID={id('toolbar-narrow-layout')}
+                                label="Layout"
+                                value="table"
+                                onChange={() => undefined}
+                                items={[
+                                    { value: 'table', label: 'Table' },
+                                    { value: 'cards', label: 'Cards' },
+                                ]}
+                            />
+                        }
+                    >
+                        <Button
+                            testID={id('toolbar-narrow-create')}
+                            label="New"
+                            iconStart={<Icon name="plus" size="sm" />}
+                            onPress={() => undefined}
+                        />
+                    </CatalogueToolbar>
+                </View>
+            </Stack>
+
+            {/*
              * What every list draws under that toolbar: loading, a filter that matched nothing (with
              * the create action a manager gets), a failed listing, and the table with its pager.
              */}
@@ -3083,6 +3133,7 @@ export function ShowcaseScreen() {
     const toast = useToast();
 
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [squareDialogOpen, setSquareDialogOpen] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [endDrawerOpen, setEndDrawerOpen] = useState(false);
     const [sheetOpen, setSheetOpen] = useState(false);
@@ -3389,6 +3440,26 @@ export function ShowcaseScreen() {
                                     label="Restricted"
                                 />
                             </Card>
+                            {/*
+                             * The empty table on a desk page. What to check: the block is the
+                             * panel radius and a 16px inset with a 16px title — the size of the
+                             * toolbar above it — where the comfortable one under "States" is a
+                             * 32px-inset, 20px-title hero.
+                             */}
+                            <EmptyState
+                                testID="showcase-density-empty"
+                                title={t('auth:devices.empty')}
+                                body={t('auth:devices.emptyBody')}
+                                actions={
+                                    <Button
+                                        testID="showcase-density-empty-clear"
+                                        size="sm"
+                                        variant="secondary"
+                                        label="Clear the filters"
+                                        onPress={() => undefined}
+                                    />
+                                }
+                            />
                         </Stack>
                     </DensityProvider>
                 </Section>
@@ -3867,6 +3938,15 @@ export function ShowcaseScreen() {
                         onClear={() => {
                             setBoundDate('');
                         }}
+                    />
+                    {/* Near the foot of a card: the month opens upward, clear of the frame. */}
+                    <DatePickerButton
+                        testID="showcase-date-picker-above"
+                        label={t('designSystem:showcase.dateLabel')}
+                        labelVisible
+                        side="above"
+                        value={startDate ?? '2026-08-03'}
+                        onChange={setStartDate}
                     />
                     <CalendarGrid
                         testID="showcase-calendar"
@@ -4433,6 +4513,14 @@ export function ShowcaseScreen() {
                             }}
                         />
                         <Button
+                            testID="showcase-open-square-dialog"
+                            variant="secondary"
+                            label={t('designSystem:showcase.openSquareDialog')}
+                            onPress={() => {
+                                setSquareDialogOpen(true);
+                            }}
+                        />
+                        <Button
                             testID="showcase-open-drawer"
                             variant="secondary"
                             label={t('designSystem:showcase.openDrawer')}
@@ -4485,6 +4573,16 @@ export function ShowcaseScreen() {
                         <Text variant="caption">{t('designSystem:showcase.popoverBody')}</Text>
                     </Popover>
 
+                    {/* A sentence of guidance beside a label: hover, focus or press. */}
+                    <Inline space="xs" align="center">
+                        <Text variant="label">{t('designSystem:showcase.popoverTitle')}</Text>
+                        <InfoTip
+                            testID="showcase-info-tip"
+                            label={t('designSystem:showcase.popoverTitle')}
+                            text={t('designSystem:showcase.popoverBody')}
+                        />
+                    </Inline>
+
                     <Dialog
                         testID="showcase-dialog"
                         open={dialogOpen}
@@ -4514,6 +4612,47 @@ export function ShowcaseScreen() {
                             </>
                         }
                     />
+
+                    {/* A form with a table in it: the record window's square, pinned ends. */}
+                    <Dialog
+                        testID="showcase-square-dialog"
+                        size="square"
+                        open={squareDialogOpen}
+                        onClose={() => {
+                            setSquareDialogOpen(false);
+                        }}
+                        title={t('designSystem:showcase.squareDialogTitle')}
+                        titleAside={
+                            <InfoTip
+                                testID="showcase-square-dialog-info"
+                                label={t('designSystem:showcase.squareDialogTitle')}
+                                text={t('designSystem:showcase.popoverBody')}
+                            />
+                        }
+                        actions={
+                            <>
+                                <Button
+                                    testID="showcase-square-dialog-cancel"
+                                    variant="quiet"
+                                    size="sm"
+                                    label={t('common:action.cancel')}
+                                    onPress={() => {
+                                        setSquareDialogOpen(false);
+                                    }}
+                                />
+                                <Button
+                                    testID="showcase-square-dialog-confirm"
+                                    size="sm"
+                                    label={t('common:action.confirm')}
+                                    onPress={() => {
+                                        setSquareDialogOpen(false);
+                                    }}
+                                />
+                            </>
+                        }
+                    >
+                        <Text>{t('designSystem:showcase.dialogBody')}</Text>
+                    </Dialog>
 
                     <Drawer
                         testID="showcase-drawer"

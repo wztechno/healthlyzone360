@@ -60,6 +60,20 @@ describe('FormField', () => {
         );
     });
 
+    it('draws the hint as an info tip beside the label, never as a line above the control', async () => {
+        await renderWithI18n(
+            <FormField testID="field" id="name" label="Full name" hint="As it appears on your ID.">
+                {(control) => <Text testID="control" {...control} />}
+            </FormField>,
+        );
+        // The tip is on the label's row and named for the field; the sentence itself is the
+        // unseen text the control is described by, so the field is no taller than one without.
+        expect(screen.getByTestId('field-info-trigger')).toHaveAccessibleName('About Full name');
+        expect(screen.getByTestId('field-hint', { includeHiddenElements: true })).toHaveTextContent(
+            'As it appears on your ID.',
+        );
+    });
+
     it('prefers the error over the hint for the native announcement', async () => {
         await renderWithI18n(
             <FormField testID="field" id="name" label="Full name" hint="A hint." error="A problem.">
@@ -650,6 +664,29 @@ describe('Select', () => {
 
             expect(screen.getByTestId('org-option-verdant')).toBeTruthy();
             expect(screen.queryByTestId('org-option-closed')).toBeNull();
+        });
+
+        it('matches keywords it never draws, so a code can be typed without being shown', async () => {
+            await renderWithI18n(
+                <Select
+                    testID="org"
+                    id="org"
+                    label="Organisation"
+                    options={[
+                        { value: 'cedar', label: 'Cedar Clinic', keywords: 'ORG-0042' },
+                        { value: 'verdant', label: 'Verdant Kitchen' },
+                    ]}
+                    value={null}
+                    onChange={jest.fn()}
+                    searchable
+                />,
+            );
+            await fireEvent.press(screen.getByTestId('org-trigger'));
+            await fireEvent.changeText(screen.getByTestId('org-search-input'), 'org-0042');
+
+            expect(screen.getByTestId('org-option-cedar')).toBeTruthy();
+            expect(screen.queryByTestId('org-option-verdant')).toBeNull();
+            expect(screen.queryByText('ORG-0042')).toBeNull();
         });
 
         /** A list that silently shrinks is a list a screen reader user never learns about. */

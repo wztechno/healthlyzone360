@@ -136,7 +136,6 @@ function OrderDeskCashReport() {
     const failure = toFailure(report.error);
     const rows = report.data?.rows ?? [];
     const totals = report.data?.totals ?? [];
-    const meta = report.data?.meta ?? null;
 
     const columns: readonly ControlledColumn<
         OrderDeskCashReportRow,
@@ -293,11 +292,6 @@ function OrderDeskCashReport() {
                     value={date}
                     onChange={setDate}
                 />
-                {meta === null ? (
-                    <Text variant="caption" tone="secondary">
-                        {t('kitchen:ops.cashReport.dateHint')}
-                    </Text>
-                ) : null}
             </ToolbarPanel>
 
             {filters === null ? (

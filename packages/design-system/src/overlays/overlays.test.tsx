@@ -27,6 +27,7 @@ import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
 import { ActionSheet } from './action-sheet.tsx';
 import { Dialog } from './dialog.tsx';
 import { DRAWER_PLACEMENTS, Drawer } from './drawer.tsx';
+import { InfoTip } from './info-tip.tsx';
 import { Popover } from './popover.tsx';
 import { ToastProvider, useToast } from './toast.tsx';
 
@@ -156,6 +157,34 @@ describe('Dialog', () => {
             'ar',
         );
         assertSubtreeIsLogical(screen.getByTestId('confirm'));
+    });
+
+    it('draws the square as the record window does, with the aside beside the title', async () => {
+        const onClose = jest.fn();
+        await renderWithI18n(
+            <Dialog
+                testID="settle"
+                open
+                size="square"
+                onClose={onClose}
+                title="Report what came out"
+                titleAside={<RNText testID="settle-aside">i</RNText>}
+                actions={<Button testID="go" label="Complete" onPress={jest.fn()} />}
+            >
+                <Text>Body</Text>
+            </Dialog>,
+            'ar',
+        );
+
+        const node = screen.getByTestId('settle');
+        expect(node.props.role).toBe('dialog');
+        expect(node.props['aria-labelledby']).toBe('settle-title');
+        expect(screen.getByTestId('settle-aside')).toBeTruthy();
+        expect(screen.getByTestId('settle-actions')).toBeTruthy();
+        assertSubtreeIsLogical(node);
+
+        await fireEvent.press(screen.getByTestId('settle-close'));
+        expect(onClose).toHaveBeenCalledTimes(1);
     });
 });
 
@@ -645,5 +674,41 @@ describe('Popover', () => {
 
         await fireEvent.press(screen.getByTestId('why-trigger'));
         assertSubtreeIsLogical(screen.getByTestId('why'));
+    });
+});
+
+describe('InfoTip', () => {
+    it('names itself after what it explains and carries the sentence as its description', async () => {
+        await renderWithI18n(
+            <InfoTip
+                testID="tip"
+                label="Driver"
+                text="Leave it empty and any driver can claim it."
+            />,
+        );
+
+        const trigger = screen.getByTestId('tip-trigger');
+        expect(trigger).toHaveAccessibleName('About Driver');
+        expect(trigger.props.accessibilityHint).toBe('Leave it empty and any driver can claim it.');
+        // Nothing is drawn until somebody asks — the tip takes no room on the page.
+        expect(screen.queryByTestId('tip-bubble')).toBeNull();
+    });
+
+    it('opens on press and closes on a second press', async () => {
+        await renderWithI18n(
+            <InfoTip testID="tip" label="Driver" text="Any driver can claim it." />,
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('tip-trigger'));
+        });
+        expect(screen.getByTestId('tip-bubble', { includeHiddenElements: true })).toHaveTextContent(
+            'Any driver can claim it.',
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('tip-trigger'));
+        });
+        expect(screen.queryByTestId('tip-bubble', { includeHiddenElements: true })).toBeNull();
     });
 });

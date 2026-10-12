@@ -15,7 +15,7 @@ import {
     Tag,
     Text,
     TextInputField,
-    useBreakpoint,
+    useContentWidth,
 } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import type { ServiceAreaId } from '@healthy360/domain-types';
@@ -70,9 +70,12 @@ import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
  * tables of the delivery slice size a time and a select alike. The control track is wide enough for
  * its "Actions" header to read whole. The zones track is the 180px the page's read-only "Offered
  * in" cell was drawn at, plus the cell's padding.
+ *
+ * Name's floor is 180, not 220, so the editable tracks fit a laptop's page (a 1093px window leaves
+ * ~930px inside the card); it still takes every pixel left over on a wider one.
  */
 export const WINDOW_TRACKS = {
-    name: 220,
+    name: 180,
     days: 276,
     starts: 120,
     ends: 120,
@@ -335,7 +338,9 @@ export function DeliveryWindowRows({
                       key: 'zones',
                       label: t('kitchen:deliveryWindows.zonesColumn'),
                       width: WINDOW_TRACKS.zones,
-                      priority: 97,
+                      // Below the pinned line: it is a reading, not an input, and on a laptop's
+                      // page the six editable tracks are what must fit. The fitter drops it first.
+                      priority: 90,
                       grow: false,
                       sortable: false,
                       filterable: false,
@@ -758,6 +763,9 @@ export interface ServiceAreaPickerProps {
     readonly testID: string;
 }
 
+/** The narrowest a place-name column runs before the picker drops one. */
+const PLACE_COLUMN_MIN = 150;
+
 /**
  * The zone's areas, chosen from the platform gazetteer.
  *
@@ -784,16 +792,17 @@ export function ServiceAreaPicker({
     testID,
 }: ServiceAreaPickerProps) {
     const { t } = useTranslation();
-    const { atLeast } = useBreakpoint();
+    const { width: contentWidth } = useContentWidth();
     const [query, setQuery] = useState('');
 
     /*
      * The gazetteer runs to ~125 rows, and one row per line means a page of scrolling to read a
-     * list of short place names. The options therefore flow into as many columns as the viewport
-     * holds — six on a desk screen — as a percentage rather than a fixed track, so the last column
-     * ends where the rule does.
+     * list of short place names. The options therefore flow into as many columns as the page
+     * holds — one per `PLACE_COLUMN_MIN`, up to six — as a percentage rather than a fixed track, so
+     * the last column ends where the rule does. Counted from the content width, not the window: a
+     * laptop window clears `xl` with the page at ~920px.
      */
-    const columns = atLeast('xl') ? 6 : atLeast('lg') ? 4 : atLeast('md') ? 2 : 1;
+    const columns = Math.min(6, Math.max(1, Math.floor(contentWidth / PLACE_COLUMN_MIN)));
     const columnWidth: `${number}%` = `${100 / columns}%`;
 
     const selectedSet = useMemo(() => new Set(selected.map(String)), [selected]);

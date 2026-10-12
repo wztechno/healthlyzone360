@@ -629,7 +629,10 @@ export function PriceEntriesCard({
             units.map((unit) => ({
                 value: unit.key,
                 label: pricedThingName(unit),
-                description: unit.code ?? t(priceItemKindKey(unit.kind)),
+                // What kind of thing it is, on the row's one line; the product's code is searched,
+                // never drawn.
+                description: t(priceItemKindKey(unit.kind)),
+                ...(unit.code === null ? {} : { keywords: unit.code }),
             })),
         [units, t],
     );

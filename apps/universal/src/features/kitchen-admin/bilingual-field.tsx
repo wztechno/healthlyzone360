@@ -337,7 +337,6 @@ export function BilingualField({
             <BilingualHalf
                 testID={`${testID}-en`}
                 label={t('kitchen:bilingual.englishLabel', { field: fieldLabel })}
-                hint={t('kitchen:bilingual.englishHint')}
                 value={value.en}
                 onChangeText={(next) => {
                     onChange({ ...value, en: next });
@@ -353,7 +352,6 @@ export function BilingualField({
             <BilingualHalf
                 testID={`${testID}-ar`}
                 label={t('kitchen:bilingual.arabicLabel', { field: fieldLabel })}
-                hint={t('kitchen:bilingual.arabicHint')}
                 value={value.ar}
                 onChangeText={(next) => {
                     onChange({ ...value, ar: next });

@@ -1,7 +1,8 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 
 import { FormNavigation } from '../forms/form-navigation.tsx';
+import { useContentWidth } from '../hooks/use-content-width.tsx';
 import { Text } from '../primitives/text.tsx';
 import { OfflineIndicator } from '../status/offline-indicator.tsx';
 import { assertSubtreeIsLogical, renderWithI18n, withI18n } from '../testing/render.tsx';
@@ -14,6 +15,10 @@ const mockedDimensions = useWindowDimensions as unknown as jest.Mock;
 
 function setViewport(width: number) {
     mockedDimensions.mockReturnValue({ width, height: 900, scale: 2, fontScale: 1 });
+}
+
+function WidthProbe() {
+    return <Text testID="content-width">{String(useContentWidth().width)}</Text>;
 }
 
 const navigation: readonly NavigationItem[] = [
@@ -95,7 +100,7 @@ describe('AppShell — auth', () => {
 
 describe('AppShell — workspace', () => {
     it('shows a persistent sidebar at lg and above', async () => {
-        setViewport(1280);
+        setViewport(1440);
         await renderWithI18n(
             <AppShell testID="shell" variant="workspace" navigation={navigation}>
                 <Text>Body</Text>
@@ -107,7 +112,7 @@ describe('AppShell — workspace', () => {
     });
 
     it('slides the page panel shut from the hamburger and open again, keeping the module rail', async () => {
-        setViewport(1280);
+        setViewport(1440);
         await renderWithI18n(
             <AppShell testID="shell" variant="workspace" navigation={navigation}>
                 <Text>Body</Text>
@@ -135,8 +140,88 @@ describe('AppShell — workspace', () => {
         expect(screen.getByTestId('nav-overview')).toBeTruthy();
     });
 
-    it('lists a module’s pages from its rail icon, and shuts the panel on the same icon', async () => {
+    /*
+     * A 1920×1080 laptop at 150% scaling hands the browser 1280px. With the panel open the page had
+     * ~920 of it, which is what put the order desk's primary on a line of its own.
+     */
+    it('opens a laptop-width window with the page panel shut and the room given to the page', async () => {
         setViewport(1280);
+        await renderWithI18n(
+            <AppShell testID="shell" variant="workspace" navigation={navigation} sidebarWidth={232}>
+                <WidthProbe />
+            </AppShell>,
+        );
+
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 0 });
+        expect(screen.getByTestId('shell-rail')).toBeTruthy();
+        // 1280 − the 56px rail − 28px padding each side.
+        expect(screen.getByTestId('content-width')).toHaveTextContent('1168');
+
+        await fireEvent.press(screen.getByTestId('shell-sidebar-toggle'));
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 232 });
+        // The page re-lays on the press, not after the slide.
+        expect(screen.getByTestId('content-width')).toHaveTextContent('936');
+    });
+
+    it('opens on the reader’s remembered choice over the window’s default', async () => {
+        jest.replaceProperty(Platform, 'OS', 'web');
+        const document_ = { cookie: 'h360_locale=en; h360_panel=open' };
+        Object.defineProperty(globalThis, 'document', { value: document_, configurable: true });
+        try {
+            setViewport(1280);
+            await renderWithI18n(
+                <AppShell testID="shell" variant="workspace" navigation={navigation}>
+                    <Text>Body</Text>
+                </AppShell>,
+            );
+            expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+
+            await fireEvent.press(screen.getByTestId('shell-sidebar-toggle'));
+            expect(document_.cookie).toContain('h360_panel=shut');
+        } finally {
+            Reflect.deleteProperty(globalThis, 'document');
+            jest.restoreAllMocks();
+        }
+    });
+
+    it('does not reopen a shut panel on a laptop-width window when the page changes', async () => {
+        setViewport(1280);
+        const items = (active: string): readonly NavigationItem[] => [
+            {
+                key: 'meals',
+                label: 'Meals',
+                group: 'Catalogue',
+                active: active === 'meals',
+                onPress: jest.fn(),
+                testID: 'nav-meals',
+            },
+            {
+                key: 'stock',
+                label: 'Stock',
+                group: 'Inventory',
+                active: active === 'stock',
+                onPress: jest.fn(),
+                testID: 'nav-stock',
+            },
+        ];
+        const shell = (active: string) => (
+            <AppShell testID="shell" variant="workspace" navigation={items(active)}>
+                <Text>Body</Text>
+            </AppShell>
+        );
+        const { rerender } = await renderWithI18n(shell('meals'));
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 0 });
+
+        await rerender(withI18n(shell('stock')));
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 0 });
+
+        // A module icon is the reader asking, so it still opens.
+        await fireEvent.press(screen.getByTestId('shell-rail-group-Inventory'));
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+    });
+
+    it('lists a module’s pages from its rail icon, and shuts the panel on the same icon', async () => {
+        setViewport(1440);
         await renderWithI18n(
             <AppShell
                 testID="shell"
@@ -211,7 +296,7 @@ describe('AppShell — workspace', () => {
     });
 
     it('orders the rail as the caller lists it, and labels runs inside a module panel', async () => {
-        setViewport(1280);
+        setViewport(1440);
         await renderWithI18n(
             <AppShell
                 testID="shell"
@@ -271,7 +356,7 @@ describe('AppShell — workspace', () => {
     });
 
     it('follows the page to its module when it is reached from outside the panel', async () => {
-        setViewport(1280);
+        setViewport(1440);
         const items = (active: string): readonly NavigationItem[] => [
             {
                 key: 'meals',
@@ -326,7 +411,7 @@ describe('AppShell — workspace', () => {
     });
 
     it('lights one rail icon: Overview on its page, a picked module once one is picked', async () => {
-        setViewport(1280);
+        setViewport(1440);
         await renderWithI18n(
             <AppShell
                 testID="shell"
@@ -372,7 +457,7 @@ describe('AppShell — workspace', () => {
     });
 
     it('says Overview has nothing under it, and opens the first module from there rather than shutting', async () => {
-        setViewport(1280);
+        setViewport(1440);
         const overviewPress = jest.fn();
         await renderWithI18n(
             <AppShell
@@ -562,7 +647,7 @@ describe('AppShell — sidebar navigation', () => {
     ];
 
     it('lists one module under its heading in the panel, and every module on the rail', async () => {
-        setViewport(1280);
+        setViewport(1440);
         await renderWithI18n(
             <AppShell testID="shell" variant="workspace" navigation={grouped}>
                 <Text>Body</Text>
@@ -589,7 +674,7 @@ describe('AppShell — sidebar navigation', () => {
     });
 
     it('draws the active item as the sidebar pill', async () => {
-        setViewport(1280);
+        setViewport(1440);
         await renderWithI18n(
             <AppShell testID="shell" variant="workspace" navigation={grouped}>
                 <Text>Body</Text>
@@ -604,7 +689,7 @@ describe('AppShell — sidebar navigation', () => {
     });
 
     it('renders no headings at all when nothing is grouped', async () => {
-        setViewport(1280);
+        setViewport(1440);
         await renderWithI18n(
             <AppShell
                 testID="shell"
@@ -757,7 +842,7 @@ describe('AppShell — marketplace', () => {
 
 describe('AppShell — auth aside', () => {
     it('stands the brand panel beside the card from lg up', async () => {
-        setViewport(1280);
+        setViewport(1440);
         await renderWithI18n(
             <AppShell
                 testID="shell"
@@ -792,7 +877,7 @@ describe('AppShell — auth aside', () => {
 
 describe('AppShell — sidebar slots', () => {
     it('renders the brand block, the background layer, the badge and the pinned end control', async () => {
-        setViewport(1280);
+        setViewport(1440);
         await renderWithI18n(
             <AppShell
                 testID="shell"
@@ -821,7 +906,7 @@ describe('AppShell — sidebar slots', () => {
     });
 
     it('applies a caller width as style and leaves the default classes alone', async () => {
-        setViewport(1280);
+        setViewport(1440);
         await renderWithI18n(
             <AppShell testID="shell" variant="workspace" navigation={navigation} sidebarWidth={232}>
                 <Text>Body</Text>
@@ -838,7 +923,7 @@ describe('AppShell — sidebar slots', () => {
 
 describe('AppShell — consumer', () => {
     it('keeps a sidebar at lg and above', async () => {
-        setViewport(1280);
+        setViewport(1440);
         await renderWithI18n(
             <AppShell testID="shell" variant="consumer" navigation={navigation}>
                 <Text>Body</Text>

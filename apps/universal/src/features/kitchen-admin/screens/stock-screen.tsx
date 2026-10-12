@@ -22,8 +22,7 @@ import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
-import type { LayoutChangeEvent } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -37,6 +36,7 @@ import {
     useStockLevelsQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
+import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -329,7 +329,7 @@ function Stock() {
         {
             key: 'reorder',
             label: t('kitchen:ops.stock.columnReorderPar'),
-            width: 130,
+            width: 152,
             priority: 50,
             value: reorderText,
             // By the threshold, the figure that raises the alarm; par breaks a tie. A shelf with no
@@ -651,7 +651,6 @@ function Stock() {
                         value: lastPurchaseText(viewing),
                     },
                 ]}
-                footNote={t('kitchen:ops.stock.ledgerNote')}
                 {...(canManage
                     ? {
                           primaryAction: {
@@ -692,22 +691,24 @@ function Stock() {
                     setSegment(next);
                     resetPage();
                 }}
+                filters={
+                    <SegmentedControl
+                        testID="kitchen-stock-kind"
+                        label={t('kitchen:ops.stock.kindLabel')}
+                        items={kindSegments.map((kindSegment) => ({
+                            value: kindSegment.value,
+                            label: kindSegment.label,
+                            testID: `kitchen-stock-kind-${kindSegment.value}`,
+                        }))}
+                        value={kind}
+                        onChange={(next) => {
+                            setKind(next);
+                            resetPage();
+                        }}
+                    />
+                }
             >
                 <ColumnPicker {...controls.picker} />
-                <SegmentedControl
-                    testID="kitchen-stock-kind"
-                    label={t('kitchen:ops.stock.kindLabel')}
-                    items={kindSegments.map((kindSegment) => ({
-                        value: kindSegment.value,
-                        label: kindSegment.label,
-                        testID: `kitchen-stock-kind-${kindSegment.value}`,
-                    }))}
-                    value={kind}
-                    onChange={(next) => {
-                        setKind(next);
-                        resetPage();
-                    }}
-                />
             </CatalogueToolbar>
 
             {pending ? (
@@ -907,7 +908,12 @@ function StockMovementEditor({
     const [notes, setNotes] = useState('');
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
-    const [bodyWidth, setBodyWidth] = useState(0);
+    /*
+     * Read from the node rather than `onLayout`, which on the web delivered one early width and
+     * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.
+     */
+    const port = useCataloguePort();
+    const bodyWidth = port.width;
 
     useKitchenTrailLeaf(row.item.nameEn);
 
@@ -1122,9 +1128,8 @@ function StockMovementEditor({
             )}
 
             <View
-                onLayout={(event: LayoutChangeEvent) => {
-                    setBodyWidth(event.nativeEvent.layout.width);
-                }}
+                ref={Platform.OS === 'web' ? port.ref : undefined}
+                onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
                 className={
                     sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
                 }

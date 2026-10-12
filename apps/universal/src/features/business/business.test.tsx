@@ -76,6 +76,18 @@ import { QuotationsScreen } from './screens/quotations-screen.tsx';
  *    privacy sweep a meaningful assertion rather than a list of exceptions.
  */
 
+/*
+ * The corporate screens are desk surfaces, drawn on the admin's tables: above `md` a row draws
+ * every column the spec declares, and the cells carry the test ids (and the `contract-price-`
+ * markers) asserted below. Jest's default window is phone-sized, where the same lists collapse to
+ * two-line rows, so this suite renders at the width the screens are built for — as the kitchen's
+ * Commercial suites do.
+ */
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+    __esModule: true,
+    default: () => ({ width: 1280, height: 900, scale: 1, fontScale: 1 }),
+}));
+
 jest.mock('expo-router', () => ({
     __esModule: true,
     useRouter: () => ({
@@ -558,15 +570,18 @@ describe('corporate dashboard', () => {
             expect(screen.getByTestId('corporate-programme-list')).toBeTruthy();
         });
 
-        // Two programmes authored, two cards — the count is derived from the world, not written down.
+        // Two programmes authored, two rows — the count is derived from the world, not written down.
         await waitFor(() => {
-            expect(screen.getAllByTestId(/^corporate-programme-.+-name$/)).toHaveLength(2);
+            expect(screen.getAllByTestId(/^corporate-programme-[0-9a-f-]+-name$/)).toHaveLength(2);
         });
         for (const programme of [STAFF_PROGRAMME, WHOLESALE_PROGRAMME]) {
             const base = `corporate-programme-${String(programme.id)}`;
+            expect(
+                screen.getByTestId(`corporate-programme-list-row-${String(programme.id)}`),
+            ).toBeTruthy();
             expect(screen.getByTestId(`${base}-name`)).toBeTruthy();
             expect(screen.getByTestId(`${base}-headcount`)).toBeTruthy();
-            expect(screen.getByTestId(`${base}-locations`)).toBeTruthy();
+            expect(screen.getByTestId(`${base}-term`)).toBeTruthy();
         }
     });
 
@@ -597,11 +612,11 @@ describe('corporate dashboard', () => {
 
         await waitFor(() => {
             expect(
-                screen.getByTestId(`corporate-quotation-${SUBMITTED_QUOTATION.reference}`),
+                screen.getByTestId(`corporate-quotations-row-${SUBMITTED_QUOTATION.reference}`),
             ).toBeTruthy();
         });
         expect(
-            screen.getByTestId(`corporate-quotation-${QUOTED_QUOTATION.reference}`),
+            screen.getByTestId(`corporate-quotations-row-${QUOTED_QUOTATION.reference}`),
         ).toBeTruthy();
     });
 });
@@ -617,17 +632,21 @@ describe('corporate catalogue', () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByTestId(`catalogue-item-${STAFF_LUNCH_BOX.id}`)).toBeTruthy();
+            expect(
+                screen.getByTestId(`corporate-catalogue-list-row-${STAFF_LUNCH_BOX.id}`),
+            ).toBeTruthy();
         });
         expect(screen.getByTestId(contractPriceTestId(STAFF_LUNCH_BOX.id))).toBeTruthy();
         expect(screen.getByTestId(`catalogue-item-${STAFF_LUNCH_BOX.id}-minimum`)).toBeTruthy();
         expect(screen.getByTestId(`catalogue-item-${STAFF_LUNCH_BOX.id}-lead-time`)).toBeTruthy();
         expect(screen.getByTestId(`catalogue-item-${STAFF_LUNCH_BOX.id}-weekdays`)).toBeTruthy();
-        expect(screen.getByTestId('corporate-catalogue-currencies')).toBeTruthy();
+        expect(screen.getByTestId('corporate-catalogue-stats-currency')).toBeTruthy();
 
         // The catalogue is scoped to the programme by the contract, so the other programme's line
         // must not be here.
-        expect(screen.queryByTestId(`catalogue-item-${WHOLESALE_PALLET.id}`)).toBeNull();
+        expect(
+            screen.queryByTestId(`corporate-catalogue-list-row-${WHOLESALE_PALLET.id}`),
+        ).toBeNull();
     });
 
     it('shows the SAR line in its own currency rather than converting it', async () => {
@@ -644,7 +663,7 @@ describe('corporate catalogue', () => {
 
         // The B2B price says what it buys; the staff line, priced as itself, does not.
         expect(screen.getByTestId(contractPriceTestId(WHOLESALE_PALLET.id))).toHaveTextContent(
-            /per 12 kg$/,
+            /\/ 12 kg$/,
         );
     });
 
@@ -656,18 +675,22 @@ describe('corporate catalogue', () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByTestId(`catalogue-item-${WHOLESALE_PALLET.id}`)).toBeTruthy();
+            expect(
+                screen.getByTestId(`corporate-catalogue-list-row-${WHOLESALE_PALLET.id}`),
+            ).toBeTruthy();
         });
 
         // The wholesale programme holds a bulk package and no meals.
-        fireEvent.press(screen.getByTestId('corporate-catalogue-kind-meal'));
+        fireEvent.press(screen.getByTestId('corporate-catalogue-toolbar-status-meal'));
         await waitFor(() => {
             expect(screen.getByTestId('corporate-catalogue-empty')).toBeTruthy();
         });
 
         fireEvent.press(screen.getByTestId('corporate-catalogue-clear'));
         await waitFor(() => {
-            expect(screen.getByTestId(`catalogue-item-${WHOLESALE_PALLET.id}`)).toBeTruthy();
+            expect(
+                screen.getByTestId(`corporate-catalogue-list-row-${WHOLESALE_PALLET.id}`),
+            ).toBeTruthy();
         });
     });
 
@@ -691,7 +714,7 @@ describe('catalogue line detail', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('catalogue-item-name')).toBeTruthy();
+            expect(screen.getByTestId('catalogue-item-screen-title')).toBeTruthy();
         });
         expect(
             screen.getByTestId(contractPriceTestId(`headline-${STAFF_LUNCH_BOX.id}`)),
@@ -726,7 +749,8 @@ describe('quotation builder', () => {
             { session: buyerSession(), repositories: world.overrides },
         );
 
-        expect(screen.getByTestId('quotation-builder-scope')).toBeTruthy();
+        // Said once, behind the lines section's (i), where the quantities are chosen.
+        expect(screen.getByTestId('quotation-builder-lines-section-info')).toBeTruthy();
     });
 
     it('refuses an empty draft and says which rule it broke', async () => {
@@ -737,7 +761,9 @@ describe('quotation builder', () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByTestId(`quotation-line-${STAFF_LUNCH_BOX.id}`)).toBeTruthy();
+            expect(
+                screen.getByTestId(`quotation-builder-lines-row-${STAFF_LUNCH_BOX.id}`),
+            ).toBeTruthy();
         });
 
         fireEvent.press(screen.getByTestId('quotation-builder-submit'));
@@ -865,6 +891,13 @@ describe('quotation list', () => {
         if (line === undefined) return;
 
         await waitFor(() => {
+            expect(
+                screen.getByTestId(`quotations-list-row-${SUBMITTED_QUOTATION.reference}`),
+            ).toBeTruthy();
+        });
+        // The list says "awaiting price" in the total column; the record says it per line.
+        fireEvent.press(screen.getByTestId(`quotation-${SUBMITTED_QUOTATION.reference}-view`));
+        await waitFor(() => {
             expect(screen.getByTestId(`quotation-${SUBMITTED_QUOTATION.reference}`)).toBeTruthy();
         });
         expect(
@@ -908,7 +941,7 @@ describe('quotation list', () => {
         });
 
         // Neither authored quotation is closed, so the closed group is genuinely empty.
-        fireEvent.press(screen.getByTestId('quotations-filter-closed'));
+        fireEvent.press(screen.getByTestId('quotations-toolbar-status-closed'));
         await waitFor(() => {
             expect(screen.getByTestId('quotations-empty')).toBeTruthy();
         });

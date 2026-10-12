@@ -238,10 +238,10 @@ const ANY_FULFILMENT_TYPE = '__any__';
 
 /**
  * The toolbar's fixed sizes — stated as styles because neither has a token. The search never
- * narrows below an order number and a name, and takes whatever the row has left over; the kind
- * picker is wide enough for its longest label.
+ * narrows below an order number and a short name, and takes whatever its zone has left over; the
+ * kind picker is wide enough for its longest label.
  */
-const SEARCH_MIN_WIDTH = 240;
+const SEARCH_MIN_WIDTH = 200;
 const KIND_WIDTH = 140;
 
 /** Rows per page. The queue arrives whole, so the pages are cut from the loaded rows. */
@@ -693,7 +693,6 @@ function RecordPaymentDialog({
                 testID="kitchen-order-desk-payment-method"
                 id="kitchen-order-desk-payment-method"
                 label={t('kitchen:desk.recordPayment.methodLabel')}
-                hint={t('kitchen:desk.recordPayment.methodHint')}
                 value={method}
                 onChange={setMethod}
                 options={KITCHEN_ORDER_PAYMENT_METHODS.map((candidate) => ({
@@ -764,7 +763,6 @@ function RecordPaymentDialog({
                 testID="kitchen-order-desk-payment-notes"
                 id="kitchen-order-desk-payment-notes"
                 label={t('kitchen:desk.sale.notesLabel')}
-                hint={t('kitchen:desk.recordPayment.notesHint')}
                 placeholder={t('kitchen:desk.recordPayment.notesPlaceholder')}
                 value={notes}
                 onChangeText={setNotes}
@@ -1115,6 +1113,8 @@ function OrderDeskQueueList() {
             key: 'customer',
             label: t('kitchen:desk.columnCustomer'),
             width: 150,
+            // A floor under the track, so a laptop's page keeps the column rather than dropping it.
+            min: 120,
             priority: 90,
             sort: (left, right, direction) =>
                 compareText(left.customer?.displayName, right.customer?.displayName, direction),
@@ -1207,6 +1207,7 @@ function OrderDeskQueueList() {
             key: 'payment',
             label: t('kitchen:desk.columnPayment'),
             width: 150,
+            min: 120,
             priority: 75,
             filter: {
                 values: () =>
@@ -1872,10 +1873,15 @@ function OrderDeskQueueList() {
             />
 
             {/*
-             * One row of 28px controls. Two filters on it look alike and are not: the status chips
-             * are a *subset* filter — neither selected means both — while the kind of sale is a
-             * single choice because the endpoint takes exactly one value or none. See the file
-             * header.
+             * One row of 28px controls, in two zones. Two filters on it look alike and are not: the
+             * status chips are a *subset* filter — neither selected means both — while the kind of
+             * sale is a single choice because the endpoint takes exactly one value or none. See the
+             * file header.
+             *
+             * The filters take the leftover width and wrap inside their own zone; the column picker,
+             * Clear and New sale never wrap, so on a laptop's narrower page it is a filter that drops
+             * a line and the primary keeps the end of the first one. One wrapping row put New sale on
+             * a line of its own instead — the last control is the first to go.
              *
              * `z-tooltip` because React Native Web gives every view its own stacking context: the
              * kind picker's panel would otherwise paint under the table that follows the row.
@@ -1884,98 +1890,110 @@ function OrderDeskQueueList() {
                 testID="kitchen-order-desk-toolbar"
                 className="z-tooltip min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
             >
-                {/* eslint-disable-next-line no-restricted-syntax -- the search takes the row's leftover width. */}
-                <View className="flex-1" style={{ minWidth: SEARCH_MIN_WIDTH }}>
-                    <SearchInput
-                        testID="kitchen-order-desk-search"
-                        label={t('kitchen:desk.searchLabel')}
-                        placeholder={t('kitchen:desk.searchPlaceholder')}
-                        value={query}
-                        onChangeText={setQuery}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                    />
-                </View>
+                <View
+                    testID="kitchen-order-desk-toolbar-filters"
+                    // eslint-disable-next-line no-restricted-syntax -- the row's own filler; it wraps inside before the row wraps outside.
+                    className="z-auto flex-1 flex-row flex-wrap items-center gap-tight"
+                    style={{ minWidth: SEARCH_MIN_WIDTH }}
+                >
+                    {/* eslint-disable-next-line no-restricted-syntax -- the search takes the row's leftover width. */}
+                    <View className="flex-1" style={{ minWidth: SEARCH_MIN_WIDTH }}>
+                        <SearchInput
+                            testID="kitchen-order-desk-search"
+                            label={t('kitchen:desk.searchLabel')}
+                            placeholder={t('kitchen:desk.searchPlaceholder')}
+                            value={query}
+                            onChangeText={setQuery}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                        />
+                    </View>
 
-                <SegmentedControl<OrderDeskWindow>
-                    testID="kitchen-order-desk-window"
-                    label={t('kitchen:desk.windowLabel')}
-                    value={deskWindow}
-                    onChange={setDeskWindow}
-                    items={ORDER_DESK_WINDOWS.map((candidate) => ({
-                        value: candidate,
-                        label: t(WINDOW_LABEL_KEYS[candidate]),
-                        testID: `kitchen-order-desk-window-${candidate}`,
-                    }))}
-                />
+                    <SegmentedControl<OrderDeskWindow>
+                        testID="kitchen-order-desk-window"
+                        label={t('kitchen:desk.windowLabel')}
+                        value={deskWindow}
+                        onChange={setDeskWindow}
+                        items={ORDER_DESK_WINDOWS.map((candidate) => ({
+                            value: candidate,
+                            label: t(WINDOW_LABEL_KEYS[candidate]),
+                            testID: `kitchen-order-desk-window-${candidate}`,
+                        }))}
+                    />
+
+                    <View
+                        testID="kitchen-order-desk-status"
+                        role="group"
+                        aria-label={t('kitchen:desk.statusLabel')}
+                        className="flex-row items-center gap-hair"
+                    >
+                        {ORDER_DESK_QUEUE_STATUSES.map((candidate) => (
+                            <FilterChip
+                                key={candidate}
+                                size="sm"
+                                testID={`kitchen-order-desk-status-${candidate}`}
+                                label={t(kitchenOrderStatusKey(candidate))}
+                                selected={statuses.includes(candidate)}
+                                onChange={(selected) => {
+                                    toggleStatus(candidate, selected);
+                                }}
+                            />
+                        ))}
+                    </View>
+
+                    <View className="z-tooltip" style={{ width: KIND_WIDTH }}>
+                        <Select<OrderDeskFulfilmentType | typeof ANY_FULFILMENT_TYPE>
+                            testID="kitchen-order-desk-type"
+                            id="kitchen-order-desk-type"
+                            label={t('kitchen:desk.filterTypeLabel')}
+                            labelHidden
+                            value={fulfilmentType ?? ANY_FULFILMENT_TYPE}
+                            onChange={(next) => {
+                                setFulfilmentType(next === ANY_FULFILMENT_TYPE ? null : next);
+                            }}
+                            options={[
+                                {
+                                    value: ANY_FULFILMENT_TYPE,
+                                    label: t('kitchen:desk.filterTypeAll'),
+                                },
+                                ...ORDER_DESK_FULFILMENT_TYPES.map((candidate) => ({
+                                    value: candidate,
+                                    // The wizard's own labels, through the shared table — translating
+                                    // "Collection" twice would eventually produce two translations of
+                                    // it.
+                                    label: t(kitchenOrderFulfilmentTypeKey(candidate)),
+                                })),
+                            ]}
+                        />
+                    </View>
+                </View>
 
                 <View
-                    testID="kitchen-order-desk-status"
-                    role="group"
-                    aria-label={t('kitchen:desk.statusLabel')}
-                    className="flex-row items-center gap-hair"
+                    testID="kitchen-order-desk-toolbar-actions"
+                    className="z-auto ms-auto flex-row items-center gap-tight self-start"
                 >
-                    {ORDER_DESK_QUEUE_STATUSES.map((candidate) => (
-                        <FilterChip
-                            key={candidate}
+                    <ColumnPicker {...controls.picker} />
+
+                    {filtered ? (
+                        <Button
+                            testID="kitchen-order-desk-toolbar-clear"
                             size="sm"
-                            testID={`kitchen-order-desk-status-${candidate}`}
-                            label={t(kitchenOrderStatusKey(candidate))}
-                            selected={statuses.includes(candidate)}
-                            onChange={(selected) => {
-                                toggleStatus(candidate, selected);
-                            }}
+                            variant="ghost"
+                            label={t('kitchen:desk.clearFilters')}
+                            onPress={clearFilters}
                         />
-                    ))}
-                </View>
+                    ) : null}
 
-                <View className="z-tooltip" style={{ width: KIND_WIDTH }}>
-                    <Select<OrderDeskFulfilmentType | typeof ANY_FULFILMENT_TYPE>
-                        testID="kitchen-order-desk-type"
-                        id="kitchen-order-desk-type"
-                        label={t('kitchen:desk.filterTypeLabel')}
-                        labelHidden
-                        value={fulfilmentType ?? ANY_FULFILMENT_TYPE}
-                        onChange={(next) => {
-                            setFulfilmentType(next === ANY_FULFILMENT_TYPE ? null : next);
-                        }}
-                        options={[
-                            {
-                                value: ANY_FULFILMENT_TYPE,
-                                label: t('kitchen:desk.filterTypeAll'),
-                            },
-                            ...ORDER_DESK_FULFILMENT_TYPES.map((candidate) => ({
-                                value: candidate,
-                                // The wizard's own labels, through the shared table — translating
-                                // "Collection" twice would eventually produce two translations of
-                                // it.
-                                label: t(kitchenOrderFulfilmentTypeKey(candidate)),
-                            })),
-                        ]}
-                    />
-                </View>
-
-                <ColumnPicker {...controls.picker} />
-
-                {filtered ? (
+                    {/* The page's one primary, at the end of the row the queue is worked from. */}
                     <Button
-                        testID="kitchen-order-desk-toolbar-clear"
-                        size="sm"
-                        variant="ghost"
-                        label={t('kitchen:desk.clearFilters')}
-                        onPress={clearFilters}
+                        testID="kitchen-order-desk-new-sale"
+                        label={t('kitchen:desk.newSale')}
+                        iconStart={<Icon name="plus" size="sm" />}
+                        onPress={() => {
+                            router.push('/kitchen/order-desk/sale');
+                        }}
                     />
-                ) : null}
-
-                {/* The page's one primary, at the end of the row the queue is worked from. */}
-                <Button
-                    testID="kitchen-order-desk-new-sale"
-                    label={t('kitchen:desk.newSale')}
-                    iconStart={<Icon name="plus" size="sm" />}
-                    onPress={() => {
-                        router.push('/kitchen/order-desk/sale');
-                    }}
-                />
+                </View>
             </View>
 
             {/*

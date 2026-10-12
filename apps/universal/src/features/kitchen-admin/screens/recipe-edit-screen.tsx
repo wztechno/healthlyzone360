@@ -35,6 +35,7 @@ import {
     Text,
     TextInputField,
     useToast,
+    useContentWidth,
 } from '@healthy360/design-system';
 import type { CardTone, FormIssueItem, SelectOption, TagTone } from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
@@ -97,6 +98,7 @@ import {
     unitShortKey,
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
+import { EDITOR_FORM_MIN } from '../desk-layout.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import {
     RecipeLineTable,
@@ -543,6 +545,9 @@ export function RecipeEditScreen({ recipe, ...rest }: RecipeEditScreenProps) {
     );
 }
 
+/** The technical sheet's checks rail: `w-72`, as a number for the split threshold. */
+const SHEET_RAIL_WIDTH = 288;
+
 function RecipeEditor({
     recipe,
     backTo = '/kitchen/recipes',
@@ -552,6 +557,11 @@ function RecipeEditor({
     sellsAs,
 }: RecipeEditScreenProps) {
     const { t } = useTranslation();
+    /*
+     * The technical sheet's checks rail (288) sits beside the ledger only while the ledger keeps a
+     * form column's width — measured on the page, not the window. See `desk-layout.ts`.
+     */
+    const sheetBeside = useContentWidth().atLeast(SHEET_RAIL_WIDTH + 24 + EDITOR_FORM_MIN);
     const router = useRouter();
     const { locale } = useLocale();
     const formatter = useFormatter();
@@ -2623,7 +2633,13 @@ function RecipeEditor({
 
             {/* ── Technical sheet ──────────────────────────────────────────────────────────── */}
             {tab !== 'sheet' ? null : (
-                <View className="relative z-raised flex-col gap-loose lg:flex-row lg:items-start">
+                <View
+                    className={
+                        sheetBeside
+                            ? 'relative z-raised flex-row items-start gap-loose'
+                            : 'relative z-raised flex-col gap-loose'
+                    }
+                >
                     <View className="min-w-0 flex-1 flex-col gap-loose">
                         {/*
                          * The sheet as a reader checks it before publishing: one ledger of the figures
@@ -2809,7 +2825,7 @@ function RecipeEditor({
                      */}
                     <View
                         testID="kitchen-recipe-publish-checks"
-                        className="flex-col lg:w-72 lg:shrink-0"
+                        className={sheetBeside ? 'w-72 shrink-0 flex-col' : 'flex-col'}
                     >
                         <FormSection
                             first

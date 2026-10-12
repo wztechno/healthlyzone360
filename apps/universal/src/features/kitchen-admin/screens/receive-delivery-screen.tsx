@@ -365,7 +365,6 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                         <TextInputField
                                             testID="kitchen-receive-document-ref"
                                             label={t('kitchen:ops.receiving.fieldDocumentRef')}
-                                            hint={t('kitchen:ops.receiving.fieldDocumentRefHint')}
                                             placeholder={t(
                                                 'kitchen:ops.receiving.documentRefPlaceholder',
                                             )}
@@ -529,7 +528,6 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                         <TextInputField
                                             testID="kitchen-receive-variance-note"
                                             label={t('kitchen:ops.receiving.fieldVarianceNote')}
-                                            hint={t('kitchen:ops.receiving.fieldVarianceNoteHint')}
                                             placeholder={t(
                                                 'kitchen:ops.receiving.varianceNotePlaceholder',
                                             )}
@@ -606,9 +604,6 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                 space="sm"
                                                 testID="kitchen-receive-charges-fields"
                                             >
-                                                <Text variant="caption" tone="secondary">
-                                                    {t('kitchen:ops.receiving.chargesHint')}
-                                                </Text>
                                                 <Inline space="sm" align="start" wrap>
                                                     {(
                                                         [

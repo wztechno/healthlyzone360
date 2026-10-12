@@ -13,6 +13,7 @@ import {
     FormIssueBanner,
     FormSection,
     FormSkeleton,
+    Icon,
     Inline,
     Skeleton,
     spanWidth,
@@ -1370,6 +1371,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                         size="sm"
                                         variant="secondary"
                                         label={t('kitchen:plans.categoryAddAction')}
+                                        iconStart={<Icon name="plus" size="sm" />}
                                         disabled={newCategory.trim() === ''}
                                         onPress={() => {
                                             const slug = newCategory.trim().toLocaleLowerCase();
@@ -1470,6 +1472,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                         size="sm"
                                         variant="secondary"
                                         label={t('kitchen:plans.addVariant')}
+                                        iconStart={<Icon name="plus" size="sm" />}
                                         onPress={() => {
                                             markDirty(() => {
                                                 setVariants([
@@ -1538,6 +1541,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                         size="sm"
                                         variant="secondary"
                                         label={t('kitchen:plans.addDuration')}
+                                        iconStart={<Icon name="plus" size="sm" />}
                                         onPress={() => {
                                             markDirty(() => {
                                                 setDurations([
@@ -1737,6 +1741,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                                 testID="kitchen-plan-menu-cycle-days"
                                                 id="kitchen-plan-menu-cycle-days"
                                                 label={t('kitchen:plans.menuCycleDaysLabel')}
+                                                hint={t('kitchen:plans.menuExplainer')}
                                                 /*
                                                  * The day number counts calendar days from day 1,
                                                  * so only a whole number of weeks keeps Monday's
@@ -1826,13 +1831,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                             )}
                                         </View>
                                     </View>
-                                    <Text
-                                        testID="kitchen-plan-menu-explainer"
-                                        variant="caption"
-                                        tone="secondary"
-                                    >
-                                        {t('kitchen:plans.menuExplainer')}
-                                    </Text>
 
                                     {menuBlockers.length === 0 ? null : (
                                         <Callout

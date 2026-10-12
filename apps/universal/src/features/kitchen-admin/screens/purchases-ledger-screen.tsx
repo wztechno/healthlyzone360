@@ -556,45 +556,49 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                     setActiveMode(next);
                     setViewing(null);
                 }}
-            >
-                {/*
-                 * The received-between window, at the row's end: the one filter with no column to
+                /*
+                 * The received-between window, among the filters: the one filter with no column to
                  * live on. Two days with "to" between, either bound open, and each picker keeps the
                  * other honest — From cannot pass To, nor To precede From.
-                 */}
-                <DatePickerButton
-                    testID="kitchen-ledger-filter-from"
-                    label={t('kitchen:ops.ledger.filterFrom')}
-                    value={from}
-                    max={to === '' ? undefined : to}
-                    placeholder={t('kitchen:ops.ledger.fromPlaceholder')}
-                    onChange={(value) => {
-                        setFrom(value);
-                        resetCursor();
-                    }}
-                    onClear={() => {
-                        setFrom('');
-                        resetCursor();
-                    }}
-                />
-                <Text variant="caption" tone="secondary" aria-hidden>
-                    {t('kitchen:ops.requirements.windowTo')}
-                </Text>
-                <DatePickerButton
-                    testID="kitchen-ledger-filter-to"
-                    label={t('kitchen:ops.ledger.filterTo')}
-                    value={to}
-                    min={from === '' ? undefined : from}
-                    placeholder={t('kitchen:ops.ledger.toPlaceholder')}
-                    onChange={(value) => {
-                        setTo(value);
-                        resetCursor();
-                    }}
-                    onClear={() => {
-                        setTo('');
-                        resetCursor();
-                    }}
-                />
+                 */
+                filters={
+                    <View className="flex-row items-center gap-tight">
+                        <DatePickerButton
+                            testID="kitchen-ledger-filter-from"
+                            label={t('kitchen:ops.ledger.filterFrom')}
+                            value={from}
+                            max={to === '' ? undefined : to}
+                            placeholder={t('kitchen:ops.ledger.fromPlaceholder')}
+                            onChange={(value) => {
+                                setFrom(value);
+                                resetCursor();
+                            }}
+                            onClear={() => {
+                                setFrom('');
+                                resetCursor();
+                            }}
+                        />
+                        <Text variant="caption" tone="secondary" aria-hidden>
+                            {t('kitchen:ops.requirements.windowTo')}
+                        </Text>
+                        <DatePickerButton
+                            testID="kitchen-ledger-filter-to"
+                            label={t('kitchen:ops.ledger.filterTo')}
+                            value={to}
+                            min={from === '' ? undefined : from}
+                            placeholder={t('kitchen:ops.ledger.toPlaceholder')}
+                            onChange={(value) => {
+                                setTo(value);
+                                resetCursor();
+                            }}
+                            onClear={() => {
+                                setTo('');
+                                resetCursor();
+                            }}
+                        />
+                    </View>
+                }
+            >
                 <ColumnPicker {...controls.picker} />
             </CatalogueToolbar>
 

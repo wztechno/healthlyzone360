@@ -40,6 +40,12 @@ export interface DatePickerButtonProps {
     readonly min?: string | undefined;
     readonly max?: string | undefined;
     readonly align?: 'start' | 'end' | undefined;
+    /**
+     * Which side of the trigger the month opens on. `below` (the default) suits a toolbar at the top
+     * of a page; `above` is for a picker near the foot of a card or a scroll port, where a month
+     * opening downward is cut off by the frame and has to be scrolled to.
+     */
+    readonly side?: 'below' | 'above' | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -67,6 +73,7 @@ export function DatePickerButton({
     placeholder,
     onClear,
     align = 'start',
+    side = 'below',
     testID,
 }: DatePickerButtonProps) {
     const { t } = useTranslation();
@@ -174,7 +181,11 @@ export function DatePickerButton({
                     aria-label={label}
                     accessibilityLabel={label}
                     className={cx(
-                        'absolute top-full z-tooltip mt-1 w-[280px] flex-col gap-2 rounded-lg border border-stroke-subtle bg-surface-raised p-3 shadow-elevation-3',
+                        'absolute z-tooltip w-[280px] flex-col gap-2 rounded-lg border border-stroke-subtle bg-surface-raised p-3 shadow-elevation-3',
+                        // Against the container, which holds the drawn label as well as the
+                        // trigger: opened above, the month clears the label too, so it stays
+                        // readable while a day is chosen.
+                        side === 'above' ? 'bottom-full mb-1' : 'top-full mt-1',
                         align === 'end' ? 'end-0' : null,
                     )}
                 >

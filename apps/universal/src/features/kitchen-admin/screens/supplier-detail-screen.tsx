@@ -9,6 +9,7 @@ import {
     FormGrid,
     FormSection,
     FormSkeleton,
+    Icon,
     Inline,
     Select,
     Stack,
@@ -1072,6 +1073,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                     size="sm"
                                     variant="secondary"
                                     label={t('kitchen:ops.suppliers.addContact')}
+                                    iconStart={<Icon name="plus" size="sm" />}
                                     onPress={() => {
                                         editContacts([
                                             ...contacts,
@@ -1229,7 +1231,8 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                         label={t('kitchen:ops.suppliers.linkItemLabel')}
                                         options={linkableItems.map((item) => ({
                                             value: String(item.id),
-                                            label: `${item.code} — ${item.nameEn}`,
+                                            label: item.nameEn,
+                                            keywords: item.code,
                                         }))}
                                         value={pickedItem}
                                         onChange={setPickedItem}

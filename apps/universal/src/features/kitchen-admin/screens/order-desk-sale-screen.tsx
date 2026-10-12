@@ -14,28 +14,33 @@ import {
     Badge,
     Button,
     Callout,
-    DateField,
+    DatePickerButton,
     EmptyState,
     ErrorState,
     FormSection,
     Icon,
     IconButton,
-    SegmentedControl,
     Select,
     Skeleton,
     Text,
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
+import { fieldWidth } from '@healthy360/design-tokens';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, Pressable, View } from 'react-native';
+import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import { useAdminMealPageQuery, useProductPageQuery } from '../../../data/kitchen-admin-hooks.ts';
+import {
+    KITCHEN_PAGE_SIZE,
+    pagesInResultOf,
+    useAdminMealPageQuery,
+    useProductPageQuery,
+} from '../../../data/kitchen-admin-hooks.ts';
 import {
     useOrderDeskDeliveryWindowsQuery,
     useOrderDeskDriversQuery,
@@ -46,15 +51,18 @@ import { EntityImage } from '../../../media/entity-image.tsx';
 import { todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
+import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { ORDER_CREATE_ON_BEHALF_PERMISSION, ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
+import { ChoiceTiles } from '../choice-tiles.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import type { BasketLine } from '../order-desk/basket.ts';
 import {
     MAX_LINE_QUANTITY,
     addItem,
+    isQuotableBasket,
     basketKey,
     lineKey,
     quantityAsNumber,
@@ -85,11 +93,17 @@ import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
  *
  * This used to be a six-step wizard, and for a while a separate counter screen stood beside it. It
  * is one page now, laid out the way `4f` draws the till: the menu as a grid of products, tapped onto
- * a ticket that runs beside it, with payment the last thing on the ticket. The kind of sale sits
- * above the menu. A counter sale needs nothing else; a **collection** opens a Customer card and a
- * **delivery** a Customer card and an Address card, between the kind and the menu, each folding to
- * one line once it is answered. The ticket says what is still missing — `saleShortfall` in
- * `order-desk/sale-state.ts`, which also owns what switching the kind clears.
+ * a ticket that runs beside it.
+ *
+ * The page has two stages, and the ticket stays beside both. In the **menu** stage the agent picks
+ * the food and the ticket's one button is Charge. Charge opens the **checkout** stage in the
+ * menu's column: a Back button, then how the order leaves — counter, collection or delivery, three
+ * cards with none chosen yet. A counter sale needs nothing else; a **collection** opens a Customer
+ * card and a **delivery** a Customer card and an Address card, each folding to one line once it is
+ * answered. Only once the kind is chosen does the ticket offer the payment methods and the button
+ * that places the sale, and it says what is still missing — `saleShortfall` in
+ * `order-desk/sale-state.ts`, which also owns what choosing the kind clears. The stage is this
+ * screen's own state, not the sale's: emptying the ticket goes back to the menu.
  *
  * It sits on the admin's compact ladder, the Ingredients screen's sizes: the search and the menu's
  * sections are that screen's `CatalogueToolbar`, and the cards are the record editors'
@@ -164,6 +178,26 @@ const TILE_MIN_WIDTH = 150;
 /** The gap between tiles — `gap-snug`, repeated as a number because the tile width is computed. */
 const TILE_GAP = 12;
 
+/**
+ * The ticket line's quantity and total slots. Fixed, so every line's stepper sits in the same
+ * column whether its total is $3.00 or $1,000.00 — the figures are `tabular-nums`, but a longer
+ * figure still pushed the stepper over. Widths, not tokens, for the same reason as the tile's:
+ * the quantity fits `MAX_LINE_QUANTITY`'s three digits, the total a four-figure amount with its
+ * currency.
+ */
+const LINE_QUANTITY_WIDTH = 28;
+const LINE_TOTAL_WIDTH = 88;
+
+/**
+ * What the sticky ticket spends on everything but its lines — the top bar and content padding above
+ * it, the card's title, the totals, the payment choice and Charge. An estimate on the generous side:
+ * guessing short would push Charge back under the fold, guessing long only scrolls the lines sooner.
+ */
+const TICKET_CHROME_HEIGHT = 420;
+
+/** The lines' floor, about three of them, however short the window. */
+const TICKET_LINES_MIN_HEIGHT = 168;
+
 /** The gap between the menu and the ticket — `gap-base`, repeated for the same reason. */
 const BODY_GAP = 16;
 
@@ -174,6 +208,12 @@ const FULFILMENT_LABEL_KEYS: Readonly<Record<OrderDeskFulfilmentType, string>> =
     pickup: 'kitchen:desk.sale.type.pickup',
     delivery: 'kitchen:desk.sale.type.delivery',
 };
+
+/** The page's two stages — see the file header. */
+type SaleStage = 'menu' | 'checkout';
+
+/** The column the other stage is in: kept mounted, out of layout and out of the a11y tree. */
+const HIDDEN = { display: 'none' } as const;
 
 /**
  * The menu's sections, in the order they are drawn.
@@ -223,6 +263,14 @@ function Sale() {
     const toast = useToast();
 
     const [state, setState] = useState<SaleState>(initialSaleState);
+    /** Picking the food, or — after Charge — saying how it leaves and taking the money. */
+    const [stage, setStage] = useState<SaleStage>('menu');
+    /**
+     * Whether the agent has said how the order leaves. `state.fulfilmentType` is never empty — it
+     * stays `counter` underneath, which is the tariff the menu is priced on — so "not chosen yet"
+     * is this screen's to remember, and the ticket offers no payment until it is.
+     */
+    const [kindChosen, setKindChosen] = useState(false);
     const [section, setSection] = useState<MenuSection>('meals');
     const [query, setQuery] = useState('');
     /** The counter sale just rung up, said on the ticket until the next tap starts another. */
@@ -244,9 +292,14 @@ function Sale() {
      * (`order.manage_organisation`), because the placement refuses a driver from anybody else and
      * offering the picker would invite that refusal.
      */
-    const windows = useOrderDeskDeliveryWindowsQuery(state.fulfilmentType !== 'counter');
+    const checkingOut = stage === 'checkout' && kindChosen;
+    const windows = useOrderDeskDeliveryWindowsQuery(
+        checkingOut && state.fulfilmentType !== 'counter',
+    );
     const canAssign = useCan(ORDER_MANAGE_PERMISSION);
-    const drivers = useOrderDeskDriversQuery(canAssign && state.fulfilmentType === 'delivery');
+    const drivers = useOrderDeskDriversQuery(
+        checkingOut && canAssign && state.fulfilmentType === 'delivery',
+    );
 
     // Naming the leaf is what makes "Order desk" in the trail a link back.
     useKitchenTrailLeaf(t('kitchen:desk.sale.title'));
@@ -255,6 +308,8 @@ function Sale() {
         setState(next);
         setSold(null);
         place.reset();
+        // A checkout with nothing on the ticket has nothing to check out.
+        if (next.lines.length === 0) setStage('menu');
     }
 
     /*
@@ -339,6 +394,8 @@ function Sale() {
                         // done and the next customer is already waiting, so the ticket clears and
                         // the page stays where it is.
                         setState(initialSaleState());
+                        setStage('menu');
+                        setKindChosen(false);
                         setSold(order);
                         toast.show({
                             testID: 'kitchen-order-desk-sale-sold-toast',
@@ -384,66 +441,11 @@ function Sale() {
         ? { columns: besideColumns, tileWidth: TILE_WIDTH }
         : stackedGrid(bodyWidth);
     const menuWidth = grid.columns * grid.tileWidth + (grid.columns - 1) * TILE_GAP;
+    // The menu and the checkout take the same column.
+    const column = sideBySide ? { width: menuWidth } : { alignSelf: 'stretch' as const };
 
     return (
         <View testID="kitchen-order-desk-sale-screen" className="z-auto flex-col gap-base">
-            {/* The kind of sale, above everything it decides. */}
-            <View className="flex-row flex-wrap items-center gap-snug">
-                <SegmentedControl<OrderDeskFulfilmentType>
-                    testID="kitchen-order-desk-sale-kind"
-                    label={t('kitchen:desk.sale.typeLabel')}
-                    items={ORDER_DESK_FULFILMENT_TYPES.map((candidate) => ({
-                        value: candidate,
-                        label: t(FULFILMENT_LABEL_KEYS[candidate]),
-                        testID: `kitchen-order-desk-sale-kind-${candidate}`,
-                    }))}
-                    value={state.fulfilmentType}
-                    onChange={(type) => {
-                        update(withFulfilmentType(state, type));
-                    }}
-                />
-                <Text variant="caption" tone="secondary" testID="kitchen-order-desk-sale-kind-hint">
-                    {t(`kitchen:desk.sale.typeHint.${state.fulfilmentType}`)}
-                </Text>
-            </View>
-
-            {needsCustomer(state.fulfilmentType) ? (
-                <CustomerSection
-                    customerAccountId={state.customerAccountId}
-                    onChoose={(customer) => {
-                        update(withCustomer(state, customer.id));
-                    }}
-                />
-            ) : null}
-
-            {needsAddress(state.fulfilmentType) ? (
-                <AddressSection
-                    customerAccountId={state.customerAccountId}
-                    customerAddressId={state.customerAddressId}
-                    onSaved={(addressId) => {
-                        update({ ...state, customerAddressId: addressId });
-                    }}
-                />
-            ) : null}
-
-            {schedule === null ? null : (
-                <WhenSection
-                    windows={windowList}
-                    zoneOffersNone={offeredCodes !== null && windowList.length === 0}
-                    schedule={schedule}
-                    onSchedule={(next) => {
-                        update({ ...state, ...next });
-                    }}
-                    drivers={
-                        state.fulfilmentType === 'delivery' ? (drivers.data?.rows ?? null) : null
-                    }
-                    driverUserId={state.driverUserId}
-                    onDriver={(driverUserId) => {
-                        update({ ...state, driverUserId });
-                    }}
-                />
-            )}
-
             <View
                 // Both measurement paths, each inert on the other's platform — as `CatalogueList`.
                 ref={Platform.OS === 'web' ? port.ref : undefined}
@@ -452,9 +454,79 @@ function Sale() {
                     sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
                 }
             >
+                {/*
+                 * Both columns stay mounted and the stage hides one: Back must find the customer and
+                 * the address cards as they were left, folded, not reset to an empty search.
+                 */}
+                <View
+                    testID="kitchen-order-desk-sale-checkout"
+                    className="z-auto min-w-0 flex-col gap-base"
+                    style={[column, stage === 'checkout' ? null : HIDDEN]}
+                >
+                    <View className="flex-row">
+                        <Button
+                            testID="kitchen-order-desk-sale-back"
+                            size="sm"
+                            variant="secondary"
+                            label={t('kitchen:desk.sale.backToMenu')}
+                            iconStart={<Icon name="chevronBackward" size="sm" />}
+                            onPress={() => {
+                                setStage('menu');
+                            }}
+                        />
+                    </View>
+
+                    <KindPicker
+                        value={kindChosen ? state.fulfilmentType : null}
+                        onChange={(type) => {
+                            setKindChosen(true);
+                            update(withFulfilmentType(state, type));
+                        }}
+                    />
+
+                    {kindChosen && needsCustomer(state.fulfilmentType) ? (
+                        <CustomerSection
+                            customerAccountId={state.customerAccountId}
+                            onChoose={(customer) => {
+                                update(withCustomer(state, customer.id));
+                            }}
+                        />
+                    ) : null}
+
+                    {kindChosen && needsAddress(state.fulfilmentType) ? (
+                        <AddressSection
+                            customerAccountId={state.customerAccountId}
+                            customerAddressId={state.customerAddressId}
+                            onSaved={(addressId) => {
+                                update({ ...state, customerAddressId: addressId });
+                            }}
+                        />
+                    ) : null}
+
+                    {!kindChosen || schedule === null ? null : (
+                        <WhenSection
+                            windows={windowList}
+                            zoneOffersNone={offeredCodes !== null && windowList.length === 0}
+                            schedule={schedule}
+                            onSchedule={(next) => {
+                                update({ ...state, ...next });
+                            }}
+                            drivers={
+                                state.fulfilmentType === 'delivery'
+                                    ? (drivers.data?.rows ?? null)
+                                    : null
+                            }
+                            driverUserId={state.driverUserId}
+                            onDriver={(driverUserId) => {
+                                update({ ...state, driverUserId });
+                            }}
+                        />
+                    )}
+                </View>
+
                 <View
                     className="z-auto min-w-0 flex-col gap-snug"
-                    style={sideBySide ? { width: menuWidth } : { alignSelf: 'stretch' }}
+                    style={[column, stage === 'menu' ? null : HIDDEN]}
                 >
                     <CatalogueToolbar<MenuSection>
                         testID="kitchen-order-desk-sale-menu-toolbar"
@@ -472,6 +544,7 @@ function Sale() {
                     />
                     <MenuGrid
                         tileWidth={grid.tileWidth}
+                        columns={grid.columns}
                         section={section}
                         query={query}
                         customerAccountId={state.customerAccountId}
@@ -492,6 +565,11 @@ function Sale() {
 
                 <Ticket
                     beside={sideBySide}
+                    stage={stage}
+                    kindChosen={kindChosen}
+                    onCharge={() => {
+                        setStage('checkout');
+                    }}
                     state={state}
                     quote={quote}
                     quoteStale={quoteStale}
@@ -505,6 +583,46 @@ function Sale() {
                 />
             </View>
         </View>
+    );
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * How the order leaves
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * Counter, collection or delivery, as three cards side by side — the checkout's first question.
+ * `null` is "not chosen yet": nothing is preselected, because a sale that leaves the wrong way is
+ * not a slip the till should make on the agent's behalf. The tiles are the Catalogue's own
+ * `ChoiceTiles`, which say under each choice what it will ask for.
+ */
+function KindPicker({
+    value,
+    onChange,
+}: {
+    readonly value: OrderDeskFulfilmentType | null;
+    readonly onChange: (type: OrderDeskFulfilmentType) => void;
+}) {
+    const { t } = useTranslation();
+
+    return (
+        <FormSection
+            variant="card"
+            testID="kitchen-order-desk-sale-kind-card"
+            title={t('kitchen:desk.sale.kindTitle')}
+        >
+            <ChoiceTiles<OrderDeskFulfilmentType>
+                testID="kitchen-order-desk-sale-kind"
+                label={t('kitchen:desk.sale.typeLabel')}
+                value={value}
+                onChange={onChange}
+                tiles={ORDER_DESK_FULFILMENT_TYPES.map((candidate) => ({
+                    value: candidate,
+                    title: t(FULFILMENT_LABEL_KEYS[candidate]),
+                    body: t(`kitchen:desk.sale.typeHint.${candidate}`),
+                }))}
+            />
+        </FormSection>
     );
 }
 
@@ -550,99 +668,117 @@ function WhenSection({
             testID="kitchen-order-desk-sale-when"
             title={t('kitchen:desk.sale.whenLabel')}
         >
-            <View className="flex-row flex-wrap items-end gap-snug">
-                <DateField
-                    testID="kitchen-order-desk-sale-date"
-                    id="kitchen-order-desk-sale-date"
-                    label={t('kitchen:desk.sale.dateLabel')}
-                    value={schedule.requestedDeliveryDate}
-                    min={todayIso()}
-                    onChange={(requestedDeliveryDate) => {
-                        onSchedule({
-                            requestedDeliveryDate,
-                            deliveryWindowCode: schedule.deliveryWindowCode,
-                        });
-                    }}
-                />
-                {drivers === null ? null : (
-                    <Select<string>
-                        testID="kitchen-order-desk-sale-driver"
-                        label={t('kitchen:desk.sale.driverLabel')}
-                        hint={t('kitchen:desk.sale.driverHint')}
-                        size="sm"
-                        value={driverUserId ?? NO_DRIVER}
-                        options={[
-                            { value: NO_DRIVER, label: t('kitchen:desk.sale.driverNone') },
-                            ...drivers.map((driver) => ({
-                                value: driver.userId,
-                                label: driver.displayName ?? EM_DASH,
-                            })),
-                        ]}
-                        onChange={(value) => {
-                            onDriver(value === NO_DRIVER ? null : value);
+            {/* The day and the slot are two questions, so they sit a block apart, not a line. */}
+            {/*
+             * `z-auto` on both rows: the date's month panel opens over the slot chips below it, and
+             * React Native Web's default `z-index: 0` would bury it under them.
+             */}
+            <View className="z-auto flex-col gap-base">
+                <View className="z-auto flex-row flex-wrap items-end gap-snug">
+                    <DatePickerButton
+                        testID="kitchen-order-desk-sale-date"
+                        label={t('kitchen:desk.sale.dateLabel')}
+                        labelVisible
+                        // The When card is the checkout's last: opened downward, the month runs
+                        // past the foot of the column and has to be scrolled to.
+                        side="above"
+                        value={schedule.requestedDeliveryDate}
+                        min={todayIso()}
+                        onChange={(requestedDeliveryDate) => {
+                            onSchedule({
+                                requestedDeliveryDate,
+                                deliveryWindowCode: schedule.deliveryWindowCode,
+                            });
                         }}
                     />
+                    {drivers === null ? null : (
+                        // The field's own width, as every admin field has: unbounded, the hint
+                        // sentence stretched the list across the card.
+                        <View className="z-auto" style={{ width: fieldWidth }}>
+                            <Select<string>
+                                testID="kitchen-order-desk-sale-driver"
+                                label={t('kitchen:desk.sale.driverLabel')}
+                                hint={t('kitchen:desk.sale.driverHint')}
+                                size="sm"
+                                value={driverUserId ?? NO_DRIVER}
+                                options={[
+                                    { value: NO_DRIVER, label: t('kitchen:desk.sale.driverNone') },
+                                    ...drivers.map((driver) => ({
+                                        value: driver.userId,
+                                        label: driver.displayName ?? EM_DASH,
+                                    })),
+                                ]}
+                                onChange={(value) => {
+                                    onDriver(value === NO_DRIVER ? null : value);
+                                }}
+                            />
+                        </View>
+                    )}
+                </View>
+                {windows.length === 0 ? (
+                    <Text
+                        testID="kitchen-order-desk-sale-no-slots"
+                        variant="caption"
+                        tone="secondary"
+                    >
+                        {t(
+                            zoneOffersNone
+                                ? 'kitchen:desk.sale.zoneNoSlots'
+                                : 'kitchen:desk.sale.noSlots',
+                        )}
+                    </Text>
+                ) : (
+                    <View
+                        testID="kitchen-order-desk-sale-slot"
+                        role="radiogroup"
+                        aria-label={t('kitchen:desk.sale.slotLabel')}
+                        className="flex-row flex-wrap gap-tight"
+                    >
+                        {windows.map((window) => {
+                            const selected = schedule.deliveryWindowCode === window.code;
+                            const name = locale.startsWith('ar') ? window.nameAr : window.nameEn;
+                            const hours =
+                                window.startsAt === null || window.endsAt === null
+                                    ? null
+                                    : t('kitchen:desk.sale.slotHours', {
+                                          from: window.startsAt,
+                                          to: window.endsAt,
+                                      });
+                            return (
+                                <Pressable
+                                    key={window.code}
+                                    testID={`kitchen-order-desk-sale-slot-${window.code}`}
+                                    role="radio"
+                                    accessibilityRole="radio"
+                                    aria-checked={selected}
+                                    accessibilityState={{ checked: selected }}
+                                    aria-label={hours === null ? name : `${name}. ${hours}`}
+                                    onPress={() => {
+                                        onSchedule({
+                                            requestedDeliveryDate: schedule.requestedDeliveryDate,
+                                            deliveryWindowCode: window.code,
+                                        });
+                                    }}
+                                    className={
+                                        selected
+                                            ? 'h-control-md flex-row items-center gap-hair rounded-sm border border-surface-brand bg-surface-brand-subtle px-control-sm'
+                                            : 'h-control-md flex-row items-center gap-hair rounded-sm border border-stroke bg-surface-raised px-control-sm web:hover:border-surface-brand'
+                                    }
+                                >
+                                    <Text variant="label" numberOfLines={1}>
+                                        {name}
+                                    </Text>
+                                    {hours === null ? null : (
+                                        <Text variant="mono" tone="secondary" numberOfLines={1}>
+                                            {hours}
+                                        </Text>
+                                    )}
+                                </Pressable>
+                            );
+                        })}
+                    </View>
                 )}
             </View>
-            {windows.length === 0 ? (
-                <Text testID="kitchen-order-desk-sale-no-slots" variant="caption" tone="secondary">
-                    {t(
-                        zoneOffersNone
-                            ? 'kitchen:desk.sale.zoneNoSlots'
-                            : 'kitchen:desk.sale.noSlots',
-                    )}
-                </Text>
-            ) : (
-                <View
-                    testID="kitchen-order-desk-sale-slot"
-                    role="radiogroup"
-                    aria-label={t('kitchen:desk.sale.slotLabel')}
-                    className="flex-row flex-wrap gap-tight"
-                >
-                    {windows.map((window) => {
-                        const selected = schedule.deliveryWindowCode === window.code;
-                        const name = locale.startsWith('ar') ? window.nameAr : window.nameEn;
-                        const hours =
-                            window.startsAt === null || window.endsAt === null
-                                ? null
-                                : t('kitchen:desk.sale.slotHours', {
-                                      from: window.startsAt,
-                                      to: window.endsAt,
-                                  });
-                        return (
-                            <Pressable
-                                key={window.code}
-                                testID={`kitchen-order-desk-sale-slot-${window.code}`}
-                                role="radio"
-                                accessibilityRole="radio"
-                                aria-checked={selected}
-                                accessibilityState={{ checked: selected }}
-                                aria-label={hours === null ? name : `${name}. ${hours}`}
-                                onPress={() => {
-                                    onSchedule({
-                                        requestedDeliveryDate: schedule.requestedDeliveryDate,
-                                        deliveryWindowCode: window.code,
-                                    });
-                                }}
-                                className={
-                                    selected
-                                        ? 'h-control-md flex-row items-center gap-hair rounded-sm border border-surface-brand bg-surface-brand-subtle px-control-sm'
-                                        : 'h-control-md flex-row items-center gap-hair rounded-sm border border-stroke bg-surface-raised px-control-sm web:hover:border-surface-brand'
-                                }
-                            >
-                                <Text variant="label" numberOfLines={1}>
-                                    {name}
-                                </Text>
-                                {hours === null ? null : (
-                                    <Text variant="mono" tone="secondary" numberOfLines={1}>
-                                        {hours}
-                                    </Text>
-                                )}
-                            </Pressable>
-                        );
-                    })}
-                </View>
-            )}
         </FormSection>
     );
 }
@@ -664,6 +800,7 @@ function stackedGrid(width: number): { readonly columns: number; readonly tileWi
 
 function MenuGrid({
     tileWidth,
+    columns,
     section,
     query,
     customerAccountId,
@@ -672,6 +809,8 @@ function MenuGrid({
 }: {
     /** Worked out by the screen, which knows the row the menu shares with the ticket. */
     readonly tileWidth: number;
+    /** How many tiles a row holds — a page is whole rows of them. */
+    readonly columns: number;
     readonly section: MenuSection;
     readonly query: string;
     readonly customerAccountId: string | null;
@@ -697,8 +836,24 @@ function MenuGrid({
     );
 
     // Only the section on screen is read. The others load when somebody opens them.
-    const meals = useAdminMealPageQuery(base, 1, section === 'meals');
-    const products = useProductPageQuery(productFilter, 1, section !== 'meals');
+    /*
+     * Whole rows: the catalogue's eighteen, rounded up to the grid. Eighteen on four columns left
+     * the last row two tiles short and sent the nineteenth meal to a page of its own while the room
+     * for it sat empty on this one.
+     */
+    const perPage = columns * Math.ceil(KITCHEN_PAGE_SIZE / columns);
+
+    /*
+     * The page, held against the section, search and page size it was turned for: changing any of
+     * them starts on page one without an effect to reset it — a wider row is a bigger page, and the
+     * page turned to may no longer exist.
+     */
+    const pageFor = `${section}|${debounced}|${String(perPage)}`;
+    const [turned, setTurned] = useState({ pageFor, page: 1 });
+    const page = turned.pageFor === pageFor ? turned.page : 1;
+
+    const meals = useAdminMealPageQuery(base, page, section === 'meals', perPage);
+    const products = useProductPageQuery(productFilter, page, section !== 'meals', perPage);
     const read = section === 'meals' ? meals : products;
 
     const tiles = useMemo<readonly MenuTile[]>(
@@ -751,7 +906,7 @@ function MenuGrid({
     }, [lines]);
 
     const failure = toFailure(read.error);
-    const total = read.data?.totalCount ?? null;
+    const totalPages = pagesInResultOf(read.data, perPage) ?? 0;
 
     return (
         <View testID="kitchen-order-desk-sale-menu" className="flex-col gap-snug">
@@ -801,18 +956,15 @@ function MenuGrid({
                             );
                         })}
                     </View>
-                    {total !== null && total > tiles.length ? (
-                        <Text
-                            variant="caption"
-                            tone="secondary"
-                            testID="kitchen-order-desk-sale-menu-more"
-                        >
-                            {t('kitchen:desk.sale.more', {
-                                shown: formatter.formatNumber(tiles.length),
-                                total: formatter.formatNumber(total),
-                            })}
-                        </Text>
-                    ) : null}
+                    <CataloguePager
+                        testID="kitchen-order-desk-sale-menu-pager"
+                        label={t('kitchen:catalogue.pagerLabel')}
+                        page={page}
+                        totalPages={totalPages}
+                        onPageChange={(next) => {
+                            setTurned({ pageFor, page: next });
+                        }}
+                    />
                 </>
             )}
         </View>
@@ -913,6 +1065,9 @@ function MenuTileButton({
 
 function Ticket({
     beside,
+    stage,
+    kindChosen,
+    onCharge,
     state,
     quote,
     quoteStale,
@@ -926,6 +1081,11 @@ function Ticket({
 }: {
     /** Beside the menu, taking the row the tiles leave; otherwise the full width under it. */
     readonly beside: boolean;
+    readonly stage: SaleStage;
+    /** Whether the checkout's first question is answered; until then nothing is offered to pay. */
+    readonly kindChosen: boolean;
+    /** Charge, from the menu: opens the checkout. */
+    readonly onCharge: () => void;
     readonly state: SaleState;
     readonly quote: OrderDeskQuote | null;
     readonly quoteStale: boolean;
@@ -940,6 +1100,14 @@ function Ticket({
     const { t } = useTranslation();
     const { locale } = useLocale();
     const formatter = useFormatter();
+    /*
+     * Beside the menu the ticket is sticky, and a sticky box taller than the screen cannot be
+     * scrolled to its own bottom — which is where Charge is. So its lines scroll inside it, capped at
+     * what the window leaves once the ticket's own header, totals and buttons are counted, and the
+     * totals and Charge stay in view on a 720p laptop's ~600px. Never below three lines' worth.
+     */
+    const { height: windowHeight } = useWindowDimensions();
+    const linesMaxHeight = Math.max(TICKET_LINES_MIN_HEIGHT, windowHeight - TICKET_CHROME_HEIGHT);
 
     const money = (amount: number, currency: OrderDeskQuote['currencyCode']) =>
         formatMoney(formatter, { amount, currency });
@@ -961,6 +1129,26 @@ function Ticket({
 
     // The two gates: nothing missing on the page, and a fresh price the server says it can sell.
     const placeable = shortfall === null && quote !== null && quote.quotable && !quoteStale;
+
+    /*
+     * Charge asks less: food the desk will sell, freshly priced. It does not wait for the whole
+     * quote to be `quotable`, because an order-level refusal — no customer on a collection — is
+     * about how the order leaves, which is what the checkout behind this button settles.
+     */
+    const chargeable =
+        isQuotableBasket(lines) &&
+        quote !== null &&
+        !quoteStale &&
+        quote.lines.every((line) => line.refusals.length === 0);
+    const chargeLabel =
+        lines.length === 0
+            ? t('kitchen:desk.sale.chargeEmpty')
+            : quote === null || quoteStale
+              ? t('kitchen:desk.sale.quoteUpdating')
+              : t('kitchen:desk.sale.chargeTotal', {
+                    total: money(quote.totalMinor, quote.currencyCode),
+                });
+    const paying = stage === 'checkout' && kindChosen;
 
     const actionLabel =
         lines.length === 0
@@ -1027,7 +1215,11 @@ function Ticket({
                             {t('kitchen:desk.sale.ticketEmpty')}
                         </Text>
                     ) : (
-                        <View testID="kitchen-order-desk-sale-lines" className="flex-col">
+                        <ScrollView
+                            testID="kitchen-order-desk-sale-lines"
+                            style={beside ? { maxHeight: linesMaxHeight } : undefined}
+                            contentContainerClassName="flex-col"
+                        >
                             {lines.map((line) => {
                                 const key = lineKey(line);
                                 const quoted = quotedByKey.get(key) ?? null;
@@ -1082,14 +1274,16 @@ function Ticket({
                                                         step(quantity - 1);
                                                     }}
                                                 />
-                                                <Text
-                                                    variant="mono"
-                                                    align="center"
-                                                    aria-live="polite"
-                                                    testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-quantity`}
-                                                >
-                                                    {formatter.formatNumber(quantity)}
-                                                </Text>
+                                                <View style={{ width: LINE_QUANTITY_WIDTH }}>
+                                                    <Text
+                                                        variant="mono"
+                                                        align="center"
+                                                        aria-live="polite"
+                                                        testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-quantity`}
+                                                    >
+                                                        {formatter.formatNumber(quantity)}
+                                                    </Text>
+                                                </View>
                                                 <IconButton
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-increment`}
                                                     icon={<Icon name="plus" size="sm" />}
@@ -1107,19 +1301,26 @@ function Ticket({
                                                     }}
                                                 />
                                             </View>
-                                            <Text
-                                                variant="mono"
-                                                align="end"
-                                                tone={refusals.length > 0 ? 'warning' : 'primary'}
-                                                testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-total`}
+                                            <View
+                                                className="shrink-0"
+                                                style={{ width: LINE_TOTAL_WIDTH }}
                                             >
-                                                {quoted?.lineTotalMinor == null
-                                                    ? EM_DASH
-                                                    : money(
-                                                          quoted.lineTotalMinor,
-                                                          quoted.currencyCode,
-                                                      )}
-                                            </Text>
+                                                <Text
+                                                    variant="mono"
+                                                    align="end"
+                                                    tone={
+                                                        refusals.length > 0 ? 'warning' : 'primary'
+                                                    }
+                                                    testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-total`}
+                                                >
+                                                    {quoted?.lineTotalMinor == null
+                                                        ? EM_DASH
+                                                        : money(
+                                                              quoted.lineTotalMinor,
+                                                              quoted.currencyCode,
+                                                          )}
+                                                </Text>
+                                            </View>
                                         </View>
                                         {refusals.map((refusal) => (
                                             <Text
@@ -1136,7 +1337,7 @@ function Ticket({
                                     </View>
                                 );
                             })}
-                        </View>
+                        </ScrollView>
                     )}
 
                     {lines.length === 0 ? null : quoteFailed ? (
@@ -1148,18 +1349,20 @@ function Ticket({
                             body={quoteFailureMessage ?? t('kitchen:desk.sale.quoteErrorBody')}
                         />
                     ) : (
-                        <Totals quote={quote} money={money} />
+                        <Totals quote={quote} money={money} showOrderRefusals={paying} />
                     )}
 
-                    <PaymentMethods
-                        type={state.fulfilmentType}
-                        value={state.paymentMethod}
-                        onChange={(method) => {
-                            onState(withPaymentMethod(state, method));
-                        }}
-                    />
+                    {paying ? (
+                        <PaymentMethods
+                            type={state.fulfilmentType}
+                            value={state.paymentMethod}
+                            onChange={(method) => {
+                                onState(withPaymentMethod(state, method));
+                            }}
+                        />
+                    ) : null}
 
-                    {counter && state.payment?.method === 'wish' ? (
+                    {paying && counter && state.payment?.method === 'wish' ? (
                         <TextInputField
                             testID="kitchen-order-desk-sale-reference"
                             id="kitchen-order-desk-sale-reference"
@@ -1217,28 +1420,48 @@ function Ticket({
                         </Callout>
                     )}
 
-                    <View className="flex-col gap-hair">
+                    {stage === 'menu' ? (
                         <Button
-                            testID="kitchen-order-desk-sale-submit"
+                            testID="kitchen-order-desk-sale-charge"
                             size="md"
                             block
-                            label={actionLabel}
-                            loading={placing}
-                            disabled={!placeable || placing}
-                            onPress={onPlace}
+                            label={chargeLabel}
+                            disabled={!chargeable}
+                            onPress={onCharge}
                         />
-                        {/* What is still missing, said once, under the button it is holding shut. */}
-                        {shortfall === null || shortfall === 'items' ? null : (
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                align="center"
-                                testID="kitchen-order-desk-sale-shortfall"
-                            >
-                                {t(SHORTFALL_KEYS[shortfall])}
-                            </Text>
-                        )}
-                    </View>
+                    ) : !kindChosen ? (
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            align="center"
+                            testID="kitchen-order-desk-sale-kind-pending"
+                        >
+                            {t('kitchen:desk.sale.kindPending')}
+                        </Text>
+                    ) : (
+                        <View className="flex-col gap-hair">
+                            <Button
+                                testID="kitchen-order-desk-sale-submit"
+                                size="md"
+                                block
+                                label={actionLabel}
+                                loading={placing}
+                                disabled={!placeable || placing}
+                                onPress={onPlace}
+                            />
+                            {/* What is still missing, said once, under the button it is holding shut. */}
+                            {shortfall === null || shortfall === 'items' ? null : (
+                                <Text
+                                    variant="caption"
+                                    tone="secondary"
+                                    align="center"
+                                    testID="kitchen-order-desk-sale-shortfall"
+                                >
+                                    {t(SHORTFALL_KEYS[shortfall])}
+                                </Text>
+                            )}
+                        </View>
+                    )}
                 </View>
             </FormSection>
         </View>
@@ -1251,13 +1474,22 @@ function Ticket({
  * Null and zero are different facts: zero is a fee somebody decided on — a free-delivery zone — and
  * a counter sale has no fee at all. Printing "Delivery: 0.00" on a walk-in would be inventing a line
  * the order does not have.
+ *
+ * The subtotal is the food alone and the total adds the fee, so the subtotal is drawn only when
+ * there is a fee to add: without one the two rows say the same number twice.
+ *
+ * The order-level refusals — no customer, no address, a slot the zone does not offer — are about
+ * how the order leaves, so they are said only once that has been chosen. On the menu they were a
+ * sentence about a question the page had not asked yet, and Back left them there.
  */
 function Totals({
     quote,
     money,
+    showOrderRefusals,
 }: {
     readonly quote: OrderDeskQuote | null;
     readonly money: (amount: number, currency: OrderDeskQuote['currencyCode']) => string;
+    readonly showOrderRefusals: boolean;
 }) {
     const { t } = useTranslation();
 
@@ -1278,25 +1510,27 @@ function Totals({
 
     return (
         <View testID="kitchen-order-desk-sale-totals" className="flex-col gap-hair">
-            {row(
-                t('kitchen:desk.sale.subtotal'),
-                money(quote.subtotalMinor, quote.currencyCode),
-                'kitchen-order-desk-sale-subtotal',
+            {quote.deliveryFeeMinor === null ? null : (
+                <>
+                    {row(
+                        t('kitchen:desk.sale.subtotal'),
+                        money(quote.subtotalMinor, quote.currencyCode),
+                        'kitchen-order-desk-sale-subtotal',
+                    )}
+                    {row(
+                        t('kitchen:desk.sale.deliveryFee'),
+                        money(quote.deliveryFeeMinor, quote.currencyCode),
+                        'kitchen-order-desk-sale-fee',
+                    )}
+                </>
             )}
-            {quote.deliveryFeeMinor === null
-                ? null
-                : row(
-                      t('kitchen:desk.sale.deliveryFee'),
-                      money(quote.deliveryFeeMinor, quote.currencyCode),
-                      'kitchen-order-desk-sale-fee',
-                  )}
             {row(
                 t('kitchen:desk.sale.total'),
                 money(quote.totalMinor, quote.currencyCode),
                 'kitchen-order-desk-sale-total',
                 true,
             )}
-            {quote.refusals.map((refusal) => (
+            {(showOrderRefusals ? quote.refusals : []).map((refusal) => (
                 <Text
                     key={refusal.reason}
                     variant="caption"

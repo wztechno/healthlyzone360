@@ -13,6 +13,7 @@ import {
     Stack,
     Text,
     useToast,
+    useContentWidth,
 } from '@healthy360/design-system';
 import { ProductionOrderId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -38,6 +39,7 @@ import { formatMoney, knownCurrency } from '../format.ts';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
+import { RECORD_RAIL_MIN, RECORD_SPLIT_MIN } from '../desk-layout.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { BATCH_QUANTITY_FORMAT } from '../operations/batch-sheet.tsx';
 import {
@@ -65,9 +67,9 @@ import {
  * Batch B-0012 [DRAFT] Classic Burger Sauce    [Technical sheet] [Call it off] [Confirm]
  * ┌ PLANNED ┐ ┌ RUNS ┐ ┌ SHELVES SHORT ┐ ┌ USABLE (once made) ┐
  * ┌ WHAT CAME OUT (once made) ─────────────┐   ┌ STATUS ── what it means · stamps · notes ┐
- * ┌ WHAT IT NEEDS / WHAT IT CLAIMED ───────┐   ┌ COST ── estimated · actual · per unit    ┐
- * │ Ingredients table · Packaging table    │   ┌ BATCH RECORD ── made on · label · …      ┐
- * └────────────────────────────────────────┘   beside from xl, under below it
+ * Ingredients · Packaging  [Columns]          ┌ COST ── estimated · actual · per unit    ┐
+ *   (or What it claimed) — ProductionTable    ┌ BATCH RECORD ── made on · label · …      ┐
+ *                                             beside from xl, under below it
  * ```
  *
  * The record page's shape (`record-view-page.tsx`): the work in a wide column, the batch's status,
@@ -121,6 +123,7 @@ type Settlement = 'complete' | 'abandon' | null;
 
 function ProductionBatch({ order }: ProductionBatchScreenProps) {
     const { t } = useTranslation();
+    const split = useContentWidth().atLeast(RECORD_SPLIT_MIN);
     const formatter = useFormatter();
     const router = useRouter();
     const toast = useToast();
@@ -400,14 +403,19 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
             />
 
             {/*
-             * The work beside the record. Below `xl` the rail drops under the main column: with the
-             * admin rail open, `lg` leaves it narrower than a field.
+             * The work beside the record, where the *page* has room for both — the content width,
+             * not the window, which on a laptop clears `xl` with the page at ~920px. Below
+             * `RECORD_SPLIT_MIN` the rail drops under the main column.
              */}
             <View
                 testID="kitchen-production-batch-body"
-                className="flex-col gap-base xl:flex-row xl:items-start"
+                className={split ? 'flex-row items-start gap-base' : 'flex-col gap-base'}
             >
-                <View className="min-w-0 flex-col gap-base xl:flex-[21]">
+                <View
+                    className={
+                        split ? 'min-w-0 flex-[21] flex-col gap-base' : 'min-w-0 flex-col gap-base'
+                    }
+                >
                     {batch.producedQuantity === null ? null : (
                         <Card
                             testID="kitchen-production-batch-yield"
@@ -464,24 +472,15 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                         </Card>
                     )}
 
-                    <Card
-                        testID="kitchen-production-batch-needs"
-                        tone="raised"
-                        padding="md"
-                        title={t(
-                            detail.plan === null
-                                ? 'kitchen:ops.production.headingLines'
-                                : 'kitchen:ops.production.headingPlan',
-                        )}
-                        subtitle={
-                            detail.plan === null
-                                ? undefined
-                                : t('kitchen:ops.production.planLiveCaption')
-                        }
-                    >
+                    {/*
+                     * The tables as every production step draws them — a section title, the column
+                     * picker at its end and the admin list under it — rather than inside a card of
+                     * their own, which framed the batch's shelves unlike the planner's.
+                     */}
+                    <View testID="kitchen-production-batch-needs">
                         {detail.plan === null ? (
                             <BatchLinesPanel
-                                headless
+                                first
                                 testID="kitchen-production-batch-lines"
                                 lines={detail.lines}
                                 costsVisible={detail.costsVisible}
@@ -489,18 +488,21 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                             />
                         ) : (
                             <BatchPlanPanel
-                                headless
+                                first
                                 testID="kitchen-production-batch-plan"
                                 plan={detail.plan}
                                 costsVisible={detail.costsVisible}
                             />
                         )}
-                    </Card>
+                    </View>
                 </View>
 
                 <View
                     testID="kitchen-production-batch-rail"
-                    className="min-w-0 flex-col gap-base xl:flex-[10]"
+                    className={
+                        split ? 'min-w-0 flex-[10] flex-col gap-base' : 'min-w-0 flex-col gap-base'
+                    }
+                    style={split ? { minWidth: RECORD_RAIL_MIN } : undefined}
                 >
                     <Card
                         testID="kitchen-production-batch-state"

@@ -4,6 +4,7 @@ import { Text as RNText, View } from 'react-native';
 
 import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
+import { InfoTip } from '../overlays/info-tip.tsx';
 import { NumberStepper } from './number-stepper.tsx';
 
 export interface RangeValue {
@@ -77,20 +78,20 @@ export function RangeFilter({
             accessibilityLabel={label}
             className={cx('flex-col gap-2', className)}
         >
-            <RNText
-                nativeID={labelId}
-                testID={testID === undefined ? undefined : `${testID}-label`}
-                className={cx(
-                    'text-sm font-medium text-start',
-                    disabled ? 'text-content-disabled' : 'text-content-primary',
-                )}
-            >
-                {label}
-            </RNText>
-
-            {hint === undefined ? null : (
-                <RNText className="text-xs text-content-secondary text-start">{hint}</RNText>
-            )}
+            <View className="z-auto flex-row items-center gap-hair">
+                <RNText
+                    nativeID={labelId}
+                    testID={testID === undefined ? undefined : `${testID}-label`}
+                    className={cx(
+                        'text-sm font-medium text-start',
+                        disabled ? 'text-content-disabled' : 'text-content-primary',
+                    )}
+                >
+                    {label}
+                </RNText>
+                {/* A tip on the label's line rather than a line of its own — see `InfoTip`. */}
+                {hint === undefined ? null : <InfoTip label={label} text={hint} />}
+            </View>
 
             {/*
              * Wrapping, not a fixed two-up row. A stepper is [−][field][+] and stops being usable

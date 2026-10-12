@@ -19,6 +19,7 @@ import {
     QuantityInput,
     Text,
     useToast,
+    useContentWidth,
 } from '@healthy360/design-system';
 import type { DataListColumn, RecordWindowField } from '@healthy360/design-system';
 import { GoodsReceiptId } from '@healthy360/domain-types';
@@ -41,6 +42,7 @@ import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
+import { RECORD_RAIL_MIN, RECORD_SPLIT_MIN } from '../desk-layout.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { receiptCostStatusKey, receiptCostStatusTone } from '../ops-format.ts';
 import { readAmount } from '../receive-delivery-model.ts';
@@ -105,6 +107,7 @@ export function UnpricedReceiptScreen({ receipt }: UnpricedReceiptScreenProps) {
 
 function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
     const { t } = useTranslation();
+    const split = useContentWidth().atLeast(RECORD_SPLIT_MIN);
     const formatter = useFormatter();
     const router = useRouter();
     const toast = useToast();
@@ -290,14 +293,19 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
             />
 
             {/*
-             * The lines beside the paperwork. Below `xl` the rail drops under the lines: with the
-             * admin rail open, `lg` leaves it narrower than a field.
+             * The lines beside the paperwork, where the *page* has room for both — the content
+             * width, not the window, which on a laptop clears `xl` with the page at ~920px. Below
+             * `RECORD_SPLIT_MIN` the rail drops under the lines.
              */}
             <View
                 testID="kitchen-unpriced-receipt-body"
-                className="flex-col gap-base xl:flex-row xl:items-start"
+                className={split ? 'flex-row items-start gap-base' : 'flex-col gap-base'}
             >
-                <View className="min-w-0 flex-col gap-base xl:flex-[21]">
+                <View
+                    className={
+                        split ? 'min-w-0 flex-[21] flex-col gap-base' : 'min-w-0 flex-col gap-base'
+                    }
+                >
                     <Card
                         testID="kitchen-unpriced-receipt-lines"
                         tone="raised"
@@ -334,7 +342,12 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                     </Card>
                 </View>
 
-                <View className="min-w-0 flex-col gap-base xl:flex-[10]">
+                <View
+                    className={
+                        split ? 'min-w-0 flex-[10] flex-col gap-base' : 'min-w-0 flex-col gap-base'
+                    }
+                    style={split ? { minWidth: RECORD_RAIL_MIN } : undefined}
+                >
                     <Card
                         testID="kitchen-unpriced-receipt-record"
                         tone="raised"

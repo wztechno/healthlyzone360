@@ -7,6 +7,7 @@ import { useDensity } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
 import { FieldLabel } from './field-label';
 import { useFieldSummarised } from './form-issue-scope.tsx';
+import { InfoTip } from '../overlays/info-tip.tsx';
 import { HALF_TRACK_WIDTH } from '../primitives/grid-shared.ts';
 import type { GridSpanProps } from '../primitives/grid-shared.ts';
 
@@ -144,7 +145,7 @@ export function FormField({
         accessibilityState: { disabled },
     };
 
-    // Helper and error copy drop to the `caption` step in the admin — 11px against the label's 12
+    // Error and warning copy drop to the `caption` step in the admin — 11px against the label's 12
     // — so the supporting line reads as support rather than as a second label. The 4px gap is the
     // same on both ladders: §4.4's "labels above 28px controls at 4px gap" is already `gap-hair`.
     const supportClass = density === 'compact' ? 'text-role-caption' : 'text-xs';
@@ -172,21 +173,39 @@ export function FormField({
              * reported as `label-title-only`.
              */}
             {labelHidden ? null : (
-                <FieldLabel
-                    id={labelId}
-                    htmlFor={base}
-                    text={label}
-                    disabled={disabled}
-                    {...(required ? { requiredMark: REQUIRED_MARK } : {})}
-                    {...(testID === undefined ? {} : { testID: `${testID}-label` })}
-                />
+                <View className="z-auto flex-row items-center gap-hair">
+                    <FieldLabel
+                        id={labelId}
+                        htmlFor={base}
+                        text={label}
+                        disabled={disabled}
+                        {...(required ? { requiredMark: REQUIRED_MARK } : {})}
+                        {...(testID === undefined ? {} : { testID: `${testID}-label` })}
+                    />
+                    {/*
+                     * The hint is a tip on the label's own line, never a line of its own: a hint
+                     * drawn between label and control made this field taller than its neighbours,
+                     * and a row of fields stopped lining up. See `InfoTip`.
+                     */}
+                    {hint === undefined ? null : (
+                        <InfoTip
+                            label={label}
+                            text={hint}
+                            {...(testID === undefined ? {} : { testID: `${testID}-info` })}
+                        />
+                    )}
+                </View>
             )}
 
+            {/*
+             * The hint's text stays in the tree, unseen, because it is what the control's
+             * `aria-describedby` and `accessibilityHint` read — the tip is for the eye.
+             */}
             {hint === undefined ? null : (
                 <RNText
                     nativeID={hintId}
                     testID={testID === undefined ? undefined : `${testID}-hint`}
-                    className={cx(supportClass, 'text-content-secondary text-start')}
+                    className="absolute h-px w-px overflow-hidden opacity-0"
                 >
                     {hint}
                 </RNText>

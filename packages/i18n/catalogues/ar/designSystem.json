@@ -100,6 +100,9 @@
         "month": "الشهر",
         "year": "السنة"
     },
+    "infoTip": {
+        "label": "حول {{label}}"
+    },
     "datePicker": {
         "previousMonth": "الشهر السابق",
         "nextMonth": "الشهر التالي",
@@ -155,6 +158,8 @@
             "motion": "الحركة"
         },
         "openDialog": "فتح الحوار",
+        "openSquareDialog": "فتح الحوار المربّع",
+        "squareDialogTitle": "سجّل ما نتج",
         "openDrawer": "فتح اللوحة الجانبية",
         "showToast": "إظهار تنبيه",
         "dialogTitle": "إلغاء هذه الجلسة؟",

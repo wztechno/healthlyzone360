@@ -1,15 +1,13 @@
 import { Badge } from '@healthy360/design-system';
 import type { IconName, NavigationItem } from '@healthy360/design-system';
-import { gradients } from '@healthy360/design-tokens';
-import { LinearGradient } from 'expo-linear-gradient';
 import { usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Text as RNText, View } from 'react-native';
 
 import { useReviewQueueQuery } from '../../data/kitchen-admin-hooks.ts';
 import { useConsumptionExceptionCountQuery } from '../../data/kitchen-ops-hooks.ts';
 import { workspaceGroup } from '../../navigation/workspace-group.tsx';
+import { AreaBrandBlock, AreaRailTop, DESK_SIDEBAR_WIDTH } from '../../shell/area-brand-block.tsx';
 import { useAccessState } from '../../session/session-provider.tsx';
 import {
     OVERVIEW_HREF,
@@ -43,63 +41,20 @@ const GROUP_ICONS: Readonly<Record<EntityGroup, IconName>> = {
 };
 
 /** KITCHEN.md sidebar spec: the family rail is 232px. */
-export const KITCHEN_SIDEBAR_WIDTH = 232;
+export const KITCHEN_SIDEBAR_WIDTH = DESK_SIDEBAR_WIDTH;
+
+/** The top of the green module rail: empty — see `AreaRailTop`. */
+export function KitchenRailTop() {
+    return <AreaRailTop testID="kitchen-rail-top" />;
+}
 
 /**
- * Brand block at the top of the rail: the violet-to-green mark the marketplace top bar uses, the
- * wordmark, and the area line under it. No branch name — the access state carries only branch ids,
+ * Brand block at the top of the rail. No branch name — the access state carries only branch ids,
  * and a made-up label would be worse than none.
  */
-/** The gradient mark with the brand's initial — the brand block's glyph, and all of it when collapsed. */
-function BrandMark() {
-    const { t } = useTranslation();
-    return (
-        <LinearGradient
-            colors={gradients.accent.colours}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{ width: 32, height: 32, borderRadius: 8 }}
-        >
-            <View className="h-full w-full items-center justify-center">
-                <RNText className="text-base font-bold text-content-on-canopy">
-                    {t('marketplace:brand.name').slice(0, 1)}
-                </RNText>
-            </View>
-        </LinearGradient>
-    );
-}
-
-/**
- * The top of the green module rail: empty. The logo lives once, in the white panel's brand block;
- * this keeps the block's height so the rail's module icons start where they did.
- */
-export function KitchenRailTop() {
-    return (
-        <View testID="kitchen-rail-top" className="pb-2 pt-4">
-            <View className="h-8" />
-        </View>
-    );
-}
-
 export function KitchenBrandBlock() {
     const { t } = useTranslation();
-
-    return (
-        <View testID="kitchen-rail-brand" className="flex-row items-center gap-2 px-4 pb-2 pt-4">
-            <BrandMark />
-            <View className="min-w-0 flex-1">
-                <RNText
-                    numberOfLines={1}
-                    className="text-base font-bold text-content-primary text-start"
-                >
-                    {t('marketplace:brand.name')}
-                </RNText>
-                <RNText numberOfLines={1} className="text-xs text-content-secondary text-start">
-                    {t('kitchen:nav.railTitle')}
-                </RNText>
-            </View>
-        </View>
-    );
+    return <AreaBrandBlock testID="kitchen-rail-brand" subtitle={t('kitchen:nav.railTitle')} />;
 }
 
 /**

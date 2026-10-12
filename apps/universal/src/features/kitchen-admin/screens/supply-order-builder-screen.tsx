@@ -16,10 +16,12 @@ import {
     EmptyState,
     ErrorState,
     FormSection,
+    Icon,
+    InfoTip,
+    QuantityInput,
     Select,
     Stack,
     TableSkeleton,
-    QuantityInput,
     Text,
     useToast,
 } from '@healthy360/design-system';
@@ -28,8 +30,7 @@ import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
-import type { LayoutChangeEvent } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -43,6 +44,7 @@ import {
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
+import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
@@ -208,7 +210,12 @@ function SupplyOrderBuilder() {
     const [confirmingCreate, setConfirmingCreate] = useState(false);
     /** Dialog-level, not toast-level: the batch failed, so the dialog stays open to be retried. */
     const [createFailed, setCreateFailed] = useState(false);
-    const [bodyWidth, setBodyWidth] = useState(0);
+    /*
+     * Read from the node rather than `onLayout`, which on the web delivered one early width and
+     * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.
+     */
+    const port = useCataloguePort();
+    const bodyWidth = port.width;
 
     const proposal = useOrderProposalQuery(branchId, requestedIds);
     // The whole live book, for the unlinked rows' picker: a shelf with no links may still be
@@ -395,7 +402,8 @@ function SupplyOrderBuilder() {
                 // One column for both numbers: they are read together — "reorder at 5, fill to 20" —
                 // and two columns of mostly em dashes would be two columns of nothing.
                 label: t('kitchen:ops.supplyOrders.columnLevels'),
-                width: 136,
+                // Wide enough for its header whole: a truncated "Reorder at / Rest…" named neither.
+                width: 152,
                 priority: 60,
                 grow: false,
                 render: (row) => (
@@ -517,9 +525,11 @@ function SupplyOrderBuilder() {
                     (option: SupplierOption) => ({
                         value: String(option.id),
                         label: option.nameEn,
-                        description: option.isPreferred
-                            ? t('kitchen:ops.supplyOrders.preferredBadge')
-                            : option.code,
+                        // "Preferred" is worth the room; the code is searched, not drawn.
+                        ...(option.isPreferred
+                            ? { description: t('kitchen:ops.supplyOrders.preferredBadge') }
+                            : {}),
+                        keywords: option.code,
                     }),
                 );
                 const current = row.supplierOptions.find(
@@ -583,36 +593,45 @@ function SupplyOrderBuilder() {
                     (supplier) => ({
                         value: String(supplier.id),
                         label: supplier.nameEn,
-                        description: supplier.code,
+                        keywords: supplier.code,
                     }),
                 );
 
                 return (
-                    <View className="min-w-0 flex-1 flex-col gap-hair py-1">
-                        {/*
-                         * The two reasons get different words because they have different fixes: a
-                         * shelf nobody was ever linked to needs a supplier; a shelf whose suppliers
-                         * are all archived needs one restored, or a different one linked.
-                         */}
-                        <Text variant="caption" tone="secondary" testID={`${testID}-reason`}>
-                            {row.unassignedReason === 'suppliersArchived'
-                                ? t('kitchen:ops.supplyOrders.reasonArchived')
-                                : t('kitchen:ops.supplyOrders.reasonNoSupplier')}
-                        </Text>
-                        <Select
-                            testID={`${testID}-supplier-select`}
-                            label={t('kitchen:ops.supplyOrders.supplierLabel', {
-                                item: row.itemNameEn,
-                            })}
-                            labelHidden
-                            options={options}
-                            searchable
-                            value={chosen === null ? null : String(chosen)}
-                            placeholder={t('kitchen:ops.supplyOrders.supplierPlaceholder')}
-                            onChange={(value) => {
-                                chooseSupplier(row, value as SupplierId);
-                            }}
-                        />
+                    <View className="z-auto min-w-0 flex-1 flex-col gap-hair py-1">
+                        <View className="z-auto flex-row items-center gap-hair">
+                            <View className="z-auto min-w-0 flex-1">
+                                <Select
+                                    testID={`${testID}-supplier-select`}
+                                    label={t('kitchen:ops.supplyOrders.supplierLabel', {
+                                        item: row.itemNameEn,
+                                    })}
+                                    labelHidden
+                                    options={options}
+                                    searchable
+                                    value={chosen === null ? null : String(chosen)}
+                                    placeholder={t('kitchen:ops.supplyOrders.supplierPlaceholder')}
+                                    onChange={(value) => {
+                                        chooseSupplier(row, value as SupplierId);
+                                    }}
+                                />
+                            </View>
+                            {/*
+                             * The two reasons get different words because they have different fixes: a
+                             * shelf nobody was ever linked to needs a supplier; a shelf whose suppliers
+                             * are all archived needs one restored, or a different one linked. A tip
+                             * beside the picker rather than a line above it, so the row stays level.
+                             */}
+                            <InfoTip
+                                testID={`${testID}-reason`}
+                                label={t('kitchen:ops.supplyOrders.columnFrom')}
+                                text={
+                                    row.unassignedReason === 'suppliersArchived'
+                                        ? t('kitchen:ops.supplyOrders.reasonArchived')
+                                        : t('kitchen:ops.supplyOrders.reasonNoSupplier')
+                                }
+                            />
+                        </View>
                         <Checkbox
                             testID={`${testID}-remember`}
                             checked={remember[key] ?? true}
@@ -695,9 +714,8 @@ function SupplyOrderBuilder() {
                 />
             ) : (
                 <View
-                    onLayout={(event: LayoutChangeEvent) => {
-                        setBodyWidth(event.nativeEvent.layout.width);
-                    }}
+                    ref={Platform.OS === 'web' ? port.ref : undefined}
+                    onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
                     className={
                         sideBySide && loaded
                             ? 'z-auto flex-row items-start gap-base'
@@ -849,6 +867,7 @@ function SupplyOrderBuilder() {
                                                 variant="ghost"
                                                 size="sm"
                                                 label={t('kitchen:ops.supplyOrders.addSupplier')}
+                                                iconStart={<Icon name="plus" size="sm" />}
                                                 onPress={() => {
                                                     router.push('/kitchen/suppliers/new' as never);
                                                 }}

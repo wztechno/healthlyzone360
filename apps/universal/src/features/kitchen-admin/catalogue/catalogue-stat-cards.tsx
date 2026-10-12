@@ -1,4 +1,4 @@
-import { Card, FadeIn, Icon, Skeleton, Text } from '@healthy360/design-system';
+import { Card, FadeIn, Icon, Skeleton, Text, useContentWidth } from '@healthy360/design-system';
 import type { CardTone, IconName, TextTone } from '@healthy360/design-system';
 import { cardWidth } from '@healthy360/design-tokens';
 import { View } from 'react-native';
@@ -152,73 +152,101 @@ export function CatalogueStatCards({
     countsPending,
     testID,
 }: CatalogueStatCardsProps) {
+    const { width: contentWidth } = useContentWidth();
+    const rows = statCardRows(cards.length, contentWidth);
+    // `null` is a spacer: a short last row keeps the columns above it rather than stretching.
+    const grid: (CatalogueStatCard | null)[][] = [];
+    for (let start = 0; start < cards.length; start += rows.perRow) {
+        const row: (CatalogueStatCard | null)[] = cards.slice(start, start + rows.perRow);
+        while (row.length < rows.perRow) row.push(null);
+        grid.push(row);
+    }
+
     return (
         /*
          * The cards fill the row, with a gap between them.
          *
-         * This has now been three shapes. Fixed 200px cards packed at the leading edge left ~380px
+         * This has now been four shapes. Fixed 200px cards packed at the leading edge left ~380px
          * of nothing after the fourth; centring moved that to the two outer margins; `between` put
          * it in the gaps, which fills the row but leaves the four cards floating a long way apart
          * with no relationship to each other. What the row actually wants is for the cards to be
          * *bigger*: the space belongs inside them, where the figure and its caption are, rather
-         * than around them.
+         * than around them. So each card takes an equal share of its row, and `gap-snug` (12px)
+         * keeps them apart — the cards are one set of related figures, and a gap wide enough to
+         * read as a separator would say they are unrelated panels.
          *
-         * So each card takes an equal share of the row — `flex-1` on its cell, floored at
-         * `cardWidth.min` so a narrow port wraps instead of crushing four cards into 90px each —
-         * and `gap-snug` (12px) keeps them apart. That is the "little space" and no more: the cards
-         * are one row of related figures, and a gap wide enough to read as a separator would say
-         * they are four unrelated panels.
+         * The fourth shape is how a narrow page breaks the set. A free wrap at `cardWidth.min` put
+         * whatever no longer fitted on a line of its own — four became 3 + 1, the home's five 4 + 1
+         * — and the one card on the second line stretched across the whole page, reading as the
+         * important figure rather than the leftover one. So the rows are counted first
+         * (`statCardRows`) and balanced: four go 2 + 2, five go 3 + 2, and a short last row keeps
+         * its columns with spacers rather than stretching. Counted from the content column, not
+         * the window — on a laptop the window says "wide" while the page is ~920px.
          */
-        <View testID={testID} className="flex-row flex-wrap items-stretch gap-snug">
-            {cards.map((card, index) => (
-                /*
-                 * A wrapping row of equal shares, not `CardGrid`.
-                 *
-                 * `CardGrid`'s track is `minmax(200px, 260px)` and caps at the max, so on a 1230px
-                 * row it would draw four 260px cards and leave the remainder over — the problem
-                 * this row is trying to stop having. `flex-1` has no cap: the cards take whatever
-                 * the row is, which is the point.
-                 *
-                 * `minWidth` rather than a fixed `width` is what keeps the wrap honest. A flex
-                 * child will shrink below its content without one, so four cards on a phone would
-                 * become four unreadable slivers instead of wrapping to two lines of two.
-                 *
-                 * The `View` around each card is also load-bearing. A `Card` with `onPress`
-                 * renders a real `<button>`, whose `width: auto` is shrink-to-fit rather than
-                 * fill — dropped straight into a sized cell the two *filter* cards came out 108px
-                 * and 118px wide while the two read-only ones filled theirs, so one row of four
-                 * identical figures rendered as four different boxes. A `View` is a flex column,
-                 * so its child stretches on the cross axis; it is the same mechanism
-                 * `CardGridItem` already uses on the customer surfaces, which is why their
-                 * pressable cards never showed this. Fixed here rather than in `Card`: a blanket
-                 * `w-full` on the pressable branch would also stretch every card sitting in a flex
-                 * row, which is a different layout with a different right answer.
-                 *
-                 * `flex-1` trips the no-stretch fence, and this is the exemption that fence
-                 * names by example: the `View` is not a control taking its width from a
-                 * container, it *is* one of the row's four columns — the same case as the
-                 * toolbar's spacer and a list row's title column. The card inside it is still
-                 * sized by the token, and `minWidth` is what makes a narrow port wrap rather
-                 * than shrink four cards into slivers.
-                 */
-                <View
-                    key={card.key}
-                    // eslint-disable-next-line no-restricted-syntax -- the cell *is* the row's column; see above.
-                    className="flex-1 flex-col"
-                    style={{ minWidth: cardWidth.min }}
-                >
-                    <StatCard
-                        card={card}
-                        pending={
-                            card.pending ?? (index > 0 && countsPending === true ? true : pending)
-                        }
-                        testID={`${testID}-${card.key}`}
-                    />
+        <View testID={testID} className="flex-col gap-snug">
+            {grid.map((row, rowIndex) => (
+                <View key={String(rowIndex)} className="flex-row items-stretch gap-snug">
+                    {row.map((card, column) => {
+                        const index = rowIndex * rows.perRow + column;
+                        return (
+                            /*
+                             * The `View` around each card is load-bearing. A `Card` with `onPress`
+                             * renders a real `<button>`, whose `width: auto` is shrink-to-fit
+                             * rather than fill — dropped straight into a sized cell the two
+                             * *filter* cards came out 108px and 118px wide while the two read-only
+                             * ones filled theirs. A `View` is a flex column, so its child stretches
+                             * on the cross axis; it is the same mechanism `CardGridItem` uses on the
+                             * customer surfaces.
+                             *
+                             * `flex-1` trips the no-stretch fence, and this is the exemption that
+                             * fence names by example: the `View` is not a control taking its width
+                             * from a container, it *is* one of the row's columns.
+                             */
+                            <View
+                                key={card?.key ?? `spacer-${String(column)}`}
+                                // eslint-disable-next-line no-restricted-syntax -- the cell *is* the row's column; see above.
+                                className="flex-1 flex-col"
+                                aria-hidden={card === null ? true : undefined}
+                            >
+                                {card === null ? null : (
+                                    <StatCard
+                                        card={card}
+                                        pending={
+                                            card.pending ??
+                                            (index > 0 && countsPending === true ? true : pending)
+                                        }
+                                        testID={`${testID}-${card.key}`}
+                                    />
+                                )}
+                            </View>
+                        );
+                    })}
                 </View>
             ))}
         </View>
     );
 }
+
+/**
+ * How many cards a row, for `count` cards on a page `width` wide.
+ *
+ * As many as keep `cardWidth.min` each; if that is not all of them, the rows are balanced — the
+ * fewest rows that hold the set, then the fewest cards a row that fills them — so the last row is
+ * never one card on its own. Exported and pure, so the breaks can be tested at a width rather than
+ * through a renderer.
+ */
+export function statCardRows(count: number, width: number): { readonly perRow: number } {
+    if (count <= 0) return { perRow: 1 };
+    // Before the shell has a width (a bare render), one row, as the cards were always drawn.
+    if (width <= 0) return { perRow: count };
+    const fits = Math.max(1, Math.floor((width + STAT_CARD_GAP) / (cardWidth.min + STAT_CARD_GAP)));
+    if (fits >= count) return { perRow: count };
+    const rowCount = Math.ceil(count / fits);
+    return { perRow: Math.ceil(count / rowCount) };
+}
+
+/** `gap-snug`, as a number for the arithmetic above. */
+const STAT_CARD_GAP = 12;
 
 function StatCard({
     card,

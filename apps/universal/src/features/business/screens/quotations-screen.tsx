@@ -1,30 +1,48 @@
 import {
     Badge,
     Button,
-    Card,
-    Heading,
+    Cascade,
+    EmptyState,
+    ErrorState,
     Inline,
-    SegmentedControl,
-    Stack,
+    TableSkeleton,
     Text,
 } from '@healthy360/design-system';
+import type { MenuItem } from '@healthy360/design-system';
 import type { Quotation, QuotationFilter, QuotationState } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
+    toFailure,
     useAcceptQuotationMutation,
+    useCorporateProgrammesQuery,
     useDeclineQuotationMutation,
     useQuotationsQuery,
 } from '../../../data/business-hooks.ts';
+import { CATALOGUE_ROW_ICONS } from '../../kitchen-admin/catalogue/catalogue-list-item.tsx';
+import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
+import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
+import { CatalogueStatCards } from '../../kitchen-admin/catalogue/catalogue-stat-cards.tsx';
+import { CatalogueToolbar } from '../../kitchen-admin/catalogue/catalogue-toolbar.tsx';
+import { ColumnPicker } from '../../kitchen-admin/catalogue/column-picker.tsx';
+import { RecordViewPage } from '../../kitchen-admin/catalogue/record-view-page.tsx';
+import {
+    compareText,
+    useColumnControls,
+} from '../../kitchen-admin/catalogue/use-column-controls.tsx';
+import type { ControlledColumn } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
-import { QueryStates } from '../../marketplace/query-states.tsx';
-import { contractPriceTestId, quotationStateKey } from '../format.ts';
+import { CORPORATE_HOME_HREF } from '../corporate-chrome.tsx';
+import { contractPriceTestId, quotationStateKey, quotationTone } from '../format.ts';
 
 /**
- * `/corporate/quotations` — every quotation this account has raised.
+ * `/corporate/quotations` — every quotation this account has raised, as an admin list
+ * (`kitchen-admin/screens/quotations-screen.tsx` is the twin on the selling side): the summary
+ * cards, one toolbar row whose segments are the request's state filter, the table, and a record
+ * page that opens in place of the table so Back keeps the filter.
  *
  * ## A submitted quotation carries no price, and the screen shows that rather than hiding it
  *
@@ -51,248 +69,530 @@ const FILTER_STATES: Readonly<Record<FilterKey, readonly QuotationState[]>> = {
     closed: ['accepted', 'declined', 'expired'],
 };
 
-export function QuotationsScreen() {
+function isFilterKey(value: string | undefined): value is FilterKey {
+    return (FILTERS as readonly string[]).includes(value ?? '');
+}
+
+export interface QuotationsScreenProps {
+    /** The segment to open on — `?state=` on the route. Anything unrecognised opens on All. */
+    readonly initialFilter?: string | undefined;
+}
+
+export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
 
-    const [filter, setFilter] = useState<FilterKey>('all');
+    const [filter, setFilter] = useState<FilterKey>(
+        isFilterKey(initialFilter) ? initialFilter : 'all',
+    );
+    const [search, setSearch] = useState('');
+    const [viewingId, setViewingId] = useState<string | null>(null);
     const states = FILTER_STATES[filter];
     const request: QuotationFilter = states.length === 0 ? {} : { states };
 
     const quotations = useQuotationsQuery(request);
+    // The cards count every quotation whatever the segment says — the same unfiltered read the
+    // rail's badge counts, so the two numbers cannot disagree.
+    const everything = useQuotationsQuery();
+    const programmes = useCorporateProgrammesQuery();
     const accept = useAcceptQuotationMutation();
     const decline = useDeclineQuotationMutation();
-    const items: readonly Quotation[] = quotations.data?.items ?? [];
     const deciding = accept.isPending || decline.isPending;
 
-    return (
-        <Stack space="lg" testID="quotations-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="quotations-title">
-                    {t('business:quotations.title')}
-                </Heading>
-                <Text tone="secondary">{t('business:quotations.body')}</Text>
-            </Stack>
+    const loaded = quotations.data?.items;
+    const rows = useMemo(() => {
+        const needle = search.trim().toLowerCase();
+        return (loaded ?? []).filter(
+            (row) => needle === '' || row.reference.toLowerCase().includes(needle),
+        );
+    }, [loaded, search]);
+    const programmeName = (row: Quotation): string =>
+        programmes.data?.find((programme) => programme.id === row.programmeId)?.name ??
+        String(row.programmeId);
+    const totalText = (row: Quotation): string =>
+        row.requestedTotal === null
+            ? t('business:quotations.awaitingPriceShort')
+            : formatMoney(formatter, row.requestedTotal);
+    const dateText = (value: string | null): string =>
+        value === null ? '—' : formatter.formatDate(value, { dateStyle: 'medium' });
 
-            <SegmentedControl
-                testID="quotations-filter"
-                label={t('business:quotations.filterLabel')}
-                block
-                value={filter}
-                onChange={(next) => {
-                    setFilter(next as FilterKey);
-                }}
-                items={FILTERS.map((key) => ({
-                    value: key,
-                    label: t(`business:quotations.filters.${key}`),
-                    testID: `quotations-filter-${key}`,
-                }))}
-            />
-
-            <QueryStates
-                query={quotations}
-                isEmpty={items.length === 0}
-                emptyTitle={
-                    filter === 'all'
-                        ? t('business:quotations.emptyTitle')
-                        : t('business:quotations.emptyFilteredTitle')
-                }
-                emptyBody={
-                    filter === 'all'
-                        ? t('business:quotations.emptyBody')
-                        : t('business:quotations.emptyFilteredBody')
-                }
-                emptyActions={
-                    filter === 'all' ? (
-                        <Button
-                            testID="quotations-corporate-home"
-                            label={t('business:quotations.home')}
-                            onPress={() => {
-                                router.push('/corporate' as never);
-                            }}
-                        />
-                    ) : (
-                        <Button
-                            testID="quotations-clear-filter"
-                            variant="secondary"
-                            label={t('business:quotations.clearFilter')}
-                            onPress={() => {
-                                setFilter('all');
-                            }}
-                        />
-                    )
-                }
-                skeletonCount={2}
-                testID="quotations"
-            >
-                <Stack space="sm" testID="quotations-list">
-                    {items.map((quotation) => {
-                        const testId = `quotation-${quotation.reference}`;
-                        return (
-                            <Card key={quotation.id} testID={testId} padding="md">
-                                <Stack space="sm">
-                                    <Inline space="sm" align="center" justify="between">
-                                        <Text variant="bodyStrong" testID={`${testId}-reference`}>
-                                            {quotation.reference}
-                                        </Text>
-                                        <Badge
-                                            testID={`${testId}-state`}
-                                            tone={
-                                                quotation.state === 'quoted'
-                                                    ? 'success'
-                                                    : quotation.state === 'declined' ||
-                                                        quotation.state === 'expired'
-                                                      ? 'neutral'
-                                                      : 'info'
-                                            }
-                                            icon="info"
-                                            label={t(quotationStateKey(quotation.state))}
-                                        />
-                                    </Inline>
-
-                                    <Text
-                                        tone="secondary"
-                                        variant="caption"
-                                        testID={`${testId}-raised`}
-                                    >
-                                        {t('business:quotations.raised', {
-                                            date: formatter.formatDate(quotation.requestedAt, {
-                                                dateStyle: 'medium',
-                                            }),
-                                        })}
-                                    </Text>
-
-                                    <Stack space="xs" testID={`${testId}-lines`}>
-                                        {quotation.lines.map((line) => (
-                                            <Stack key={line.catalogueItemId} space="xs">
-                                                <Text>
-                                                    {t('business:quotations.line', {
-                                                        name: line.name,
-                                                        count: line.quantity,
-                                                    })}
-                                                </Text>
-                                                {line.quotedTotal === null ? (
-                                                    <Text
-                                                        testID={`${testId}-line-${line.catalogueItemId}-unpriced`}
-                                                        tone="secondary"
-                                                        variant="caption"
-                                                    >
-                                                        {t('business:quotations.awaitingPrice')}
-                                                    </Text>
-                                                ) : (
-                                                    <Text
-                                                        testID={contractPriceTestId(
-                                                            `quoted-${quotation.reference}-${line.catalogueItemId}`,
-                                                        )}
-                                                        variant="caption"
-                                                    >
-                                                        {t('business:quotations.linePriced', {
-                                                            total: formatMoney(
-                                                                formatter,
-                                                                line.quotedTotal,
-                                                            ),
-                                                        })}
-                                                    </Text>
-                                                )}
-                                            </Stack>
-                                        ))}
-                                    </Stack>
-
-                                    {quotation.requestedTotal === null ? null : (
-                                        <Text
-                                            testID={contractPriceTestId(
-                                                `quoted-total-${quotation.reference}`,
-                                            )}
-                                        >
-                                            {t('business:quotations.total', {
-                                                total: formatMoney(
-                                                    formatter,
-                                                    quotation.requestedTotal,
-                                                ),
-                                            })}
-                                        </Text>
-                                    )}
-
-                                    {quotation.expiresAt === null ? null : (
-                                        <Text
-                                            tone="secondary"
-                                            variant="caption"
-                                            testID={`${testId}-expires`}
-                                        >
-                                            {t('business:quotations.expires', {
-                                                date: formatter.formatDate(quotation.expiresAt, {
-                                                    dateStyle: 'medium',
-                                                }),
-                                            })}
-                                        </Text>
-                                    )}
-
-                                    <Inline space="xs" wrap>
-                                        <Badge
-                                            testID={`${testId}-recurring`}
-                                            tone={quotation.recurring ? 'success' : 'neutral'}
-                                            icon={quotation.recurring ? 'check' : 'dot'}
-                                            label={
-                                                quotation.recurring
-                                                    ? t('business:quotations.recurring')
-                                                    : t('business:quotations.oneOff')
-                                            }
-                                        />
-                                    </Inline>
-
-                                    {quotation.note === null ? null : (
-                                        <Text
-                                            tone="secondary"
-                                            variant="caption"
-                                            testID={`${testId}-note`}
-                                        >
-                                            {quotation.note}
-                                        </Text>
-                                    )}
-
-                                    <Inline space="sm" wrap>
-                                        {quotation.state === 'quoted' ? (
-                                            <>
-                                                <Button
-                                                    testID={`${testId}-accept`}
-                                                    label={t('business:quotations.accept')}
-                                                    disabled={deciding}
-                                                    onPress={() => {
-                                                        accept.mutate(quotation.id);
-                                                    }}
-                                                />
-                                                <Button
-                                                    testID={`${testId}-decline`}
-                                                    variant="secondary"
-                                                    label={t('business:quotations.decline')}
-                                                    disabled={deciding}
-                                                    onPress={() => {
-                                                        decline.mutate({
-                                                            quotationId: quotation.id,
-                                                        });
-                                                    }}
-                                                />
-                                            </>
-                                        ) : null}
-                                    </Inline>
-                                </Stack>
-                            </Card>
-                        );
-                    })}
-                </Stack>
-            </QueryStates>
-
-            <Inline space="sm" wrap>
-                <Button
-                    testID="quotations-back"
-                    variant="quiet"
-                    label={t('business:quotations.back')}
-                    onPress={() => {
-                        router.push('/corporate' as never);
-                    }}
+    const columns: readonly ControlledColumn<Quotation, CatalogueColumn<Quotation>>[] = [
+        {
+            key: 'reference',
+            role: 'title',
+            label: t('business:quotations.columnReference'),
+            width: 160,
+            priority: 100,
+            value: (row) => row.reference,
+            sort: (left, right, direction) =>
+                compareText(left.reference, right.reference, direction),
+            render: (row) => (
+                <Text
+                    variant="mono"
+                    className="font-semibold"
+                    testID={`quotation-${row.reference}-reference`}
+                >
+                    {row.reference}
+                </Text>
+            ),
+        },
+        {
+            key: 'state',
+            role: 'status',
+            label: t('business:quotations.columnState'),
+            width: 170,
+            priority: 90,
+            value: (row) => t(quotationStateKey(row.state)),
+            render: (row) => (
+                <Badge
+                    testID={`quotation-${row.reference}-state`}
+                    tone={quotationTone(row.state)}
+                    label={t(quotationStateKey(row.state))}
                 />
-            </Inline>
-        </Stack>
+            ),
+        },
+        {
+            key: 'programme',
+            role: 'meta',
+            label: t('business:quotations.columnProgramme'),
+            width: 200,
+            grow: true,
+            priority: 70,
+            value: programmeName,
+            filter: {
+                values: (all) =>
+                    [...new Set(all.map((row) => String(row.programmeId)))].map((id) => ({
+                        key: id,
+                        label:
+                            programmes.data?.find((programme) => String(programme.id) === id)
+                                ?.name ?? id,
+                    })),
+                match: (row, value) => String(row.programmeId) === value,
+            },
+        },
+        {
+            key: 'lines',
+            role: 'meta',
+            label: t('business:quotations.columnLines'),
+            width: 80,
+            align: 'end',
+            priority: 60,
+            value: (row) => formatter.formatNumber(row.lines.length),
+        },
+        {
+            key: 'total',
+            role: 'metric',
+            label: t('business:quotations.columnTotal'),
+            width: 150,
+            align: 'end',
+            priority: 85,
+            value: totalText,
+            render: (row) =>
+                row.requestedTotal === null ? (
+                    <Text tone="secondary">{totalText(row)}</Text>
+                ) : (
+                    <Text
+                        variant="mono"
+                        testID={contractPriceTestId(`quoted-total-${row.reference}`)}
+                    >
+                        {totalText(row)}
+                    </Text>
+                ),
+        },
+        {
+            key: 'raised',
+            role: 'meta',
+            label: t('business:quotations.columnRaised'),
+            width: 130,
+            priority: 65,
+            value: (row) => dateText(row.requestedAt),
+            sort: (left, right, direction) =>
+                compareText(left.requestedAt, right.requestedAt, direction),
+        },
+        {
+            key: 'expires',
+            role: 'meta',
+            label: t('business:quotations.columnExpires'),
+            width: 130,
+            priority: 75,
+            value: (row) => dateText(row.expiresAt),
+            sort: (left, right, direction) =>
+                compareText(left.expiresAt, right.expiresAt, direction),
+        },
+        {
+            key: 'recurring',
+            role: 'meta',
+            label: t('business:quotations.columnSchedule'),
+            width: 130,
+            priority: 40,
+            value: (row) =>
+                row.recurring
+                    ? t('business:quotations.recurring')
+                    : t('business:quotations.oneOff'),
+        },
+    ];
+
+    const controls = useColumnControls(rows, columns, 'quotations', {
+        picker: { defaults: ['reference', 'state', 'programme', 'total', 'expires', 'lines'] },
+    });
+    const listFailure = toFailure(quotations.error);
+    const unfiltered = filter === 'all' && search === '' && !controls.filtered;
+    const clearFilters = () => {
+        setFilter('all');
+        setSearch('');
+        controls.clearFilters();
+    };
+
+    const viewing = (loaded ?? []).find((row) => String(row.id) === viewingId) ?? null;
+
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID={`quotation-${viewing.reference}`}
+                onBack={() => {
+                    setViewingId(null);
+                }}
+                title={viewing.reference}
+                kind={t('business:quotations.viewKind')}
+                status={{
+                    label: t(quotationStateKey(viewing.state)),
+                    tone: quotationTone(viewing.state),
+                }}
+                fields={[
+                    {
+                        key: 'programme',
+                        label: t('business:quotations.columnProgramme'),
+                        value: programmeName(viewing),
+                    },
+                    {
+                        key: 'raised',
+                        label: t('business:quotations.columnRaised'),
+                        value: dateText(viewing.requestedAt),
+                        mono: true,
+                    },
+                    {
+                        key: 'delivery',
+                        label: t('business:quotations.columnDelivery'),
+                        value: dateText(viewing.requestedDeliveryDate),
+                        mono: true,
+                    },
+                    {
+                        key: 'expires',
+                        label: t('business:quotations.columnExpires'),
+                        value: dateText(viewing.expiresAt),
+                        mono: true,
+                    },
+                    {
+                        key: 'schedule',
+                        label: t('business:quotations.columnSchedule'),
+                        value: viewing.recurring
+                            ? t('business:quotations.recurring')
+                            : t('business:quotations.oneOff'),
+                    },
+                    ...(viewing.note === null
+                        ? []
+                        : [
+                              {
+                                  key: 'note',
+                                  label: t('business:quotations.columnNote'),
+                                  value: viewing.note,
+                              },
+                          ]),
+                ]}
+                linesTitle={t('business:quotations.linesTitle')}
+                lines={<QuotationLines quotation={viewing} />}
+                statusContent={
+                    <>
+                        {viewing.requestedTotal === null ? (
+                            <Text tone="secondary" variant="caption">
+                                {t('business:quotations.awaitingPrice')}
+                            </Text>
+                        ) : (
+                            <Text
+                                variant="display"
+                                testID={contractPriceTestId(
+                                    `quoted-total-${viewing.reference}-view`,
+                                )}
+                            >
+                                {formatMoney(formatter, viewing.requestedTotal)}
+                            </Text>
+                        )}
+                        {viewing.state === 'quoted' ? (
+                            <Inline space="xs" wrap>
+                                <Button
+                                    testID={`quotation-${viewing.reference}-decline`}
+                                    size="sm"
+                                    variant="secondary"
+                                    label={t('business:quotations.decline')}
+                                    disabled={deciding}
+                                    onPress={() => {
+                                        decline.mutate({ quotationId: viewing.id });
+                                    }}
+                                />
+                            </Inline>
+                        ) : null}
+                    </>
+                }
+                primaryAction={
+                    viewing.state === 'quoted'
+                        ? {
+                              testID: `quotation-${viewing.reference}-accept`,
+                              label: t('business:quotations.accept'),
+                              icon: 'circleCheck',
+                              loading: accept.isPending,
+                              disabled: deciding,
+                              onPress: () => {
+                                  accept.mutate(viewing.id);
+                              },
+                          }
+                        : undefined
+                }
+            />
+        );
+    }
+
+    const all = everything.data?.items ?? [];
+    const count = (key: FilterKey) =>
+        formatter.formatNumber(all.filter((row) => FILTER_STATES[key].includes(row.state)).length);
+    const awaiting = all.filter((row) => row.state === 'quoted').length;
+
+    return (
+        <Cascade space="md" testID="quotations-screen">
+            {listFailure !== null ? null : (
+                <CatalogueStatCards
+                    testID="quotations-stats"
+                    pending={everything.isPending}
+                    cards={[
+                        {
+                            key: 'all',
+                            label: t('business:quotations.statAll'),
+                            value: formatter.formatNumber(all.length),
+                            mark: 'list',
+                            tone: 'brand',
+                            onPress: clearFilters,
+                            accessibilityLabel: t('business:quotations.clearFilter'),
+                        },
+                        {
+                            key: 'open',
+                            label: t('business:quotations.statOpen'),
+                            value: count('open'),
+                            mark: 'clock',
+                            onPress: () => {
+                                setFilter('open');
+                            },
+                            accessibilityLabel: t('business:quotations.filters.open'),
+                        },
+                        {
+                            key: 'quoted',
+                            label: t('business:quotations.statQuoted'),
+                            value: formatter.formatNumber(awaiting),
+                            mark: 'circleCheck',
+                            tone: awaiting === 0 ? 'default' : 'warning',
+                            onPress: () => {
+                                setFilter('quoted');
+                            },
+                            accessibilityLabel: t('business:quotations.filters.quoted'),
+                        },
+                        {
+                            key: 'closed',
+                            label: t('business:quotations.statClosed'),
+                            value: count('closed'),
+                            mark: 'archive',
+                            onPress: () => {
+                                setFilter('closed');
+                            },
+                            accessibilityLabel: t('business:quotations.filters.closed'),
+                        },
+                    ]}
+                />
+            )}
+
+            <CatalogueToolbar<FilterKey>
+                testID="quotations-toolbar"
+                search={search}
+                onSearchChange={setSearch}
+                searchLabel={t('business:quotations.searchLabel')}
+                searchPlaceholder={t('business:quotations.columnReference')}
+                statusLabel={t('business:quotations.filterLabel')}
+                statusSegments={FILTERS.map((value) => ({
+                    value,
+                    label: t(`business:quotations.filters.${value}`),
+                }))}
+                status={filter}
+                onStatusChange={setFilter}
+            >
+                <ColumnPicker {...controls.picker} />
+            </CatalogueToolbar>
+
+            {quotations.isPending ? (
+                <TableSkeleton testID="quotations-loading" />
+            ) : listFailure !== null ? (
+                <ErrorState
+                    testID="quotations-error"
+                    title={t('business:quotations.loadErrorTitle')}
+                    failure={listFailure}
+                    onRetry={() => {
+                        void quotations.refetch();
+                    }}
+                    retrying={quotations.isFetching}
+                />
+            ) : controls.rows.length === 0 ? (
+                <EmptyState
+                    testID="quotations-empty"
+                    title={
+                        unfiltered
+                            ? t('business:quotations.emptyTitle')
+                            : t('business:quotations.emptyFilteredTitle')
+                    }
+                    body={
+                        unfiltered
+                            ? t('business:quotations.emptyBody')
+                            : t('business:quotations.emptyFilteredBody')
+                    }
+                    actions={
+                        unfiltered ? (
+                            <Button
+                                testID="quotations-corporate-home"
+                                size="sm"
+                                variant="secondary"
+                                label={t('business:quotations.home')}
+                                onPress={() => {
+                                    router.push(CORPORATE_HOME_HREF as never);
+                                }}
+                            />
+                        ) : (
+                            <Button
+                                testID="quotations-clear-filter"
+                                size="sm"
+                                variant="secondary"
+                                label={t('business:quotations.clearFilter')}
+                                onPress={clearFilters}
+                            />
+                        )
+                    }
+                />
+            ) : (
+                <CatalogueList<Quotation>
+                    testID="quotations-list"
+                    label={t('business:quotations.caption')}
+                    columns={controls.columns}
+                    rows={controls.rows}
+                    rowKey={(row) => row.reference}
+                    density="sm"
+                    onRowPress={(row) => {
+                        setViewingId(String(row.id));
+                    }}
+                    rowActionsLabel={t('business:catalogue.rowActions')}
+                    rowActions={(row): readonly MenuItem[] => [
+                        {
+                            key: 'view',
+                            label: t('business:quotations.view'),
+                            icon: CATALOGUE_ROW_ICONS.view,
+                            testID: `quotation-${row.reference}-view`,
+                            onSelect: () => {
+                                setViewingId(String(row.id));
+                            },
+                        },
+                        ...(row.state === 'quoted'
+                            ? [
+                                  {
+                                      key: 'accept',
+                                      label: t('business:quotations.accept'),
+                                      icon: 'circleCheck' as const,
+                                      testID: `quotation-${row.reference}-accept`,
+                                      disabled: deciding,
+                                      onSelect: () => {
+                                          accept.mutate(row.id);
+                                      },
+                                  },
+                                  {
+                                      key: 'decline',
+                                      label: t('business:quotations.decline'),
+                                      icon: 'circleX' as const,
+                                      tone: 'danger' as const,
+                                      testID: `quotation-${row.reference}-decline`,
+                                      disabled: deciding,
+                                      onSelect: () => {
+                                          decline.mutate({ quotationId: row.id });
+                                      },
+                                  },
+                              ]
+                            : []),
+                    ]}
+                />
+            )}
+        </Cascade>
+    );
+}
+
+/** The request's lines, with the account manager's price where there is one. */
+function QuotationLines({ quotation }: { readonly quotation: Quotation }) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const testId = `quotation-${quotation.reference}`;
+
+    const columns: readonly CatalogueColumn<Quotation['lines'][number]>[] = [
+        {
+            key: 'name',
+            role: 'title',
+            label: t('business:catalogue.columnItem'),
+            width: 200,
+            grow: true,
+            priority: 100,
+            value: (line) => line.name,
+        },
+        {
+            key: 'quantity',
+            role: 'meta',
+            label: t('business:quotations.columnQuantity'),
+            width: 90,
+            align: 'end',
+            priority: 90,
+            value: (line) => formatter.formatNumber(line.quantity),
+        },
+        {
+            key: 'total',
+            role: 'metric',
+            label: t('business:quotations.columnLineTotal'),
+            width: 150,
+            align: 'end',
+            priority: 95,
+            value: (line) =>
+                line.quotedTotal === null
+                    ? t('business:quotations.awaitingPriceShort')
+                    : formatMoney(formatter, line.quotedTotal),
+            render: (line) =>
+                line.quotedTotal === null ? (
+                    <Text
+                        tone="secondary"
+                        testID={`${testId}-line-${line.catalogueItemId}-unpriced`}
+                    >
+                        {t('business:quotations.awaitingPriceShort')}
+                    </Text>
+                ) : (
+                    <Text
+                        variant="mono"
+                        testID={contractPriceTestId(
+                            `quoted-${quotation.reference}-${line.catalogueItemId}`,
+                        )}
+                    >
+                        {formatMoney(formatter, line.quotedTotal)}
+                    </Text>
+                ),
+        },
+    ];
+
+    return (
+        <CatalogueList
+            testID={`${testId}-line-table`}
+            label={t('business:quotations.linesTitle')}
+            columns={columns}
+            rows={quotation.lines}
+            rowKey={(line) => line.catalogueItemId}
+            density="sm"
+            rowActionsLabel={t('business:catalogue.rowActions')}
+            rowEntrance={false}
+        />
     );
 }

@@ -3,6 +3,7 @@ import { fireEvent, screen } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 
 import { Button } from '../actions/button.tsx';
+import { DensityProvider } from '../hooks/use-density.tsx';
 import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
 import { EmptyState } from './empty-state.tsx';
 import { ErrorState } from './error-state.tsx';
@@ -133,6 +134,37 @@ describe('EmptyState', () => {
             />,
         );
         expect(screen.getByTestId('cta')).toBeTruthy();
+    });
+
+    /**
+     * The admin ladder. An empty table on a desk page is the size of the toolbar above it — panel
+     * radius, 16px inset, the 16px title step — not the customer surfaces' 32px-inset hero, which
+     * stays exactly as it shipped.
+     */
+    it('draws on the compact ladder inside a compact surface, and leaves the customer one alone', async () => {
+        await renderWithI18n(
+            <>
+                <EmptyState testID="comfortable" title="Nothing yet" body="Ask an administrator." />
+                <DensityProvider value="compact">
+                    <EmptyState testID="compact" title="Nothing yet" body="Ask an administrator." />
+                </DensityProvider>
+            </>,
+        );
+
+        const comfortable = String(screen.getByTestId('comfortable').props.className);
+        expect(comfortable).toContain('p-8');
+        expect(comfortable).toContain('rounded-xl');
+        expect(String(screen.getByTestId('comfortable-title').props.className)).toContain(
+            'text-xl',
+        );
+
+        const compact = String(screen.getByTestId('compact').props.className);
+        expect(compact).toContain('p-base');
+        expect(compact).toContain('rounded-panel');
+        expect(compact).not.toContain('p-8');
+        expect(String(screen.getByTestId('compact-title').props.className)).toContain(
+            'text-role-title',
+        );
     });
 
     describe('prototype variant', () => {

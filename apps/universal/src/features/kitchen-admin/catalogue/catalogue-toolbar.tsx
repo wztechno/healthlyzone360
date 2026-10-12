@@ -50,11 +50,15 @@ import { View } from 'react-native';
  * toolbar that derived its own status segments would watch them disappear as you narrowed the list
  * with them — the same reason `DataList`'s `renderHeader` is a slot.
  *
- * `search` is uncontrolled-width by design — 240px, stated once below. It is not a `FormGrid` field
- * and so it is not 280px; it is a control on a control row, and the number is the design's.
+ * `search` takes whatever its zone has left and gives way to `SEARCH_MIN_WIDTH`, stated once below.
+ * It is not a `FormGrid` field and so it is not 280px; it is a control on a control row.
  */
 
-/** The search field's width. Stated as a style, not a class: there is no 240px width token. */
+/**
+ * The narrowest the search gives way to before the filters beside it drop to a line of their own:
+ * an order number and a short name. A style, not a class: there is no width token for it.
+ */
+const SEARCH_MIN_WIDTH = 200;
 
 export interface CatalogueStatusSegment<T extends string = string> {
     readonly value: T;
@@ -84,7 +88,16 @@ export interface CatalogueToolbarProps<Status extends string = string> {
     readonly onStatusChange?: ((status: Status) => void) | undefined;
     readonly statusLabel?: string | undefined;
 
-    /** Anything else the entity needs, at the row's inline end. Rare — the row is deliberately bare. */
+    /**
+     * The entity's own narrowing controls — a date range, a second segmented set — drawn after the
+     * status segments, in the part of the row that wraps. Never an action: see `children`.
+     */
+    readonly filters?: ReactNode | undefined;
+    /**
+     * The row's actions — the column picker, Import / Export, the page's primary — at its inline end.
+     * They hold the first line: when the row runs short of width it is the search and the filters
+     * that wrap, never these, so a primary is never left on a line of its own.
+     */
     readonly children?: ReactNode | undefined;
     readonly testID: string;
 }
@@ -99,6 +112,7 @@ export function CatalogueToolbar<Status extends string = string>({
     status,
     onStatusChange,
     statusLabel,
+    filters,
     children,
     testID,
 }: CatalogueToolbarProps<Status>) {
@@ -116,66 +130,90 @@ export function CatalogueToolbar<Status extends string = string>({
      * page's one primary is the `md` (32px) exception the handoff names, and now that it sits on
      * this line a fixed 28px row would clip it. The floor keeps the row's height where it was on a
      * page that has no primary.
+     *
+     * ## Two zones, so the actions never wrap alone
+     *
+     * One wrapping row put its *last* control on a line of its own as soon as the row ran short —
+     * and the last control is the primary. On a laptop (a 1280px window, a ~920px page) that is
+     * where it went. So the row is two zones:
+     *
+     * - the **filters** — search, status, the entity's own filters — take the leftover width and
+     *   wrap *inside themselves*. The search gives way first, to `SEARCH_MIN_WIDTH`, then the
+     *   filters drop under it;
+     * - the **actions** never shrink and never wrap, and so keep the first line's inline end.
+     *
+     * The outer row wraps only as the last resort, when even the narrowed filters cannot sit beside
+     * the actions; the actions then move as one group to the end of the next line.
      */
     return (
         <View
             testID={testID}
-            className="min-h-control-sm flex-row items-center justify-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
+            className="min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
         >
             {/*
-             * The search is what absorbs the row.
-             *
-             * It was 240px, which is the width the handoff draws it at on a page whose actions sat
-             * up in the header. With Import, Export and the primary moved down onto this line there
-             * is a variable amount of space between the field and them, and a fixed field left a
-             * third of the row empty in the middle. `flex-1` here is the exemption STRETCH_MESSAGE
-             * names: this container *is* the row, not a control taking its width from one.
+             * `flex-1` — basis zero — is what makes the zone wrap inside before the row wraps
+             * outside: the row breaks a line on an item's floor, and this zone's floor is the
+             * search's, not the width of every filter laid end to end. It is the exemption
+             * STRETCH_MESSAGE names: this container *is* the row's filler, not a control taking its
+             * width from one.
              */}
-            {/* eslint-disable-next-line no-restricted-syntax -- the row's own filler; the exempt case. */}
-            <View className="flex-1">
-                <SearchInput
-                    value={search}
-                    onChangeText={onSearchChange}
-                    label={searchLabel}
-                    placeholder={searchPlaceholder}
-                    size="sm"
-                    {...(onSearchSubmit === undefined
-                        ? {}
-                        : {
-                              onSubmitEditing: onSearchSubmit,
-                              blurOnSubmit: false,
-                              autoCorrect: false,
-                              autoCapitalize: 'none' as const,
-                          })}
-                    testID={`${testID}-search`}
-                />
+            <View
+                testID={`${testID}-filters`}
+                // eslint-disable-next-line no-restricted-syntax -- the row's own filler; the exempt case.
+                className="z-auto flex-1 flex-row flex-wrap items-center gap-tight"
+                style={{ minWidth: SEARCH_MIN_WIDTH }}
+            >
+                {/* eslint-disable-next-line no-restricted-syntax -- the search absorbs the zone; the exempt case. */}
+                <View className="flex-1" style={{ minWidth: SEARCH_MIN_WIDTH }}>
+                    <SearchInput
+                        value={search}
+                        onChangeText={onSearchChange}
+                        label={searchLabel}
+                        placeholder={searchPlaceholder}
+                        size="sm"
+                        {...(onSearchSubmit === undefined
+                            ? {}
+                            : {
+                                  onSubmitEditing: onSearchSubmit,
+                                  blurOnSubmit: false,
+                                  autoCorrect: false,
+                                  autoCapitalize: 'none' as const,
+                              })}
+                        testID={`${testID}-search`}
+                    />
+                </View>
+
+                {showStatus ? (
+                    <SegmentedControl
+                        label={statusLabel ?? searchLabel}
+                        items={statusSegments.map((segment) => ({
+                            value: segment.value,
+                            label: segment.label,
+                            // Named by the value, not by position: a suite that clicks "Draft"
+                            // should keep clicking Draft when a segment is added before it, and the
+                            // label is translated so it cannot be the handle.
+                            testID: `${testID}-status-${segment.value}`,
+                        }))}
+                        value={status}
+                        onChange={onStatusChange}
+                        // `-status-segments`, not `-status`: the segmented set is what a reader
+                        // presses and what the RTL spec reads, and naming the control rather than
+                        // the value keeps that id true if a second status control ever joins.
+                        testID={`${testID}-status-segments`}
+                    />
+                ) : null}
+
+                {filters}
             </View>
 
-            {showStatus ? (
-                <SegmentedControl
-                    label={statusLabel ?? searchLabel}
-                    items={statusSegments.map((segment) => ({
-                        value: segment.value,
-                        label: segment.label,
-                        // Named by the value, not by position: a suite that clicks "Draft" should
-                        // keep clicking Draft when a segment is added before it, and the label is
-                        // translated so it cannot be the handle.
-                        testID: `${testID}-status-${segment.value}`,
-                    }))}
-                    value={status}
-                    onChange={onStatusChange}
-                    // `-status-segments`, not `-status`: the segmented set is what a reader
-                    // presses and what the RTL spec reads, and naming the control rather than the
-                    // value keeps that id true if a second status control ever joins the row.
-                    testID={`${testID}-status-segments`}
-                />
-            ) : null}
-
-            {/*
-             * No spacer any more: the search above absorbs the slack, so the status set and
-             * whatever the entity puts here already sit at the inline end.
-             */}
-            {children}
+            {children === undefined || children === null ? null : (
+                <View
+                    testID={`${testID}-actions`}
+                    className="z-auto ms-auto flex-row items-center gap-tight self-start"
+                >
+                    {children}
+                </View>
+            )}
         </View>
     );
 }

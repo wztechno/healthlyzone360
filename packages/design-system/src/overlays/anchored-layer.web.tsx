@@ -40,6 +40,8 @@ interface Placement {
     readonly top: number;
     readonly left?: number;
     readonly right?: number;
+    /** The anchor's width: a list is never narrower than the field it opens from. */
+    readonly minWidth: number;
     readonly direction: 'ltr' | 'rtl';
 }
 
@@ -76,8 +78,8 @@ export function AnchoredLayer({ anchorRef, align, children }: AnchoredLayerProps
             const fromLeft = (align === 'start') === (direction === 'ltr');
             setPlacement(
                 fromLeft
-                    ? { top, left: rect.left, direction }
-                    : { top, right: viewportWidth - rect.right, direction },
+                    ? { top, left: rect.left, minWidth: rect.width, direction }
+                    : { top, right: viewportWidth - rect.right, minWidth: rect.width, direction },
             );
         };
 
@@ -108,6 +110,7 @@ export function AnchoredLayer({ anchorRef, align, children }: AnchoredLayerProps
                 top: placement?.top ?? 0,
                 left: placement?.left,
                 right: placement?.right,
+                minWidth: placement?.minWidth,
                 // Measured before it is shown, so the first frame is never at the page's corner.
                 visibility: placement === null ? 'hidden' : 'visible',
             }}

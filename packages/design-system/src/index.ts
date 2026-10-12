@@ -23,6 +23,16 @@ export type { Density, DensityProviderProps } from './hooks/use-density.tsx';
 export { useTheme } from './hooks/use-theme.ts';
 export type { UseThemeResult } from './hooks/use-theme.ts';
 export { BREAKPOINT_ORDER, useBreakpoint } from './hooks/use-breakpoint.ts';
+export {
+    ContentWidthProvider,
+    contentWidthFor,
+    useContentWidth,
+} from './hooks/use-content-width.tsx';
+export type {
+    ContentInset,
+    ContentWidth,
+    ContentWidthProviderProps,
+} from './hooks/use-content-width.tsx';
 export type { Breakpoint, UseBreakpointResult } from './hooks/use-breakpoint.ts';
 export { useReducedMotion } from './hooks/use-reduced-motion.ts';
 export { POINTER_KINDS, useIsCoarsePointer, usePointerKind } from './hooks/use-pointer.ts';
@@ -336,13 +346,15 @@ export type {
 export { Menu } from './overlays/menu.tsx';
 export type { MenuItem, MenuProps, MenuSection } from './overlays/menu.tsx';
 export { Dialog } from './overlays/dialog.tsx';
-export type { DialogProps } from './overlays/dialog.tsx';
+export type { DialogProps, DialogSize } from './overlays/dialog.tsx';
 export { RecordWindow, RecordWindowFieldGrid } from './overlays/record-window.tsx';
 export type { RecordWindowField, RecordWindowProps } from './overlays/record-window.tsx';
 export { DRAWER_PLACEMENTS, Drawer } from './overlays/drawer.tsx';
 export type { DrawerPlacement, DrawerProps } from './overlays/drawer.tsx';
 export { ACTION_TONES, ActionSheet } from './overlays/action-sheet.tsx';
 export type { ActionSheetAction, ActionSheetProps, ActionTone } from './overlays/action-sheet.tsx';
+export { InfoTip } from './overlays/info-tip.tsx';
+export type { InfoTipProps } from './overlays/info-tip.tsx';
 export {
     POPOVER_ALIGNS,
     POPOVER_TRIGGER_VARIANTS,

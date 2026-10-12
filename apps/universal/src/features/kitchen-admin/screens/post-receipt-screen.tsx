@@ -28,8 +28,7 @@ import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
-import type { LayoutChangeEvent } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -50,6 +49,7 @@ import {
 import { focusField } from '../field-focus.ts';
 import { displayName } from '../format.ts';
 import { ChoiceTiles } from '../choice-tiles.tsx';
+import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { purchaseOrderStatusKey } from '../ops-format.ts';
 import {
@@ -225,7 +225,12 @@ function PostReceipt() {
     const [varianceNote, setVarianceNote] = useState('');
     // Problems are shown once Post has been pressed, and follow the form live from then on.
     const [submitted, setSubmitted] = useState(false);
-    const [bodyWidth, setBodyWidth] = useState(0);
+    /*
+     * Read from the node rather than `onLayout`, which on the web delivered one early width and
+     * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.
+     */
+    const port = useCataloguePort();
+    const bodyWidth = port.width;
 
     const [creatingSupplier, setCreatingSupplier] = useState(false);
     const [newSupplierTried, setNewSupplierTried] = useState(false);
@@ -264,9 +269,11 @@ function PostReceipt() {
     const orderSupplierId = order?.supplier == null ? null : String(order.supplier.id);
 
     const supplierOptions = useMemo(() => {
+        // Named by name; the code is searched, not drawn — see `SelectOption.keywords`.
         const options: SelectOption<string>[] = (suppliers.data ?? []).map((row) => ({
             value: String(row.id),
-            label: `${row.code} — ${displayName(row.name, locale).value}`,
+            label: displayName(row.name, locale).value,
+            keywords: row.code,
         }));
         // An order's supplier is shown even when the book has since archived it.
         if (
@@ -275,7 +282,8 @@ function PostReceipt() {
         ) {
             options.push({
                 value: String(order.supplier.id),
-                label: `${order.supplier.code} — ${order.supplier.nameEn}`,
+                label: order.supplier.nameEn,
+                keywords: order.supplier.code,
             });
         }
         return options;
@@ -283,20 +291,16 @@ function PostReceipt() {
 
     const orderOptions = useMemo(
         () =>
+            // The order's number and supplier on the list's one line, its status at the end —
+            // as the receiving screen's order picker reads.
             orderRows.map((row) => ({
                 value: String(row.id),
-                label: t('kitchen:ops.procurement.orderOption', {
-                    number: row.number,
-                    supplier:
-                        row.supplier === null
-                            ? t('kitchen:ops.procurement.noSupplier')
-                            : (supplierNameById.get(String(row.supplier.id)) ??
-                              row.supplier.nameEn),
-                    status: t(purchaseOrderStatusKey(row.status)),
-                    outstanding: t('kitchen:ops.procurement.orderOutstanding', {
-                        count: row.outstandingLineCount,
-                    }),
-                }),
+                label: `${row.number} — ${
+                    row.supplier === null
+                        ? t('kitchen:ops.procurement.noSupplier')
+                        : (supplierNameById.get(String(row.supplier.id)) ?? row.supplier.nameEn)
+                }`,
+                description: t(purchaseOrderStatusKey(row.status)),
             })),
         [orderRows, supplierNameById, t],
     );
@@ -384,6 +388,7 @@ function PostReceipt() {
             value: String(item.id),
             label: item.nameEn,
             ...((nameCount.get(item.nameEn) ?? 0) > 1 ? { description: item.code } : {}),
+            keywords: item.code,
         }));
     }, [stockItems.data]);
 
@@ -772,9 +777,8 @@ function PostReceipt() {
                 />
             ) : (
                 <View
-                    onLayout={(event: LayoutChangeEvent) => {
-                        setBodyWidth(event.nativeEvent.layout.width);
-                    }}
+                    ref={Platform.OS === 'web' ? port.ref : undefined}
+                    onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
                     className={
                         sideBySide
                             ? 'z-auto flex-row items-start gap-base'
@@ -798,11 +802,6 @@ function PostReceipt() {
                             variant="card"
                             testID="kitchen-post-receipt-arrival-section"
                             title={t('kitchen:ops.procurement.arrivalSection')}
-                            aside={
-                                <Text variant="caption" tone="secondary">
-                                    {t('kitchen:ops.procurement.arrivalAside')}
-                                </Text>
-                            }
                         >
                             <ChoiceTiles<ArrivalMode>
                                 testID="kitchen-post-receipt-arrival"
@@ -1056,9 +1055,6 @@ function PostReceipt() {
                                                 testID="kitchen-procurement-post-variance-note"
                                                 id="kitchen-procurement-post-variance-note"
                                                 label={t('kitchen:ops.receiving.fieldVarianceNote')}
-                                                hint={t(
-                                                    'kitchen:ops.receiving.fieldVarianceNoteHint',
-                                                )}
                                                 placeholder={t(
                                                     'kitchen:ops.receiving.varianceNotePlaceholder',
                                                 )}
@@ -1239,11 +1235,6 @@ function PostReceipt() {
                             keyboardType="phone-pad"
                         />
                     </FormGrid>
-                    <Text variant="caption" tone="secondary">
-                        {t('kitchen:ops.procurement.supplierCurrencyNote', {
-                            currency: RECEIPT_CURRENCY,
-                        })}
-                    </Text>
                 </Stack>
             </Dialog>
 

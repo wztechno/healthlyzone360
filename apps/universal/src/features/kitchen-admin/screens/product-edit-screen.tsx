@@ -16,6 +16,7 @@ import {
     FormIssueBanner,
     FormSection,
     FormSkeleton,
+    Icon,
     Inline,
     QuantityInput,
     Select,
@@ -467,7 +468,8 @@ function ProductEditor({
             ...recipeRows.map((row) => ({
                 value: String(row.id),
                 label: displayName(row.name, locale).value,
-                description: row.slug,
+                // Searched, not shown — see `SelectOption.keywords`.
+                keywords: row.slug,
             })),
         ],
         [recipeRows, locale, t],
@@ -1250,6 +1252,7 @@ function ProductEditor({
                     variant="card"
                     testID="kitchen-product-packs"
                     title={t('kitchen:products.sectionPacks')}
+                    description={t('kitchen:products.packsCaption')}
                     actions={
                         canManage ? (
                             <Button
@@ -1257,6 +1260,7 @@ function ProductEditor({
                                 size="sm"
                                 variant="secondary"
                                 label={t('kitchen:products.addPack')}
+                                iconStart={<Icon name="plus" size="sm" />}
                                 onPress={() => {
                                     edit({ packs: [...details.packs, emptyPack(takePackKey())] });
                                 }}
@@ -1321,6 +1325,7 @@ function ProductEditor({
                                         id="kitchen-product-net-content"
                                         size="sm"
                                         label={t('kitchen:products.netContentLabel')}
+                                        hint={t('kitchen:products.netContentHint')}
                                         placeholder={t('kitchen:fields.quantityPlaceholder')}
                                         value={details.netContentQuantity}
                                         disabled={!canManage}
@@ -1348,13 +1353,6 @@ function ProductEditor({
                                         }}
                                     />
                                 </FormGrid>
-                                <Text
-                                    testID="kitchen-product-net-content-hint"
-                                    variant="caption"
-                                    tone="secondary"
-                                >
-                                    {t('kitchen:products.netContentHint')}
-                                </Text>
                             </Stack>
                         ) : details.netContentQuantity === '' ? null : (
                             <Callout

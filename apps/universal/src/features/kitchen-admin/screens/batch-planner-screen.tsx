@@ -9,9 +9,8 @@ import {
     Button,
     Callout,
     Cascade,
-    DataList,
     ErrorState,
-    FormSection,
+    InfoTip,
     Inline,
     QuantityInput,
     SegmentedControl,
@@ -41,16 +40,13 @@ import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import type { ColumnFilter, ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
+import { compareNumber, compareText } from '../catalogue/use-column-controls.tsx';
 import { CATALOGUE_VIEW_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, parseQuantity, statusShortKey, unitShortKey } from '../format.ts';
 import { BATCH_QUANTITY_FORMAT, useBatchIngredients } from '../operations/batch-sheet.tsx';
 import { usePrintSheet } from '../print-sheet.tsx';
-import { WithColumnPicker } from '../catalogue/column-picker.tsx';
+import { ProductionTable } from '../production-desk/production-table.tsx';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 
 /**
  * `/kitchen/batch` — one recipe, one target, and the sheet it scales to (`HealthZone Admin.dc.html`,
@@ -141,16 +137,17 @@ function BatchPlanner() {
     const mode: BatchMode = version === null || version.yieldPieces === null ? 'yield' : modeChoice;
     const factor = version === null ? null : batchFactor(version, mode, parseQuantity(target));
 
+    /*
+     * The name on the list's one line, and the status only when it is not the ordinary one. The
+     * reference is searched, not shown: an import locator beside every name doubled the list.
+     */
     const recipeOptions: readonly SelectOption[] = recipeRows.map((row) => ({
         value: String(row.id),
         label: displayName(row.name, locale).value,
-        description: [
-            row.reference,
-            t('kitchen:ops.batch.versionCell', { number: row.currentVersionNumber }),
-            t(statusShortKey(row.meta.status)),
-        ]
-            .filter((part): part is string => part !== null)
-            .join(' · '),
+        ...(row.meta.status === 'published'
+            ? {}
+            : { description: t(statusShortKey(row.meta.status)) }),
+        ...(row.reference === null ? {} : { keywords: row.reference }),
     }));
 
     const recipesFailure = toFailure(recipes.error);
@@ -158,15 +155,6 @@ function BatchPlanner() {
     const number = (value: number): string => formatter.formatNumber(value, BATCH_QUANTITY_FORMAT);
     // Kilograms until a recipe says otherwise, so the basis never loses its unit.
     const yieldUnitLabel = t(unitShortKey(version?.yieldUnit ?? 'kg'));
-
-    const factorLine =
-        factor === null || version === null
-            ? t('kitchen:ops.batch.factorNone')
-            : t('kitchen:ops.batch.factorLine', {
-                  factor: number(factor),
-                  quantity: number(factor * version.yieldQuantity),
-                  unit: yieldUnitLabel,
-              });
 
     return (
         <Cascade space="md" testID="kitchen-batch-planner-screen">
@@ -247,10 +235,20 @@ function BatchPlanner() {
                      * Built as a field: the label on the field label's own step and at its 4px gap,
                      * so all three labels sit on one line and all three controls on the next.
                      */}
-                    <View className="w-field flex-col gap-hair">
-                        <Text variant="caption" className="font-medium">
-                            {t('kitchen:ops.batch.basisLabel')}
-                        </Text>
+                    <View className="z-auto w-field flex-col gap-hair">
+                        <View className="z-auto flex-row items-center gap-hair">
+                            <Text variant="caption" className="font-medium">
+                                {t('kitchen:ops.batch.basisLabel')}
+                            </Text>
+                            {/* Why Portions is greyed out, for the recipe that cannot count them. */}
+                            {version !== null && version.yieldPieces === null ? (
+                                <InfoTip
+                                    testID="kitchen-batch-no-pieces-hint"
+                                    label={t('kitchen:ops.batch.basisLabel')}
+                                    text={t('kitchen:ops.batch.noPiecesHint')}
+                                />
+                            ) : null}
+                        </View>
                         <SegmentedControl<BatchMode>
                             testID="kitchen-batch-mode"
                             label={t('kitchen:ops.batch.basisLabel')}
@@ -294,21 +292,6 @@ function BatchPlanner() {
                         className="w-field"
                     />
                 </Inline>
-
-                <Stack space="xs" align="center">
-                    <Text testID="kitchen-batch-factor" variant="caption" tone="secondary">
-                        {factorLine}
-                    </Text>
-                    {version !== null && version.yieldPieces === null ? (
-                        <Text
-                            testID="kitchen-batch-no-pieces-hint"
-                            variant="caption"
-                            tone="secondary"
-                        >
-                            {t('kitchen:ops.batch.noPiecesHint')}
-                        </Text>
-                    ) : null}
-                </Stack>
             </View>
 
             {recipesFailure !== null ? (
@@ -479,9 +462,10 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
         };
     }
 
-    const lineColumns: readonly ControlledColumn<RecipeLine>[] = [
+    const lineColumns: readonly ControlledColumn<RecipeLine, CatalogueColumn<RecipeLine>>[] = [
         {
             key: 'reference',
+            role: 'meta',
             label: t('kitchen:ops.batch.columnRef'),
             width: 96,
             priority: 70,
@@ -504,6 +488,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
         },
         {
             key: 'name',
+            role: 'title',
             label: t('kitchen:ops.batch.columnDesignation'),
             width: 200,
             priority: 100,
@@ -549,6 +534,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
         },
         {
             key: 'scaled',
+            role: 'metric',
             label: t('kitchen:ops.batch.columnToIssue'),
             width: 96,
             priority: 90,
@@ -567,9 +553,13 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
         },
     ];
 
-    const packagingColumns: readonly ControlledColumn<RecipePackagingLine>[] = [
+    const packagingColumns: readonly ControlledColumn<
+        RecipePackagingLine,
+        CatalogueColumn<RecipePackagingLine>
+    >[] = [
         {
             key: 'reference',
+            role: 'meta',
             label: t('kitchen:ops.batch.columnRef'),
             width: 96,
             priority: 70,
@@ -584,6 +574,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
         },
         {
             key: 'name',
+            role: 'title',
             label: t('kitchen:ops.batch.columnDesignation'),
             width: 200,
             priority: 100,
@@ -615,6 +606,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
         },
         {
             key: 'scaled',
+            role: 'metric',
             label: t('kitchen:ops.batch.columnToIssue'),
             width: 140,
             priority: 90,
@@ -649,19 +641,20 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
         },
     ];
 
-    const lineControls = useColumnControls(version.lines, lineColumns, 'kitchen-batch-ingredients');
-    const packagingControls = useColumnControls(
-        version.packaging,
-        packagingColumns,
-        'kitchen-batch-packaging',
-    );
-
     return (
         <Stack space="md">
-            <FormSection
+            {/*
+             * ponytail: rows are keyed by ingredient id. A sheet that lists one ingredient twice
+             * gives the two rows one key — index the rows if a kitchen hits it.
+             */}
+            <ProductionTable<RecipeLine>
                 first
-                testID="kitchen-batch-consume"
+                testID="kitchen-batch-ingredients"
+                sectionTestID="kitchen-batch-consume"
                 title={t('kitchen:ops.batch.rawMaterialsHeading')}
+                rows={version.lines}
+                columns={lineColumns}
+                rowKey={(line) => String(line.ingredientId)}
                 aside={
                     <Text variant="caption" tone="secondary" testID="kitchen-batch-base-times">
                         {version.wastePercent > 0
@@ -672,58 +665,29 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
                             : t('kitchen:ops.batch.baseTimes', { factor: number(factor) })}
                     </Text>
                 }
-            >
-                {/*
-                 * ponytail: rows are keyed by ingredient id. A sheet that lists one ingredient twice
-                 * gives the two rows one key — index the rows if a kitchen hits it.
-                 */}
-                <WithColumnPicker picker={lineControls.picker}>
-                    <DataList<RecipeLine>
-                        testID="kitchen-batch-ingredients"
-                        label={t('kitchen:ops.batch.rawMaterialsHeading')}
-                        columns={lineControls.columns}
-                        rows={lineControls.rows}
-                        rowKey={(line) => String(line.ingredientId)}
-                        density="sm"
-                        rowEntrance
-                    />
-                </WithColumnPicker>
-            </FormSection>
+            />
 
-            <FormSection
-                testID="kitchen-batch-packaging-section"
+            <ProductionTable<RecipePackagingLine>
+                testID="kitchen-batch-packaging"
                 title={t('kitchen:ops.batch.packagingScaledHeading')}
-                aside={
-                    <Text variant="caption" tone="secondary">
-                        {version.packaging.length === 0
-                            ? t('kitchen:ops.batch.noneRecorded')
-                            : t('kitchen:ops.batch.lineCount', {
-                                  count: version.packaging.length,
-                              })}
-                    </Text>
-                }
-            >
-                {version.packaging.length === 0 ? (
+                rows={version.packaging}
+                columns={packagingColumns}
+                rowKey={(row) => String(row.ingredientId)}
+                empty={
                     <Text testID="kitchen-batch-packaging-empty" variant="caption" tone="secondary">
                         {t('kitchen:ops.batch.noPackaging')}
                     </Text>
-                ) : (
-                    <Stack space="xs">
-                        <WithColumnPicker picker={packagingControls.picker}>
-                            <DataList<RecipePackagingLine>
-                                testID="kitchen-batch-packaging"
-                                label={t('kitchen:ops.batch.packagingScaledHeading')}
-                                columns={packagingControls.columns}
-                                rows={packagingControls.rows}
-                                rowKey={(row) => String(row.ingredientId)}
-                                density="sm"
-                                rowEntrance
-                            />
-                        </WithColumnPicker>
+                }
+                aside={
+                    <Inline space="xs" align="center">
                         <Text variant="caption" tone="secondary">
-                            {t('kitchen:ops.batch.roundingFoot')}
+                            {version.packaging.length === 0
+                                ? t('kitchen:ops.batch.noneRecorded')
+                                : t('kitchen:ops.batch.lineCount', {
+                                      count: version.packaging.length,
+                                  })}
                         </Text>
-                        {version.packagingWastePercent > 0 ? (
+                        {version.packaging.length > 0 && version.packagingWastePercent > 0 ? (
                             <Text
                                 variant="caption"
                                 tone="secondary"
@@ -734,9 +698,9 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
                                 })}
                             </Text>
                         ) : null}
-                    </Stack>
-                )}
-            </FormSection>
+                    </Inline>
+                }
+            />
         </Stack>
     );
 }

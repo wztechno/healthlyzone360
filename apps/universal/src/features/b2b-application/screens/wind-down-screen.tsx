@@ -3,9 +3,14 @@ import {
     Button,
     Callout,
     Card,
+    Cascade,
     Checkbox,
-    Heading,
+    EmptyState,
+    ErrorState,
+    FormGrid,
+    InfoTip,
     Inline,
+    RecordSkeleton,
     Stack,
     Table,
     Text,
@@ -30,11 +35,14 @@ import {
     useRunSettlementChecksMutation,
     useSignOffOffboardingMutation,
 } from '../../../data/b2b-application-hooks.ts';
-import { QueryStates } from '../../marketplace/query-states.tsx';
+import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
 import { OtpChallengePanel } from '../../verification/otp-challenge-panel.tsx';
 
 /**
  * `/corporate/account/wind-down` — the end of a commercial relationship, from the buyer's side.
+ *
+ * Drawn on the admin ladder like the rest of the corporate area: the page header with its subtitle
+ * behind an (i), then one raised card per part — summary, timeline, settlement, sign-off.
  *
  * ## Mostly a report, and deliberately so
  *
@@ -87,88 +95,111 @@ export function WindDownScreen({ organisationId }: WindDownScreenProps) {
     const failure =
         toFailure(runChecks.error) ?? toFailure(issueChallenge.error) ?? toFailure(signOff.error);
 
+    const loadFailure = toFailure(query.error);
+
     return (
-        <Stack space="lg" testID={`${TEST_ID}-screen`}>
-            <Stack space="xs">
-                <Heading level={1} testID={`${TEST_ID}-title`}>
-                    {t('b2bApplication:windDown.title')}
-                </Heading>
-                <Text tone="secondary">{t('b2bApplication:windDown.subtitle')}</Text>
-            </Stack>
+        <Cascade space="md" testID={`${TEST_ID}-screen`}>
+            <CataloguePageHeader
+                testID={`${TEST_ID}-header`}
+                titleTestID={`${TEST_ID}-title`}
+                title={t('b2bApplication:windDown.title')}
+                titleAside={
+                    <InfoTip
+                        testID={`${TEST_ID}-subtitle`}
+                        label={t('b2bApplication:windDown.title')}
+                        text={t('b2bApplication:windDown.subtitle')}
+                    />
+                }
+            />
 
-            <QueryStates
-                query={query}
-                isEmpty={offboarding === null}
-                emptyTitle={t('b2bApplication:windDown.noneTitle')}
-                emptyBody={t('b2bApplication:windDown.noneBody')}
-                skeletonCount={2}
-                testID={TEST_ID}
-            >
-                {offboarding === null ? null : (
-                    <Stack space="lg">
-                        <OffboardingSummary offboarding={offboarding} />
+            {query.isPending && query.fetchStatus !== 'idle' ? (
+                <RecordSkeleton testID={`${TEST_ID}-loading`} />
+            ) : loadFailure !== null && offboarding === null ? (
+                <ErrorState
+                    testID={`${TEST_ID}-load-error`}
+                    title={t('b2bApplication:windDown.title')}
+                    failure={loadFailure}
+                    onRetry={() => {
+                        void query.refetch();
+                    }}
+                    retrying={query.isFetching}
+                />
+            ) : offboarding === null ? (
+                <EmptyState
+                    testID={`${TEST_ID}-empty`}
+                    title={t('b2bApplication:windDown.noneTitle')}
+                    body={t('b2bApplication:windDown.noneBody')}
+                />
+            ) : (
+                <Stack space="md">
+                    <OffboardingSummary offboarding={offboarding} />
 
-                        <OffboardingTimeline status={offboarding.status} />
+                    <OffboardingTimeline status={offboarding.status} />
 
-                        <SettlementTable
-                            checks={offboarding.settlement.checks}
-                            status={offboarding.settlement.status}
+                    <SettlementTable
+                        checks={offboarding.settlement.checks}
+                        status={offboarding.settlement.status}
+                    />
+
+                    {failure === null ? null : (
+                        <Callout
+                            testID={`${TEST_ID}-error`}
+                            role="alert"
+                            tone="danger"
+                            icon="warning"
+                            title={t('b2bApplication:windDown.failedTitle')}
+                            body={failure.message}
                         />
+                    )}
 
-                        {failure === null ? null : (
-                            <Callout
-                                testID={`${TEST_ID}-error`}
-                                role="alert"
-                                tone="danger"
-                                icon="warning"
-                                title={t('b2bApplication:windDown.failedTitle')}
-                                body={failure.message}
+                    {/*
+                     * Re-running the checks is available while the settlement is still open —
+                     * `allowedTransitions` is the server's own table, so the control exists
+                     * exactly when the server would accept it.
+                     */}
+                    {offboarding.allowedTransitions.includes('settlement_pending') ? (
+                        <Inline space="sm" wrap>
+                            <Button
+                                testID={`${TEST_ID}-run-checks`}
+                                size="sm"
+                                variant="secondary"
+                                label={t('b2bApplication:windDown.runChecks')}
+                                loading={runChecks.isPending}
+                                onPress={() => {
+                                    runChecks.mutate({
+                                        offboardingId: offboarding.id,
+                                        lockVersion: offboarding.lockVersion,
+                                    });
+                                }}
                             />
-                        )}
+                            <Text tone="secondary" variant="caption">
+                                {t('b2bApplication:windDown.runChecksNote')}
+                            </Text>
+                        </Inline>
+                    ) : null}
 
-                        {/*
-                         * Re-running the checks is available while the settlement is still open —
-                         * `allowedTransitions` is the server's own table, so the control exists
-                         * exactly when the server would accept it.
-                         */}
-                        {offboarding.allowedTransitions.includes('settlement_pending') ? (
-                            <Inline space="sm" wrap>
-                                <Button
-                                    testID={`${TEST_ID}-run-checks`}
-                                    label={t('b2bApplication:windDown.runChecks')}
-                                    loading={runChecks.isPending}
-                                    onPress={() => {
-                                        runChecks.mutate({
-                                            offboardingId: offboarding.id,
-                                            lockVersion: offboarding.lockVersion,
-                                        });
-                                    }}
+                    {offboarding.status === 'awaiting_signoff' ? (
+                        <Card
+                            tone="raised"
+                            padding="md"
+                            title={t('b2bApplication:windDown.signoffTitle')}
+                            testID={`${TEST_ID}-signoff`}
+                        >
+                            <Stack space="md">
+                                {/* The exact wording the signature ties itself to. */}
+                                <Callout
+                                    testID={`${TEST_ID}-consent`}
+                                    role="note"
+                                    tone="info"
+                                    icon="info"
+                                    title={t('b2bApplication:windDown.consentTitle')}
+                                    body={offboarding.consentStatement}
                                 />
-                                <Text tone="secondary" variant="caption">
-                                    {t('b2bApplication:windDown.runChecksNote')}
-                                </Text>
-                            </Inline>
-                        ) : null}
 
-                        {offboarding.status === 'awaiting_signoff' ? (
-                            <Card padding="md" testID={`${TEST_ID}-signoff`}>
-                                <Stack space="md">
-                                    <Text variant="label">
-                                        {t('b2bApplication:windDown.signoffTitle')}
-                                    </Text>
-
-                                    {/* The exact wording the signature ties itself to. */}
-                                    <Callout
-                                        testID={`${TEST_ID}-consent`}
-                                        role="note"
-                                        tone="info"
-                                        icon="info"
-                                        title={t('b2bApplication:windDown.consentTitle')}
-                                        body={offboarding.consentStatement}
-                                    />
-
+                                <FormGrid track="half" testID={`${TEST_ID}-signatory`}>
                                     <TextInputField
                                         testID={`${TEST_ID}-name`}
+                                        size="sm"
                                         label={t('b2bApplication:windDown.nameLabel')}
                                         placeholder={t('b2bApplication:windDown.namePlaceholder')}
                                         value={typedName}
@@ -176,96 +207,91 @@ export function WindDownScreen({ organisationId }: WindDownScreenProps) {
                                     />
                                     <TextInputField
                                         testID={`${TEST_ID}-role`}
+                                        size="sm"
                                         label={t('b2bApplication:windDown.titleLabel')}
                                         placeholder={t('b2bApplication:windDown.titlePlaceholder')}
                                         value={signatoryTitle}
                                         onChangeText={setSignatoryTitle}
                                     />
-                                    <Checkbox
-                                        testID={`${TEST_ID}-authority`}
-                                        label={t('b2bApplication:windDown.authorityLabel')}
-                                        checked={authorityConfirmed}
-                                        onChange={setAuthorityConfirmed}
+                                </FormGrid>
+                                <Checkbox
+                                    testID={`${TEST_ID}-authority`}
+                                    label={t('b2bApplication:windDown.authorityLabel')}
+                                    checked={authorityConfirmed}
+                                    onChange={setAuthorityConfirmed}
+                                />
+
+                                {challenge === null ? (
+                                    <Button
+                                        testID={`${TEST_ID}-request-code`}
+                                        label={t('b2bApplication:windDown.requestCode')}
+                                        loading={issueChallenge.isPending}
+                                        disabled={
+                                            typedName.trim().length === 0 ||
+                                            signatoryTitle.trim().length === 0 ||
+                                            !authorityConfirmed
+                                        }
+                                        onPress={() => {
+                                            issueChallenge.mutate({
+                                                offboardingId: offboarding.id,
+                                            });
+                                        }}
                                     />
+                                ) : (
+                                    <OtpChallengePanel
+                                        testID={`${TEST_ID}-otp`}
+                                        challenge={challenge}
+                                        failure={toFailure(signOff.error)}
+                                        fallbackMessage={t('b2bApplication:windDown.signoffFailed')}
+                                        verifying={signOff.isPending}
+                                        onVerify={(code) => {
+                                            signOff.mutate({
+                                                offboardingId: offboarding.id,
+                                                typedName: typedName.trim(),
+                                                signatoryTitle: signatoryTitle.trim(),
+                                                authorityConfirmed,
+                                                documentSha256: offboarding.documentSha256,
+                                                // `challengeId:code` — the same convention the
+                                                // agreement signature uses. The panel hands
+                                                // back digits and stays ignorant of what a
+                                                // signature needs; pairing happens here.
+                                                verificationToken: `${challenge.id}:${code}`,
+                                                lockVersion: offboarding.lockVersion,
+                                            });
+                                        }}
+                                        onResend={() => {
+                                            issueChallenge.mutate({
+                                                offboardingId: offboarding.id,
+                                            });
+                                        }}
+                                    />
+                                )}
+                            </Stack>
+                        </Card>
+                    ) : (
+                        <Callout
+                            testID={`${TEST_ID}-read-only`}
+                            role="note"
+                            tone="info"
+                            icon="info"
+                            title={t('b2bApplication:windDown.readOnlyTitle')}
+                            body={t(`b2bApplication:windDown.readOnly.${offboarding.status}`, {
+                                defaultValue: t('b2bApplication:windDown.readOnlyBody'),
+                            })}
+                        />
+                    )}
 
-                                    {challenge === null ? (
-                                        <Button
-                                            testID={`${TEST_ID}-request-code`}
-                                            label={t('b2bApplication:windDown.requestCode')}
-                                            loading={issueChallenge.isPending}
-                                            disabled={
-                                                typedName.trim().length === 0 ||
-                                                signatoryTitle.trim().length === 0 ||
-                                                !authorityConfirmed
-                                            }
-                                            onPress={() => {
-                                                issueChallenge.mutate({
-                                                    offboardingId: offboarding.id,
-                                                });
-                                            }}
-                                        />
-                                    ) : (
-                                        <OtpChallengePanel
-                                            testID={`${TEST_ID}-otp`}
-                                            challenge={challenge}
-                                            failure={toFailure(signOff.error)}
-                                            fallbackMessage={t(
-                                                'b2bApplication:windDown.signoffFailed',
-                                            )}
-                                            verifying={signOff.isPending}
-                                            onVerify={(code) => {
-                                                signOff.mutate({
-                                                    offboardingId: offboarding.id,
-                                                    typedName: typedName.trim(),
-                                                    signatoryTitle: signatoryTitle.trim(),
-                                                    authorityConfirmed,
-                                                    documentSha256: offboarding.documentSha256,
-                                                    // `challengeId:code` — the same convention the
-                                                    // agreement signature uses. The panel hands
-                                                    // back digits and stays ignorant of what a
-                                                    // signature needs; pairing happens here.
-                                                    verificationToken: `${challenge.id}:${code}`,
-                                                    lockVersion: offboarding.lockVersion,
-                                                });
-                                            }}
-                                            onResend={() => {
-                                                issueChallenge.mutate({
-                                                    offboardingId: offboarding.id,
-                                                });
-                                            }}
-                                        />
-                                    )}
-                                </Stack>
-                            </Card>
-                        ) : (
-                            <Callout
-                                testID={`${TEST_ID}-read-only`}
-                                role="note"
-                                tone="info"
-                                icon="info"
-                                title={t('b2bApplication:windDown.readOnlyTitle')}
-                                body={t(`b2bApplication:windDown.readOnly.${offboarding.status}`, {
-                                    defaultValue: t('b2bApplication:windDown.readOnlyBody'),
-                                })}
-                            />
-                        )}
-
-                        {/*
-                         * Said out loud rather than left to be inferred from an absence of buttons.
-                         * A company reading this screen needs to know that the next steps happen,
-                         * that they cannot start them, and that they cannot stop them either.
-                         */}
-                        <Text
-                            tone="secondary"
-                            variant="caption"
-                            testID={`${TEST_ID}-platform-note`}
-                        >
-                            {t('b2bApplication:windDown.platformNote')}
-                        </Text>
-                    </Stack>
-                )}
-            </QueryStates>
-        </Stack>
+                    {/*
+                     * Said out loud rather than left to be inferred from an absence of buttons.
+                     * A company reading this screen needs to know that the next steps happen,
+                     * that they cannot start them, and that they cannot stop them either.
+                     */}
+                    <Text tone="secondary" variant="caption" testID={`${TEST_ID}-platform-note`}>
+                        {t('b2bApplication:windDown.platformNote')}
+                    </Text>
+                </Stack>
+            )}
+        </Cascade>
     );
 }
 
@@ -278,7 +304,7 @@ function OffboardingSummary({ offboarding }: SummaryProps) {
     const formatter = useFormatter();
 
     return (
-        <Card padding="md" testID={`${TEST_ID}-summary`}>
+        <Card tone="raised" padding="md" testID={`${TEST_ID}-summary`}>
             <Stack space="sm">
                 <Inline space="sm" align="center" justify="between">
                     <Text variant="bodyStrong">
@@ -343,9 +369,12 @@ function OffboardingTimeline({ status }: TimelineProps) {
     const reached = TIMELINE_STATUSES.indexOf(status);
 
     return (
-        <Stack space="sm" testID={`${TEST_ID}-timeline`}>
-            <Text variant="label">{t('b2bApplication:windDown.timelineTitle')}</Text>
-
+        <Card
+            tone="raised"
+            padding="md"
+            title={t('b2bApplication:windDown.timelineTitle')}
+            testID={`${TEST_ID}-timeline`}
+        >
             {status === 'cancelled' ? (
                 <Callout
                     testID={`${TEST_ID}-cancelled`}
@@ -387,7 +416,7 @@ function OffboardingTimeline({ status }: TimelineProps) {
                     ))}
                 </Stack>
             )}
-        </Stack>
+        </Card>
     );
 }
 
@@ -440,7 +469,7 @@ function SettlementTable({ checks, status }: SettlementTableProps) {
     ];
 
     return (
-        <Stack space="sm" testID={`${TEST_ID}-settlement`}>
+        <Card tone="raised" padding="md" testID={`${TEST_ID}-settlement`}>
             <Inline space="sm" align="center" justify="between">
                 <Text variant="label">{t('b2bApplication:windDown.settlement.title')}</Text>
                 <Badge
@@ -464,6 +493,6 @@ function SettlementTable({ checks, status }: SettlementTableProps) {
                     rowKey={(row) => row.check}
                 />
             )}
-        </Stack>
+        </Card>
     );
 }

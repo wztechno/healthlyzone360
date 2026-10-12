@@ -32,6 +32,16 @@ import {
 import { RECIPE_VIEW_PERMISSION } from './entity-registry.ts';
 import { BatchPlannerScreen } from './screens/batch-planner-screen.tsx';
 
+/*
+ * The planner is a desk surface and its sheets are catalogue lists: at desk width a row draws every
+ * column. Jest's default window is phone-sized, where a list collapses to two-line rows, so this
+ * suite renders at the width the screen is built for — as the other Operations suites do.
+ */
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+    __esModule: true,
+    default: () => ({ width: 1280, height: 900, scale: 1, fontScale: 1 }),
+}));
+
 /**
  * The batch planner: one recipe, one target, and the two things the page must not get wrong.
  *
@@ -361,7 +371,8 @@ describe('the batch planner', () => {
 
         // 10 kg of a 4 kg recipe is two and a half batches, which a kitchen runs as three.
         expect(screen.getByTestId('kitchen-batch-facts-batches-value')).toHaveTextContent('3');
-        expect(screen.getByTestId('kitchen-batch-factor')).toHaveTextContent(/×2\.5/);
+        // The factor itself is said once, beside the raw materials' title, not under the form.
+        expect(screen.queryByTestId('kitchen-batch-factor')).toBeNull();
 
         // The name can only have come from the ingredient record: the line carries none.
         await waitFor(
@@ -378,7 +389,7 @@ describe('the batch planner', () => {
             screen.getByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-quantity`),
         ).toHaveTextContent('0.515');
         expect(screen.getByTestId('kitchen-batch-base-times')).toHaveTextContent(
-            'Base quantities × 2.5, plus 3 % production waste',
+            '×2.5 · +3 % waste',
         );
 
         // The planner is a sheet, not a stock check: no shelf column is drawn.
@@ -427,7 +438,7 @@ describe('the batch planner', () => {
             /from 8.25/,
         );
         expect(screen.getByTestId('kitchen-batch-packaging-waste')).toHaveTextContent(
-            'Includes 10 % packaging waste, added before anything rounds up.',
+            '+10 % waste',
         );
         // The ingredients keep their own rate, untouched by the packaging one.
         expect(

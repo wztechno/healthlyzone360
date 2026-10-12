@@ -1,12 +1,15 @@
 import type { ProductionPlan, ProductionPlanLine } from '@healthy360/api-client/contracts';
-import { Callout, Heading, Stack, Table, Text } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
+import { Callout, Stack, Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import { compareAmount, compareText } from '../catalogue/use-column-controls.tsx';
 import { formatMoney, knownCurrency } from '../format.ts';
 import { BATCH_QUANTITY_FORMAT } from '../operations/batch-sheet.tsx';
 import { ledgerQuantity } from '../ops-format.ts';
+import { ProductionTable } from './production-table.tsx';
 
 /**
  * What a batch would need, against what the shelves can actually give (PROD1).
@@ -36,22 +39,20 @@ import { ledgerQuantity } from '../ops-format.ts';
  *
  * How many shelves are short, and what the batch is estimated to cost, are the page's to state —
  * in its figures and its cost card — so this panel is the tables and nothing that repeats them.
+ * Each is a {@link ProductionTable}, the shape the planner's own Ingredients and Packaging take.
  */
 
 export interface BatchPlanPanelProps {
     readonly testID: string;
     readonly plan: ProductionPlan;
     readonly costsVisible: boolean;
-    /** Leave the heading to a card title that already says it. */
-    readonly headless?: boolean | undefined;
+    /** No hairline over the first section: the first in its column. */
+    readonly first?: boolean | undefined;
 }
 
-export function BatchPlanPanel({
-    testID,
-    plan,
-    costsVisible,
-    headless = false,
-}: BatchPlanPanelProps) {
+type PlanColumn = ControlledColumn<ProductionPlanLine, CatalogueColumn<ProductionPlanLine>>;
+
+export function BatchPlanPanel({ testID, plan, costsVisible, first = false }: BatchPlanPanelProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const noValue = t('kitchen:list.noValue');
@@ -64,65 +65,77 @@ export function BatchPlanPanel({
             noValue,
         );
 
-    const columns: readonly TableColumn<ProductionPlanLine>[] = [
+    const byFigure =
+        (pick: (line: ProductionPlanLine) => string | null | undefined) =>
+        (left: ProductionPlanLine, right: ProductionPlanLine, direction: 'asc' | 'desc') =>
+            compareAmount(pick(left) ?? null, pick(right) ?? null, direction);
+
+    const missing = (line: ProductionPlanLine): string =>
+        Number(line.missing) > 0 ? figure(line.missing) : noValue;
+
+    const unitCost = (line: ProductionPlanLine): string =>
+        line.estimatedUnitCostAmount === null || line.estimatedUnitCostAmount === undefined
+            ? // Uncosted, never zero. A zero reads as free.
+              noValue
+            : formatMoney(
+                  formatter,
+                  Number(line.estimatedUnitCostAmount),
+                  knownCurrency(line.currencyCode),
+              );
+
+    const columns: readonly PlanColumn[] = [
         {
             key: 'item',
-            header: t('kitchen:ops.production.columnItem'),
-            rowHeader: true,
-            flex: 3,
-            render: (line) => (
-                <Stack space="none">
-                    <Text variant="bodyStrong" numberOfLines={1}>
-                        {line.stockItemNameEn ?? noValue}
-                    </Text>
-                    {/*
-                     * The code only when it says something the name does not. A shelf coded
-                     * `mayonnaise` under the name "Mayonnaise" is the same word twice.
-                     */}
-                    {line.stockItemCode === null ||
-                    line.stockItemCode.toLowerCase() ===
-                        (line.stockItemNameEn ?? '').toLowerCase() ? null : (
-                        <Text variant="caption" tone="secondary" numberOfLines={1}>
-                            {line.stockItemCode}
-                        </Text>
-                    )}
-                </Stack>
-            ),
+            role: 'title',
+            label: t('kitchen:ops.production.columnItem'),
+            width: 160,
+            priority: 100,
+            sort: (left, right, direction) =>
+                compareText(left.stockItemNameEn, right.stockItemNameEn, direction),
+            value: (line) => line.stockItemNameEn ?? noValue,
+            // The name alone. A long one ends in an ellipsis and reads whole on hover; the shelf's
+            // code is a key for the ledger, not something a cook reads down a column.
+            render: (line) => <Text variant="strong">{line.stockItemNameEn ?? noValue}</Text>,
         },
         {
             key: 'required',
-            width: 104,
-            header: t('kitchen:ops.production.planRequired'),
-            numeric: true,
+            role: 'meta',
+            label: t('kitchen:ops.production.planRequired'),
+            width: 96,
+            priority: 90,
+            mono: true,
+            sort: byFigure((line) => line.required),
+            value: (line) => figure(line.required, line.unitCode),
             render: (line) => <Text variant="mono">{figure(line.required, line.unitCode)}</Text>,
         },
         {
             key: 'onHand',
-            width: 104,
-            header: t('kitchen:ops.production.planOnHand'),
-            numeric: true,
-            render: (line) => (
-                <Text variant="mono" tone="secondary">
-                    {figure(line.onHand)}
-                </Text>
-            ),
+            label: t('kitchen:ops.production.planOnHand'),
+            width: 80,
+            priority: 70,
+            mono: true,
+            sort: byFigure((line) => line.onHand),
+            value: (line) => figure(line.onHand),
+            render: (line) => <Text variant="mono">{figure(line.onHand)}</Text>,
         },
         {
             key: 'reserved',
-            width: 104,
-            header: t('kitchen:ops.production.planReserved'),
-            numeric: true,
-            render: (line) => (
-                <Text variant="mono" tone="secondary">
-                    {figure(line.reserved)}
-                </Text>
-            ),
+            label: t('kitchen:ops.production.planReserved'),
+            width: 136,
+            priority: 60,
+            mono: true,
+            sort: byFigure((line) => line.reserved),
+            value: (line) => figure(line.reserved),
+            render: (line) => <Text variant="mono">{figure(line.reserved)}</Text>,
         },
         {
             key: 'available',
-            width: 104,
-            header: t('kitchen:ops.production.planAvailable'),
-            numeric: true,
+            label: t('kitchen:ops.production.planAvailable'),
+            width: 80,
+            priority: 80,
+            mono: true,
+            sort: byFigure((line) => line.available),
+            value: (line) => figure(line.available),
             render: (line) => (
                 <Text variant="mono" tone={Number(line.available) < 0 ? 'danger' : 'primary'}>
                     {figure(line.available)}
@@ -131,13 +144,16 @@ export function BatchPlanPanel({
         },
         {
             key: 'missing',
-            width: 104,
-            header: t('kitchen:ops.production.planMissing'),
-            numeric: true,
-            primary: true,
+            role: 'metric',
+            label: t('kitchen:ops.production.planMissing'),
+            width: 80,
+            priority: 95,
+            mono: true,
+            sort: byFigure((line) => line.missing),
+            value: missing,
             render: (line) => (
-                <Text variant="mono" tone={Number(line.missing) > 0 ? 'danger' : 'secondary'}>
-                    {Number(line.missing) > 0 ? figure(line.missing) : noValue}
+                <Text variant="mono" tone={Number(line.missing) > 0 ? 'danger' : 'primary'}>
+                    {missing(line)}
                 </Text>
             ),
         },
@@ -145,36 +161,29 @@ export function BatchPlanPanel({
             ? ([
                   {
                       key: 'lineCost',
-                      width: 104,
-                      header: t('kitchen:ops.production.columnUnitCost'),
-                      numeric: true,
-                      render: (line: ProductionPlanLine) =>
-                          line.estimatedUnitCostAmount === null ||
-                          line.estimatedUnitCostAmount === undefined ? (
-                              // Uncosted, never zero. A zero reads as free.
-                              <Text variant="mono" tone="secondary">
-                                  {noValue}
-                              </Text>
-                          ) : (
-                              <Text variant="mono" tone="secondary">
-                                  {formatMoney(
-                                      formatter,
-                                      Number(line.estimatedUnitCostAmount),
-                                      knownCurrency(line.currencyCode),
-                                  )}
-                              </Text>
-                          ),
+                      label: t('kitchen:ops.production.columnUnitCost'),
+                      width: 96,
+                      priority: 50,
+                      mono: true,
+                      sort: byFigure((line) => line.estimatedUnitCostAmount),
+                      value: unitCost,
+                      render: (line) => <Text variant="mono">{unitCost(line)}</Text>,
                   },
-              ] satisfies readonly TableColumn<ProductionPlanLine>[])
+              ] satisfies readonly PlanColumn[])
             : []),
     ];
 
+    const lineCount = (count: number) => (
+        <Text variant="caption" tone="secondary">
+            {t('kitchen:ops.batch.lineCount', { count })}
+        </Text>
+    );
+
+    // "Live, nothing claimed yet" belongs to the plan as a whole: behind the first table's (i).
+    const liveCaption = t('kitchen:ops.production.planLiveCaption');
+
     return (
         <Stack space="md" testID={testID}>
-            {headless ? null : (
-                <Heading level={2}>{t('kitchen:ops.production.headingPlan')}</Heading>
-            )}
-
             {plan.notComputable.length === 0 ? null : (
                 <Callout
                     testID={`${testID}-holes`}
@@ -194,35 +203,29 @@ export function BatchPlanPanel({
             )}
 
             {plan.ingredients.length === 0 ? null : (
-                <Stack space="xs">
-                    <Heading level={3}>
-                        {t('kitchen:ops.production.planIngredientsHeading')}
-                    </Heading>
-                    <Table<ProductionPlanLine>
-                        testID={`${testID}-ingredients`}
-                        caption={t('kitchen:ops.production.planIngredientsHeading')}
-                        captionHidden
-                        columns={columns}
-                        rows={plan.ingredients}
-                        rowKey={(line) => String(line.stockItemId)}
-                        rowSize="sm"
-                    />
-                </Stack>
+                <ProductionTable<ProductionPlanLine>
+                    first={first}
+                    testID={`${testID}-ingredients`}
+                    title={t('kitchen:ops.production.planIngredientsHeading')}
+                    aside={lineCount(plan.ingredients.length)}
+                    description={liveCaption}
+                    rows={plan.ingredients}
+                    columns={columns}
+                    rowKey={(line) => String(line.stockItemId)}
+                />
             )}
 
             {plan.packaging.length === 0 ? null : (
-                <Stack space="xs">
-                    <Heading level={3}>{t('kitchen:ops.production.planPackagingHeading')}</Heading>
-                    <Table<ProductionPlanLine>
-                        testID={`${testID}-packaging`}
-                        caption={t('kitchen:ops.production.planPackagingHeading')}
-                        captionHidden
-                        columns={columns}
-                        rows={plan.packaging}
-                        rowKey={(line) => String(line.stockItemId)}
-                        rowSize="sm"
-                    />
-                </Stack>
+                <ProductionTable<ProductionPlanLine>
+                    first={first && plan.ingredients.length === 0}
+                    testID={`${testID}-packaging`}
+                    title={t('kitchen:ops.production.planPackagingHeading')}
+                    aside={lineCount(plan.packaging.length)}
+                    description={plan.ingredients.length === 0 ? liveCaption : undefined}
+                    rows={plan.packaging}
+                    columns={columns}
+                    rowKey={(line) => String(line.stockItemId)}
+                />
             )}
         </Stack>
     );

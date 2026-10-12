@@ -134,97 +134,114 @@ export function ToolbarRow({
             // One row, wrapping rather than overflowing. `items-center` gives every control the
             // same baseline, which is the complaint §2.5 opens with: a filter button bottom-aligned
             // against a label-and-select twice its height.
+            //
+            // Two zones: the filters wrap inside their own, and the count, sort and actions keep the
+            // first line's end. A single wrapping row sent its *last* item to a line of its own first,
+            // and the last item is the primary. The outer row wraps only when even the narrowed
+            // filters cannot sit beside the trailing group, which then moves to the next line whole.
             className="flex-row flex-wrap items-center gap-2"
         >
-            {search === undefined ? null : <View className="min-w-[240px]">{search}</View>}
-            {quickFilter}
-            {showFiltersToggle ? (
-                <Pressable
-                    testID={filtersId}
-                    role="button"
-                    accessibilityRole="button"
-                    accessibilityLabel={filtersLabel}
-                    accessibilityState={{ expanded: filtersExpanded }}
-                    aria-expanded={filtersExpanded}
-                    aria-controls={filtersPanelId}
-                    focusable
-                    onPress={onToggleFilters}
-                    className="min-h-touch flex-row items-center gap-2 rounded-lg border border-stroke-subtle bg-surface-raised px-4 shadow-elevation-1"
+            <View
+                testID={`${testID}-leading`}
+                // Basis zero, so the zone wraps inside before the row wraps outside: the row breaks
+                // a line on an item's floor, and this zone's floor is the search's.
+                className="z-auto min-w-[240px] flex-1 flex-row flex-wrap items-center gap-2"
+            >
+                {search === undefined ? null : <View className="min-w-[240px]">{search}</View>}
+                {quickFilter}
+                {showFiltersToggle ? (
+                    <Pressable
+                        testID={filtersId}
+                        role="button"
+                        accessibilityRole="button"
+                        accessibilityLabel={filtersLabel}
+                        accessibilityState={{ expanded: filtersExpanded }}
+                        aria-expanded={filtersExpanded}
+                        aria-controls={filtersPanelId}
+                        focusable
+                        onPress={onToggleFilters}
+                        className="min-h-touch flex-row items-center gap-2 rounded-lg border border-stroke-subtle bg-surface-raised px-4 shadow-elevation-1"
+                    >
+                        {/* eslint-disable-next-line no-restricted-syntax -- §1.3 permits brand-500 on graphics: this glyph is decorative, the adjacent label carries the meaning, and 3.05:1 clears the 3:1 non-text threshold. It is not a text colour. */}
+                        <Icon name="filter" className="text-brand-500" />
+                        <RNText className="text-sm font-medium text-content-primary">
+                            {filtersLabel}
+                        </RNText>
+                        {filtersActive === 0 ? null : (
+                            <View
+                                testID={`${filtersId}-count`}
+                                className="min-w-[22px] items-center justify-center rounded-full bg-surface-brand px-1.5 py-0.5"
+                            >
+                                <RNText className="text-xs font-bold text-content-on-brand">
+                                    {String(filtersActive)}
+                                </RNText>
+                            </View>
+                        )}
+                    </Pressable>
+                ) : null}
+
+                {activeFilters.map((chip) => (
+                    <Pressable
+                        key={chip.key}
+                        testID={`${testID}-chip-${chip.key}`}
+                        role="button"
+                        accessibilityRole="button"
+                        accessibilityLabel={chip.removeLabel}
+                        focusable
+                        onPress={chip.onRemove}
+                        // brand-500 on the border is exactly where §1.3 keeps it; the fill and the text
+                        // are the subtle pair, which is contrast-tested as a pair.
+                        className="min-h-touch flex-row items-center gap-2 rounded-full border border-brand-500 bg-surface-brand-subtle px-4"
+                    >
+                        <RNText className="text-sm font-medium text-content-on-brand-subtle">
+                            {chip.label}
+                        </RNText>
+                        <Icon name="close" size="sm" className="text-content-on-brand-subtle" />
+                    </Pressable>
+                ))}
+
+                {onClearAll === undefined || activeFilters.length === 0 ? null : (
+                    // Wrapped, because `Button` sets `self-start` on itself when it is not `block`, and
+                    // that wins over the row's `items-center` — which is the exact misalignment §2.5
+                    // opens with. The wrapper is what the row centres; the button fills it.
+                    <View className="flex-col justify-center">
+                        <Button
+                            testID={`${testID}-clear`}
+                            size="sm"
+                            variant="quiet"
+                            label={clearAllLabel ?? ''}
+                            onPress={onClearAll}
+                        />
+                    </View>
+                )}
+            </View>
+
+            {/* The trailing edge — the ~1,400px of dead space §2.5 complains about is the leading
+                zone's growth doing nothing, so it does the separating instead. */}
+            {resultSummary === undefined && sort === undefined && actions === undefined ? null : (
+                <View
+                    testID={`${testID}-trailing`}
+                    className="z-auto ms-auto flex-row items-center gap-2"
                 >
-                    {/* eslint-disable-next-line no-restricted-syntax -- §1.3 permits brand-500 on graphics: this glyph is decorative, the adjacent label carries the meaning, and 3.05:1 clears the 3:1 non-text threshold. It is not a text colour. */}
-                    <Icon name="filter" className="text-brand-500" />
-                    <RNText className="text-sm font-medium text-content-primary">
-                        {filtersLabel}
-                    </RNText>
-                    {filtersActive === 0 ? null : (
-                        <View
-                            testID={`${filtersId}-count`}
-                            className="min-w-[22px] items-center justify-center rounded-full bg-surface-brand px-1.5 py-0.5"
+                    {resultSummary === undefined ? null : (
+                        <RNText
+                            testID={countId}
+                            role="status"
+                            aria-live="polite"
+                            // The display face, per §2.5. The figure inside is deliberately *not* coloured
+                            // separately: doing that means splitting a translated sentence around its
+                            // number, and Arabic does not put the number where English does.
+                            className="text-sm text-content-primary"
                         >
-                            <RNText className="text-xs font-bold text-content-on-brand">
-                                {String(filtersActive)}
-                            </RNText>
-                        </View>
+                            {resultSummary}
+                        </RNText>
                     )}
-                </Pressable>
-            ) : null}
 
-            {activeFilters.map((chip) => (
-                <Pressable
-                    key={chip.key}
-                    testID={`${testID}-chip-${chip.key}`}
-                    role="button"
-                    accessibilityRole="button"
-                    accessibilityLabel={chip.removeLabel}
-                    focusable
-                    onPress={chip.onRemove}
-                    // brand-500 on the border is exactly where §1.3 keeps it; the fill and the text
-                    // are the subtle pair, which is contrast-tested as a pair.
-                    className="min-h-touch flex-row items-center gap-2 rounded-full border border-brand-500 bg-surface-brand-subtle px-4"
-                >
-                    <RNText className="text-sm font-medium text-content-on-brand-subtle">
-                        {chip.label}
-                    </RNText>
-                    <Icon name="close" size="sm" className="text-content-on-brand-subtle" />
-                </Pressable>
-            ))}
-
-            {onClearAll === undefined || activeFilters.length === 0 ? null : (
-                // Wrapped, because `Button` sets `self-start` on itself when it is not `block`, and
-                // that wins over the row's `items-center` — which is the exact misalignment §2.5
-                // opens with. The wrapper is what the row centres; the button fills it.
-                <View className="flex-col justify-center">
-                    <Button
-                        testID={`${testID}-clear`}
-                        size="sm"
-                        variant="quiet"
-                        label={clearAllLabel ?? ''}
-                        onPress={onClearAll}
-                    />
+                    {sort}
+                    {actions === undefined ? null : (
+                        <View className="flex-row items-center gap-2">{actions}</View>
+                    )}
                 </View>
-            )}
-
-            {/* Pushes the count and the sort to the trailing edge — the ~1,400px of dead space
-                §2.5 complains about is this gap doing nothing, so it does the separating instead. */}
-            <View className="grow" />
-
-            {resultSummary === undefined ? null : (
-                <RNText
-                    testID={countId}
-                    role="status"
-                    aria-live="polite"
-                    // The display face, per §2.5. The figure inside is deliberately *not* coloured
-                    // separately: doing that means splitting a translated sentence around its
-                    // number, and Arabic does not put the number where English does.
-                    className="text-sm text-content-primary"
-                >
-                    {resultSummary}
-                </RNText>
-            )}
-
-            {sort}
-            {actions === undefined ? null : (
-                <View className="ms-auto flex-row items-center gap-2">{actions}</View>
             )}
         </View>
     );

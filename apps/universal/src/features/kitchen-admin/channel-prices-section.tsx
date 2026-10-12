@@ -233,11 +233,7 @@ function ChannelPricesEditor({
             variant="underlined"
             testID={testID}
             title={t('kitchen:channelPrices.title')}
-            aside={
-                <Text variant="caption" tone="secondary">
-                    {t('kitchen:channelPrices.hint')}
-                </Text>
-            }
+            description={t('kitchen:channelPrices.hint')}
             actions={
                 canManage ? (
                     <Button

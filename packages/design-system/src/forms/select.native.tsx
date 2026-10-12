@@ -10,6 +10,7 @@ import { descriptionProps } from '../internal/a11y.ts';
 import { FadeIn } from '../motion/fade-in.tsx';
 import { REQUIRED_MARK } from './form-field.tsx';
 import { TextInputField, inputFrameClassName } from './text-input.tsx';
+import { InfoTip } from '../overlays/info-tip.tsx';
 import { optionMatches } from './select-shared.ts';
 import type { SelectProps } from './select-shared.ts';
 
@@ -99,27 +100,25 @@ export function Select<T extends string = string>({
     return (
         <View className={cx('flex-col gap-1', className)} testID={testID}>
             {labelHidden ? null : (
-                <RNText
-                    nativeID={labelId}
-                    className={cx(
-                        'text-start',
-                        density === 'compact' ? 'text-role-label' : 'text-sm font-medium',
-                        disabled ? 'text-content-disabled' : 'text-content-primary',
-                    )}
-                >
-                    {label}
-                    {required ? <RNText className="text-danger-strong">{' *'}</RNText> : null}
-                </RNText>
+                <View className="z-auto flex-row items-center gap-hair">
+                    <RNText
+                        nativeID={labelId}
+                        className={cx(
+                            'text-start',
+                            density === 'compact' ? 'text-role-label' : 'text-sm font-medium',
+                            disabled ? 'text-content-disabled' : 'text-content-primary',
+                        )}
+                    >
+                        {label}
+                        {required ? <RNText className="text-danger-strong">{' *'}</RNText> : null}
+                    </RNText>
+                    {/* A tip on the label's line, as `FormField` draws it — see `InfoTip`. */}
+                    {hint === undefined ? null : <InfoTip label={label} text={hint} />}
+                </View>
             )}
 
             {hint === undefined ? null : (
-                <RNText
-                    nativeID={hintId}
-                    className={cx(
-                        'text-content-secondary text-start',
-                        density === 'compact' ? 'text-role-caption' : 'text-xs',
-                    )}
-                >
+                <RNText nativeID={hintId} className="absolute h-px w-px overflow-hidden opacity-0">
                     {hint}
                 </RNText>
             )}
@@ -334,16 +333,21 @@ export function Select<T extends string = string>({
                                                     />
                                                 ) : null}
                                             </View>
-                                            <View className="flex-1 flex-col gap-0.5">
-                                                <RNText className="text-base text-content-primary text-start">
-                                                    {option.label}
+                                            {/* One line, as on the web: the context at the end. */}
+                                            <RNText
+                                                numberOfLines={1}
+                                                className="min-w-0 flex-1 text-base text-content-primary text-start"
+                                            >
+                                                {option.label}
+                                            </RNText>
+                                            {option.description === undefined ? null : (
+                                                <RNText
+                                                    numberOfLines={1}
+                                                    className="shrink-0 text-xs text-content-secondary text-end"
+                                                >
+                                                    {option.description}
                                                 </RNText>
-                                                {option.description === undefined ? null : (
-                                                    <RNText className="text-xs text-content-secondary text-start">
-                                                        {option.description}
-                                                    </RNText>
-                                                )}
-                                            </View>
+                                            )}
                                         </Pressable>
                                     );
                                 })}

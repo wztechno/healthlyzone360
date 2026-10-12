@@ -225,7 +225,6 @@ export function SupplierContactCard({
                         id={`${testID}-whatsapp`}
                         size="sm"
                         label={t('kitchen:ops.suppliers.fieldContactWhatsapp')}
-                        hint={t('kitchen:ops.suppliers.whatsappHint')}
                         placeholder={t('kitchen:ops.suppliers.contactWhatsappPlaceholder')}
                         value={draft.whatsappPhone}
                         keyboardType="phone-pad"

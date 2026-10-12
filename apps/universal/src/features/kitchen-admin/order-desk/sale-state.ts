@@ -12,9 +12,9 @@ import { isQuotableBasket } from './basket.ts';
  * how it is paid — and the rules that keep those five consistent with each other.
  *
  * It used to be a step machine, because the sale used to be a six-step wizard. The sale is one page
- * now (`screens/order-desk-sale-screen.tsx`): the kind of sale sits above the menu, the customer and
- * the address open under it when the kind needs them, and the ticket beside the menu says what is
- * still missing. What survived is everything that was never about steps — the clearing rules and
+ * now (`screens/order-desk-sale-screen.tsx`): the food is picked first, and Charge opens a checkout
+ * where the kind of sale is chosen, the customer and the address open when the kind needs them, and
+ * the ticket beside it says what is still missing. What survived is everything that was never about steps — the clearing rules and
  * the completeness rule — and that is all this module holds.
  *
  * ## The three sales are three different shapes, and the wire enforces it

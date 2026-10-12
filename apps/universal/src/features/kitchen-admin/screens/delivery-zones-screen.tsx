@@ -9,6 +9,7 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
+    Icon,
     Stack,
     TableSkeleton,
     Text,
@@ -477,6 +478,7 @@ function DeliveryZonesList() {
                     <Button
                         testID="kitchen-zones-toolbar-create"
                         label={t('kitchen:zones.create')}
+                        iconStart={<Icon name="plus" size="sm" />}
                         onPress={() => {
                             router.push('/kitchen/delivery-zones/new' as never);
                         }}

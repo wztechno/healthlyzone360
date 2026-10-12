@@ -7,6 +7,7 @@ import { View } from 'react-native';
 
 import { formatMoney } from '../../marketplace/format.ts';
 import { compareNumber, compareText } from '../catalogue/use-column-controls.tsx';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
 import { parseMinorAmount } from '../format.ts';
 
@@ -60,7 +61,10 @@ export function quotationLineColumns({
     currency,
     prices,
     onPrice,
-}: QuotationLineColumnDeps): readonly ControlledColumn<KitchenQuotationLine>[] {
+}: QuotationLineColumnDeps): readonly ControlledColumn<
+    KitchenQuotationLine,
+    CatalogueColumn<KitchenQuotationLine>
+>[] {
     const editing = prices !== undefined;
 
     const typedMinor = (line: KitchenQuotationLine): number | null => {
@@ -71,6 +75,7 @@ export function quotationLineColumns({
     return [
         {
             key: 'line',
+            role: 'title',
             label: t('kitchen:ops.quotations.lineColumn'),
             width: 220,
             priority: 100,
@@ -156,6 +161,7 @@ export function quotationLineColumns({
         },
         {
             key: 'lineTotal',
+            role: 'metric',
             label: t('kitchen:ops.quotations.lineTotal'),
             width: 130,
             priority: 90,

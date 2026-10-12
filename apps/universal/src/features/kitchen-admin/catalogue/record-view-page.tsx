@@ -10,12 +10,14 @@ import {
     Stack,
     TagRow,
     Text,
+    useContentWidth,
 } from '@healthy360/design-system';
 import type { BadgeTone, IconName, RecordWindowField, TagRowItem } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { RECORD_RAIL_MIN, RECORD_SPLIT_MIN } from '../desk-layout.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { CataloguePageHeader } from './catalogue-page-header.tsx';
 
@@ -183,6 +185,56 @@ export function RecordViewPage({
         footNote !== undefined ||
         statusContent !== undefined ||
         primaryAction !== undefined;
+    const split = useContentWidth().atLeast(RECORD_SPLIT_MIN);
+
+    const statusCard = !hasStatusCard ? null : (
+        <Card
+            testID={`${testID}-record-status`}
+            tone="brand"
+            padding="md"
+            title={t('kitchen:recordView.statusTitle')}
+        >
+            <Stack space="sm">
+                {status === undefined ? null : (
+                    <View className="flex-row">
+                        <Badge tone={status.tone} label={status.label} />
+                    </View>
+                )}
+                {statusLines.map((line, index) => (
+                    <Text
+                        key={`${String(index)}-${line}`}
+                        testID={`${testID}-status-line-${String(index)}`}
+                        variant="caption"
+                        tone="secondary"
+                    >
+                        {line}
+                    </Text>
+                ))}
+                {footNote === undefined ? null : (
+                    <Text testID={`${testID}-foot-note`} variant="caption" tone="secondary">
+                        {footNote}
+                    </Text>
+                )}
+                {statusContent}
+                {primaryAction === undefined ? null : (
+                    <Button
+                        testID={primaryAction.testID ?? `${testID}-primary`}
+                        size="sm"
+                        block
+                        label={primaryAction.label}
+                        {...(primaryAction.icon === null
+                            ? {}
+                            : {
+                                  iconStart: <Icon name={primaryAction.icon ?? 'pen'} size="sm" />,
+                              })}
+                        loading={primaryAction.loading}
+                        disabled={primaryAction.disabled}
+                        onPress={primaryAction.onPress}
+                    />
+                )}
+            </Stack>
+        </Card>
+    );
 
     return (
         <Cascade space="md" testID={testID}>
@@ -214,11 +266,23 @@ export function RecordViewPage({
                 <Callout testID={`${testID}-note`} tone="info" role="note" title={note} />
             )}
 
+            {/*
+             * Two columns where the *page* has room for both, not where the window is wide: on a
+             * laptop the window clears `xl` while the content column is ~920px. One column below
+             * that, with the status card — the record's state and its one action — opened ahead of
+             * the fields rather than left under all of them, past the fold of a 720p screen.
+             */}
             <View
                 testID={`${testID}-body`}
-                className="flex-col gap-base xl:flex-row xl:items-start"
+                className={split ? 'flex-row items-start gap-base' : 'flex-col gap-base'}
             >
-                <View testID={`${testID}-main`} className="min-w-0 flex-col gap-base xl:flex-[21]">
+                {split ? null : statusCard}
+                <View
+                    testID={`${testID}-main`}
+                    className={
+                        split ? 'min-w-0 flex-[21] flex-col gap-base' : 'min-w-0 flex-col gap-base'
+                    }
+                >
                     <Card
                         tone="raised"
                         padding="md"
@@ -244,66 +308,16 @@ export function RecordViewPage({
                     )}
                 </View>
 
-                <View testID={`${testID}-rail`} className="min-w-0 flex-col gap-base xl:flex-[10]">
+                <View
+                    testID={`${testID}-rail`}
+                    className={
+                        split ? 'min-w-0 flex-[10] flex-col gap-base' : 'min-w-0 flex-col gap-base'
+                    }
+                    style={split ? { minWidth: RECORD_RAIL_MIN } : undefined}
+                >
                     {media}
 
-                    {hasStatusCard ? (
-                        <Card
-                            testID={`${testID}-record-status`}
-                            tone="brand"
-                            padding="md"
-                            title={t('kitchen:recordView.statusTitle')}
-                        >
-                            <Stack space="sm">
-                                {status === undefined ? null : (
-                                    <View className="flex-row">
-                                        <Badge tone={status.tone} label={status.label} />
-                                    </View>
-                                )}
-                                {statusLines.map((line, index) => (
-                                    <Text
-                                        key={`${String(index)}-${line}`}
-                                        testID={`${testID}-status-line-${String(index)}`}
-                                        variant="caption"
-                                        tone="secondary"
-                                    >
-                                        {line}
-                                    </Text>
-                                ))}
-                                {footNote === undefined ? null : (
-                                    <Text
-                                        testID={`${testID}-foot-note`}
-                                        variant="caption"
-                                        tone="secondary"
-                                    >
-                                        {footNote}
-                                    </Text>
-                                )}
-                                {statusContent}
-                                {primaryAction === undefined ? null : (
-                                    <Button
-                                        testID={primaryAction.testID ?? `${testID}-primary`}
-                                        size="sm"
-                                        block
-                                        label={primaryAction.label}
-                                        {...(primaryAction.icon === null
-                                            ? {}
-                                            : {
-                                                  iconStart: (
-                                                      <Icon
-                                                          name={primaryAction.icon ?? 'pen'}
-                                                          size="sm"
-                                                      />
-                                                  ),
-                                              })}
-                                        loading={primaryAction.loading}
-                                        disabled={primaryAction.disabled}
-                                        onPress={primaryAction.onPress}
-                                    />
-                                )}
-                            </Stack>
-                        </Card>
-                    ) : null}
+                    {split ? statusCard : null}
 
                     {hasChips ? (
                         <Card

@@ -1,7 +1,17 @@
 import { FormSection, Text } from '@healthy360/design-system';
 import type { TextTone } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { ScrollView, View, useWindowDimensions } from 'react-native';
+
+/**
+ * What the sticky aside spends on everything but its item list — the top bar and padding above it,
+ * the title, the facts and total, the list's heading and a note. Generous on purpose: short, and the
+ * note slips under the fold again; long, and the list only scrolls a little sooner.
+ */
+const ASIDE_CHROME_HEIGHT = 380;
+
+/** The list's floor, about five lines, however short the window. */
+const LIST_MIN_HEIGHT = 140;
 
 /** One fact in the aside's head: a label at the start, its value at the end. */
 export interface RecordSummaryRow {
@@ -76,6 +86,16 @@ export function RecordSummaryAside({
     list,
     note,
 }: RecordSummaryAsideProps) {
+    /*
+     * Sticky, and a sticky box taller than the screen never shows its own bottom — the note, often
+     * the warning the reader most needs. Beside the form (a `width`), the item list scrolls inside
+     * the card instead, capped at what the window leaves after the card's head and foot: a 720p
+     * laptop has ~600px of it. Under the form nothing is sticky, so nothing is capped.
+     */
+    const { height: windowHeight } = useWindowDimensions();
+    const listMaxHeight =
+        width === null ? undefined : Math.max(LIST_MIN_HEIGHT, windowHeight - ASIDE_CHROME_HEIGHT);
+
     return (
         <View
             testID={testID}
@@ -127,7 +147,15 @@ export function RecordSummaryAside({
                                 {list.empty}
                             </Text>
                         ) : (
-                            <View testID={list.testID} className="flex-col gap-hair">
+                            <ScrollView
+                                testID={list.testID}
+                                style={
+                                    listMaxHeight === undefined
+                                        ? undefined
+                                        : { maxHeight: listMaxHeight }
+                                }
+                                contentContainerClassName="flex-col gap-hair"
+                            >
                                 {list.items.map((item) => (
                                     <View
                                         key={item.key}
@@ -150,7 +178,7 @@ export function RecordSummaryAside({
                                         </Text>
                                     </View>
                                 ))}
-                            </View>
+                            </ScrollView>
                         )}
                     </View>
 

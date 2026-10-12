@@ -5,6 +5,7 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
+    Icon,
     Stack,
     TableSkeleton,
     Text,
@@ -466,6 +467,7 @@ function PlansList() {
                     <Button
                         testID="kitchen-plans-toolbar-create"
                         label={t('kitchen:plans.create')}
+                        iconStart={<Icon name="plus" size="sm" />}
                         onPress={() => {
                             router.push('/kitchen/plans/new' as never);
                         }}
