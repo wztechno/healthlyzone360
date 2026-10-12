@@ -21,8 +21,8 @@ import { Platform } from 'react-native';
  * ## Web only
  *
  * The bars are one SVG `<path>`, and native has no SVG without `react-native-svg`, which this repo
- * does not take for one label (the `analytics-charts.tsx` precedent). Printing is web-only anyway
- * (D-103); on native the component renders nothing and the human-readable line beside it stands in.
+ * does not take for one label. Printing is web-only anyway (D-103); on native the component renders
+ * nothing and the human-readable line beside it stands in.
  */
 
 /**

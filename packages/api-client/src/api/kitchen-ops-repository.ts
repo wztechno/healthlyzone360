@@ -35,6 +35,9 @@ import type {
     ReceivableOrderFilter,
     ReceivableOrderLine,
     ItemLatestPurchase,
+    KitchenAnalyticsFilter,
+    KitchenAnalyticsReport,
+    KitchenAnalyticsTotals,
     KitchenOpsRepository,
     LastPurchase,
     MonthlyCostReportFilter,
@@ -98,6 +101,8 @@ import type {
     GoodsReceiptDetail as WireGoodsReceiptDetail,
     GoodsReceiptLine as WireGoodsReceiptLine,
     ItemLatestPurchase as WireItemLatestPurchase,
+    KitchenAnalyticsReport as WireKitchenAnalyticsReport,
+    KitchenAnalyticsTotals as WireKitchenAnalyticsTotals,
     LastPurchase as WireLastPurchase,
     MonthlyCostReportRow as WireMonthlyCostReportRow,
     OrderProposalItem as WireOrderProposalItem,
@@ -670,6 +675,39 @@ function mapPurchaseLedgerLine(wire: WirePurchaseLedgerLine): PurchaseLedgerLine
         costCurrencyCode: wire.cost_currency_code,
         valuationPendingFx: wire.valuation_pending_fx,
         costsRedacted: wire.costs_redacted,
+    };
+}
+
+function mapKitchenAnalyticsTotals(wire: WireKitchenAnalyticsTotals): KitchenAnalyticsTotals {
+    return {
+        orders: wire.orders,
+        units: wire.units,
+        cancelled: wire.cancelled,
+        fulfilled: wire.fulfilled,
+        open: wire.open,
+        fulfilledWithDue: wire.fulfilled_with_due,
+        onTime: wire.on_time,
+        avgLeadMinutes: wire.avg_lead_minutes,
+    };
+}
+
+function mapKitchenAnalyticsReport(wire: WireKitchenAnalyticsReport): KitchenAnalyticsReport {
+    return {
+        from: wire.from,
+        to: wire.to,
+        current: mapKitchenAnalyticsTotals(wire.current),
+        previous: mapKitchenAnalyticsTotals(wire.previous),
+        days: wire.days,
+        channels: wire.channels,
+        items: wire.items.map((item) => ({
+            catalogueItemId: item.catalogue_item_id,
+            nameEn: item.name_en,
+            nameAr: item.name_ar,
+            itemType: item.item_type,
+            orders: item.orders,
+            units: item.units,
+            lastOrderedAt: item.last_ordered_at,
+        })),
     };
 }
 
@@ -1708,6 +1746,16 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             });
 
             return envelope.data.report.map(mapMonthlyCostReportRow);
+        },
+
+        async getKitchenAnalytics(filter: KitchenAnalyticsFilter): Promise<KitchenAnalyticsReport> {
+            const params = new URLSearchParams({ from: filter.from, to: filter.to });
+            const envelope = await transport.requestEnvelope<WireKitchenAnalyticsReport>({
+                method: 'GET',
+                path: `/catalogue/reports/kitchen-analytics?${params.toString()}`,
+            });
+
+            return mapKitchenAnalyticsReport(envelope.data);
         },
 
         async listConsumptionExceptions(

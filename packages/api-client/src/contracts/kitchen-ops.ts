@@ -1374,6 +1374,73 @@ export interface InventoryValue {
     readonly isComplete: boolean;
 }
 
+/* ------------------------------------------------------------------------------------------------
+ * Kitchen analytics — what the order book did over a range of days
+ * ---------------------------------------------------------------------------------------------- */
+
+/** The four channel buckets; the report always returns all four, in this order. */
+export type KitchenAnalyticsChannel = 'subscription' | 'b2b' | 'pos' | 'a_la_carte';
+
+/** One range's figures. Orders and units exclude cancelled orders. */
+export interface KitchenAnalyticsTotals {
+    readonly orders: number;
+    readonly units: number;
+    readonly cancelled: number;
+    readonly fulfilled: number;
+    /** Placed or confirmed. */
+    readonly open: number;
+    /** Fulfilled orders carrying a requested delivery date — the on-time denominator. */
+    readonly fulfilledWithDue: number;
+    /** Of those, fulfilled by the end of the delivery window on the requested date. */
+    readonly onTime: number;
+    /** Mean minutes from placed to fulfilled; `null` when nothing was fulfilled. */
+    readonly avgLeadMinutes: number | null;
+}
+
+export interface KitchenAnalyticsDay {
+    /** `YYYY-MM-DD`, on the branch's clock. */
+    readonly date: string;
+    readonly orders: number;
+    readonly units: number;
+}
+
+export interface KitchenAnalyticsChannelVolume {
+    readonly key: KitchenAnalyticsChannel;
+    readonly orders: number;
+    readonly units: number;
+}
+
+export interface KitchenAnalyticsItem {
+    readonly catalogueItemId: string;
+    readonly nameEn: string;
+    readonly nameAr: string | null;
+    /** The catalogue item's type (`meal`, `product`, …); `null` when unknown. */
+    readonly itemType: string | null;
+    readonly orders: number;
+    readonly units: number;
+    /** ISO-8601 instant. */
+    readonly lastOrderedAt: string;
+}
+
+/** `GET /catalogue/reports/kitchen-analytics` — a range against the equal range before it. */
+export interface KitchenAnalyticsReport {
+    readonly from: string;
+    readonly to: string;
+    readonly current: KitchenAnalyticsTotals;
+    readonly previous: KitchenAnalyticsTotals;
+    /** Every day of the range, zero-filled. */
+    readonly days: readonly KitchenAnalyticsDay[];
+    readonly channels: readonly KitchenAnalyticsChannelVolume[];
+    /** The top 50 catalogue items by units. */
+    readonly items: readonly KitchenAnalyticsItem[];
+}
+
+/** Inclusive `YYYY-MM-DD` bounds; at most 366 days. */
+export interface KitchenAnalyticsFilter {
+    readonly from: string;
+    readonly to: string;
+}
+
 /** Optional inclusive `YYYY-MM` month bounds over the monthly cost report. */
 export interface MonthlyCostReportFilter {
     readonly from?: string | undefined;
@@ -2187,6 +2254,11 @@ export interface KitchenOpsRepository {
      * kitchen's trading months are few, so the bounded range is answered whole.
      */
     listCostReport(filter?: MonthlyCostReportFilter): Promise<readonly MonthlyCostReportRow[]>;
+    /**
+     * Order volume over a range of days against the equal range before it — totals, a day series,
+     * the channel split and the top items. Counts only, no money: needs `order.view_organisation`.
+     */
+    getKitchenAnalytics(filter: KitchenAnalyticsFilter): Promise<KitchenAnalyticsReport>;
 
     /**
      * What the stock on hand is worth right now, per currency (PROD1). A current valuation, never a

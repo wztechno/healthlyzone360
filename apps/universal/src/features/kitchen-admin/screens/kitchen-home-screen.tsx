@@ -342,21 +342,6 @@ function ReviewCard({ family }: { readonly family: EntityFamily }) {
     );
 }
 
-function AnalyticsCard({ family }: { readonly family: EntityFamily }) {
-    const { t } = useTranslation();
-    const testID = `kitchen-family-${family.key}`;
-
-    return (
-        <FamilyCardShell family={family} testID={testID}>
-            <Inline space="sm" align="center" wrap testID={`${testID}-counts`}>
-                <Text testID={`${testID}-sample`} variant="caption" tone="secondary">
-                    {t('kitchen:analytics.sampleBadge')}
-                </Text>
-            </Inline>
-        </FamilyCardShell>
-    );
-}
-
 function ConsumptionExceptionsCard({ family }: { readonly family: EntityFamily }) {
     const { t } = useTranslation();
     const count = useConsumptionExceptionCountQuery();
@@ -516,9 +501,6 @@ function renderFamilyCard(
     if (family.key === 'review') return <ReviewCard key={family.key} family={family} />;
     if (family.key === 'consumption-exceptions') {
         return <ConsumptionExceptionsCard key={family.key} family={family} />;
-    }
-    if (family.key === 'analytics') {
-        return <AnalyticsCard key={family.key} family={family} />;
     }
     if (family.key === 'ingredients') return <IngredientsCard key={family.key} family={family} />;
     if (family.key === 'recipes') {

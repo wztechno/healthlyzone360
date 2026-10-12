@@ -4748,6 +4748,53 @@ export const zMonthlyCostReportCollection = z.object({
     meta: zMeta
 });
 
+export const zKitchenAnalyticsTotals = z.object({
+    orders: z.int().gte(0),
+    units: z.number().gte(0),
+    cancelled: z.int().gte(0),
+    fulfilled: z.int().gte(0),
+    open: z.int().gte(0),
+    fulfilled_with_due: z.int().gte(0),
+    on_time: z.int().gte(0),
+    avg_lead_minutes: z.int().nullable()
+});
+
+export const zKitchenAnalyticsReport = z.object({
+    from: z.iso.date(),
+    to: z.iso.date(),
+    current: zKitchenAnalyticsTotals,
+    previous: zKitchenAnalyticsTotals,
+    days: z.array(z.object({
+        date: z.iso.date(),
+        orders: z.int().gte(0),
+        units: z.number().gte(0)
+    })),
+    channels: z.array(z.object({
+        key: z.enum([
+            'subscription',
+            'b2b',
+            'pos',
+            'a_la_carte'
+        ]),
+        orders: z.int().gte(0),
+        units: z.number().gte(0)
+    })),
+    items: z.array(z.object({
+        catalogue_item_id: z.uuid(),
+        name_en: z.string(),
+        name_ar: z.string().nullable(),
+        item_type: z.string().nullable(),
+        orders: z.int().gte(0),
+        units: z.number().gte(0),
+        last_ordered_at: z.iso.datetime({ offset: true })
+    })).max(50)
+});
+
+export const zKitchenAnalyticsReportResponse = z.object({
+    data: zKitchenAnalyticsReport,
+    meta: zMeta
+});
+
 /**
  * Why a confirmed order could not deduct a line honestly (INV1.2). A closed
  * vocabulary the consumption service raises; a client renders it as a human
@@ -12864,6 +12911,21 @@ export const zGetMonthlyCostReportQuery = z.object({
  * The monthly cost report, newest month first.
  */
 export const zGetMonthlyCostReportResponse = zMonthlyCostReportCollection;
+
+export const zGetKitchenAnalyticsReportHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetKitchenAnalyticsReportQuery = z.object({
+    from: z.iso.date(),
+    to: z.iso.date()
+});
+
+/**
+ * The report for the range and the range before it.
+ */
+export const zGetKitchenAnalyticsReportResponse = zKitchenAnalyticsReportResponse;
 
 export const zListWeeklyPricesHeaders = z.object({
     'X-Organisation-Id': zUuid,

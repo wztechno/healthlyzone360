@@ -12,6 +12,7 @@ import type {
     GoodsReceiptDetail,
     GoodsReceiptResult,
     ItemLatestPurchase,
+    KitchenAnalyticsReport,
     MonthlyCostReportFilter,
     MonthlyCostReportRow,
     OrderProposal,
@@ -851,6 +852,26 @@ export function useCostReportQuery(
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.listCostReport(filter);
+        },
+    });
+}
+
+/**
+ * The kitchen analytics report — order volume over `from`..`to` (inclusive `YYYY-MM-DD`) against the
+ * equal range before it. Behind `order.view_organisation` on the server.
+ */
+export function useKitchenAnalyticsQuery(
+    from: string,
+    to: string,
+): UseQueryResult<KitchenAnalyticsReport> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.analytics(from, to),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getKitchenAnalytics({ from, to });
         },
     });
 }

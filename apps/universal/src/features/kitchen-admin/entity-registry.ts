@@ -396,7 +396,8 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // `▤`, the ruled sheet — closest glyph for a dashboard of figures until a chart icon lands.
         icon: 'chartColumn',
         href: '/kitchen/analytics',
-        permission: CATALOGUE_VIEW_PERMISSION,
+        // Order counts and units read from the order book — no money — so the book's own read code.
+        permission: ORDER_VIEW_PERMISSION,
         managePermission: null,
     },
     {
@@ -413,7 +414,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // The second card gated on the cost permission (INV1.1), and for the same reason as the
         // purchases ledger: this report exposes spend, COGS and the margin reconstructable from
         // cost and revenue, so a person without `inventory.view_costs_organisation` never sees it.
-        // Unlike analytics — sample figures behind the plain view code — this is real money, so it
+        // Unlike analytics — counts behind the order book's read code — this is real money, so it
         // takes the money code. Nothing is written from a report.
         permission: INVENTORY_VIEW_COSTS_PERMISSION,
         managePermission: null,

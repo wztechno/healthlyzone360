@@ -2075,7 +2075,7 @@
         },
         "analytics": {
             "name": "Analytics",
-            "description": "Kitchen KPIs, production trends, and channel mix — sample figures until live reporting lands."
+            "description": "Orders, units sold, on-time rate and channel mix, read from the order book."
         },
         "costReport": {
             "name": "Cost report",
@@ -2127,16 +2127,8 @@
         }
     },
     "analytics": {
-        "title": "Kitchen analytics",
-        "subtitle": "Live views for kitchen staff — filter by date and segment and every chart, KPI, and row updates together.",
-        "sampleBadge": "Sample data",
-        "theme": {
-            "dark": "Dark mode",
-            "light": "Light mode"
-        },
         "filters": {
-            "dateRange": "Date range",
-            "segment": "Segment"
+            "dateRange": "Date range"
         },
         "ranges": {
             "7d": "7 days",
@@ -2144,71 +2136,53 @@
             "90d": "90 days",
             "ytd": "Year to date"
         },
-        "segments": {
-            "all": "All",
-            "meals": "Meals",
-            "recipes": "Recipes",
-            "delivery": "Delivery",
-            "stock": "Stock"
-        },
         "kpi": {
-            "produced": "Units produced",
+            "orders": "Orders",
+            "units": "Units sold",
             "onTime": "On-time rate",
-            "review": "Review backlog",
-            "prep": "Avg prep time"
+            "leadTime": "Average lead time"
         },
         "trend": {
             "up": "↑ {{value}}%",
             "down": "↓ {{value}}%",
-            "flat": "No change"
+            "flat": "No change",
+            "noComparison": "Nothing to compare with"
+        },
+        "notEnoughData": "Not enough data",
+        "units": {
+            "hours": "h"
         },
         "charts": {
-            "productionTrend": "Production trend",
-            "channelVolume": "Volume by channel",
-            "statusMix": "Status mix",
-            "statusCenter": "Share",
+            "unitsTrend": "Units sold",
+            "perDay": "units a day",
+            "perWeek": "units a week",
+            "trendBarTitle": "{{label}} · {{value}} units",
+            "channelVolume": "Orders by channel",
             "channels": {
                 "subscription": "Subscription",
                 "aLaCarte": "À la carte",
                 "b2b": "B2B",
-                "pos": "POS",
-                "staff": "Staff meals"
+                "pos": "POS"
             },
-            "productionTrendUnit": "units per period",
-            "trendBarTitle": "{{label}} · {{value}} units"
-        },
-        "status": {
-            "all": "All statuses",
-            "onTrack": "On track",
-            "watch": "Watch",
-            "blocked": "Blocked"
+            "outcomeMix": "Order outcomes",
+            "outcomes": {
+                "fulfilled": "Fulfilled",
+                "open": "Open",
+                "cancelled": "Cancelled"
+            }
         },
         "table": {
-            "title": "Line items",
-            "subtitle": "Sort any column and filter by name or status — updates instantly with the dashboard filters.",
-            "caption": "Kitchen analytics line items",
-            "search": "Search rows",
-            "searchPlaceholder": "Name, segment, or update…",
-            "statusFilter": "Status filter",
-            "name": "Name",
-            "segment": "Segment",
-            "status": "Status",
-            "volume": "Volume",
-            "completion": "Done",
-            "avgMinutes": "Avg min",
-            "updated": "Updated",
-            "empty": "No rows match these filters.",
-            "sampleNote": "sample figures until live reporting lands"
+            "title": "Top items",
+            "caption": "Top items by units sold",
+            "name": "Item",
+            "type": "Type",
+            "orders": "Orders",
+            "units": "Units",
+            "share": "Share",
+            "lastOrdered": "Last ordered"
         },
-        "units": {
-            "count": "units",
-            "percent": "%",
-            "minutes": "min"
-        },
-        "window": {
-            "kind": "Line item",
-            "note": "These are sample figures until live reporting lands. Nothing on this screen is read from the order book."
-        }
+        "emptyTitle": "No orders in this range",
+        "emptyBody": "Orders placed in the selected range will appear here."
     },
     "review": {
         "title": "Needs review",
