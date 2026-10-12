@@ -42,7 +42,7 @@ export interface IngredientAllergenEditorProps {
  */
 export function IngredientAllergenEditor({ ingredient, classes }: IngredientAllergenEditorProps) {
     const { t } = useTranslation();
-    const locale = useLocale();
+    const { locale } = useLocale();
     const toast = useToast();
     const save = useSetIngredientAllergensMutation();
 
