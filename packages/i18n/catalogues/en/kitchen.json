@@ -318,7 +318,8 @@
             "effectCount": "Set to the count",
             "countInvalid": "Enter what you counted — zero or more.",
             "exceedsShelf": "Only {{amount}} is on the shelf. If there is really more, post a Count first, then try again.",
-            "parNotAboveThreshold": "The restock level must be above the reorder threshold."
+            "parNotAboveThreshold": "The restock level must be above the reorder threshold.",
+            "notStocked": "Not stocked"
         },
         "supplyOrders": {
             "title": "Supply orders",
