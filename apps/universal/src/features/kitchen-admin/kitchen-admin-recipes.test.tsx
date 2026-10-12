@@ -2110,10 +2110,11 @@ describe('the recipe list at desk width', () => {
                 kitchenAdmin: {
                     listRecipes: recipeListing(() => [bowl, mayo]),
                     // What each write answers with is filed under its id and never read by the
-                    // book, which refetches its page — so the stubs answer with the id alone
-                    // rather than inventing an item.
-                    retireMeal: async (mealId) => ({ id: mealId }) as MealAdmin,
-                    archiveProduct: async (productId) => ({ id: productId }) as ProductAdmin,
+                    // book, which refetches its page — so the stubs answer with the id and the
+                    // record's meta (its lock version follows into the channel-price cache).
+                    retireMeal: async (mealId) => ({ id: mealId, meta: meta() }) as MealAdmin,
+                    archiveProduct: async (productId) =>
+                        ({ id: productId, meta: meta() }) as ProductAdmin,
                 },
             },
         });
