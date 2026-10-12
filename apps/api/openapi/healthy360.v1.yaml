@@ -34256,6 +34256,12 @@ components:
           $ref: '#/components/schemas/QualityCheckSubjectType'
         subject_id:
           $ref: '#/components/schemas/Uuid'
+        subject_label:
+          type: ['string', 'null']
+          description: What the check is on, by name — the supplier and invoice of a delivery, or a batch's lot or work-order number. Null when the subject no longer resolves. Index only.
+        subject_detail:
+          type: ['string', 'null']
+          description: What it holds — a delivery's first items, or a batch's recipe. Index only.
         status:
           type: string
           enum: [pending, passed, hold, released]

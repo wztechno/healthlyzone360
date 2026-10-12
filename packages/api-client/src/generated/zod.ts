@@ -5237,6 +5237,8 @@ export const zQualityCheck = z.object({
     id: zUuid,
     subject_type: zQualityCheckSubjectType,
     subject_id: zUuid,
+    subject_label: z.string().nullish(),
+    subject_detail: z.string().nullish(),
     status: z.enum([
         'pending',
         'passed',

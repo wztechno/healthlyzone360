@@ -1298,7 +1298,8 @@
             "stateReleased": "Inspected and let through.",
             "createSubmitHold": "Open and hold",
             "createdHeldToast": "Check opened and on hold — {{subject}}.",
-            "holdAfterCreateFailed": "The check was opened, but it could not be put on hold. Hold it from Quality control."
+            "holdAfterCreateFailed": "The check was opened, but it could not be put on hold. Hold it from Quality control.",
+            "fieldHolds": "Holds"
         },
         "costReport": {
             "title": "Monthly cost report",

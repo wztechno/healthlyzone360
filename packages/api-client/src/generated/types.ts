@@ -7803,6 +7803,14 @@ export type QualityCheck = {
     subject_type: QualityCheckSubjectType;
     subject_id: Uuid;
     /**
+     * What the check is on, by name — the supplier and invoice of a delivery, or a batch's lot or work-order number. Null when the subject no longer resolves. Index only.
+     */
+    subject_label?: string | null;
+    /**
+     * What it holds — a delivery's first items, or a batch's recipe. Index only.
+     */
+    subject_detail?: string | null;
+    /**
      * A hold is status-only in v1 (O4) — there is no separate hold
      * record, and releasing simply moves the same check back off
      * `hold`.

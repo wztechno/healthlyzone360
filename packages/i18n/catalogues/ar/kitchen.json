@@ -1473,7 +1473,8 @@
             "coverMore_two": "وبندان آخران — يشملها التعليق كلها",
             "coverMore_few": "و{{count}} بنود أخرى — يشملها التعليق كلها",
             "coverMore_many": "و{{count}} بندًا آخر — يشملها التعليق كلها",
-            "coverMore_other": "و{{count}} بند آخر — يشملها التعليق كلها"
+            "coverMore_other": "و{{count}} بند آخر — يشملها التعليق كلها",
+            "fieldHolds": "يحتوي"
         },
         "costReport": {
             "title": "تقرير التكاليف الشهري",
