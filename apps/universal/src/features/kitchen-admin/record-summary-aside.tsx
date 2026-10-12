@@ -27,12 +27,10 @@ export interface RecordSummaryAsideProps {
      */
     readonly testID: string;
     readonly title: string;
-    /** A fixed column beside the form, or `null` to run the full width under it. */
-    readonly width: number | null;
     readonly rows: readonly RecordSummaryRow[];
     /** The record's bottom line, or `null` when there is none to show this reader. */
     readonly total: { readonly label: string; readonly value: string } | null;
-    readonly list: {
+    readonly list?: {
         readonly title: string;
         readonly empty: string;
         readonly items: readonly RecordSummaryListItem[];
@@ -64,26 +62,19 @@ export interface RecordSummaryAsideProps {
  * ```
  *
  * One card rather than three, its parts divided by hairlines, because it is read top to bottom as
- * one statement. Sticky on the web, so the summary stays beside a long form; the offset resolves
- * against the shell's scroll port, which pins it just under the top bar.
+ * one statement. It sizes nothing itself: a `SideRailLayout` rail owns the width, the sticky
+ * offset and the alignment, so the card is the same card beside a form and stacked under one.
  */
 export function RecordSummaryAside({
     testID,
     title,
-    width,
     rows,
     total,
     list,
     note,
 }: RecordSummaryAsideProps) {
     return (
-        <View
-            testID={testID}
-            role="complementary"
-            aria-label={title}
-            style={width === null ? undefined : { width }}
-            className="z-auto self-start web:sticky web:top-0"
-        >
+        <View testID={testID} role="complementary" aria-label={title} className="z-auto">
             <FormSection first variant="card" testID={`${testID}-card`} title={title}>
                 <View className="flex-col gap-base">
                     <View className="flex-col gap-snug">
@@ -120,39 +111,41 @@ export function RecordSummaryAside({
                         )}
                     </View>
 
-                    <View className="flex-col gap-snug border-t border-stroke-subtle pt-base">
-                        <Text variant="strong">{list.title}</Text>
-                        {list.items.length === 0 ? (
-                            <Text variant="caption" tone="secondary" testID={list.emptyTestID}>
-                                {list.empty}
-                            </Text>
-                        ) : (
-                            <View testID={list.testID} className="flex-col gap-hair">
-                                {list.items.map((item) => (
-                                    <View
-                                        key={item.key}
-                                        testID={item.testID}
-                                        className="flex-row items-baseline justify-between gap-tight"
-                                    >
-                                        <Text
-                                            variant="caption"
-                                            numberOfLines={1}
-                                            className="min-w-0 shrink"
+                    {list === undefined ? null : (
+                        <View className="flex-col gap-snug border-t border-stroke-subtle pt-base">
+                            <Text variant="strong">{list.title}</Text>
+                            {list.items.length === 0 ? (
+                                <Text variant="caption" tone="secondary" testID={list.emptyTestID}>
+                                    {list.empty}
+                                </Text>
+                            ) : (
+                                <View testID={list.testID} className="flex-col gap-hair">
+                                    {list.items.map((item) => (
+                                        <View
+                                            key={item.key}
+                                            testID={item.testID}
+                                            className="flex-row items-baseline justify-between gap-tight"
                                         >
-                                            {item.name}
-                                        </Text>
-                                        <Text
-                                            variant="caption"
-                                            tone={item.tone ?? 'secondary'}
-                                            className="font-semibold tabular-nums"
-                                        >
-                                            {item.value}
-                                        </Text>
-                                    </View>
-                                ))}
-                            </View>
-                        )}
-                    </View>
+                                            <Text
+                                                variant="caption"
+                                                numberOfLines={1}
+                                                className="min-w-0 shrink"
+                                            >
+                                                {item.name}
+                                            </Text>
+                                            <Text
+                                                variant="caption"
+                                                tone={item.tone ?? 'secondary'}
+                                                className="font-semibold tabular-nums"
+                                            >
+                                                {item.value}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+                    )}
 
                     {note}
                 </View>

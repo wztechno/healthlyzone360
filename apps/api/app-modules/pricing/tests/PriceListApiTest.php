@@ -396,6 +396,32 @@ it('walks the index with a cursor', function (): void {
         ->assertJsonPath('error.code', 'request.invalid');
 });
 
+it('states the keyset total of the filtered set, whatever the limit and cursor', function (): void {
+    foreach (range(1, 3) as $index) {
+        PricingWorld::priceList($this->a->organisation, 'tariff-'.$index);
+    }
+
+    PricingWorld::priceList($this->a->organisation, 'live-usd', active: true);
+
+    // Another kitchen's lists are not this kitchen's count.
+    $other = PricingWorld::kitchen('pricing-b@kitchen.test');
+    PricingWorld::priceList($other->organisation, 'tariff-1');
+    PricingWorld::priceList($other->organisation, 'tariff-2');
+
+    $first = $this->getJson('/api/v1/catalogue/price-lists?limit=1', $this->headers)
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('meta.total', 4);
+
+    $this->getJson('/api/v1/catalogue/price-lists?limit=2&cursor='.urlencode((string) $first->json('meta.next_cursor')), $this->headers)
+        ->assertOk()
+        ->assertJsonPath('meta.total', 4);
+
+    $this->getJson('/api/v1/catalogue/price-lists?status=active&limit=1', $this->headers)
+        ->assertOk()
+        ->assertJsonPath('meta.total', 1);
+});
+
 it('keeps prices away from a caller who may read the catalogue but not the tariff', function (): void {
     // The K1.5 split, over HTTP. A chef holds every catalogue and recipe
     // permission and neither price code, and the answer has to be 403 on the

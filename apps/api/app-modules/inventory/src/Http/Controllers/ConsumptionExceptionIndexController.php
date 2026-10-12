@@ -68,9 +68,10 @@ final class ConsumptionExceptionIndexController
         }
 
         $limit = CursorPage::limit($request);
+        $total = $query->toBase()->getCountForPagination();
         CursorPage::constrain($query, $limit, CursorPage::cursor($request), newestFirst: true);
 
-        $page = CursorPage::page($query->get(), $limit);
+        $page = CursorPage::page($query->get(), $limit, $total);
 
         return ApiResponse::data(
             ['exceptions' => $this->presenter->collection($page['items'])],

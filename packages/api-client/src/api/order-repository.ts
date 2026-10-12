@@ -210,7 +210,7 @@ function myOrdersQuery(filter?: MyOrderFilter): string {
  * Both read the projection `POST /orders` answers, so both go through {@link mapPlacedOrder}: a
  * history row, an order page and the confirmation that created the order are one mapping, and
  * cannot drift apart. The list is a real cursor walk — `next_cursor` and `has_more` straight from
- * the envelope's `meta` — and carries no `totalCount`, because the endpoint does not count.
+ * the envelope's `meta` — and `totalCount` from `meta.total`, null when the endpoint omits it.
  */
 export function createApiMyOrderReads(
     transport: Transport,
@@ -227,7 +227,7 @@ export function createApiMyOrderReads(
                 items: envelope.data.map(mapPlacedOrder),
                 nextCursor: meta?.next_cursor ?? null,
                 hasMore: meta?.has_more ?? false,
-                totalCount: null,
+                totalCount: meta?.total ?? null,
             };
         },
 

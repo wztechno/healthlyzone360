@@ -50,9 +50,10 @@ final class RecipeCostSnapshotIndexController
         $query = RecipeCostSnapshot::query()->where('recipe_version_id', $record->getKey());
 
         $limit = CursorPage::limit($request);
+        $total = $query->toBase()->getCountForPagination();
         CursorPage::constrain($query, $limit, CursorPage::cursor($request), newestFirst: true);
 
-        $page = CursorPage::page($query->get(), $limit);
+        $page = CursorPage::page($query->get(), $limit, $total);
 
         return ApiResponse::data(
             $page['items']->map(fn (RecipeCostSnapshot $snapshot): array => $this->presenter->snapshot($snapshot))->all(),

@@ -1,45 +1,12 @@
-import { Badge, Text } from '@healthy360/design-system';
-import type { BadgeTone } from '@healthy360/design-system';
+import { Text } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
-
-import { CataloguePageHeader } from './catalogue/catalogue-page-header.tsx';
 
 /**
  * The pieces the four Workbench screens draw the same way (Workbench handoff §3y).
  *
  * Kept beside the screens rather than promoted, on the Catalogue's rule: one surface's vocabulary.
  */
-
-/**
- * The page opening: title and one upper chip. **No subtitle**, on any screen — §3y records that the
- * family description was removed as redundant with the title, the chip and the cards beneath it.
- *
- * The chip names the *kind* of surface — the authority it needs or the consequence it carries — and
- * never a count; counts are the summary cards' job, once.
- */
-export function WorkbenchHeader({
-    title,
-    chip,
-    chipTone,
-    testID,
-    titleTestID,
-}: {
-    readonly title: string;
-    readonly chip: string;
-    readonly chipTone: BadgeTone;
-    readonly testID: string;
-    readonly titleTestID?: string | undefined;
-}) {
-    return (
-        <CataloguePageHeader
-            testID={testID}
-            title={title}
-            titleTestID={titleTestID}
-            titleAside={<Badge tone={chipTone} label={chip} testID={`${testID}-chip`} />}
-        />
-    );
-}
 
 /**
  * A section's opening: a 13px upper heading on a hairline, an optional quiet aside after it.

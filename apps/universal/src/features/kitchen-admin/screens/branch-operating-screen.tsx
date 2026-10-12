@@ -13,8 +13,6 @@ import {
 import { KitchenBranchId } from '@healthy360/domain-types';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
-import type { LayoutChangeEvent } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -37,6 +35,7 @@ import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entit
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
+import { SideRailLayout } from '../side-rail-layout.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -102,13 +101,10 @@ function kitchenBranchOf(branchId: string): KitchenBranchId {
 const EM_DASH = '—';
 
 /**
- * The summary's fixed track, and the least the week beside it keeps before the summary drops under
- * it — the week's 796px of tracks plus the card's padding, so Copy is never the column that pays
- * for the aside.
+ * The least the week keeps beside the summary before the summary drops under it — the week's 796px
+ * of tracks plus the card's padding, so Copy is never the column that pays for the aside.
  */
-const ASIDE_WIDTH = 300;
-const FORM_MIN_WIDTH = 830;
-const COLUMN_GAP = 16;
+const WEEK_MIN_WIDTH = 830;
 
 export function BranchOperatingScreen() {
     return (
@@ -158,7 +154,6 @@ function BranchOperatingEditor() {
     const [daysKey, setDaysKey] = useState<string | null>(null);
     const [dirty, setDirty] = useState(false);
     const [announcement, setAnnouncement] = useState('');
-    const [bodyWidth, setBodyWidth] = useState(0);
 
     const title = t('kitchen:branchHours.title');
     useKitchenTrailLeaf(title);
@@ -276,7 +271,6 @@ function BranchOperatingEditor() {
 
     const saveFailure = toFailure(save.error);
     const everyDayClosed = summary.openDays === 0;
-    const sideBySide = bodyWidth >= ASIDE_WIDTH + FORM_MIN_WIDTH + COLUMN_GAP;
     const dayCount = (count: number) =>
         `${String(count)} ${t('kitchen:branchHours.cardDayUnit', { count })}`;
 
@@ -333,16 +327,13 @@ function BranchOperatingEditor() {
                 />
             ) : null}
 
-            <View
-                onLayout={(event: LayoutChangeEvent) => {
-                    setBodyWidth(event.nativeEvent.layout.width);
-                }}
-                className={
-                    sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
-                }
-            >
-                {/* The week is the row's filler beside the fixed summary. */}
-                <View className="z-auto min-w-0 flex-1 flex-col gap-base">
+            {/* The week is the row's filler beside the fixed summary. */}
+            <SideRailLayout
+                bounded
+                sticky
+                testID="kitchen-branch-hours-editor"
+                mainBasis={WEEK_MIN_WIDTH}
+                main={
                     <FormSection
                         first
                         variant="card"
@@ -379,76 +370,76 @@ function BranchOperatingEditor() {
                             }}
                         />
                     </FormSection>
-                </View>
-
-                {/*
+                }
+                /*
                  * The week in a few facts and in words, day by day — what the stat cards and each
                  * row's sentence used to say, read top to bottom in one place.
-                 */}
-                <RecordSummaryAside
-                    testID="kitchen-branch-hours-summary"
-                    title={t('kitchen:branchHours.summaryTitle')}
-                    width={sideBySide ? ASIDE_WIDTH : null}
-                    rows={[
-                        /*
-                         * Named only when the session knows the name: an organisation-wide
-                         * membership lists no branches, and a row that always read "—" for an
-                         * owner would be a fact the page does not have.
-                         */
-                        ...(branch === null
-                            ? []
-                            : [
-                                  {
-                                      key: 'branch',
-                                      label: t('kitchen:branchHours.summaryBranch'),
-                                      value: branch.name,
-                                  },
-                              ]),
-                        // The zone every time on the page is read in — stated, because it is not
-                        // edited here (see the note on the screen).
-                        {
-                            key: 'time-zone',
-                            label: t('kitchen:branchHours.summaryTimeZone'),
-                            value: data?.timeZone ?? EM_DASH,
-                        },
-                        {
-                            key: 'closed',
-                            label: t('kitchen:branchHours.closedLabel'),
-                            value: dayCount(summary.closedDays),
-                        },
-                        {
-                            key: 'cut-off',
-                            label: t('kitchen:branchHours.cardCutOff'),
-                            value: dayCount(summary.withCutOff),
-                        },
-                    ]}
-                    total={{
-                        label: t('kitchen:branchHours.cardTrading'),
-                        value: `${String(summary.openDays)} ${t(
-                            'kitchen:branchHours.cardTradingUnit',
-                            { count: summary.openDays },
-                        )}`,
-                    }}
-                    list={{
-                        title: t('kitchen:branchHours.summaryDays'),
-                        // Never drawn: the week always has its seven days.
-                        empty: '',
-                        testID: 'kitchen-branch-hours-summary-days',
-                        emptyTestID: 'kitchen-branch-hours-summary-days-empty',
-                        items: days.map((day) => ({
-                            key: String(day.weekday),
-                            testID: `kitchen-branch-hours-summary-day-${String(day.weekday)}`,
-                            name: t(weekdayKey(day.weekday)),
-                            value: day.isClosed
-                                ? t('kitchen:branchHours.closedLabel')
-                                : t('kitchen:branchHours.dayHours', {
-                                      opens: day.opensAt === '' ? EM_DASH : day.opensAt,
-                                      closes: day.closesAt === '' ? EM_DASH : day.closesAt,
-                                  }),
-                        })),
-                    }}
-                />
-            </View>
+                 */
+                rail={
+                    <RecordSummaryAside
+                        testID="kitchen-branch-hours-summary"
+                        title={t('kitchen:branchHours.summaryTitle')}
+                        rows={[
+                            /*
+                             * Named only when the session knows the name: an organisation-wide
+                             * membership lists no branches, and a row that always read "—" for an
+                             * owner would be a fact the page does not have.
+                             */
+                            ...(branch === null
+                                ? []
+                                : [
+                                      {
+                                          key: 'branch',
+                                          label: t('kitchen:branchHours.summaryBranch'),
+                                          value: branch.name,
+                                      },
+                                  ]),
+                            // The zone every time on the page is read in — stated, because it is not
+                            // edited here (see the note on the screen).
+                            {
+                                key: 'time-zone',
+                                label: t('kitchen:branchHours.summaryTimeZone'),
+                                value: data?.timeZone ?? EM_DASH,
+                            },
+                            {
+                                key: 'closed',
+                                label: t('kitchen:branchHours.closedLabel'),
+                                value: dayCount(summary.closedDays),
+                            },
+                            {
+                                key: 'cut-off',
+                                label: t('kitchen:branchHours.cardCutOff'),
+                                value: dayCount(summary.withCutOff),
+                            },
+                        ]}
+                        total={{
+                            label: t('kitchen:branchHours.cardTrading'),
+                            value: `${String(summary.openDays)} ${t(
+                                'kitchen:branchHours.cardTradingUnit',
+                                { count: summary.openDays },
+                            )}`,
+                        }}
+                        list={{
+                            title: t('kitchen:branchHours.summaryDays'),
+                            // Never drawn: the week always has its seven days.
+                            empty: '',
+                            testID: 'kitchen-branch-hours-summary-days',
+                            emptyTestID: 'kitchen-branch-hours-summary-days-empty',
+                            items: days.map((day) => ({
+                                key: String(day.weekday),
+                                testID: `kitchen-branch-hours-summary-day-${String(day.weekday)}`,
+                                name: t(weekdayKey(day.weekday)),
+                                value: day.isClosed
+                                    ? t('kitchen:branchHours.closedLabel')
+                                    : t('kitchen:branchHours.dayHours', {
+                                          opens: day.opensAt === '' ? EM_DASH : day.opensAt,
+                                          closes: day.closesAt === '' ? EM_DASH : day.closesAt,
+                                      }),
+                            })),
+                        }}
+                    />
+                }
+            />
 
             <EditorGuardDialogs
                 guard={guard}

@@ -1,16 +1,11 @@
-import { Breadcrumbs, Inline, Text } from '@healthy360/design-system';
-import type { BreadcrumbItem } from '@healthy360/design-system';
+import { Inline, Text } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
-import { CatalogueNavToggle } from './catalogue-nav.tsx';
-
 /**
- * Parts one and two of a Catalogue list page (§4.1): the breadcrumb line, then the title with its
- * single primary action.
+ * Parts one and two of a Catalogue list page (§4.1): the title with its single primary action.
  *
  * ```
- * ☰  Kitchen › Catalogue › Ingredients                    <- 11px, 16px tall
  *                              [ Import ] [ + New ]       <- one 32px primary
  * ```
  *
@@ -21,24 +16,16 @@ import { CatalogueNavToggle } from './catalogue-nav.tsx';
  * a third of the fold spent re-explaining what the page is, is a third of the fold not spent on
  * rows.
  *
- * ## Both `title` and `trail` are optional, and the Catalogue's own lists omit both
+ * ## The title is optional, and the Catalogue's own lists omit it
  *
- * **The title**, because the trail above already ends in the page's name and the nav rail already
- * has it highlighted: a 16px heading between them is the third time the word "Ingredients" appears
- * in 40px of screen.
+ * `KitchenOpsShell` already draws a trail for every kitchen route, ending in the page's name, and
+ * the nav rail already has it highlighted: a 16px heading between them is the third time the word
+ * "Ingredients" appears in 40px of screen. The shell's trail is derived from the same entity
+ * registry the hub cards and the `<Gate>`s read, so a crumb cannot name a page differently from the
+ * card that led to it — which is why this header draws no trail of its own.
  *
- * **The trail**, because `KitchenOpsShell` already draws one for every kitchen route. Drawing a
- * second here put `Kitchen workspace › Ingredients` and `Catalogue › Ingredients` on consecutive
- * lines — two trails to the same page, disagreeing about how they got there. The shell's is the one
- * that survives: it is derived from the same entity registry the hub cards and the `<Gate>`s read,
- * so a crumb cannot name a page differently from the card that led to it, and it is there on the
- * twelve routes that have no Catalogue header at all.
- *
- * With both omitted the header is the actions row, which is what the design draws above the stat
- * cards. State either one for a screen the shell's trail cannot name on its own.
- *
- * **The nav toggle is first on the breadcrumb line**, per §4.2 — on the list and on both editors,
- * so the collapsed rail is always recoverable from wherever the collapse left you.
+ * With the title omitted the header is the actions row, which is what the design draws above the
+ * stat cards. State a title for a screen the shell's trail cannot name on its own.
  *
  * One primary at most in `primaryAction`, and it is the page's only `md` (32px) control; everything
  * else on the page is `sm`. The `size` is the caller's to pass, because this component sets no
@@ -46,17 +33,8 @@ import { CatalogueNavToggle } from './catalogue-nav.tsx';
  * Catalogue's `sm` default.
  */
 export interface CataloguePageHeaderProps {
-    /** Omit on a list the trail already names — see above. */
+    /** Omit on a list the shell's trail already names — see above. */
     readonly title?: string | undefined;
-    /**
-     * Translated trail. The last item is the current page and carries no `onPress`. Omit inside a
-     * shell that already draws one — see above.
-     */
-    readonly trail?: readonly BreadcrumbItem[] | undefined;
-    /** Accessible name for the trail. Required with `trail`. */
-    readonly trailLabel?: string | undefined;
-    /** Translated label for the ☰ — describes the action, not the current state. */
-    readonly navToggleLabel?: string | undefined;
     /** The page's one primary. A 32px `Button`; anything more belongs in the toolbar. */
     readonly primaryAction?: ReactNode | undefined;
     /** Beside the title — a status the page as a whole is in. Rare on a list. */
@@ -71,9 +49,6 @@ export interface CataloguePageHeaderProps {
 
 export function CataloguePageHeader({
     title,
-    trail,
-    trailLabel,
-    navToggleLabel,
     primaryAction,
     titleAside,
     titleTestID,
@@ -81,20 +56,6 @@ export function CataloguePageHeader({
 }: CataloguePageHeaderProps) {
     return (
         <View testID={testID} className="gap-hair">
-            {trail === undefined || trail.length === 0 ? null : (
-                <View className="h-control-xs flex-row items-center gap-tight">
-                    <CatalogueNavToggle
-                        label={navToggleLabel ?? ''}
-                        testID={`${testID}-nav-toggle`}
-                    />
-                    <Breadcrumbs
-                        items={trail}
-                        label={trailLabel ?? ''}
-                        testID={`${testID}-breadcrumbs`}
-                    />
-                </View>
-            )}
-
             <View className="flex-row items-center justify-between gap-tight">
                 {/*
                  * `flex-1` on the title column is the row's own container, which is the one case

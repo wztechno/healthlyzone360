@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8267 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8264 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3605,21 +3605,15 @@ export interface NamespaceKeys {
     | 'frozenMeals.create'
     | 'frozenMeals.title'
     | 'frozenMeals.viewKind'
-    | 'hub.attentionClear'
-    | 'hub.attentionTitle'
     | 'hub.countUnavailable'
     | 'hub.draftCount'
     | 'hub.emptyBody'
     | 'hub.emptyTitle'
-    | 'hub.errorTitle'
     | 'hub.itemCount'
     | 'hub.kpi.consumptionExceptions'
-    | 'hub.kpi.deliveryZones'
     | 'hub.kpi.drafts'
     | 'hub.kpi.lowStock'
-    | 'hub.kpi.lowStockReadyToOrder'
     | 'hub.kpi.needsReview'
-    | 'hub.kpi.publishedMeals'
     | 'hub.kpi.requirementShortfalls'
     | 'hub.publishedCount'
     | 'hub.quarantineCount'
@@ -5851,7 +5845,10 @@ export interface NamespaceKeys {
     | 'recipes.kitchenFilterLabel'
     | 'recipes.lineCount'
     | 'recipes.lineIngredient'
+    | 'recipes.lineIngredientMissing'
     | 'recipes.lineIngredientPlaceholder'
+    | 'recipes.lineIngredientsFailedBody'
+    | 'recipes.lineIngredientsFailedTitle'
     | 'recipes.lineNote'
     | 'recipes.lineNoteHint'
     | 'recipes.lineNumber'
@@ -11890,21 +11887,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:frozenMeals.create',
   'kitchen:frozenMeals.title',
   'kitchen:frozenMeals.viewKind',
-  'kitchen:hub.attentionClear',
-  'kitchen:hub.attentionTitle',
   'kitchen:hub.countUnavailable',
   'kitchen:hub.draftCount',
   'kitchen:hub.emptyBody',
   'kitchen:hub.emptyTitle',
-  'kitchen:hub.errorTitle',
   'kitchen:hub.itemCount',
   'kitchen:hub.kpi.consumptionExceptions',
-  'kitchen:hub.kpi.deliveryZones',
   'kitchen:hub.kpi.drafts',
   'kitchen:hub.kpi.lowStock',
-  'kitchen:hub.kpi.lowStockReadyToOrder',
   'kitchen:hub.kpi.needsReview',
-  'kitchen:hub.kpi.publishedMeals',
   'kitchen:hub.kpi.requirementShortfalls',
   'kitchen:hub.publishedCount',
   'kitchen:hub.quarantineCount',
@@ -14136,7 +14127,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.kitchenFilterLabel',
   'kitchen:recipes.lineCount',
   'kitchen:recipes.lineIngredient',
+  'kitchen:recipes.lineIngredientMissing',
   'kitchen:recipes.lineIngredientPlaceholder',
+  'kitchen:recipes.lineIngredientsFailedBody',
+  'kitchen:recipes.lineIngredientsFailedTitle',
   'kitchen:recipes.lineNote',
   'kitchen:recipes.lineNoteHint',
   'kitchen:recipes.lineNumber',

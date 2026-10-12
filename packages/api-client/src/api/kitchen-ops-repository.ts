@@ -1334,18 +1334,19 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 path: `/catalogue/procurement/purchase-orders${query === '' ? '' : `?${query}`}`,
             });
 
-            // Keyset meta only. A keyset never counts its total, so `totalCount` stays null — and a
-            // screen that wants to say "12 orders" has to say "12 on this page" or say nothing.
+            // Keyset meta. `total` is the endpoint's count of the filtered set; absent, `totalCount`
+            // stays null and a screen says "12 on this page" or nothing.
             const meta = (envelope.meta ?? {}) as {
                 readonly next_cursor?: string | null;
                 readonly has_more?: boolean;
+                readonly total?: number;
             };
 
             return {
                 items: envelope.data.purchase_orders.map(mapPurchaseOrder),
                 nextCursor: meta.next_cursor ?? null,
                 hasMore: meta.has_more ?? false,
-                totalCount: null,
+                totalCount: meta.total ?? null,
             };
         },
 
@@ -1574,13 +1575,14 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             const meta = (envelope.meta ?? {}) as {
                 readonly next_cursor?: string | null;
                 readonly has_more?: boolean;
+                readonly total?: number;
             };
 
             return {
                 items: envelope.data.unpriced_receipts.map(mapUnpricedReceipt),
                 nextCursor: meta.next_cursor ?? null,
                 hasMore: meta.has_more ?? false,
-                totalCount: null,
+                totalCount: meta.total ?? null,
             };
         },
 
@@ -1637,18 +1639,19 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 path: `/catalogue/procurement/purchases-ledger${query === '' ? '' : `?${query}`}`,
             });
 
-            // Keyset meta only — `next_cursor`/`has_more`; a keyset never counts
-            // its total, so `totalCount` is null, which the contract reserves.
+            // Keyset meta — `next_cursor`/`has_more`, plus `total` when the endpoint
+            // counts; absent, `totalCount` is null, which the contract reserves.
             const meta = (envelope.meta ?? {}) as {
                 readonly next_cursor?: string | null;
                 readonly has_more?: boolean;
+                readonly total?: number;
             };
 
             return {
                 items: envelope.data.purchases.map(mapPurchaseLedgerLine),
                 nextCursor: meta.next_cursor ?? null,
                 hasMore: meta.has_more ?? false,
-                totalCount: null,
+                totalCount: meta.total ?? null,
             };
         },
 
@@ -1728,13 +1731,14 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             const meta = (envelope.meta ?? {}) as {
                 readonly next_cursor?: string | null;
                 readonly has_more?: boolean;
+                readonly total?: number;
             };
 
             return {
                 items: envelope.data.exceptions.map(mapConsumptionException),
                 nextCursor: meta.next_cursor ?? null,
                 hasMore: meta.has_more ?? false,
-                totalCount: null,
+                totalCount: meta.total ?? null,
             };
         },
 

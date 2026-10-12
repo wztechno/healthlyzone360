@@ -3,11 +3,14 @@ import { describe, expect, it } from 'vitest';
 import {
     CONTROL_SIZES,
     ROW_DENSITIES,
+    asideWidth,
     cardWidth,
     controlGap,
     controlHeight,
     controlPaddingX,
     fieldWidth,
+    formMinWidth,
+    formWidth,
     iconSize,
     rowHeight,
 } from './control.ts';
@@ -80,6 +83,17 @@ describe('row density', () => {
 describe('fixed widths', () => {
     it('keeps the field width on the spacing grid', () => {
         expect(fieldWidth % SPACING_BASE).toBe(0);
+    });
+
+    /** Tracks + gaps + card padding + the 1px border each side, from the field width. */
+    it('derives the form card widths from the field width', () => {
+        const gap = 16;
+        const chrome = 2 * 16 + 2;
+        expect(formWidth).toBe(3 * fieldWidth + 2 * gap + chrome);
+        expect(formWidth).toBe(906);
+        expect(formMinWidth).toBe(2 * fieldWidth + gap + chrome);
+        expect(formMinWidth).toBe(610);
+        expect(asideWidth).toBe(300);
     });
 
     it('bounds a card between its own min and max', () => {

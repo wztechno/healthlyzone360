@@ -276,6 +276,8 @@ function DeliveryZonesList() {
             label: t('kitchen:zones.columnEstimated'),
             width: 110,
             priority: 40,
+            // A figure (minutes), frozen as `metric` columns are.
+            grow: false,
             value: (row) => estimatedText(row, t, formatter),
             sort: (left, right, direction) =>
                 compareMissingLast(left.estimatedMinutes, right.estimatedMinutes, direction),

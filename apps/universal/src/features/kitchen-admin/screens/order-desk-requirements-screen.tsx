@@ -164,6 +164,8 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnRequired'),
             width: 100,
             priority: 95,
+            // The quantities are figures, frozen as `metric` columns are.
+            grow: false,
             sort: (left, right, direction) =>
                 compareNumber(Number(left.required), Number(right.required), direction),
             render: (row) => (
@@ -177,6 +179,7 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnOnHand'),
             width: 100,
             priority: 55,
+            grow: false,
             sort: (left, right, direction) =>
                 compareNumber(Number(left.onHand), Number(right.onHand), direction),
             render: (row) => (
@@ -190,6 +193,7 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnReserved'),
             width: 100,
             priority: 60,
+            grow: false,
             sort: (left, right, direction) =>
                 compareNumber(Number(left.reserved), Number(right.reserved), direction),
             render: (row) => (
@@ -207,6 +211,7 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnAvailable'),
             width: 100,
             priority: 80,
+            grow: false,
             sort: (left, right, direction) =>
                 compareNumber(Number(left.available), Number(right.available), direction),
             render: (row) => (
@@ -238,6 +243,7 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnSuggestedBuy'),
             width: 110,
             priority: 70,
+            grow: false,
             sort: (left, right, direction) =>
                 compareNumber(Number(left.suggestedBuy), Number(right.suggestedBuy), direction),
             render: (row) => (
@@ -251,6 +257,7 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnUnit'),
             width: 70,
             priority: 60,
+            grow: false,
             filter: {
                 values: (loaded) =>
                     [...new Set(loaded.map((row) => row.unitCode ?? EM_DASH))].map((unit) => ({

@@ -654,8 +654,6 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
             onBack={() => {
                 router.push('/kitchen/recipes?kind=meal' as never);
             }}
-            actionsPlacement="header"
-            headerVariant="plain"
             embedded
             rail={
                 /*

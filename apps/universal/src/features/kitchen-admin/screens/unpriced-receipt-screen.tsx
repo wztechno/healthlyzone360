@@ -42,6 +42,7 @@ import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { SideRailLayout } from '../side-rail-layout.tsx';
 import { receiptCostStatusKey, receiptCostStatusTone } from '../ops-format.ts';
 import { readAmount } from '../receive-delivery-model.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
@@ -289,15 +290,10 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                 cards={receiptFacts(detail, priceable.length, typed.length, formatter, t)}
             />
 
-            {/*
-             * The lines beside the paperwork. Below `xl` the rail drops under the lines: with the
-             * admin rail open, `lg` leaves it narrower than a field.
-             */}
-            <View
-                testID="kitchen-unpriced-receipt-body"
-                className="flex-col gap-base xl:flex-row xl:items-start"
-            >
-                <View className="min-w-0 flex-col gap-base xl:flex-[21]">
+            {/* The lines beside the paperwork. */}
+            <SideRailLayout
+                testID="kitchen-unpriced-receipt"
+                main={
                     <Card
                         testID="kitchen-unpriced-receipt-lines"
                         tone="raised"
@@ -332,9 +328,8 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                             )}
                         </Stack>
                     </Card>
-                </View>
-
-                <View className="min-w-0 flex-col gap-base xl:flex-[10]">
+                }
+                rail={
                     <Card
                         testID="kitchen-unpriced-receipt-record"
                         tone="raised"
@@ -346,8 +341,8 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                             fields={receiptFields(detail, formatter, t)}
                         />
                     </Card>
-                </View>
-            </View>
+                }
+            />
 
             <Dialog
                 testID="kitchen-unpriced-receipt-unsaved-dialog"

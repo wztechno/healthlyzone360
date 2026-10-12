@@ -343,6 +343,13 @@ export const queryKeys = {
             ['kitchenAdmin', 'ingredients', 'page', scope(filter), page] as const,
         ingredient: (ingredientId: IngredientId) =>
             ['kitchenAdmin', 'ingredient', ingredientId] as const,
+        /**
+         * One batch read of named ingredients. The set is sorted and deduplicated here, so the
+         * same lines in another order are the same entry. Under the workspace root, so every
+         * ingredient write's `kitchenAdmin.all()` invalidation already reaches it.
+         */
+        ingredientsByIds: (ingredientIds: readonly IngredientId[]) =>
+            ['kitchenAdmin', 'ingredients-by-ids', [...new Set(ingredientIds)].sort()] as const,
 
         recipes: (filter?: QueryScope) => ['kitchenAdmin', 'recipes', scope(filter)] as const,
         recipeTechnicalSheet: (recipeId: RecipeId, versionId: string) =>

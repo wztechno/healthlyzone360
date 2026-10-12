@@ -26,7 +26,6 @@ import {
     DateField,
     DatePickerButton,
     DerivedChipPanel,
-    ListSummaryCards,
     PickerField,
     TimeField,
     RecordSkeleton,
@@ -47,6 +46,7 @@ import {
     FormNavigation,
     FormSection,
     FormSkeleton,
+    HALF_TRACK_WIDTH,
     Heading,
     Icon,
     DRAWN_ICON_FALLBACKS,
@@ -74,12 +74,14 @@ import {
     SegmentedControl,
     Select,
     SearchInput,
+    SectionGrid,
     Separator,
     Skeleton,
     StatTilesSkeleton,
     TableSkeleton,
     SlideIn,
     SliderField,
+    spanWidth,
     Spinner,
     Stack,
     StatusBadge,
@@ -147,6 +149,7 @@ import {
 import { RecordViewPage } from '../features/kitchen-admin/catalogue/record-view-page.tsx';
 import { GateRailCard } from '../features/kitchen-admin/gate-rail-card.tsx';
 import { RecordSummaryAside } from '../features/kitchen-admin/record-summary-aside.tsx';
+import { SideRailLayout } from '../features/kitchen-admin/side-rail-layout.tsx';
 import { KitchenPageHeader } from '../features/kitchen-admin/kitchen-page-header.tsx';
 import { KpiTile } from '../features/kitchen-admin/kpi-tile.tsx';
 import { ListToolbar } from '../features/kitchen-admin/list-toolbar.tsx';
@@ -157,6 +160,60 @@ import { BrowsePanel } from '../ui/browse-panel.tsx';
 import { ListingHeader } from '../ui/listing-header.tsx';
 import { PageHero } from '../ui/page-hero.tsx';
 import { PillChip } from '../ui/pill-chip.tsx';
+
+/** Placeholder fields for the layout stories — the geometry is the point, not the values. */
+function LayoutFields({ prefix, count }: { readonly prefix: string; readonly count: number }) {
+    return Array.from({ length: count }, (_, index) => (
+        <TextInputField
+            key={index}
+            testID={`${prefix}-${String(index)}`}
+            id={`${prefix}-${String(index)}`}
+            size="sm"
+            label={`Field ${String(index + 1)}`}
+            value=""
+            placeholder="—"
+        />
+    ));
+}
+
+function LayoutCard({
+    id,
+    title,
+    fields = 3,
+}: {
+    readonly id: string;
+    readonly title: string;
+    readonly fields?: number;
+}) {
+    return (
+        <FormSection testID={id} variant="card" title={title}>
+            <FormGrid testID={`${id}-grid`}>
+                <LayoutFields prefix={id} count={fields} />
+            </FormGrid>
+        </FormSection>
+    );
+}
+
+function LayoutRail({ testID }: { readonly testID: string }) {
+    return (
+        <RecordSummaryAside
+            testID={testID}
+            title="Summary"
+            rows={[
+                { key: 'cost', label: 'Unit cost', value: '0.0833 SAR' },
+                { key: 'basis', label: 'Basis', value: '12 × 1 kg' },
+            ]}
+            total={null}
+            list={{
+                title: 'Items to review',
+                empty: 'Nothing to review',
+                testID: `${testID}-list`,
+                emptyTestID: `${testID}-empty`,
+                items: [],
+            }}
+        />
+    );
+}
 
 interface SectionProps {
     readonly id: string;
@@ -2320,6 +2377,27 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     cards={SHOWCASE_STAT_CARDS}
                     pending
                 />
+                {/*
+                 * The kitchen overview's form: the same figures with no card chrome, columns
+                 * parted by a hairline, tone in the figure's ink and the mark only.
+                 */}
+                <Text variant="caption" tone="secondary">
+                    strip
+                </Text>
+                <CatalogueStatCards
+                    testID={id('stat-cards-strip')}
+                    appearance="strip"
+                    cards={SHOWCASE_STAT_CARDS}
+                />
+                <Text variant="caption" tone="secondary">
+                    strip, pending
+                </Text>
+                <CatalogueStatCards
+                    testID={id('stat-cards-strip-pending')}
+                    appearance="strip"
+                    cards={SHOWCASE_STAT_CARDS}
+                    pending
+                />
             </Stack>
 
             <ArrivalStory prefix={prefix} columns={catalogueColumns('list-arrival')} />
@@ -2645,40 +2723,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         label: 'Open the record',
                         onPress: () => setRecordOpen(false),
                     }}
-                />
-                <Text variant="section" tone="secondary">
-                    List summary cards
-                </Text>
-                <ListSummaryCards
-                    testID={id('summary-cards')}
-                    cards={[
-                        {
-                            key: 'shown',
-                            label: 'Shown',
-                            count: 6,
-                            value: '6',
-                            unit: 'of 6',
-                            caption: '3 families',
-                        },
-                        {
-                            key: 'blocked',
-                            label: 'Blocked',
-                            count: 2,
-                            value: '2',
-                            unit: 'records',
-                            caption: 'publication refused',
-                            tone: 'danger',
-                        },
-                        {
-                            key: 'zero',
-                            label: 'Blocked (zero)',
-                            count: 0,
-                            value: '0',
-                            unit: 'records',
-                            caption: 'a zero is never red',
-                            tone: 'danger',
-                        },
-                    ]}
                 />
                 <DerivedChipPanel
                     testID={id('derived-chips')}
@@ -4694,7 +4738,6 @@ export function ShowcaseScreen() {
                     <RecordSummaryAside
                         testID="showcase-kitchen-summary"
                         title="Ready to order"
-                        width={300}
                         rows={[
                             { key: 'out', label: 'Out of stock', value: '2' },
                             { key: 'lines', label: 'Lines to order', value: '5' },
@@ -4716,6 +4759,91 @@ export function ShowcaseScreen() {
                             ],
                         }}
                         note={<Callout tone="warning" title="1 item won't be ordered" />}
+                    />
+
+                    {/*
+                     * Layout primitives. A `fit` grid counts the tracks its own box holds, not the
+                     * window's: two in a 620px box. Beside an image it sits in a field region whose
+                     * width flex sets, so it shrinks and grows with the row.
+                     */}
+                    <Text variant="section" tone="secondary">
+                        Fitted form grid
+                    </Text>
+                    <View style={{ width: 620, maxWidth: '100%' }}>
+                        <FormGrid testID="showcase-kitchen-fit-grid">
+                            <LayoutFields prefix="showcase-kitchen-fit" count={4} />
+                        </FormGrid>
+                    </View>
+                    <View className="z-auto flex-row flex-wrap items-start gap-base">
+                        <View className="h-[168px] w-[168px]">
+                            <ImagePlaceholder
+                                testID="showcase-kitchen-fit-image"
+                                seed="showcase-meal-03"
+                                label={t('designSystem:showcase.placeholderLabel')}
+                                decorative
+                                className="h-full"
+                            />
+                        </View>
+                        <View
+                            testID="showcase-kitchen-field-region"
+                            style={{
+                                flexGrow: 1,
+                                flexShrink: 1,
+                                flexBasis: spanWidth(4, HALF_TRACK_WIDTH),
+                                minWidth: 0,
+                            }}
+                        >
+                            <FormGrid
+                                track="half"
+                                maxColumns={4}
+                                testID="showcase-kitchen-fit-half-grid"
+                            >
+                                <LayoutFields prefix="showcase-kitchen-fit-half" count={6} />
+                            </FormGrid>
+                        </View>
+                    </View>
+
+                    {/* Bounded cards pair where two fit and stop at 906; `flow="full"` spans. */}
+                    <Text variant="section" tone="secondary">
+                        Section grid
+                    </Text>
+                    <SectionGrid testID="showcase-kitchen-section-grid">
+                        <LayoutCard id="showcase-kitchen-section-a" title="Identity" />
+                        <LayoutCard id="showcase-kitchen-section-b" title="Measurement" />
+                        <LayoutCard id="showcase-kitchen-section-c" title="Sale" fields={2} />
+                        <FormSection
+                            testID="showcase-kitchen-section-full"
+                            variant="card"
+                            flow="full"
+                            title="Lines"
+                            description="A complex section spans every column."
+                        >
+                            <Text variant="caption" tone="secondary">
+                                The recipe lines table, the plan matrix.
+                            </Text>
+                        </FormSection>
+                    </SectionGrid>
+
+                    {/* The rail is 300 beside the main column and full width once it wraps. */}
+                    <Text variant="section" tone="secondary">
+                        Side rail — bounded
+                    </Text>
+                    <SideRailLayout
+                        bounded
+                        sticky
+                        testID="showcase-kitchen-rail-bounded"
+                        main={
+                            <LayoutCard id="showcase-kitchen-rail-bounded-card" title="Threshold" />
+                        }
+                        rail={<LayoutRail testID="showcase-kitchen-rail-bounded-aside" />}
+                    />
+                    <Text variant="section" tone="secondary">
+                        Side rail — unbounded
+                    </Text>
+                    <SideRailLayout
+                        testID="showcase-kitchen-rail-open"
+                        main={<LayoutCard id="showcase-kitchen-rail-open-card" title="Identity" />}
+                        rail={<LayoutRail testID="showcase-kitchen-rail-open-aside" />}
                     />
                 </Section>
             </Stack>

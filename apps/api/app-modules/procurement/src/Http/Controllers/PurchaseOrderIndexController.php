@@ -89,10 +89,11 @@ final class PurchaseOrderIndexController
         }
 
         $limit = CursorPage::limit($request);
+        $total = $query->toBase()->getCountForPagination();
         CursorPage::constrain($query, $limit, CursorPage::cursor($request), newestFirst: true);
 
         /** @var Builder<PurchaseOrder> $query */
-        $page = CursorPage::page($query->get(), $limit);
+        $page = CursorPage::page($query->get(), $limit, $total);
 
         // One received-quantity read for the whole page, never one per order:
         // §3.4's no-N+1 rule applies just as much to a book of twenty-five

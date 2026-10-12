@@ -230,6 +230,14 @@ Those are mood-board artefacts. Snap to the nearest token — `text-xs` 12, `tex
   branch on. NativeWind registers the variant on the web preset only, so the classes are never
   generated for native. The sticky meals rail is the reference use. A _structural_ difference still
   branches in JavaScript on `useBreakpoint` or `Platform.OS`.
+- **Kitchen desktop layout (2026-10-10).** A bounded form card is at most `formWidth` (906 = three
+  280px tracks plus the card's padding and border); `flow="full"` on a `FormSection` inside a
+  `SectionGrid` is the documented exception for lines tables, row editors and matrices. A rail is
+  `asideWidth` (300) beside the main column and full width when `SideRailLayout` stacks it — never
+  cap the main column to get that, cap the layout (`bounded`). A `FormGrid` fits its own block
+  region (`usePortWidth`); beside a sibling in a `flex-row`, wrap it in a field region that owns
+  its width or it ratchets. List slack never goes to `metric`/`status` columns, nor to the codes,
+  units, dates and figures the specs mark `grow: false`.
 - **The web scroll port is not the document.** `body` is `overflow: hidden`; the shell's
   `ScrollView` (`div[data-testid="…-shell-content"]`) is what scrolls. Sticky offsets resolve
   against it, so `top-0` pins just under the top bar — never translate a design's `top:130px`

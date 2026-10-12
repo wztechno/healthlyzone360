@@ -47,9 +47,10 @@ final class B2bApplicationIndexController
             ->where('applicant_user_id', (string) $this->currentUser($request)->getKey());
 
         $limit = CursorPage::limit($request);
+        $total = $query->toBase()->getCountForPagination();
         CursorPage::constrain($query, $limit, CursorPage::cursor($request), newestFirst: true);
 
-        $page = CursorPage::page($query->get(), $limit);
+        $page = CursorPage::page($query->get(), $limit, $total);
 
         return ApiResponse::data(
             $page['items']->map(fn (B2bApplication $application): array => $this->presenter->summary($application))->all(),

@@ -6,6 +6,7 @@ import {
     Text,
     fitColumns,
     useBreakpoint,
+    usePortWidth,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { RowDensity } from '@healthy360/design-tokens';
@@ -17,7 +18,6 @@ import { Platform, View } from 'react-native';
 import { CatalogueListItem } from './catalogue-list-item.tsx';
 import { CATALOGUE_PRIORITY, columnFloor, columnForRole } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
-import { useCataloguePort } from './catalogue-nav.tsx';
 import { CATALOGUE_PAGE_SIZE, CataloguePager } from './catalogue-pager.tsx';
 import { RowThumbnail } from './row-thumbnail.tsx';
 
@@ -50,7 +50,7 @@ const FRAME_CLASS =
  * own. It is not sufficient here, because §4.2's warning is precisely that the measurement which
  * matters — the port after the nav's width transition — is the one an automatic observer misses,
  * and `DataList` reads its node after every commit while the transition is still running. So the
- * port is measured by `useCataloguePort` (commit, *settled*, resize) and the columns are fitted
+ * port is measured by `usePortWidth` (every commit, and the `resize` the shell fires once settled) and the columns are fitted
  * against that before they reach `DataList`.
  *
  * The double fit is deliberate and idempotent: `fitColumns` over an already-fitting set returns it
@@ -159,7 +159,7 @@ function CatalogueTable<Row>({
     testID,
 }: CatalogueListProps<Row>) {
     const { atLeast } = useBreakpoint();
-    const port = useCataloguePort();
+    const port = usePortWidth();
 
     if (!atLeast('md')) {
         return (
@@ -198,9 +198,11 @@ function CatalogueTable<Row>({
     }
 
     /*
-     * No column is told to take the slack: `DataList` shares it across every column in proportion
-     * to its declared width, so the table ends where the page does without a hole after the names.
-     * A spec that wants one column to absorb it can still say `fill`.
+     * Slack is shared in proportion to declared width (8a558382), so the table ends where the page
+     * does: title-only growth left a ~300px hole after every name, and equal shares gave a unit
+     * the designation's extra. `metric` and `status` columns never take any — a figure or a badge
+     * gains nothing from a wider track but distance from its header — unless a spec says `grow`
+     * itself; short meta (units, codes, dates) opts out with `grow: false`, and `fill` still wins.
      */
     const drawn = withTableThumbnail(columns, rowKey, testID);
     const withActions =
@@ -252,7 +254,12 @@ function CatalogueTable<Row>({
                 className="flex-col"
             >
                 <DataList
-                    columns={visible}
+                    columns={visible.map((column) =>
+                        column.grow === undefined &&
+                        (column.role === 'metric' || column.role === 'status')
+                            ? { ...column, grow: false }
+                            : column,
+                    )}
                     rows={rows}
                     rowKey={rowKey}
                     label={label}

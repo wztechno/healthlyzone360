@@ -31,6 +31,7 @@ import type {
     PlanMenu,
     PriceListAdmin,
     PriceListAdminFilter,
+    PublishableStatus,
     ProductAdmin,
     ProductAdminFilter,
     RecipeAdmin,
@@ -77,6 +78,8 @@ import type {
 import {
     apiStatusForPublishableFilter,
     buildCategoryLookup,
+    DELIVERY_ZONE_WIRE_STATUS,
+    PRICE_LIST_WIRE_STATUS,
     mapIngredientCategoryAdmin,
     type WireRecipePackagingLine,
     buildSalesChannelLookup,
@@ -108,6 +111,7 @@ import {
     type SalesChannelLookup,
     type WireItemChannelPrices,
 } from './kitchen-admin-mappers.ts';
+import { memoiseAsync, memoiseAsyncPer } from './once.ts';
 import type { Transport } from './transport.ts';
 
 type CursorQueryFilter = {
@@ -175,9 +179,9 @@ function mapAdminCursorPage<TWire, TDomain>(
         items,
         nextCursor: meta.next_cursor,
         hasMore: meta.has_more,
-        // The keyset path answers `has_more` by reading one row beyond the page rather than by
-        // counting, so there is no total to report and `null` is the truthful answer.
-        totalCount: null,
+        // `has_more` is still the look-ahead row; `total` is the endpoint's separate count of the
+        // filtered set, absent from an endpoint that cannot say — `null` then, as before.
+        totalCount: meta.total ?? null,
     };
 }
 
@@ -205,6 +209,7 @@ export type ApiKitchenAdminReads = Pick<
     | 'nextReference'
     | 'listIngredients'
     | 'getIngredient'
+    | 'getIngredientsByIds'
     | 'listIngredientCategories'
     | 'listRecipes'
     | 'getRecipe'
@@ -225,6 +230,9 @@ export type ApiKitchenAdminReads = Pick<
     | 'listDeliveryWindows'
     | 'getBranchOperating'
 >;
+
+/** Ids per `GET /catalogue/ingredients?ids[]=…` — the endpoint's `MAX_IDS`. */
+const INGREDIENT_IDS_PER_REQUEST = 100;
 
 /** A price list's entries per page — the endpoint's `CursorPage::MAX_LIMIT`, so a list is few reads. */
 const PRICE_LIST_ENTRY_PAGE = 100;
@@ -254,6 +262,35 @@ function cursorQuery(
     const rendered = search.toString();
     return rendered === '' ? '' : `?${rendered}`;
 }
+
+/**
+ * The single wire `status` a price-list or zone index takes, from the contract's `statuses`.
+ *
+ * `undefined` is no filter; `null` is a filter no row can satisfy (only unreachable states such as
+ * `review_required`), answered without a request. Two distinct wire states are refused: the index
+ * takes one, and dropping the filter would widen the answer while the default also hides archived.
+ */
+function soleLifecycleStatus<TWire extends string>(
+    statuses: readonly PublishableStatus[] | undefined,
+    toWire: Readonly<Record<PublishableStatus, TWire | null>>,
+): TWire | null | undefined {
+    if (statuses === undefined || statuses.length === 0) return undefined;
+
+    const wire = [...new Set(statuses.map((status) => toWire[status]))].filter(
+        (status): status is TWire => status !== null,
+    );
+    if (wire.length === 0) return null;
+    if (wire.length > 1) {
+        throwFailure(
+            apiFailure('server', {
+                message: `The list filters on one status at a time; ${wire.join(' and ')} were both asked for.`,
+            }),
+        );
+    }
+    return wire[0];
+}
+
+const NOTHING_MATCHES = { items: [], nextCursor: null, hasMore: false, totalCount: 0 } as const;
 
 /**
  * The one allergen class an endpoint can take, out of a filter that is typed to carry several.
@@ -292,67 +329,86 @@ function ingredientSortParameter(
     return sort;
 }
 
+/*
+ * The catalogue's reference reads, one shared in-flight request per transport (see `memoiseAsync`
+ * for why the promise is the cache and why a rejection is not kept).
+ *
+ * Per transport rather than per repository object because the reads and the writes both translate
+ * through them, and the writes build their own reads as well: opening the recipe editor reads the
+ * recipe (unit id → code) while the rollup preview resolves every line's unit at once (code → id),
+ * and those used to be three caches and, before the first answer, one request per caller. The
+ * transport is created with the repositories, so the lifetime is the one the caches always had.
+ */
+
+/** The platform's measurement units, from `/catalogue/procurement/reference`. */
+export const loadMeasurementUnits = memoiseAsyncPer(
+    async (transport: Transport): Promise<readonly { id: string; code: string }[]> => {
+        const reference = await transport.requestEnvelope<{
+            measurement_units: Array<{ id: string; code: string }>;
+        }>({ method: 'GET', path: '/catalogue/procurement/reference' });
+
+        return reference.data.measurement_units;
+    },
+);
+
+/**
+ * The category rows and the id↔code lookup built from them, kept together:
+ * `listIngredientCategories` answers from the same fetch the translation already needs, so a
+ * screen that shows the tree and a write that resolves a code do not make two requests for one
+ * response.
+ */
+export const loadIngredientCategories = memoiseAsyncPer(async (transport: Transport) => {
+    const rows = await transport.request<WireIngredientCategory[]>({
+        method: 'GET',
+        path: '/catalogue/ingredient-categories',
+    });
+
+    return { rows, lookup: buildCategoryLookup(rows) };
+});
+
+const loadSalesChannels = memoiseAsyncPer(
+    async (transport: Transport): Promise<SalesChannelLookup> =>
+        buildSalesChannelLookup(
+            await transport.request<AdminSalesChannel[]>({
+                method: 'GET',
+                path: '/catalogue/sales-channels',
+            }),
+        ),
+);
+
 export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdminReads {
-    let unitCodeLookup: ReadonlyMap<string, string> | null = null;
+    const loadUnitCodes = memoiseAsync(async (): Promise<ReadonlyMap<string, string>> => {
+        try {
+            const units = await loadMeasurementUnits(transport);
+            return new Map(units.map((row) => [row.id, row.code]));
+        } catch (caught) {
+            // A refused permission will not change mid-session, so the empty map is the answer and
+            // is kept. Anything else (a 429 during a burst, a dropped connection) rejects, which
+            // leaves nothing cached and lets the next read try again.
+            if (caught instanceof ApiError && caught.code === 'authz.permission_denied') {
+                return new Map();
+            }
+            throw caught;
+        }
+    });
 
     async function loadUnitCodeLookup(): Promise<ReadonlyMap<string, string>> {
-        if (unitCodeLookup !== null) return unitCodeLookup;
-
         try {
-            const reference = await transport.requestEnvelope<{
-                measurement_units: Array<{ id: string; code: string }>;
-            }>({ method: 'GET', path: '/catalogue/procurement/reference' });
-
-            unitCodeLookup = new Map(
-                reference.data.measurement_units.map((row) => [row.id, row.code]),
-            );
+            return await loadUnitCodes();
         } catch {
-            // A member who cannot read the procurement reference still gets
-            // recipes; the units fall back to the mapper's honest default.
-            unitCodeLookup = new Map();
+            // A member who cannot read the procurement reference still gets recipes; the units
+            // fall back to the mapper's honest default — for this read only.
+            return new Map();
         }
-
-        return unitCodeLookup;
     }
 
-    let categoryLookup: CategoryLookup | null = null;
-    // The rows the lookup was built from, kept rather than discarded: `listIngredientCategories`
-    // answers from the same fetch the id↔code translation already needs, so a screen that shows the
-    // tree and a write that resolves a code do not make two requests for one response.
-    let categoryRows: readonly WireIngredientCategory[] | null = null;
-    let salesChannelLookup: SalesChannelLookup | null = null;
-
-    async function loadCategories(): Promise<readonly WireIngredientCategory[]> {
-        if (categoryRows !== null) return categoryRows;
-
-        const categories = await transport.request<WireIngredientCategory[]>({
-            method: 'GET',
-            path: '/catalogue/ingredient-categories',
-        });
-
-        categoryRows = categories;
-        categoryLookup = buildCategoryLookup(categories);
-        return categories;
-    }
+    const loadCategories = () => loadIngredientCategories(transport);
 
     async function loadCategoryLookup(): Promise<CategoryLookup> {
-        if (categoryLookup !== null) return categoryLookup;
-
-        await loadCategories();
-        return categoryLookup ?? buildCategoryLookup([]);
+        return (await loadCategories()).lookup;
     }
 
-    async function loadSalesChannelLookup(): Promise<SalesChannelLookup> {
-        if (salesChannelLookup !== null) return salesChannelLookup;
-
-        const channels = await transport.request<AdminSalesChannel[]>({
-            method: 'GET',
-            path: '/catalogue/sales-channels',
-        });
-
-        salesChannelLookup = buildSalesChannelLookup(channels);
-        return salesChannelLookup;
-    }
+    const loadSalesChannelLookup = () => loadSalesChannels(transport);
 
     async function fetchCatalogueItemShow(itemId: string): Promise<CatalogueItemShowPayload> {
         const envelope = await transport.requestEnvelope<CatalogueItemShowPayload>({
@@ -399,7 +455,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         },
 
         async listIngredientCategories(): Promise<readonly IngredientCategoryAdmin[]> {
-            const rows = await loadCategories();
+            const { rows } = await loadCategories();
             const idToCode = new Map(rows.map((row) => [row.id, row.code]));
 
             // Sorted here rather than at each call site: three consumers need the same order and
@@ -418,7 +474,6 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             filter?: IngredientAdminFilter,
         ): Promise<CursorPage<IngredientAdmin>> {
             const lookup = await loadCategoryLookup();
-            categoryLookup = lookup;
 
             const search = new URLSearchParams();
 
@@ -432,8 +487,16 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
 
             const statuses = filter?.statuses;
             if (statuses !== undefined && statuses.length === 1) {
-                const apiStatus = apiStatusForPublishableFilter(statuses[0]!);
-                if (apiStatus !== null) search.set('status', apiStatus);
+                const only = statuses[0]!;
+                // `review_required` is the verification axis, not the lifecycle one (see
+                // `mapIngredientPublishableStatus`): unarchived and `requires_review`. Unarchived
+                // is the browse default, so the verification filter alone is the whole predicate.
+                if (only === 'review_required') {
+                    search.set('verification_status', 'requires_review');
+                } else {
+                    const apiStatus = apiStatusForPublishableFilter(only);
+                    if (apiStatus !== null) search.set('status', apiStatus);
+                }
             }
 
             if (filter?.categoryCode !== undefined) {
@@ -538,12 +601,9 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 mapIngredientAdmin(wire, lookup),
             );
 
+            // A single status is answered by the server above; only a union is left.
             const needsClientStatusFilter =
-                filter?.statuses !== undefined &&
-                (filter.statuses.length > 1 ||
-                    filter.statuses.some(
-                        (status) => apiStatusForPublishableFilter(status) === null,
-                    ));
+                filter?.statuses !== undefined && filter.statuses.length > 1;
 
             if (!needsClientStatusFilter && filter?.ownedOnly !== true) {
                 // The single-code case was answered by the server above; only a union is left.
@@ -572,7 +632,10 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 return true;
             });
 
-            return { ...page, items };
+            // The page was narrowed here, so the server's keyset `total` describes a wider set than
+            // these rows. A numbered page keeps its `total_count`: its pager needs one, and that
+            // caveat is the one the page-local filter above has always carried.
+            return { ...page, items, totalCount: isNumbered(meta) ? page.totalCount : null };
         },
 
         async getIngredient(ingredientId: IngredientId): Promise<IngredientAdmin> {
@@ -593,6 +656,43 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             const aliases = envelope.data.aliases.map((row) => row.alias);
 
             return mapIngredientAdmin(envelope.data.ingredient, lookup, { aliases });
+        },
+
+        async getIngredientsByIds(
+            ingredientIds: readonly IngredientId[],
+        ): Promise<readonly IngredientAdmin[]> {
+            const unique = [...new Set(ingredientIds.map(String))];
+            if (unique.length === 0) return [];
+
+            const lookup = await loadCategoryLookup();
+            const chunks: Promise<readonly IngredientAdmin[]>[] = [];
+
+            // The endpoint's own ceiling, and `limit` must cover the chunk or it would page it.
+            // 100 uuids as `ids[]` is ~4.7 KB of request line — inside nginx's 8 KB.
+            for (let from = 0; from < unique.length; from += INGREDIENT_IDS_PER_REQUEST) {
+                const chunk = unique.slice(from, from + INGREDIENT_IDS_PER_REQUEST);
+                const params = new URLSearchParams({ limit: String(chunk.length) });
+                for (const id of chunk) params.append('ids[]', id);
+
+                chunks.push(
+                    transport
+                        .requestEnvelope<AdminIngredient[]>({
+                            method: 'GET',
+                            path: `/catalogue/ingredients?${params.toString()}`,
+                        })
+                        // Mapped exactly as `getIngredient` maps the show endpoint, whose
+                        // `aliases` sit beside the ingredient rather than on it.
+                        .then((envelope) =>
+                            envelope.data.map((wire) =>
+                                mapIngredientAdmin(wire, lookup, {
+                                    aliases: (wire.aliases ?? []).map((row) => row.alias),
+                                }),
+                            ),
+                        ),
+                );
+            }
+
+            return (await Promise.all(chunks)).flat();
         },
 
         async listRecipes(filter?: RecipeAdminFilter): Promise<CursorPage<RecipeAdminSummary>> {
@@ -926,21 +1026,26 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         },
 
         async listPriceLists(filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {
+            const status = soleLifecycleStatus(filter?.statuses, PRICE_LIST_WIRE_STATUS);
+            if (status === null) return NOTHING_MATCHES;
+
             const envelope = await transport.requestEnvelope<AdminPriceList[]>({
                 method: 'GET',
-                path: `/catalogue/price-lists${cursorQuery(pickCursorFilter(filter))}`,
+                path: `/catalogue/price-lists${cursorQuery(pickCursorFilter(filter), { status })}`,
             });
 
             const meta = envelope.meta as PaginatedOrNumberedMeta;
             const page = mapAdminCursorPage(envelope.data, meta, (wire) => mapPriceListAdmin(wire));
 
             /*
-             * Whole records, entries and channels included — the contract every caller reads this
-             * with. The plan editor's publish gate counts a plan's confirmed prices from it, and the
-             * price-list screen its entry counts; the index endpoint carries neither, and mapping
-             * it alone drew every list as "Nothing priced yet" and refused to publish any plan.
-             * One full read per list, in parallel: a kitchen has a handful of lists, not hundreds.
+             * Whole records only on request. The plan editor's publish gate counts a plan's
+             * confirmed prices from the entries, the price-list screen its entry split and the
+             * review queue its inconsistent rows, so those callers pass `includeEntries`; mapping the
+             * index alone drew every list as "Nothing priced yet" for them. A count passes nothing
+             * and costs one request rather than 1 + 2 per row.
              */
+            if (filter?.includeEntries !== true) return page;
+
             const items = await Promise.all(page.items.map((list) => reads.getPriceList(list.id)));
             return { ...page, items };
         },
@@ -1014,9 +1119,12 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         },
 
         async listZones(filter?: DeliveryZoneAdminFilter): Promise<CursorPage<DeliveryZoneAdmin>> {
+            const status = soleLifecycleStatus(filter?.statuses, DELIVERY_ZONE_WIRE_STATUS);
+            if (status === null) return NOTHING_MATCHES;
+
             const envelope = await transport.requestEnvelope<DeliveryZone[]>({
                 method: 'GET',
-                path: `/catalogue/delivery-zones${cursorQuery(pickCursorFilter(filter))}`,
+                path: `/catalogue/delivery-zones${cursorQuery(pickCursorFilter(filter), { status })}`,
             });
 
             const meta = envelope.meta as PaginatedOrNumberedMeta;

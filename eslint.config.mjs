@@ -433,16 +433,33 @@ export default tseslint.config(
     // fenced from its first commit. **Widen this glob as each screen migrates** — the end state is
     // the handoff's `kitchen-admin/**`, and the last screen pass should be the one that writes it.
     //
-    // Migrated so far: the Catalogue shell components, and `ingredients-screen.tsx` (§7.6, the
-    // reference implementation). Each screen joins this list in the pass that rewrites it — never
-    // ahead of one, because a rule pointed at code nobody has rewritten yet is a red `pnpm check`
-    // that gets disabled rather than obeyed.
+    // Migrated so far: the Catalogue shell components, `ingredients-screen.tsx` (§7.6, the
+    // reference implementation), the order desk, and the desktop layout pass of 2026-10-10 — the
+    // two layout pieces it added (`side-rail-layout.tsx`, `record-summary-aside.tsx`), the four
+    // SectionGrid editors and every screen it moved onto SideRailLayout. Each screen joins this
+    // list in the pass that rewrites it — never ahead of one, because a rule pointed at code nobody
+    // has rewritten yet is a red `pnpm check` that gets disabled rather than obeyed. Still outside:
+    // the row editors, the analytics charts and the remaining RecordFormOpening screens.
     {
         files: [
             'apps/universal/src/features/kitchen-admin/catalogue/**/*.{ts,tsx}',
             'apps/universal/src/features/kitchen-admin/screens/ingredients-screen.tsx',
             'apps/universal/src/features/kitchen-admin/order-desk/**/*.{ts,tsx}',
             'apps/universal/src/features/kitchen-admin/screens/order-desk*.tsx',
+            'apps/universal/src/features/kitchen-admin/side-rail-layout.tsx',
+            'apps/universal/src/features/kitchen-admin/record-summary-aside.tsx',
+            'apps/universal/src/features/kitchen-admin/screens/ingredient-edit-screen.tsx',
+            'apps/universal/src/features/kitchen-admin/screens/recipe-edit-screen.tsx',
+            'apps/universal/src/features/kitchen-admin/screens/plan-edit-screen.tsx',
+            'apps/universal/src/features/kitchen-admin/screens/product-edit-screen.tsx',
+            'apps/universal/src/features/kitchen-admin/screens/stock-screen.tsx',
+            'apps/universal/src/features/kitchen-admin/screens/branch-operating-screen.tsx',
+            'apps/universal/src/features/kitchen-admin/screens/post-receipt-screen.tsx',
+            'apps/universal/src/features/kitchen-admin/screens/supply-order-builder-screen.tsx',
+            'apps/universal/src/features/kitchen-admin/screens/supply-order-detail-screen.tsx',
+            'apps/universal/src/features/kitchen-admin/screens/production-batch-screen.tsx',
+            'apps/universal/src/features/kitchen-admin/screens/production-batch-new-screen.tsx',
+            'apps/universal/src/features/kitchen-admin/screens/unpriced-receipt-screen.tsx',
         ],
         rules: {
             'no-restricted-syntax': [

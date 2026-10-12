@@ -41,11 +41,14 @@ export type {
 export {
     CONTROL_SIZES,
     ROW_DENSITIES,
+    asideWidth,
     cardWidth,
     controlGap,
     controlHeight,
     controlPaddingX,
     fieldWidth,
+    formMinWidth,
+    formWidth,
     iconSize,
     rowHeight,
 } from './control.ts';

@@ -15,14 +15,13 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
  * and its own row height — inside a `KitchenPageHeader` with a 24px title and a subtitle. A kitchen
  * that had learnt to read six catalogue lists arrived here and met a seventh layout.
  *
- * | column     | track | floor | priority | note                                        |
- * | ---------- | ----: | ----: | -------: | ------------------------------------------- |
- * | Id         |    96 |    84 |       88 | mono; the class code                        |
- * | Class      |   200 |   150 |      100 | the title; never dropped                    |
- * | Regulation |   160 |   120 |       40 | secondary; the platform's own citation      |
- * | Markets    |   160 |   120 |       50 | badges, or "no market requires it"          |
- * | Threshold  |   120 |    88 |       85 | mono — the figure the row is read for       |
- * | Status     |   110 |    78 |       80 | badge                                       |
+ * | column     | track | floor | priority | grows | note                                        |
+ * | ---------- | ----: | ----: | -------: | :---: | ------------------------------------------- |
+ * | Id         |    96 |    84 |       88 |    no | mono; the regulatory reference (`ALG-01`)   |
+ * | Class      |   200 |   150 |      100 |   yes | the title; never dropped                    |
+ * | Markets    |   160 |   120 |       50 |    no | badges, or "no market requires it"          |
+ * | Threshold  |   120 |    88 |       85 |    no | mono — the figure the row is read for       |
+ * | Status     |   110 |    78 |       80 |    no | badge                                       |
  *
  * The tracks are the ingredient spec's, moved across one position at a time rather than
  * re-derived — the argument the recipe spec already makes for doing that.
@@ -84,6 +83,7 @@ export function allergenColumns({
             width: 96,
             min: 84,
             priority: CATALOGUE_PRIORITY.reference,
+            grow: false,
             role: 'meta',
             mono: true,
             sortable: true,
@@ -132,6 +132,8 @@ export function allergenColumns({
             width: 160,
             min: 120,
             priority: CATALOGUE_PRIORITY.unit,
+            // Two- or three-letter badges: a wider track only adds distance from the header.
+            grow: false,
             role: 'meta',
             // Badges here and a comma run in the ingredient list's Allergens column, which look
             // like the same decision made twice differently. They are not: a market code is two or

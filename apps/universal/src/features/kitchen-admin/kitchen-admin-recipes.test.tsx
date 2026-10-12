@@ -598,15 +598,14 @@ function ingredientListingByCategory(
         page(filter?.categoryCode === PACKAGING_CATEGORY_CODE ? packagingRows : food);
 }
 
-/** Resolves one row by id, whichever family it is in — the editor's by-id reads go through here. */
-function ingredientShow(
+/**
+ * Resolves rows by id, whichever family they are in — the editor's by-id reads go through here. An
+ * id it does not hold is simply absent, as the endpoint answers for one this kitchen cannot see.
+ */
+function ingredientsByIds(
     rows: readonly IngredientAdmin[],
-): (ingredientId: IngredientId) => Promise<IngredientAdmin> {
-    return async (ingredientId) => {
-        const found = rows.find((row) => row.id === ingredientId);
-        if (found === undefined) throw new Error('No such ingredient.');
-        return found;
-    };
+): (ingredientIds: readonly IngredientId[]) => Promise<readonly IngredientAdmin[]> {
+    return async (ingredientIds) => rows.filter((row) => ingredientIds.includes(row.id));
 }
 
 /**
@@ -2790,7 +2789,7 @@ describe('the packaging tab', () => {
                     kitchenAdmin: {
                         ...editorReads(() => stored),
                         listIngredients: ingredientListingByCategory(LIBRARY, [box]),
-                        getIngredient: ingredientShow([...LIBRARY, box]),
+                        getIngredientsByIds: ingredientsByIds([...LIBRARY, box]),
                         previewRecipeRollup: async (draft) =>
                             rollupPreview({ computedCost: computedFor(draft) }),
                     },
@@ -2873,7 +2872,7 @@ describe('the packaging tab', () => {
                 kitchenAdmin: {
                     ...editorReads(() => stored),
                     listIngredients: ingredientListingByCategory(LIBRARY, []),
-                    getIngredient: ingredientShow([...LIBRARY, offPage]),
+                    getIngredientsByIds: ingredientsByIds([...LIBRARY, offPage]),
                     previewRecipeRollup: async (draft) =>
                         rollupPreview({ computedCost: computedFor(draft) }),
                 },
@@ -2920,7 +2919,7 @@ describe('the packaging tab', () => {
                 kitchenAdmin: {
                     ...editorReads(() => stored),
                     listIngredients: ingredientListingByCategory(LIBRARY, [lid]),
-                    getIngredient: ingredientShow([...LIBRARY, lid]),
+                    getIngredientsByIds: ingredientsByIds([...LIBRARY, lid]),
                     // The server answers for the lid with no figure: it holds nothing.
                     previewRecipeRollup: async (draft) =>
                         rollupPreview({ computedCost: computedFor(draft, { packageCost: null }) }),
@@ -2938,6 +2937,101 @@ describe('the packaging tab', () => {
             /Lid 750/,
         );
         expect(screen.queryAllByTestId(/^kitchen-recipe-package-cost-/)).toHaveLength(0);
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Line ingredients resolved by id — loading, failed, missing
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('line ingredients by id', () => {
+    /** Off the listing's first page, so only the by-id read can name it. */
+    const SUMAC = ingredient(9, { name: { en: 'Sumac', ar: 'سماق' } });
+    const LINE_ROW = 'kitchen-recipe-lines-table-row-line-0';
+
+    function sumacRecipe(): RecipeAdmin {
+        return recipe({
+            ordinal: 3,
+            name: 'Fattoush',
+            currentVersion: recipeVersion({
+                recipeOrdinal: 3,
+                overrides: { lines: [line(SUMAC)] },
+            }),
+        });
+    }
+
+    async function openWith(
+        getIngredientsByIds: (ids: readonly IngredientId[]) => Promise<readonly IngredientAdmin[]>,
+    ) {
+        const stored = sumacRecipe();
+        const harness = await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { ...editorReads(() => stored), getIngredientsByIds },
+            },
+        });
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+        return harness;
+    }
+
+    it('draws a placeholder while the line resolves, then its designation', async () => {
+        let answer: (rows: readonly IngredientAdmin[]) => void = () => undefined;
+        const { repositories } = await openWith(
+            () =>
+                new Promise((resolve) => {
+                    answer = resolve;
+                }),
+        );
+
+        // The placeholder is hidden from assistive technology, so it is found with hidden elements.
+        const loading = `kitchen-recipe-line-${String(SUMAC.id)}-loading`;
+        await waitFor(() => {
+            expect(screen.getByTestId(loading, { includeHiddenElements: true })).toBeTruthy();
+        });
+        expect(screen.queryByTestId(`${LINE_ROW}-name`)).toBeNull();
+
+        await act(async () => {
+            answer([SUMAC]);
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId(`${LINE_ROW}-name`)).toHaveTextContent('Sumac');
+        });
+        expect(screen.queryByTestId(loading, { includeHiddenElements: true })).toBeNull();
+        // One read for the whole table, not one per line.
+        expect(repositories.kitchenAdmin.getIngredientsByIds).toHaveBeenCalledTimes(1);
+    });
+
+    it('says once that the lines could not be resolved, and retries on request', async () => {
+        let fail = true;
+        await openWith(async (ids) => {
+            if (fail) throw new Error('Too many requests.');
+            return [SUMAC].filter((row) => ids.includes(row.id));
+        });
+
+        await untilVisible('kitchen-recipe-lines-failed');
+        expect(screen.getAllByTestId('kitchen-recipe-lines-failed')).toHaveLength(1);
+
+        fail = false;
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-lines-failed-retry'));
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId(`${LINE_ROW}-name`)).toHaveTextContent('Sumac');
+        });
+        expect(screen.queryByTestId('kitchen-recipe-lines-failed')).toBeNull();
+    });
+
+    it('marks a line whose ingredient the server did not return', async () => {
+        await openWith(async () => []);
+
+        const missing = `kitchen-recipe-line-${String(SUMAC.id)}-missing`;
+        await untilVisible(missing);
+        expect(screen.getByTestId(missing)).toHaveTextContent(/Ingredient unavailable/);
+        expect(screen.getByTestId(`${LINE_ROW}-name`)).toHaveTextContent('This line');
+        expect(screen.queryByTestId('kitchen-recipe-lines-failed')).toBeNull();
     });
 });
 

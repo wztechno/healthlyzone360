@@ -279,6 +279,14 @@ export type PaginationMeta = Meta & {
      *
      */
     has_more: boolean;
+    /**
+     * Rows matching the filters, ignoring cursor and limit; absent
+     * when the endpoint cannot say. Counted separately from the page,
+     * so it is a figure for display — it can disagree with the walk
+     * by a row under concurrent writes, and never decides `has_more`.
+     *
+     */
+    total?: number;
 };
 
 /**
@@ -582,6 +590,14 @@ export type AdminIngredient = {
      *
      */
     allergens?: Array<IngredientAllergenMapping>;
+    /**
+     * The row's aliases, the same objects the single resource returns
+     * beside it. Present only on `listIngredients` rows answering an
+     * `ids` lookup, so that lookup carries everything the single resource
+     * does; a browse and the single resource's `ingredient` leave it off.
+     *
+     */
+    aliases?: Array<IngredientAlias>;
 };
 
 export type IngredientEnvelope = {
@@ -15420,6 +15436,14 @@ export type ListIngredientsData = {
          */
         status?: IngredientStatus;
         /**
+         * Restrict to one verification state. Combines with `status`, so
+         * `verification_status=requires_review` alone is the kitchen's
+         * "needs review" set: unarchived rows awaiting a human. Applied before
+         * the count, so `meta.total` describes the filtered set.
+         *
+         */
+        verification_status?: IngredientVerificationStatus;
+        /**
          * Restrict to one category or sub-category identifier.
          */
         category?: Uuid;
@@ -15469,6 +15493,21 @@ export type ListIngredientsData = {
          *
          */
         reference_series?: 'ING-' | 'PKG-';
+        /**
+         * A lookup by identifier, repeated as `ids[]=…`. At most 100;
+         * duplicates are collapsed. The bulk form of `showIngredient` — a
+         * recipe resolves its lines in one request rather than one per line —
+         * so each row also carries `aliases`, and the browse defaults step
+         * aside: archived rows and library rows this kitchen has forked are
+         * returned when named, exactly as the single resource returns them.
+         * Any filter that *is* sent still applies. Another organisation's
+         * identifier, or an unknown one, simply does not match.
+         *
+         * `limit` is unchanged (default 25), so send `limit` at least the
+         * number of identifiers to receive them on one page.
+         *
+         */
+        ids?: Array<Uuid>;
     };
     url: '/catalogue/ingredients';
 };
@@ -15492,6 +15531,10 @@ export type ListIngredientsErrors = {
      *
      */
     403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
     /**
      * The rate limit for this endpoint was exceeded.
      */

@@ -26,15 +26,15 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
  *
  * ## The tracks
  *
- * | column   | track | floor | priority | note                                          |
- * | -------- | ----: | ----: | -------: | --------------------------------------------- |
- * | Product  |   260 |   150 |      100 | the title; never dropped                      |
- * | Category |   140 |   112 |       40 | secondary; hosts the category filter          |
- * | Packs    |   160 |   118 |       85 | the metric — the lead pack and how many       |
- * | Channels |   150 |   110 |       50 | secondary, comma run                          |
- * | Flags    |   132 |    96 |       30 | badges; market-priced, assorted, import notes |
- * | Status   |   110 |    78 |       80 | badge                                         |
- * | Updated  |    96 |    72 |       20 | secondary, relative                           |
+ * | column   | track | floor | priority | grows | note                                          |
+ * | -------- | ----: | ----: | -------: | :---: | --------------------------------------------- |
+ * | Ref.     |    96 |    84 |       88 |    no | mono, a code                                  |
+ * | Product  |   200 |   150 |      100 |   yes | the title; never dropped                      |
+ * | Category |   160 |   112 |       40 |   yes | secondary; hosts the category filter          |
+ * | Packs    |   160 |   118 |       85 |    no | the metric — the lead pack and how many       |
+ * | Channels |   150 |   110 |       50 |   yes | secondary, comma run                          |
+ * | Flags    |   132 |    96 |       30 |    no | badges; market-priced, assorted, import notes |
+ * | Status   |   110 |    78 |       80 |    no | badge                                         |
  *
  * The tracks and floors are the ingredient spec's, moved across a position at a time rather than
  * re-derived — a kitchen that has learnt to read one Catalogue list should not relearn the geometry
@@ -124,6 +124,7 @@ export function productColumns({
             width: 96,
             min: 84,
             priority: CATALOGUE_PRIORITY.reference,
+            grow: false,
             role: 'meta',
             mono: true,
             sortable: true,
@@ -266,6 +267,8 @@ export function productColumns({
             width: 132,
             min: 96,
             priority: CATALOGUE_PRIORITY.allergens,
+            // Badges, so it holds its track as `status` does.
+            grow: false,
             value: (row) => {
                 const notes = [
                     ...(row.isMarketPriced ? [t('kitchen:products.marketPricedShort')] : []),

@@ -1680,6 +1680,16 @@ paths:
           description: Restrict to one lifecycle state. Omitted, the list covers `active` and `inactive`.
           schema:
             $ref: '#/components/schemas/IngredientStatus'
+        - name: verification_status
+          in: query
+          required: false
+          description: |
+            Restrict to one verification state. Combines with `status`, so
+            `verification_status=requires_review` alone is the kitchen's
+            "needs review" set: unarchived rows awaiting a human. Applied before
+            the count, so `meta.total` describes the filtered set.
+          schema:
+            $ref: '#/components/schemas/IngredientVerificationStatus'
         - name: category
           in: query
           required: false
@@ -1739,6 +1749,28 @@ paths:
             enum:
               - ING-
               - PKG-
+        - name: ids
+          in: query
+          required: false
+          description: |
+            A lookup by identifier, repeated as `ids[]=…`. At most 100;
+            duplicates are collapsed. The bulk form of `showIngredient` — a
+            recipe resolves its lines in one request rather than one per line —
+            so each row also carries `aliases`, and the browse defaults step
+            aside: archived rows and library rows this kitchen has forked are
+            returned when named, exactly as the single resource returns them.
+            Any filter that *is* sent still applies. Another organisation's
+            identifier, or an unknown one, simply does not match.
+
+            `limit` is unchanged (default 25), so send `limit` at least the
+            number of identifiers to receive them on one page.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 100
+            items:
+              $ref: '#/components/schemas/Uuid'
         - $ref: '#/components/parameters/AcceptLanguage'
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
@@ -1767,6 +1799,8 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
     post:
@@ -24059,6 +24093,14 @@ components:
                 Whether another page exists. Answered by reading one row
                 beyond the page rather than by a separate count, which would
                 disagree with the page under concurrent writes.
+            total:
+              type: integer
+              minimum: 0
+              description: |
+                Rows matching the filters, ignoring cursor and limit; absent
+                when the endpoint cannot say. Counted separately from the page,
+                so it is a figure for display — it can disagree with the walk
+                by a row under concurrent writes, and never decides `has_more`.
     PaginatedOrNumberedMeta:
       description: |
         Which of the two the endpoint answers with is decided by the request:
@@ -24491,6 +24533,15 @@ components:
             second as the first.
           items:
             $ref: '#/components/schemas/IngredientAllergenMapping'
+        aliases:
+          type: array
+          description: |
+            The row's aliases, the same objects the single resource returns
+            beside it. Present only on `listIngredients` rows answering an
+            `ids` lookup, so that lookup carries everything the single resource
+            does; a browse and the single resource's `ingredient` leave it off.
+          items:
+            $ref: '#/components/schemas/IngredientAlias'
       additionalProperties: false
     IngredientEnvelope:
       type: object

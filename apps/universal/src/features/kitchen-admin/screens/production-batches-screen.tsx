@@ -186,6 +186,7 @@ function ProductionBatches() {
             {
                 key: 'made',
                 role: 'meta',
+                grow: false,
                 label: t('kitchen:ops.production.columnMade'),
                 width: 130,
                 priority: 70,
@@ -200,6 +201,7 @@ function ProductionBatches() {
             {
                 key: 'expiry',
                 role: 'meta',
+                grow: false,
                 label: t('kitchen:ops.production.columnExpiry'),
                 width: 150,
                 priority: 80,

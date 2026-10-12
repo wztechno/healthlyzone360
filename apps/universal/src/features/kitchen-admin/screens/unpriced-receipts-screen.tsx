@@ -182,6 +182,7 @@ function UnpricedReceipts() {
                 label: t('kitchen:ops.unpricedReceipts.columnRefs'),
                 width: 200,
                 priority: 60,
+                grow: false,
                 // A plain label: see "Which headers act" above.
                 sort: false,
                 value: (row) =>

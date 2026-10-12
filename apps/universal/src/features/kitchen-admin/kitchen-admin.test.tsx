@@ -576,6 +576,10 @@ describe('the kitchen hub', () => {
         // Drafts figure that sums it loads rather than waiting for ever.
         await untilVisible('kitchen-kpi-drafts-value');
         expect(screen.getByTestId('kitchen-kpi-drafts-value')).toHaveTextContent('0');
+        // The overview draws its figures as the strip: no card fill, border or cast around them.
+        expect(screen.getByTestId('kitchen-kpi-drafts').props.className).not.toMatch(
+            /bg-surface-raised|bg-warning-subtle|shadow-elevation-card|border/,
+        );
         // The overview carries no module descriptions and no "Open …" buttons any more.
         expect(screen.queryByTestId('kitchen-family-recipes-description')).toBeNull();
         expect(screen.getByTestId('kitchen-family-recipes-open')).toBeTruthy();

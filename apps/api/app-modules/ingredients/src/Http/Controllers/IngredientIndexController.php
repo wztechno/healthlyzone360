@@ -6,7 +6,9 @@ namespace Healthy360\Ingredients\Http\Controllers;
 
 use Closure;
 use Healthy360\Ingredients\Enums\IngredientStatus;
+use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Ingredients\Models\IngredientAlias;
 use Healthy360\Ingredients\Presenters\IngredientPresenter;
 use Healthy360\Ingredients\Services\AllergenMappingService;
 use Healthy360\Support\Api\ApiResponse;
@@ -44,6 +46,9 @@ use Illuminate\Support\Facades\DB;
  */
 final class IngredientIndexController
 {
+    /** The most ingredients one `ids` lookup may name — a recipe's lines, with room to spare. */
+    private const int MAX_IDS = 100;
+
     public function __construct(
         private readonly IngredientPresenter $presenter,
         private readonly AllergenMappingService $mappings,
@@ -55,15 +60,31 @@ final class IngredientIndexController
      */
     public function __invoke(Request $request): JsonResponse
     {
-        $query = Ingredient::query()->with(['defaultUnit', 'purchaseUnit', 'capacityUnit']);
+        $ids = $this->ids($request);
+        $byIds = $ids !== null;
 
-        $this->applyStatus($request, $query);
+        $query = Ingredient::query()->with([
+            'defaultUnit', 'purchaseUnit', 'capacityUnit',
+            ...($byIds ? ['aliases'] : []),
+        ]);
+
+        if ($byIds) {
+            // The tenant scope is already on the query, so another kitchen's identifier simply
+            // does not match — a lookup returns fewer rows rather than leaking that one exists.
+            $query->whereKey($ids);
+        }
+
+        $this->applyStatus($request, $query, $byIds);
+        $this->applyVerificationStatus($request, $query);
         $this->applyCategory($request, $query);
         $this->applyExcludedCategory($request, $query);
         $this->applyReferenceSeries($request, $query);
         $this->applyAllergen($request, $query);
         $this->applySearch($request, $query);
-        $this->hideForkedPlatformRows($query);
+
+        if (! $byIds) {
+            $this->hideForkedPlatformRows($query);
+        }
 
         // Resolved before the branch so an unknown `sort` is refused on both walks rather than
         // only on the one that can honour it.
@@ -82,7 +103,7 @@ final class IngredientIndexController
             $rows = $query->get();
 
             return ApiResponse::data(
-                $this->present($rows),
+                $this->present($rows, $byIds),
                 OffsetPage::meta($rows, $requestedPage, $perPage, $total),
             );
         }
@@ -100,11 +121,36 @@ final class IngredientIndexController
         }
 
         $limit = CursorPage::limit($request);
+        $total = $query->toBase()->getCountForPagination();
         CursorPage::constrain($query, $limit, CursorPage::cursor($request));
 
-        $page = CursorPage::page($query->get(), $limit);
+        $page = CursorPage::page($query->get(), $limit, $total);
 
-        return ApiResponse::data($this->present($page['items']), $page['meta']);
+        return ApiResponse::data($this->present($page['items'], $byIds), $page['meta']);
+    }
+
+    /**
+     * The `ids[]` lookup, or `null` when the request is a browse.
+     *
+     * A lookup is the show endpoint answered in bulk — a recipe resolving its lines in one request
+     * rather than one per line — so it sees what show sees: the implicit browse defaults (archived
+     * hidden, forked library rows hidden) step aside, while every filter the caller *sends* still
+     * applies. Duplicates are collapsed rather than refused; two lines on one ingredient is normal.
+     *
+     * @return list<string>|null
+     */
+    private function ids(Request $request): ?array
+    {
+        $validated = $request->validate([
+            'ids' => ['nullable', 'array', 'max:'.self::MAX_IDS],
+            'ids.*' => ['uuid'],
+        ]);
+
+        if (! isset($validated['ids'])) {
+            return null;
+        }
+
+        return array_values(array_unique(array_map(strval(...), $validated['ids'])));
     }
 
     /**
@@ -228,10 +274,13 @@ final class IngredientIndexController
      * row: an allergen column that costs a round trip per row is a column
      * nobody can afford to draw, and this list draws one.
      *
+     * With `$withAliases` each row also carries `aliases`, so an `ids` lookup holds everything the
+     * show endpoint returns; a browse leaves them off and its payload is unchanged.
+     *
      * @param  Collection<int, Ingredient>  $rows
      * @return list<array<string, mixed>>
      */
-    private function present(Collection $rows): array
+    private function present(Collection $rows, bool $withAliases): array
     {
         $mappings = $this->mappings->mappingsForMany(
             array_values($rows->map(fn (Ingredient $ingredient): string => (string) $ingredient->getKey())->all()),
@@ -239,10 +288,18 @@ final class IngredientIndexController
         );
 
         return array_values($rows
-            ->map(fn (Ingredient $ingredient): array => $this->presenter->ingredient(
-                $ingredient,
-                $mappings[(string) $ingredient->getKey()] ?? [],
-            ))
+            ->map(function (Ingredient $ingredient) use ($mappings, $withAliases): array {
+                $row = $this->presenter->ingredient($ingredient, $mappings[(string) $ingredient->getKey()] ?? []);
+
+                if ($withAliases) {
+                    $row['aliases'] = $ingredient->aliases
+                        ->map(fn (IngredientAlias $alias): array => $this->presenter->alias($alias))
+                        ->values()
+                        ->all();
+                }
+
+                return $row;
+            })
             ->all());
     }
 
@@ -287,17 +344,22 @@ final class IngredientIndexController
     /**
      * Archived rows are excluded unless asked for by name: an archived
      * ingredient is history, and a list that quietly includes it invites
-     * somebody to build a recipe out of one.
+     * somebody to build a recipe out of one. An `ids` lookup is not a list:
+     * a recipe already built on an archived row still has to resolve it.
      *
      * @param  Builder<Ingredient>  $query
      *
      * @throws ApiException
      */
-    private function applyStatus(Request $request, Builder $query): void
+    private function applyStatus(Request $request, Builder $query, bool $byIds): void
     {
         $status = $request->query('status');
 
         if ($status === null || $status === '') {
+            if ($byIds) {
+                return;
+            }
+
             $query->whereIn('status', [IngredientStatus::Active->value, IngredientStatus::Inactive->value]);
 
             return;
@@ -312,6 +374,36 @@ final class IngredientIndexController
         }
 
         $query->where('status', $status);
+    }
+
+    /**
+     * Restrict to one verification state — the kitchen list's "needs review" is
+     * `verification_status=requires_review` over the default (unarchived) browse.
+     *
+     * The client derives `review_required` from this axis, so without it a count of that state had
+     * to walk every page and filter in the browser. Here it is one `WHERE` before the count.
+     *
+     * @param  Builder<Ingredient>  $query
+     *
+     * @throws ApiException
+     */
+    private function applyVerificationStatus(Request $request, Builder $query): void
+    {
+        $verification = $request->query('verification_status');
+
+        if ($verification === null || $verification === '') {
+            return;
+        }
+
+        if (! is_string($verification) || IngredientVerificationStatus::tryFrom($verification) === null) {
+            throw new ApiException(
+                ErrorCode::RequestInvalid,
+                'The verification status filter must be one of: verified, unverified, requires_review.',
+                ['parameter' => 'verification_status'],
+            );
+        }
+
+        $query->where('verification_status', $verification);
     }
 
     /**

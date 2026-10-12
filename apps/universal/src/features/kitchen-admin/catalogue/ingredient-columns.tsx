@@ -24,21 +24,22 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
  *
  * ## The tracks, and where the numbers come from
  *
- * | column     | track | floor | priority | note                                  |
- * | ---------- | ----: | ----: | -------: | ------------------------------------- |
- * | Ref.       |   112 |    84 |       88 | mono                                  |
- * | Designation|   260 |   150 |      100 | the title; never dropped              |
- * | Category   |   140 |   120 |       40 | secondary                             |
- * | Unit       |    72 |    56 |       50 | secondary, abbreviated                |
- * | Unit price |   104 |    84 |       75 | mono, 2 dp                            |
- * | Allergens  |   160 |   132 |       30 | secondary, comma run                  |
- * | Status     |   110 |    78 |       80 | badge                                 |
- * | Updated    |    96 |    72 |       20 | secondary, relative                   |
+ * | column     | track | floor | priority | grows | note                                 |
+ * | ---------- | ----: | ----: | -------: | :---: | ------------------------------------ |
+ * | Ref.       |    96 |    84 |       88 |    no | mono, a code                         |
+ * | Designation|   200 |   150 |      100 |   yes | the title; never dropped             |
+ * | Category   |   160 |   120 |       40 |   yes | secondary                            |
+ * | Unit       |    72 |    56 |       50 |    no | secondary, abbreviated               |
+ * | Unit price |   104 |    84 |       75 |    no | mono, 2 dp; `metric`                 |
+ * | Allergens  |   160 |   132 |       30 |   yes | secondary, comma run                 |
+ * | Status     |   110 |    78 |       80 |    no | badge; `status`                      |
+ * | Updated    |   120 |    96 |       20 |    no | secondary, relative                  |
  *
  * Past those, every other field the record carries is offered as a column too — sub-category,
  * purchase pack, items per pack, grams per unit, cost per 100 g, the B2B and B2C prices, the
- * composition and when it last changed. The reader picks which six are drawn (`column-picker.tsx`);
- * {@link INGREDIENT_DEFAULT_COLUMNS} is the set a first visit shows.
+ * composition and when it last changed. The figures among them (`numberColumn`) and the purchase
+ * unit never grow either; sub-category and composition do. The reader picks which six are drawn
+ * (`column-picker.tsx`); {@link INGREDIENT_DEFAULT_COLUMNS} is the set a first visit shows.
  *
  * `width` is the track a column gets when it is drawn; `min` is what it is charged while the fitter
  * decides. The design's own `min` values come across unchanged — they are the measured floors its
@@ -150,6 +151,8 @@ export function ingredientColumns({
         min: 84,
         priority: CATALOGUE_PRIORITY.updated,
         role: 'meta',
+        // A figure, so it never takes slack — the same rule `metric` columns get by default.
+        grow: false,
         mono: true,
         value: (row) => figure(row) ?? noValue,
         render: (row) => {
@@ -179,6 +182,7 @@ export function ingredientColumns({
             min: 84,
             priority: CATALOGUE_PRIORITY.reference,
             role: 'meta',
+            grow: false,
             mono: true,
             sortable: true,
             sortType: 'text',
@@ -269,6 +273,7 @@ export function ingredientColumns({
             min: 56,
             priority: CATALOGUE_PRIORITY.unit,
             role: 'meta',
+            grow: false,
             sortable: true,
             sortType: 'text',
             // The abbreviation, not the picker's "Kilograms (kg)" — see `unitShortKey`.
@@ -390,6 +395,7 @@ export function ingredientColumns({
             min: 80,
             priority: CATALOGUE_PRIORITY.updated,
             role: 'meta',
+            grow: false,
             value: (row) => optionalText(row.purchaseUnit, (unit) => t(unitShortKey(unit))),
             render: (row) => (
                 <Text
@@ -440,6 +446,7 @@ export function ingredientColumns({
             min: 96,
             priority: CATALOGUE_PRIORITY.updated,
             role: 'meta',
+            grow: false,
             sortable: true,
             sortType: 'text',
             value: (row) => formatter.formatRelativeTime(row.meta.updatedAt),

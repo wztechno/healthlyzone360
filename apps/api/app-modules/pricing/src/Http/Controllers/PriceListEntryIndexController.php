@@ -62,9 +62,10 @@ final class PriceListEntryIndexController
         }
 
         $limit = CursorPage::limit($request);
+        $total = $query->toBase()->getCountForPagination();
         CursorPage::constrain($query, $limit, CursorPage::cursor($request), newestFirst: $withHistory);
 
-        $page = CursorPage::page($query->get(), $limit);
+        $page = CursorPage::page($query->get(), $limit, $total);
 
         return ApiResponse::data(
             $page['items']->map(fn (PriceListItem $entry): array => $this->presenter->entry($entry, $record->currency_code))->all(),

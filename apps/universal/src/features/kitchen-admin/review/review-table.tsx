@@ -81,6 +81,7 @@ export function ReviewTable({ items, onView, onOpen, testID }: ReviewTableProps)
             width: 104,
             min: 92,
             priority: 97,
+            grow: false,
             mono: true,
             value: idText,
             // Filters by family rather than sorting: a column does one or the other, and "show me
@@ -166,6 +167,7 @@ export function ReviewTable({ items, onView, onOpen, testID }: ReviewTableProps)
             label: t('kitchen:review.columnUpdated'),
             width: 150,
             priority: 40,
+            grow: false,
             sort: (left, right, direction) =>
                 compareText(left.updatedAt, right.updatedAt, direction),
             render: (item) => (

@@ -345,6 +345,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                 label: t('kitchen:ops.supplyOrders.columnMadeOn'),
                 width: 120,
                 priority: 60,
+                grow: false,
                 value: madeOn,
                 sort: (left, right, direction) =>
                     compareText(left.createdAt ?? '', right.createdAt ?? '', direction),
@@ -490,6 +491,8 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
             label: t('kitchen:ops.supplyOrders.columnReorderAt'),
             width: 120,
             priority: 88,
+            // A figure, frozen as `metric` columns are.
+            grow: false,
             value: (row) =>
                 row.reorderThreshold === null
                     ? EM_DASH

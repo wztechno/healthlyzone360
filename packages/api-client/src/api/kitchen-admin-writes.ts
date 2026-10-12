@@ -73,17 +73,14 @@ import type {
     AdminSalesChannel,
     DeliveryWindow as WireDeliveryWindow,
     EnergyBand,
-    IngredientCategory,
     MealCombinationOption,
     PlanDurationOption,
     PlanMenuCycle as WirePlanMenuCycle,
     PlanMenuEntry as WirePlanMenuEntry,
     PlanVariantCell,
-    ProcurementReference,
     RecipeRollupPreview as RecipeRollupPreviewWire,
 } from '../generated/types.ts';
 import {
-    buildCategoryLookup,
     mapDeliveryWindow,
     mapPlanMenu,
     mapRecipeRollupPreview,
@@ -92,7 +89,11 @@ import {
     type CategoryLookup,
     type WireItemChannelPrices,
 } from './kitchen-admin-mappers.ts';
-import { createApiKitchenAdminReads } from './kitchen-admin-repository.ts';
+import {
+    createApiKitchenAdminReads,
+    loadIngredientCategories,
+    loadMeasurementUnits,
+} from './kitchen-admin-repository.ts';
 import type { Transport } from './transport.ts';
 
 /**
@@ -269,28 +270,18 @@ function sittingsForMealsPerDay(mealsPerDay: number): {
  * kilograms had no identifier to send and the write was refused. Every role
  * that holds `catalogue.manage_organisation` holds `inventory.view_organisation`
  * too, so the read is available wherever a catalogue write is.
+ *
+ * Exported for its test only; the package entry point does not re-export it.
  */
-class MeasurementUnitLookup {
-    readonly #codeToId = new Map<string, string>();
-
-    #loaded = false;
-
+export class MeasurementUnitLookup {
+    /**
+     * Read through `loadMeasurementUnits`, the one request per transport the recipe reads share:
+     * concurrent resolves — the rollup preview resolves every line at once — await the same
+     * request, and a rejected one is not kept, so the next resolve asks again.
+     */
     async resolve(transport: Transport, unit: MeasureUnit): Promise<string | null> {
-        const cached = this.#codeToId.get(unit);
-        if (cached !== undefined) return cached;
-        if (this.#loaded) return null;
-
-        const envelope = await transport.requestEnvelope<ProcurementReference>({
-            method: 'GET',
-            path: '/catalogue/procurement/reference',
-        });
-
-        for (const row of envelope.data.measurement_units) {
-            this.#codeToId.set(row.code, row.id);
-        }
-        this.#loaded = true;
-
-        return this.#codeToId.get(unit) ?? null;
+        const units = await loadMeasurementUnits(transport);
+        return units.find((row) => row.code === unit)?.id ?? null;
     }
 
     /**
@@ -391,16 +382,9 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
     const reads = createApiKitchenAdminReads(transport);
     const units = new MeasurementUnitLookup();
 
-    let categoryLookup: CategoryLookup | null = null;
-
+    // The same shared request the reads translate through.
     async function loadCategoryLookup(): Promise<CategoryLookup> {
-        if (categoryLookup !== null) return categoryLookup;
-        const categories = await transport.request<IngredientCategory[]>({
-            method: 'GET',
-            path: '/catalogue/ingredient-categories',
-        });
-        categoryLookup = buildCategoryLookup(categories);
-        return categoryLookup;
+        return (await loadIngredientCategories(transport)).lookup;
     }
 
     async function loadSalesChannels(): Promise<readonly AdminSalesChannel[]> {

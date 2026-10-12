@@ -228,6 +228,8 @@ function RolesList() {
             label: t('accessAdmin:roles.columns.pages'),
             width: 130,
             priority: 60,
+            // A count in `meta`, so it is frozen here rather than by the `metric` role.
+            grow: false,
             value: (row) => t('accessAdmin:roles.permissionCount', { count: row.permissionCount }),
             sort: (left, right, direction) =>
                 compareNumber(left.permissionCount, right.permissionCount, direction),

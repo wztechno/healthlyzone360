@@ -182,9 +182,12 @@ export function createApiReferenceReads(transport: Transport): ApiReferenceReads
                 items,
                 nextCursor: meta.next_cursor,
                 hasMore: meta.has_more,
-                // A keyset page cannot state a total without a second count that would disagree
-                // with the page under concurrent writes; the contract reserves `null` for that.
-                totalCount: null,
+                // `query` narrows here, not on the server, so the server's `total` only describes
+                // these rows when no query was applied. Otherwise `null`, which the contract reserves.
+                totalCount:
+                    filter?.query === undefined || filter.query.trim() === ''
+                        ? (meta.total ?? null)
+                        : null,
             };
         },
 

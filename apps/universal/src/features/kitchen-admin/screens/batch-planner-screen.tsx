@@ -1,5 +1,4 @@
 import type {
-    IngredientAdmin,
     RecipeLine,
     RecipePackagingLine,
     RecipeVersionAdmin,
@@ -35,6 +34,7 @@ import {
     useRecipeQuery,
     useRecipesQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
+import type { IngredientsByIds } from '../../../data/kitchen-admin-hooks.ts';
 import { batchFactor, scaleLine, scalePackaging, withWaste } from '../batch-scaling.ts';
 import type { BatchMode } from '../batch-scaling.ts';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
@@ -48,7 +48,12 @@ import {
 } from '../catalogue/use-column-controls.tsx';
 import { CATALOGUE_VIEW_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, parseQuantity, statusShortKey, unitShortKey } from '../format.ts';
-import { BATCH_QUANTITY_FORMAT, useBatchIngredients } from '../operations/batch-sheet.tsx';
+import {
+    BATCH_QUANTITY_FORMAT,
+    BatchIngredientsFailed,
+    BatchItemName,
+    useBatchIngredients,
+} from '../operations/batch-sheet.tsx';
 import { usePrintSheet } from '../print-sheet.tsx';
 import { WithColumnPicker } from '../catalogue/column-picker.tsx';
 
@@ -428,7 +433,7 @@ function facts(
 interface ScaledSheetProps {
     readonly version: RecipeVersionAdmin;
     readonly factor: number;
-    readonly ingredients: Readonly<Record<string, IngredientAdmin>>;
+    readonly ingredients: IngredientsByIds;
 }
 
 /**
@@ -449,11 +454,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
     const ingredientFactor = withWaste(factor, version.wastePercent);
     const packagingFactor = withWaste(factor, version.packagingWastePercent);
 
-    const found = (id: RecipeLine['ingredientId']) => ingredients[String(id)];
-    const nameOf = (id: RecipeLine['ingredientId']): string => {
-        const ingredient = found(id);
-        return ingredient === undefined ? dash : displayName(ingredient.name, locale).value;
-    };
+    const found = (id: RecipeLine['ingredientId']) => ingredients.byId[String(id)];
     const referenceOf = (id: RecipeLine['ingredientId']): string => found(id)?.reference ?? dash;
     // Blank rather than the dash, so a line with no reference sorts last rather than among the Rs.
     const sortReference = (id: RecipeLine['ingredientId']): string | null =>
@@ -511,9 +512,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
                 compareText(sortName(left.ingredientId), sortName(right.ingredientId), direction),
             render: (line) => (
                 <Inline space="xs" align="center" wrap>
-                    <Text variant="bodyStrong" testID={`${rowId(line.ingredientId)}-name`}>
-                        {nameOf(line.ingredientId)}
-                    </Text>
+                    <BatchItemName lookup={ingredients} ingredientId={line.ingredientId} />
                     {line.isOptional ? (
                         <Badge
                             testID={`${rowId(line.ingredientId)}-optional`}
@@ -590,9 +589,9 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             sort: (left, right, direction) =>
                 compareText(sortName(left.ingredientId), sortName(right.ingredientId), direction),
             render: (row) => (
-                <Text variant="bodyStrong" testID={`${rowId(row.ingredientId)}-name`}>
-                    {nameOf(row.ingredientId)}
-                </Text>
+                <Inline space="xs" align="center" wrap>
+                    <BatchItemName lookup={ingredients} ingredientId={row.ingredientId} />
+                </Inline>
             ),
         },
         {
@@ -658,6 +657,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
 
     return (
         <Stack space="md">
+            <BatchIngredientsFailed lookup={ingredients} />
             <FormSection
                 first
                 testID="kitchen-batch-consume"

@@ -30,7 +30,9 @@ import {
     withWaste,
 } from './batch-scaling.ts';
 import { RECIPE_VIEW_PERMISSION } from './entity-registry.ts';
+import { BatchSheet } from './operations/batch-sheet.tsx';
 import { BatchPlannerScreen } from './screens/batch-planner-screen.tsx';
+import type { IngredientsByIds } from '../../data/kitchen-admin-hooks.ts';
 
 /**
  * The batch planner: one recipe, one target, and the two things the page must not get wrong.
@@ -298,11 +300,8 @@ function batchRepositories(record: RecipeAdmin = recipe()) {
         kitchenAdmin: {
             listRecipes: async () => page([summaryOf(record)]),
             getRecipe: async () => record,
-            getIngredient: async (ingredientId: IngredientId) => {
-                const found = LIBRARY[String(ingredientId)];
-                if (found === undefined) throw new Error(`No ingredient ${String(ingredientId)}.`);
-                return found;
-            },
+            getIngredientsByIds: async (ingredientIds: readonly IngredientId[]) =>
+                ingredientIds.flatMap((id) => LIBRARY[String(id)] ?? []),
         },
     };
 }
@@ -513,6 +512,72 @@ describe('the batch planner', () => {
         expect(screen.queryByTestId('kitchen-batch-planner-screen')).toBeNull();
         // The gate refuses before anything is asked — a page of em dashes where the names go would
         // be the alternative, and `catalogue.view_organisation` is exactly the code that prevents it.
-        expect(harness.repositories.kitchenAdmin.getIngredient).not.toHaveBeenCalled();
+        expect(harness.repositories.kitchenAdmin.getIngredientsByIds).not.toHaveBeenCalled();
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * The production editor's sheet, against each outcome of the by-id lookup
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('the batch sheet', () => {
+    function lookup(overrides: Partial<IngredientsByIds>): IngredientsByIds {
+        return {
+            byId: {},
+            status: 'success',
+            error: null,
+            missingIds: [],
+            refetch: jest.fn(),
+            ...overrides,
+        };
+    }
+
+    function renderSheet(ingredients: IngredientsByIds) {
+        return renderStubScreen(
+            <BatchSheet
+                version={version()}
+                factor={2}
+                ingredients={ingredients}
+                availability={() => null}
+            />,
+        );
+    }
+
+    it('draws a placeholder for a row still resolving, never a dash', async () => {
+        await renderSheet(lookup({ status: 'pending', byId: { [String(BURGHUL_ID)]: BURGHUL } }));
+
+        await untilVisible(`kitchen-batch-row-${String(BURGHUL_ID)}-name`);
+        expect(
+            screen.getByTestId(`kitchen-batch-row-${String(TRAY_ID)}-loading`, {
+                includeHiddenElements: true,
+            }),
+        ).toBeTruthy();
+        expect(screen.queryByTestId(`kitchen-batch-row-${String(TRAY_ID)}-name`)).toBeNull();
+    });
+
+    it('says the names could not be read rather than printing dashes silently', async () => {
+        const failed = lookup({ status: 'error', error: new Error('Too many requests.') });
+        await renderSheet(failed);
+
+        await untilVisible('kitchen-batch-ingredients-failed');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-ingredients-failed-retry'));
+        });
+        expect(failed.refetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('names an ingredient the catalogue no longer returns as unavailable', async () => {
+        await renderSheet(
+            lookup({ byId: { [String(BURGHUL_ID)]: BURGHUL }, missingIds: [TRAY_ID] }),
+        );
+
+        const missing = `kitchen-batch-row-${String(TRAY_ID)}-missing`;
+        await untilVisible(missing);
+        expect(screen.getByTestId(missing)).toHaveTextContent('Ingredient unavailable');
+        expect(screen.getByTestId(`kitchen-batch-row-${String(TRAY_ID)}-name`)).toHaveTextContent(
+            '—',
+        );
+        expect(screen.queryByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-missing`)).toBeNull();
+        expect(screen.queryByTestId('kitchen-batch-ingredients-failed')).toBeNull();
     });
 });

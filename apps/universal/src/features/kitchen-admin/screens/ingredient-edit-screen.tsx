@@ -21,14 +21,17 @@ import {
     FormIssueBanner,
     FormSection,
     FormSkeleton,
+    HALF_TRACK_WIDTH,
     Inline,
     QuantityInput,
+    SectionGrid,
     Select,
     Stack,
     Switch,
     Tag,
     Text,
     TextInputField,
+    spanWidth,
     useToast,
 } from '@healthy360/design-system';
 import type { FormIssueItem, SelectOption, TagTone } from '@healthy360/design-system';
@@ -1552,11 +1555,15 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 />
             ) : null}
 
-            {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
-            <View className="z-auto flex-col gap-loose">
+            {/*
+             * The sections pair where two fit; the editor uses the width. A `SectionGrid` cell is
+             * a plain div, so nothing here traps a dropdown: see `FormSection` on why a View would.
+             */}
+            <SectionGrid testID="kitchen-ingredient-sections">
                 {/* ── identity ─────────────────────────────────────────────────────────────── */}
                 <FormSection
                     first
+                    flow="full"
                     variant="card"
                     testID="kitchen-ingredient-identity"
                     title={t('kitchen:forms.description')}
@@ -1586,88 +1593,116 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                          * photo and opens on its handle, so the reference leads and the row takes
                          * all six.
                          */}
-                        <FormGrid
-                            track="half"
-                            {...(family.food ? { maxColumns: 4 } : {})}
-                            testID="kitchen-ingredient-identity-grid"
+                        {/*
+                         * The field region: flex sets its width, not the grid inside it, so the
+                         * fitted grid converges whether the page shrinks or grows — beside the
+                         * photo while four half tracks fit, under it at full width once they do not.
+                         */}
+                        <View
+                            className="z-auto"
+                            style={{
+                                // eslint-disable-next-line no-restricted-syntax -- the field region *is* the row beside the photo; the FormGrid inside keeps its fixed tracks.
+                                flexGrow: 1,
+                                flexShrink: 1,
+                                flexBasis: spanWidth(4, HALF_TRACK_WIDTH),
+                                minWidth: 0,
+                            }}
                         >
-                            {/*
-                             * Not on a new record either: nothing has been issued yet, so the box
-                             * could only ever say "Assigned on save". The handle is beside the
-                             * title once it exists.
-                             */}
-                            {family.food || isCreating ? null : referenceField}
+                            <FormGrid
+                                track="half"
+                                {...(family.food ? { maxColumns: 4 } : {})}
+                                testID="kitchen-ingredient-identity-grid"
+                            >
+                                {/*
+                                 * Not on a new record either: nothing has been issued yet, so the box
+                                 * could only ever say "Assigned on save". The handle is beside the
+                                 * title once it exists.
+                                 */}
+                                {family.food || isCreating ? null : referenceField}
 
-                            {/*
-                             * One `BilingualField` rather than two inputs, because that component
-                             * owns the per-language writing direction; `row` puts the halves side
-                             * by side inside the four tracks `span={4}` claims.
-                             */}
-                            <BilingualField
-                                span={4}
-                                layout="row"
-                                testID="kitchen-ingredient-name"
-                                fieldLabel={t('kitchen:list.columnItem')}
-                                placeholder={
-                                    family.food
-                                        ? {
-                                              en: t('kitchen:fields.ingredientNamePlaceholderEn'),
-                                              ar: t('kitchen:fields.ingredientNamePlaceholderAr'),
-                                          }
-                                        : {
-                                              en: t('kitchen:fields.packagingNamePlaceholderEn'),
-                                              ar: t('kitchen:fields.packagingNamePlaceholderAr'),
-                                          }
-                                }
-                                value={details.name}
-                                requiredEnglish
-                                disabled={!editable}
-                                {...flagEnglish}
-                                onChange={(next) => {
-                                    edit({ name: next });
-                                }}
-                            />
+                                {/*
+                                 * One `BilingualField` rather than two inputs, because that component
+                                 * owns the per-language writing direction; `row` puts the halves side
+                                 * by side inside the four tracks `span={4}` claims.
+                                 */}
+                                <BilingualField
+                                    span={4}
+                                    layout="row"
+                                    testID="kitchen-ingredient-name"
+                                    fieldLabel={t('kitchen:list.columnItem')}
+                                    placeholder={
+                                        family.food
+                                            ? {
+                                                  en: t(
+                                                      'kitchen:fields.ingredientNamePlaceholderEn',
+                                                  ),
+                                                  ar: t(
+                                                      'kitchen:fields.ingredientNamePlaceholderAr',
+                                                  ),
+                                              }
+                                            : {
+                                                  en: t(
+                                                      'kitchen:fields.packagingNamePlaceholderEn',
+                                                  ),
+                                                  ar: t(
+                                                      'kitchen:fields.packagingNamePlaceholderAr',
+                                                  ),
+                                              }
+                                    }
+                                    value={details.name}
+                                    requiredEnglish
+                                    disabled={!editable}
+                                    {...flagEnglish}
+                                    onChange={(next) => {
+                                        edit({ name: next });
+                                    }}
+                                />
 
-                            <Select
-                                span={2}
-                                testID="kitchen-ingredient-category"
-                                id="kitchen-ingredient-category"
-                                label={t('kitchen:fields.category')}
-                                placeholder={t('kitchen:fields.categoryPlaceholder')}
-                                searchable
-                                required
-                                // Locked for a family whose branch is the family - see
-                                // `categoryOptions`.
-                                disabled={!editable || family.categoryCode !== ''}
-                                options={categoryOptions}
-                                value={details.categoryCode === '' ? null : details.categoryCode}
-                                {...flag('category', t('kitchen:forms.required'))}
-                                onChange={(next) => {
-                                    // Changing the parent invalidates the leaf: a sub-category
-                                    // from the previous branch would be refused on save.
-                                    edit({ categoryCode: next, subcategoryCode: '' });
-                                }}
-                            />
+                                <Select
+                                    span={2}
+                                    testID="kitchen-ingredient-category"
+                                    id="kitchen-ingredient-category"
+                                    label={t('kitchen:fields.category')}
+                                    placeholder={t('kitchen:fields.categoryPlaceholder')}
+                                    searchable
+                                    required
+                                    // Locked for a family whose branch is the family - see
+                                    // `categoryOptions`.
+                                    disabled={!editable || family.categoryCode !== ''}
+                                    options={categoryOptions}
+                                    value={
+                                        details.categoryCode === '' ? null : details.categoryCode
+                                    }
+                                    {...flag('category', t('kitchen:forms.required'))}
+                                    onChange={(next) => {
+                                        // Changing the parent invalidates the leaf: a sub-category
+                                        // from the previous branch would be refused on save.
+                                        edit({ categoryCode: next, subcategoryCode: '' });
+                                    }}
+                                />
 
-                            <Select
-                                span={2}
-                                testID="kitchen-ingredient-subcategory"
-                                id="kitchen-ingredient-subcategory"
-                                label={t('kitchen:fields.subcategory')}
-                                placeholder={t('kitchen:fields.subcategoryPlaceholder')}
-                                searchable
-                                disabled={!editable || details.categoryCode === ''}
-                                options={subcategoryOptions}
-                                value={
-                                    details.subcategoryCode === ''
-                                        ? 'none'
-                                        : details.subcategoryCode
-                                }
-                                onChange={(next) => {
-                                    edit({ subcategoryCode: next === 'none' ? '' : next });
-                                }}
-                            />
-                        </FormGrid>
+                                <Select
+                                    span={2}
+                                    testID="kitchen-ingredient-subcategory"
+                                    id="kitchen-ingredient-subcategory"
+                                    label={t('kitchen:fields.subcategory')}
+                                    placeholder={t('kitchen:fields.subcategoryPlaceholder')}
+                                    searchable
+                                    disabled={!editable || details.categoryCode === ''}
+                                    options={subcategoryOptions}
+                                    value={
+                                        details.subcategoryCode === ''
+                                            ? 'none'
+                                            : details.subcategoryCode
+                                    }
+                                    onChange={(next) => {
+                                        edit({
+                                            subcategoryCode: next === 'none' ? '' : next,
+                                        });
+                                    }}
+                                />
+                            </FormGrid>
+                        </View>
                     </View>
                 </FormSection>
 
@@ -2077,7 +2112,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         )}
                     </FormSection>
                 )}
-            </View>
+            </SectionGrid>
 
             <Dialog
                 testID="kitchen-ingredient-editor-screen-unsaved-dialog"

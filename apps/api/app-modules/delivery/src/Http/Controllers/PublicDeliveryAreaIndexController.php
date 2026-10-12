@@ -69,9 +69,10 @@ final class PublicDeliveryAreaIndexController
             ->where('is_active', true);
 
         $limit = CursorPage::limit($request);
+        $total = $query->toBase()->getCountForPagination();
         CursorPage::constrain($query, $limit, CursorPage::cursor($request));
 
-        $page = CursorPage::page($query->get(), $limit);
+        $page = CursorPage::page($query->get(), $limit, $total);
 
         return ApiResponse::data(
             $page['items']->map(fn (DeliveryArea $area): array => $this->presenter->publicProjection($area, $locale))->all(),

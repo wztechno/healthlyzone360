@@ -1140,6 +1140,8 @@ function OrderDeskQueueList() {
             label: t('kitchen:desk.columnPhone'),
             width: 120,
             priority: 50,
+            // Fixed-length, read like a code.
+            grow: false,
             sort: (left, right, direction) =>
                 compareText(left.customer?.phone, right.customer?.phone, direction),
             render: (row) =>
@@ -1160,6 +1162,7 @@ function OrderDeskQueueList() {
             label: t('kitchen:desk.columnDue'),
             width: 64,
             priority: 88,
+            grow: false,
             sort: (left, right, direction) =>
                 compareNumber(Date.parse(left.dueAt), Date.parse(right.dueAt), direction),
             render: (row) => (
@@ -1173,6 +1176,8 @@ function OrderDeskQueueList() {
             label: t('kitchen:desk.columnAgeing'),
             width: 110,
             priority: 92,
+            // A badge (`DueBadge`), so it holds its track.
+            grow: false,
             // How late an order is *is* its due time read against now, so it sorts the same way.
             sort: (left, right, direction) =>
                 compareNumber(Date.parse(left.dueAt), Date.parse(right.dueAt), direction),

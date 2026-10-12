@@ -84,6 +84,18 @@ function harness() {
             const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
 
             if (path === '/catalogue/sales-channels') return json({ data: [] });
+            if (path.startsWith('/catalogue/price-lists?')) {
+                return json({
+                    data: [PRICE_LIST],
+                    meta: { count: 1, has_more: true, next_cursor: 'next', total: 9 },
+                });
+            }
+            if (path.startsWith('/catalogue/delivery-zones?')) {
+                return json({
+                    data: [],
+                    meta: { count: 0, has_more: false, next_cursor: null, total: 4 },
+                });
+            }
             if (path === `/catalogue/price-lists/${LIST_UUID}`) {
                 return json({ data: { price_list: PRICE_LIST, channels: [] } });
             }
@@ -141,5 +153,70 @@ describe('getPriceList', () => {
             `/catalogue/price-lists/${LIST_UUID}/entries?limit=100&cursor=page-two`,
         ]);
         expect(paths.some((path) => path.startsWith('/catalogue/items/'))).toBe(false);
+    });
+});
+
+describe('listPriceLists', () => {
+    it('counts with one request: the index rows, no per-list hydration', async () => {
+        const { reads, paths } = harness();
+
+        const page = await reads.listPriceLists({ limit: 1 });
+
+        expect(paths).toEqual(['/catalogue/price-lists?limit=1']);
+        expect(page.totalCount).toBe(9);
+        expect(page.items[0]?.entries).toEqual([]);
+    });
+
+    it('hydrates every row when asked for whole records', async () => {
+        const { reads, paths } = harness();
+
+        const page = await reads.listPriceLists({ limit: 1, includeEntries: true });
+
+        expect(page.items[0]?.entries).toHaveLength(4);
+        expect(paths).toContain(`/catalogue/price-lists/${LIST_UUID}`);
+    });
+
+    it.each([
+        ['published', 'active'],
+        ['draft', 'draft'],
+        ['retired', 'archived'],
+    ] as const)('sends %s as status=%s', async (status, wire) => {
+        const { reads, paths } = harness();
+
+        await reads.listPriceLists({ limit: 1, statuses: [status] });
+
+        expect(paths).toEqual([`/catalogue/price-lists?limit=1&status=${wire}`]);
+    });
+
+    it('answers a state no price list can be in without asking', async () => {
+        const { reads, paths } = harness();
+
+        const page = await reads.listPriceLists({ limit: 1, statuses: ['review_required'] });
+
+        expect(paths).toEqual([]);
+        expect(page.totalCount).toBe(0);
+    });
+
+    it('refuses two states rather than widening to every list', async () => {
+        const { reads } = harness();
+
+        await expect(
+            reads.listPriceLists({ limit: 1, statuses: ['published', 'draft'] }),
+        ).rejects.toThrow();
+    });
+});
+
+describe('listZones', () => {
+    it.each([
+        ['published', 'active'],
+        ['draft', 'inactive'],
+        ['retired', 'archived'],
+    ] as const)('sends %s as status=%s', async (status, wire) => {
+        const { reads, paths } = harness();
+
+        const page = await reads.listZones({ limit: 1, statuses: [status] });
+
+        expect(paths).toEqual([`/catalogue/delivery-zones?limit=1&status=${wire}`]);
+        expect(page.totalCount).toBe(4);
     });
 });

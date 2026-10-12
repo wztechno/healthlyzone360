@@ -1,13 +1,19 @@
 import {
     DeliveryWindowId,
     DeliveryZoneId,
+    IngredientId,
     RecipeId,
     SubscriptionPlanId,
 } from '@healthy360/domain-types';
 import { describe, expect, it } from 'vitest';
 
 import { createMemoryTokenStore } from '../contracts/session.ts';
-import { createApiKitchenAdminWrites, deriveWindowCode } from './kitchen-admin-writes.ts';
+import { createApiKitchenAdminReads } from './kitchen-admin-repository.ts';
+import {
+    createApiKitchenAdminWrites,
+    deriveWindowCode,
+    MeasurementUnitLookup,
+} from './kitchen-admin-writes.ts';
 import { createTransport } from './transport.ts';
 
 /**
@@ -362,5 +368,222 @@ describe('delivery windows', () => {
         expect(calls[0]?.headers['if-match']).toBe('"3"');
         expect(zone.meta.lockVersion).toBe(4);
         expect(zone.windowIds.map(String)).toEqual([WINDOW_UUID]);
+    });
+});
+
+/*
+ * The reference lookups are shared in flight: N reads that start before the first reference
+ * response answers make one request, not N. A burst of N used to trip the API's per-user limiter.
+ */
+describe('reference lookups', () => {
+    interface Reply {
+        readonly status: number;
+        readonly body: unknown;
+    }
+
+    /** A transport answered by path, counting what each path was asked for. */
+    function routed(route: (path: string) => Reply) {
+        const counts = new Map<string, number>();
+        const transport = createTransport({
+            baseUrl: 'https://api.example',
+            tokenStore: createMemoryTokenStore('token'),
+            fetch: async (input) => {
+                const url = input instanceof Request ? input.url : String(input);
+                const path = decodeURIComponent(url.replace('https://api.example/api/v1', ''));
+                counts.set(path, (counts.get(path) ?? 0) + 1);
+                const { status, body } = route(path);
+                return new Response(JSON.stringify(body), { status });
+            },
+        });
+        return { transport, count: (path: string) => counts.get(path) ?? 0 };
+    }
+
+    const REFERENCE = '/catalogue/procurement/reference';
+    const CATEGORIES = '/catalogue/ingredient-categories';
+    const INGREDIENT_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e3a01';
+    const NOT_ROUTED: Reply = { status: 500, body: { error: { code: 'request.invalid' } } };
+    const REFERENCE_OK: Reply = {
+        status: 200,
+        body: { data: { measurement_units: [{ id: 'unit-kg', code: 'kg' }] } },
+    };
+    const RATE_LIMITED: Reply = {
+        status: 429,
+        body: {
+            error: { code: 'rate_limit.exceeded', message: 'Slow down.', correlation_id: 'c' },
+        },
+    };
+    const PERMISSION_DENIED: Reply = {
+        status: 403,
+        body: {
+            error: {
+                code: 'authz.permission_denied',
+                message: 'Your role does not allow that.',
+                details: { permission: 'inventory.view_organisation' },
+                correlation_id: 'c',
+            },
+        },
+    };
+
+    /** The recipe read's own two requests, with one line keyed in `unit-kg`. */
+    function recipeReply(path: string): Reply {
+        if (path === `/catalogue/recipes/${RECIPE_UUID}`) {
+            return {
+                status: 200,
+                body: { data: { recipe: WIRE_RECIPE, versions: [wireVersion(1, 'published')] } },
+            };
+        }
+        if (path === `/catalogue/recipes/${RECIPE_UUID}/versions/1`) {
+            return {
+                status: 200,
+                body: {
+                    data: {
+                        version: wireVersion(1, 'published'),
+                        lines: [
+                            {
+                                ingredient_id: INGREDIENT_UUID,
+                                quantity: '2',
+                                unit_id: 'unit-kg',
+                                source_designation: 'Freekeh',
+                            },
+                        ],
+                        packaging: [],
+                        outputs: [],
+                        steps: [],
+                        allergens: [],
+                    },
+                },
+            };
+        }
+        return NOT_ROUTED;
+    }
+
+    it('ten concurrent ingredient reads make one ingredient-categories request', async () => {
+        const { transport, count } = routed((path) => {
+            if (path === CATEGORIES) return { status: 200, body: { data: [] } };
+            if (path !== `/catalogue/ingredients/${INGREDIENT_UUID}`) return NOT_ROUTED;
+            return {
+                status: 200,
+                body: {
+                    data: {
+                        ingredient: {
+                            id: INGREDIENT_UUID,
+                            name_en: 'Freekeh',
+                            name_ar: 'Freekeh',
+                            slug: 'freekeh',
+                            status: 'active',
+                            is_platform: false,
+                            aliases: [],
+                            allergens: [],
+                            diet_classifications: [],
+                            ingredient_category_id: null,
+                            default_unit_code: 'kg',
+                            organisation_id: 'org-1',
+                            notes: null,
+                            lock_version: 0,
+                        },
+                        aliases: [],
+                    },
+                },
+            };
+        });
+        const reads = createApiKitchenAdminReads(transport);
+
+        const ingredients = await Promise.all(
+            Array.from({ length: 10 }, () =>
+                reads.getIngredient(IngredientId.unsafe(INGREDIENT_UUID)),
+            ),
+        );
+
+        expect(ingredients).toHaveLength(10);
+        expect(count(CATEGORIES)).toBe(1);
+    });
+
+    it('ten concurrent recipe reads make one procurement-reference request', async () => {
+        const { transport, count } = routed((path) =>
+            path === REFERENCE ? REFERENCE_OK : recipeReply(path),
+        );
+        const reads = createApiKitchenAdminReads(transport);
+
+        const recipes = await Promise.all(
+            Array.from({ length: 10 }, () => reads.getRecipe(RECIPE_ID)),
+        );
+
+        expect(recipes.map((recipe) => recipe.currentVersion.lines[0]?.unit)).toEqual(
+            Array.from({ length: 10 }, () => 'kg'),
+        );
+        expect(count(REFERENCE)).toBe(1);
+    });
+
+    it('falls back for the read a transient failure hit, and recovers on the next', async () => {
+        let reference: Reply = RATE_LIMITED;
+        const { transport, count } = routed((path) =>
+            path === REFERENCE ? reference : recipeReply(path),
+        );
+        const reads = createApiKitchenAdminReads(transport);
+
+        // The mapper's honest default, not a rejection.
+        const throttled = await reads.getRecipe(RECIPE_ID);
+        expect(throttled.currentVersion.lines[0]?.unit).toBe('g');
+        expect(count(REFERENCE)).toBe(1);
+
+        reference = REFERENCE_OK;
+        const recovered = await reads.getRecipe(RECIPE_ID);
+        expect(recovered.currentVersion.lines[0]?.unit).toBe('kg');
+        expect(count(REFERENCE)).toBe(2);
+    });
+
+    it('keeps the fallback for a refused permission, which will not change mid-session', async () => {
+        const { transport, count } = routed((path) =>
+            path === REFERENCE ? PERMISSION_DENIED : recipeReply(path),
+        );
+        const reads = createApiKitchenAdminReads(transport);
+
+        expect((await reads.getRecipe(RECIPE_ID)).currentVersion.lines[0]?.unit).toBe('g');
+        expect((await reads.getRecipe(RECIPE_ID)).currentVersion.lines[0]?.unit).toBe('g');
+        expect(count(REFERENCE)).toBe(1);
+    });
+
+    it('the writes-side unit lookup shares one request and retries after a rejection', async () => {
+        let reference: Reply = RATE_LIMITED;
+        const { transport, count } = routed((path) =>
+            path === REFERENCE ? reference : NOT_ROUTED,
+        );
+        const units = new MeasurementUnitLookup();
+
+        const failed = await Promise.allSettled(
+            Array.from({ length: 5 }, () => units.resolve(transport, 'kg')),
+        );
+        expect(failed.every((result) => result.status === 'rejected')).toBe(true);
+        expect(count(REFERENCE)).toBe(1);
+
+        reference = REFERENCE_OK;
+        const resolved = await Promise.all([
+            units.resolve(transport, 'kg'),
+            units.resolve(transport, 'kg'),
+            units.resolve(transport, 'g'),
+        ]);
+        expect(resolved).toEqual(['unit-kg', 'unit-kg', null]);
+        expect(count(REFERENCE)).toBe(2);
+
+        // Settled: answered from the kept rows.
+        expect(await units.resolve(transport, 'kg')).toBe('unit-kg');
+        expect(count(REFERENCE)).toBe(2);
+    });
+
+    it('a recipe open that reads and previews at once makes one reference request', async () => {
+        // The recipe editor reads the recipe (id → code) while its rollup preview resolves every
+        // line's unit (code → id); the two modules used to keep a cache each.
+        const { transport, count } = routed((path) =>
+            path === REFERENCE ? REFERENCE_OK : recipeReply(path),
+        );
+        const reads = createApiKitchenAdminReads(transport);
+        const units = new MeasurementUnitLookup();
+
+        await Promise.all([
+            reads.getRecipe(RECIPE_ID),
+            ...Array.from({ length: 13 }, () => units.resolve(transport, 'kg')),
+        ]);
+
+        expect(count(REFERENCE)).toBe(1);
     });
 });

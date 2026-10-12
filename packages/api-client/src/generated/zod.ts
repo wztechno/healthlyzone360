@@ -242,7 +242,8 @@ export const zTwoFactorChallengeRequest = z.object({
 export const zPaginationMeta = zMeta.and(z.object({
     count: z.int().gte(0),
     next_cursor: z.string().nullable(),
-    has_more: z.boolean()
+    has_more: z.boolean(),
+    total: z.int().gte(0).optional()
 }));
 
 /**
@@ -445,7 +446,8 @@ export const zAdminIngredient = z.object({
     lock_version: z.int().gte(0),
     created_at: z.iso.datetime({ offset: true }).nullish(),
     updated_at: z.iso.datetime({ offset: true }).nullish(),
-    allergens: z.array(zIngredientAllergenMapping).optional()
+    allergens: z.array(zIngredientAllergenMapping).optional(),
+    aliases: z.array(zIngredientAlias).optional()
 });
 
 export const zIngredientEnvelope = z.object({
@@ -10218,9 +10220,11 @@ export const zListIngredientsQuery = z.object({
     per_page: z.int().gte(1).lte(100).optional().default(25),
     query: z.string().max(160).optional(),
     status: zIngredientStatus.optional(),
+    verification_status: zIngredientVerificationStatus.optional(),
     category: zUuid.optional(),
     exclude_category: zUuid.optional(),
-    reference_series: z.enum(['ING-', 'PKG-']).optional()
+    reference_series: z.enum(['ING-', 'PKG-']).optional(),
+    ids: z.array(zUuid).max(100).optional()
 });
 
 /**

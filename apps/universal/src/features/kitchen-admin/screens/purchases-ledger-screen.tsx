@@ -336,6 +336,7 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
             label: t('kitchen:ops.ledger.columnDate'),
             width: 110,
             priority: 90,
+            grow: false,
             value: dateText,
             sort: (left, right, direction) =>
                 compareText(

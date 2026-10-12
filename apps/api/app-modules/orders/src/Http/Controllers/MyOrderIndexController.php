@@ -60,9 +60,10 @@ final class MyOrderIndexController
         $query = $this->orders->forCustomer((string) $account->getKey());
 
         $limit = CursorPage::limit($request);
+        $total = $query->toBase()->getCountForPagination();
         CursorPage::constrain($query, $limit, CursorPage::cursor($request), newestFirst: true);
 
-        $page = CursorPage::page($query->get(), $limit);
+        $page = CursorPage::page($query->get(), $limit, $total);
         $lines = $this->linesFor($page['items']->modelKeys());
 
         return ApiResponse::data(

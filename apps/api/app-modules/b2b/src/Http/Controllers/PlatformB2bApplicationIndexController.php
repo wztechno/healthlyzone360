@@ -58,9 +58,10 @@ final class PlatformB2bApplicationIndexController
         $this->applySearch($request, $query);
 
         $limit = CursorPage::limit($request);
+        $total = $query->toBase()->getCountForPagination();
         CursorPage::constrain($query, $limit, CursorPage::cursor($request));
 
-        $page = CursorPage::page($query->get(), $limit);
+        $page = CursorPage::page($query->get(), $limit, $total);
 
         return ApiResponse::data(
             $page['items']->map(fn (B2bApplication $application): array => $this->presenter->summary($application))->all(),

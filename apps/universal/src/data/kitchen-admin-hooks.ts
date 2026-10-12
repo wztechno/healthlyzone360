@@ -314,8 +314,22 @@ export function useIngredientQuery(
     });
 }
 
+/** What {@link useIngredientsByIds} resolved, and what it could not. */
+export interface IngredientsByIds {
+    readonly byId: Readonly<Record<string, IngredientAdmin>>;
+    /** `pending` also while a changed id set is in flight over the previous answer. */
+    readonly status: 'pending' | 'error' | 'success';
+    readonly error: Error | null;
+    /** Requested but not returned: deleted, or not visible to this kitchen. Empty until settled. */
+    readonly missingIds: readonly IngredientId[];
+    readonly refetch: () => void;
+}
+
+const NO_INGREDIENTS: Readonly<Record<string, IngredientAdmin>> = {};
+const NO_IDS: readonly IngredientId[] = [];
+
 /**
- * The specific ingredients a set of ids names, read one request at a time.
+ * The specific ingredients a set of ids names, in one request per hundred.
  *
  * The recipe editor's line table has to show a designation and a unit price for every row it draws,
  * and the row only stores an id. It cannot get those from the listing: `CursorPage::MAX_LIMIT` is
@@ -328,37 +342,63 @@ export function useIngredientQuery(
  * `RecipeLine.lineCost` is `null` on the wire, and `ingredientName` is really the line's
  * `source_designation` — often empty. The ingredient record is the only place both facts live.
  *
- * So the ids are resolved directly, and the cost is bounded by the length of a recipe rather than by
- * the size of the library: twenty lines is twenty cached reads, and every one of them is the same
- * cache entry the ingredient editor opens.
+ * So the ids are resolved directly through the index's `ids[]` lookup — same permission and same
+ * visibility as the show route — and every row is written into its per-id entry, so the ingredient
+ * editor and this read share one truth. It used to be one show request per id, which on a long
+ * recipe was enough on its own to trip the API's 60/min limiter.
+ *
+ * Nothing is dropped silently: a row the server did not return is in `missingIds`, and a failed
+ * read is `status: 'error'`, so a caller can say which rather than draw a blank.
  */
-export function useIngredientsByIds(
-    ingredientIds: readonly IngredientId[],
-): Readonly<Record<string, IngredientAdmin>> {
+export function useIngredientsByIds(ingredientIds: readonly IngredientId[]): IngredientsByIds {
     const { repositories } = useRepositoryContext();
+    const queryClient = useQueryClient();
+    const queryKey = queryKeys.kitchenAdmin.ingredientsByIds(ingredientIds);
+    const ids = queryKey[2];
 
-    return useQueries({
-        queries: ingredientIds.map((ingredientId) => ({
-            queryKey: queryKeys.kitchenAdmin.ingredient(ingredientId),
-            enabled: repositories !== null,
-            queryFn: () => {
-                if (repositories === null) throw new Error('Repositories are not ready.');
-                return repositories.kitchenAdmin.getIngredient(ingredientId);
-            },
-        })),
-        // A plain record rather than a Map: `combine` runs through the same structural sharing
-        // every other query result does, so the value it returns has to be one that sharing
-        // understands, and its memoisation is what keeps the callers' `useMemo`s from rebuilding on
-        // every render.
-        combine: (results): Readonly<Record<string, IngredientAdmin>> => {
+    const query = useQuery({
+        queryKey,
+        enabled: repositories !== null && ids.length > 0,
+        // Adding a line keeps the rows already drawn rather than blanking the table.
+        placeholderData: keepPreviousData,
+        // A plain record rather than a Map: query data runs through structural sharing, so a
+        // refetch that changes nothing hands the callers' `useMemo`s the same object back.
+        queryFn: async (): Promise<Readonly<Record<string, IngredientAdmin>>> => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            const rows = await repositories.kitchenAdmin.getIngredientsByIds(ids);
             const byId: Record<string, IngredientAdmin> = {};
-            for (const result of results) {
-                if (result.data !== undefined) byId[String(result.data.id)] = result.data;
+            for (const row of rows) {
+                queryClient.setQueryData(queryKeys.kitchenAdmin.ingredient(row.id), row);
+                byId[String(row.id)] = row;
             }
             return byId;
         },
     });
+
+    if (ids.length === 0) {
+        return {
+            byId: NO_INGREDIENTS,
+            status: 'success',
+            error: null,
+            missingIds: NO_IDS,
+            refetch: noop,
+        };
+    }
+
+    const data = query.data;
+    const settled = data !== undefined && query.status === 'success' && !query.isPlaceholderData;
+    const missing = settled ? ids.filter((id) => data[String(id)] === undefined) : NO_IDS;
+
+    return {
+        byId: data ?? NO_INGREDIENTS,
+        status: query.isPlaceholderData ? 'pending' : query.status,
+        error: query.error,
+        missingIds: missing.length === 0 ? NO_IDS : missing,
+        refetch: () => void query.refetch(),
+    };
 }
+
+function noop(): void {}
 
 /**
  * The declared category tree — both levels, every branch, whether or not anything is filed under it.
@@ -447,38 +487,42 @@ export interface FamilySummary {
 }
 
 /**
- * Live kitchen listings map `totalCount` to `null` (cursor meta has page size, not a match total).
- * Walk pages until the cursor ends so a kitchen with more than one page of ingredients still gets
- * an exact figure; stop and admit "unavailable" only if the walk hits the safety ceiling.
+ * A count is one `limit: 1` request: the listing's `meta.total` arrives as `totalCount`.
+ *
+ * An endpoint that states no total (or a page the client narrowed, which makes the server's total
+ * describe a wider set) answers `totalCount: null`; then the walk carries on from that first row's
+ * cursor in pages of {@link SUMMARY_PAGE_LIMIT} until the cursor ends, and admits "unavailable"
+ * only if it hits the safety ceiling.
  */
 const SUMMARY_PAGE_LIMIT = 100;
 const SUMMARY_MAX_PAGES = 50;
 
 async function countAcrossPages<T>(
-    load: (cursor: string | undefined) => Promise<CursorPage<T>>,
+    load: (limit: number, cursor: string | undefined) => Promise<CursorPage<T>>,
 ): Promise<number | null> {
-    let total = 0;
-    let cursor: string | undefined;
-    let pages = 0;
+    const first = await load(1, undefined);
+    if (first.totalCount !== null) return first.totalCount;
 
-    do {
-        const page = await load(cursor);
-        if (page.totalCount !== null) return page.totalCount;
+    let total = first.items.length;
+    let hasMore = first.hasMore;
+    let cursor = first.nextCursor ?? undefined;
+
+    for (let pages = 0; hasMore && cursor !== undefined; pages += 1) {
+        if (pages === SUMMARY_MAX_PAGES) return null;
+        const page = await load(SUMMARY_PAGE_LIMIT, cursor);
         total += page.items.length;
-        if (!page.hasMore) return total;
+        hasMore = page.hasMore;
         cursor = page.nextCursor ?? undefined;
-        pages += 1;
-    } while (pages < SUMMARY_MAX_PAGES && cursor !== undefined);
+    }
 
-    return null;
+    return hasMore ? null : total;
 }
 
 /**
  * The ingredient counts behind the hub card, in one query.
  *
  * Three filtered listings folded into one `queryFn` so a card gets one pending state, one error and
- * one `refetch`. Counts walk every page ({@link countAcrossPages}) because a live kitchen library
- * routinely exceeds one cursor page.
+ * one `refetch`. Each count is one `limit: 1` request ({@link countAcrossPages}).
  */
 export function useIngredientSummaryQuery(enabled = true): UseQueryResult<FamilySummary> {
     const { repositories } = useRepositoryContext();
@@ -489,22 +533,22 @@ export function useIngredientSummaryQuery(enabled = true): UseQueryResult<Family
         queryFn: async (): Promise<FamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             const [total, drafts, quarantined] = await Promise.all([
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listIngredients({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listIngredients({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listIngredients({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['review_required'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -522,6 +566,10 @@ export function useIngredientSummaryQuery(enabled = true): UseQueryResult<Family
  *
  * Both, not either — see the module note. Kept as one function so that the eight mutations this
  * workspace will eventually carry cannot each remember it slightly differently.
+ *
+ * The root invalidation is also what reaches {@link useIngredientsByIds}' batch entries
+ * (`['kitchenAdmin', 'ingredients-by-ids', …]`), so an open recipe re-reads a saved ingredient's
+ * new price; the batch read then re-seeds this detail entry from the server.
  */
 function useIngredientWriteEffects(): (ingredient: IngredientAdmin) => void {
     const queryClient = useQueryClient();
@@ -757,7 +805,7 @@ export type RecipeFamilySummary = PublishedFamilySummary;
 /**
  * The recipe counts behind the hub card, in one query.
  *
- * Four filtered listings folded into one `queryFn`. Counts walk pages via {@link countAcrossPages}.
+ * Four filtered listings folded into one `queryFn`, one request each via {@link countAcrossPages}.
  */
 export function useRecipeSummaryQuery(
     enabled = true,
@@ -776,29 +824,29 @@ export function useRecipeSummaryQuery(
         queryFn: async (): Promise<RecipeFamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             const [total, published, drafts, quarantined] = await Promise.all([
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listRecipes({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listRecipes({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         ...(onSale ? { sellingStatus: 'published' } : { statuses: ['published'] }),
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listRecipes({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listRecipes({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['review_required'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -1229,32 +1277,32 @@ export function useProductSummaryQuery(
         queryFn: async (): Promise<PublishedFamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             const [total, published, drafts, quarantined] = await Promise.all([
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listProducts({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         itemType,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listProducts({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         itemType,
                         statuses: ['published'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listProducts({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         itemType,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listProducts({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         itemType,
                         statuses: ['review_required'],
                         ...(cursor === undefined ? {} : { cursor }),
@@ -1467,7 +1515,7 @@ export function priceListTotalFromPages(
 /**
  * The kitchen's price lists.
  *
- * `listPriceLists` answers with whole {@link PriceListAdmin} records — **entries included** — so the
+ * `listPriceLists` answers this hook with whole {@link PriceListAdmin} records (`includeEntries`), so the
  * list screen's confirmed/placeholder/market split costs no extra request per row. That is worth
  * stating because it is also the reason the list is capped rather than infinite in spirit: a
  * thousand-entry list is a large page, and the "load more" control is the honest place that shows.
@@ -1486,6 +1534,7 @@ export function usePriceListsQuery(
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenAdmin.listPriceLists({
                 ...filter,
+                includeEntries: true,
                 ...(pageParam === undefined ? {} : { cursor: pageParam }),
             });
         },
@@ -1527,29 +1576,29 @@ export function usePriceListSummaryQuery(enabled = true): UseQueryResult<PriceLi
         queryFn: async (): Promise<PriceListFamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             const [total, published, drafts, quarantined] = await Promise.all([
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listPriceLists({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listPriceLists({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['published'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listPriceLists({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listPriceLists({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['review_required'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -1688,29 +1737,29 @@ export function usePlanSummaryQuery(enabled = true): UseQueryResult<PublishedFam
         queryFn: async (): Promise<PublishedFamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             const [total, published, drafts, quarantined] = await Promise.all([
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listPlans({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listPlans({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['published'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listPlans({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listPlans({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['review_required'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -2084,29 +2133,29 @@ export function useMealSummaryQuery(enabled = true): UseQueryResult<PublishedFam
         queryFn: async (): Promise<PublishedFamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             const [total, published, drafts, quarantined] = await Promise.all([
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listMeals({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listMeals({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['published'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listMeals({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listMeals({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['review_required'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -2488,22 +2537,22 @@ export function useZoneSummaryQuery(enabled = true): UseQueryResult<PublishedFam
         queryFn: async (): Promise<PublishedFamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             const [total, published, drafts] = await Promise.all([
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listZones({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listZones({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['published'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
-                countAcrossPages((cursor) =>
+                countAcrossPages((limit, cursor) =>
                     repositories.kitchenAdmin.listZones({
-                        limit: SUMMARY_PAGE_LIMIT,
+                        limit,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -2815,7 +2864,7 @@ export function useReviewQueueQuery(enabled = true): UseQueryResult<ReviewQueueS
                 repositories.kitchenAdmin.listProducts({ ...quarantine }),
                 repositories.kitchenAdmin.listMeals({ ...quarantine }),
                 repositories.kitchenAdmin.listPlans({ ...quarantine }),
-                repositories.kitchenAdmin.listPriceLists({ limit }),
+                repositories.kitchenAdmin.listPriceLists({ limit, includeEntries: true }),
             ]);
 
             const pages = [
@@ -3141,6 +3190,7 @@ export function usePriceListPageQuery(
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenAdmin.listPriceLists({
                 ...filter,
+                includeEntries: true,
                 page,
                 perPage: KITCHEN_PAGE_SIZE,
             });
@@ -3307,7 +3357,12 @@ export function usePriceListWholeSetQuery(
     return useWholeSetQuery(
         queryKeys.kitchenAdmin.priceListsPage(scoped, 0),
         (repositories, page, perPage) =>
-            repositories.kitchenAdmin.listPriceLists({ ...scoped, page, perPage }),
+            repositories.kitchenAdmin.listPriceLists({
+                ...scoped,
+                includeEntries: true,
+                page,
+                perPage,
+            }),
         enabled,
     );
 }

@@ -238,6 +238,7 @@ function ConsumptionExceptions() {
             label: t('kitchen:ops.exceptions.columnRaised'),
             width: 120,
             priority: 40,
+            grow: false,
             sort: (left, right, direction) =>
                 compareText(left.createdAt ?? '', right.createdAt ?? '', direction),
             render: (row) => (

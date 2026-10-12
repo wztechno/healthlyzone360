@@ -1,7 +1,7 @@
 import { Card, FadeIn, Icon, Skeleton, Text } from '@healthy360/design-system';
 import type { CardTone, IconName, TextTone } from '@healthy360/design-system';
 import { cardWidth } from '@healthy360/design-tokens';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 /**
  * Part three of a Catalogue list page, as cards. (The marks in the sketch are the native glyphs; the
@@ -17,7 +17,9 @@ import { View } from 'react-native';
  *
  * There was a one-line variant of these same four figures for a while. Nothing ever rendered it —
  * a page that drew both would state "2 draft" twice, sixteen pixels apart, which is not
- * orientation — so the cards are the only form now.
+ * orientation — so a list page draws the cards and nothing else. The kitchen overview, whose
+ * figures open the page rather than a list, draws them as `appearance="strip"`: the same figures
+ * with no card around them.
  *
  * ## A card is worth the vertical space only when the figure is a destination
  *
@@ -143,15 +145,51 @@ export interface CatalogueStatCardsProps {
      * a placeholder rather than a zero that reads as "none".
      */
     readonly countsPending?: boolean | undefined;
+    /**
+     * `cards` (the default) draws each figure as a card. `strip` draws the same figures with no
+     * card at all — one row of label, figure and mark, the columns parted by a hairline — for an
+     * overview whose figures are its opening line rather than a list page's filters. Tone stays
+     * ink and mark only: the strip takes no fill, so the warning card's amber panel has no
+     * counterpart here.
+     */
+    readonly appearance?: CatalogueStatAppearance | undefined;
     readonly testID: string;
 }
+
+export const CATALOGUE_STAT_APPEARANCES = ['cards', 'strip'] as const;
+export type CatalogueStatAppearance = (typeof CATALOGUE_STAT_APPEARANCES)[number];
 
 export function CatalogueStatCards({
     cards,
     pending,
     countsPending,
+    appearance = 'cards',
     testID,
 }: CatalogueStatCardsProps) {
+    if (appearance === 'strip') {
+        return (
+            <View testID={testID} className="flex-row flex-wrap items-stretch">
+                {cards.map((card, index) => (
+                    <View
+                        key={card.key}
+                        // eslint-disable-next-line no-restricted-syntax -- the cell *is* the strip's column, as in the card row below.
+                        className={`flex-1 flex-col pe-4 ${index === 0 ? '' : 'border-s border-stroke-subtle ps-4'}`}
+                        style={{ minWidth: cardWidth.min }}
+                    >
+                        <StripFigure
+                            card={card}
+                            pending={
+                                card.pending ??
+                                (index > 0 && countsPending === true ? true : pending)
+                            }
+                            testID={`${testID}-${card.key}`}
+                        />
+                    </View>
+                ))}
+            </View>
+        );
+    }
+
     return (
         /*
          * The cards fill the row, with a gap between them.
@@ -220,17 +258,21 @@ export function CatalogueStatCards({
     );
 }
 
-function StatCard({
+/**
+ * The figure on the value's own line, faded in when it lands, or a placeholder holding that line.
+ * Shared by both appearances so a card and a strip column can never disagree on the figure.
+ */
+function FigureLine({
     card,
+    tone,
     pending,
     testID,
 }: {
     readonly card: CatalogueStatCard;
+    readonly tone: CatalogueStatTone;
     readonly pending: boolean | undefined;
     readonly testID: string;
 }) {
-    const tone = card.tone ?? 'default';
-
     const figure = (
         <View className="flex-row flex-wrap items-baseline gap-tight">
             {/*
@@ -254,6 +296,95 @@ function StatCard({
         </View>
     );
 
+    if (pending === true) {
+        return (
+            <View testID={`${testID}-loading`} className="flex-row items-center">
+                {/*
+                 * The figure's own line box with nothing in it. It holds the card at its
+                 * loaded height by the type ramp itself, so the placeholder cannot drift
+                 * from the figure it stands in for when the ramp moves.
+                 */}
+                <Text variant="display" aria-hidden>
+                    {NO_BREAK_SPACE}
+                </Text>
+                <Skeleton heightClassName="h-5" widthClassName="w-1/3" />
+            </View>
+        );
+    }
+    return pending === false ? <FadeIn>{figure}</FadeIn> : figure;
+}
+
+/**
+ * One column of the `strip` appearance: a small mark and the label as an eyebrow, the figure
+ * beneath in display type, the caption under that. No fill, border or cast — the hairline between
+ * columns is the strip's only line. A filter column is still one pressable target, tinted on hover
+ * like an admin card; the tint bleeds 8px past the text so the first column's figure stays on the
+ * page's start edge while it has room to show.
+ */
+function StripFigure({
+    card,
+    pending,
+    testID,
+}: {
+    readonly card: CatalogueStatCard;
+    readonly pending: boolean | undefined;
+    readonly testID: string;
+}) {
+    const tone = card.tone ?? 'default';
+
+    const body = (
+        <View className="flex-col gap-hair">
+            <View className="flex-row items-center gap-hair">
+                <Icon name={card.mark} size="sm" className={MARK_CLASS[tone]} />
+                <Text variant="micro" tone="secondary" numberOfLines={1}>
+                    {card.label}
+                </Text>
+            </View>
+            <FigureLine card={card} tone={tone} pending={pending} testID={testID} />
+            {card.caption === undefined ? null : (
+                <Text variant="caption" tone={CAPTION_TONE[tone]} numberOfLines={2}>
+                    {card.caption}
+                </Text>
+            )}
+        </View>
+    );
+
+    const classes = '-mx-2 rounded px-2 py-hair';
+
+    if (card.onPress === undefined) {
+        return (
+            <View testID={testID} className={classes}>
+                {body}
+            </View>
+        );
+    }
+
+    return (
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            accessibilityLabel={card.accessibilityLabel}
+            focusable
+            onPress={card.onPress}
+            className={`${classes} transition duration-normal ease-standard hover:bg-surface-sunken`}
+        >
+            {body}
+        </Pressable>
+    );
+}
+
+function StatCard({
+    card,
+    pending,
+    testID,
+}: {
+    readonly card: CatalogueStatCard;
+    readonly pending: boolean | undefined;
+    readonly testID: string;
+}) {
+    const tone = card.tone ?? 'default';
+
     return (
         <Card
             tone={CARD_TONE[tone]}
@@ -275,23 +406,7 @@ function StatCard({
                     <Icon name={card.mark} size="lg" className={MARK_CLASS[tone]} />
                 </View>
 
-                {pending === true ? (
-                    <View testID={`${testID}-loading`} className="flex-row items-center">
-                        {/*
-                         * The figure's own line box with nothing in it. It holds the card at its
-                         * loaded height by the type ramp itself, so the placeholder cannot drift
-                         * from the figure it stands in for when the ramp moves.
-                         */}
-                        <Text variant="display" aria-hidden>
-                            {NO_BREAK_SPACE}
-                        </Text>
-                        <Skeleton heightClassName="h-5" widthClassName="w-1/3" />
-                    </View>
-                ) : pending === false ? (
-                    <FadeIn>{figure}</FadeIn>
-                ) : (
-                    figure
-                )}
+                <FigureLine card={card} tone={tone} pending={pending} testID={testID} />
 
                 {card.caption === undefined ? null : (
                     <Text variant="body" tone={CAPTION_TONE[tone]} numberOfLines={2}>

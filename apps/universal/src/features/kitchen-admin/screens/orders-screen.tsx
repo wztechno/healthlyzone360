@@ -206,6 +206,7 @@ function Orders() {
             label: t('kitchen:ops.orders.columnPlaced'),
             width: 130,
             priority: 70,
+            grow: false,
             value: (row) => formatter.formatDate(row.placedAt),
             sort: (left, right, direction) => compareText(left.placedAt, right.placedAt, direction),
             render: (row) => (
