@@ -58,7 +58,7 @@ function BrandMark() {
             colors={gradients.accent.colours}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={{ width: 32, height: 32, borderRadius: 8 }}
+            style={{ width: 32, height: 32, borderRadius: 10 }}
         >
             <View className="h-full w-full items-center justify-center">
                 <RNText className="text-base font-bold text-content-on-canopy">
@@ -70,13 +70,13 @@ function BrandMark() {
 }
 
 /**
- * The top of the green module rail: empty. The logo lives once, in the white panel's brand block;
- * this keeps the block's height so the rail's module icons start where they did.
+ * The top of the forest module rail: the gradient mark, as the Kitchen Ops design draws it. The
+ * panel beside it carries the wordmark, so the logo appears once and the name once.
  */
 export function KitchenRailTop() {
     return (
-        <View testID="kitchen-rail-top" className="pb-2 pt-4">
-            <View className="h-8" />
+        <View testID="kitchen-rail-top" className="items-center pb-3 pt-4">
+            <BrandMark />
         </View>
     );
 }
@@ -85,16 +85,21 @@ export function KitchenBrandBlock() {
     const { t } = useTranslation();
 
     return (
-        <View testID="kitchen-rail-brand" className="flex-row items-center gap-2 px-4 pb-2 pt-4">
-            <BrandMark />
+        <View
+            testID="kitchen-rail-brand"
+            className="mx-3 flex-row items-center gap-2 border-b border-content-on-sidebar/10 px-2 pb-3 pt-4"
+        >
             <View className="min-w-0 flex-1">
                 <RNText
                     numberOfLines={1}
-                    className="text-base font-bold text-content-primary text-start"
+                    className="font-display text-base font-bold text-content-on-sidebar-active text-start"
                 >
                     {t('marketplace:brand.name')}
                 </RNText>
-                <RNText numberOfLines={1} className="text-xs text-content-secondary text-start">
+                <RNText
+                    numberOfLines={1}
+                    className="text-xs text-content-on-sidebar-muted text-start"
+                >
                     {t('kitchen:nav.railTitle')}
                 </RNText>
             </View>

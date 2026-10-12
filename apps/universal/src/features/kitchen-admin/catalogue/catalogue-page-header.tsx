@@ -1,6 +1,8 @@
-import { Inline, Text } from '@healthy360/design-system';
+import { Inline, useBreakpoint } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
+
+import { useKitchenPageName } from '../kitchen-ops-shell.tsx';
 
 /**
  * Parts one and two of a Catalogue list page (§4.1): the title with its single primary action.
@@ -9,23 +11,10 @@ import { View } from 'react-native';
  *                              [ Import ] [ + New ]       <- one 32px primary
  * ```
  *
- * Distinct from `KitchenPageHeader`, which opens every *other* kitchen route with a 24px heading,
- * a subtitle and a band variant. This one is the Catalogue's opening and is deliberately smaller:
- * the title is the `title` step (16/22), there is no subtitle, and the line under it is the stat
- * row rather than prose. A catalogue is a working surface someone returns to forty times a day, and
- * a third of the fold spent re-explaining what the page is, is a third of the fold not spent on
- * rows.
- *
- * ## The title is optional, and the Catalogue's own lists omit it
- *
- * `KitchenOpsShell` already draws a trail for every kitchen route, ending in the page's name, and
- * the nav rail already has it highlighted: a 16px heading between them is the third time the word
- * "Ingredients" appears in 40px of screen. The shell's trail is derived from the same entity
- * registry the hub cards and the `<Gate>`s read, so a crumb cannot name a page differently from the
- * card that led to it — which is why this header draws no trail of its own.
- *
- * With the title omitted the header is the actions row, which is what the design draws above the
- * stat cards. State a title for a screen the shell's trail cannot name on its own.
+ * The title is the mood board's H2 (30px Space Grotesk, 24 on a phone). A caller that states no
+ * title gets the kitchen family's name from the trail (`useKitchenPageName`), so a list opens on
+ * "Ingredients" without restating it — the crumb, the rail and the title all read the same entity
+ * registry, so they cannot disagree. State a title for a screen the trail cannot name on its own.
  *
  * One primary at most in `primaryAction`, and it is the page's only `md` (32px) control; everything
  * else on the page is `sm`. The `size` is the caller's to pass, because this component sets no
@@ -33,7 +22,7 @@ import { View } from 'react-native';
  * Catalogue's `sm` default.
  */
 export interface CataloguePageHeaderProps {
-    /** Omit on a list the shell's trail already names — see above. */
+    /** Omit on a list the shell's trail already names; the family's name is drawn instead. */
     readonly title?: string | undefined;
     /** The page's one primary. A 32px `Button`; anything more belongs in the toolbar. */
     readonly primaryAction?: ReactNode | undefined;
@@ -54,9 +43,14 @@ export function CataloguePageHeader({
     titleTestID,
     testID,
 }: CataloguePageHeaderProps) {
+    const pageName = useKitchenPageName();
+    const shown = title ?? pageName;
+    const { atLeast } = useBreakpoint();
+    const wide = atLeast('md');
+
     return (
         <View testID={testID} className="gap-hair">
-            <View className="flex-row items-center justify-between gap-tight">
+            <View className="flex-row flex-wrap items-center justify-between gap-snug">
                 {/*
                  * `flex-1` on the title column is the row's own container, which is the one case
                  * the no-stretch fence exempts (eslint.config.mjs, STRETCH_MESSAGE): it is what
@@ -65,11 +59,25 @@ export function CataloguePageHeader({
                  * actions still need something to push against.
                  */}
                 {/* eslint-disable-next-line no-restricted-syntax -- the title column *is* the row; see above. */}
-                <Inline space="xs" align="center" wrap className="min-w-0 flex-1">
-                    {title === undefined ? null : (
-                        <Text variant="title" testID={titleTestID ?? `${testID}-title`}>
-                            {title}
-                        </Text>
+                <Inline space="sm" align="center" wrap className="min-w-[200px] flex-1">
+                    {shown === undefined ? null : (
+                        /*
+                         * The mood board's H2 — 30px Space Grotesk, 24 on a phone. React Native's
+                         * `Text`, not the design system's, because it states its own size: a
+                         * caller's size on `Text` loses to the variant's in stylesheet order.
+                         */
+                        <RNText
+                            testID={titleTestID ?? `${testID}-title`}
+                            accessibilityRole="header"
+                            aria-level={1}
+                            className={
+                                wide
+                                    ? 'font-display text-role-title text-content-primary text-start'
+                                    : 'font-display text-2xl font-bold text-content-primary text-start'
+                            }
+                        >
+                            {shown}
+                        </RNText>
                     )}
                     {titleAside}
                 </Inline>

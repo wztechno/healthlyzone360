@@ -36,6 +36,15 @@
             "lowStock": "Low stock",
             "consumptionExceptions": "Stock gaps",
             "requirementShortfalls": "Short for the week"
+        },
+        "reviewBand": {
+            "eyebrow": "Review queue",
+            "title_one": "One record is waiting for review.",
+            "title_other": "{{count}} records are waiting for review.",
+            "body_one": "One is blocked and cannot be published until it is fixed.",
+            "body_other": "{{count}} are blocked and cannot be published until they are fixed.",
+            "bodyClear": "Nothing is blocked. Each one can be published once it is checked.",
+            "open": "Open the review queue"
         }
     },
     "nav": {

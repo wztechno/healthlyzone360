@@ -179,6 +179,18 @@ export function useKitchenTrailLeaf(leaf: string | null, onBack?: () => void): v
     }, [setTrail, leaf, hasBack]);
 }
 
+/**
+ * The name of the kitchen family the current route belongs to — "Ingredients", "Orders" — as the
+ * trail's family crumb spells it. The layout provides it; a page header reads it to draw the page
+ * title without restating it (2026-10-12: list pages carry the mood board's 30px title again).
+ * Undefined on the hub and outside the kitchen layout, which is every unit test.
+ */
+export const KitchenPageNameContext = createContext<string | undefined>(undefined);
+
+export function useKitchenPageName(): string | undefined {
+    return useContext(KitchenPageNameContext);
+}
+
 /** Holds the trail's leaf for everything under the kitchen layout — the top bar and the page. */
 export function KitchenTrailProvider({ children }: { readonly children: ReactNode }) {
     const [state, setTrail] = useState<{

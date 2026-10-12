@@ -8,6 +8,7 @@ import {
 } from '../../src/features/kitchen-admin/kitchen-chrome.tsx';
 import {
     KitchenOpsShell,
+    KitchenPageNameContext,
     KitchenTrail,
     KitchenTrailProvider,
     useKitchenTrail,
@@ -36,6 +37,7 @@ export default function KitchenLayout() {
 function KitchenAreaShell() {
     const navigation = useKitchenNavigation();
     const crumbs = useKitchenTrail();
+    const pageName = crumbs.find((crumb) => crumb.key !== 'hub' && crumb.key !== 'leaf')?.label;
 
     return (
         <AreaShell
@@ -49,9 +51,11 @@ function KitchenAreaShell() {
             topbarSearch={<KitchenPageSearch navigation={navigation} />}
             signOutInSidebar
         >
-            <KitchenOpsShell>
-                <Slot />
-            </KitchenOpsShell>
+            <KitchenPageNameContext.Provider value={pageName}>
+                <KitchenOpsShell>
+                    <Slot />
+                </KitchenOpsShell>
+            </KitchenPageNameContext.Provider>
         </AreaShell>
     );
 }

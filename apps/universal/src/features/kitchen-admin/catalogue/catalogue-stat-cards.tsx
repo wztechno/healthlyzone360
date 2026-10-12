@@ -1,7 +1,7 @@
-import { Card, FadeIn, Icon, Skeleton, Text } from '@healthy360/design-system';
+import { Card, FadeIn, Icon, Skeleton, Text, useBreakpoint } from '@healthy360/design-system';
 import type { CardTone, IconName, TextTone } from '@healthy360/design-system';
 import { cardWidth } from '@healthy360/design-tokens';
-import { Pressable, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 /**
  * Part three of a Catalogue list page, as cards. (The marks in the sketch are the native glyphs; the
@@ -100,7 +100,7 @@ const CAPTION_TONE: Readonly<Record<CatalogueStatTone, TextTone>> = {
  * disagree with the figure beneath it.
  */
 const MARK_CLASS: Readonly<Record<CatalogueStatTone, string>> = {
-    default: 'text-content-disabled',
+    default: 'text-content-secondary',
     brand: 'text-content-on-brand-subtle',
     warning: 'text-warning-strong',
     danger: 'text-danger-strong',
@@ -115,12 +115,44 @@ const MARK_CLASS: Readonly<Record<CatalogueStatTone, string>> = {
 const CARD_TONE: Readonly<Record<CatalogueStatTone, CardTone>> = {
     default: 'raised',
     brand: 'raised',
-    warning: 'warning',
+    warning: 'raised',
     danger: 'raised',
+};
+
+/**
+ * The caption's pill — the mood board's KPI footer. The card stays white whatever the tone; the
+ * state is spent on the figure's ink and on this pill, which says it again in words.
+ */
+const PILL_CLASS: Readonly<Record<CatalogueStatTone, string>> = {
+    default: 'bg-surface-sunken',
+    brand: 'bg-surface-brand-subtle',
+    warning: 'bg-warning-subtle',
+    danger: 'bg-danger-subtle',
+};
+
+const PILL_TEXT_CLASS: Readonly<Record<CatalogueStatTone, string>> = {
+    default: 'text-content-secondary',
+    brand: 'text-content-on-brand-subtle',
+    warning: 'text-warning-on-subtle',
+    danger: 'text-danger-on-subtle',
+};
+
+/** The mark's tile, in the tone's own soft fill. */
+const MARK_TILE_CLASS: Readonly<Record<CatalogueStatTone, string>> = {
+    default: 'bg-surface-sunken',
+    brand: 'bg-surface-brand-subtle',
+    warning: 'bg-warning-subtle',
+    danger: 'bg-danger-subtle',
 };
 
 /** A space the layout cannot collapse, so an otherwise empty line still takes its full height. */
 const NO_BREAK_SPACE = String.fromCharCode(0xa0);
+
+/**
+ * The narrowest a figure gets on a phone: two to a 343px row with the 12px gap between them, so
+ * five figures take three rows rather than five.
+ */
+const PHONE_CARD_MIN = 150;
 
 export interface CatalogueStatCardsProps {
     readonly cards: readonly CatalogueStatCard[];
@@ -166,6 +198,8 @@ export function CatalogueStatCards({
     appearance = 'cards',
     testID,
 }: CatalogueStatCardsProps) {
+    const { atLeast } = useBreakpoint();
+    const minWidth = atLeast('md') ? cardWidth.min : PHONE_CARD_MIN;
     if (appearance === 'strip') {
         return (
             <View testID={testID} className="flex-row flex-wrap items-stretch">
@@ -174,7 +208,7 @@ export function CatalogueStatCards({
                         key={card.key}
                         // eslint-disable-next-line no-restricted-syntax -- the cell *is* the strip's column, as in the card row below.
                         className={`flex-1 flex-col pe-4 ${index === 0 ? '' : 'border-s border-stroke-subtle ps-4'}`}
-                        style={{ minWidth: cardWidth.min }}
+                        style={{ minWidth }}
                     >
                         <StripFigure
                             card={card}
@@ -243,7 +277,7 @@ export function CatalogueStatCards({
                     key={card.key}
                     // eslint-disable-next-line no-restricted-syntax -- the cell *is* the row's column; see above.
                     className="flex-1 flex-col"
-                    style={{ minWidth: cardWidth.min }}
+                    style={{ minWidth }}
                 >
                     <StatCard
                         card={card}
@@ -289,7 +323,7 @@ function FigureLine({
              * one phrase at one size — ink, not size, separates the count from its noun.
              */}
             {card.unit === undefined ? null : (
-                <Text variant="display" tone="secondary">
+                <Text variant="body" tone="secondary">
                     {card.unit}
                 </Text>
             )}
@@ -395,23 +429,37 @@ function StatCard({
             testID={testID}
         >
             {/*
-             * One child, so `Card`'s own 8px gap between children never applies: these three lines
-             * are a single block at 4px.
+             * The mood board's KPI card: the figure first in 25px Space Grotesk, the label under
+             * it, the caption as a pill on the card's foot. One child, so `Card`'s own gap between
+             * children never applies.
              */}
-            <View className="flex-col gap-hair">
-                <View className="flex-row items-baseline justify-between gap-tight">
-                    <Text variant="title" tone="secondary" numberOfLines={1}>
-                        {card.label}
-                    </Text>
-                    <Icon name={card.mark} size="lg" className={MARK_CLASS[tone]} />
+            <View className="min-h-[76px] flex-col">
+                <View className="flex-row items-start justify-between gap-tight">
+                    <FigureLine card={card} tone={tone} pending={pending} testID={testID} />
+                    <View
+                        className={`h-8 w-8 items-center justify-center rounded-lg ${MARK_TILE_CLASS[tone]}`}
+                    >
+                        <Icon name={card.mark} size="md" className={MARK_CLASS[tone]} />
+                    </View>
                 </View>
-
-                <FigureLine card={card} tone={tone} pending={pending} testID={testID} />
+                <RNText
+                    numberOfLines={1}
+                    className="mt-0.5 text-xs text-content-secondary text-start"
+                >
+                    {card.label}
+                </RNText>
 
                 {card.caption === undefined ? null : (
-                    <Text variant="body" tone={CAPTION_TONE[tone]} numberOfLines={2}>
-                        {card.caption}
-                    </Text>
+                    <View className="mt-auto flex-row pt-2.5">
+                        <View className={`rounded-full px-2.5 py-1 ${PILL_CLASS[tone]}`}>
+                            <RNText
+                                numberOfLines={1}
+                                className={`text-role-micro text-start ${PILL_TEXT_CLASS[tone]}`}
+                            >
+                                {card.caption}
+                            </RNText>
+                        </View>
+                    </View>
                 )}
             </View>
         </Card>
