@@ -480,6 +480,15 @@ async function countAcrossPages<T>(
  * one `refetch`. Counts walk every page ({@link countAcrossPages}) because a live kitchen library
  * routinely exceeds one cursor page.
  */
+/**
+ * The ingredient library as the Ingredients page lists it: food in the `ING-` series. Without it
+ * the hub counted packaging and the sauce, dressing and resale twins too — 500 beside the page's 306.
+ */
+const LIBRARY_ONLY = {
+    excludeCategoryCode: PACKAGING_CATEGORY_CODE,
+    referenceSeries: 'ING-',
+} as const;
+
 export function useIngredientSummaryQuery(enabled = true): UseQueryResult<FamilySummary> {
     const { repositories } = useRepositoryContext();
 
@@ -492,12 +501,14 @@ export function useIngredientSummaryQuery(enabled = true): UseQueryResult<Family
                 countAcrossPages((cursor) =>
                     repositories.kitchenAdmin.listIngredients({
                         limit: SUMMARY_PAGE_LIMIT,
+                        ...LIBRARY_ONLY,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
                 countAcrossPages((cursor) =>
                     repositories.kitchenAdmin.listIngredients({
                         limit: SUMMARY_PAGE_LIMIT,
+                        ...LIBRARY_ONLY,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -505,6 +516,7 @@ export function useIngredientSummaryQuery(enabled = true): UseQueryResult<Family
                 countAcrossPages((cursor) =>
                     repositories.kitchenAdmin.listIngredients({
                         limit: SUMMARY_PAGE_LIMIT,
+                        ...LIBRARY_ONLY,
                         statuses: ['review_required'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
