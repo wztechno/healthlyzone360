@@ -1595,6 +1595,12 @@ export interface PriceListAdminFilter extends CursorPageRequest, OffsetPageReque
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly channels?: readonly SalesChannel[] | undefined;
     readonly currency?: CurrencyCode | undefined;
+    /**
+     * The index alone: `entries` come back empty, and `channels` as the list's scope implies,
+     * instead of one full read per list.
+     * For a caller that needs only the lists — the review badge, which every kitchen page draws.
+     */
+    readonly withoutEntries?: boolean | undefined;
 }
 
 export interface SetPriceListEntriesRequest extends LockedRequest {

@@ -1228,6 +1228,39 @@ export function useProductCategoriesQuery(
     });
 }
 
+/**
+ * How many drafts one sold kind holds — the only figure the hub's Catalogue drafts tile reads for
+ * sauces, dressings and meals. One count each, where the full summary made four: the tile alone
+ * was twenty requests.
+ */
+export function useCatalogueDraftCountQuery(
+    kind: 'sauce' | 'dressing' | 'meal',
+    enabled = true,
+): UseQueryResult<number | null> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey:
+            kind === 'meal'
+                ? queryKeys.kitchenAdmin.meals({ derive: 'drafts' })
+                : queryKeys.kitchenAdmin.products({ derive: 'drafts', itemType: kind }),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return countAcrossPages((cursor) => {
+                const page = {
+                    limit: SUMMARY_PAGE_LIMIT,
+                    statuses: ['draft'] as const,
+                    ...(cursor === undefined ? {} : { cursor }),
+                };
+                return kind === 'meal'
+                    ? repositories.kitchenAdmin.listMeals(page)
+                    : repositories.kitchenAdmin.listProducts({ ...page, itemType: kind });
+            });
+        },
+    });
+}
+
 /** The product counts behind the hub card, in one query. */
 export function useProductSummaryQuery(
     enabled = true,
@@ -2862,7 +2895,12 @@ export function useReviewQueueQuery(enabled = true): UseQueryResult<ReviewQueueS
                 repositories.kitchenAdmin.listProducts({ ...quarantine }),
                 repositories.kitchenAdmin.listMeals({ ...quarantine }),
                 repositories.kitchenAdmin.listPlans({ ...quarantine }),
-                repositories.kitchenAdmin.listPriceLists({ limit }),
+                /*
+                 * The index only. The queue's one entry-level reason, an inconsistent price, is a
+                 * row the database refuses to store (`price_list_items_confirmed_amount_check`), so
+                 * a full read per list — on every page, under the sidebar badge — bought nothing.
+                 */
+                repositories.kitchenAdmin.listPriceLists({ limit, withoutEntries: true }),
             ]);
 
             const pages = [
