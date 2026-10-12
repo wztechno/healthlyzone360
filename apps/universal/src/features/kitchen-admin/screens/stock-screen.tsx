@@ -63,9 +63,15 @@ import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { useRecordUrl } from '../use-record-url.ts';
+import type { OpenRecord } from '../use-record-url.ts';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { SideRailLayout } from '../side-rail-layout.tsx';
+
+/** The two ways a stock record opens in place of the list, as the URL names them. */
+const STOCK_RECORD_KEYS = ['view', 'adjust'] as const;
+type StockRecordKey = (typeof STOCK_RECORD_KEYS)[number];
 
 /**
  * The photograph of what is on the shelf: the ingredient's own, or the product's.
@@ -196,14 +202,33 @@ function Stock() {
         key: null,
         page: 1,
     });
-    const [viewing, setViewing] = useState<StockRow | null>(null);
-    const [editing, setEditing] = useState<StockRow | null>(null);
+    /**
+     * The record open in place of the list — its view, or its adjustment editor — by id, mirrored
+     * into the URL (`?view=` / `?adjust=`) so the browser's Back returns to the list and a link
+     * opens the record. The row is looked up from the live data, so a record reached by link opens
+     * once the book has loaded.
+     */
+    const [open, setOpen] = useState<OpenRecord<StockRecordKey> | null>(null);
+    useRecordUrl(STOCK_RECORD_KEYS, open, setOpen);
 
     const levelByItem = useMemo(() => {
         const byItem = new Map<string, StockLevel>();
         for (const level of levels.data ?? []) byItem.set(String(level.stockItemId), level);
         return byItem;
     }, [levels.data]);
+
+    const openRow = useMemo((): StockRow | null => {
+        if (open === null) return null;
+        const item = (items.data ?? []).find((candidate) => String(candidate.id) === open.id);
+        if (item === undefined) return null;
+        const level = levelByItem.get(open.id) ?? null;
+        return { item, level, state: levelState(level) };
+    }, [open, items.data, levelByItem]);
+    const viewing = open?.key === 'view' ? openRow : null;
+    const editing = open?.key === 'adjust' ? openRow : null;
+    const view = (row: StockRow) => {
+        setOpen({ key: 'view', id: String(row.item.id) });
+    };
 
     // The server's ranking — stocked first, then ever-moved, then by name — survives because
     // `filter` preserves order.
@@ -240,7 +265,7 @@ function Stock() {
 
     const resetPage = () => {
         setPaging({ key: null, page: 1 });
-        setViewing(null);
+        setOpen(null);
     };
 
     const quantityText = (row: StockRow) =>
@@ -503,8 +528,7 @@ function Stock() {
     }
 
     const openEditor = (row: StockRow) => {
-        setViewing(null);
-        setEditing(row);
+        setOpen({ key: 'adjust', id: String(row.item.id) });
     };
 
     const openHistory = (row: StockRow) => {
@@ -525,7 +549,7 @@ function Stock() {
                 icon: CATALOGUE_ROW_ICONS.view,
                 testID: `${testID}-view`,
                 onSelect: () => {
-                    setViewing(row);
+                    view(row);
                 },
             },
             ...(canManage
@@ -564,7 +588,7 @@ function Stock() {
             <StockMovementEditor
                 row={{ item: editing.item, level, state: levelState(level) }}
                 onDone={() => {
-                    setEditing(null);
+                    setOpen(null);
                 }}
                 onReload={() => {
                     void items.refetch();
@@ -608,7 +632,7 @@ function Stock() {
                     />
                 }
                 onBack={() => {
-                    setViewing(null);
+                    setOpen(null);
                 }}
                 title={viewing.item.nameEn}
                 kind={t('kitchen:ops.stock.viewKind')}
@@ -763,7 +787,7 @@ function Stock() {
                         columns={controls.columns}
                         rows={visible}
                         rowKey={(row) => String(row.item.id)}
-                        onRowPress={canManage ? openEditor : setViewing}
+                        onRowPress={canManage ? openEditor : view}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={rowActions}
                     />
@@ -774,7 +798,7 @@ function Stock() {
                         totalPages={totalPages}
                         onPageChange={(next) => {
                             setPaging({ key: controls.key, page: next });
-                            setViewing(null);
+                            setOpen(null);
                         }}
                         label={t('kitchen:catalogue.pagerLabel')}
                     />
