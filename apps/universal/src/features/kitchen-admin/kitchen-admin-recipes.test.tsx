@@ -2267,6 +2267,52 @@ describe('creating a recipe', () => {
         expect(created.currentVersion.versionNumber).toBe(1);
         expect(created.meta.status).toBe('draft');
     });
+
+    it('makes one recipe however often Save is pressed while the host is still linking it', async () => {
+        const created = recipe({
+            ordinal: 10,
+            name: 'Lentil soup',
+            currentVersion: recipeVersion({
+                recipeOrdinal: 10,
+                overrides: { lines: [], allergens: [] },
+            }),
+        });
+        // A host that is still creating the meal listing: it has been told, and has not navigated.
+        const onCreated = jest.fn();
+
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe="new" onCreated={onCreated} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        listIngredients: ingredientListing(() => LIBRARY),
+                        nextReference: async () => 'RC-0011',
+                        createRecipe: async () => created,
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-recipe-name-en-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'Lentil soup');
+        });
+        await openTab('sheet');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
+        });
+        await waitFor(() => {
+            expect(onCreated).toHaveBeenCalledTimes(1);
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
+        });
+
+        expect(repositories.kitchenAdmin.createRecipe).toHaveBeenCalledTimes(1);
+        expect(onCreated).toHaveBeenCalledTimes(1);
+    });
 });
 
 /* ------------------------------------------------------------------------------------------------

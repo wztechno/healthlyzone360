@@ -48,7 +48,7 @@ import { coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
 import type { MeasureUnit, NutritionFacts } from '@healthy360/nutrition';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -623,6 +623,21 @@ function RecipeEditor({
     const [showPublish, setShowPublish] = useState(false);
     const [showRetire, setShowRetire] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    /**
+     * A create in flight, from the press until the page has moved on.
+     *
+     * The mutations' own `isPending` drops between the recipe's writes and the host's `onCreated`
+     * (which creates the meal listing before it navigates), and a second press in that gap made a
+     * second recipe and a second listing. The ref blocks a press in the same tick; the state keeps
+     * the button busy. Released only on failure — on success the page leaves.
+     */
+    const creatingRef = useRef(false);
+    const [creatingNow, setCreatingNow] = useState(false);
+    // The router may keep this instance when `new` becomes the created id; start clean either way.
+    useEffect(() => {
+        creatingRef.current = false;
+        setCreatingNow(false);
+    }, [recipe]);
 
     const data = record.data;
     const serverKey =
@@ -1275,6 +1290,9 @@ function RecipeEditor({
             typeof value === 'number' && currency !== null ? { amount: value, currency } : null;
 
         if (isCreating) {
+            if (creatingRef.current) return;
+            creatingRef.current = true;
+            setCreatingNow(true);
             /*
              * Create, then immediately write whatever was drafted on the other tabs.
              *
@@ -1353,6 +1371,8 @@ function RecipeEditor({
                     router.replace(`/kitchen/recipes/${String(created.id)}` as never);
                 },
                 (error: unknown) => {
+                    creatingRef.current = false;
+                    setCreatingNow(false);
                     setSaveError(toFailure(error)?.message ?? t('kitchen:recipes.saveFailed'));
                 },
             );
@@ -2880,8 +2900,13 @@ function RecipeEditor({
                     <Button
                         testID="kitchen-recipe-editor-screen-save"
                         label={t(isEditable ? 'kitchen:common.saveDraft' : 'kitchen:common.save')}
-                        loading={create.isPending || update.isPending || setLines.isPending}
-                        disabled={!canManage || (!isEditable && !shelfLifeChanged)}
+                        loading={
+                            creatingNow ||
+                            create.isPending ||
+                            update.isPending ||
+                            setLines.isPending
+                        }
+                        disabled={creatingNow || !canManage || (!isEditable && !shelfLifeChanged)}
                         onPress={attemptSave}
                     />
                 }
