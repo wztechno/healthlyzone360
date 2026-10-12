@@ -1269,11 +1269,27 @@ export function useProductSummaryQuery(
 /* ── product writes ──────────────────────────────────────────────────────────────────────────── */
 
 /** Writes the record into its detail entry and invalidates the workspace root. */
+/**
+ * The channel-prices section on the same page carries the item's lock version too; a meal or
+ * product write moved it, so the next price save must not send the old one.
+ */
+function followLockVersion(
+    queryClient: ReturnType<typeof useQueryClient>,
+    itemId: string,
+    lockVersion: number,
+): void {
+    queryClient.setQueryData<ItemChannelPrices>(
+        queryKeys.kitchenAdmin.itemChannelPrices(itemId),
+        (prices) => (prices === undefined ? undefined : { ...prices, lockVersion }),
+    );
+}
+
 function useProductWriteEffects(): (product: ProductAdmin) => void {
     const queryClient = useQueryClient();
 
     return (product: ProductAdmin) => {
         queryClient.setQueryData(queryKeys.kitchenAdmin.product(product.id), product);
+        followLockVersion(queryClient, String(product.id), product.meta.lockVersion);
         void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
     };
 }
@@ -1438,6 +1454,24 @@ export function useSetItemChannelPricesMutation(): UseMutationResult<
             repositories.kitchenAdmin.setItemChannelPrices(itemId, request),
         onSuccess: (prices, { itemId }) => {
             queryClient.setQueryData(queryKeys.kitchenAdmin.itemChannelPrices(itemId), prices);
+            // The write moved the item's lock version. A save beside it on the same page (service
+            // days, the details) reads the meal or product record, so move that record's version
+            // now rather than after the refetch below lands — a second save made in that gap was
+            // refused as "someone else changed this record".
+            const bump = <T extends { readonly meta: { readonly lockVersion: number } }>(
+                record: T | undefined,
+            ): T | undefined =>
+                record === undefined
+                    ? undefined
+                    : { ...record, meta: { ...record.meta, lockVersion: prices.lockVersion } };
+            queryClient.setQueryData<MealAdmin>(
+                queryKeys.kitchenAdmin.meal(itemId as MealId),
+                bump,
+            );
+            queryClient.setQueryData<ProductAdmin>(
+                queryKeys.kitchenAdmin.product(itemId as ProductId),
+                bump,
+            );
             void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
         },
     });
@@ -2131,6 +2165,7 @@ function useMealWriteEffects(): (meal: MealAdmin) => void {
 
     return (meal: MealAdmin) => {
         queryClient.setQueryData(queryKeys.kitchenAdmin.meal(meal.id), meal);
+        followLockVersion(queryClient, String(meal.id), meal.meta.lockVersion);
         void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
         // The consumer roots read the same catalogue. Publication is the one write in this
         // workspace whose effect is visible outside it, so the marketplace cache is told.
