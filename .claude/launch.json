@@ -65,6 +65,24 @@
             "runtimeExecutable": "php",
             "runtimeArgs": ["apps/api/artisan", "serve", "--host", "127.0.0.1", "--port", "8080"],
             "port": 8080
+        },
+        {
+            "name": "universal-web-restyle",
+            "runtimeExecutable": "pnpm",
+            "runtimeArgs": [
+                "--filter",
+                "universal",
+                "exec",
+                "node",
+                "--max-old-space-size=4096",
+                "../../node_modules/expo/bin/cli",
+                "start",
+                "--web",
+                "--clear",
+                "--port",
+                "8097"
+            ],
+            "port": 8097
         }
     ]
 }
