@@ -1,6 +1,6 @@
 import type { ProductionOrderLine } from '@healthy360/api-client/contracts';
-import { Heading, Stack, Table, Text } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
+import { DataList, Heading, Stack, Text } from '@healthy360/design-system';
+import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
@@ -64,33 +64,33 @@ export function BatchLinesPanel({
             noValue,
         );
 
-    const columns: readonly TableColumn<ProductionOrderLine>[] = [
+    const columns: readonly DataListColumn<ProductionOrderLine>[] = [
         {
             key: 'item',
-            header: t('kitchen:ops.production.columnItem'),
-            rowHeader: true,
-            flex: 3,
-            render: (line) => (
-                <Stack space="none">
-                    <Text variant="bodyStrong" numberOfLines={1}>
-                        {line.stockItemNameEn ?? noValue}
-                    </Text>
-                    <Text variant="caption" tone="secondary" numberOfLines={1}>
-                        {t(
-                            line.lineKind === 'packaging'
-                                ? 'kitchen:ops.production.lineKindPackaging'
-                                : 'kitchen:ops.production.lineKindIngredient',
-                        )}
-                        {line.stockItemCode === null ? '' : ` · ${line.stockItemCode}`}
-                    </Text>
-                </Stack>
-            ),
+            label: t('kitchen:ops.production.columnItem'),
+            width: 200,
+            priority: 100,
+            // The name alone: a long one ends in an ellipsis and reads whole on hover.
+            render: (line) => <Text variant="strong">{line.stockItemNameEn ?? noValue}</Text>,
+        },
+        {
+            key: 'kind',
+            label: t('kitchen:ops.production.columnKind'),
+            width: 104,
+            priority: 40,
+            value: (line) =>
+                t(
+                    line.lineKind === 'packaging'
+                        ? 'kitchen:ops.production.lineKindPackaging'
+                        : 'kitchen:ops.production.lineKindIngredient',
+                ),
         },
         {
             key: 'required',
             width: 104,
-            header: t('kitchen:ops.production.planRequired'),
-            numeric: true,
+            label: t('kitchen:ops.production.planRequired'),
+            priority: 90,
+            mono: true,
             render: (line) => (
                 <Text variant="mono">{quantity(line.requiredQuantity, line.unitCode)}</Text>
             ),
@@ -98,8 +98,9 @@ export function BatchLinesPanel({
         {
             key: 'claimed',
             width: 104,
-            header: t('kitchen:ops.production.columnClaimed'),
-            numeric: true,
+            label: t('kitchen:ops.production.columnClaimed'),
+            priority: 85,
+            mono: true,
             render: (line) => (
                 <Text
                     variant="mono"
@@ -116,9 +117,9 @@ export function BatchLinesPanel({
                   {
                       key: 'used',
                       width: 104,
-                      header: t('kitchen:ops.production.columnUsed'),
-                      numeric: true,
-                      primary: true,
+                      label: t('kitchen:ops.production.columnUsed'),
+                      priority: 95,
+                      mono: true,
                       render: (line: ProductionOrderLine) => (
                           <Text variant="mono">
                               {quantity(line.consumedQuantity, line.unitCode)}
@@ -128,8 +129,9 @@ export function BatchLinesPanel({
                   {
                       key: 'wasted',
                       width: 104,
-                      header: t('kitchen:ops.production.columnWasted'),
-                      numeric: true,
+                      label: t('kitchen:ops.production.columnWasted'),
+                      priority: 80,
+                      mono: true,
                       render: (line: ProductionOrderLine) => (
                           <Text
                               variant="mono"
@@ -139,15 +141,16 @@ export function BatchLinesPanel({
                           </Text>
                       ),
                   },
-              ] satisfies readonly TableColumn<ProductionOrderLine>[])
+              ] satisfies readonly DataListColumn<ProductionOrderLine>[])
             : []),
         ...(costsVisible
             ? ([
                   {
                       key: 'unitCost',
                       width: 104,
-                      header: t('kitchen:ops.production.columnUnitCost'),
-                      numeric: true,
+                      label: t('kitchen:ops.production.columnUnitCost'),
+                      priority: 50,
+                      mono: true,
                       render: (line: ProductionOrderLine) => {
                           // The settled figure once there is one, the estimate until then. An
                           // uncosted line is the em dash and never a zero: a zero reads as free,
@@ -167,7 +170,7 @@ export function BatchLinesPanel({
                           );
                       },
                   },
-              ] satisfies readonly TableColumn<ProductionOrderLine>[])
+              ] satisfies readonly DataListColumn<ProductionOrderLine>[])
             : []),
     ];
 
@@ -176,14 +179,13 @@ export function BatchLinesPanel({
             {headless ? null : (
                 <Heading level={2}>{t('kitchen:ops.production.headingLines')}</Heading>
             )}
-            <Table<ProductionOrderLine>
+            <DataList<ProductionOrderLine>
                 testID={`${testID}-table`}
-                caption={t('kitchen:ops.production.headingLines')}
-                captionHidden
+                label={t('kitchen:ops.production.headingLines')}
                 columns={columns}
                 rows={rows}
                 rowKey={(line) => line.id}
-                rowSize="sm"
+                density="sm"
             />
         </Stack>
     );

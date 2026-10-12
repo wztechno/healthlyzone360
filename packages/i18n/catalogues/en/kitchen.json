@@ -1032,6 +1032,7 @@
             "planIngredientsHeading": "Ingredients",
             "columnItem": "Item",
             "columnClaimed": "Claimed",
+            "columnKind": "Kind",
             "columnUsed": "Used",
             "columnWasted": "Wasted",
             "columnUnitCost": "Unit cost",
