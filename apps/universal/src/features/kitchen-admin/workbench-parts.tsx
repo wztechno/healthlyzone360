@@ -9,10 +9,11 @@ import { View } from 'react-native';
  */
 
 /**
- * A section's opening: a 13px upper heading on a hairline, an optional quiet aside after it.
+ * A section's opening: the 16px card title, an optional quiet aside after it.
  *
- * The rule is *above* for a family section (it separates stacked groups) and *below* for a chart
- * (it sits over the drawing) — `rule` states which, so both shapes come from one component.
+ * A chart sits in its own white card (Kitchen Ops sample), so the default (`below`) draws no rule —
+ * the card's edge already frames the drawing. `above` keeps the hairline for a family section,
+ * where it separates stacked groups on the page.
  */
 export function WorkbenchSectionHeading({
     title,
@@ -29,17 +30,11 @@ export function WorkbenchSectionHeading({
         <View
             className={
                 rule === 'above'
-                    ? 'flex-row flex-wrap items-baseline gap-tight border-t border-stroke-subtle pb-1.5 pt-snug'
-                    : 'flex-row flex-wrap items-baseline gap-tight border-b border-stroke-subtle pb-1.5'
+                    ? 'flex-row flex-wrap items-baseline gap-tight border-t border-stroke-subtle pt-snug'
+                    : 'flex-row flex-wrap items-baseline gap-tight'
             }
         >
-            <Text
-                variant="section"
-                accessibilityRole="header"
-                aria-level={2}
-                className="uppercase tracking-wide"
-                testID={testID}
-            >
+            <Text variant="section" accessibilityRole="header" aria-level={2} testID={testID}>
                 {title}
             </Text>
             {typeof aside === 'string' ? (

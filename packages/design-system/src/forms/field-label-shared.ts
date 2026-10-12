@@ -41,7 +41,10 @@ export interface FieldLabelProps {
  * `navigation/tabs.tsx`.
  */
 export function fieldLabelClassName(density: Density, disabled: boolean): string {
-    const base = density === 'compact' ? 'text-role-caption font-medium' : 'text-sm font-medium';
+    // The kitchen takes the mood board's label: 12.5/600 in the secondary ink.
+    if (density === 'compact') {
+        return `text-role-label text-start ${disabled ? 'text-content-disabled' : 'text-content-secondary'}`;
+    }
 
-    return `${base} text-start ${disabled ? 'text-content-disabled' : 'text-content-primary'}`;
+    return `text-sm font-medium text-start ${disabled ? 'text-content-disabled' : 'text-content-primary'}`;
 }

@@ -56,6 +56,7 @@ module.exports = {
           "inverse": "rgb(var(--h360-color-surface-inverse) / <alpha-value>)",
           "brand": "rgb(var(--h360-color-brand-surface) / <alpha-value>)",
           "brand-subtle": "rgb(var(--h360-color-brand-surface-subtle) / <alpha-value>)",
+          "brand-strong": "rgb(var(--h360-color-brand-surface-strong) / <alpha-value>)",
           "accent": "rgb(var(--h360-color-accent-surface) / <alpha-value>)",
           "accent-subtle": "rgb(var(--h360-color-accent-subtle) / <alpha-value>)",
           "canopy": "rgb(var(--h360-color-surface-canopy) / <alpha-value>)",
@@ -70,6 +71,7 @@ module.exports = {
           "inverse": "rgb(var(--h360-color-text-inverse) / <alpha-value>)",
           "on-brand": "rgb(var(--h360-color-text-on-brand) / <alpha-value>)",
           "on-brand-subtle": "rgb(var(--h360-color-on-brand-surface-subtle) / <alpha-value>)",
+          "on-brand-strong": "rgb(var(--h360-color-on-brand-surface-strong) / <alpha-value>)",
           "on-accent": "rgb(var(--h360-color-on-accent-surface) / <alpha-value>)",
           "on-accent-subtle": "rgb(var(--h360-color-on-accent-subtle) / <alpha-value>)",
           "on-canopy": "rgb(var(--h360-color-on-canopy) / <alpha-value>)",
@@ -160,15 +162,15 @@ module.exports = {
         "loose": "24px"
       },
       "padding": {
-        "control-xs": "6px",
-        "control-sm": "8px",
-        "control-md": "10px",
-        "control-lg": "14px"
+        "control-xs": "8px",
+        "control-sm": "14px",
+        "control-md": "18px",
+        "control-lg": "20px"
       },
       "gap": {
-        "control-xs": "4px",
-        "control-sm": "6px",
-        "control-md": "6px",
+        "control-xs": "6px",
+        "control-sm": "8px",
+        "control-md": "8px",
         "control-lg": "8px"
       },
       "borderRadius": {
@@ -176,6 +178,7 @@ module.exports = {
         "xs": "2px",
         "sm": "4px",
         "DEFAULT": "8px",
+        "control": "10px",
         "lg": "12px",
         "panel": "14px",
         "xl": "16px",
@@ -267,66 +270,74 @@ module.exports = {
           "58px"
         ],
         "role-micro": [
-          "10px",
+          "11.5px",
           {
-            "lineHeight": "14px",
+            "lineHeight": "16px",
+            "letterSpacing": "0px",
+            "fontWeight": "700"
+          }
+        ],
+        "role-label": [
+          "12.5px",
+          {
+            "lineHeight": "18px",
             "letterSpacing": "0px",
             "fontWeight": "600"
           }
         ],
         "role-caption": [
-          "11px",
-          {
-            "lineHeight": "16px",
-            "letterSpacing": "0px",
-            "fontWeight": "400"
-          }
-        ],
-        "role-body": [
-          "12px",
+          "13px",
           {
             "lineHeight": "18px",
-            "letterSpacing": "0px",
-            "fontWeight": "400"
-          }
-        ],
-        "role-label": [
-          "12px",
-          {
-            "lineHeight": "16px",
             "letterSpacing": "0px",
             "fontWeight": "500"
           }
         ],
-        "role-strong": [
-          "13px",
+        "role-body": [
+          "13.5px",
           {
-            "lineHeight": "18px",
+            "lineHeight": "20px",
+            "letterSpacing": "0px",
+            "fontWeight": "400"
+          }
+        ],
+        "role-strong": [
+          "14px",
+          {
+            "lineHeight": "20px",
             "letterSpacing": "0px",
             "fontWeight": "600"
           }
         ],
         "role-section": [
-          "13px",
-          {
-            "lineHeight": "18px",
-            "letterSpacing": "0px",
-            "fontWeight": "600"
-          }
-        ],
-        "role-title": [
           "16px",
           {
             "lineHeight": "22px",
-            "letterSpacing": "-0.16px",
-            "fontWeight": "600"
+            "letterSpacing": "-0.32px",
+            "fontWeight": "700"
+          }
+        ],
+        "role-heading": [
+          "21px",
+          {
+            "lineHeight": "28px",
+            "letterSpacing": "-0.42px",
+            "fontWeight": "700"
           }
         ],
         "role-display": [
-          "20px",
+          "25px",
           {
-            "lineHeight": "26px",
-            "letterSpacing": "-0.3px",
+            "lineHeight": "30px",
+            "letterSpacing": "-0.5px",
+            "fontWeight": "700"
+          }
+        ],
+        "role-title": [
+          "30px",
+          {
+            "lineHeight": "36px",
+            "letterSpacing": "-0.6px",
             "fontWeight": "700"
           }
         ]
@@ -407,31 +418,31 @@ module.exports = {
       },
       "minHeight": {
         "touch": "44px",
-        "control-xs": "24px",
-        "control-sm": "28px",
-        "control-md": "32px",
-        "control-lg": "36px",
-        "row-sm": "28px",
-        "row-md": "32px",
-        "row-lg": "36px"
+        "control-xs": "28px",
+        "control-sm": "36px",
+        "control-md": "40px",
+        "control-lg": "44px",
+        "row-sm": "36px",
+        "row-md": "44px",
+        "row-lg": "52px"
       },
       "height": {
-        "control-xs": "24px",
-        "control-sm": "28px",
-        "control-md": "32px",
-        "control-lg": "36px",
-        "row-sm": "28px",
-        "row-md": "32px",
-        "row-lg": "36px",
-        "icon-xs": "12px",
-        "icon-sm": "14px",
+        "control-xs": "28px",
+        "control-sm": "36px",
+        "control-md": "40px",
+        "control-lg": "44px",
+        "row-sm": "36px",
+        "row-md": "44px",
+        "row-lg": "52px",
+        "icon-xs": "14px",
+        "icon-sm": "16px",
         "icon-md": "16px",
         "icon-lg": "18px"
       },
       "width": {
         "field": "280px",
-        "icon-xs": "12px",
-        "icon-sm": "14px",
+        "icon-xs": "14px",
+        "icon-sm": "16px",
         "icon-md": "16px",
         "icon-lg": "18px"
       },

@@ -479,7 +479,6 @@ function RecipesList() {
                         rows={list.rows}
                         rowKey={(row) => String(row.id)}
                         // Fixed, not switchable: the S/M/L control is gone.
-                        density="sm"
                         onRowPress={(row) => {
                             list.openEditor(String(row.id));
                         }}
@@ -618,7 +617,7 @@ function RecipeKindStrip({
          */
         <View
             testID="kitchen-recipes-kind-card"
-            className="rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
+            className="rounded-panel border border-stroke-subtle bg-surface-raised p-tight shadow-elevation-1"
         >
             <SegmentedControl<RecipeKind | 'all'>
                 testID="kitchen-recipes-kind"

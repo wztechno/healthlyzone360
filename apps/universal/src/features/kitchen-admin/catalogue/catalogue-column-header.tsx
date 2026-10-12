@@ -1,8 +1,8 @@
-import { Icon, Menu, Text, cx } from '@healthy360/design-system';
+import { Icon, Menu, cx } from '@healthy360/design-system';
 import type { DataListColumn, MenuSection } from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 /**
  * One column header, with its sort-and-filter menu — §4.3, drawn so the affordance is visible
@@ -129,19 +129,27 @@ export function CatalogueColumnHeader({
     const arrow = (
         <Icon
             name={arrowDown ? 'arrowDown' : 'arrowUp'}
-            // On the header's green ground: the brand ink, full strength on the sorted column.
+            // On the header's quiet ground: the brand ink on the sorted column, faint elsewhere.
             className={
-                arrowInk ? 'text-content-primary' : 'text-content-on-brand-subtle opacity-60'
+                arrowInk ? 'text-content-on-brand-subtle' : 'text-content-secondary opacity-50'
             }
             testID={active ? `${testID}-sorted` : `${testID}-affordance`}
         />
     );
 
-    // `strong`: 13px at 600 — a column's name, set heavier and larger than the 12px cells under it.
+    // The mood board's eyebrow — the same voice as a plain `DataList` header — and the full ink
+    // on the column the list is sorted or filtered by. React Native's `Text`: it states its own
+    // size and ink, which the design system's `Text` would let its variant override.
     const labelText = (
-        <Text variant="strong" tone={active || filtered ? 'primary' : 'brand'}>
+        <RNText
+            numberOfLines={1}
+            className={cx(
+                'text-role-micro uppercase tracking-[0.08em]',
+                active || filtered ? 'text-content-primary' : 'text-content-secondary',
+            )}
+        >
             {label}
-        </Text>
+        </RNText>
     );
 
     const className = cx('flex-row items-center gap-tight', JUSTIFY_CLASS[align ?? 'start']);

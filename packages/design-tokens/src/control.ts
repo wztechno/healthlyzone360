@@ -22,27 +22,28 @@ export const CONTROL_SIZES = ['xs', 'sm', 'md', 'lg'] as const;
 export type ControlSize = (typeof CONTROL_SIZES)[number];
 
 /**
- * Control heights, in dp. The Catalogue default is `sm`; `md` is a page's one primary action.
- * `lg` is unused in admin and exists for the customer surfaces.
+ * Control heights, in dp. The Catalogue default is `sm`; `md` is a page's one primary action and
+ * every text input. The "Balanced" density the owner chose on 2026-10-12: roomier than the old
+ * 28/32 brief, no taller than the customer app's 44px touch floor.
  */
 export const controlHeight: Readonly<Record<ControlSize, number>> = {
-    xs: 24,
-    sm: 28,
-    md: 32,
-    lg: 36,
+    xs: 28,
+    sm: 36,
+    md: 40,
+    lg: 44,
 };
 
 export const controlPaddingX: Readonly<Record<ControlSize, number>> = {
-    xs: 6,
-    sm: 8,
-    md: 10,
-    lg: 14,
+    xs: 8,
+    sm: 14,
+    md: 18,
+    lg: 20,
 };
 
 export const controlGap: Readonly<Record<ControlSize, number>> = {
-    xs: 4,
-    sm: 6,
-    md: 6,
+    xs: 6,
+    sm: 8,
+    md: 8,
     lg: 8,
 };
 
@@ -55,8 +56,8 @@ export const controlGap: Readonly<Record<ControlSize, number>> = {
  * unusable as a short one).
  */
 export const iconSize: Readonly<Record<ControlSize, number>> = {
-    xs: 12,
-    sm: 14,
+    xs: 14,
+    sm: 16,
     md: 16,
     lg: 18,
 };
@@ -66,9 +67,9 @@ export type RowDensity = (typeof ROW_DENSITIES)[number];
 
 /** Catalogue list row heights, switched by the toolbar's density control. `md` is the default. */
 export const rowHeight: Readonly<Record<RowDensity, number>> = {
-    sm: 28,
-    md: 32,
-    lg: 36,
+    sm: 36,
+    md: 44,
+    lg: 52,
 };
 
 /**

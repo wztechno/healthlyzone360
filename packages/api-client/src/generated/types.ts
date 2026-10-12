@@ -7132,6 +7132,72 @@ export type MonthlyCostReportCollection = {
     meta: Meta;
 };
 
+export type KitchenAnalyticsTotals = {
+    /**
+     * Orders placed in the range that are not cancelled.
+     */
+    orders: number;
+    /**
+     * Sum of line quantities over those orders.
+     */
+    units: number;
+    cancelled: number;
+    fulfilled: number;
+    /**
+     * Orders still placed or confirmed.
+     */
+    open: number;
+    /**
+     * Fulfilled orders that carry a requested delivery date — the on-time denominator.
+     */
+    fulfilled_with_due: number;
+    /**
+     * Of those, fulfilled no later than the end of the delivery window on the requested date.
+     */
+    on_time: number;
+    /**
+     * Mean minutes from placed to fulfilled over fulfilled orders; null when none.
+     */
+    avg_lead_minutes: number | null;
+};
+
+export type KitchenAnalyticsReport = {
+    from: string;
+    to: string;
+    current: KitchenAnalyticsTotals;
+    previous: KitchenAnalyticsTotals;
+    days: Array<{
+        date: string;
+        orders: number;
+        units: number;
+    }>;
+    channels: Array<{
+        key: 'subscription' | 'b2b' | 'pos' | 'a_la_carte';
+        orders: number;
+        units: number;
+    }>;
+    items: Array<{
+        catalogue_item_id: string;
+        /**
+         * The name on the item's most recent order line.
+         */
+        name_en: string;
+        name_ar: string | null;
+        /**
+         * The catalogue item's type (`product`, `meal`, `subscription_plan`, `sauce`, `dressing`).
+         */
+        item_type: string | null;
+        orders: number;
+        units: number;
+        last_ordered_at: string;
+    }>;
+};
+
+export type KitchenAnalyticsReportResponse = {
+    data: KitchenAnalyticsReport;
+    meta: Meta;
+};
+
 /**
  * Why a confirmed order could not deduct a line honestly (INV1.2). A closed
  * vocabulary the consumption service raises; a client renders it as a human
@@ -26987,6 +27053,76 @@ export type GetMonthlyCostReportResponses = {
 };
 
 export type GetMonthlyCostReportResponse = GetMonthlyCostReportResponses[keyof GetMonthlyCostReportResponses];
+
+export type GetKitchenAnalyticsReportData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * First day of the range, inclusive.
+         */
+        from: string;
+        /**
+         * Last day of the range, inclusive; not before `from`, at most 366 days after it counted inclusively.
+         */
+        to: string;
+    };
+    url: '/catalogue/reports/kitchen-analytics';
+};
+
+export type GetKitchenAnalyticsReportErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetKitchenAnalyticsReportError = GetKitchenAnalyticsReportErrors[keyof GetKitchenAnalyticsReportErrors];
+
+export type GetKitchenAnalyticsReportResponses = {
+    /**
+     * The report for the range and the range before it.
+     */
+    200: KitchenAnalyticsReportResponse;
+};
+
+export type GetKitchenAnalyticsReportResponse = GetKitchenAnalyticsReportResponses[keyof GetKitchenAnalyticsReportResponses];
 
 export type ListWeeklyPricesData = {
     body?: never;

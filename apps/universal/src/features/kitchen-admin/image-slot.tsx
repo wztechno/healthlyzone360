@@ -92,8 +92,8 @@ export function ImageSlot({ uri, onChange, disabled = false, testID }: ImageSlot
             style={{ width: SLOT_SIZE, height: SLOT_SIZE }}
             className={
                 uri === null
-                    ? 'shrink-0 overflow-hidden rounded-md border border-dashed border-stroke bg-surface-sunken'
-                    : 'shrink-0 overflow-hidden rounded-md border border-stroke bg-surface-sunken'
+                    ? 'shrink-0 overflow-hidden rounded-control border border-dashed border-stroke bg-surface-sunken'
+                    : 'shrink-0 overflow-hidden rounded-control border border-stroke bg-surface-sunken'
             }
         >
             <Pressable
@@ -137,7 +137,7 @@ export function ImageSlot({ uri, onChange, disabled = false, testID }: ImageSlot
                     onPress={() => {
                         onChange(null);
                     }}
-                    className="absolute end-1.5 top-1.5 h-6 w-6 items-center justify-center rounded-sm border border-stroke bg-surface-raised hover:bg-danger-subtle"
+                    className="absolute end-1.5 top-1.5 h-6 w-6 items-center justify-center rounded-control border border-stroke bg-surface-raised hover:bg-danger-subtle"
                 >
                     <Icon name="close" size="sm" className="text-content-secondary" />
                 </Pressable>

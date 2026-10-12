@@ -447,7 +447,6 @@ function SuppliersList() {
                     columns={controls.columns}
                     rows={controls.rows}
                     rowKey={(row) => String(row.id)}
-                    density="sm"
                     onRowPress={openRecord}
                     rowActionsLabel={t('kitchen:list.rowActions')}
                     // View and Open. Archive lives on the record, behind its confirmation.

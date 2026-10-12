@@ -457,7 +457,6 @@ function Procurement() {
                         columns={controls.columns}
                         rows={controls.rows}
                         rowKey={(row) => String(row.id)}
-                        density="sm"
                         onRowPress={setViewing}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         // View only: a posted receipt is immutable (§3.6). Its missing prices are

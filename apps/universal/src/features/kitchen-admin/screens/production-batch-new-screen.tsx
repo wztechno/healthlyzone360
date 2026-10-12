@@ -25,7 +25,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -534,7 +534,7 @@ function ProductionBatchNew() {
             <SideRailLayout
                 testID="kitchen-production-batch-new"
                 main={
-                    <View className="z-auto flex-col gap-loose">
+                    <View className="z-auto flex-col gap-5">
                         {/*
                          * One card: recipe, scale and amount on one row, the notes under it.
                          * `relative z-raised`, or the picker's panel opens underneath the preview
@@ -586,9 +586,10 @@ function ProductionBatchNew() {
                                          */}
                                         <GridCell span={2}>
                                             <View className="flex-col gap-hair">
-                                                <Text variant="caption" className="font-medium">
+                                                {/* `FieldLabel`'s step, so this control starts level with the recipe select beside it. */}
+                                                <RNText className="text-role-label text-start text-content-secondary">
                                                     {t('kitchen:ops.production.scaleLabel')}
-                                                </Text>
+                                                </RNText>
                                                 <SegmentedControl<Scale>
                                                     testID="kitchen-production-batch-new-scale"
                                                     label={t('kitchen:ops.production.scaleLabel')}

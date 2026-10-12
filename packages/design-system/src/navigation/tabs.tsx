@@ -1,7 +1,8 @@
 import { useIsRtl } from '@healthy360/i18n';
-import { Text as RNText, View } from 'react-native';
+import { Text as RNText, ScrollView, View } from 'react-native';
 import { Pressable } from 'react-native';
 
+import { useBreakpoint } from '../hooks/use-breakpoint.ts';
 import { useDensity } from '../hooks/use-density.tsx';
 import type { Density } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
@@ -88,13 +89,16 @@ const COMFORTABLE_LIST_VARIANT: Readonly<Record<TabsVariant, string>> = {
  */
 const COMPACT_LIST_VARIANT: Readonly<Record<TabsVariant, string>> = {
     underline: 'flex-row flex-wrap items-end gap-hair border-b border-stroke-subtle',
-    segmented: 'flex-row flex-wrap items-stretch gap-0.5 rounded-sm bg-surface-sunken p-0.5',
+    // The mood board's joined segment bar: one bordered control, the options divided by
+    // hairlines, the chosen one in the soft green. 40px outside, like every field beside it.
+    segmented:
+        'flex-row flex-wrap items-stretch self-start overflow-hidden rounded-control border border-stroke-subtle bg-surface-raised',
     /*
      * The step row the Catalogue's recipe editor opens on: a sunken track with a hairline, holding
      * one raised tab per step. Not a control height — it is the form's opening, not a field in a
      * row of fields — so it keeps the panel radius and a 4px inset around 36px tabs.
      */
-    steps: 'flex-row flex-wrap items-stretch gap-hair rounded-md border border-stroke-subtle bg-surface-sunken p-hair',
+    steps: 'flex-row flex-wrap items-stretch gap-hair rounded-panel border border-stroke-subtle bg-surface-sunken p-hair',
 };
 
 const LIST_VARIANT: Readonly<Record<Density, Readonly<Record<TabsVariant, string>>>> = {
@@ -112,8 +116,8 @@ const COMPACT_TAB_VARIANT: Readonly<Record<TabsVariant, string>> = {
     underline:
         'h-control-md flex-row items-center justify-center gap-control-md border-b-2 px-control-md',
     segmented:
-        'h-control-xs flex-row items-center justify-center gap-control-sm rounded-sm px-control-sm',
-    steps: 'h-control-lg min-w-0 flex-row items-center justify-start gap-control-sm rounded-sm px-control-sm',
+        'h-[38px] flex-row items-center justify-center gap-control-sm px-control-sm hover:bg-surface-sunken',
+    steps: 'h-control-lg min-w-0 flex-row items-center justify-start gap-control-sm rounded-control px-control-sm',
 };
 
 const TAB_VARIANT: Readonly<Record<Density, Readonly<Record<TabsVariant, string>>>> = {
@@ -127,7 +131,7 @@ const TAB_SELECTED: Readonly<Record<TabsVariant, string>> = {
     // border (KITCHEN.md 7g: the selected window chip).
     segmented: 'border border-brand-500 bg-surface-brand-subtle',
     // The open step is a raised card on the sunken track; the numbered dot carries the brand.
-    steps: 'border border-stroke bg-surface-raised shadow-elevation-card',
+    steps: 'border border-stroke-subtle bg-surface-raised shadow-elevation-1',
 };
 
 const TAB_UNSELECTED: Readonly<Record<TabsVariant, string>> = {
@@ -210,7 +214,16 @@ export function Tabs<T extends string = string>({
         }
     };
 
-    return (
+    const joined = density === 'compact' && variant === 'segmented';
+    /*
+     * On a phone a joined bar of five or six options cannot fit, and squeezing each to 55px
+     * truncates every label. It scrolls sideways inside its own track instead, at each option's
+     * natural width, so the page never does.
+     */
+    const { atLeast } = useBreakpoint();
+    const scrolls = joined && !atLeast('md');
+
+    const list = (
         <View
             testID={testID}
             role="tablist"
@@ -218,7 +231,11 @@ export function Tabs<T extends string = string>({
             aria-label={label}
             accessibilityLabel={label}
             aria-orientation="horizontal"
-            className={cx(LIST_VARIANT[density][variant], className)}
+            className={cx(
+                LIST_VARIANT[density][variant],
+                joined && block && !scrolls ? 'self-stretch' : null,
+                scrolls ? null : className,
+            )}
         >
             {items.map((item, index) => {
                 const selected = item.value === value;
@@ -249,8 +266,15 @@ export function Tabs<T extends string = string>({
                         }}
                         className={cx(
                             TAB_VARIANT[density][variant],
-                            selected ? TAB_SELECTED[variant] : TAB_UNSELECTED[variant],
-                            block || steps ? 'flex-1' : null,
+                            joined
+                                ? cx(
+                                      selected ? 'bg-surface-brand-subtle' : 'bg-transparent',
+                                      index > 0 ? 'border-s border-stroke-subtle' : null,
+                                  )
+                                : selected
+                                  ? TAB_SELECTED[variant]
+                                  : TAB_UNSELECTED[variant],
+                            (block && !scrolls) || steps ? 'flex-1' : null,
                             disabled ? 'opacity-50' : null,
                         )}
                     >
@@ -295,7 +319,7 @@ export function Tabs<T extends string = string>({
                             numberOfLines={1}
                             className={cx(
                                 steps ? 'min-w-0 flex-1 text-start' : 'text-center',
-                                density === 'compact' ? 'text-role-label' : 'text-sm',
+                                density === 'compact' ? 'text-role-body font-medium' : 'text-sm',
                                 selected
                                     ? variant === 'segmented'
                                         ? 'font-semibold text-content-on-brand-subtle'
@@ -352,6 +376,19 @@ export function Tabs<T extends string = string>({
                 );
             })}
         </View>
+    );
+
+    return scrolls ? (
+        <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className={cx('self-stretch', className)}
+            contentContainerClassName="flex-row"
+        >
+            {list}
+        </ScrollView>
+    ) : (
+        list
     );
 }
 

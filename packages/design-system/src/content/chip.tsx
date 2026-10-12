@@ -226,6 +226,7 @@ export function FilterChip({
 }: FilterChipProps) {
     const coarse = useIsCoarsePointer();
     const density = useDensity();
+    const compact = density === 'compact';
 
     return (
         <Pressable
@@ -243,15 +244,27 @@ export function FilterChip({
             }}
             className={cx(
                 'flex-row items-center justify-center gap-1.5 self-start rounded-full border',
-                size === 'sm' ? 'px-2.5 py-0.5' : 'px-3.5 py-1.5',
+                compact ? 'h-8 px-3' : size === 'sm' ? 'px-2.5 py-0.5' : 'px-3.5 py-1.5',
                 coarse ? 'min-h-touch' : null,
-                selected
-                    ? 'border-surface-inverse bg-surface-inverse'
-                    : 'border-stroke-strong bg-surface-raised',
+                compact
+                    ? selected
+                        ? 'border-stroke-focus bg-surface-brand-subtle'
+                        : 'border-stroke-subtle bg-surface-raised hover:border-stroke'
+                    : selected
+                      ? 'border-surface-inverse bg-surface-inverse'
+                      : 'border-stroke-strong bg-surface-raised',
                 disabled ? 'opacity-50' : null,
                 className,
             )}
         >
+            {/*
+             * The kitchen draws a lit chip as the mood board does — the soft green with a firm
+             * green edge — so the luminance inversion above no longer separates the states there.
+             * The check mark comes back to carry "selected" in a shape, not only in a hue.
+             */}
+            {compact && selected ? (
+                <Icon name="check" size="sm" className="text-content-on-brand-subtle" />
+            ) : null}
             <RNText
                 numberOfLines={1}
                 className={cx(
@@ -263,7 +276,13 @@ export function FilterChip({
                         : size === 'sm'
                           ? 'text-xs font-medium'
                           : 'text-sm font-medium',
-                    selected ? 'text-content-inverse' : 'text-content-primary',
+                    compact
+                        ? selected
+                            ? 'text-content-on-brand-subtle'
+                            : 'text-content-secondary'
+                        : selected
+                          ? 'text-content-inverse'
+                          : 'text-content-primary',
                 )}
             >
                 {label}
@@ -273,7 +292,7 @@ export function FilterChip({
                     testID={testID === undefined ? undefined : `${testID}-count`}
                     className={cx(
                         density === 'compact' ? 'text-role-caption tabular-nums' : 'text-xs',
-                        selected ? 'text-content-inverse' : 'text-content-secondary',
+                        selected && !compact ? 'text-content-inverse' : 'text-content-secondary',
                     )}
                 >
                     {String(count)}

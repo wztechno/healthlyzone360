@@ -18,24 +18,19 @@ const COMFORTABLE_TONE_CLASS: Readonly<Record<CardTone, string>> = {
 };
 
 /**
- * The admin's cards sit on the page with the same card cast as its panels.
- *
- * Every surface the admin draws by hand — KPI tiles, the toolbar, the page header's summary
- * strip — already carries `shadow-elevation-card`, so a flat `Card` beside them read as a different
- * kind of object. The cast is on every tone that is a card *on* the page, status tones
- * included, so a row of stat cards where one is `warning` does not have one box sitting lower than
- * the rest. `default` and `sunken` stay flat: they are the page's own ground and an inset well, and
- * a shadow on either would contradict the fill.
- *
- * It does not lift on hover — see `interactive` below.
+ * The admin's cards are the mood board's: white, a hairline in the soft green grey and a contact
+ * shadow only (2026-10-12). The heavy green cast moved to hover, where it says "you can open
+ * this". Every tone that is a card *on* the page carries the same shadow, status tones included,
+ * so a row of stat cards where one is `warning` does not have one box sitting lower than the rest.
+ * `default` and `sunken` stay flat: they are the page's own ground and an inset well.
  */
 const COMPACT_TONE_CLASS: Readonly<Record<CardTone, string>> = {
     default: 'bg-surface-base border-stroke-subtle',
-    raised: 'bg-surface-raised border-stroke-subtle shadow-elevation-card',
+    raised: 'bg-surface-raised border-stroke-subtle shadow-elevation-1',
     sunken: 'bg-surface-sunken border-stroke-subtle',
-    brand: 'bg-surface-brand-subtle border-transparent shadow-elevation-card',
-    warning: 'bg-warning-subtle border-warning-border shadow-elevation-card',
-    danger: 'bg-danger-subtle border-danger-border shadow-elevation-card',
+    brand: 'bg-surface-brand-subtle border-transparent shadow-elevation-1',
+    warning: 'bg-warning-subtle border-warning-border shadow-elevation-1',
+    danger: 'bg-danger-subtle border-danger-border shadow-elevation-1',
 };
 
 const TONE_CLASS: Readonly<Record<Density, Readonly<Record<CardTone, string>>>> = {
@@ -53,12 +48,12 @@ const COMFORTABLE_PADDING_CLASS: Readonly<Record<CardPadding, string>> = {
     lg: 'p-6',
 };
 
-/** The 4-point aliases, so a panel's inset is named rather than counted. */
+/** The mood board's insets: 18px for a card, 24px for a panel. */
 const COMPACT_PADDING_CLASS: Readonly<Record<CardPadding, string>> = {
     none: 'p-0',
-    sm: 'p-tight',
-    md: 'p-snug',
-    lg: 'p-base',
+    sm: 'p-snug',
+    md: 'p-[18px]',
+    lg: 'p-6',
 };
 
 const PADDING_CLASS: Readonly<Record<Density, Readonly<Record<CardPadding, string>>>> = {
@@ -202,23 +197,22 @@ export function Card({
 
     const classes = cx(
         'flex-col border',
-        // 8px panels in the admin (§1.3 — no 14px, no 16px), the customer app's 16px elsewhere.
-        density === 'compact' ? 'rounded' : 'rounded-xl',
+        // The mood board's 14px card corner in the admin, the customer app's 16px elsewhere.
+        density === 'compact' ? 'rounded-panel' : 'rounded-xl',
         // Clipping is what lets media sit flush to the corner instead of a 12px image floating
         // inside a 16px card — but it is scoped to `padding="none"`, which is the only way a card
         // gets edge-to-edge media in the first place. Clipping unconditionally would cut off
         // `Popover`, whose panel is an absolutely positioned sibling rather than a modal; the
         // showcase's own `Section` is a padded card containing exactly that.
         padding === 'none' ? 'overflow-hidden' : null,
-        hasFooter ? 'self-stretch' : density === 'compact' ? 'gap-tight' : 'gap-3',
+        hasFooter ? 'self-stretch' : density === 'compact' ? 'gap-snug' : 'gap-3',
         TONE_CLASS[density][tone],
         PADDING_CLASS[density][padding],
-        // The lift is a customer affordance. In the admin `interactive` still marks the card as a
-        // target — it takes a hover tint, matching the Catalogue's list rows — but it does not
-        // float: a dense page of cards that jump under the pointer is noise, not affordance.
+        // In the admin an `interactive` card takes the green cast and a firmer edge under the
+        // pointer, without moving: a dense page of cards that jump is noise, not affordance.
         interactive
             ? density === 'compact'
-                ? 'transition duration-normal ease-standard hover:bg-surface-sunken'
+                ? 'transition duration-normal ease-standard hover:border-stroke hover:shadow-elevation-card-hover'
                 : 'transition duration-normal ease-standard hover:-translate-y-1 hover:shadow-elevation-card-hover'
             : null,
         className,

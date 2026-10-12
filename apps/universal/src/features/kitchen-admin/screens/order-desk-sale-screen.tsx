@@ -77,6 +77,7 @@ import {
     withPaymentMethod,
 } from '../order-desk/sale-state.ts';
 import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
+import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 
 /**
  * `/kitchen/order-desk/sale` — ringing up a counter, collection or telephone sale. Kitchen v2 `4f`.
@@ -386,7 +387,8 @@ function Sale() {
     const menuWidth = grid.columns * grid.tileWidth + (grid.columns - 1) * TILE_GAP;
 
     return (
-        <View testID="kitchen-order-desk-sale-screen" className="z-auto flex-col gap-base">
+        <View testID="kitchen-order-desk-sale-screen" className="z-auto flex-col gap-5">
+            <CataloguePageHeader testID="kitchen-order-desk-sale-page-header" />
             {/* The kind of sale, above everything it decides. */}
             <View className="flex-row flex-wrap items-center gap-snug">
                 <SegmentedControl<OrderDeskFulfilmentType>
@@ -626,8 +628,8 @@ function WhenSection({
                                 }}
                                 className={
                                     selected
-                                        ? 'h-control-md flex-row items-center gap-hair rounded-sm border border-surface-brand bg-surface-brand-subtle px-control-sm'
-                                        : 'h-control-md flex-row items-center gap-hair rounded-sm border border-stroke bg-surface-raised px-control-sm web:hover:border-surface-brand'
+                                        ? 'h-control-md flex-row items-center gap-hair rounded-control border border-surface-brand bg-surface-brand-subtle px-control-sm'
+                                        : 'h-control-md flex-row items-center gap-hair rounded-control border border-stroke bg-surface-raised px-control-sm web:hover:border-surface-brand'
                                 }
                             >
                                 <Text variant="label" numberOfLines={1}>
@@ -869,8 +871,8 @@ function MenuTileButton({
             style={{ width }}
             className={
                 refused
-                    ? 'relative flex-col overflow-hidden rounded border border-stroke-subtle bg-surface-sunken opacity-60'
-                    : 'relative flex-col overflow-hidden rounded border border-stroke-subtle bg-surface-raised shadow-elevation-card active:opacity-80 web:hover:border-surface-brand'
+                    ? 'relative flex-col overflow-hidden rounded-panel border border-stroke-subtle bg-surface-sunken'
+                    : 'relative flex-col overflow-hidden rounded-panel border border-stroke-subtle bg-surface-raised shadow-elevation-1 active:bg-surface-sunken web:hover:border-surface-brand'
             }
         >
             <EntityImage
@@ -1350,8 +1352,8 @@ function PaymentMethods({
                             }}
                             className={
                                 selected
-                                    ? 'h-control-md flex-row items-center justify-center gap-hair rounded-sm border border-surface-brand bg-surface-brand-subtle px-control-sm'
-                                    : 'h-control-md flex-row items-center justify-center gap-hair rounded-sm border border-stroke bg-surface-raised px-control-sm web:hover:border-surface-brand'
+                                    ? 'h-control-md flex-row items-center justify-center gap-hair rounded-control border border-surface-brand bg-surface-brand-subtle px-control-sm'
+                                    : 'h-control-md flex-row items-center justify-center gap-hair rounded-control border border-stroke bg-surface-raised px-control-sm web:hover:border-surface-brand'
                             }
                         >
                             {selected ? (

@@ -3,11 +3,11 @@ import type {
     PurchaseOrderLine,
     RecipientSnapshotContact,
 } from '@healthy360/api-client/contracts';
-import { Heading, Inline, Stack, Text } from '@healthy360/design-system';
+import { DATA_LIST_HEADER_TEXT, Heading, Inline, Stack, Text } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, View } from 'react-native';
+import { Platform, Text as RNText, View } from 'react-native';
 
 import { prefersArabic } from './format.ts';
 import { printSheetTestId, purchaseOrderStatusKey } from './ops-format.ts';
@@ -153,7 +153,7 @@ export function PrintSheet({ order }: PrintSheetProps) {
             // page rather than a stretched approximation of it. The border and the raised surface
             // are screen-only — the print block strips both, because a supplier's copy does not
             // need a card drawn around it.
-            className="mx-auto w-full max-w-[794px] gap-5 rounded-lg border border-stroke-subtle bg-surface-raised p-6"
+            className="mx-auto w-full max-w-[794px] gap-5 rounded-panel border border-stroke-subtle bg-surface-raised p-6"
         >
             {/* ── header ──────────────────────────────────────────────────────────────────────── */}
 
@@ -173,7 +173,7 @@ export function PrintSheet({ order }: PrintSheetProps) {
                          */
                         <View
                             testID={`${printSheetTestId(String(order.id))}-draft`}
-                            className="rounded-md border-2 border-stroke-strong px-3 py-1"
+                            className="rounded-control border-2 border-stroke-strong px-3 py-1"
                         >
                             <Text variant="bodyStrong">
                                 {t('kitchen:ops.supplyOrders.print.draftMarker')}
@@ -345,7 +345,7 @@ export function PrintSheet({ order }: PrintSheetProps) {
                 >
                     <View
                         role="row"
-                        className="flex-row items-end gap-3 border-b-2 border-stroke-strong pb-1"
+                        className="flex-row items-end gap-3 border-b-[1.5px] border-stroke pb-1.5"
                     >
                         <HeaderCell
                             flex={COLUMN_FLEX.index}
@@ -449,9 +449,8 @@ function Field({
 function HeaderCell({ flex, label }: { readonly flex: number; readonly label: string }) {
     return (
         <View role="columnheader" style={{ flex }}>
-            <Text variant="caption" tone="secondary">
-                {label}
-            </Text>
+            {/* `DataList`'s header voice: small tracked capitals in the secondary ink. */}
+            <RNText className={DATA_LIST_HEADER_TEXT}>{label}</RNText>
         </View>
     );
 }

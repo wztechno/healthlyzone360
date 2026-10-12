@@ -68,10 +68,12 @@ const COMFORTABLE_VARIANT_CLASS: Readonly<Record<TextVariant, string>> = {
     body: 'text-base',
     bodyStrong: 'text-base font-semibold',
     label: 'text-sm font-medium',
-    strong: 'text-role-strong',
-    section: 'text-role-section',
-    title: 'text-role-title',
-    display: 'text-role-display font-display',
+    // Pinned to the scale rather than the Catalogue ramp: the ramp moved to the mood board's
+    // kitchen sizes on 2026-10-12, and the customer app keeps the sizes it shipped with.
+    strong: 'text-sm font-semibold',
+    section: 'text-sm font-semibold',
+    title: 'text-base font-semibold',
+    display: 'text-xl font-bold font-display',
     mono: 'text-sm tabular-nums',
 };
 
@@ -83,9 +85,10 @@ const COMPACT_VARIANT_CLASS: Readonly<Record<TextVariant, string>> = {
     bodyStrong: 'text-role-strong',
     label: 'text-role-label',
     strong: 'text-role-strong',
-    section: 'text-role-section',
-    title: 'text-role-title',
-    display: 'text-role-display font-display',
+    // Headings, page titles and figures in Space Grotesk — the mood board's display face.
+    section: 'text-role-section font-display',
+    title: 'text-role-title font-display',
+    display: 'text-role-display font-display tabular-nums',
     mono: 'text-role-body tabular-nums',
 };
 
@@ -271,15 +274,14 @@ const COMFORTABLE_HEADING_CLASS: Readonly<Record<HeadingLevel, string>> = {
 };
 
 /**
- * The admin has one page title and one section title, not four heading sizes. Levels 1 and 2 both
- * land on `role-title` (16px — the handoff's "was `text-3xl`") and 3 and 4 on `role-section`, so
- * the document outline stays intact for a screen reader while the page stops shouting.
+ * The admin's headings are the mood board's, in Space Grotesk: the page title is its H2 (30), a
+ * section of the page its H3 (21), and a card's or form section's title 16.
  */
 const COMPACT_HEADING_CLASS: Readonly<Record<HeadingLevel, string>> = {
-    1: 'text-role-title',
-    2: 'text-role-title',
-    3: 'text-role-section',
-    4: 'text-role-section',
+    1: 'text-role-title font-display',
+    2: 'text-role-heading font-display',
+    3: 'text-role-section font-display',
+    4: 'text-role-section font-display',
 };
 
 const HEADING_CLASS: Readonly<Record<Density, Readonly<Record<HeadingLevel, string>>>> = {

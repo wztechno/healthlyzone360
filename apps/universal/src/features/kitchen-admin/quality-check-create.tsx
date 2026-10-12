@@ -9,6 +9,7 @@ import {
     Badge,
     Button,
     Callout,
+    DATA_LIST_HEADER_TEXT,
     FormSection,
     SearchInput,
     Skeleton,
@@ -20,7 +21,7 @@ import {
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, View } from 'react-native';
+import { Pressable, Text as RNText, ScrollView, View } from 'react-native';
 
 import { toFailure } from '../../data/hooks.ts';
 import {
@@ -345,38 +346,32 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
     ];
 
     const rail = (
-        <View className="flex-col gap-base web:sticky web:top-0">
+        <View className="flex-col gap-5 web:sticky web:top-0">
             <View
                 testID="kitchen-qc-create-summary"
-                className="flex-col gap-snug rounded bg-surface-brand-subtle p-base shadow-elevation-card"
+                className="flex-col gap-snug rounded-panel border border-stroke-subtle bg-surface-raised p-[18px] shadow-elevation-1"
             >
-                <Text variant="section" className="text-content-on-brand-subtle">
-                    {t('kitchen:ops.qc.summaryTitle')}
-                </Text>
+                <Text variant="section">{t('kitchen:ops.qc.summaryTitle')}</Text>
                 {summary.map((row) => (
                     <View
                         key={row.key}
                         testID={`kitchen-qc-create-summary-${row.key}`}
                         className="flex-row items-baseline justify-between gap-tight"
                     >
-                        <Text
-                            variant="caption"
-                            numberOfLines={1}
-                            className="text-content-on-brand-subtle"
-                        >
+                        <Text variant="caption" tone="secondary" numberOfLines={1}>
                             {row.label}
                         </Text>
                         <Text
                             variant="caption"
                             align="end"
                             numberOfLines={1}
-                            className="min-w-0 shrink font-semibold tabular-nums text-content-on-brand-subtle"
+                            className="min-w-0 shrink font-semibold tabular-nums"
                         >
                             {row.value}
                         </Text>
                     </View>
                 ))}
-                <Text variant="caption" className="text-content-on-brand-subtle">
+                <Text variant="caption" tone="secondary">
                     {t(
                         start === 'hold'
                             ? 'kitchen:ops.qc.summaryFootHold'
@@ -465,7 +460,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                 )
             }
         >
-            <View className="flex-col gap-base">
+            <View className="flex-col gap-5">
                 <FormSection
                     first
                     variant="card"
@@ -692,6 +687,9 @@ function receiptDate(row: GoodsReceipt): string {
 const DATE_TRACK = 'w-24';
 const CHECK_TRACK = 'w-36';
 
+/** The width below which the subject list scrolls sideways rather than squeezing its names. */
+const SUBJECT_LIST_FLOOR = 560;
+
 /**
  * The subjects as a one-of list in `CatalogueList`'s frame: the header band, then a row per subject
  * that is itself the radio — the reference and what it is, who it came from or what it made, its
@@ -716,14 +714,11 @@ function SubjectList({
 }) {
     const { t } = useTranslation();
 
+    // React Native's own `Text`: the design-system one would drop the header classes' size and ink.
     const header = (text: string, className?: string) => (
-        <Text
-            variant="strong"
-            numberOfLines={1}
-            className={cx('text-content-on-brand-subtle', className)}
-        >
+        <RNText numberOfLines={1} className={cx(DATA_LIST_HEADER_TEXT, 'text-start', className)}>
             {text}
-        </Text>
+        </RNText>
     );
 
     return (
@@ -736,101 +731,125 @@ function SubjectList({
                 invalid ? 'border-danger-border' : 'border-stroke-subtle',
             )}
         >
-            <View className="min-h-row-sm flex-row items-center gap-tight bg-surface-brand-subtle px-control-sm">
-                <View className="w-4" />
-                {header(
-                    t(isReceipt ? 'kitchen:ops.qc.colReceipt' : 'kitchen:ops.qc.colBatch'),
-                    'min-w-0 flex-1',
-                )}
-                {header(
-                    t(isReceipt ? 'kitchen:ops.qc.colSupplier' : 'kitchen:ops.qc.colRecipe'),
-                    'min-w-0 flex-1',
-                )}
-                {header(t('kitchen:ops.qc.colDate'), DATE_TRACK)}
-                {header(t('kitchen:ops.qc.colChecks'), CHECK_TRACK)}
-            </View>
+            {/*
+             * Two fixed tracks and two names cannot share a phone's width, so below the floor the
+             * list scrolls sideways inside its own frame and the page does not.
+             */}
+            <ScrollView
+                horizontal
+                contentContainerStyle={{ flexGrow: 1 }}
+                contentContainerClassName="flex-col"
+            >
+                <View style={{ minWidth: SUBJECT_LIST_FLOOR }} className="flex-1 flex-col">
+                    <View className="min-h-row-sm flex-row items-center gap-tight border-b-[1.5px] border-stroke bg-surface-raised px-control-sm">
+                        <View className="w-4" />
+                        {header(
+                            t(isReceipt ? 'kitchen:ops.qc.colReceipt' : 'kitchen:ops.qc.colBatch'),
+                            'min-w-0 flex-1',
+                        )}
+                        {header(
+                            t(
+                                isReceipt
+                                    ? 'kitchen:ops.qc.colSupplier'
+                                    : 'kitchen:ops.qc.colRecipe',
+                            ),
+                            'min-w-0 flex-1',
+                        )}
+                        {header(t('kitchen:ops.qc.colDate'), DATE_TRACK)}
+                        {header(t('kitchen:ops.qc.colChecks'), CHECK_TRACK)}
+                    </View>
 
-            {rows.length === 0 ? (
-                <Text
-                    variant="caption"
-                    tone="secondary"
-                    testID="kitchen-qc-subject-empty"
-                    className="px-control-sm py-base"
-                >
-                    {empty}
-                </Text>
-            ) : (
-                rows.map((row) => {
-                    const on = row.id === pickedId;
-                    return (
-                        <Pressable
-                            key={row.id}
-                            testID={`kitchen-qc-subject-${row.id}`}
-                            role="radio"
-                            accessibilityRole="radio"
-                            aria-checked={on}
-                            accessibilityState={{ checked: on }}
-                            aria-label={`${row.ref}, ${row.who}`}
-                            onPress={() => {
-                                onPick(row.id);
-                            }}
-                            className={cx(
-                                'min-h-row-md flex-row items-center gap-tight border-b border-stroke-subtle px-control-sm py-snug',
-                                on ? 'bg-surface-brand-subtle' : 'hover:bg-surface-sunken',
-                            )}
+                    {rows.length === 0 ? (
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            testID="kitchen-qc-subject-empty"
+                            className="px-control-sm py-base"
                         >
-                            <View className="w-4">
-                                <RadioMark on={on} />
-                            </View>
-                            <View className="min-w-0 flex-1 flex-col">
-                                <Text
-                                    variant="caption"
-                                    numberOfLines={1}
-                                    className="font-semibold tabular-nums"
+                            {empty}
+                        </Text>
+                    ) : (
+                        rows.map((row) => {
+                            const on = row.id === pickedId;
+                            return (
+                                <Pressable
+                                    key={row.id}
+                                    testID={`kitchen-qc-subject-${row.id}`}
+                                    role="radio"
+                                    accessibilityRole="radio"
+                                    aria-checked={on}
+                                    accessibilityState={{ checked: on }}
+                                    aria-label={`${row.ref}, ${row.who}`}
+                                    onPress={() => {
+                                        onPick(row.id);
+                                    }}
+                                    className={cx(
+                                        'min-h-row-md flex-row items-center gap-tight border-b border-stroke-subtle px-control-sm py-snug',
+                                        on
+                                            ? 'bg-surface-brand-subtle'
+                                            : 'web:hover:bg-surface-sunken',
+                                    )}
                                 >
-                                    {row.ref}
-                                </Text>
-                                <Text variant="micro" tone="secondary" numberOfLines={1}>
-                                    {row.meta}
-                                </Text>
-                            </View>
-                            <Text variant="caption" numberOfLines={1} className="min-w-0 flex-1">
-                                {row.who}
-                            </Text>
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                numberOfLines={1}
-                                className={cx(DATE_TRACK, 'tabular-nums')}
-                            >
-                                {formatDate(row.date)}
-                            </Text>
-                            <View className={cx(CHECK_TRACK, 'flex-row')}>
-                                {row.check === null ? (
-                                    <Text variant="caption" tone="secondary">
-                                        {t('kitchen:ops.qc.checksNone')}
+                                    <View className="w-4">
+                                        <RadioMark on={on} />
+                                    </View>
+                                    <View className="min-w-0 flex-1 flex-col">
+                                        <Text
+                                            variant="caption"
+                                            numberOfLines={1}
+                                            className="font-semibold tabular-nums"
+                                        >
+                                            {row.ref}
+                                        </Text>
+                                        <Text variant="micro" tone="secondary" numberOfLines={1}>
+                                            {row.meta}
+                                        </Text>
+                                    </View>
+                                    <Text
+                                        variant="caption"
+                                        numberOfLines={1}
+                                        className="min-w-0 flex-1"
+                                    >
+                                        {row.who}
                                     </Text>
-                                ) : (
-                                    <Badge
-                                        variant="label"
-                                        icon={null}
-                                        testID={`kitchen-qc-subject-${row.id}-check`}
-                                        tone={qualityCheckStatusTone(row.check.status)}
-                                        label={t('kitchen:ops.qc.checkBadge', {
-                                            status: t(
-                                                row.check.status === 'hold'
-                                                    ? 'kitchen:ops.qc.statusOnHold'
-                                                    : qualityCheckStatusKey(row.check.status),
-                                            ),
-                                            check: shortId(String(row.check.id)),
-                                        })}
-                                    />
-                                )}
-                            </View>
-                        </Pressable>
-                    );
-                })
-            )}
+                                    <Text
+                                        variant="caption"
+                                        tone="secondary"
+                                        numberOfLines={1}
+                                        className={cx(DATE_TRACK, 'tabular-nums')}
+                                    >
+                                        {formatDate(row.date)}
+                                    </Text>
+                                    <View className={cx(CHECK_TRACK, 'flex-row')}>
+                                        {row.check === null ? (
+                                            <Text variant="caption" tone="secondary">
+                                                {t('kitchen:ops.qc.checksNone')}
+                                            </Text>
+                                        ) : (
+                                            <Badge
+                                                variant="label"
+                                                icon={null}
+                                                testID={`kitchen-qc-subject-${row.id}-check`}
+                                                tone={qualityCheckStatusTone(row.check.status)}
+                                                label={t('kitchen:ops.qc.checkBadge', {
+                                                    status: t(
+                                                        row.check.status === 'hold'
+                                                            ? 'kitchen:ops.qc.statusOnHold'
+                                                            : qualityCheckStatusKey(
+                                                                  row.check.status,
+                                                              ),
+                                                    ),
+                                                    check: shortId(String(row.check.id)),
+                                                })}
+                                            />
+                                        )}
+                                    </View>
+                                </Pressable>
+                            );
+                        })
+                    )}
+                </View>
+            </ScrollView>
         </View>
     );
 }

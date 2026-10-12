@@ -14,7 +14,7 @@ import type { CalendarCell, CalendarDay } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -37,6 +37,7 @@ import {
     isUnknown,
     slotReadings,
 } from '../order-desk-calendar.ts';
+import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 
 /**
  * `/kitchen/order-desk/calendar` — the week the desk is about to work, counted three ways.
@@ -245,8 +246,8 @@ function CalendarSquare({
             // date.
             className={
                 today
-                    ? 'rounded-panel border border-brand-100 bg-surface-brand-subtle px-tight py-tight shadow-elevation-card'
-                    : 'rounded-panel border border-brand-100 bg-surface-raised px-tight py-tight shadow-elevation-card'
+                    ? 'rounded-panel border border-stroke-subtle bg-surface-brand-subtle px-tight py-tight shadow-elevation-1'
+                    : 'rounded-panel border border-stroke-subtle bg-surface-raised px-tight py-tight shadow-elevation-1'
             }
         >
             <View className="flex-col gap-hair">
@@ -287,6 +288,9 @@ function CalendarSquare({
 
 /* ── the screen ──────────────────────────────────────────────────────────────────────────────── */
 
+/** The narrowest a day column reads at — a slot name over three labelled figures. */
+const CALENDAR_COLUMN_FLOOR = 120;
+
 export function OrderDeskCalendarScreen() {
     return (
         <Gate
@@ -298,6 +302,7 @@ export function OrderDeskCalendarScreen() {
             requirement={{ allOf: [ORDER_VIEW_PERMISSION, SUBSCRIPTION_VIEW_PERMISSION] }}
             testID="kitchen-order-desk-calendar"
         >
+            <CataloguePageHeader testID="kitchen-order-desk-calendar-page-header" />
             <OrderDeskCalendarWeek />
         </Gate>
     );
@@ -405,8 +410,8 @@ function OrderDeskCalendarWeek() {
                 testID={testID}
                 className={
                     isToday
-                        ? 'rounded-panel border border-brand-100 bg-surface-brand-subtle px-tight py-tight shadow-elevation-card'
-                        : 'rounded-panel border border-brand-100 bg-surface-raised px-tight py-tight shadow-elevation-card'
+                        ? 'rounded-panel border border-stroke-subtle bg-surface-brand-subtle px-tight py-tight shadow-elevation-1'
+                        : 'rounded-panel border border-stroke-subtle bg-surface-raised px-tight py-tight shadow-elevation-1'
                 }
             >
                 <Text variant="section" tone={isToday ? 'brand' : 'primary'}>
@@ -455,7 +460,7 @@ function OrderDeskCalendarWeek() {
             {/* One 28px row: the week stepper and the range it is on. */}
             <View
                 testID="kitchen-order-desk-calendar-toolbar"
-                className="min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
+                className="min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-stroke-subtle bg-surface-raised p-tight shadow-elevation-1"
             >
                 <View className="flex-row items-center gap-hair">
                     <IconButton
@@ -536,32 +541,45 @@ function OrderDeskCalendarWeek() {
                     body={t('kitchen:calendar.emptyBody')}
                 />
             ) : (
-                <View className="flex-col gap-snug">
-                    <CalendarGrid
-                        testID="kitchen-order-desk-calendar-grid"
-                        label={t('kitchen:calendar.gridLabel', { range: rangeLabel })}
-                        days={calendarDays}
-                        // `undefined` rather than an invented row when no slot carries anything:
-                        // the day headers already say what the week holds, and a row of dashes
-                        // about a bucket nobody used would be furniture.
-                        slots={
-                            slots.length === 0
-                                ? undefined
-                                : slots.map((slot) => ({
-                                      key: slot.key,
-                                      label:
-                                          slot.meal !== null
-                                              ? t(MEAL_LABEL_KEYS[slot.meal])
-                                              : slot.codes[0] == null
-                                                ? t('kitchen:calendar.noSlot')
-                                                : humaniseCode(slot.codes[0]),
-                                  }))
-                        }
-                        showSlotLegend={false}
-                        renderDayHeader={renderDayHeader}
-                        renderCell={renderCell}
-                    />
-                </View>
+                // Seven columns cannot share a phone's width, so below the floor the week scrolls
+                // sideways inside its own frame and the page does not — `MatrixFrame`'s pattern.
+                <ScrollView
+                    horizontal
+                    // eslint-disable-next-line no-restricted-syntax -- the scroller's content fills a wide frame and scrolls only below its floor.
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    contentContainerClassName="flex-col"
+                >
+                    <View
+                        style={{ minWidth: CALENDAR_WEEK_DAYS * CALENDAR_COLUMN_FLOOR }}
+                        // eslint-disable-next-line no-restricted-syntax -- the week is the scroller's whole row, not a control.
+                        className="flex-1 flex-col gap-snug"
+                    >
+                        <CalendarGrid
+                            testID="kitchen-order-desk-calendar-grid"
+                            label={t('kitchen:calendar.gridLabel', { range: rangeLabel })}
+                            days={calendarDays}
+                            // `undefined` rather than an invented row when no slot carries anything:
+                            // the day headers already say what the week holds, and a row of dashes
+                            // about a bucket nobody used would be furniture.
+                            slots={
+                                slots.length === 0
+                                    ? undefined
+                                    : slots.map((slot) => ({
+                                          key: slot.key,
+                                          label:
+                                              slot.meal !== null
+                                                  ? t(MEAL_LABEL_KEYS[slot.meal])
+                                                  : slot.codes[0] == null
+                                                    ? t('kitchen:calendar.noSlot')
+                                                    : humaniseCode(slot.codes[0]),
+                                      }))
+                            }
+                            showSlotLegend={false}
+                            renderDayHeader={renderDayHeader}
+                            renderCell={renderCell}
+                        />
+                    </View>
+                </ScrollView>
             )}
         </Stack>
     );

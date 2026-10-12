@@ -134,9 +134,11 @@ export function Badge({
      * a full round — a status is a label on a record, not a button to press. The start inset is the
      * tighter one, because the dot already holds that edge.
      */
-    const labelClass = compact ? 'text-role-caption font-medium' : 'text-xs font-medium';
+    // The kitchen draws the mood board's status pill instead (2026-10-12): 28px, fully round,
+    // 12.5/600 — a state you can read across a 44px row at a glance.
+    const labelClass = compact ? 'text-role-label' : 'text-xs font-medium';
     const frameClass = compact
-        ? 'h-[18px] gap-1 rounded-sm pe-1.5 ps-1'
+        ? 'h-7 gap-1.5 rounded-full px-3'
         : 'h-5 gap-1 rounded-sm pe-2 ps-1.5';
 
     if (nutrition !== undefined) {
@@ -185,8 +187,12 @@ export function Badge({
                  * a half-step the scale refuses, so the tag is made smaller by its box instead.
                  */
                 className={cx(
-                    'h-4 flex-row items-center gap-1',
-                    caps ? 'rounded-xs px-1' : 'rounded-sm pe-1.5 ps-1',
+                    compact ? 'h-6 flex-row items-center gap-1' : 'h-4 flex-row items-center gap-1',
+                    compact
+                        ? 'rounded-full px-2.5'
+                        : caps
+                          ? 'rounded-xs px-1'
+                          : 'rounded-sm pe-1.5 ps-1',
                     TONE_FILL_CLASS[tone],
                     className,
                 )}

@@ -1,8 +1,15 @@
 import type { OrganisationRoleSummary } from '@healthy360/api-client/contracts';
-import { Badge, Icon, Text, cx } from '@healthy360/design-system';
+import {
+    Badge,
+    DATA_LIST_HEADER_TEXT,
+    Icon,
+    Text,
+    cx,
+    useBreakpoint,
+} from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
-import { Pressable, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 /**
  * The kitchen's roles as a list to choose from — the Add user form's Role step and the team
@@ -26,8 +33,9 @@ import { Pressable, View } from 'react-native';
  *
  * ## Drawn as a kitchen table
  *
- * `CatalogueList`'s frame and header band — Role, Type, Permissions — and rows with no hairline
- * between them, told apart by height and the hover tint; a chosen row keeps the brand tint.
+ * `CatalogueList`'s frame and quiet header — Role, Type, Permissions — and rows split by a
+ * hairline, with the hover tint; a chosen row keeps the brand tint. Below `md` the Type and
+ * Permissions tracks fold under the role's name, so the name keeps the row's width on a phone.
  *
  * A list rather than a dropdown because a role is chosen by what it is for: each row carries its
  * description and how much it grants, which a closed select would hide until it was opened.
@@ -57,8 +65,7 @@ export interface RoleChoiceListProps {
 }
 
 /** `CatalogueList`'s panel — the frame every kitchen table sits in. */
-const PANEL =
-    'flex-col overflow-hidden rounded-panel border bg-surface-raised shadow-elevation-card';
+const PANEL = 'flex-col overflow-hidden rounded-panel border bg-surface-raised shadow-elevation-1';
 
 /** The mark's track, so the header's Role label sits over the row's name. */
 const MARK_TRACK = 'w-4';
@@ -83,6 +90,7 @@ export function RoleChoiceList({
     const { locale } = useLocale();
     const arabic = locale.startsWith('ar');
     const kind = mode === 'single' ? 'radio' : 'checkbox';
+    const wide = useBreakpoint().atLeast('md');
 
     function press(roleId: string) {
         if (mode === 'single') {
@@ -104,28 +112,25 @@ export function RoleChoiceList({
                 accessibilityLabel={label}
                 className={cx(
                     PANEL,
-                    error === undefined ? 'border-brand-100' : 'border-danger-border',
+                    error === undefined ? 'border-stroke-subtle' : 'border-danger-border',
                 )}
             >
-                {/* `DataList`'s header band: the table's one rule. */}
-                <View className="min-h-row-sm flex-row items-center gap-base border-b border-stroke-subtle bg-surface-brand-subtle px-control-md">
+                {/* `DataList`'s quiet header: the table's one firm rule. */}
+                <View className="min-h-row-sm flex-row items-center gap-base border-b-[1.5px] border-stroke bg-surface-raised px-control-md">
                     <View className={MARK_TRACK} />
-                    <Text variant="strong" className="flex-1 text-content-on-brand-subtle">
+                    <RNText className={cx(DATA_LIST_HEADER_TEXT, 'flex-1 text-start')}>
                         {t('accessAdmin:roles.columns.role')}
-                    </Text>
-                    <Text
-                        variant="strong"
-                        className={cx(KIND_TRACK, 'text-content-on-brand-subtle')}
-                    >
-                        {t('accessAdmin:roles.columns.kind')}
-                    </Text>
-                    <Text
-                        variant="strong"
-                        align="end"
-                        className={cx(COUNT_TRACK, 'text-content-on-brand-subtle')}
-                    >
-                        {t('accessAdmin:roles.columns.pages')}
-                    </Text>
+                    </RNText>
+                    {wide ? (
+                        <>
+                            <RNText className={cx(DATA_LIST_HEADER_TEXT, KIND_TRACK, 'text-start')}>
+                                {t('accessAdmin:roles.columns.kind')}
+                            </RNText>
+                            <RNText className={cx(DATA_LIST_HEADER_TEXT, COUNT_TRACK, 'text-end')}>
+                                {t('accessAdmin:roles.columns.pages')}
+                            </RNText>
+                        </>
+                    ) : null}
                 </View>
 
                 {roles.map((role) => {
@@ -134,6 +139,30 @@ export function RoleChoiceList({
                     const name = arabic ? role.nameAr : role.nameEn;
                     const description = arabic ? role.descriptionAr : role.descriptionEn;
                     const note = noteFor?.(roleId) ?? null;
+                    const badge = (
+                        <Badge
+                            variant="label"
+                            tone={role.isSystem ? 'neutral' : 'brand'}
+                            icon={null}
+                            label={t(
+                                role.isSystem
+                                    ? 'accessAdmin:roles.kindTemplate'
+                                    : 'accessAdmin:roles.kindOwn',
+                            )}
+                        />
+                    );
+                    const count = (
+                        <Text
+                            variant="mono"
+                            tone="secondary"
+                            align={wide ? 'end' : 'start'}
+                            className={wide ? COUNT_TRACK : undefined}
+                        >
+                            {t('accessAdmin:roles.permissionCount', {
+                                count: role.permissionCount,
+                            })}
+                        </Text>
+                    );
 
                     return (
                         <Pressable
@@ -150,9 +179,8 @@ export function RoleChoiceList({
                                 press(roleId);
                             }}
                             className={cx(
-                                // No hairline between rows — the header's rule is the table's one.
-                                'min-h-row-md flex-row items-center gap-base px-control-md py-tight',
-                                on ? 'bg-surface-brand-subtle' : 'hover:bg-surface-sunken',
+                                'min-h-row-md flex-row items-center gap-base border-b border-stroke-subtle px-control-md py-tight',
+                                on ? 'bg-surface-brand-subtle' : 'web:hover:bg-surface-sunken',
                                 disabled ? 'opacity-50' : null,
                             )}
                         >
@@ -188,30 +216,20 @@ export function RoleChoiceList({
                                         {note}
                                     </Text>
                                 )}
+                                {wide ? null : (
+                                    <View className="mt-1 flex-row flex-wrap items-center gap-tight">
+                                        {badge}
+                                        {count}
+                                    </View>
+                                )}
                             </View>
 
-                            <View className={cx(KIND_TRACK, 'flex-row')}>
-                                <Badge
-                                    variant="label"
-                                    tone={role.isSystem ? 'neutral' : 'brand'}
-                                    icon={null}
-                                    label={t(
-                                        role.isSystem
-                                            ? 'accessAdmin:roles.kindTemplate'
-                                            : 'accessAdmin:roles.kindOwn',
-                                    )}
-                                />
-                            </View>
-                            <Text
-                                variant="mono"
-                                tone="secondary"
-                                align="end"
-                                className={COUNT_TRACK}
-                            >
-                                {t('accessAdmin:roles.permissionCount', {
-                                    count: role.permissionCount,
-                                })}
-                            </Text>
+                            {wide ? (
+                                <>
+                                    <View className={cx(KIND_TRACK, 'flex-row')}>{badge}</View>
+                                    {count}
+                                </>
+                            ) : null}
                         </Pressable>
                     );
                 })}

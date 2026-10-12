@@ -3,10 +3,8 @@ import {
     Badge,
     Button,
     Callout,
-    Card,
     EmptyState,
     ErrorState,
-    Heading,
     Inline,
     Skeleton,
     Stack,
@@ -17,6 +15,7 @@ import type { OrderId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Text as RNText, ScrollView, View } from 'react-native';
 
 import { Gate, useCan } from '../../access/gate.tsx';
 import { toFailure } from '../../data/hooks.ts';
@@ -192,27 +191,40 @@ function KdsTickets() {
         return (
             <Stack
                 space="sm"
-                className={atLeast('md') ? 'flex-1' : undefined}
+                className={atLeast('md') ? 'min-w-0 flex-1' : undefined}
                 testID={kdsColumnTestId(column)}
             >
-                <Inline space="sm" align="center" justify="between">
-                    <Heading level={2}>{t(`kitchen:kds.column.${column}`)}</Heading>
-                    <Badge
+                {/* The column's name over a rule in its own colour — amber for what is waiting,
+                    green for what is cooking, pale for what has gone. */}
+                <View
+                    className={`flex-row items-center gap-2 border-b-2 px-1 pb-2 ${COLUMN_RULE_CLASS[column]}`}
+                >
+                    <RNText
+                        accessibilityRole="header"
+                        aria-level={2}
+                        className="font-display text-lg font-bold text-content-on-canopy text-start"
+                    >
+                        {t(`kitchen:kds.column.${column}`)}
+                    </RNText>
+                    <View
                         testID={`${kdsColumnTestId(column)}-count`}
-                        tone="neutral"
-                        icon={null}
-                        label={formatter.formatNumber(tickets.length)}
-                    />
-                </Inline>
+                        accessibilityRole="text"
+                        accessibilityLabel={formatter.formatNumber(tickets.length)}
+                        className="h-7 min-w-7 items-center justify-center rounded-full bg-content-on-canopy/15 px-2"
+                    >
+                        <RNText className="font-display text-sm font-bold tabular-nums text-content-on-canopy">
+                            {formatter.formatNumber(tickets.length)}
+                        </RNText>
+                    </View>
+                </View>
 
                 {tickets.length === 0 ? (
-                    <Text
-                        variant="caption"
-                        tone="secondary"
+                    <RNText
                         testID={`${kdsColumnTestId(column)}-empty`}
+                        className="px-1 text-sm text-content-on-canopy-muted text-start"
                     >
                         {t(`kitchen:kds.columnEmpty.${column}`)}
-                    </Text>
+                    </RNText>
                 ) : (
                     tickets.map((order) => (
                         <Ticket
@@ -237,35 +249,69 @@ function KdsTickets() {
         // state can express, and a board that silently listed another kitchen's tickets — or every
         // kitchen's — would be worse than one that says what is missing.
         return (
-            <Stack space="md" className="flex-1 p-4" testID="kds-tickets">
-                <EmptyState
-                    testID="kds-tickets-no-branch"
-                    title={t('kitchen:kds.noBranchTitle')}
-                    body={t('kitchen:kds.noBranchBody')}
-                />
-            </Stack>
+            <View className="flex-1 bg-surface-canopy p-4 md:p-7" testID="kds-tickets">
+                <View className="rounded-2xl bg-surface-raised p-4">
+                    <EmptyState
+                        testID="kds-tickets-no-branch"
+                        title={t('kitchen:kds.noBranchTitle')}
+                        body={t('kitchen:kds.noBranchBody')}
+                    />
+                </View>
+            </View>
         );
     }
 
     return (
-        <Stack space="md" className="flex-1 p-4" testID="kds-tickets">
-            <Stack space="xs">
-                <Heading level={1}>{t('kitchen:kds.title')}</Heading>
-                <Inline space="sm" align="center" justify="between" wrap>
-                    <Text tone="secondary" variant="caption">
+        /*
+         * The board is the deep forest canopy in both themes: it hangs on a wall and is read at
+         * three metres, so it is one dark field with light tickets rather than a page that follows
+         * the room's theme. The kiosk shell has no scroll port of its own, so the board is one.
+         */
+        <ScrollView
+            testID="kds-tickets"
+            className="flex-1 bg-surface-canopy"
+            contentContainerClassName="flex-grow gap-4 p-4 md:p-7"
+        >
+            <View className="flex-row flex-wrap items-center gap-3 border-b border-content-on-canopy/15 pb-4">
+                {/* A floor under the title, so on a phone the live pill and clock wrap beneath it
+                    rather than crushing it into a column a word wide. */}
+                <View className="min-w-[240px] flex-1">
+                    <RNText
+                        accessibilityRole="header"
+                        aria-level={1}
+                        className="font-display text-2xl font-bold text-content-on-canopy text-start"
+                    >
+                        {t('kitchen:kds.title')}
+                    </RNText>
+                    <RNText className="text-sm text-content-on-canopy-muted text-start">
                         {t('kitchen:kds.subtitle')}
-                    </Text>
-                    {orders.dataUpdatedAt === 0 ? null : (
-                        <Text tone="secondary" variant="caption" testID="kds-tickets-updated">
+                    </RNText>
+                </View>
+                {orders.dataUpdatedAt === 0 ? null : (
+                    <View className="flex-row items-center gap-2 rounded-full bg-content-on-canopy/10 px-3.5 py-1.5">
+                        <View
+                            aria-hidden
+                            className={`h-2 w-2 rounded-full ${online ? 'bg-success' : 'bg-warning'}`}
+                        />
+                        <RNText
+                            testID="kds-tickets-updated"
+                            className="text-sm font-semibold text-content-on-canopy"
+                        >
                             {t('kitchen:kds.lastUpdated', {
                                 time: formatter.formatDate(orders.dataUpdatedAt, {
                                     timeStyle: 'short',
                                 }),
                             })}
-                        </Text>
-                    )}
-                </Inline>
-            </Stack>
+                        </RNText>
+                    </View>
+                )}
+                <RNText
+                    aria-hidden
+                    className="font-display text-2xl font-bold tabular-nums text-content-on-canopy"
+                >
+                    {formatter.formatDate(now, { timeStyle: 'short' })}
+                </RNText>
+            </View>
 
             {actionFailure === null ? null : isConflict ? (
                 <Callout
@@ -289,9 +335,11 @@ function KdsTickets() {
                     }
                 />
             ) : (
-                <Text testID="kds-action-error" tone="danger">
-                    {actionFailure.message}
-                </Text>
+                <View className="self-start rounded-xl bg-danger-subtle px-4 py-3">
+                    <Text testID="kds-action-error" tone="danger">
+                        {actionFailure.message}
+                    </Text>
+                </View>
             )}
 
             {orders.isPending ? (
@@ -301,21 +349,25 @@ function KdsTickets() {
                     ))}
                 </Stack>
             ) : listFailure !== null ? (
-                <ErrorState
-                    testID="kds-tickets-error"
-                    title={t('kitchen:kds.loadErrorTitle')}
-                    failure={listFailure}
-                    onRetry={() => {
-                        void orders.refetch();
-                    }}
-                    retrying={orders.isFetching}
-                />
+                <View className="rounded-2xl bg-surface-raised p-4">
+                    <ErrorState
+                        testID="kds-tickets-error"
+                        title={t('kitchen:kds.loadErrorTitle')}
+                        failure={listFailure}
+                        onRetry={() => {
+                            void orders.refetch();
+                        }}
+                        retrying={orders.isFetching}
+                    />
+                </View>
             ) : empty ? (
-                <EmptyState
-                    testID="kds-tickets-empty"
-                    title={t('kitchen:kds.emptyTitle')}
-                    body={t('kitchen:kds.emptyBody')}
-                />
+                <View className="rounded-2xl bg-surface-raised p-4">
+                    <EmptyState
+                        testID="kds-tickets-empty"
+                        title={t('kitchen:kds.emptyTitle')}
+                        body={t('kitchen:kds.emptyBody')}
+                    />
+                </View>
             ) : atLeast('md') ? (
                 // Three rails side by side on anything tablet-sized and up — a wall screen reads
                 // left to right (or right to left; `Inline` gaps are direction-neutral). Below that
@@ -332,9 +384,16 @@ function KdsTickets() {
                     {renderColumn('done', board.done)}
                 </Stack>
             )}
-        </Stack>
+        </ScrollView>
     );
 }
+
+/** The rule under each column's name, in the column's own colour. */
+const COLUMN_RULE_CLASS: Readonly<Record<KdsColumnKey, string>> = {
+    incoming: 'border-warning-border',
+    preparing: 'border-success-border',
+    done: 'border-content-on-canopy/30',
+};
 
 interface TicketProps {
     readonly order: KitchenOrder;
@@ -367,89 +426,115 @@ function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: Ti
             ? null
             : formatter.formatDate(order.delivery.requestedDate, { dateStyle: 'medium' });
 
+    const late = ticketAgeTone(minutes) === 'danger';
+
     return (
-        <Card padding="md" testID={testID}>
-            <Stack space="sm">
-                <Inline space="sm" align="center" justify="between" wrap>
-                    <Heading level={3} testID={`${testID}-number`}>
-                        {order.orderNumber}
-                    </Heading>
-                    <Badge
-                        testID={`${testID}-elapsed`}
-                        tone={ticketAgeTone(minutes)}
-                        label={t('kitchen:kds.placedAgo', {
-                            elapsed: formatter.formatRelativeTime(order.placedAt, now),
-                        })}
-                    />
-                </Inline>
+        /*
+         * A light-on-dark ticket on the canopy, a step lighter than the board. A late ticket takes
+         * a thick danger edge as well as the red age pill, so lateness reads from across the room in
+         * shape as well as colour.
+         */
+        <View
+            testID={testID}
+            className={`gap-3 rounded-2xl border bg-content-on-canopy/5 p-4 ${
+                late ? 'border-s-4 border-danger-border' : 'border-content-on-canopy/15'
+            }`}
+        >
+            <Inline space="sm" align="center" justify="between" wrap>
+                <RNText
+                    testID={`${testID}-number`}
+                    accessibilityRole="header"
+                    aria-level={3}
+                    className="font-display text-xl font-bold tabular-nums text-content-on-canopy"
+                >
+                    {order.orderNumber}
+                </RNText>
+                <Badge
+                    testID={`${testID}-elapsed`}
+                    tone={ticketAgeTone(minutes)}
+                    label={t('kitchen:kds.placedAgo', {
+                        elapsed: formatter.formatRelativeTime(order.placedAt, now),
+                    })}
+                />
+            </Inline>
 
-                <Stack space="xs" testID={`${testID}-lines`}>
-                    {order.lines.map((line) => (
-                        <Stack space="none" key={line.id}>
-                            <Text variant="bodyStrong">
-                                {t('kitchen:kds.lineSummary', {
-                                    name: displayName({ en: line.nameEn, ar: line.nameAr }, locale)
-                                        .value,
-                                    quantity: formatter.formatNumber(Number(line.quantity)),
-                                })}
-                            </Text>
-                            {line.allergens.length === 0 ? null : (
-                                <Inline space="xs" wrap testID={`${testID}-allergens`}>
-                                    {line.allergens.map((allergen) => (
-                                        <Badge
-                                            key={allergen.allergenCode}
-                                            // `contains` is the one that can hurt somebody;
-                                            // "may contain" is a warning, and the two must not look
-                                            // alike on a wall read at three metres.
-                                            tone={
-                                                allergen.containment === 'contains'
-                                                    ? 'danger'
-                                                    : 'warning'
-                                            }
-                                            label={humaniseCode(allergen.allergenCode)}
-                                        />
-                                    ))}
-                                </Inline>
-                            )}
-                        </Stack>
-                    ))}
-                </Stack>
-
-                <Text variant="caption" tone="secondary" testID={`${testID}-delivery`}>
-                    {deliveryDate === null
-                        ? t('kitchen:kds.deliveryUnknown')
-                        : order.delivery.windowCode === null
-                          ? t('kitchen:kds.deliveryOn', { date: deliveryDate })
-                          : t('kitchen:kds.deliveryOnAt', {
-                                date: deliveryDate,
-                                window: humaniseCode(order.delivery.windowCode),
+            <View
+                className="gap-2 border-t border-content-on-canopy/15 pt-3"
+                testID={`${testID}-lines`}
+            >
+                {order.lines.map((line) => (
+                    <Stack space="xs" key={line.id}>
+                        <RNText className="text-base font-semibold text-content-on-canopy text-start">
+                            {t('kitchen:kds.lineSummary', {
+                                name: displayName({ en: line.nameEn, ar: line.nameAr }, locale)
+                                    .value,
+                                quantity: formatter.formatNumber(Number(line.quantity)),
                             })}
-                </Text>
+                        </RNText>
+                        {line.allergens.length === 0 ? null : (
+                            <Inline space="xs" wrap testID={`${testID}-allergens`}>
+                                {line.allergens.map((allergen) => (
+                                    <Badge
+                                        key={allergen.allergenCode}
+                                        // `contains` is the one that can hurt somebody;
+                                        // "may contain" is a warning, and the two must not look
+                                        // alike on a wall read at three metres.
+                                        tone={
+                                            allergen.containment === 'contains'
+                                                ? 'danger'
+                                                : 'warning'
+                                        }
+                                        label={humaniseCode(allergen.allergenCode)}
+                                    />
+                                ))}
+                            </Inline>
+                        )}
+                    </Stack>
+                ))}
+            </View>
 
-                {!canManage ? null : canConfirmKitchenOrder(order.status) ? (
-                    <Button
-                        testID={`${testID}-start`}
-                        block
-                        label={t('kitchen:kds.start')}
-                        loading={pending}
-                        disabled={disabled}
-                        onPress={() => {
-                            onBump(order, 'start');
-                        }}
-                    />
-                ) : canFulfilKitchenOrder(order.status) ? (
-                    <Button
-                        testID={`${testID}-ready`}
-                        block
-                        label={t('kitchen:kds.ready')}
-                        loading={pending}
-                        disabled={disabled}
-                        onPress={() => {
-                            onBump(order, 'ready');
-                        }}
-                    />
-                ) : null}
-            </Stack>
-        </Card>
+            <RNText
+                testID={`${testID}-delivery`}
+                className="text-sm text-content-on-canopy-muted text-start"
+            >
+                {deliveryDate === null
+                    ? t('kitchen:kds.deliveryUnknown')
+                    : order.delivery.windowCode === null
+                      ? t('kitchen:kds.deliveryOn', { date: deliveryDate })
+                      : t('kitchen:kds.deliveryOnAt', {
+                            date: deliveryDate,
+                            window: humaniseCode(order.delivery.windowCode),
+                        })}
+            </RNText>
+
+            {!canManage ? null : canConfirmKitchenOrder(order.status) ? (
+                <Button
+                    testID={`${testID}-start`}
+                    block
+                    size="lg"
+                    className="min-h-12"
+                    label={t('kitchen:kds.start')}
+                    loading={pending}
+                    disabled={disabled}
+                    onPress={() => {
+                        onBump(order, 'start');
+                    }}
+                />
+            ) : canFulfilKitchenOrder(order.status) ? (
+                <Button
+                    testID={`${testID}-ready`}
+                    block
+                    size="lg"
+                    variant="secondary"
+                    className="min-h-12"
+                    label={t('kitchen:kds.ready')}
+                    loading={pending}
+                    disabled={disabled}
+                    onPress={() => {
+                        onBump(order, 'ready');
+                    }}
+                />
+            ) : null}
+        </View>
     );
 }

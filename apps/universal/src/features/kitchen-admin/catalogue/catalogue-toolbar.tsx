@@ -120,7 +120,7 @@ export function CatalogueToolbar<Status extends string = string>({
     return (
         <View
             testID={testID}
-            className="min-h-control-sm flex-row items-center justify-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
+            className="min-h-control-md flex-row flex-wrap items-center justify-center gap-snug rounded-panel border border-stroke-subtle bg-surface-raised p-snug shadow-elevation-1"
         >
             {/*
              * The search is what absorbs the row.
@@ -132,13 +132,13 @@ export function CatalogueToolbar<Status extends string = string>({
              * names: this container *is* the row, not a control taking its width from one.
              */}
             {/* eslint-disable-next-line no-restricted-syntax -- the row's own filler; the exempt case. */}
-            <View className="flex-1">
+            <View className="min-w-[220px] flex-1">
                 <SearchInput
                     value={search}
                     onChangeText={onSearchChange}
                     label={searchLabel}
                     placeholder={searchPlaceholder}
-                    size="sm"
+                    size="md"
                     {...(onSearchSubmit === undefined
                         ? {}
                         : {

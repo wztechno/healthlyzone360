@@ -62,10 +62,10 @@ describe('control geometry', () => {
      * other end of this ladder; with it retired, this is the only thing standing between the admin
      * and a slow drift back to the sizes it was rebuilt to leave behind.
      */
-    it('keeps the compact brief', () => {
-        expect(controlHeight.sm).toBe(28);
-        expect(controlHeight.md).toBe(32);
-        expect(rowHeight.md).toBe(32);
+    it('keeps the balanced brief', () => {
+        expect(controlHeight.sm).toBe(36);
+        expect(controlHeight.md).toBe(40);
+        expect(rowHeight.md).toBe(44);
     });
 });
 

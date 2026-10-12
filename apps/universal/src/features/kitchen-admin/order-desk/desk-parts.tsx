@@ -60,10 +60,11 @@ export function DeskFact({
             {/* eslint-disable-next-line no-restricted-syntax -- the value column is the row's filler. */}
             <View className="min-w-0 flex-1">
                 <Text
-                    // `title` carries the numerics too: the ladder has no mono step above `body`,
+                    // `section` carries the numerics too: the ladder has no mono step above `body`,
                     // and `tabular-nums` is what `mono` was actually buying here — the figures
-                    // lining up down the column — so it is spelled out rather than lost.
-                    variant={large ? 'title' : mono ? 'mono' : 'label'}
+                    // lining up down the column — so it is spelled out rather than lost. Not
+                    // `title`: that is the 30px page-title step now.
+                    variant={large ? 'section' : mono ? 'mono' : 'label'}
                     {...(large && mono ? { className: 'tabular-nums' } : {})}
                     testID={testID}
                 >

@@ -88,7 +88,7 @@ export function FormSection({
             className={cx(
                 'z-auto flex-col',
                 card
-                    ? 'rounded border border-stroke-subtle bg-surface-raised p-base shadow-elevation-card'
+                    ? 'rounded-panel border border-stroke-subtle bg-surface-raised p-[18px] shadow-elevation-1'
                     : null,
                 className,
             )}
@@ -113,7 +113,7 @@ export function FormSection({
                             testID={testID === undefined ? undefined : `${testID}-title`}
                             accessibilityRole="header"
                             aria-level={3}
-                            className="text-role-section text-content-primary text-start"
+                            className="font-display text-role-section text-content-primary text-start"
                         >
                             {title}
                         </RNText>

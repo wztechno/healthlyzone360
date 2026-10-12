@@ -61,7 +61,7 @@ export function ChoiceTiles<Value extends string>({
                                 if (!on) onChange(tile.value);
                             }}
                             className={cx(
-                                'flex-row items-start gap-2.5 rounded border p-snug',
+                                'flex-row items-start gap-2.5 rounded-control border p-snug',
                                 /*
                                  * Chosen: the brand edge doubled by an inset ring, so the choice
                                  * reads at a glance without the border growing and the text inside

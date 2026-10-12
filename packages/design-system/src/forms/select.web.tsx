@@ -155,8 +155,8 @@ export function Select<T extends string = string>({
                             choose(option, close);
                         }}
                         className={cx(
-                            'flex-row items-center gap-control-sm px-control-md',
-                            // §5's 28px rows, as a floor: an option with a description is two
+                            'flex-row items-center gap-control-sm rounded-lg px-control-md',
+                            // §5's control-height rows, as a floor: an option with a description is two
                             // lines and must not be clipped.
                             density === 'compact' ? 'min-h-control-sm py-hair' : 'min-h-touch py-2',
                             // The row under the pointer or the keyboard is lit, so the reader sees

@@ -763,7 +763,6 @@ function Stock() {
                         columns={controls.columns}
                         rows={visible}
                         rowKey={(row) => String(row.item.id)}
-                        density="sm"
                         onRowPress={canManage ? openEditor : setViewing}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={rowActions}

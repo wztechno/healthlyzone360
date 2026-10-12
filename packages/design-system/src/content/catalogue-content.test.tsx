@@ -155,7 +155,7 @@ describe('growWeights', () => {
 });
 
 describe('DataList', () => {
-    it('rules the header alone — no line between rows, and no zebra', async () => {
+    it('rules the header firmly and the rows with a hairline, and no zebra', async () => {
         await renderWithI18n(
             compact(
                 <DataList
@@ -174,14 +174,19 @@ describe('DataList', () => {
         // The header row is the column header's own parent.
         const header = screen.getByTestId(`list-columnheader-${COLUMNS[0]!.key}`).parent!.props
             .className as string;
-        expect(header).toContain('border-b');
-        expect(header).toContain('border-stroke-subtle');
+        // One firm rule under the header, and a hairline between rows — but not under the last,
+        // whose frame closes it (the mood board's list rows, 2026-10-12).
+        expect(header).toContain('border-b-[1.5px]');
+        expect(header).toContain('border-stroke');
 
+        expect(screen.getByTestId('list-row-a').props.className).toContain(
+            'border-b border-stroke-subtle',
+        );
+        expect(screen.getByTestId('list-row-b').props.className).not.toContain('border-b');
         for (const id of ['list-row-a', 'list-row-b']) {
             const className = screen.getByTestId(id).props.className as string;
-            expect(className).not.toContain('border-b');
             // No zebra: the tint is a hover state, never an alternating background.
-            expect(className).not.toMatch(/bg-surface-(base|raised|sunken)(\s|$)/);
+            expect(className).not.toMatch(/(^|\s)bg-surface-(base|raised|sunken)(\s|$)/);
         }
     });
 

@@ -1472,7 +1472,7 @@ function OrderDeskQueueList() {
                                                               (line: KitchenOrderLine) => (
                                                                   <View
                                                                       key={line.id}
-                                                                      className="flex-row items-baseline gap-tight border-b border-stroke-subtle py-tight"
+                                                                      className="min-h-row-md flex-row items-center gap-tight border-b border-stroke-subtle py-tight"
                                                                   >
                                                                       {/* eslint-disable-next-line no-restricted-syntax -- the line name is the row's filler. */}
                                                                       <View className="min-w-0 flex-1">
@@ -1887,7 +1887,7 @@ function OrderDeskQueueList() {
              */}
             <View
                 testID="kitchen-order-desk-toolbar"
-                className="z-tooltip min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
+                className="z-tooltip min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-stroke-subtle bg-surface-raised p-tight shadow-elevation-1"
             >
                 {/* eslint-disable-next-line no-restricted-syntax -- the search takes the row's leftover width. */}
                 <View className="flex-1" style={{ minWidth: SEARCH_MIN_WIDTH }}>
@@ -1918,7 +1918,7 @@ function OrderDeskQueueList() {
                     testID="kitchen-order-desk-status"
                     role="group"
                     aria-label={t('kitchen:desk.statusLabel')}
-                    className="flex-row items-center gap-hair"
+                    className="flex-row flex-wrap items-center gap-hair"
                 >
                     {ORDER_DESK_QUEUE_STATUSES.map((candidate) => (
                         <FilterChip
@@ -2059,7 +2059,6 @@ function OrderDeskQueueList() {
                         columns={controls.columns}
                         rows={pageRows}
                         rowKey={(row) => String(row.id)}
-                        density="sm"
                         onRowPress={openDetail}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         // The row itself opens the order; this is the same action as a named,

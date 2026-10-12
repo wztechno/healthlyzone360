@@ -68,7 +68,7 @@ import { useDestructiveRow } from './use-destructive-row.ts';
  * informative.
  *
  * There is no `density` here any more. The toolbar's S/M/L set is gone — the list is fixed at the
- * ladder's smallest step — so the state that existed only to join a control to a list had nothing
+ * ladder's 44px `md` row — so the state that existed only to join a control to a list had nothing
  * left to join.
  */
 

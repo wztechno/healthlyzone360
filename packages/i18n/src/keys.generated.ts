@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8264 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8249 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2820,60 +2820,40 @@ export interface NamespaceKeys {
     | 'analytics.charts.channels.aLaCarte'
     | 'analytics.charts.channels.b2b'
     | 'analytics.charts.channels.pos'
-    | 'analytics.charts.channels.staff'
     | 'analytics.charts.channels.subscription'
-    | 'analytics.charts.productionTrend'
-    | 'analytics.charts.productionTrendUnit'
-    | 'analytics.charts.statusCenter'
-    | 'analytics.charts.statusMix'
+    | 'analytics.charts.outcomeMix'
+    | 'analytics.charts.outcomes.cancelled'
+    | 'analytics.charts.outcomes.fulfilled'
+    | 'analytics.charts.outcomes.open'
+    | 'analytics.charts.perDay'
+    | 'analytics.charts.perWeek'
     | 'analytics.charts.trendBarTitle'
+    | 'analytics.charts.unitsTrend'
+    | 'analytics.emptyBody'
+    | 'analytics.emptyTitle'
     | 'analytics.filters.dateRange'
-    | 'analytics.filters.segment'
+    | 'analytics.kpi.leadTime'
     | 'analytics.kpi.onTime'
-    | 'analytics.kpi.prep'
-    | 'analytics.kpi.produced'
-    | 'analytics.kpi.review'
+    | 'analytics.kpi.orders'
+    | 'analytics.kpi.units'
+    | 'analytics.notEnoughData'
     | 'analytics.ranges.30d'
     | 'analytics.ranges.7d'
     | 'analytics.ranges.90d'
     | 'analytics.ranges.ytd'
-    | 'analytics.sampleBadge'
-    | 'analytics.segments.all'
-    | 'analytics.segments.delivery'
-    | 'analytics.segments.meals'
-    | 'analytics.segments.recipes'
-    | 'analytics.segments.stock'
-    | 'analytics.status.all'
-    | 'analytics.status.blocked'
-    | 'analytics.status.onTrack'
-    | 'analytics.status.watch'
-    | 'analytics.subtitle'
-    | 'analytics.table.avgMinutes'
     | 'analytics.table.caption'
-    | 'analytics.table.completion'
-    | 'analytics.table.empty'
+    | 'analytics.table.lastOrdered'
     | 'analytics.table.name'
-    | 'analytics.table.sampleNote'
-    | 'analytics.table.search'
-    | 'analytics.table.searchPlaceholder'
-    | 'analytics.table.segment'
-    | 'analytics.table.status'
-    | 'analytics.table.statusFilter'
-    | 'analytics.table.subtitle'
+    | 'analytics.table.orders'
+    | 'analytics.table.share'
     | 'analytics.table.title'
-    | 'analytics.table.updated'
-    | 'analytics.table.volume'
-    | 'analytics.theme.dark'
-    | 'analytics.theme.light'
-    | 'analytics.title'
+    | 'analytics.table.type'
+    | 'analytics.table.units'
     | 'analytics.trend.down'
     | 'analytics.trend.flat'
+    | 'analytics.trend.noComparison'
     | 'analytics.trend.up'
-    | 'analytics.units.count'
-    | 'analytics.units.minutes'
-    | 'analytics.units.percent'
-    | 'analytics.window.kind'
-    | 'analytics.window.note'
+    | 'analytics.units.hours'
     | 'areas.chosenCount'
     | 'areas.groupLabel'
     | 'areas.inactive'
@@ -3618,6 +3598,11 @@ export interface NamespaceKeys {
     | 'hub.publishedCount'
     | 'hub.quarantineCount'
     | 'hub.referenceOnly'
+    | 'hub.reviewBand.body'
+    | 'hub.reviewBand.bodyClear'
+    | 'hub.reviewBand.eyebrow'
+    | 'hub.reviewBand.open'
+    | 'hub.reviewBand.title'
     | 'hub.title'
     | 'ingredientDetail.allergensDietsTitle'
     | 'ingredientDetail.fieldCapacity'
@@ -11102,60 +11087,40 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:analytics.charts.channels.aLaCarte',
   'kitchen:analytics.charts.channels.b2b',
   'kitchen:analytics.charts.channels.pos',
-  'kitchen:analytics.charts.channels.staff',
   'kitchen:analytics.charts.channels.subscription',
-  'kitchen:analytics.charts.productionTrend',
-  'kitchen:analytics.charts.productionTrendUnit',
-  'kitchen:analytics.charts.statusCenter',
-  'kitchen:analytics.charts.statusMix',
+  'kitchen:analytics.charts.outcomeMix',
+  'kitchen:analytics.charts.outcomes.cancelled',
+  'kitchen:analytics.charts.outcomes.fulfilled',
+  'kitchen:analytics.charts.outcomes.open',
+  'kitchen:analytics.charts.perDay',
+  'kitchen:analytics.charts.perWeek',
   'kitchen:analytics.charts.trendBarTitle',
+  'kitchen:analytics.charts.unitsTrend',
+  'kitchen:analytics.emptyBody',
+  'kitchen:analytics.emptyTitle',
   'kitchen:analytics.filters.dateRange',
-  'kitchen:analytics.filters.segment',
+  'kitchen:analytics.kpi.leadTime',
   'kitchen:analytics.kpi.onTime',
-  'kitchen:analytics.kpi.prep',
-  'kitchen:analytics.kpi.produced',
-  'kitchen:analytics.kpi.review',
+  'kitchen:analytics.kpi.orders',
+  'kitchen:analytics.kpi.units',
+  'kitchen:analytics.notEnoughData',
   'kitchen:analytics.ranges.30d',
   'kitchen:analytics.ranges.7d',
   'kitchen:analytics.ranges.90d',
   'kitchen:analytics.ranges.ytd',
-  'kitchen:analytics.sampleBadge',
-  'kitchen:analytics.segments.all',
-  'kitchen:analytics.segments.delivery',
-  'kitchen:analytics.segments.meals',
-  'kitchen:analytics.segments.recipes',
-  'kitchen:analytics.segments.stock',
-  'kitchen:analytics.status.all',
-  'kitchen:analytics.status.blocked',
-  'kitchen:analytics.status.onTrack',
-  'kitchen:analytics.status.watch',
-  'kitchen:analytics.subtitle',
-  'kitchen:analytics.table.avgMinutes',
   'kitchen:analytics.table.caption',
-  'kitchen:analytics.table.completion',
-  'kitchen:analytics.table.empty',
+  'kitchen:analytics.table.lastOrdered',
   'kitchen:analytics.table.name',
-  'kitchen:analytics.table.sampleNote',
-  'kitchen:analytics.table.search',
-  'kitchen:analytics.table.searchPlaceholder',
-  'kitchen:analytics.table.segment',
-  'kitchen:analytics.table.status',
-  'kitchen:analytics.table.statusFilter',
-  'kitchen:analytics.table.subtitle',
+  'kitchen:analytics.table.orders',
+  'kitchen:analytics.table.share',
   'kitchen:analytics.table.title',
-  'kitchen:analytics.table.updated',
-  'kitchen:analytics.table.volume',
-  'kitchen:analytics.theme.dark',
-  'kitchen:analytics.theme.light',
-  'kitchen:analytics.title',
+  'kitchen:analytics.table.type',
+  'kitchen:analytics.table.units',
   'kitchen:analytics.trend.down',
   'kitchen:analytics.trend.flat',
+  'kitchen:analytics.trend.noComparison',
   'kitchen:analytics.trend.up',
-  'kitchen:analytics.units.count',
-  'kitchen:analytics.units.minutes',
-  'kitchen:analytics.units.percent',
-  'kitchen:analytics.window.kind',
-  'kitchen:analytics.window.note',
+  'kitchen:analytics.units.hours',
   'kitchen:areas.chosenCount',
   'kitchen:areas.groupLabel',
   'kitchen:areas.inactive',
@@ -11900,6 +11865,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.publishedCount',
   'kitchen:hub.quarantineCount',
   'kitchen:hub.referenceOnly',
+  'kitchen:hub.reviewBand.body',
+  'kitchen:hub.reviewBand.bodyClear',
+  'kitchen:hub.reviewBand.eyebrow',
+  'kitchen:hub.reviewBand.open',
+  'kitchen:hub.reviewBand.title',
   'kitchen:hub.title',
   'kitchen:ingredientDetail.allergensDietsTitle',
   'kitchen:ingredientDetail.fieldCapacity',

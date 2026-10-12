@@ -60,6 +60,7 @@ import {
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker, WithColumnPicker } from '../catalogue/column-picker.tsx';
+import { RowEditorFrame } from '../row-editor-shell.tsx';
 
 /**
  * `/kitchen/quotations` — what corporate buyers have asked this kitchen to price (B4), as
@@ -409,7 +410,6 @@ function Quotations() {
                     columns={controls.columns}
                     rows={controls.rows}
                     rowKey={(row) => String(row.id)}
-                    density="sm"
                     onRowPress={(row) => {
                         setOpenId(row.id);
                     }}
@@ -637,13 +637,15 @@ function QuotationPricing({
                             </Text>
                         ) : (
                             <WithColumnPicker picker={lineControls.picker}>
-                                <DataList<KitchenQuotationLine>
-                                    testID="kitchen-quotations-detail-lines"
-                                    label={t('kitchen:ops.quotations.linesHeading')}
-                                    columns={lineControls.columns}
-                                    rows={lineControls.rows}
-                                    rowKey={(line) => line.id}
-                                />
+                                <RowEditorFrame>
+                                    <DataList<KitchenQuotationLine>
+                                        testID="kitchen-quotations-detail-lines"
+                                        label={t('kitchen:ops.quotations.linesHeading')}
+                                        columns={lineControls.columns}
+                                        rows={lineControls.rows}
+                                        rowKey={(line) => line.id}
+                                    />
+                                </RowEditorFrame>
                             </WithColumnPicker>
                         )}
                         <View

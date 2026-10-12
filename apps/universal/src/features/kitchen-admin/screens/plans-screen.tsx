@@ -510,7 +510,6 @@ function PlansList() {
                         columns={controls.columns}
                         rows={controls.rows}
                         rowKey={(row) => String(row.id)}
-                        density="sm"
                         onRowPress={openEditor}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={(row): readonly MenuItem[] => [

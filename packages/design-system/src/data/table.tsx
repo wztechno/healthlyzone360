@@ -41,7 +41,7 @@ export type TableSortDirection = 'asc' | 'desc';
  */
 function headerCellClass(density: Density): string {
     return density === 'compact'
-        ? 'text-role-label text-content-secondary'
+        ? 'text-role-micro uppercase tracking-[0.08em] text-content-secondary'
         : 'text-xs font-medium text-content-secondary';
 }
 
@@ -211,14 +211,14 @@ export function Table<Row>({
     const { atLeast } = useBreakpoint();
     const density = useDensity();
     /*
-     * The admin's figures centre under their header and every cell reads at one size and ink; the
-     * customer's tables — a nutrition label, a plan comparison — keep figures on the trailing edge,
-     * where a label-and-amount table has always put them, and keep their own type ramp.
+     * Figures sit on the trailing edge on both surfaces — the mood board's tables, and where a
+     * label-and-amount table has always put them — so a column of them lines up digit for digit
+     * under a right-aligned header. The admin's cells keep one size and ink.
      */
     const desk = density === 'compact';
-    const figureText = desk ? 'text-center' : 'text-end';
-    const figureJustify = desk ? 'justify-center' : 'justify-end';
-    const figureItems = desk ? 'items-center' : 'items-end';
+    const figureText = 'text-end';
+    const figureJustify = 'justify-end';
+    const figureItems = 'items-end';
     const HEADER_CELL_CLASS = headerCellClass(density);
     const generated = useId();
     const base = testID ?? `table-${generated.replace(/:/g, '')}`;
@@ -292,7 +292,7 @@ export function Table<Row>({
                 // admin — so it takes the same `section` step rather than a 14px of its own. Two
                 // titles a pixel apart on one panel read as a mistake, not as a hierarchy.
                 density === 'compact'
-                    ? 'text-role-section text-content-primary text-start'
+                    ? 'font-display text-role-section text-content-primary text-start'
                     : 'text-sm font-semibold text-content-primary text-start',
             )}
         >
@@ -333,7 +333,10 @@ export function Table<Row>({
                                 testID={`${base}-card-${rowKey(row)}`}
                                 role="listitem"
                                 className={cx(
-                                    'flex-col gap-2 rounded-lg border border-stroke-subtle bg-surface-raised p-3',
+                                    'flex-col gap-2 border border-stroke-subtle bg-surface-raised',
+                                    desk
+                                        ? 'rounded-panel p-4 shadow-elevation-1'
+                                        : 'rounded-lg p-3',
                                     rowTone?.(row) === 'muted' && 'opacity-60',
                                 )}
                             >
@@ -398,7 +401,9 @@ export function Table<Row>({
                         testID={`${base}-header`}
                         role="row"
                         className={cx(
-                            'flex-row items-center border-b-2 border-stroke-subtle px-1 pb-2',
+                            desk
+                                ? 'min-h-row-sm flex-row items-center border-b-[1.5px] border-stroke px-3'
+                                : 'flex-row items-center border-b-2 border-stroke-subtle px-1 pb-2',
                             rowGapClass,
                         )}
                     >
@@ -461,7 +466,9 @@ export function Table<Row>({
                                             onSortChange?.(column.key, nextDirection(column.key));
                                         }}
                                         className={cx(
-                                            'flex-row items-center gap-1 min-h-touch',
+                                            desk
+                                                ? 'flex-row items-center gap-1 min-h-row-sm'
+                                                : 'flex-row items-center gap-1 min-h-touch',
                                             column.numeric === true
                                                 ? figureJustify
                                                 : 'justify-start',
@@ -511,7 +518,9 @@ export function Table<Row>({
                             testID={`${base}-row-${rowKey(row)}`}
                             role="row"
                             className={cx(
-                                'flex-row items-center border-b border-surface-sunken px-1',
+                                desk
+                                    ? 'min-h-row-md flex-row items-center border-b border-stroke-subtle px-3 web:hover:bg-surface-sunken'
+                                    : 'flex-row items-center border-b border-surface-sunken px-1',
                                 ROW_SIZE_CLASS[rowSize],
                                 rowGapClass,
                                 // Both branches, deliberately. The stacked branch dimmed and this

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { NUTRITION_LEVELS, SEMANTIC_ROLES, themes } from '../colour.ts';
+import { controlHeight, rowHeight } from '../control.ts';
 import { TYPEFACE_ROLES, typefaces } from '../typography.ts';
 import { fontFaceEntries, renderFontManifest } from './fonts.ts';
 import { renderTokensCss } from './css.ts';
@@ -132,10 +133,10 @@ describe('renderTailwindPreset', () => {
     });
 
     it('turns the control ladders into utilities a component can name', () => {
-        expect(preset.theme.extend.height['control-sm']).toBe('28px');
-        expect(preset.theme.extend.height['row-md']).toBe('32px');
-        expect(preset.theme.extend.padding['control-sm']).toBe('8px');
-        expect(preset.theme.extend.gap['control-sm']).toBe('6px');
+        expect(preset.theme.extend.height['control-sm']).toBe('36px');
+        expect(preset.theme.extend.height['row-md']).toBe('44px');
+        expect(preset.theme.extend.padding['control-sm']).toBe('14px');
+        expect(preset.theme.extend.gap['control-sm']).toBe('8px');
         expect(preset.theme.extend.width.field).toBe('280px');
     });
 
@@ -152,31 +153,30 @@ describe('renderTailwindPreset', () => {
 
     /**
      * `min-h-control-*` and `min-h-row-*` are the ladder as a *floor*, for a box that must clear the
-     * control height but may grow past it — a dropdown option is one line at 28px and two when it
-     * carries a description, which `h-control-sm` would clip.
-     *
-     * What was retired is the *coarse-pointer* ladder: `controlHeightTouch` and `rowHeightTouch`,
-     * which existed only to hold 44px up while the brief asked for 32. So the invariant is about
-     * the value, not the key — these minimums must be the ladder's own, and 44px must reach the
-     * preset only through `touch`, which the customer surfaces still apply.
+     * control height but may grow past it — a dropdown option is one line at 36px and two when it
+     * carries a description, which `h-control-sm` would clip. Every floor must be one of the
+     * ladder's own heights: the preset never invents a minimum the token tables do not hold.
      */
-    it('floors the control ladder at its own heights, never at the touch target', () => {
-        expect(preset.theme.extend.minHeight['control-md']).toBe('32px');
-        expect(preset.theme.extend.minHeight['row-md']).toBe('32px');
+    it('floors the control ladder at its own heights', () => {
+        expect(preset.theme.extend.minHeight['control-md']).toBe('40px');
+        expect(preset.theme.extend.minHeight['row-md']).toBe('44px');
 
+        const ladder = new Set(
+            [...Object.values(controlHeight), ...Object.values(rowHeight)].map((v) => `${v}px`),
+        );
         const laddered = Object.entries(preset.theme.extend.minHeight).filter(
-            ([key]) => key !== 'touch',
+            ([key]) => key.startsWith('control-') || key.startsWith('row-'),
         );
         expect(laddered).not.toHaveLength(0);
         for (const [, value] of laddered) {
-            expect(value).not.toBe('44px');
+            expect(ladder.has(value)).toBe(true);
         }
     });
 
     it('prefixes the Catalogue ramp so it cannot shadow the numeric scale', () => {
         expect(preset.theme.extend.fontSize['role-micro']).toEqual([
-            '10px',
-            { lineHeight: '14px', letterSpacing: '0px', fontWeight: '600' },
+            '11.5px',
+            { lineHeight: '16px', letterSpacing: '0px', fontWeight: '700' },
         ]);
         expect(preset.theme.extend.fontSize.xs).toEqual(['12px', '18px']);
     });
@@ -270,11 +270,11 @@ describe('renderTokensCss', () => {
     });
 
     it('carries the control geometry and the Catalogue ramp', () => {
-        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-control-height-sm: 28px;`);
-        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-row-height-md: 32px;`);
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-control-height-sm: 36px;`);
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-row-height-md: 44px;`);
         expect(output).toContain(`${CSS_VARIABLE_PREFIX}-field-width: 280px;`);
-        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-text-micro-size: 10px;`);
-        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-text-micro-line-height-latin: 14px;`);
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-text-micro-size: 11.5px;`);
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-text-micro-line-height-latin: 16px;`);
         expect(output).toContain(`${CSS_VARIABLE_PREFIX}-text-micro-tracking-arabic: 0px;`);
     });
 

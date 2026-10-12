@@ -21,7 +21,7 @@ import {
 } from './plan-menu.ts';
 import type { MenuDay, MenuDraft, MenuEntryDraft } from './plan-menu.ts';
 import { CountField, RemoveButton } from './plan-row-editors.tsx';
-import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
+import { RowAnnouncer, RowEditorFrame, UndoBar } from './row-editor-shell.tsx';
 
 /**
  * The plan editor's fixed-menu rows (Order Desk, phase 5).
@@ -423,15 +423,16 @@ export function PlanMenuDays({
                     {t('kitchen:plans.menuEmpty')}
                 </Text>
             ) : (
-                <DataList<MenuRow>
-                    testID={testID}
-                    label={t('kitchen:plans.sectionMenu')}
-                    columns={columns}
-                    rows={rows}
-                    rowKey={(row) => row.key}
-                    density="sm"
-                    framed
-                />
+                <RowEditorFrame>
+                    <DataList<MenuRow>
+                        testID={testID}
+                        label={t('kitchen:plans.sectionMenu')}
+                        columns={columns}
+                        rows={rows}
+                        rowKey={(row) => row.key}
+                        framed
+                    />
+                </RowEditorFrame>
             )}
 
             {removed === null ? null : (

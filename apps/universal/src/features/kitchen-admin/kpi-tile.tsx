@@ -27,7 +27,7 @@ export interface KpiTileProps {
     readonly trend?: ReactNode | undefined;
     /** Caption under an em-dash value explaining the absence. */
     readonly nullCaption?: string | undefined;
-    /** Value face: `md` 24px, `lg` 30px — the §1.2b snaps of the drawn 25/28. */
+    /** Value face: `md` the 25px display step, `lg` the 30px title step. */
     readonly size?: 'md' | 'lg' | undefined;
 }
 
@@ -44,11 +44,11 @@ export function KpiTile({
     return (
         <View
             testID={testID}
-            className="min-h-[96px] min-w-[140px] flex-1 basis-[140px] rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
+            className="min-h-[96px] min-w-[140px] flex-1 basis-[140px] rounded-panel border border-stroke-subtle bg-surface-raised p-[18px] shadow-elevation-1"
         >
-            <Text tone="secondary" variant="micro">
+            <RNText numberOfLines={1} className="text-xs text-content-secondary text-start">
                 {label}
-            </Text>
+            </RNText>
             {pending ? (
                 <View className="mt-1">
                     <Skeleton
@@ -62,8 +62,8 @@ export function KpiTile({
                     testID={`${testID}-value`}
                     className={
                         size === 'lg'
-                            ? 'mt-1 font-display tabular-nums text-3xl font-bold text-content-primary text-start'
-                            : 'mt-1 font-display tabular-nums text-2xl font-bold text-content-primary text-start'
+                            ? 'mt-1 font-display tabular-nums text-role-title text-content-primary text-start'
+                            : 'mt-1 font-display tabular-nums text-role-display text-content-primary text-start'
                     }
                 >
                     {value ?? '—'}
@@ -73,12 +73,18 @@ export function KpiTile({
                 <View className="mt-2 flex-row items-center">{trend}</View>
             )}
             {hint === undefined ? null : (
-                <RNText
-                    testID={`${testID}-hint`}
-                    className="mt-1.5 text-xs font-bold text-brand-600"
-                >
-                    {hint}
-                </RNText>
+                // The mood board's KPI footer: the meaning as a small pill.
+                <View className="mt-auto flex-row pt-2.5">
+                    <View className="rounded-full bg-surface-brand-subtle px-2.5 py-1">
+                        <RNText
+                            testID={`${testID}-hint`}
+                            numberOfLines={1}
+                            className="text-role-micro text-content-on-brand-subtle text-start"
+                        >
+                            {hint}
+                        </RNText>
+                    </View>
+                </View>
             )}
             {!pending && value === null && nullCaption !== undefined ? (
                 <Text tone="secondary" variant="caption" className="mt-1">

@@ -1,6 +1,6 @@
-import { Icon, Text, cx } from '@healthy360/design-system';
+import { DATA_LIST_HEADER_TEXT, Icon, Text, cx } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, Text as RNText, ScrollView, View } from 'react-native';
 
 /**
  * The role editor's permission matrix: a matrix in shape, drawn in the kitchen tables' style.
@@ -15,10 +15,10 @@ import { Pressable, ScrollView, View } from 'react-native';
  *
  * ## The table's style, the matrix's shape
  *
- * The frame, the header and the rows are `CatalogueList`'s (`DataList`): a raised panel, a green
- * header band that is the table's one rule, and rows with **no hairline between them** — told apart
- * by their height and the hover tint, because a rule under every row stripes a page into a ledger.
- * A sidebar section is a sunken band across the full width, not a line.
+ * The frame, the header and the rows are `CatalogueList`'s (`DataList`): a raised panel, a quiet
+ * header — small tracked capitals on the card's own white, closed by one firm rule — and rows split
+ * by a hairline, with the hover tint on top. A sidebar section is a sunken band across the full
+ * width, not a line.
  *
  * What stays the matrix's own is the cells: a fixed row-label track, then one flexible track per
  * column, each cell a 32px well — tinted and
@@ -49,7 +49,7 @@ function trackStyle(weight: number) {
 
 /** `CatalogueList`'s panel — the frame every kitchen table sits in. */
 const PANEL =
-    'flex-col overflow-hidden rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card';
+    'flex-col overflow-hidden rounded-panel border border-stroke-subtle bg-surface-raised shadow-elevation-1';
 
 /** The width below which the matrix scrolls sideways: the name track plus each column's floor. */
 export function matrixFloor(weights: readonly number[]): number {
@@ -110,21 +110,18 @@ export function MatrixHeader({
     readonly rowHeader: string;
     readonly columns: readonly (MatrixColumn | readonly MatrixColumn[])[];
 }) {
-    // `DataList`'s header: the brand's subtle band, labels a step heavier than the cells under it.
+    // `DataList`'s quiet header: small tracked capitals in the secondary ink over one firm rule.
+    // React Native's `Text`, since the design system's variant classes would win over the header's.
     const cell = (column: MatrixColumn) => (
         <View key={column.key} style={trackStyle(column.weight ?? 1)} className="py-1.5">
-            <Text variant="strong" align="center" className="text-content-on-brand-subtle">
-                {column.label}
-            </Text>
+            <RNText className={cx(DATA_LIST_HEADER_TEXT, 'text-center')}>{column.label}</RNText>
         </View>
     );
 
     return (
-        <View className="min-h-row-sm flex-row items-center gap-tight border-b border-stroke-subtle bg-surface-brand-subtle px-control-sm">
+        <View className="min-h-row-sm flex-row items-center gap-tight border-b-[1.5px] border-stroke bg-surface-raised px-control-sm">
             <View style={{ width: MATRIX_ROW_TRACK }} className="py-1.5">
-                <Text variant="strong" className="text-content-on-brand-subtle">
-                    {rowHeader}
-                </Text>
+                <RNText className={cx(DATA_LIST_HEADER_TEXT, 'text-start')}>{rowHeader}</RNText>
             </View>
             {columns.map((entry) =>
                 isGroup(entry) ? (
@@ -176,10 +173,10 @@ export function MatrixRow({
     readonly testID: string;
 }) {
     return (
-        // No hairline: `DataList`'s rows are told apart by height and the hover tint alone.
+        // `DataList`'s row: a hairline under it, the hover tint over it.
         <View
             testID={testID}
-            className="min-h-row-md flex-row items-center gap-tight px-control-sm py-1 hover:bg-surface-sunken"
+            className="min-h-row-md flex-row items-center gap-tight border-b border-stroke-subtle px-control-sm py-1 web:hover:bg-surface-sunken"
         >
             <View style={{ width: MATRIX_ROW_TRACK }} className="min-w-0 flex-col">
                 <Text testID={`${testID}-name`}>{title}</Text>
@@ -256,7 +253,7 @@ export function MatrixCell({
             onPress={onPress}
             {...({ title: label } as object)}
             className={cx(
-                'flex-row items-center justify-center gap-hair rounded-sm border px-2',
+                'flex-row items-center justify-center gap-hair rounded-control border px-2',
                 // A tick fills its track; a chip is as wide as its name, wrapping inside the slot
                 // and growing a line taller rather than cutting the name off.
                 word === undefined ? 'h-control-sm w-full' : 'min-h-control-sm max-w-full py-1',

@@ -22,7 +22,7 @@ import { Skeleton } from './skeleton.tsx';
 
 /** The list panel's frame — `catalogue-list.tsx`'s `FRAME_CLASS`, so the skeleton sits where the rows will. */
 const PANEL_CLASS =
-    'flex-col overflow-hidden rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card';
+    'flex-col overflow-hidden rounded-panel border border-stroke-subtle bg-surface-raised shadow-elevation-1';
 
 /**
  * Cell widths, cycled by row and column so the rows read as text of different lengths rather than
@@ -221,7 +221,7 @@ export function StatTilesSkeleton({
                             ? undefined
                             : `${partTestID}-skeleton-${String(tile + 1)}`
                     }
-                    className="min-w-card flex-1 flex-col gap-tight rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
+                    className="min-w-card flex-1 flex-col gap-tight rounded-panel border border-stroke-subtle bg-surface-raised p-4 shadow-elevation-1"
                 >
                     <Skeleton heightClassName="h-2.5" widthClassName="w-1/3" />
                     <Skeleton heightClassName="h-8" widthClassName="w-1/2" />

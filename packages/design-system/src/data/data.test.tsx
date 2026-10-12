@@ -153,12 +153,11 @@ describe('Table — wide', () => {
         // `micro` step in Schibsted — often on the same screen. They are one shape now, and this
         // asserts the whole shape rather than one class of it.
         //
-        // `label` (12px) rather than `micro` (10px): a header sits on the same step as the cells
-        // it names, which are `role-body` at 12px.
+        // The mood board's eyebrow (2026-10-12): `micro` in tracked capitals, secondary ink.
         const header = screen.getByTestId('nutrients-columnheader-name').props.className;
-        expect(header).toContain('text-role-label');
+        expect(header).toContain('text-role-micro');
         expect(header).toContain('text-content-secondary');
-        expect(header).not.toContain('uppercase');
+        expect(header).toContain('uppercase');
         expect(header).not.toContain('tracking-widest');
         // A header is body text and names no family: `global.css` sets it per script.
         for (const face of ['font-admin', 'font-display', 'font-mono']) {

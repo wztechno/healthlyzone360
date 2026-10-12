@@ -187,6 +187,7 @@ export function packagingColumns({
             priority: CATALOGUE_PRIORITY.unit,
             // A figure, like `capacity` and `waste` below: frozen as `metric` columns are.
             grow: false,
+            align: 'end',
             mono: true,
             sortable: true,
             sortType: 'number',
@@ -237,6 +238,7 @@ export function packagingColumns({
             min: 80,
             priority: CATALOGUE_PRIORITY.metric,
             grow: false,
+            align: 'end',
             mono: true,
             sortable: true,
             sortType: 'number',
@@ -252,6 +254,7 @@ export function packagingColumns({
             min: 68,
             priority: CATALOGUE_PRIORITY.updated,
             grow: false,
+            align: 'end',
             mono: true,
             sortable: true,
             sortType: 'number',

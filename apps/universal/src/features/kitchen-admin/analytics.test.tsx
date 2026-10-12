@@ -1,15 +1,14 @@
+import type {
+    KitchenAnalyticsFilter,
+    KitchenAnalyticsReport,
+    KitchenAnalyticsTotals,
+} from '@healthy360/api-client/contracts';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { Dimensions } from 'react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
-import { buildKitchenAnalytics } from './analytics-sample-data.ts';
-import { AnalyticsScreen } from './screens/analytics-screen.tsx';
-import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
-
-afterEach(() => {
-    forgetColumnChoice('kitchen-analytics-table');
-});
+import { todayIso } from '../commerce/dates.ts';
+import { AnalyticsScreen, rangeDates, trendBuckets } from './screens/analytics-screen.tsx';
 
 jest.mock('expo-router', () => ({
     __esModule: true,
@@ -21,110 +20,178 @@ jest.mock('expo-router', () => ({
 }));
 
 /**
- * The analytics dashboard reads no repository at all — every number on it comes from
- * `buildKitchenAnalytics`, which is a pure function of the two filters. So the only thing the
- * session has to supply is the gate's answer: `kitchen` demands an organisation, a branch and
- * `catalogue.view_organisation`, all of which the kitchen-manager fixture carries.
+ * The analytics dashboard reads one report, `getKitchenAnalytics`, for the chosen range against
+ * the range before it. These tests stub that read and assert what the screen makes of it.
  */
+
+const EMPTY: KitchenAnalyticsTotals = {
+    orders: 0,
+    units: 0,
+    cancelled: 0,
+    fulfilled: 0,
+    open: 0,
+    fulfilledWithDue: 0,
+    onTime: 0,
+    avgLeadMinutes: null,
+};
+
+function report(
+    filter: KitchenAnalyticsFilter,
+    overrides: Partial<KitchenAnalyticsReport> = {},
+): KitchenAnalyticsReport {
+    return {
+        from: filter.from,
+        to: filter.to,
+        current: {
+            orders: 4,
+            units: 7,
+            cancelled: 1,
+            fulfilled: 3,
+            open: 1,
+            fulfilledWithDue: 2,
+            onTime: 1,
+            avgLeadMinutes: 190,
+        },
+        previous: { ...EMPTY, orders: 2, units: 14, open: 2 },
+        days: [{ date: filter.to, orders: 4, units: 7 }],
+        channels: [
+            { key: 'subscription', orders: 1, units: 1 },
+            { key: 'b2b', orders: 1, units: 1 },
+            { key: 'pos', orders: 1, units: 3 },
+            { key: 'a_la_carte', orders: 1, units: 2 },
+        ],
+        items: [
+            {
+                catalogueItemId: 'item-1',
+                nameEn: 'Freekeh bowl',
+                nameAr: null,
+                itemType: 'meal',
+                orders: 3,
+                units: 4,
+                lastOrderedAt: '2026-05-11T20:30:00Z',
+            },
+        ],
+        ...overrides,
+    };
+}
+
+function untilVisible(testID: string) {
+    return waitFor(
+        () => {
+            expect(screen.getByTestId(testID)).toBeTruthy();
+        },
+        { timeout: 10_000 },
+    );
+}
+
 describe('kitchen analytics', () => {
-    it('builds deterministic sample bundles per filter pair', () => {
-        const a = buildKitchenAnalytics('30d', 'meals');
-        const b = buildKitchenAnalytics('30d', 'meals');
-        const c = buildKitchenAnalytics('7d', 'meals');
-
-        expect(a.kpis).toEqual(b.kpis);
-        expect(a.productionTrend).toEqual(b.productionTrend);
-        expect(a.kpis[0]?.value).not.toEqual(c.kpis[0]?.value);
-        expect(a.rows.length).toBeGreaterThan(0);
-        expect(a.statusMix.reduce((sum, slice) => sum + slice.value, 0)).toBe(100);
-    });
-
-    it('renders KPIs, charts, and updates when the date range changes', async () => {
-        await renderStubScreen(<AnalyticsScreen />, { session: kitchenManagerSession() });
-
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-analytics-panel')).toBeTruthy();
+    it('shows the report for the last 30 days and asks again when the range changes', async () => {
+        const asked: KitchenAnalyticsFilter[] = [];
+        await renderStubScreen(<AnalyticsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getKitchenAnalytics: async (filter) => {
+                        asked.push(filter);
+                        return report(filter);
+                    },
+                },
+            },
         });
 
-        expect(screen.getByTestId('kitchen-analytics-kpis-produced')).toBeTruthy();
+        await untilVisible('kitchen-analytics-kpis');
+        expect(asked[0]).toEqual(rangeDates('30d'));
+
+        expect(screen.getByTestId('kitchen-analytics-kpis-orders-value').props.children).toBe('4');
+        // One of two orders with a due date made it: 50 %.
+        expect(
+            String(screen.getByTestId('kitchen-analytics-kpis-onTime-value').props.children),
+        ).toMatch(/50/);
+        // 190 minutes is 3.2 hours.
+        expect(screen.getByTestId('kitchen-analytics-kpis-leadTime-value').props.children).toBe(
+            '3.2',
+        );
+        // Orders doubled (2 → 4), units halved (14 → 7); the previous range fulfilled nothing.
+        expect(screen.getByText('↑ 100%')).toBeTruthy();
+        expect(screen.getByText('↓ 50%')).toBeTruthy();
+        expect(screen.getAllByText('Nothing to compare with')).toHaveLength(2);
+
         expect(screen.getByTestId('kitchen-analytics-trend')).toBeTruthy();
         expect(screen.getByTestId('kitchen-analytics-channels')).toBeTruthy();
         expect(screen.getByTestId('kitchen-analytics-mix')).toBeTruthy();
         expect(screen.getByTestId('kitchen-analytics-table')).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-analytics-theme-toggle')).toBeNull();
+        expect(screen.getByText('Freekeh bowl')).toBeTruthy();
 
-        const producedBefore = screen.getByTestId('kitchen-analytics-kpis-produced-value').props
-            .children;
-
-        fireEvent.press(screen.getByTestId('kitchen-analytics-range-7d'));
-
-        await waitFor(() => {
-            expect(
-                screen.getByTestId('kitchen-analytics-kpis-produced-value').props.children,
-            ).not.toEqual(producedBefore);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-analytics-range-7d'));
         });
+        await waitFor(() => {
+            expect(asked).toContainEqual(rangeDates('7d'));
+        });
+    });
+
+    it('shows the dash when nothing fulfilled had a due date, and an empty state with no orders', async () => {
+        await renderStubScreen(<AnalyticsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getKitchenAnalytics: async (filter) =>
+                        report(filter, { current: EMPTY, previous: EMPTY, items: [] }),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-analytics-empty');
+        expect(screen.getByTestId('kitchen-analytics-kpis-onTime-value').props.children).toBe('—');
+        expect(screen.getAllByText('Not enough data')).toHaveLength(2);
+        expect(screen.queryByTestId('kitchen-analytics-mix')).toBeNull();
+        expect(screen.queryByTestId('kitchen-analytics-table')).toBeNull();
+    });
+
+    it('offers a retry when the report fails', async () => {
+        let calls = 0;
+        await renderStubScreen(<AnalyticsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getKitchenAnalytics: async (filter) => {
+                        calls += 1;
+                        if (calls === 1) throw new Error('offline');
+                        return report(filter);
+                    },
+                },
+            },
+        });
+
+        await untilVisible('kitchen-analytics-error');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-analytics-error-retry'));
+        });
+        await untilVisible('kitchen-analytics-kpis');
     });
 });
 
-describe('kitchen analytics line items at desk width', () => {
-    // The column headers are only drawn above `md`; below it the list is a stack of cards.
-    const narrowWindow = Dimensions.get('window');
-    const narrowScreen = Dimensions.get('screen');
-    beforeAll(() => {
-        Dimensions.set({
-            window: { ...narrowWindow, width: 1440, height: 900 },
-            screen: { ...narrowScreen, width: 1440, height: 900 },
-        });
-    });
-    afterAll(() => {
-        Dimensions.set({ window: narrowWindow, screen: narrowScreen });
+describe('kitchen analytics ranges', () => {
+    const now = new Date(2026, 9, 12, 15, 0);
+
+    it('ends every range today on the local calendar; year to date starts on 1 January', () => {
+        expect(todayIso(now)).toBe('2026-10-12');
+        expect(rangeDates('7d', now)).toEqual({ from: '2026-10-06', to: '2026-10-12' });
+        expect(rangeDates('90d', now)).toEqual({ from: '2026-07-15', to: '2026-10-12' });
+        expect(rangeDates('ytd', now)).toEqual({ from: '2026-01-01', to: '2026-10-12' });
     });
 
-    const rowOrder = () =>
-        screen
-            .getAllByTestId(/^kitchen-analytics-table-row-row-30d-all-\d+$/)
-            .map((row) => String(row.props.testID));
+    it('sums days into weeks ending on the last day, the oldest run taking the remainder', () => {
+        const days = Array.from({ length: 9 }, (_, index) => ({
+            date: `2026-10-${String(index + 4).padStart(2, '0')}`,
+            orders: 1,
+            units: index + 1,
+        }));
 
-    it('sorts by Updated on a press, oldest first, and flips on the next', async () => {
-        // Updated ranks lowest of the seven, so it is one pick away; the reader has picked it.
-        rememberColumnChoice('kitchen-analytics-table', [
-            'name',
-            'segment',
-            'status',
-            'volume',
-            'done',
-            'updated',
+        expect(trendBuckets(days, 7)).toEqual([
+            { from: '2026-10-04', to: '2026-10-05', units: 3 },
+            { from: '2026-10-06', to: '2026-10-12', units: 42 },
         ]);
-        await renderStubScreen(<AnalyticsScreen />, { session: kitchenManagerSession() });
-        await waitFor(() => {
-            expect(
-                screen.getByTestId('kitchen-analytics-table-column-updated-trigger'),
-            ).toBeTruthy();
-        });
-
-        const rows = buildKitchenAnalytics('30d', 'all').rows;
-        const idsOf = (sorted: typeof rows) =>
-            sorted.map((row) => `kitchen-analytics-table-row-${row.id}`);
-        // Two stable sorts rather than one reversed: rows updated the same hour keep their order.
-        const oldestFirst = idsOf(
-            [...rows].sort((left, right) => right.updatedHoursAgo - left.updatedHoursAgo),
-        );
-        const newestFirst = idsOf(
-            [...rows].sort((left, right) => left.updatedHoursAgo - right.updatedHoursAgo),
-        );
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-analytics-table-column-updated-trigger'));
-        });
-        await waitFor(() => {
-            expect(rowOrder()).toEqual(oldestFirst);
-        });
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-analytics-table-column-updated-trigger'));
-        });
-        await waitFor(() => {
-            expect(rowOrder()).toEqual(newestFirst);
-        });
+        expect(trendBuckets(days, 1)).toHaveLength(9);
     });
 });

@@ -79,6 +79,11 @@ export interface AppShellProps {
     readonly topbarTitle?: ReactNode | undefined;
     /** Trailing topbar slot — locale switch, avatar, sign out. */
     readonly topbarEnd?: ReactNode | undefined;
+    /**
+     * Controls pinned to the foot of the navigation drawer — where a phone-width shell moves the
+     * top bar's quieter controls (language, theme, sign out) so the bar never overflows.
+     */
+    readonly drawerFooter?: ReactNode | undefined;
     /** Full-width strip above everything: offline indicator, mock-data banner. */
     readonly banner?: ReactNode | undefined;
     readonly footer?: ReactNode | undefined;
@@ -163,6 +168,7 @@ function AppShellLayout({
     topbarStart,
     topbarTitle,
     topbarEnd,
+    drawerFooter,
     banner,
     footer,
     sidebarWidth,
@@ -353,7 +359,7 @@ function AppShellLayout({
                         aria-selected={item.active === true}
                         focusable
                         onPress={item.onPress}
-                        className="min-h-touch flex-1 items-center justify-center gap-0.5 py-2"
+                        className="min-h-touch min-w-0 flex-1 items-center justify-center gap-0.5 px-0.5 py-2"
                     >
                         {item.icon === undefined ? null : (
                             <Icon
@@ -365,11 +371,15 @@ function AppShellLayout({
                                 }
                             />
                         )}
+                        {/* One line each, cut short with an ellipsis: a crowded bar of seven
+                            stays one even row instead of one label running to three lines. The
+                            full name is still the tab's accessible label. */}
                         <RNText
+                            numberOfLines={1}
                             className={cx(
-                                'text-xs',
+                                'max-w-full text-xs text-center',
                                 item.active === true
-                                    ? 'text-content-on-brand-subtle font-medium'
+                                    ? 'text-content-on-brand-subtle font-semibold'
                                     : 'text-content-secondary',
                             )}
                         >
@@ -403,7 +413,7 @@ function AppShellLayout({
         <View
             testID={testID === undefined ? undefined : `${testID}-topbar`}
             role="banner"
-            className="flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-raised px-4 py-2 shadow-elevation-1"
+            className="min-h-16 flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-raised px-4 py-3 lg:px-7"
         >
             {twoPane ? (
                 <IconButton
@@ -592,7 +602,8 @@ function AppShellLayout({
                                       // of the destinations under it. It was `uppercase
                                       // tracking-widest`, one of the five shapes this product used to
                                       // draw a demoted label in; size and weight carry it now.
-                                      'px-3 pb-1 pt-3 text-base font-bold text-start',
+                                      // The mood board's eyebrow: small, bold, tracked capitals.
+                                      'px-3 pb-1.5 pt-4 text-role-micro uppercase tracking-[0.12em] text-start',
                                       onSidebar
                                           ? 'text-content-on-sidebar-muted'
                                           : 'text-content-secondary',
@@ -754,6 +765,7 @@ function AppShellLayout({
                 setDrawerOpen(false);
             }}
             title={t('designSystem:shell.primaryNavigation')}
+            footer={drawerFooter}
         >
             {navigationList(false)}
         </Drawer>
@@ -1056,7 +1068,7 @@ function AppShellLayout({
                     window's, and the top bar begins beside them. */}
                 <View
                     testID={testID === undefined ? undefined : `${testID}-rail-panel`}
-                    className="h-full flex-col bg-surface-sidebar"
+                    className="h-full flex-col border-e border-content-on-sidebar/10 bg-surface-sidebar"
                     style={{ width: SIDEBAR_COLLAPSED_WIDTH }}
                 >
                     {sidebarBackground === undefined ? null : (
@@ -1079,8 +1091,8 @@ function AppShellLayout({
                     aria-hidden={sidebarCollapsed}
                     className={cx(
                         // The width class is the default the style overrides; the style is what moves.
-                        'h-full w-[260px] overflow-hidden bg-surface-raised',
-                        sidebarCollapsed ? null : 'border-e border-stroke-subtle',
+                        'h-full w-[260px] overflow-hidden bg-surface-sidebar',
+                        sidebarCollapsed ? null : 'border-e border-content-on-sidebar/10',
                     )}
                     style={{ width: sidebarCollapsed ? 0 : panelWidth, ...transition }}
                 >
@@ -1105,7 +1117,7 @@ function AppShellLayout({
                                         }
                                     />
                                 ) : (
-                                    navigationList(false, 'surface', shownGroup)
+                                    navigationList(false, 'sidebar', shownGroup)
                                 )}
                             </ScrollView>
                             {/* A caller with no rail-sized end control keeps its full one here. */}
@@ -1122,7 +1134,7 @@ function AppShellLayout({
                         role="main"
                         className="flex-1"
                         contentContainerClassName={cx(
-                            'flex-grow gap-4 p-4 lg:p-7',
+                            'flex-grow gap-5 p-4 md:p-6 lg:p-7',
                             contentClassName,
                         )}
                     >
@@ -1174,7 +1186,7 @@ export const SIDEBAR_COLLAPSED_WIDTH = 56;
 export const SIDEBAR_TRANSITION_MS = 200;
 
 /**
- * One glyph on the module rail. White on the green strip, and a white pill in green when lit. Its
+ * One glyph on the module rail. Mint on the forest strip, and a deep emerald pill when lit. Its
  * name floats beside it on hover, at the rail's inline end.
  */
 /**
@@ -1229,26 +1241,31 @@ function PanelNavLink({
                 testID={item.testID === undefined ? undefined : `${item.testID}-marker`}
                 className="w-4 items-center justify-center"
             >
-                <View className="h-1.5 w-1.5 rounded-full bg-stroke-strong" />
+                <View
+                    className={cx(
+                        'h-1.5 w-1.5 rounded-full',
+                        active ? 'bg-content-on-sidebar-active' : 'bg-content-on-sidebar-muted/50',
+                    )}
+                />
             </View>
             <View
                 className={cx(
-                    'min-h-control-md flex-1 flex-row items-center gap-2 rounded-lg px-3 py-1.5',
+                    'min-h-[38px] flex-1 flex-row items-center gap-2 rounded-control px-3 py-1.5',
                     active
-                        ? 'bg-surface-brand-subtle'
+                        ? 'bg-surface-sidebar-active'
                         : hovered
-                          ? 'bg-surface-sunken'
+                          ? 'bg-content-on-sidebar/10'
                           : 'bg-transparent',
                 )}
             >
-                {/* A step smaller than the module heading above it, so they read as its pages. */}
+                {/* The mood board's navigation item: 13.5 / 500, the current one 700. */}
                 <RNText
                     numberOfLines={1}
                     className={cx(
-                        'flex-1 text-xs text-start',
+                        'flex-1 text-role-body text-start',
                         active
-                            ? 'font-semibold text-content-on-brand-subtle'
-                            : 'text-content-primary',
+                            ? 'font-bold text-content-on-sidebar-active'
+                            : 'font-medium text-content-on-sidebar',
                     )}
                 >
                     {item.label}
@@ -1278,18 +1295,18 @@ function PanelEmptyNote({
         // heading would.
         <View testID={testID} className="flex-col items-start gap-2 p-5">
             {item.icon === undefined ? null : (
-                <View className="h-10 w-10 items-center justify-center rounded-lg bg-surface-sunken">
-                    <Icon name={item.icon} size="lg" className="text-content-secondary" />
+                <View className="h-10 w-10 items-center justify-center rounded-lg bg-content-on-sidebar/10">
+                    <Icon name={item.icon} size="lg" className="text-content-on-sidebar" />
                 </View>
             )}
             <RNText
                 accessibilityRole="header"
                 aria-level={2}
-                className="text-sm font-bold text-content-primary text-start"
+                className="text-sm font-bold text-content-on-sidebar text-start"
             >
                 {t('designSystem:shell.emptyPanelTitle', { page: item.label })}
             </RNText>
-            <RNText className="text-xs text-content-secondary text-start">
+            <RNText className="text-xs text-content-on-sidebar-muted text-start">
                 {t('designSystem:shell.emptyPanelBody')}
             </RNText>
         </View>
@@ -1345,8 +1362,10 @@ function RailButton({
             }}
             onHoverOut={hide}
             className={cx(
-                'h-10 w-10 items-center justify-center rounded-lg',
-                active ? 'bg-surface-sidebar-active' : 'bg-transparent',
+                'h-10 w-10 items-center justify-center rounded-control',
+                active
+                    ? 'bg-surface-sidebar-active'
+                    : 'bg-transparent hover:bg-content-on-sidebar/10',
             )}
         >
             {/* 20px in the 40px button — the rail's marks are drawn, and read best at full size. */}

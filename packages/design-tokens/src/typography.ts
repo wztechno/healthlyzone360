@@ -272,32 +272,33 @@ export type LetterSpacingName = keyof typeof letterSpacing;
 export const displayLetterSpacing = '-0.02em';
 
 /**
- * The Catalogue's type ramp — eight roles, named for the job rather than the size.
+ * The Catalogue's type ramp — nine roles, named for the job rather than the size, listed smallest
+ * first.
  *
  * **Additive.** {@link fontSizes} is untouched, so every screen outside the admin renders exactly
  * as it did. A role is opted into (`<Text role="body">`), never inherited, which is what keeps the
  * customer surfaces out of an admin redesign.
  *
  * Named rather than numbered because the point of the ramp is that a decision is made once: a
- * column label is `micro` everywhere, and nobody re-picks between 10 and 11 per screen. The eight
- * cover what the Catalogue actually renders and no more — `handoff-claude-code.md` §1.2.
+ * KPI trend is `micro` everywhere, and nobody re-picks between 11 and 12 per screen.
  *
  * **Tracking is resolved to absolute pixels, not `em`.** {@link displayLetterSpacing} has to be
  * `em` because one value serves four display sizes; a role has exactly one size, so its `em` can be
  * multiplied out here — and React Native takes points and cannot read `em` at all, so this is the
- * only form that means the same thing on both platforms. The source values are −0.01em on `title`
- * and −0.015em on `display`; `micro` and `section` were 0.06em and 0.02em while they were set in
- * capitals, and went to zero with the capitals.
+ * only form that means the same thing on both platforms. Every display-face role is −0.02em, the
+ * mood board's heading tracking. Eyebrows set in capitals open their tracking at the call site, so
+ * no role carries positive tracking into Arabic.
  */
 export const TEXT_ROLE_NAMES = [
     'micro',
+    'label',
     'caption',
     'body',
-    'label',
     'strong',
     'section',
-    'title',
+    'heading',
     'display',
+    'title',
 ] as const;
 export type TextRoleName = (typeof TEXT_ROLE_NAMES)[number];
 
@@ -312,30 +313,31 @@ export interface TextRole {
     readonly uppercase: boolean;
 }
 
+/**
+ * The sizes are the mood board's (Option 02, "Wellness Green + AI") — the owner's call on
+ * 2026-10-12 that the kitchen match the board's type exactly, half-steps included. The board's own
+ * names are in each comment. Headings (`section`, `heading`, `title`, `display`) are set in Space
+ * Grotesk by the components that use them; everything else is Inter.
+ */
 export const textRoles: Readonly<Record<TextRoleName, TextRole>> = {
-    /**
-     * Column labels and eyebrows.
-     *
-     * Sentence case, and tracked at zero. Both were once the opposite — 0.06em of open tracking on
-     * capitals — and the pair went together: tracking is what makes a run of capitals legible, and
-     * on sentence case the same value only pulls words apart. Dropping the capitals without
-     * dropping the tracking is the half-change that reads as a bug.
-     */
-    micro: { size: 10, lineHeight: 14, weight: '600', letterSpacing: 0, uppercase: false },
-    /** Helper text, meta, the list summary line. */
-    caption: { size: 11, lineHeight: 16, weight: '400', letterSpacing: 0, uppercase: false },
-    /** Body copy, table cells, input values. */
-    body: { size: 12, lineHeight: 18, weight: '400', letterSpacing: 0, uppercase: false },
-    /** Field labels, tabs, button text. Same size as `body`, tighter leading and more weight. */
-    label: { size: 12, lineHeight: 16, weight: '500', letterSpacing: 0, uppercase: false },
-    /** A list item's or card's title. */
-    strong: { size: 13, lineHeight: 18, weight: '600', letterSpacing: 0, uppercase: false },
-    /** Section headings inside a form. Sentence case, for the reason `micro` states. */
-    section: { size: 13, lineHeight: 18, weight: '600', letterSpacing: 0, uppercase: false },
-    /** The page title — 16, where the current admin uses 30. */
-    title: { size: 16, lineHeight: 22, weight: '600', letterSpacing: -0.16, uppercase: false },
-    /** One number, rarely. */
-    display: { size: 20, lineHeight: 26, weight: '700', letterSpacing: -0.3, uppercase: false },
+    /** KPI trends, sidebar counts, the smallest eyebrow. Board: trend 11.5 / 700. */
+    micro: { size: 11.5, lineHeight: 16, weight: '700', letterSpacing: 0, uppercase: false },
+    /** Field labels, status pills, chips. Board: label 12.5 / 600. */
+    label: { size: 12.5, lineHeight: 18, weight: '600', letterSpacing: 0, uppercase: false },
+    /** Helper text, meta, the list summary line. Board: caption 13 / 500. */
+    caption: { size: 13, lineHeight: 18, weight: '500', letterSpacing: 0, uppercase: false },
+    /** Body copy, table cells, input values, navigation. Board: nav and rows 13.5. */
+    body: { size: 13.5, lineHeight: 20, weight: '400', letterSpacing: 0, uppercase: false },
+    /** Button text, a list item's title, emphasised cells. Board: button 14 / 600. */
+    strong: { size: 14, lineHeight: 20, weight: '600', letterSpacing: 0, uppercase: false },
+    /** A card's or form section's title. Board: body 16, set bold in the display face. */
+    section: { size: 16, lineHeight: 22, weight: '700', letterSpacing: -0.32, uppercase: false },
+    /** Group headings and dialog titles. Board: H3 21. */
+    heading: { size: 21, lineHeight: 28, weight: '700', letterSpacing: -0.42, uppercase: false },
+    /** KPI figures and cost totals. Board: KPI 25 / 700. */
+    display: { size: 25, lineHeight: 30, weight: '700', letterSpacing: -0.5, uppercase: false },
+    /** The page title. Board: H2 30 / 700. */
+    title: { size: 30, lineHeight: 36, weight: '700', letterSpacing: -0.6, uppercase: false },
 };
 
 /**

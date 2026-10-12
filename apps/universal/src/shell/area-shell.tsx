@@ -159,42 +159,63 @@ function GuardedAreaShell({
         </View>
     );
 
+    const localeToggle = (
+        <Button
+            testID="locale-toggle"
+            size="sm"
+            variant="ghost"
+            label={locale.startsWith('ar') ? 'English' : t('common:locale.arabic')}
+            onPress={() => {
+                void setLocale(locale.startsWith('ar') ? 'en' : 'ar');
+            }}
+        />
+    );
+    /*
+     * Sign out is quiet and the primary slot is left *empty*. Rule 4 is explicit that a staff area
+     * with no single core-loop action gets no top-bar primary at all: promoting navigation into the
+     * slot, or letting a destructive action sit there, is worse than leaving it alone. The areas that
+     * do have one — the kitchen workbench, the editors — carry it on the screen that owns it.
+     *
+     * When the area pins Sign out to its sidebar, this control moves there — but only while the
+     * sidebar is on screen.
+     */
+    const signOutButton = sidebarPresent ? null : (
+        <Button
+            testID="sign-out"
+            size="sm"
+            variant="quiet"
+            label={t('common:action.signOut')}
+            loading={logout.isPending}
+            onPress={signOut}
+        />
+    );
+    /*
+     * On a phone a workspace's top bar keeps only the menu, the trail and search; language, theme
+     * and sign out move to the foot of the navigation drawer, so the bar never runs off the screen.
+     */
+    const phoneWorkspace = resolvedVariant === 'workspace' && !atLeast('md');
+
     const topbarEnd =
         resolvedVariant === 'auth' || resolvedVariant === 'kiosk' ? undefined : (
             <Inline space="xs" wrap={false}>
                 {topbarSearch}
-                <Button
-                    testID="locale-toggle"
-                    size="sm"
-                    variant="ghost"
-                    label={locale.startsWith('ar') ? 'English' : t('common:locale.arabic')}
-                    onPress={() => {
-                        void setLocale(locale.startsWith('ar') ? 'en' : 'ar');
-                    }}
-                />
-                <ThemeToggle />
-                {/*
-                 * Sign out is quiet here and the primary slot is left *empty*. Rule 4 is explicit
-                 * that a staff area with no single core-loop action gets no top-bar primary at
-                 * all: promoting navigation into the slot, or letting a destructive action sit
-                 * there, is worse than leaving it alone. The areas that do have one — the kitchen
-                 * workbench, the editors — carry it on the screen that owns it.
-                 *
-                 * When the area pins Sign out to its sidebar, this control moves there — but only
-                 * while the sidebar is on screen.
-                 */}
-                {sidebarPresent ? null : (
-                    <Button
-                        testID="sign-out"
-                        size="sm"
-                        variant="quiet"
-                        label={t('common:action.signOut')}
-                        loading={logout.isPending}
-                        onPress={signOut}
-                    />
+                {phoneWorkspace ? null : (
+                    <>
+                        {localeToggle}
+                        <ThemeToggle />
+                        {signOutButton}
+                    </>
                 )}
             </Inline>
         );
+
+    const drawerFooter = phoneWorkspace ? (
+        <Inline space="xs" wrap>
+            {localeToggle}
+            <ThemeToggle />
+            {signOutButton}
+        </Inline>
+    ) : undefined;
 
     // KITCHEN.md sidebar spec: quiet, bordered, never filled — a filled button would compete with
     // the active item.
@@ -239,6 +260,7 @@ function GuardedAreaShell({
             navigation={navigation}
             banner={banner}
             topbarEnd={topbarEnd}
+            drawerFooter={drawerFooter}
             {...(topbarTitle === undefined ? {} : { topbarTitle })}
             {...(sidebarWidth === undefined ? {} : { sidebarWidth })}
             {...(sidebarBackground === undefined ? {} : { sidebarBackground })}

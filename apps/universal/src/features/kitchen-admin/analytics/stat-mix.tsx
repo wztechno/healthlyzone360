@@ -46,7 +46,7 @@ export function StatMix({ segments, formatPercent, testID }: StatMixProps) {
                 aria-hidden
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
-                className="h-3.5 flex-row overflow-hidden rounded-sm"
+                className="h-3.5 flex-row overflow-hidden rounded-full"
                 style={{ maxWidth: STRIP_MAX_WIDTH }}
             >
                 {segments.map((segment) => (

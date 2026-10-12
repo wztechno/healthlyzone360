@@ -80,3 +80,81 @@ describe('listItemLatestPurchases', () => {
         expect(requestedIds).toHaveLength(0);
     });
 });
+
+describe('getKitchenAnalytics', () => {
+    it('asks for the range and maps the report to camelCase', async () => {
+        const urls: string[] = [];
+        const totals = {
+            orders: 4,
+            units: 7,
+            cancelled: 1,
+            fulfilled: 3,
+            open: 1,
+            fulfilled_with_due: 2,
+            on_time: 1,
+            avg_lead_minutes: 190,
+        };
+        const transport = createTransport({
+            baseUrl: 'https://api.example',
+            tokenStore: createMemoryTokenStore('token'),
+            fetch: async (input) => {
+                urls.push(input instanceof Request ? input.url : String(input));
+                return new Response(
+                    JSON.stringify({
+                        data: {
+                            from: '2026-05-10',
+                            to: '2026-05-11',
+                            current: totals,
+                            previous: { ...totals, avg_lead_minutes: null },
+                            days: [{ date: '2026-05-10', orders: 4, units: 7 }],
+                            channels: [{ key: 'pos', orders: 1, units: 3 }],
+                            items: [
+                                {
+                                    catalogue_item_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e9001',
+                                    name_en: 'Freekeh bowl',
+                                    name_ar: null,
+                                    item_type: 'meal',
+                                    orders: 3,
+                                    units: 4,
+                                    last_ordered_at: '2026-05-11T20:30:00Z',
+                                },
+                            ],
+                        },
+                        meta: {},
+                    }),
+                    { status: 200 },
+                );
+            },
+        });
+
+        const report = await createApiKitchenOpsRepository(transport).getKitchenAnalytics({
+            from: '2026-05-10',
+            to: '2026-05-11',
+        });
+
+        const url = new URL(urls[0] ?? '');
+        expect(url.pathname).toMatch(/\/catalogue\/reports\/kitchen-analytics$/);
+        expect(url.searchParams.get('from')).toBe('2026-05-10');
+        expect(url.searchParams.get('to')).toBe('2026-05-11');
+        expect(report.current).toEqual({
+            orders: 4,
+            units: 7,
+            cancelled: 1,
+            fulfilled: 3,
+            open: 1,
+            fulfilledWithDue: 2,
+            onTime: 1,
+            avgLeadMinutes: 190,
+        });
+        expect(report.previous.avgLeadMinutes).toBeNull();
+        expect(report.items[0]).toEqual({
+            catalogueItemId: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e9001',
+            nameEn: 'Freekeh bowl',
+            nameAr: null,
+            itemType: 'meal',
+            orders: 3,
+            units: 4,
+            lastOrderedAt: '2026-05-11T20:30:00Z',
+        });
+    });
+});

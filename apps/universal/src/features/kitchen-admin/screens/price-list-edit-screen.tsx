@@ -766,7 +766,7 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
                 {gaps.length === 0 || entries.length === 0 ? null : (
                     <View
                         testID={`${PAGE_ID}-gaps`}
-                        className="flex-row flex-wrap items-center gap-snug rounded border border-stroke-subtle bg-surface-raised px-snug py-2.5"
+                        className="flex-row flex-wrap items-center gap-snug rounded-panel border border-stroke-subtle bg-surface-raised px-[18px] py-snug shadow-elevation-1"
                     >
                         <Icon name="tag" size="sm" className="text-warning-strong" />
                         <View className="min-w-0 flex-1 gap-0.5" style={{ flexBasis: 300 }}>
@@ -810,7 +810,7 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
             {changes.total === 0 || !canManage ? null : (
                 <View
                     testID={`${PAGE_ID}-save-bar`}
-                    className="z-sticky flex-row flex-wrap items-center gap-snug rounded border border-stroke-subtle bg-surface-raised px-base py-snug shadow-elevation-3 web:sticky web:bottom-0"
+                    className="z-sticky flex-row flex-wrap items-center gap-snug rounded-panel border border-stroke-subtle bg-surface-raised px-[18px] py-snug shadow-elevation-3 web:sticky web:bottom-0"
                 >
                     <View className="min-w-0 flex-1 gap-0.5" style={{ flexBasis: 320 }}>
                         <Text testID={`${PAGE_ID}-changes-title`} variant="strong">

@@ -27,7 +27,7 @@ import { RowThumbnail } from './row-thumbnail.tsx';
  * around rows: an empty state is the caller's own block and brings its own layout.
  */
 const FRAME_CLASS =
-    'flex-col rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card';
+    'flex-col rounded-panel border border-stroke-subtle bg-surface-raised shadow-elevation-1';
 
 /**
  * Part five (§4.1): the list.
@@ -254,12 +254,18 @@ function CatalogueTable<Row>({
                 className="flex-col"
             >
                 <DataList
-                    columns={visible.map((column) =>
-                        column.grow === undefined &&
-                        (column.role === 'metric' || column.role === 'status')
-                            ? { ...column, grow: false }
-                            : column,
-                    )}
+                    columns={visible.map((column) => {
+                        const fixed =
+                            column.grow === undefined &&
+                            (column.role === 'metric' || column.role === 'status')
+                                ? { ...column, grow: false }
+                                : column;
+                        // A figure sits on the trailing edge, under a trailing header, so a
+                        // column of them lines up digit for digit (mood board tables).
+                        return fixed.role === 'metric' && fixed.align === undefined
+                            ? { ...fixed, align: 'end' as const }
+                            : fixed;
+                    })}
                     rows={rows}
                     rowKey={rowKey}
                     label={label}

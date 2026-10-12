@@ -15,6 +15,7 @@ import {
     Text,
     UNDROPPABLE_PRIORITY,
     growWeights,
+    useBreakpoint,
     inputControlClass,
     inputFrameClassName,
 } from '@healthy360/design-system';
@@ -28,6 +29,7 @@ import { Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { ingredientsFromPages, useIngredientsQuery } from '../../data/kitchen-admin-hooks.ts';
 import { displayName, formatMoney, humaniseCode, parseQuantity, unitShortKey } from './format.ts';
+import { RowEditorFrame } from './row-editor-shell.tsx';
 
 /**
  * One row of a recipe's line table, as typed.
@@ -537,13 +539,14 @@ export function RecipeLineTable({
             priority: UNDROPPABLE_PRIORITY,
             grow: false,
             mono: true,
+            align: 'end',
             render: (row) => (
                 <View className="w-full py-hair">
                     <CellInput
                         testID={`${rowTestId(row)}-qty`}
                         value={row.quantity}
                         disabled={!canManage}
-                        align="center"
+                        align="end"
                         mono
                         // The zero warning lives here and on the designation's mark: `DataList`
                         // draws its own row, so the old row-wide fill has nowhere to go.
@@ -568,6 +571,7 @@ export function RecipeLineTable({
             priority: UNDROPPABLE_PRIORITY,
             grow: false,
             mono: true,
+            align: 'end',
             render: (row) => (
                 <Text variant="mono" numberOfLines={1} testID={`${rowTestId(row)}-unit-price`}>
                     {money(figures.get(row.key)?.unitCost ?? null, UNIT_COST)}
@@ -581,6 +585,7 @@ export function RecipeLineTable({
             priority: UNDROPPABLE_PRIORITY,
             grow: false,
             mono: true,
+            align: 'end',
             render: (row) => (
                 <Text variant="mono" numberOfLines={1} testID={`${rowTestId(row)}-total`}>
                     {money(figures.get(row.key)?.lineCost ?? null, LINE_TOTAL)}
@@ -665,7 +670,7 @@ export function RecipeLineTable({
                 />
             ) : null}
 
-            <View>
+            <RowEditorFrame>
                 {/*
                  * `testID` goes on the list itself rather than on a wrapper, so a row is still
                  * `${testID}-row-${key}` — the id `DataList` mints from its own id and the row key.
@@ -680,7 +685,6 @@ export function RecipeLineTable({
                     columns={columns}
                     rows={rows}
                     rowKey={(row) => row.key}
-                    density="sm"
                     emptyState={
                         <View
                             testID={`${testID}-empty`}
@@ -702,7 +706,7 @@ export function RecipeLineTable({
                         cost={money(costs?.total ?? null, LINE_TOTAL)}
                     />
                 )}
-            </View>
+            </RowEditorFrame>
         </View>
     );
 }
@@ -787,7 +791,7 @@ function TotalsRow({
             style={{ minWidth: trackSum }}
             // The design's 2px rule under the totals: the one place in the table where a border
             // carries emphasis rather than separation.
-            className="h-control-md flex-row items-center border-b-2 border-stroke"
+            className="min-h-row-md flex-row items-center border-b-2 border-stroke"
         >
             {columns.map((column) => (
                 <View
@@ -798,7 +802,7 @@ function TotalsRow({
                         flexShrink: 0,
                         minWidth: 0,
                     }}
-                    className="px-control-sm"
+                    className={column.align === 'end' ? 'items-end px-control-sm' : 'px-control-sm'}
                 >
                     {content[column.key] ?? null}
                 </View>
@@ -856,7 +860,7 @@ function CellInput({
                 quiet === true && !focused
                     ? // Transparent until it is touched, and the same box underneath — so the row
                       // does not reflow by a pixel when the frame appears.
-                      'h-control-xs flex-row items-center gap-control-xs rounded-sm border border-transparent px-control-xs'
+                      'h-control-xs flex-row items-center gap-control-xs rounded-control border border-transparent px-control-xs'
                     : inputFrameClassName({
                           invalid: false,
                           caution,
@@ -954,8 +958,8 @@ interface PickerProps {
 const PICKER_WIDTH = 320;
 /** The panel is wider than its field, as drawn — a designation plus a price needs the room. */
 const PANEL_WIDTH = 360;
-/** One option row, `h-control-sm`. What the keyboard's scroll arithmetic counts in. */
-const PANEL_ROW_HEIGHT = 28;
+/** One option row, `h-control-sm` (36 since the 2026-10-12 density). What the keyboard's scroll arithmetic counts in. */
+const PANEL_ROW_HEIGHT = 36;
 /**
  * The list's own height ceiling: the panel's `max-h-80` less its 4px inset top and bottom.
  *
@@ -984,6 +988,8 @@ function Picker({
     const formatter = useFormatter();
     const [focused, setFocused] = useState(false);
     const panel = useRef<ScrollView>(null);
+    // On a phone the 320px field and 360px panel fill the column instead of running off it.
+    const wide = useBreakpoint().atLeast('md');
     /** Where the list is scrolled to, so the keyboard can tell whether a row is already in view. */
     const scrolledTo = useRef(0);
     /** Set by the arrow keys only — the one kind of highlight the list should move for. */
@@ -1004,7 +1010,7 @@ function Picker({
      * to the top whenever the highlight returned to the first row. Hover now highlights and nothing
      * more, and a key moves the list only as far as it takes to bring the row into view.
      *
-     * ponytail: assumes uniform 28px rows (`h-control-sm`). Measure with `onLayout` per row if an
+     * ponytail: assumes uniform 36px rows (`h-control-sm`). Measure with `onLayout` per row if an
      * option ever wraps to two lines.
      */
     useEffect(() => {
@@ -1075,7 +1081,10 @@ function Picker({
      * later section ever put near it, for no reason the rest of the time.
      */
     return (
-        <View style={{ width: PICKER_WIDTH }} className={open ? 'relative z-sticky' : 'relative'}>
+        <View
+            style={{ width: PICKER_WIDTH }}
+            className={open ? 'relative z-sticky max-w-full' : 'relative max-w-full'}
+        >
             <View
                 className={inputFrameClassName({
                     invalid: false,
@@ -1117,8 +1126,8 @@ function Picker({
                     role="list"
                     // Above the rows beneath it: the table paints after this in source order, so
                     // without the raised layer the panel lands under the first line.
-                    className="absolute top-full z-sticky mt-hair max-h-80 overflow-hidden rounded-md border border-stroke bg-surface-raised p-hair shadow-elevation-3"
-                    style={{ width: PANEL_WIDTH }}
+                    className="absolute top-full z-sticky mt-hair max-h-80 overflow-hidden rounded-lg border border-stroke-subtle bg-surface-raised p-hair shadow-elevation-3"
+                    style={{ width: wide ? PANEL_WIDTH : '100%' }}
                 >
                     {/*
                      * The whole answer, scrolled — not the first eight of it.
@@ -1174,7 +1183,7 @@ function Picker({
                                         onPick(entry);
                                     }}
                                     className={[
-                                        'h-control-sm flex-row items-center justify-between gap-tight rounded-sm px-tight',
+                                        'h-control-sm flex-row items-center justify-between gap-tight rounded-control px-tight',
                                         index === highlighted ? 'bg-surface-sunken' : null,
                                     ]
                                         .filter((entryClass) => entryClass !== null)

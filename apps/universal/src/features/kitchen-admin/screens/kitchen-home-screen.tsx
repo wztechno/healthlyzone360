@@ -14,8 +14,10 @@ import { KitchenBranchId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
+import { gradients } from '@healthy360/design-tokens';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import type { UseQueryResult } from '@tanstack/react-query';
 
@@ -92,16 +94,15 @@ function FamilyCardShell({
     return (
         <View testID={testID} className="grow flex-col self-stretch">
             {/*
-             * Flat on the page ground with one hairline — `default`, not `raised`: the group's
-             * eyebrow already does the grouping, so the tile does not also need a cast. The hover
-             * tint is `Card`'s own admin `interactive` treatment. Brand colour is spent on the
-             * icon's tile alone; the name is ink, and the whole tile is the target, so it carries
+             * White on the mint page — `raised`, the admin's card surface, with its soft cast and
+             * one hairline. The hover tint is `Card`'s own admin `interactive` treatment. Brand
+             * colour is spent on the icon's tile alone; the name is ink, and the whole tile is the target, so it carries
              * no chevron.
              */}
             <Card
                 testID={`${testID}-open`}
                 padding="md"
-                tone="default"
+                tone="raised"
                 interactive
                 accessibilityLabel={name}
                 onPress={() => {
@@ -111,23 +112,42 @@ function FamilyCardShell({
             >
                 <Stack space="sm" grow>
                     <Inline space="sm" align="center" wrap={false}>
-                        <View className="rounded-md bg-surface-brand-subtle p-1.5">
+                        <View className="h-9 w-9 items-center justify-center rounded-xl bg-surface-brand-subtle">
                             <Icon
                                 name={family.icon}
                                 size="md"
                                 className="text-content-on-brand-subtle"
                             />
                         </View>
-                        <Text
-                            variant="label"
+                        <RNText
                             testID={`${testID}-name`}
                             numberOfLines={1}
-                            className="min-w-0 flex-1"
+                            className="min-w-0 flex-1 font-display text-base font-bold text-content-primary text-start"
                         >
                             {name}
-                        </Text>
+                        </RNText>
                     </Inline>
+                    {/*
+                     * The body is only as tall as its figures; the footer below takes `mt-auto`,
+                     * so the tiles of a row — which the grid stretches to one height — still
+                     * close on one line.
+                     */}
                     {children}
+                    {/*
+                     * The way in, said once at the foot of the tile. Not a button: the whole tile
+                     * is already the target, and a button inside it would be a control inside a
+                     * control.
+                     */}
+                    <View className="mt-auto flex-row items-center gap-1 border-t border-stroke-subtle pt-3">
+                        <RNText className="text-role-label text-content-on-brand-subtle">
+                            {t('kitchen:list.open')}
+                        </RNText>
+                        <Icon
+                            name="chevronEnd"
+                            size="sm"
+                            className="text-content-on-brand-subtle"
+                        />
+                    </View>
                 </Stack>
             </Card>
         </View>
@@ -337,21 +357,6 @@ function ReviewCard({ family }: { readonly family: EntityFamily }) {
     );
 }
 
-function AnalyticsCard({ family }: { readonly family: EntityFamily }) {
-    const { t } = useTranslation();
-    const testID = `kitchen-family-${family.key}`;
-
-    return (
-        <FamilyCardShell family={family} testID={testID}>
-            <Inline space="sm" align="center" wrap testID={`${testID}-counts`}>
-                <Text testID={`${testID}-sample`} variant="caption" tone="secondary">
-                    {t('kitchen:analytics.sampleBadge')}
-                </Text>
-            </Inline>
-        </FamilyCardShell>
-    );
-}
-
 function ConsumptionExceptionsCard({ family }: { readonly family: EntityFamily }) {
     const { t } = useTranslation();
     const count = useConsumptionExceptionCountQuery();
@@ -511,9 +516,6 @@ function renderFamilyCard(
     if (family.key === 'review') return <ReviewCard key={family.key} family={family} />;
     if (family.key === 'consumption-exceptions') {
         return <ConsumptionExceptionsCard key={family.key} family={family} />;
-    }
-    if (family.key === 'analytics') {
-        return <AnalyticsCard key={family.key} family={family} />;
     }
     if (family.key === 'ingredients') return <IngredientsCard key={family.key} family={family} />;
     if (family.key === 'recipes') {
@@ -711,6 +713,9 @@ export function KitchenHomeScreen() {
             key: 'review',
             label: t('kitchen:hub.kpi.needsReview'),
             value: figure(reviewQueue?.total ?? null),
+            ...(reviewQueue === null || reviewQueue.blocked === 0
+                ? {}
+                : { caption: t('kitchen:review.blockedCount', { count: reviewQueue.blocked }) }),
             pending: reviewSources.isPending,
             mark: 'clipboardCheck',
             tone: warnWhen(reviewQueue?.total ?? null),
@@ -781,11 +786,19 @@ export function KitchenHomeScreen() {
                         <View testID="kitchen-home-kpis">
                             <CatalogueStatCards
                                 testID="kitchen-kpi"
-                                appearance="strip"
+                                appearance="cards"
                                 pending={false}
                                 cards={kpiCards}
                             />
                         </View>
+
+                        {reviewQueue === null || reviewQueue.total === 0 ? null : (
+                            <ReviewBand
+                                total={reviewQueue.total}
+                                blocked={reviewQueue.blocked}
+                                onOpen={open('/kitchen/review')}
+                            />
+                        )}
 
                         {/* A cascade of its own: the groups continue the page's count. */}
                         <Cascade space="xl" testID="kitchen-home-grid">
@@ -800,15 +813,14 @@ export function KitchenHomeScreen() {
                                         space="sm"
                                         testID={`kitchen-home-section-${group}`}
                                     >
-                                        <Text
-                                            variant="micro"
-                                            tone="secondary"
+                                        <RNText
                                             accessibilityRole="header"
-                                            aria-level={3}
+                                            aria-level={2}
+                                            className="font-display text-role-heading text-content-on-brand-subtle text-start"
                                         >
                                             {t(GROUP_LABEL_KEYS[group])}
-                                        </Text>
-                                        <View className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+                                        </RNText>
+                                        <View className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-4">
                                             {groupFamilies.map((family) => (
                                                 <View key={family.key} className="min-w-0">
                                                     {renderFamilyCard(family, summaries)}
@@ -823,5 +835,67 @@ export function KitchenHomeScreen() {
                 )}
             </Cascade>
         </Gate>
+    );
+}
+
+/**
+ * The review queue, raised above the tiles while something waits in it — the Kitchen Ops design's
+ * violet band. Violet is the product's premium accent, and the queue is the one place the kitchen
+ * is told "this needs a person". Drawn only when the queue is not empty, so a clear day has no band.
+ */
+function ReviewBand({
+    total,
+    blocked,
+    onOpen,
+}: {
+    readonly total: number;
+    readonly blocked: number;
+    readonly onOpen: () => void;
+}) {
+    const { t } = useTranslation();
+
+    return (
+        <LinearGradient
+            testID="kitchen-home-review-band"
+            colors={gradients.aiBand.colours}
+            locations={gradients.aiBand.locations}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ borderRadius: 18 }}
+        >
+            <View className="flex-row flex-wrap items-center gap-5 px-6 py-5">
+                <View className="min-w-[240px] flex-1 gap-1.5">
+                    <View className="self-start rounded-full bg-content-on-canopy/15 px-2.5 py-1">
+                        <RNText className="text-role-micro uppercase tracking-[0.08em] text-content-on-canopy">
+                            {t('kitchen:hub.reviewBand.eyebrow')}
+                        </RNText>
+                    </View>
+                    <RNText
+                        accessibilityRole="header"
+                        aria-level={2}
+                        className="font-display text-role-heading text-content-on-canopy text-start"
+                    >
+                        {t('kitchen:hub.reviewBand.title', { count: total })}
+                    </RNText>
+                    <RNText className="text-role-body text-content-on-canopy-muted text-start">
+                        {blocked === 0
+                            ? t('kitchen:hub.reviewBand.bodyClear')
+                            : t('kitchen:hub.reviewBand.body', { count: blocked })}
+                    </RNText>
+                </View>
+                <Pressable
+                    testID="kitchen-home-review-band-open"
+                    role="link"
+                    accessibilityRole="link"
+                    onPress={onOpen}
+                    className="h-control-md flex-row items-center gap-2 rounded-control bg-surface-raised px-5 hover:opacity-90"
+                >
+                    <RNText className="text-role-strong text-content-on-accent-subtle">
+                        {t('kitchen:hub.reviewBand.open')}
+                    </RNText>
+                    <Icon name="chevronEnd" size="sm" className="text-content-on-accent-subtle" />
+                </Pressable>
+            </View>
+        </LinearGradient>
     );
 }

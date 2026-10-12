@@ -250,7 +250,6 @@ function AllergenClasses() {
                     columns={controls.columns}
                     rows={list.rows}
                     rowKey={(entry) => String(entry.code)}
-                    density="sm"
                     onRowPress={list.openView}
                     rowActionsLabel={t('kitchen:list.rowActions')}
                     // One action, and it is the only one this record can offer — see the note above

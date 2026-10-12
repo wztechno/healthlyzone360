@@ -493,6 +493,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
             priority: 88,
             // A figure, frozen as `metric` columns are.
             grow: false,
+            align: 'end',
             value: (row) =>
                 row.reorderThreshold === null
                     ? EM_DASH
@@ -701,7 +702,6 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                         columns={controls.columns}
                         rows={controls.rows}
                         rowKey={(row) => String(row.id)}
-                        density="sm"
                         onRowPress={openOrder}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={(row): readonly MenuItem[] => [
@@ -799,7 +799,6 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                             columns={previewControls.columns}
                             rows={preview}
                             rowKey={(row) => String(row.stockItemId)}
-                            density="sm"
                             rowActionsLabel={t('kitchen:list.rowActions')}
                         />
                         <CataloguePager

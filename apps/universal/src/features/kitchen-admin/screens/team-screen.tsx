@@ -47,6 +47,7 @@ import {
     USER_MANAGE_PERMISSION,
 } from '../entity-registry.ts';
 import { useListPage } from '../use-list-page.ts';
+import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 
 /**
  * `/kitchen/team` — everybody who can sign in to this kitchen (AA1), on the Catalogue list.
@@ -93,6 +94,7 @@ export function TeamScreen() {
             requirement={{ allOf: [MEMBERSHIP_VIEW_PERMISSION] }}
             testID="kitchen-team"
         >
+            <CataloguePageHeader testID="kitchen-team-page-header" />
             <TeamList />
         </Gate>
     );
@@ -217,7 +219,6 @@ function PendingInvitations({ invitations }: { readonly invitations: readonly St
                 columns={columns}
                 rows={invitations}
                 rowKey={(row) => row.id}
-                density="sm"
                 rowActionsLabel={t('kitchen:list.rowActions')}
                 {...(canRevoke
                     ? {
@@ -551,7 +552,6 @@ function TeamList() {
                         columns={controls.columns}
                         rows={controls.rows}
                         rowKey={(row) => String(row.membershipId)}
-                        density="sm"
                         onRowPress={openMember}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={(row): readonly MenuItem[] => [
