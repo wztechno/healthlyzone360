@@ -1,4 +1,9 @@
-import type { CatalogueItem, Quotation, VolumeTier } from '@healthy360/api-client/contracts';
+import type {
+    CatalogueItem,
+    Quotation,
+    QuotationState,
+    VolumeTier,
+} from '@healthy360/api-client/contracts';
 import { addMoney } from '@healthy360/domain-types';
 import type { CurrencyCode, Money } from '@healthy360/domain-types';
 
@@ -171,6 +176,17 @@ export function supplyDates(
 /** `business:kinds.<kind>` — a catalogue line's kind, never rendered as a raw code. */
 export function catalogueKindKey(kind: string): string {
     return `business:kinds.${kind}`;
+}
+
+/**
+ * A quotation state's badge tone. `quoted` is the one state waiting on the buyer, so it is the one
+ * that reads as ready; the closed states recede.
+ */
+export function quotationTone(state: QuotationState): 'success' | 'neutral' | 'brand' | 'info' {
+    if (state === 'quoted') return 'success';
+    if (state === 'declined' || state === 'expired') return 'neutral';
+    if (state === 'accepted') return 'brand';
+    return 'info';
 }
 
 /** `business:quotationStates.<state>`. */

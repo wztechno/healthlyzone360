@@ -3390,6 +3390,26 @@ export function ShowcaseScreen() {
                                     label="Restricted"
                                 />
                             </Card>
+                            {/*
+                             * The empty table on a desk page. What to check: the block is the
+                             * panel radius and a 16px inset with a 16px title — the size of the
+                             * toolbar above it — where the comfortable one under "States" is a
+                             * 32px-inset, 20px-title hero.
+                             */}
+                            <EmptyState
+                                testID="showcase-density-empty"
+                                title={t('auth:devices.empty')}
+                                body={t('auth:devices.emptyBody')}
+                                actions={
+                                    <Button
+                                        testID="showcase-density-empty-clear"
+                                        size="sm"
+                                        variant="secondary"
+                                        label="Clear the filters"
+                                        onPress={() => undefined}
+                                    />
+                                }
+                            />
                         </Stack>
                     </DensityProvider>
                 </Section>

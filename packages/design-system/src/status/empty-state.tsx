@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 
 import { Badge } from '../content/badge.tsx';
+import { useDensity } from '../hooks/use-density.tsx';
+import type { Density } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
@@ -23,6 +25,26 @@ export interface EmptyStateProps {
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
+
+/**
+ * The two ladders. Comfortable is the customer surfaces' block, unchanged; compact is the admin's —
+ * the same parts on the `role-*` steps and the panel radius, so an empty table on a desk page is
+ * the size of the toolbar above it rather than a hero.
+ */
+const FRAME_CLASS: Readonly<Record<Density, string>> = {
+    comfortable:
+        'flex-col items-center gap-3 rounded-xl border border-dashed border-stroke bg-surface-base p-8',
+    compact:
+        'flex-col items-center gap-tight rounded-panel border border-dashed border-stroke bg-surface-base p-base',
+};
+const TITLE_CLASS: Readonly<Record<Density, string>> = {
+    comfortable: 'text-xl font-semibold text-content-primary text-center',
+    compact: 'text-role-title text-content-primary text-center',
+};
+const BODY_CLASS: Readonly<Record<Density, string>> = {
+    comfortable: 'max-w-[52ch] text-sm text-content-secondary text-center',
+    compact: 'max-w-[52ch] text-role-body text-content-secondary text-center',
+};
 
 /**
  * Empty state.
@@ -46,6 +68,7 @@ export function EmptyState({
     testID,
 }: EmptyStateProps) {
     const { t } = useTranslation();
+    const density = useDensity();
     const isPrototype = variant === 'prototype';
     const resolvedIcon: IconName = icon ?? (isPrototype ? 'prototype' : 'info');
 
@@ -54,12 +77,13 @@ export function EmptyState({
             testID={testID}
             role="region"
             accessibilityLabel={title}
-            className={cx(
-                'flex-col items-center gap-3 rounded-xl border border-dashed border-stroke bg-surface-base p-8',
-                className,
-            )}
+            className={cx(FRAME_CLASS[density], className)}
         >
-            <Icon name={resolvedIcon} size="lg" className="text-content-secondary" />
+            <Icon
+                name={resolvedIcon}
+                size={density === 'compact' ? 'md' : 'lg'}
+                className="text-content-secondary"
+            />
 
             {isPrototype ? (
                 <Badge
@@ -73,21 +97,17 @@ export function EmptyState({
                 testID={testID === undefined ? undefined : `${testID}-title`}
                 accessibilityRole="header"
                 aria-level={2}
-                className="text-xl font-semibold text-content-primary text-center"
+                className={TITLE_CLASS[density]}
             >
                 {title}
             </RNText>
 
-            {body === undefined ? null : (
-                <RNText className="max-w-[52ch] text-sm text-content-secondary text-center">
-                    {body}
-                </RNText>
-            )}
+            {body === undefined ? null : <RNText className={BODY_CLASS[density]}>{body}</RNText>}
 
             {isPrototype ? (
                 <RNText
                     testID={testID === undefined ? undefined : `${testID}-prototype-body`}
-                    className="max-w-[52ch] text-sm text-content-secondary text-center"
+                    className={BODY_CLASS[density]}
                 >
                     {t('designSystem:emptyState.prototypeBody')}
                 </RNText>

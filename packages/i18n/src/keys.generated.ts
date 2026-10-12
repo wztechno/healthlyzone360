@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8243 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8298 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1134,13 +1134,16 @@ export interface NamespaceKeys {
     | 'wizard.stepPosition';
   readonly "business":
     | 'builder.back'
+    | 'builder.cancel'
+    | 'builder.columnQuantity'
+    | 'builder.columnValue'
     | 'builder.contactEmail'
     | 'builder.contactEmailPlaceholder'
     | 'builder.contactName'
     | 'builder.contactNamePlaceholder'
     | 'builder.contactTitle'
     | 'builder.deliveryDate'
-    | 'builder.deliveryDateHint'
+    | 'builder.deliveryDatePlaceholder'
     | 'builder.draftNote'
     | 'builder.emptyBody'
     | 'builder.emptyTitle'
@@ -1149,8 +1152,10 @@ export interface NamespaceKeys {
     | 'builder.errorTitle'
     | 'builder.home'
     | 'builder.lineBelowMinimum'
-    | 'builder.lineValue'
+    | 'builder.linesTitle'
+    | 'builder.loadErrorTitle'
     | 'builder.noTier'
+    | 'builder.noTierShort'
     | 'builder.notFoundBody'
     | 'builder.notFoundTitle'
     | 'builder.note'
@@ -1163,47 +1168,64 @@ export interface NamespaceKeys {
     | 'builder.rejectedTitle'
     | 'builder.saveDraft'
     | 'builder.scopeBody'
-    | 'builder.scopeTitle'
     | 'builder.submit'
     | 'builder.successBody'
-    | 'builder.successNote'
     | 'builder.successTitle'
     | 'builder.title'
     | 'builder.valueMixedNote'
     | 'builder.valueNone'
     | 'builder.valueNote'
     | 'builder.valueTitle'
-    | 'builder.valueTotal'
     | 'catalogue.addToCart'
     | 'catalogue.addedToCart'
     | 'catalogue.back'
     | 'catalogue.buildQuotation'
+    | 'catalogue.caption'
     | 'catalogue.clearFilters'
-    | 'catalogue.contractPrice'
-    | 'catalogue.contractPricePerPack'
+    | 'catalogue.columnChannels'
+    | 'catalogue.columnItem'
+    | 'catalogue.columnLeadTime'
+    | 'catalogue.columnMinimum'
+    | 'catalogue.columnPrice'
+    | 'catalogue.columnRecurring'
+    | 'catalogue.columnWeekdays'
+    | 'catalogue.days'
     | 'catalogue.emptyBody'
     | 'catalogue.emptyTitle'
+    | 'catalogue.emptyUnfilteredBody'
+    | 'catalogue.emptyUnfilteredTitle'
     | 'catalogue.kindAll'
     | 'catalogue.kindLabel'
     | 'catalogue.leadTime'
-    | 'catalogue.minimum'
+    | 'catalogue.loadErrorTitle'
     | 'catalogue.mixedCurrency'
+    | 'catalogue.mixedCurrencyShort'
     | 'catalogue.noCurrency'
     | 'catalogue.noWeekdays'
+    | 'catalogue.noWeekdaysShort'
     | 'catalogue.notFoundBody'
     | 'catalogue.notFoundTitle'
+    | 'catalogue.oneOffShort'
     | 'catalogue.open'
     | 'catalogue.placeOrder'
+    | 'catalogue.pricePerPack'
     | 'catalogue.privacyBody'
     | 'catalogue.privacyTitle'
     | 'catalogue.programmeLoading'
     | 'catalogue.quote'
     | 'catalogue.recurring'
+    | 'catalogue.recurringShort'
+    | 'catalogue.rowActions'
     | 'catalogue.searchLabel'
     | 'catalogue.searchPlaceholder'
-    | 'catalogue.singleCurrency'
-    | 'catalogue.title'
+    | 'catalogue.statCurrency'
+    | 'catalogue.statCurrencyMixed'
+    | 'catalogue.statLines'
+    | 'catalogue.statLinesUnit'
+    | 'catalogue.statOrderable'
+    | 'catalogue.statRecurring'
     | 'catalogue.unpriced'
+    | 'catalogue.unpricedShort'
     | 'catalogue.weekdays'
     | 'channels.b2b'
     | 'channels.b2c'
@@ -1214,26 +1236,28 @@ export interface NamespaceKeys {
     | 'channels.pos'
     | 'channels.subscription'
     | 'common.listSeparator'
-    | 'dashboard.body'
     | 'dashboard.emptyBody'
+    | 'dashboard.emptyFilteredBody'
     | 'dashboard.emptyTitle'
-    | 'dashboard.lookupHint'
+    | 'dashboard.loadErrorTitle'
     | 'dashboard.lookupLabel'
     | 'dashboard.lookupOpen'
     | 'dashboard.lookupPlaceholder'
-    | 'dashboard.lookupTitle'
     | 'dashboard.noQuotationsBody'
     | 'dashboard.noQuotationsTitle'
     | 'dashboard.openQuotations'
-    | 'dashboard.quotationLines'
+    | 'dashboard.programmesCaption'
     | 'dashboard.quotationsTitle'
+    | 'dashboard.searchLabel'
     | 'dashboard.sourceNote'
+    | 'dashboard.statAwaiting'
+    | 'dashboard.statOpen'
+    | 'dashboard.statProgrammes'
+    | 'dashboard.statProgrammesCaption'
     | 'dashboard.title'
     | 'item.addToCart'
     | 'item.addedToCart'
-    | 'item.back'
-    | 'item.eligibilityBody'
-    | 'item.eligibilityTitle'
+    | 'item.fieldDescription'
     | 'item.noTiers'
     | 'item.notFoundBody'
     | 'item.notFoundTitle'
@@ -1246,11 +1270,19 @@ export interface NamespaceKeys {
     | 'item.tierPrice'
     | 'item.tierRange'
     | 'item.tiersCaption'
-    | 'item.tiersNote'
     | 'item.tiersTitle'
     | 'kinds.bulk_package'
     | 'kinds.meal'
     | 'kinds.meal_plan'
+    | 'nav.catalogue'
+    | 'nav.catalogues'
+    | 'nav.group'
+    | 'nav.newQuotation'
+    | 'nav.overview'
+    | 'nav.quotations'
+    | 'nav.quotationsSection'
+    | 'nav.railTitle'
+    | 'nav.windDown'
     | 'partner.allKitchens'
     | 'partner.body'
     | 'partner.clearKitchen'
@@ -1267,19 +1299,26 @@ export interface NamespaceKeys {
     | 'partner.sourceNote'
     | 'partner.title'
     | 'programme.active'
-    | 'programme.headcount'
+    | 'programme.columnHeadcount'
+    | 'programme.columnLines'
+    | 'programme.columnLocations'
+    | 'programme.columnManager'
+    | 'programme.columnProgramme'
+    | 'programme.columnState'
+    | 'programme.columnSubsidy'
+    | 'programme.columnTerm'
     | 'programme.inactive'
-    | 'programme.locations'
-    | 'programme.manager'
+    | 'programme.linesTiers'
     | 'programme.noManager'
+    | 'programme.noManagerShort'
     | 'programme.noSubsidy'
+    | 'programme.noSubsidyShort'
     | 'programme.openCatalogue'
     | 'programme.requestQuotation'
-    | 'programme.subsidy'
     | 'programme.term'
     | 'programme.termOpen'
-    | 'programme.tiers'
-    | 'programme.tiersLoading'
+    | 'programme.termOpenShort'
+    | 'programme.termShort'
     | 'quotationStates.accepted'
     | 'quotationStates.declined'
     | 'quotationStates.draft'
@@ -1289,15 +1328,26 @@ export interface NamespaceKeys {
     | 'quotationStates.submitted'
     | 'quotations.accept'
     | 'quotations.awaitingPrice'
-    | 'quotations.back'
-    | 'quotations.body'
+    | 'quotations.awaitingPriceShort'
+    | 'quotations.caption'
     | 'quotations.clearFilter'
+    | 'quotations.columnDelivery'
+    | 'quotations.columnExpires'
+    | 'quotations.columnLineTotal'
+    | 'quotations.columnLines'
+    | 'quotations.columnNote'
+    | 'quotations.columnProgramme'
+    | 'quotations.columnQuantity'
+    | 'quotations.columnRaised'
+    | 'quotations.columnReference'
+    | 'quotations.columnSchedule'
+    | 'quotations.columnState'
+    | 'quotations.columnTotal'
     | 'quotations.decline'
     | 'quotations.emptyBody'
     | 'quotations.emptyFilteredBody'
     | 'quotations.emptyFilteredTitle'
     | 'quotations.emptyTitle'
-    | 'quotations.expires'
     | 'quotations.export'
     | 'quotations.filterLabel'
     | 'quotations.filters.all'
@@ -1306,12 +1356,17 @@ export interface NamespaceKeys {
     | 'quotations.filters.quoted'
     | 'quotations.home'
     | 'quotations.line'
-    | 'quotations.linePriced'
+    | 'quotations.linesTitle'
+    | 'quotations.loadErrorTitle'
     | 'quotations.oneOff'
-    | 'quotations.raised'
     | 'quotations.recurring'
-    | 'quotations.title'
-    | 'quotations.total'
+    | 'quotations.searchLabel'
+    | 'quotations.statAll'
+    | 'quotations.statClosed'
+    | 'quotations.statOpen'
+    | 'quotations.statQuoted'
+    | 'quotations.view'
+    | 'quotations.viewKind'
     | 'schedule.back'
     | 'schedule.body'
     | 'schedule.deferredBody'
@@ -9403,13 +9458,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:wizard.saving',
   'b2bApplication:wizard.stepPosition',
   'business:builder.back',
+  'business:builder.cancel',
+  'business:builder.columnQuantity',
+  'business:builder.columnValue',
   'business:builder.contactEmail',
   'business:builder.contactEmailPlaceholder',
   'business:builder.contactName',
   'business:builder.contactNamePlaceholder',
   'business:builder.contactTitle',
   'business:builder.deliveryDate',
-  'business:builder.deliveryDateHint',
+  'business:builder.deliveryDatePlaceholder',
   'business:builder.draftNote',
   'business:builder.emptyBody',
   'business:builder.emptyTitle',
@@ -9418,8 +9476,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:builder.errorTitle',
   'business:builder.home',
   'business:builder.lineBelowMinimum',
-  'business:builder.lineValue',
+  'business:builder.linesTitle',
+  'business:builder.loadErrorTitle',
   'business:builder.noTier',
+  'business:builder.noTierShort',
   'business:builder.notFoundBody',
   'business:builder.notFoundTitle',
   'business:builder.note',
@@ -9432,47 +9492,64 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:builder.rejectedTitle',
   'business:builder.saveDraft',
   'business:builder.scopeBody',
-  'business:builder.scopeTitle',
   'business:builder.submit',
   'business:builder.successBody',
-  'business:builder.successNote',
   'business:builder.successTitle',
   'business:builder.title',
   'business:builder.valueMixedNote',
   'business:builder.valueNone',
   'business:builder.valueNote',
   'business:builder.valueTitle',
-  'business:builder.valueTotal',
   'business:catalogue.addToCart',
   'business:catalogue.addedToCart',
   'business:catalogue.back',
   'business:catalogue.buildQuotation',
+  'business:catalogue.caption',
   'business:catalogue.clearFilters',
-  'business:catalogue.contractPrice',
-  'business:catalogue.contractPricePerPack',
+  'business:catalogue.columnChannels',
+  'business:catalogue.columnItem',
+  'business:catalogue.columnLeadTime',
+  'business:catalogue.columnMinimum',
+  'business:catalogue.columnPrice',
+  'business:catalogue.columnRecurring',
+  'business:catalogue.columnWeekdays',
+  'business:catalogue.days',
   'business:catalogue.emptyBody',
   'business:catalogue.emptyTitle',
+  'business:catalogue.emptyUnfilteredBody',
+  'business:catalogue.emptyUnfilteredTitle',
   'business:catalogue.kindAll',
   'business:catalogue.kindLabel',
   'business:catalogue.leadTime',
-  'business:catalogue.minimum',
+  'business:catalogue.loadErrorTitle',
   'business:catalogue.mixedCurrency',
+  'business:catalogue.mixedCurrencyShort',
   'business:catalogue.noCurrency',
   'business:catalogue.noWeekdays',
+  'business:catalogue.noWeekdaysShort',
   'business:catalogue.notFoundBody',
   'business:catalogue.notFoundTitle',
+  'business:catalogue.oneOffShort',
   'business:catalogue.open',
   'business:catalogue.placeOrder',
+  'business:catalogue.pricePerPack',
   'business:catalogue.privacyBody',
   'business:catalogue.privacyTitle',
   'business:catalogue.programmeLoading',
   'business:catalogue.quote',
   'business:catalogue.recurring',
+  'business:catalogue.recurringShort',
+  'business:catalogue.rowActions',
   'business:catalogue.searchLabel',
   'business:catalogue.searchPlaceholder',
-  'business:catalogue.singleCurrency',
-  'business:catalogue.title',
+  'business:catalogue.statCurrency',
+  'business:catalogue.statCurrencyMixed',
+  'business:catalogue.statLines',
+  'business:catalogue.statLinesUnit',
+  'business:catalogue.statOrderable',
+  'business:catalogue.statRecurring',
   'business:catalogue.unpriced',
+  'business:catalogue.unpricedShort',
   'business:catalogue.weekdays',
   'business:channels.b2b',
   'business:channels.b2c',
@@ -9483,26 +9560,28 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:channels.pos',
   'business:channels.subscription',
   'business:common.listSeparator',
-  'business:dashboard.body',
   'business:dashboard.emptyBody',
+  'business:dashboard.emptyFilteredBody',
   'business:dashboard.emptyTitle',
-  'business:dashboard.lookupHint',
+  'business:dashboard.loadErrorTitle',
   'business:dashboard.lookupLabel',
   'business:dashboard.lookupOpen',
   'business:dashboard.lookupPlaceholder',
-  'business:dashboard.lookupTitle',
   'business:dashboard.noQuotationsBody',
   'business:dashboard.noQuotationsTitle',
   'business:dashboard.openQuotations',
-  'business:dashboard.quotationLines',
+  'business:dashboard.programmesCaption',
   'business:dashboard.quotationsTitle',
+  'business:dashboard.searchLabel',
   'business:dashboard.sourceNote',
+  'business:dashboard.statAwaiting',
+  'business:dashboard.statOpen',
+  'business:dashboard.statProgrammes',
+  'business:dashboard.statProgrammesCaption',
   'business:dashboard.title',
   'business:item.addToCart',
   'business:item.addedToCart',
-  'business:item.back',
-  'business:item.eligibilityBody',
-  'business:item.eligibilityTitle',
+  'business:item.fieldDescription',
   'business:item.noTiers',
   'business:item.notFoundBody',
   'business:item.notFoundTitle',
@@ -9515,11 +9594,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:item.tierPrice',
   'business:item.tierRange',
   'business:item.tiersCaption',
-  'business:item.tiersNote',
   'business:item.tiersTitle',
   'business:kinds.bulk_package',
   'business:kinds.meal',
   'business:kinds.meal_plan',
+  'business:nav.catalogue',
+  'business:nav.catalogues',
+  'business:nav.group',
+  'business:nav.newQuotation',
+  'business:nav.overview',
+  'business:nav.quotations',
+  'business:nav.quotationsSection',
+  'business:nav.railTitle',
+  'business:nav.windDown',
   'business:partner.allKitchens',
   'business:partner.body',
   'business:partner.clearKitchen',
@@ -9536,19 +9623,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:partner.sourceNote',
   'business:partner.title',
   'business:programme.active',
-  'business:programme.headcount',
+  'business:programme.columnHeadcount',
+  'business:programme.columnLines',
+  'business:programme.columnLocations',
+  'business:programme.columnManager',
+  'business:programme.columnProgramme',
+  'business:programme.columnState',
+  'business:programme.columnSubsidy',
+  'business:programme.columnTerm',
   'business:programme.inactive',
-  'business:programme.locations',
-  'business:programme.manager',
+  'business:programme.linesTiers',
   'business:programme.noManager',
+  'business:programme.noManagerShort',
   'business:programme.noSubsidy',
+  'business:programme.noSubsidyShort',
   'business:programme.openCatalogue',
   'business:programme.requestQuotation',
-  'business:programme.subsidy',
   'business:programme.term',
   'business:programme.termOpen',
-  'business:programme.tiers',
-  'business:programme.tiersLoading',
+  'business:programme.termOpenShort',
+  'business:programme.termShort',
   'business:quotationStates.accepted',
   'business:quotationStates.declined',
   'business:quotationStates.draft',
@@ -9558,15 +9652,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:quotationStates.submitted',
   'business:quotations.accept',
   'business:quotations.awaitingPrice',
-  'business:quotations.back',
-  'business:quotations.body',
+  'business:quotations.awaitingPriceShort',
+  'business:quotations.caption',
   'business:quotations.clearFilter',
+  'business:quotations.columnDelivery',
+  'business:quotations.columnExpires',
+  'business:quotations.columnLineTotal',
+  'business:quotations.columnLines',
+  'business:quotations.columnNote',
+  'business:quotations.columnProgramme',
+  'business:quotations.columnQuantity',
+  'business:quotations.columnRaised',
+  'business:quotations.columnReference',
+  'business:quotations.columnSchedule',
+  'business:quotations.columnState',
+  'business:quotations.columnTotal',
   'business:quotations.decline',
   'business:quotations.emptyBody',
   'business:quotations.emptyFilteredBody',
   'business:quotations.emptyFilteredTitle',
   'business:quotations.emptyTitle',
-  'business:quotations.expires',
   'business:quotations.export',
   'business:quotations.filterLabel',
   'business:quotations.filters.all',
@@ -9575,12 +9680,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:quotations.filters.quoted',
   'business:quotations.home',
   'business:quotations.line',
-  'business:quotations.linePriced',
+  'business:quotations.linesTitle',
+  'business:quotations.loadErrorTitle',
   'business:quotations.oneOff',
-  'business:quotations.raised',
   'business:quotations.recurring',
-  'business:quotations.title',
-  'business:quotations.total',
+  'business:quotations.searchLabel',
+  'business:quotations.statAll',
+  'business:quotations.statClosed',
+  'business:quotations.statOpen',
+  'business:quotations.statQuoted',
+  'business:quotations.view',
+  'business:quotations.viewKind',
   'business:schedule.back',
   'business:schedule.body',
   'business:schedule.deferredBody',
