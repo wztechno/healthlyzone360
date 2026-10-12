@@ -87,7 +87,7 @@ final readonly class RecipeService
             $recipe->branch_id = $attributes['branch_id'] ?? null;
             $recipe->slug = self::uniqueSlug($attributes['slug'] ?? $nameEn, $organisationId);
             $recipe->name_en = $nameEn;
-            $recipe->name_ar = $this->trimmedOrNull($attributes['name_ar'] ?? null) ?? $nameEn;
+            $recipe->name_ar = $this->trimmedOrNull($attributes['name_ar'] ?? null) ?? '';
             $recipe->source_ref = $this->trimmedOrNull($attributes['source_ref'] ?? null)
                 ?? $this->nextReferenceFor($organisationId, self::REFERENCE_PREFIX);
             $recipe->recipe_category = $this->trimmedOrNull($attributes['recipe_category'] ?? null);

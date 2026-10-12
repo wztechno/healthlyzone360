@@ -110,7 +110,7 @@ final readonly class IngredientCatalogueService
         $ingredient->organisation_id = $organisationId;
         $ingredient->slug = $this->uniqueSlug($attributes['slug'] ?? $nameEn, $organisationId);
         $ingredient->name_en = $nameEn;
-        $ingredient->name_ar = $this->trimmedOrNull($attributes['name_ar'] ?? null) ?? $nameEn;
+        $ingredient->name_ar = $this->trimmedOrNull($attributes['name_ar'] ?? null) ?? '';
         $this->assertSubcategoryBelongsToCategory(
             $attributes['ingredient_category_id'] ?? null,
             $attributes['ingredient_subcategory_id'] ?? null,

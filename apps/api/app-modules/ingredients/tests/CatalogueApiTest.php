@@ -146,6 +146,20 @@ beforeEach(function (): void {
     $this->b = catalogueTenant('chef-b@kitchen.test');
 });
 
+it('leaves a blank Arabic name blank rather than copying the English', function (): void {
+    $this->actingAs($this->a->user);
+
+    $id = $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Red Lentils',
+        'default_unit_id' => gramsId(),
+    ], catalogueHeaders($this->a))
+        ->assertCreated()
+        ->json('data.ingredient.id');
+
+    // A copied English name made the "Missing Arabic" check impossible to fire.
+    expect(Ingredient::withoutTenancy()->whereKey($id)->value('name_ar'))->toBe('');
+});
+
 it('creates an ingredient as an active, unverified tenant row', function (): void {
     $this->actingAs($this->a->user);
 
