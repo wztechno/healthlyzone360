@@ -45,8 +45,7 @@
         "body": "Figures shown here come from a prototype calculator and a synthetic data set. They are an estimate, and they are not a diagnosis. Speak to a qualified dietitian or doctor before acting on them, particularly if you are managing a health condition, are pregnant, or are feeding a child."
     },
     "landing": {
-        "browseKitchens": "Browse kitchens",
-        "howItWorks": "See how it works"
+        "browseKitchens": "Browse kitchens"
     },
     "discover": {
         "heroEyebrow": "From the kitchens on the marketplace",
@@ -355,7 +354,6 @@
     },
     "consumer": {
         "nav": {
-            "home": "Home",
             "discover": "Discover",
             "planner": "Planner",
             "nutrition": "Nutrition",

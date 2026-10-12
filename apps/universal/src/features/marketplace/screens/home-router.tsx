@@ -1,8 +1,8 @@
+import { Redirect } from 'expo-router';
+
 import { resolveAppLandingRoute } from '../../../navigation/landing.ts';
 import { LandingScreen } from '../../../screens/landing-screen.tsx';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
-import { MarketplaceShell } from '../../../shell/marketplace-shell.tsx';
-import { PublicLandingScreen } from './public-landing-screen.tsx';
 
 /**
  * `/` — one decision, three outcomes.
@@ -11,7 +11,7 @@ import { PublicLandingScreen } from './public-landing-screen.tsx';
  * | ---------------------- | --------------------------------------------------------------- |
  * | repositories failed    | the foundation's construction-failure screen                    |
  * | session restoring      | the foundation's splash                                         |
- * | anonymous              | the public marketplace landing page, in the marketplace chrome  |
+ * | anonymous              | straight to `/discover`, the marketplace home                   |
  * | anything else          | the foundation's redirect, unchanged                            |
  *
  * ## Why this delegates rather than reimplements
@@ -27,6 +27,12 @@ import { PublicLandingScreen } from './public-landing-screen.tsx';
  * intercepting it is that "anonymous" no longer means "you must sign in": it now means a person has
  * arrived at a public marketplace, and demanding credentials before showing them anything is the
  * opposite of what a marketplace is for.
+ *
+ * ## A redirect, not a second copy of the page
+ *
+ * `/`, `/customer` and `/discover` each used to draw the design's home from the same sections, so
+ * the site carried three near-identical pages that only differed in one button. There is one home
+ * now, `/discover`, and both of the others send the person there.
  */
 export function HomeRouter() {
     const accessState = useAccessState();
@@ -36,13 +42,7 @@ export function HomeRouter() {
 
     const landing = resolveAppLandingRoute(accessState);
 
-    if (landing.reason === 'unauthenticated') {
-        return (
-            <MarketplaceShell>
-                <PublicLandingScreen />
-            </MarketplaceShell>
-        );
-    }
+    if (landing.reason === 'unauthenticated') return <Redirect href="/discover" />;
 
     return <LandingScreen />;
 }

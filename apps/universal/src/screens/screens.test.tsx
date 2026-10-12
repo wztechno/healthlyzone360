@@ -472,14 +472,14 @@ describe('OrganisationPickerScreen', () => {
         ).toBeTruthy();
     });
 
-    it('redirects a consumer with no memberships straight to the customer home', async () => {
+    it('redirects a consumer with no memberships straight to the marketplace home', async () => {
         await renderStubScreen(<OrganisationPickerScreen />, {
             // A consumer: a global identity with no organisation at all (decision D1).
             session: testMeResponse(),
         });
 
         await waitFor(() => {
-            expect(routerMock.__replace).toHaveBeenCalledWith('/customer');
+            expect(routerMock.__replace).toHaveBeenCalledWith('/discover');
         });
         expect(screen.queryByTestId('organisation-picker-empty')).toBeNull();
     });

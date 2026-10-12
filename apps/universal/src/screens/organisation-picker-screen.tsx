@@ -73,7 +73,7 @@ export function OrganisationPickerScreen() {
     useEffect(() => {
         if (!consumerWithoutOrg || me === null || consumerRedirected.current) return;
         consumerRedirected.current = true;
-        router.replace('/customer');
+        router.replace('/discover');
     }, [consumerWithoutOrg, me, router]);
 
     useEffect(() => {
@@ -120,7 +120,7 @@ export function OrganisationPickerScreen() {
                             variant="primary"
                             label={t('auth:organisationPicker.emptyAction')}
                             onPress={() => {
-                                router.replace('/customer');
+                                router.replace('/discover');
                             }}
                         />
                     }

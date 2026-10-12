@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8303 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8301 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -6440,7 +6440,6 @@ export interface NamespaceKeys {
     | 'consumer.nav.cart'
     | 'consumer.nav.cartWithCount'
     | 'consumer.nav.discover'
-    | 'consumer.nav.home'
     | 'consumer.nav.nutrition'
     | 'consumer.nav.planner'
     | 'consumer.nav.profile'
@@ -6699,7 +6698,6 @@ export interface NamespaceKeys {
     | 'kitchens.title'
     | 'kitchens.verified'
     | 'landing.browseKitchens'
-    | 'landing.howItWorks'
     | 'levels.excessive'
     | 'levels.good'
     | 'levels.high'
@@ -14760,7 +14758,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:consumer.nav.cart',
   'marketplace:consumer.nav.cartWithCount',
   'marketplace:consumer.nav.discover',
-  'marketplace:consumer.nav.home',
   'marketplace:consumer.nav.nutrition',
   'marketplace:consumer.nav.planner',
   'marketplace:consumer.nav.profile',
@@ -15019,7 +15016,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:kitchens.title',
   'marketplace:kitchens.verified',
   'marketplace:landing.browseKitchens',
-  'marketplace:landing.howItWorks',
   'marketplace:levels.excessive',
   'marketplace:levels.good',
   'marketplace:levels.high',

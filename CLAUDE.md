@@ -54,7 +54,7 @@ unambiguous way to point at one.
 
 | id           | Design screen            | Implement in                                                                            |
 | ------------ | ------------------------ | --------------------------------------------------------------------------------------- |
-| `home`       | Customer landing         | `marketplace/screens/consumer-home-screen.tsx`                                          |
+| `home`       | Customer landing         | `marketplace/screens/discover-screen.tsx` — the only home; `/` and `/customer` redirect |
 | `catalog`    | Menu / browse grid       | `catalogue/screens/meals-screen.tsx`                                                    |
 | `meal`       | Meal detail              | `catalogue/screens/meal-detail-screen.tsx`                                              |
 | `cart`       | Basket                   | `commerce/screens/cart-screen.tsx`                                                      |

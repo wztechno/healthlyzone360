@@ -50,13 +50,6 @@ export interface ConsumerNavigationDescriptor extends NavigationDescriptor {
  */
 export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
     {
-        key: 'home',
-        labelKey: 'marketplace:consumer.nav.home',
-        href: '/customer',
-        icon: 'home',
-        area: 'customer',
-    },
-    {
         key: 'discover',
         labelKey: 'marketplace:consumer.nav.discover',
         href: '/discover',

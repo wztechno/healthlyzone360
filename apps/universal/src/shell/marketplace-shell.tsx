@@ -298,14 +298,6 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                                 router.push('/customer/account' as never);
                             },
                         },
-                        {
-                            key: 'my-home',
-                            label: t('marketplace:nav.myHome'),
-                            testID: 'marketplace-my-home',
-                            onSelect: () => {
-                                router.push('/customer' as never);
-                            },
-                        },
                         // The person's own details card — name, email, organisations, devices. It
                         // was one press away from the old sidebar, so it is one press away here.
                         {
@@ -464,9 +456,8 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
         // the images that cannot carry a credit beside them — a grid card, a tile, a 20px
         // catalogue thumbnail — this link is where that obligation is actually discharged.
         { key: 'image-credits', labelKey: 'marketplace:nav.imageCredits', href: '/image-credits' },
-        signedIn
-            ? { key: 'my-home', labelKey: 'marketplace:nav.myHome', href: '/customer' }
-            : { key: 'sign-in', labelKey: 'marketplace:nav.signIn', href: '/sign-in' },
+        // No "My home" when signed in: the home is Discover, which leads this list already.
+        ...(signedIn ? [] : [{ key: 'sign-in', labelKey: 'marketplace:nav.signIn', href: '/sign-in' }]),
     ].filter((link) => isPathAvailable(link.href));
 
     /** A footer link: small muted print, underlined, with a touch target around it. */
