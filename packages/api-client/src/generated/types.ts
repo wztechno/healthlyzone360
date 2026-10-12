@@ -569,6 +569,10 @@ export type AdminIngredient = {
     created_at?: string | null;
     updated_at?: string | null;
     /**
+     * Who last changed the record, from their profile. Set on the single-record read only; null on lists.
+     */
+    updated_by_name?: string | null;
+    /**
      * The allergen mappings visible to this caller — the platform
      * baseline, plus the caller's own overlay in a tenant context. Both
      * layers, each labelled, for the reason the dedicated sub-resource
@@ -1013,6 +1017,10 @@ export type AdminRecipe = {
     lock_version: number;
     created_at?: string | null;
     updated_at?: string | null;
+    /**
+     * Who last changed the record, from their profile. Set on the single-record read only; null on lists.
+     */
+    updated_by_name?: string | null;
 };
 
 /**
@@ -2276,6 +2284,10 @@ export type AdminCatalogueItem = {
     lock_version: number;
     created_at?: string | null;
     updated_at?: string | null;
+    /**
+     * Who last changed the record, from their profile. Set on the single-record read only; null on lists.
+     */
+    updated_by_name?: string | null;
 };
 
 export type CatalogueItemEnvelope = {

@@ -445,6 +445,7 @@ export const zAdminIngredient = z.object({
     lock_version: z.int().gte(0),
     created_at: z.iso.datetime({ offset: true }).nullish(),
     updated_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_by_name: z.string().nullish(),
     allergens: z.array(zIngredientAllergenMapping).optional()
 });
 
@@ -1196,7 +1197,8 @@ export const zAdminRecipe = z.object({
     source_ref: z.string().nullish(),
     lock_version: z.int().gte(0),
     created_at: z.iso.datetime({ offset: true }).nullish(),
-    updated_at: z.iso.datetime({ offset: true }).nullish()
+    updated_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_by_name: z.string().nullish()
 });
 
 export const zRecipeEnvelope = z.object({
@@ -1378,7 +1380,8 @@ export const zAdminCatalogueItem = z.object({
     source_ref: z.string().nullish(),
     lock_version: z.int().gte(0),
     created_at: z.iso.datetime({ offset: true }).nullish(),
-    updated_at: z.iso.datetime({ offset: true }).nullish()
+    updated_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_by_name: z.string().nullish()
 });
 
 export const zCatalogueItemEnvelope = z.object({

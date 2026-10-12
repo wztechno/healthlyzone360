@@ -510,7 +510,7 @@ function viewFields(row: PriceListAdmin, t: TFunction, formatter: ReturnType<typ
             label: t('kitchen:list.columnUpdated'),
             value:
                 row.meta.updatedByName === null
-                    ? `${formatter.formatRelativeTime(row.meta.updatedAt)} ${t('kitchen:list.updatedBySeed')}`
+                    ? formatter.formatRelativeTime(row.meta.updatedAt)
                     : `${formatter.formatRelativeTime(row.meta.updatedAt)} ${t('kitchen:list.updatedBy', { name: row.meta.updatedByName })}`,
         },
     ];

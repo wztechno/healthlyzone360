@@ -23937,6 +23937,9 @@ components:
         updated_at:
           type: ['string', 'null']
           format: date-time
+        updated_by_name:
+          type: ['string', 'null']
+          description: Who last changed the record, from their profile. Set on the single-record read only; null on lists.
         allergens:
           type: array
           description: |
@@ -24547,6 +24550,9 @@ components:
         updated_at:
           type: ['string', 'null']
           format: date-time
+        updated_by_name:
+          type: ['string', 'null']
+          description: Who last changed the record, from their profile. Set on the single-record read only; null on lists.
       additionalProperties: false
 
     RecipeKind:
@@ -26382,6 +26388,9 @@ components:
         updated_at:
           type: ['string', 'null']
           format: date-time
+        updated_by_name:
+          type: ['string', 'null']
+          description: Who last changed the record, from their profile. Set on the single-record read only; null on lists.
       additionalProperties: false
 
     CatalogueItemEnvelope:

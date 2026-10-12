@@ -173,7 +173,7 @@ export function EditorFrame({
     const updatedLine = (): string => {
         // An unknown timestamp reads the same as no record at all. `/kitchen/branch-operating` is the
         // case that forced this: its endpoint publishes days and no save history, so the mapper
-        // hands over `UNKNOWN_ISO_DATE_TIME` and 'Last changed  by the import' is the alternative.
+        // hands over `UNKNOWN_ISO_DATE_TIME` and a bare 'Last changed ' is the alternative.
         if (meta === null || meta.updatedAt === '') return t('kitchen:editor.neverSaved');
         const when = formatter.formatRelativeTime(meta.updatedAt);
         if (meta.updatedByName === null) return t('kitchen:editor.lastUpdatedBySeed', { when });
