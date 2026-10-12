@@ -92,16 +92,15 @@ function FamilyCardShell({
     return (
         <View testID={testID} className="grow flex-col self-stretch">
             {/*
-             * Flat on the page ground with one hairline — `default`, not `raised`: the group's
-             * eyebrow already does the grouping, so the tile does not also need a cast. The hover
-             * tint is `Card`'s own admin `interactive` treatment. Brand colour is spent on the
-             * icon's tile alone; the name is ink, and the whole tile is the target, so it carries
+             * White on the mint page — `raised`, the admin's card surface, with its soft cast and
+             * one hairline. The hover tint is `Card`'s own admin `interactive` treatment. Brand
+             * colour is spent on the icon's tile alone; the name is ink, and the whole tile is the target, so it carries
              * no chevron.
              */}
             <Card
                 testID={`${testID}-open`}
                 padding="md"
-                tone="default"
+                tone="raised"
                 interactive
                 accessibilityLabel={name}
                 onPress={() => {
@@ -127,7 +126,13 @@ function FamilyCardShell({
                             {name}
                         </Text>
                     </Inline>
-                    {children}
+                    {/*
+                     * Every tile reserves two lines of body, so tiles match across groups and not
+                     * only within a row: the tallest body today is a count beside a badge that
+                     * wraps (opening hours, 42px). Each group is its own grid, so a grid rule
+                     * cannot make rows in different groups agree.
+                     */}
+                    <View className="min-h-12">{children}</View>
                 </Stack>
             </Card>
         </View>
