@@ -132,6 +132,20 @@ function useKitchenOrderWriteEffects(): (order: KitchenOrder) => void {
 
     return (order: KitchenOrder) => {
         queryClient.setQueryData(queryKeys.kitchenOrders.order(order.id), order);
+        // The answer into every cached list too, so a KDS ticket moves the moment Ready lands
+        // rather than when the refetch below does — seconds on a slow server, and the board looked
+        // as if nothing had happened.
+        queryClient.setQueriesData<{ readonly items?: readonly KitchenOrder[] }>(
+            // The whole family; the guard below leaves anything that is not a page of orders.
+            { queryKey: queryKeys.kitchenOrders.all() },
+            (page) =>
+                page === undefined || !Array.isArray(page.items)
+                    ? page
+                    : {
+                          ...page,
+                          items: page.items.map((row) => (row.id === order.id ? order : row)),
+                      },
+        );
         void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
         void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
     };

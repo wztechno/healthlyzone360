@@ -355,6 +355,9 @@ function QualityCheckList({
                               icon: null,
                               testID: `kitchen-qc-view-${viewingAction.key}`,
                               onPress: viewingAction.run,
+                              // A hold can take seconds on a slow server; say it is working.
+                              loading: holdCheck.isPending || releaseCheck.isPending,
+                              disabled: holdCheck.isPending || releaseCheck.isPending,
                           },
                       })}
             />
