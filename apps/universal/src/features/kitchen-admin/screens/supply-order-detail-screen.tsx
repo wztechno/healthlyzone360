@@ -50,6 +50,7 @@ import {
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { readQuantity } from '../supply-order-model.ts';
+import { trimDecimal } from '../format.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -166,7 +167,7 @@ interface LineDraft {
 function lineDraft(line: PurchaseOrderLine): LineDraft {
     return {
         stockItemId: String(line.stockItemId),
-        quantity: line.quantity,
+        quantity: trimDecimal(line.quantity),
         itemCode: line.itemCode,
         itemNameEn: line.itemNameEn,
         unitCode: line.unitCode,

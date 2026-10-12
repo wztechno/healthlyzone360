@@ -46,6 +46,7 @@ import {
     formatLot,
     yieldSummary,
 } from '../production-desk/batch-figures.ts';
+import { trimDecimal } from '../format.ts';
 
 /**
  * `/kitchen/production-desk` — the batches this kitchen still has to do something about (PROD1).
@@ -481,5 +482,5 @@ function ProductionDesk() {
 function planned(row: ProductionOrder, fallback: string): string {
     if (row.plannedYield === null) return fallback;
 
-    return `${row.plannedYield} ${row.plannedYieldUnitCode ?? ''}`.trim();
+    return `${trimDecimal(row.plannedYield)} ${row.plannedYieldUnitCode ?? ''}`.trim();
 }

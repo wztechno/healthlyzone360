@@ -243,6 +243,14 @@ export function unitShortKey(unit: MeasureUnit): string {
  * "Fresh produce" is a presentation of the code itself, and inventing an i18n key per code would
  * claim a vocabulary the server has never published.
  */
+/**
+ * A server decimal without its four-place padding: `10.0000` → `10`, `0.3000` → `0.3`. The same
+ * number; the zeros were noise on every quantity a kitchen read or edited.
+ */
+export function trimDecimal(value: string): string {
+    return value.includes('.') ? value.replace(/0+$/, '').replace(/\.$/, '') : value;
+}
+
 export function humaniseCode(code: string): string {
     if (code.trim() === '') return '';
     const spaced = code.replace(/[-_]+/g, ' ').trim();
