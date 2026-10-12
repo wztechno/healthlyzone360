@@ -418,6 +418,9 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                 key={line.purchaseOrderLineId ?? line.stockItemId}
                                                 space="xs"
                                                 testID={`kitchen-receive-line-${String(index)}`}
+                                                // `DataList`'s hairline between lines. The fields wrap
+                                                // under the name on a phone, so nothing scrolls sideways.
+                                                className="border-b border-stroke-subtle pb-3"
                                             >
                                                 <Inline space="sm" align="center" wrap>
                                                     <Text

@@ -27,7 +27,7 @@ export function ToolbarPanel({
     return (
         <View
             testID={testID}
-            className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
+            className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-stroke-subtle bg-surface-raised p-tight shadow-elevation-1"
         >
             {children}
             {end === undefined ? null : (

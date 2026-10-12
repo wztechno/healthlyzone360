@@ -30,6 +30,7 @@ import {
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
+import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 
 /**
  * `/kitchen/order-desk/requirements` — what this branch must buy to cook the days ahead.
@@ -316,6 +317,7 @@ function OrderDeskRequirements() {
 
     return (
         <Cascade space="md" testID="kitchen-order-desk-requirements-screen">
+            <CataloguePageHeader testID="kitchen-order-desk-requirements-page-header" />
             {/*
              * The figures as cards, from the first frame. While the window is in flight each card
              * holds a placeholder where its figure goes — a zero there would claim an answer the

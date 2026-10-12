@@ -34,6 +34,7 @@ import {
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
+import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 
 /**
  * `/kitchen/order-desk/cash-report` — who took what, on one day.
@@ -243,6 +244,7 @@ function OrderDeskCashReport() {
 
     return (
         <Cascade space="md" testID="kitchen-order-desk-cash-report-screen">
+            <CataloguePageHeader testID="kitchen-order-desk-cash-report-page-header" />
             {/*
              * The figures first. While the day is in flight each card holds a placeholder where its
              * figure goes — a zero there would claim an answer the screen does not have yet — and a
@@ -329,7 +331,7 @@ function OrderDeskCashReport() {
                     body={t('kitchen:ops.cashReport.emptyBody')}
                 />
             ) : (
-                <View className="flex-col gap-loose">
+                <View className="flex-col gap-5">
                     <CatalogueList<OrderDeskCashReportRow>
                         testID="kitchen-order-desk-cash-report-table"
                         label={t('kitchen:ops.cashReport.caption')}
@@ -349,19 +351,18 @@ function OrderDeskCashReport() {
                     <View
                         testID="kitchen-order-desk-cash-report-totals"
                         style={{ maxWidth: TOTALS_MAX_WIDTH }}
-                        // The green card: the brand's subtle ground, raised like the figures.
-                        className="flex-col rounded-panel border border-brand-100 bg-surface-brand-subtle shadow-elevation-card"
+                        className="max-w-full flex-col rounded-panel border border-stroke-subtle bg-surface-raised p-[18px] shadow-elevation-1"
                     >
                         {/* A heading a step above the pairs under it, so it reads as their title. */}
-                        <View className="px-snug pb-hair pt-snug">
-                            <Text variant="section" tone="brand" accessibilityRole="header">
+                        <View className="pb-tight">
+                            <Text variant="section" accessibilityRole="header">
                                 {t('kitchen:ops.cashReport.totalsHeading')}
                             </Text>
                         </View>
                         {totals.map((total) => (
                             <View
                                 key={totalKey(total)}
-                                className="flex-row items-baseline justify-between gap-snug border-t border-stroke-subtle px-snug py-tight"
+                                className="min-h-row-md flex-row items-center justify-between gap-snug border-t border-stroke-subtle"
                             >
                                 {/*
                                  * The method alone, through the shared table the queue and the sale
@@ -375,8 +376,7 @@ function OrderDeskCashReport() {
                                 </Text>
                                 <Text
                                     variant="strong"
-                                    tone="brand"
-                                    className="tabular-nums"
+                                    className="text-end tabular-nums"
                                     testID={`kitchen-order-desk-cash-report-total-${totalKey(total)}`}
                                 >
                                     {formatMoney(formatter, {

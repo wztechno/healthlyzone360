@@ -422,7 +422,6 @@ function PriceListsList() {
                         columns={controls.columns}
                         rows={controls.rows}
                         rowKey={(row) => String(row.id)}
-                        density="sm"
                         onRowPress={openEditor}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         // View and Edit. No Archive: the contract publishes no retire (§6.1).

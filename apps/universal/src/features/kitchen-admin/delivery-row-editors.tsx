@@ -22,7 +22,7 @@ import type { ServiceAreaId } from '@healthy360/domain-types';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { weekdayKey } from '../marketplace/format.ts';
 import { BilingualField } from './bilingual-field.tsx';
@@ -40,7 +40,7 @@ import type {
     OperatingIssue,
 } from './delivery-model.ts';
 import { ISO_WEEKDAYS, displayName } from './format.ts';
-import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
+import { RowAnnouncer, RowEditorFrame, UndoBar } from './row-editor-shell.tsx';
 
 /**
  * The three repeated editors of the delivery slice (K1.7).
@@ -376,7 +376,7 @@ export function DeliveryWindowRows({
                                       setRemoved({ row, index });
                                       onChange(rows.filter((_, position) => position !== index));
                                   }}
-                                  className="h-6 w-6 items-center justify-center rounded-sm border border-stroke bg-surface-raised hover:bg-surface-sunken"
+                                  className="h-6 w-6 items-center justify-center rounded-control border border-stroke bg-surface-raised hover:bg-surface-sunken"
                               >
                                   <Icon name="close" size="sm" className="text-content-secondary" />
                               </Pressable>
@@ -389,21 +389,22 @@ export function DeliveryWindowRows({
 
     return (
         <Stack space="sm">
-            <DataList<DeliveryWindowDraft>
-                testID={testID}
-                label={t('kitchen:zones.sectionWindows')}
-                columns={columns}
-                rows={rows}
-                rowKey={(row) => row.key}
-                density="sm"
-                emptyState={
-                    <View className="px-control-sm py-2">
-                        <Text testID={`${testID}-empty`} tone="secondary" variant="caption">
-                            {t('kitchen:windows.none')}
-                        </Text>
-                    </View>
-                }
-            />
+            <RowEditorFrame>
+                <DataList<DeliveryWindowDraft>
+                    testID={testID}
+                    label={t('kitchen:zones.sectionWindows')}
+                    columns={columns}
+                    rows={rows}
+                    rowKey={(row) => row.key}
+                    emptyState={
+                        <View className="px-control-sm py-2">
+                            <Text testID={`${testID}-empty`} tone="secondary" variant="caption">
+                                {t('kitchen:windows.none')}
+                            </Text>
+                        </View>
+                    }
+                />
+            </RowEditorFrame>
 
             <Inline space="sm" wrap align="center">
                 {canManage ? (
@@ -467,19 +468,28 @@ export function DayToggle({
                 onChange(!selected);
             }}
             className={cx(
-                'h-control-sm flex-1 items-center justify-center rounded-sm border',
-                selected
-                    ? 'border-surface-brand bg-surface-brand-subtle'
-                    : 'border-stroke bg-surface-raised hover:bg-surface-sunken',
-                disabled ? 'opacity-50' : null,
+                'h-control-sm flex-1 items-center justify-center rounded-control border',
+                disabled
+                    ? 'border-stroke-subtle bg-surface-sunken'
+                    : selected
+                      ? 'border-surface-brand bg-surface-brand-subtle'
+                      : 'border-stroke bg-surface-raised hover:bg-surface-sunken',
             )}
         >
-            <Text
-                variant="caption"
-                className={selected ? 'text-content-on-brand-subtle' : 'text-content-secondary'}
+            {/* React Native's own `Text`: the ink is the toggle's state, and `Text`'s tone class
+                would race it. */}
+            <RNText
+                className={cx(
+                    'text-role-caption text-center',
+                    disabled
+                        ? 'text-content-disabled'
+                        : selected
+                          ? 'text-content-on-brand-subtle'
+                          : 'text-content-secondary',
+                )}
             >
                 {initial}
-            </Text>
+            </RNText>
         </Pressable>
     );
 }
@@ -714,14 +724,15 @@ export function OperatingWeekRows({
 
     return (
         <Stack space="none">
-            <DataList<OperatingDayDraft>
-                testID={testID}
-                label={t('kitchen:branchHours.weekTitle')}
-                columns={columns}
-                rows={rows}
-                rowKey={(day) => `day-${String(day.weekday)}`}
-                density="sm"
-            />
+            <RowEditorFrame>
+                <DataList<OperatingDayDraft>
+                    testID={testID}
+                    label={t('kitchen:branchHours.weekTitle')}
+                    columns={columns}
+                    rows={rows}
+                    rowKey={(day) => `day-${String(day.weekday)}`}
+                />
+            </RowEditorFrame>
             <RowAnnouncer testID={`${testID}-announcer`} message={announcement} />
         </Stack>
     );
@@ -947,7 +958,7 @@ export function ServiceAreaPicker({
                                         <View
                                             key={String(area.id)}
                                             style={{ width: columnWidth }}
-                                            className="min-h-control-sm flex-row items-center gap-tight border-b border-stroke-subtle px-tight"
+                                            className="min-h-row-md flex-row items-center gap-tight border-b border-stroke-subtle px-tight web:hover:bg-surface-sunken"
                                         >
                                             <Checkbox
                                                 testID={`${testID}-option-${String(area.id)}`}
@@ -1013,9 +1024,9 @@ function AreaChip({
             testID={testID}
             className="h-control-xs flex-row items-center gap-1 rounded-full bg-surface-brand-subtle pe-1 ps-2"
         >
-            <Text variant="caption" className="text-content-on-brand-subtle">
+            <RNText className="text-role-caption text-content-on-brand-subtle text-start">
                 {label}
-            </Text>
+            </RNText>
             {onRemove === undefined ? null : (
                 <Pressable
                     testID={`${testID}-remove`}

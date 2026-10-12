@@ -1,4 +1,4 @@
-import { Text } from '@healthy360/design-system';
+import { DATA_LIST_HEADER_TEXT, Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { Text as RNText, ScrollView, View } from 'react-native';
@@ -73,21 +73,17 @@ export function PlanMatrixGrid({ rows, bands, variants, testID }: PlanMatrixGrid
                 style={{ minWidth: GRID_FLOOR }}
                 className="flex-1 flex-col"
             >
-                <View className="h-8 flex-row items-end gap-tight border-b border-stroke">
-                    <View style={{ width: COMBINATION_TRACK }} className="pb-1.5">
-                        <Text variant="micro" tone="secondary">
+                <View className="min-h-row-sm flex-row items-center gap-tight border-b-[1.5px] border-stroke bg-surface-raised">
+                    <View style={{ width: COMBINATION_TRACK }}>
+                        <RNText className={`${DATA_LIST_HEADER_TEXT} text-start`}>
                             {t('kitchen:plans.matrixRowHeader')}
-                        </Text>
+                        </RNText>
                     </View>
                     {bands.map((band) => (
-                        <View
-                            key={band.key}
-                            style={{ minWidth: BAND_FLOOR }}
-                            className="flex-1 pb-1.5"
-                        >
-                            <Text variant="mono" tone="secondary" align="center">
+                        <View key={band.key} style={{ minWidth: BAND_FLOOR }} className="flex-1">
+                            <RNText className={`${DATA_LIST_HEADER_TEXT} text-center tabular-nums`}>
                                 {bandLabel(band)}
-                            </Text>
+                            </RNText>
                         </View>
                     ))}
                 </View>
@@ -95,7 +91,7 @@ export function PlanMatrixGrid({ rows, bands, variants, testID }: PlanMatrixGrid
                 {rows.map((row) => (
                     <View
                         key={row.key}
-                        className="min-h-11 flex-row items-center gap-tight border-b border-stroke-subtle py-1.5"
+                        className="min-h-row-md flex-row items-center gap-tight border-b border-stroke-subtle py-1.5"
                     >
                         <View
                             testID={`${testID}-row-${row.key}`}
@@ -142,8 +138,8 @@ export function PlanMatrixGrid({ rows, bands, variants, testID }: PlanMatrixGrid
                                         } as object)}
                                         className={
                                             sold
-                                                ? 'h-8 items-center justify-center rounded-sm border border-surface-brand bg-surface-brand-subtle'
-                                                : 'h-8 items-center justify-center rounded-sm border border-stroke-subtle bg-surface-raised'
+                                                ? 'h-8 items-center justify-center rounded-control border border-surface-brand bg-surface-brand-subtle'
+                                                : 'h-8 items-center justify-center rounded-control border border-stroke-subtle bg-surface-raised'
                                         }
                                     >
                                         {/* React Native's own `Text`: the ink is the cell's

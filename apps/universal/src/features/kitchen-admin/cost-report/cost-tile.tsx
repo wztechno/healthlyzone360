@@ -1,6 +1,6 @@
 import { Text } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 /**
  * One headline figure: micro label, large figure, its unit, one line of meaning (Workbench §2.3).
  *
@@ -32,24 +32,19 @@ export function CostTile({ label, value, unit, hint, trend, emphasis, testID }: 
     return (
         <View
             testID={testID}
-            className="flex-col gap-0.5 rounded border border-stroke-subtle bg-surface-raised px-2.5 py-2 shadow-elevation-card"
+            className="flex-col gap-1 rounded-panel border border-stroke-subtle bg-surface-raised p-[18px] shadow-elevation-1"
         >
             <View className="flex-row items-baseline justify-between gap-tight">
-                <Text variant="micro" tone="secondary" numberOfLines={1}>
+                <RNText numberOfLines={1} className="text-xs text-content-secondary text-start">
                     {label}
-                </Text>
+                </RNText>
                 {trend}
             </View>
             <View className="flex-row flex-wrap items-baseline gap-1">
-                {/*
-                 * `display` — the ramp's one large step. The design's 22px mono figure has no step
-                 * of its own; CLAUDE.md forbids a half-step, so it snaps to 20 and carries tabular
-                 * numerals until the mono family lands.
-                 */}
+                {/* `display` — the mood board's 25px KPI figure, tabular numerals built in. */}
                 <Text
                     variant="display"
                     tone={emphasis === 'brand' ? 'brand' : 'primary'}
-                    className="tabular-nums"
                     testID={testID === undefined ? undefined : `${testID}-value`}
                 >
                     {value}
@@ -61,9 +56,17 @@ export function CostTile({ label, value, unit, hint, trend, emphasis, testID }: 
                 )}
             </View>
             {hint === undefined ? null : (
-                <Text variant="caption" tone="secondary">
-                    {hint}
-                </Text>
+                // The mood board's KPI footer: the meaning as a small pill.
+                <View className="flex-row pt-1.5">
+                    <View className="rounded-full bg-surface-sunken px-2.5 py-1">
+                        <RNText
+                            numberOfLines={1}
+                            className="text-role-micro text-content-secondary text-start"
+                        >
+                            {hint}
+                        </RNText>
+                    </View>
+                </View>
             )}
         </View>
     );
@@ -83,7 +86,7 @@ export function CostTileRow({
     readonly testID?: string | undefined;
 }) {
     return (
-        <View testID={testID} style={{ maxWidth }} className="flex-row flex-wrap gap-2.5">
+        <View testID={testID} style={{ maxWidth }} className="flex-row flex-wrap gap-snug">
             {children.map((child, index) => (
                 <View key={index} className="flex-1 flex-col" style={{ minWidth: floor }}>
                     {child}

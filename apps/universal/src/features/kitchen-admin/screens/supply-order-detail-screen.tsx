@@ -48,6 +48,7 @@ import {
 } from '../ops-format.ts';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
+import { RowEditorFrame } from '../row-editor-shell.tsx';
 import { SideRailLayout } from '../side-rail-layout.tsx';
 import { readQuantity } from '../supply-order-model.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
@@ -434,6 +435,7 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                   label: t('kitchen:ops.supplyOrders.columnReceived'),
                   width: 104,
                   priority: 60,
+                  align: 'end',
                   render: (line) => (
                       <Text
                           variant="mono"
@@ -449,6 +451,7 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                   label: t('kitchen:ops.supplyOrders.columnOutstanding'),
                   width: 104,
                   priority: 60,
+                  align: 'end',
                   render: (line) => (
                       <Text
                           variant="mono"
@@ -503,6 +506,7 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
             label: t('kitchen:ops.supplyOrders.columnQuantity'),
             width: 140,
             priority: 95,
+            align: 'end',
             render: (line) => {
                 const testID = purchaseOrderLineTestId(line.stockItemId);
 
@@ -771,14 +775,15 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                             }
                         >
                             <Stack space="sm">
-                                <DataList<LineDraft>
-                                    testID="kitchen-supply-order-detail-lines-table"
-                                    label={t('kitchen:ops.supplyOrders.linesCaption')}
-                                    columns={columns}
-                                    rows={lines}
-                                    rowKey={(line) => line.stockItemId}
-                                    density="sm"
-                                />
+                                <RowEditorFrame>
+                                    <DataList<LineDraft>
+                                        testID="kitchen-supply-order-detail-lines-table"
+                                        label={t('kitchen:ops.supplyOrders.linesCaption')}
+                                        columns={columns}
+                                        rows={lines}
+                                        rowKey={(line) => line.stockItemId}
+                                    />
+                                </RowEditorFrame>
 
                                 {empty && editable ? (
                                     <Text

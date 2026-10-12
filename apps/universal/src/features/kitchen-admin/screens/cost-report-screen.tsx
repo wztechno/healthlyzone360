@@ -3,6 +3,7 @@ import {
     Badge,
     Button,
     Callout,
+    Card,
     Cascade,
     DatePickerButton,
     EmptyState,
@@ -426,7 +427,7 @@ function CostReport() {
     );
 
     return (
-        <Cascade space="md" testID="kitchen-cost-report-screen">
+        <Cascade space="lg" testID="kitchen-cost-report-screen">
             {showsReport ? null : filterBar}
             {report.isPending ? (
                 <RecordSkeleton
@@ -456,7 +457,7 @@ function CostReport() {
                  * when the months land they arrive in order in place of the skeleton, rather than
                  * all at once.
                  */
-                <Cascade space="md">
+                <Cascade space="lg">
                     {flaggedCount > 0 ? (
                         <Callout
                             testID="kitchen-cost-report-data-quality"
@@ -531,8 +532,9 @@ function CostReport() {
                         }))}
                     />
                     {filterBar}
-                    <View className="flex-row flex-wrap gap-4">
-                        <View className="min-w-[300px] flex-1 flex-col gap-snug">
+                    {/* Each chart on its own white card, stacking when the row cannot hold both. */}
+                    <View className="flex-row flex-wrap gap-6">
+                        <Card padding="md" className="min-w-[280px] flex-1 gap-4">
                             <WorkbenchSectionHeading
                                 title={t('kitchen:ops.costReport.chartRevenueCogs')}
                             />
@@ -548,9 +550,9 @@ function CostReport() {
                                     bTitle: `${row.month} · ${t('kitchen:ops.costReport.columnCogs')} ${withCode(row.cogsAmount)}`,
                                 }))}
                             />
-                        </View>
+                        </Card>
                         {mixRows.length === 0 ? null : (
-                            <View className="min-w-[300px] flex-1 flex-col gap-snug">
+                            <Card padding="md" className="min-w-[280px] flex-1 gap-4">
                                 <WorkbenchSectionHeading
                                     title={t('kitchen:ops.costReport.chartRevenueMixTitle')}
                                     aside={latest.month}
@@ -561,7 +563,7 @@ function CostReport() {
                                     valueWidth={84}
                                     rows={mixRows}
                                 />
-                            </View>
+                            </Card>
                         )}
                     </View>
                     <WithColumnPicker picker={controls.picker}>

@@ -408,7 +408,6 @@ function QualityCheckList({
                         columns={controls.columns}
                         rows={pageRows}
                         rowKey={(row) => String(row.id)}
-                        density="sm"
                         onRowPress={setViewing}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={(row): readonly MenuItem[] => {

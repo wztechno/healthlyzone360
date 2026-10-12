@@ -33,6 +33,7 @@ import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { receiptCostStatusKey, receiptCostStatusTone } from '../ops-format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 
 /**
  * `/kitchen/procurement/unpriced-receipts` — the work queue (SUP5, §3.6, §7).
@@ -69,6 +70,7 @@ export function UnpricedReceiptsScreen() {
             requirement={{ allOf: [INVENTORY_VIEW_COSTS_PERMISSION] }}
             testID="kitchen-unpriced-receipts"
         >
+            <CataloguePageHeader testID="kitchen-unpriced-receipts-page-header" />
             <UnpricedReceipts />
         </Gate>
     );
@@ -327,7 +329,6 @@ function UnpricedReceipts() {
                     columns={controls.columns}
                     rows={controls.rows}
                     rowKey={(row) => String(row.id)}
-                    density="sm"
                     onRowPress={openReceipt}
                     rowActionsLabel={t('kitchen:list.rowActions')}
                     // The one thing to do with a row here is finish its prices.

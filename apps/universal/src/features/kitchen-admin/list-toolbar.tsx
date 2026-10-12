@@ -240,7 +240,7 @@ export function ListToolbar({
             />
 
             <Collapse open={expanded} nativeID={panelId} testID={panelId}>
-                <View className="rounded-panel border border-brand-100 bg-surface-raised p-3 shadow-elevation-card md:p-4">
+                <View className="rounded-panel border border-stroke-subtle bg-surface-raised p-snug shadow-elevation-1 md:p-[18px]">
                     <Stack space="sm">
                         {statusesOnRow ? null : (
                             <Stack space="xs">

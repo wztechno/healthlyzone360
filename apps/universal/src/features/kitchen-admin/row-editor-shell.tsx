@@ -1,6 +1,7 @@
-import { Button, Card, Inline, Stack, Text } from '@healthy360/design-system';
+import { Button, Card, Inline, Stack, Text, useBreakpoint } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ScrollView, View } from 'react-native';
 
 /**
  * The chrome every ordered-row editor in this workspace shares.
@@ -155,5 +156,25 @@ export function UndoBar({ label, onUndo, testID }: UndoBarProps) {
                 onPress={onUndo}
             />
         </Inline>
+    );
+}
+
+/**
+ * The frame a row-editor table sits in: inputs in every cell, so no column can be dropped, and below
+ * `md` the tracks would push the whole page sideways. There the table scrolls inside its own frame,
+ * as `role-matrix.tsx` does. At `md` and up it stays a plain block so the list's sticky header still
+ * pins against the shell's scroll port.
+ */
+export function RowEditorFrame({ children }: { readonly children: ReactNode }) {
+    const { atLeast } = useBreakpoint();
+    if (atLeast('md')) return <View>{children}</View>;
+    return (
+        <ScrollView
+            horizontal
+            contentContainerStyle={{ flexGrow: 1 }}
+            contentContainerClassName="flex-col"
+        >
+            {children}
+        </ScrollView>
     );
 }

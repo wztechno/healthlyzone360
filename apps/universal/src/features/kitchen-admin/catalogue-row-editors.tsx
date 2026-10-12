@@ -34,7 +34,7 @@ import {
     unitDimensionKey,
     unitKey,
 } from './format.ts';
-import { UndoBar } from './row-editor-shell.tsx';
+import { RowEditorFrame, UndoBar } from './row-editor-shell.tsx';
 
 /**
  * The three repeated-row editors K1.4 adds: pack variants, channel availability, availability days.
@@ -324,14 +324,15 @@ export function PackVariantEditor({ rows, onChange, errors, canManage, testID }:
                 </Text>
             ) : (
                 <>
-                    <DataList<PackDraft>
-                        testID={testID}
-                        label={t('kitchen:products.sectionPacks')}
-                        columns={columns}
-                        rows={rows}
-                        rowKey={(row) => row.key}
-                        density="sm"
-                    />
+                    <RowEditorFrame>
+                        <DataList<PackDraft>
+                            testID={testID}
+                            label={t('kitchen:products.sectionPacks')}
+                            columns={columns}
+                            rows={rows}
+                            rowKey={(row) => row.key}
+                        />
+                    </RowEditorFrame>
 
                     <Text testID={`${testID}-caption`} variant="caption" tone="secondary">
                         {t('kitchen:products.packsCaption')}
@@ -498,7 +499,7 @@ export function ChannelAvailabilityEditor({
                         key={channel}
                         testID={rowTestId}
                         className={cx(
-                            'w-[220px] flex-row items-center gap-tight rounded-sm px-control-md py-1',
+                            'w-[220px] flex-row items-center gap-tight rounded-control px-control-md py-1',
                             row.isAvailable ? 'bg-surface-brand-subtle' : null,
                         )}
                     >
@@ -770,14 +771,15 @@ export function MealAvailabilityEditor({
         <Stack space="sm" {...(rows.length === 0 ? { testID } : {})}>
             {rows.length === 0 ? null : (
                 <>
-                    <DataList<AvailabilityDraft>
-                        testID={testID}
-                        label={t('kitchen:availability.sectionServiceDays')}
-                        columns={columns}
-                        rows={rows}
-                        rowKey={(row) => row.key}
-                        density="sm"
-                    />
+                    <RowEditorFrame>
+                        <DataList<AvailabilityDraft>
+                            testID={testID}
+                            label={t('kitchen:availability.sectionServiceDays')}
+                            columns={columns}
+                            rows={rows}
+                            rowKey={(row) => row.key}
+                        />
+                    </RowEditorFrame>
 
                     <Text testID={`${testID}-caption`} variant="caption" tone="secondary">
                         {t('kitchen:availability.rowCaption')}

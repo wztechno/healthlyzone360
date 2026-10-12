@@ -140,7 +140,7 @@ export function CustomerSection({
                 </View>
             ) : (
                 <View className="z-auto flex-col gap-tight">
-                    <View style={{ width: fieldWidth }}>
+                    <View className="max-w-full" style={{ width: fieldWidth }}>
                         <SearchInput
                             testID="kitchen-order-desk-sale-customer-search"
                             label={t('kitchen:desk.sale.customerSearchLabel')}

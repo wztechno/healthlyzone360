@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { durationKindKey } from './format.ts';
 import { withDurationKind } from './plan-matrix.ts';
 import type { DurationDraft, VariantDraft } from './plan-matrix.ts';
-import { UndoBar } from './row-editor-shell.tsx';
+import { RowEditorFrame, UndoBar } from './row-editor-shell.tsx';
 
 /**
  * The plan editor's two repeated-row editors (K1.6): configurations and durations.
@@ -137,7 +137,7 @@ export function PlanVariantRows({
                             />
 
                             <View className="z-auto flex-row flex-wrap items-start gap-x-base gap-y-snug">
-                                <View style={{ width: spanWidth(2) }}>
+                                <View style={{ width: spanWidth(2) }} className="max-w-full">
                                     <TextInputField
                                         testID={`${rowTestId}-name`}
                                         id={`${rowTestId}-name`}
@@ -485,7 +485,7 @@ export function PlanDurationRows({
                         <View
                             testID={`${testID}-row-${row.key}-days-absent`}
                             accessibilityLabel={t('kitchen:plans.daysAbsentHint')}
-                            className="h-control-sm justify-center rounded-sm border border-stroke-subtle bg-surface-sunken px-control-sm"
+                            className="h-control-sm justify-center rounded-control border border-stroke-subtle bg-surface-sunken px-control-sm"
                         >
                             <Text tone="secondary">{t('kitchen:plans.daysNone')}</Text>
                         </View>
@@ -586,15 +586,16 @@ export function PlanDurationRows({
                     {t('kitchen:plans.durationsEmpty')}
                 </Text>
             ) : (
-                <DataList<DurationDraft>
-                    testID={testID}
-                    label={t('kitchen:plans.sectionDurations')}
-                    columns={columns}
-                    rows={rows}
-                    rowKey={(row) => row.key}
-                    density="sm"
-                    framed
-                />
+                <RowEditorFrame>
+                    <DataList<DurationDraft>
+                        testID={testID}
+                        label={t('kitchen:plans.sectionDurations')}
+                        columns={columns}
+                        rows={rows}
+                        rowKey={(row) => row.key}
+                        framed
+                    />
+                </RowEditorFrame>
             )}
 
             {removed === null ? null : (

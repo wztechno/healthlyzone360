@@ -25,7 +25,7 @@ import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -231,7 +231,7 @@ function BatchPlanner() {
              */}
             <View
                 testID="kitchen-batch-controls"
-                className="relative z-raised gap-2 rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
+                className="relative z-raised gap-4 rounded-panel border border-stroke-subtle bg-surface-raised p-[18px] shadow-elevation-1"
             >
                 <Inline space="md" align="end" justify="center" wrap>
                     <View className="w-field">
@@ -249,13 +249,14 @@ function BatchPlanner() {
                     </View>
 
                     {/*
-                     * Built as a field: the label on the field label's own step and at its 4px gap,
-                     * so all three labels sit on one line and all three controls on the next.
+                     * Built as a field: the label on the field label's own step (`FieldLabel`'s
+                     * classes — the design-system `Text` cannot take them) and at its 4px gap, so
+                     * all three labels sit on one line and all three controls on the next.
                      */}
                     <View className="w-field flex-col gap-hair">
-                        <Text variant="caption" className="font-medium">
+                        <RNText className="text-role-label text-start text-content-secondary">
                             {t('kitchen:ops.batch.basisLabel')}
-                        </Text>
+                        </RNText>
                         <SegmentedControl<BatchMode>
                             testID="kitchen-batch-mode"
                             label={t('kitchen:ops.batch.basisLabel')}
@@ -684,7 +685,6 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
                         columns={lineControls.columns}
                         rows={lineControls.rows}
                         rowKey={(line) => String(line.ingredientId)}
-                        density="sm"
                         rowEntrance
                     />
                 </WithColumnPicker>
@@ -716,7 +716,6 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
                                 columns={packagingControls.columns}
                                 rows={packagingControls.rows}
                                 rowKey={(row) => String(row.ingredientId)}
-                                density="sm"
                                 rowEntrance
                             />
                         </WithColumnPicker>

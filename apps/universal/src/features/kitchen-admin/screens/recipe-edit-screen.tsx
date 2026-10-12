@@ -2747,7 +2747,7 @@ function RecipeEditor({
                                             <View
                                                 key={row.key}
                                                 testID={`kitchen-recipe-sheet-summary-${row.key}`}
-                                                className="min-h-8 flex-row items-baseline gap-snug border-b border-stroke-subtle py-hair"
+                                                className="min-h-row-sm flex-row items-center gap-snug border-b border-stroke-subtle py-hair"
                                             >
                                                 <View className="w-44 shrink-0">
                                                     <Text variant="caption" tone="secondary">

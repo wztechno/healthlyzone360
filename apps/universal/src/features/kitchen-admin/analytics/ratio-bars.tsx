@@ -35,9 +35,9 @@ export function RatioBars({ rows, labelWidth, valueWidth, testID }: RatioBarsPro
                             {row.label}
                         </Text>
                     </View>
-                    <View className="h-2 min-w-0 flex-1 rounded-sm bg-surface-sunken">
+                    <View className="h-2 min-w-0 flex-1 rounded-full bg-surface-sunken">
                         <View
-                            className="h-2 rounded-sm bg-surface-brand"
+                            className="h-2 rounded-full bg-surface-brand"
                             style={{
                                 width: `${Math.round(Math.min(1, Math.max(0, row.share)) * 100)}%` as const,
                             }}

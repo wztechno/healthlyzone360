@@ -223,7 +223,7 @@ function ReadOnlyCell({
     return (
         <Stack space="xs" testID={testID}>
             <Text variant="label">{label}</Text>
-            <View className="min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-sm border border-stroke-subtle bg-surface-sunken px-control-sm py-1">
+            <View className="min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-control border border-stroke-subtle bg-surface-sunken px-control-sm py-1">
                 {children}
             </View>
         </Stack>
@@ -1172,7 +1172,7 @@ function ZoneWindowAssignment({
                         return (
                             <View
                                 key={String(window.id)}
-                                className="min-h-control-sm flex-row items-center gap-tight border-b border-stroke-subtle px-tight py-1"
+                                className="min-h-row-md flex-row items-center gap-tight border-b border-stroke-subtle px-tight py-1 web:hover:bg-surface-sunken"
                             >
                                 <Checkbox
                                     testID={testID}

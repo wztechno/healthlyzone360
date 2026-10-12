@@ -36,6 +36,7 @@ import {
     formatLot,
     yieldSummary,
 } from '../production-desk/batch-figures.ts';
+import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 
 /**
  * `/kitchen/production-desk/batches` — the batches nobody has to move any more (PROD1).
@@ -78,6 +79,7 @@ export function ProductionBatchesScreen() {
             requirement={{ allOf: [PRODUCTION_VIEW_PERMISSION] }}
             testID="kitchen-production-batches"
         >
+            <CataloguePageHeader testID="kitchen-production-batches-page-header" />
             <ProductionBatches />
         </Gate>
     );

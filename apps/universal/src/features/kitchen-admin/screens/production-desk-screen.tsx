@@ -45,6 +45,7 @@ import {
     formatLot,
     yieldSummary,
 } from '../production-desk/batch-figures.ts';
+import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 
 /**
  * `/kitchen/production-desk` — the batches this kitchen still has to do something about (PROD1).
@@ -87,6 +88,7 @@ export function ProductionDeskScreen() {
             requirement={{ allOf: [PRODUCTION_VIEW_PERMISSION] }}
             testID="kitchen-production-desk"
         >
+            <CataloguePageHeader testID="kitchen-production-desk-page-header" />
             <ProductionDesk />
         </Gate>
     );

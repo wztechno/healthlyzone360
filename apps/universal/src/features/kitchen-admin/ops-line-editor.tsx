@@ -15,6 +15,8 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { RowEditorFrame } from './row-editor-shell.tsx';
+
 /**
  * One draft row in a repeatable stock-item-and-quantity list — a goods receipt line. `key` is a
  * client-only identity for React's list reconciliation; it never reaches the wire
@@ -443,14 +445,15 @@ export function StockItemLineEditor({
     return (
         <Stack space="sm">
             {lines.length === 0 ? null : (
-                <DataList<StockItemLineDraft>
-                    testID={testID}
-                    label={itemLabel}
-                    columns={columns}
-                    rows={lines}
-                    rowKey={(line) => line.key}
-                    density="sm"
-                />
+                <RowEditorFrame>
+                    <DataList<StockItemLineDraft>
+                        testID={testID}
+                        label={itemLabel}
+                        columns={columns}
+                        rows={lines}
+                        rowKey={(line) => line.key}
+                    />
+                </RowEditorFrame>
             )}
             {/* Add under the rows it adds to, and the receipt's total at the end of the same line. */}
             <View className="flex-row flex-wrap items-center justify-between gap-tight">

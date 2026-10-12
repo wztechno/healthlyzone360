@@ -628,7 +628,6 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                             columns={controls.columns}
                             rows={controls.rows}
                             rowKey={(row) => row.id}
-                            density="sm"
                             onRowPress={setViewing}
                             rowActionsLabel={t('kitchen:list.rowActions')}
                             // View only: there is nothing to write from a ledger.
@@ -777,14 +776,11 @@ function PeriodCard({
     return (
         <View
             testID={`kitchen-ledger-period-${period.period}`}
-            className="gap-3 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
+            className="gap-4 rounded-panel border border-stroke-subtle bg-surface-raised p-[18px] shadow-elevation-1"
         >
             <Inline space="sm" align="center" wrap>
                 <Stack space="none" className="min-w-0 flex-1">
-                    <Text
-                        variant="bodyStrong"
-                        testID={`kitchen-ledger-period-${period.period}-label`}
-                    >
+                    <Text variant="section" testID={`kitchen-ledger-period-${period.period}-label`}>
                         {period.period}
                     </Text>
                     <Text variant="caption" tone="secondary">
@@ -884,13 +880,17 @@ function CurrencyRow({
               })} ${totals.currencyCode}`;
 
     return (
-        <View testID={testID} className="gap-2 rounded-lg bg-surface-sunken p-3">
+        <View testID={testID} className="gap-2 rounded-control bg-surface-sunken p-3">
             <Inline space="md" wrap>
                 <Stack space="none" className="min-w-[140px]">
                     <Text variant="caption" tone="secondary">
                         {t('kitchen:ops.ledger.summarySubtotal')}
                     </Text>
-                    <Text variant="bodyStrong" testID={`${testID}-subtotal`}>
+                    <Text
+                        variant="bodyStrong"
+                        className="tabular-nums"
+                        testID={`${testID}-subtotal`}
+                    >
                         {money(totals.itemSubtotal)}
                     </Text>
                 </Stack>
@@ -898,7 +898,11 @@ function CurrencyRow({
                     <Text variant="caption" tone="secondary">
                         {t('kitchen:ops.ledger.summaryInvoiceTotal')}
                     </Text>
-                    <Text variant="bodyStrong" testID={`${testID}-invoice-total`}>
+                    <Text
+                        variant="bodyStrong"
+                        className="tabular-nums"
+                        testID={`${testID}-invoice-total`}
+                    >
                         {money(totals.invoiceTotal)}
                     </Text>
                 </Stack>
@@ -906,7 +910,7 @@ function CurrencyRow({
                     <Text variant="caption" tone="secondary">
                         {t('kitchen:ops.ledger.summaryLines')}
                     </Text>
-                    <Text testID={`${testID}-lines`}>
+                    <Text className="tabular-nums" testID={`${testID}-lines`}>
                         {formatter.formatNumber(totals.receivedLineCount)}
                     </Text>
                 </Stack>

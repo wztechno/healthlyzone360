@@ -45,6 +45,7 @@ import {
     ingredientRowTestId,
     statusShortKey,
 } from '../format.ts';
+import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 
 /**
  * `/kitchen/ingredients` — the ingredient list, as `Catalogue.dc.html` draws it.
@@ -72,7 +73,7 @@ import {
  * **No summary line.** Its four figures are the four cards. Drawing both would state "2 draft"
  * twice, sixteen pixels apart.
  *
- * **No density switch and no field chooser.** The list is fixed at `sm`, so the S/M/L set had
+ * **No density switch and no field chooser.** The list is fixed at the 44px `md` row, so the S/M/L set had
  * nothing to switch; every column the spec declares is drawn and the fitter drops the low-priority
  * ones by itself, so the `▽` had nothing to hide. `CatalogueToolbar` records the reasoning.
  *
@@ -197,6 +198,7 @@ function IngredientsList() {
 
     return (
         <Cascade space="md" testID="kitchen-ingredients-screen">
+            <CataloguePageHeader testID="kitchen-ingredients-page-header" />
             {/*
              * The opening — the actions and the four figures — is one block at 4px, nested inside
              * the page's 16px rhythm.
@@ -270,7 +272,6 @@ function IngredientsList() {
                     rows={list.rows}
                     rowKey={(row) => String(row.id)}
                     // Fixed, not switchable: the S/M/L control is gone.
-                    density="sm"
                     onRowPress={(row) => {
                         list.openEditor(String(row.id));
                     }}

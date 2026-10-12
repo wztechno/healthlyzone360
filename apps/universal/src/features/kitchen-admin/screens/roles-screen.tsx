@@ -36,6 +36,7 @@ import {
 } from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { ROLE_MANAGE_PERMISSION, ROLE_VIEW_PERMISSION } from '../entity-registry.ts';
+import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 
 /**
  * `/kitchen/roles` — what each job title is allowed to reach (AA1), on the Catalogue list.
@@ -73,6 +74,7 @@ import { ROLE_MANAGE_PERMISSION, ROLE_VIEW_PERMISSION } from '../entity-registry
 export function RolesScreen() {
     return (
         <Gate area="kitchen" requirement={{ allOf: [ROLE_VIEW_PERMISSION] }} testID="kitchen-roles">
+            <CataloguePageHeader testID="kitchen-roles-page-header" />
             <RolesList />
         </Gate>
     );
@@ -332,7 +334,6 @@ function RolesList() {
                     columns={controls.columns}
                     rows={controls.rows}
                     rowKey={(row) => String(row.id)}
-                    density="sm"
                     onRowPress={openRole}
                     rowActionsLabel={t('kitchen:list.rowActions')}
                     rowActions={(row): readonly MenuItem[] => [

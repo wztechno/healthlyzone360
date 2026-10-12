@@ -45,6 +45,7 @@ import { displayName } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
+import { RowEditorFrame } from '../row-editor-shell.tsx';
 import { SideRailLayout } from '../side-rail-layout.tsx';
 import { supplyOrderGroupTestId, supplyOrderRowTestId } from '../ops-format.ts';
 import {
@@ -396,10 +397,12 @@ function SupplyOrderBuilder() {
                 width: 136,
                 priority: 60,
                 grow: false,
+                align: 'end',
                 render: (row) => (
                     <Text
                         variant="mono"
                         tone="secondary"
+                        align="end"
                         testID={`${supplyOrderRowTestId(String(row.stockItemId))}-levels`}
                     >
                         {`${row.reorderThreshold === null ? EM_DASH : formatter.formatNumber(Number(row.reorderThreshold))} / ${
@@ -737,14 +740,15 @@ function SupplyOrderBuilder() {
                                     body={t('kitchen:ops.supplyOrders.builderEmptyBody')}
                                 />
                             ) : (
-                                <DataList<OrderProposalItem>
-                                    testID="kitchen-supply-order-rows"
-                                    label={t('kitchen:ops.supplyOrders.builderCaption')}
-                                    columns={assignedColumns}
-                                    rows={assigned}
-                                    rowKey={(row) => String(row.stockItemId)}
-                                    density="sm"
-                                />
+                                <RowEditorFrame>
+                                    <DataList<OrderProposalItem>
+                                        testID="kitchen-supply-order-rows"
+                                        label={t('kitchen:ops.supplyOrders.builderCaption')}
+                                        columns={assignedColumns}
+                                        rows={assigned}
+                                        rowKey={(row) => String(row.stockItemId)}
+                                    />
+                                </RowEditorFrame>
                             )}
 
                             {/*
@@ -796,14 +800,15 @@ function SupplyOrderBuilder() {
                                 />
                             }
                         >
-                            <DataList<OrderProposalItem>
-                                testID="kitchen-supply-order-unlinked-rows"
-                                label={t('kitchen:ops.supplyOrders.unlinkedCaption')}
-                                columns={unlinkedColumns}
-                                rows={unlinked}
-                                rowKey={(row) => String(row.stockItemId)}
-                                density="sm"
-                            />
+                            <RowEditorFrame>
+                                <DataList<OrderProposalItem>
+                                    testID="kitchen-supply-order-unlinked-rows"
+                                    label={t('kitchen:ops.supplyOrders.unlinkedCaption')}
+                                    columns={unlinkedColumns}
+                                    rows={unlinked}
+                                    rowKey={(row) => String(row.stockItemId)}
+                                />
+                            </RowEditorFrame>
                         </FormSection>
                     )}
                 </>

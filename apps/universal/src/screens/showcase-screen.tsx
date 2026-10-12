@@ -1014,7 +1014,7 @@ function ArrivalStory({
                         rows={CATALOGUE_ROWS.length}
                     />
                 ) : (
-                    <View className="flex-col rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card">
+                    <View className="flex-col rounded-panel border border-stroke-subtle bg-surface-raised shadow-elevation-1">
                         <DataList
                             testID={`${prefix}-arrival-list`}
                             label="Ingredients, arriving"
@@ -2850,7 +2850,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                  * The Catalogue's frame, as `CatalogueList` draws it: the header takes the top
                  * corners and the last row the bottom ones; no row draws a rule of its own.
                  */}
-                <View className="flex-col rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card">
+                <View className="flex-col rounded-panel border border-stroke-subtle bg-surface-raised shadow-elevation-1">
                     <DataList
                         testID={id('data-list-framed')}
                         label="Ingredients, framed"
@@ -2946,7 +2946,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     rowKey={(row) => row.key}
                     rowActionsLabel="Row actions"
                 />
-                <View className="flex-col rounded-panel border border-brand-100 bg-surface-raised">
+                <View className="flex-col rounded-panel border border-stroke-subtle bg-surface-raised">
                     <CatalogueListItem
                         testID={id('catalogue-photos-narrow')}
                         title="Zaatar blend"

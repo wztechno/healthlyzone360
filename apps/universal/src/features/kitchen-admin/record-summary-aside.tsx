@@ -100,11 +100,7 @@ export function RecordSummaryAside({
                         {total === null ? null : (
                             <View className="mt-hair flex-row items-baseline justify-between gap-tight border-t border-stroke-subtle pt-tight">
                                 <Text variant="label">{total.label}</Text>
-                                <Text
-                                    testID={`${testID}-total`}
-                                    variant="title"
-                                    className="tabular-nums"
-                                >
+                                <Text testID={`${testID}-total`} variant="display">
                                     {total.value}
                                 </Text>
                             </View>

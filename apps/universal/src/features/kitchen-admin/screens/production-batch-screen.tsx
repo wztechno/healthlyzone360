@@ -695,7 +695,7 @@ function Figure({
             <Text variant="caption" tone="secondary">
                 {label}
             </Text>
-            <Text variant={strong ? 'bodyStrong' : 'body'} testID={testID}>
+            <Text variant={strong ? 'bodyStrong' : 'body'} testID={testID} className="tabular-nums">
                 {value}
             </Text>
             {caption === undefined ? null : (
@@ -731,7 +731,7 @@ function RailRow({
                     variant={strong ? 'bodyStrong' : 'body'}
                     testID={testID}
                     numberOfLines={1}
-                    className="text-end"
+                    className="text-end tabular-nums"
                 >
                     {value}
                 </Text>

@@ -161,7 +161,7 @@ export function DerivedPanel({
                                     </Text>
                                     <RNText
                                         testID={`${testID}-figure-${figure.key}-value`}
-                                        className="text-role-display tabular-nums text-content-secondary text-start"
+                                        className="text-role-display font-display tabular-nums text-content-secondary text-start"
                                     >
                                         {figure.value ?? emptyValue}
                                     </RNText>
@@ -203,7 +203,7 @@ function OutlineTile({
     return (
         <View
             testID={testID}
-            className="flex-col gap-hair rounded-md border border-stroke-subtle bg-surface-raised px-snug py-tight"
+            className="flex-col gap-hair rounded-panel border border-stroke-subtle bg-surface-raised px-snug py-tight shadow-elevation-1"
         >
             <Text variant="micro" tone="secondary">
                 {figure.label}
@@ -219,13 +219,13 @@ function OutlineTile({
                     testID={`${testID}-value`}
                     className={
                         figure.value === null
-                            ? 'text-role-section tabular-nums text-content-secondary text-start'
-                            : 'text-role-section tabular-nums text-content-primary text-start'
+                            ? 'text-role-section font-display tabular-nums text-content-secondary text-start'
+                            : 'text-role-section font-display tabular-nums text-content-primary text-start'
                     }
                 >
                     {figure.value ?? emptyValue}
                 </RNText>
-                <RNText className="text-role-section text-content-secondary text-start">
+                <RNText className="text-role-section font-display text-content-secondary text-start">
                     {figure.unit}
                 </RNText>
             </View>

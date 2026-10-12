@@ -45,6 +45,7 @@ import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { SideRailLayout } from '../side-rail-layout.tsx';
 import { receiptCostStatusKey, receiptCostStatusTone } from '../ops-format.ts';
 import { readAmount } from '../receive-delivery-model.ts';
+import { RowEditorFrame } from '../row-editor-shell.tsx';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -306,14 +307,15 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                                     ? t('kitchen:ops.unpricedReceipts.nothingToPrice')
                                     : t('kitchen:ops.unpricedReceipts.quantitiesImmutable')}
                             </Text>
-                            <DataList<GoodsReceiptLine>
-                                testID="kitchen-unpriced-receipt-lines-table"
-                                label={t('kitchen:ops.unpricedReceipts.linesHeading')}
-                                columns={columns}
-                                rows={lines}
-                                rowKey={(line) => line.id}
-                                density="sm"
-                            />
+                            <RowEditorFrame>
+                                <DataList<GoodsReceiptLine>
+                                    testID="kitchen-unpriced-receipt-lines-table"
+                                    label={t('kitchen:ops.unpricedReceipts.linesHeading')}
+                                    columns={columns}
+                                    rows={lines}
+                                    rowKey={(line) => line.id}
+                                />
+                            </RowEditorFrame>
                             {/*
                              * Said once, under the lines, rather than on each: the reason is the
                              * same for every line waiting on a rate, and it is not a job for here.
@@ -424,6 +426,7 @@ function lineColumns({
             label: t('kitchen:ops.unpricedReceipts.columnReceived'),
             width: 110,
             priority: 90,
+            align: 'end',
             render: (line) => (
                 <Text variant="mono" testID={`kitchen-unpriced-line-${line.id}-quantity`}>
                     {`${formatter.formatNumber(Number(line.quantity))} ${
@@ -439,6 +442,7 @@ function lineColumns({
             }),
             width: 150,
             priority: 95,
+            align: 'end',
             render: (line) => {
                 const state = lineState(line);
                 if (state !== 'toPrice') {
@@ -478,6 +482,7 @@ function lineColumns({
             label: t('kitchen:ops.unpricedReceipts.columnLineTotal'),
             width: 120,
             priority: 80,
+            align: 'end',
             render: (line) => {
                 // Typed lines show the consequence of the figure before it is saved; settled ones
                 // show what is on record. An unpriced line has no total — not a zero.

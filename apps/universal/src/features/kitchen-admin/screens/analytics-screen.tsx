@@ -4,6 +4,7 @@ import type {
     KitchenAnalyticsItem,
 } from '@healthy360/api-client/contracts';
 import {
+    Card,
     Cascade,
     EmptyState,
     ErrorState,
@@ -36,6 +37,7 @@ import {
 } from '../catalogue/use-column-controls.tsx';
 import { ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
 import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
+import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 
 /**
  * `/kitchen/analytics` — what the order book did over a range of days, as `Workbench.dc.html`
@@ -67,6 +69,7 @@ export function AnalyticsScreen() {
             requirement={{ allOf: [ORDER_VIEW_PERMISSION] }}
             testID="kitchen-analytics"
         >
+            <CataloguePageHeader testID="kitchen-analytics-page-header" />
             <AnalyticsDashboard />
         </Gate>
     );
@@ -250,7 +253,7 @@ function AnalyticsDashboard() {
 
     if (report.isPending) {
         return (
-            <Cascade space="md" testID="kitchen-analytics-panel">
+            <Cascade space="lg" testID="kitchen-analytics-panel">
                 {rangeControl}
                 <RecordSkeleton
                     testID="kitchen-analytics-loading"
@@ -263,7 +266,7 @@ function AnalyticsDashboard() {
     }
     if (failure !== null) {
         return (
-            <Cascade space="md" testID="kitchen-analytics-panel">
+            <Cascade space="lg" testID="kitchen-analytics-panel">
                 {rangeControl}
                 <ErrorState
                     testID="kitchen-analytics-error"
@@ -292,7 +295,7 @@ function AnalyticsDashboard() {
     const short = { day: 'numeric', month: 'short' } as const;
 
     return (
-        <Cascade space="md" testID="kitchen-analytics-panel">
+        <Cascade space="lg" testID="kitchen-analytics-panel">
             {rangeControl}
             <CatalogueStatCards
                 testID="kitchen-analytics-kpis"
@@ -352,10 +355,14 @@ function AnalyticsDashboard() {
                     body={t('kitchen:analytics.emptyBody')}
                 />
             ) : (
-                <Cascade space="md">
-                    {/* One chart per line: side by side, the trend's bars had no room between them. */}
-                    <View className="flex-col gap-loose">
-                        <View className="flex-col gap-snug">
+                <Cascade space="lg">
+                    {/*
+                     * Each chart on its own white card (Kitchen Ops sample). The trend takes a
+                     * whole line — side by side, its bars had no room between them; the two
+                     * share charts pair up and stack when the row cannot hold both.
+                     */}
+                    <View className="flex-col gap-6">
+                        <Card padding="md" className="gap-4">
                             <WorkbenchSectionHeading
                                 title={t('kitchen:analytics.charts.unitsTrend')}
                                 aside={t(
@@ -403,46 +410,50 @@ function AnalyticsDashboard() {
                                     });
                                 }}
                             />
-                        </View>
-                        <View className="flex-col gap-snug">
-                            <WorkbenchSectionHeading
-                                title={t('kitchen:analytics.charts.channelVolume')}
-                            />
-                            <RatioBars
-                                testID="kitchen-analytics-channels"
-                                labelWidth={110}
-                                valueWidth={56}
-                                rows={data.channels.map((channel) => ({
-                                    key: channel.key,
-                                    label: t(CHANNEL_LABEL[channel.key]),
-                                    value: formatter.formatNumber(channel.orders),
-                                    share: channel.orders / channelMax,
-                                }))}
-                            />
+                        </Card>
+                        <View className="flex-row flex-wrap gap-6">
+                            <Card padding="md" className="min-w-[280px] flex-1 gap-4">
+                                <WorkbenchSectionHeading
+                                    title={t('kitchen:analytics.charts.channelVolume')}
+                                />
+                                <RatioBars
+                                    testID="kitchen-analytics-channels"
+                                    labelWidth={110}
+                                    valueWidth={56}
+                                    rows={data.channels.map((channel) => ({
+                                        key: channel.key,
+                                        label: t(CHANNEL_LABEL[channel.key]),
+                                        value: formatter.formatNumber(channel.orders),
+                                        share: channel.orders / channelMax,
+                                    }))}
+                                />
+                            </Card>
+                            <Card padding="md" className="min-w-[280px] flex-1 gap-4">
+                                <WorkbenchSectionHeading
+                                    title={t('kitchen:analytics.charts.outcomeMix')}
+                                />
+                                <StatMix
+                                    testID="kitchen-analytics-mix"
+                                    formatPercent={(pct) =>
+                                        formatter.formatNumber(pct / 100, { style: 'percent' })
+                                    }
+                                    segments={(
+                                        [
+                                            ['fulfilled', current.fulfilled, 'success'],
+                                            ['open', current.open, 'warning'],
+                                            ['cancelled', current.cancelled, 'danger'],
+                                        ] as const
+                                    ).map(([key, count, tone]) => ({
+                                        key,
+                                        label: t(`kitchen:analytics.charts.outcomes.${key}`),
+                                        pct: (count / placed) * 100,
+                                        tone,
+                                    }))}
+                                />
+                            </Card>
                         </View>
                     </View>
-                    <View className="flex-col gap-2.5">
-                        <WorkbenchSectionHeading title={t('kitchen:analytics.charts.outcomeMix')} />
-                        <StatMix
-                            testID="kitchen-analytics-mix"
-                            formatPercent={(pct) =>
-                                formatter.formatNumber(pct / 100, { style: 'percent' })
-                            }
-                            segments={(
-                                [
-                                    ['fulfilled', current.fulfilled, 'success'],
-                                    ['open', current.open, 'warning'],
-                                    ['cancelled', current.cancelled, 'danger'],
-                                ] as const
-                            ).map(([key, count, tone]) => ({
-                                key,
-                                label: t(`kitchen:analytics.charts.outcomes.${key}`),
-                                pct: (count / placed) * 100,
-                                tone,
-                            }))}
-                        />
-                    </View>
-                    <View className="flex-col">
+                    <View className="flex-col gap-snug">
                         <WorkbenchSectionHeading title={t('kitchen:analytics.table.title')} />
                         <WithColumnPicker picker={controls.picker}>
                             <CatalogueList<KitchenAnalyticsItem>

@@ -60,7 +60,7 @@ export function KitchenPageHeader({
             testID={testID}
             className={
                 variant === 'band'
-                    ? 'gap-2 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card'
+                    ? 'gap-2 rounded-panel border border-stroke-subtle bg-surface-raised p-[18px] shadow-elevation-1'
                     : 'gap-2'
             }
         >

@@ -4,6 +4,7 @@ import {
     Badge,
     Button,
     Checkbox,
+    DATA_LIST_HEADER_TEXT,
     GRID_CONTENT_ATTR,
     Icon,
     IconButton,
@@ -863,7 +864,7 @@ export function PriceEntriesCard({
                 testID={base}
                 nativeID={base}
                 className={cx(
-                    'border-b border-stroke-subtle px-base py-1.5',
+                    'min-h-row-md justify-center border-b border-stroke-subtle px-base py-1.5',
                     rowProblems !== undefined
                         ? 'bg-danger-subtle/50'
                         : isSelected
@@ -1073,12 +1074,7 @@ export function PriceEntriesCard({
     /* ── the grid ──────────────────────────────────────────────────────────────────────────── */
 
     const headerCell = (label: string, align: 'start' | 'end' = 'start') => (
-        <RNText
-            className={cx(
-                'text-role-label font-semibold text-content-on-brand-subtle',
-                align === 'end' ? 'text-end' : 'text-start',
-            )}
-        >
+        <RNText className={cx(DATA_LIST_HEADER_TEXT, align === 'end' ? 'text-end' : 'text-start')}>
             {label}
         </RNText>
     );
@@ -1096,7 +1092,7 @@ export function PriceEntriesCard({
         >
             <View
                 role="row"
-                className="min-h-row-md flex-row items-center gap-2.5 border-b border-stroke-subtle bg-surface-brand-subtle px-base"
+                className="min-h-row-sm flex-row items-center gap-2.5 border-b-[1.5px] border-stroke bg-surface-raised px-base"
             >
                 <View role="columnheader" style={fixedTrack(TRACK.select)}>
                     {canManage && visibleKeys.length > 0 ? (
@@ -1171,7 +1167,7 @@ export function PriceEntriesCard({
     return (
         <View
             testID={`${testID}-entries-card`}
-            className="rounded border border-stroke-subtle bg-surface-raised shadow-elevation-card"
+            className="rounded-panel border border-stroke-subtle bg-surface-raised shadow-elevation-1"
         >
             <View
                 testID={`${testID}-entries-toolbar`}
