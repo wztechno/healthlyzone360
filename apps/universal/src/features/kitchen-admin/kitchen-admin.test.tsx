@@ -1491,24 +1491,17 @@ describe('nutrition per 100 g', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 /**
- * What used to be the allergen mapping editor.
+ * The allergen determination.
  *
- * Composition and allergens are **read-only on this screen** — handoff §6.2, and the editor's own
- * module note says so. The three tests that stood here drove a mapping editor that no longer
- * exists: an add button, a class picker, a containment toggle with an upgrade-only rule, and a
- * wholesale save. Rewriting them against the current screen would have meant asserting controls
- * nobody can reach, so what survives is the claim the screen still makes — the determination is
- * *shown*, in full, and cannot be changed from here.
- *
- * The rule those tests protected has not gone anywhere: `setIngredientAllergens` is still on the
- * contract, still wholesale, and still the only way a determination changes. When an editor for it
- * lands, the upgrade-only refusal and the quarantine-in-a-successful-write case are the two things
- * it has to prove, and they are worth re-deriving from `AllergenMappingService` rather than from
- * the tests that used to sit here.
+ * A row the caller cannot write (a shared-library row as a kitchen sees it) shows the determination
+ * as chips and offers no control. A row it can write gets the editor: one choice per class, saved
+ * as the whole set, and an empty set confirmed in so many words — the server records that as
+ * "assessed, carries nothing", which is what lets a recipe using a new ingredient publish (report
+ * blocker B1). The upgrade-only rule stays the server's to enforce.
  */
-describe('composition and allergens, read-only', () => {
-    it('shows every determination as a chip and offers no way to change one', async () => {
-        const record = ingredient(6, {
+describe('composition and allergens', () => {
+    it('shows a read-only determination as chips and offers no way to change one', async () => {
+        const record = platformIngredient(6, {
             allergens: [
                 mapping('gluten', { containment: 'contains' }),
                 mapping('sesame', { containment: 'may_contain' }),
@@ -1531,17 +1524,41 @@ describe('composition and allergens, read-only', () => {
         await openIngredientStep('allergens');
         await untilVisible('kitchen-ingredient-composition');
 
-        // Both claims are drawn. `contains` and `may_contain` are two different statements and
-        // never one colour, but both are *present*: a panel that showed only the certain ones would
-        // under-report the label.
         expect(screen.getByTestId('kitchen-ingredient-allergen-gluten')).toBeTruthy();
         expect(screen.getByTestId('kitchen-ingredient-allergen-sesame')).toBeTruthy();
-
-        // And nothing here can write. Not "the button is disabled" — the controls are not rendered,
-        // which is the difference between a path that is closed and one that is merely guarded.
-        expect(screen.queryByTestId('kitchen-ingredient-mapping-add')).toBeNull();
         expect(screen.queryByTestId('kitchen-ingredient-mapping-save')).toBeNull();
         expect(repositories.kitchenAdmin.setIngredientAllergens).not.toHaveBeenCalled();
+    });
+
+    it('lets a kitchen confirm its own new ingredient carries no allergens', async () => {
+        const record = ingredient(9, { allergens: [] });
+        const writes: unknown[] = [];
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [record]),
+                    getIngredient: async () => record,
+                    setIngredientAllergens: async (_id, request) => {
+                        writes.push(request.mappings);
+                        return { ...record, allergensAssessedClear: true };
+                    },
+                },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-mapping-unassessed');
+        const save = screen.getByTestId('kitchen-ingredient-mapping-save');
+        expect(save).toHaveTextContent(/Confirm no allergens/);
+
+        await act(async () => {
+            fireEvent.press(save);
+        });
+
+        await waitFor(() => {
+            expect(writes).toEqual([[]]);
+        });
     });
 
     it('renders the quarantine a write elsewhere put the record into', async () => {

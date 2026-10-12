@@ -10,6 +10,7 @@ use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Ingredients\Enums\AllergenMappingSource;
 use Healthy360\Ingredients\Enums\AllergenMarketScope;
 use Healthy360\Ingredients\Enums\AllergenVerificationStatus;
+use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Organisations\Models\Organisation;
@@ -182,6 +183,20 @@ final readonly class AllergenMappingService
             $organisationId === null
                 ? IngredientAllergen::asPlatformRow($write)
                 : $write();
+
+            // An empty set on the writer's own ingredient is "assessed, and it
+            // carries nothing". No mapping row can say that, so it is recorded
+            // the way the publish gate reads it: the ingredient's own
+            // `verification_status`. Only from `unverified` — a row held for
+            // review stays held — and never on someone else's row.
+            if ($normalised === []
+                && $ingredient->organisation_id === $organisationId
+                && $ingredient->verification_status === IngredientVerificationStatus::Unverified) {
+                Ingredient::withoutTenancy()->whereKey($ingredient->getKey())->update([
+                    'verification_status' => IngredientVerificationStatus::Verified->value,
+                    'updated_at' => now(),
+                ]);
+            }
         });
 
         // A frozen recipe label is only as good as the mappings it was computed

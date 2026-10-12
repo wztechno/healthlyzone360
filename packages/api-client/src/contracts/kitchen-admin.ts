@@ -424,6 +424,12 @@ export interface IngredientAdmin {
      */
     readonly nutritionNote: string | null;
     readonly allergens: readonly IngredientAllergenMapping[];
+    /**
+     * Someone assessed this ingredient and found it carries no allergen — the state an empty
+     * {@link IngredientAllergenMapping} set cannot express on its own. Absent on payloads that do
+     * not say, which reads as "not assessed".
+     */
+    readonly allergensAssessedClear?: boolean;
     readonly dietClassifications: readonly DietClassification[];
     /** Alternative designations seen on delivery notes and technical sheets. */
     readonly aliases: readonly string[];

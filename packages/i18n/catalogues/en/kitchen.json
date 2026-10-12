@@ -2593,12 +2593,16 @@
         "saveBlocked": "Resolve the marked rows before saving.",
         "duplicateClass": "That class is already mapped.",
         "chooseClass": "Choose a class for every row.",
-        "save": "Save the mapping",
-        "savedToast": "The allergen mapping was saved.",
+        "save": "Save allergens",
+        "savedToast": "Allergens saved.",
         "saveError": "The allergen mapping could not be saved.",
         "quarantineTitle": "This ingredient is now awaiting review",
         "quarantineBody": "The change contradicts a published label, so the record and everything that derives from it are held back from publication until somebody resolves it.",
-        "classesError": "The allergen classes could not be loaded, so no mapping can be edited."
+        "classesError": "The allergen classes could not be loaded, so no mapping can be edited.",
+        "none": "Not present",
+        "confirmNone": "Confirm no allergens",
+        "assessedClear": "Checked: carries no allergens",
+        "notAssessed": "Allergens not recorded yet. Recipes using this ingredient cannot be published."
     },
     "containment": {
         "contains": "Contains",

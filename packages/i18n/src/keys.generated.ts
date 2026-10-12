@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8303 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8307 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2844,10 +2844,12 @@ export interface NamespaceKeys {
     | 'aliases.removedToast'
     | 'aliases.title'
     | 'allergens.addRow'
+    | 'allergens.assessedClear'
     | 'allergens.chooseClass'
     | 'allergens.classLabel'
     | 'allergens.classPlaceholder'
     | 'allergens.classesError'
+    | 'allergens.confirmNone'
     | 'allergens.containmentLabel'
     | 'allergens.description'
     | 'allergens.duplicateClass'
@@ -2858,6 +2860,8 @@ export interface NamespaceKeys {
     | 'allergens.marketScopeAll'
     | 'allergens.marketScopeHint'
     | 'allergens.marketScopeLabel'
+    | 'allergens.none'
+    | 'allergens.notAssessed'
     | 'allergens.platformBaseline'
     | 'allergens.platformBaselineHint'
     | 'allergens.quarantineBody'
@@ -11165,10 +11169,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:aliases.removedToast',
   'kitchen:aliases.title',
   'kitchen:allergens.addRow',
+  'kitchen:allergens.assessedClear',
   'kitchen:allergens.chooseClass',
   'kitchen:allergens.classLabel',
   'kitchen:allergens.classPlaceholder',
   'kitchen:allergens.classesError',
+  'kitchen:allergens.confirmNone',
   'kitchen:allergens.containmentLabel',
   'kitchen:allergens.description',
   'kitchen:allergens.duplicateClass',
@@ -11179,6 +11185,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:allergens.marketScopeAll',
   'kitchen:allergens.marketScopeHint',
   'kitchen:allergens.marketScopeLabel',
+  'kitchen:allergens.none',
+  'kitchen:allergens.notAssessed',
   'kitchen:allergens.platformBaseline',
   'kitchen:allergens.platformBaselineHint',
   'kitchen:allergens.quarantineBody',

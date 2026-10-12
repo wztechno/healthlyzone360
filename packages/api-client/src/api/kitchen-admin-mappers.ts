@@ -372,6 +372,7 @@ export function mapIngredientAdmin(
         // sub-resource, and no list can afford a request per row. The override stays for the callers
         // that read that sub-resource directly.
         allergens: options?.allergens ?? (wire.allergens ?? []).map(mapIngredientAllergenMapping),
+        allergensAssessedClear: wire.verification_status === 'verified',
         dietClassifications: [],
         aliases: options?.aliases ?? [],
         organisationId:
