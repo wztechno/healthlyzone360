@@ -1702,9 +1702,8 @@ describe('the allergen class reference', () => {
         expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
             /14/,
         );
-        // The governance note stays. It is the reason this page has no primary and no row Edit, and
-        // a reader who wonders why should not have to infer it from their absence.
-        expect(screen.getByTestId('kitchen-allergen-classes-governance')).toBeTruthy();
+        // No governance banner: the team's no-helper-copy rule.
+        expect(screen.queryByTestId('kitchen-allergen-classes-governance')).toBeNull();
 
         for (const entry of ALLERGEN_CLASSES) {
             expect(

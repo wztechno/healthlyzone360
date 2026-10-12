@@ -736,7 +736,7 @@ describe('the price-list list', () => {
         expect(isAgreementPriced(UNPRICED_LIST.channels)).toBe(true);
         expect(isAgreementPriced(CONFIRMED_LIST.channels)).toBe(false);
 
-        expect(screen.getByTestId('kitchen-price-lists-confidential')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-price-lists-confidential')).toBeNull();
         expect(
             screen.getByTestId(`kitchen-price-list-${String(UNPRICED_LIST.id)}-agreement`),
         ).toBeTruthy();

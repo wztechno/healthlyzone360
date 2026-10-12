@@ -8,7 +8,6 @@ import { RECEIPT_COST_STATUSES } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
-    Callout,
     Cascade,
     DatePickerButton,
     EmptyState,
@@ -523,15 +522,6 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
 
     return (
         <Cascade space="md" testID="kitchen-purchases-ledger-screen">
-            {/* §5: the ledger is the valuation, and the reader should know why they can see it. */}
-            <Callout
-                testID="kitchen-purchases-ledger-cost-note"
-                role="note"
-                tone="danger"
-                title={t('kitchen:ops.ledger.costNoteTitle')}
-                body={t('kitchen:ops.ledger.costNoteBody')}
-            />
-
             {isDetail && failure === null ? (
                 <CatalogueStatCards
                     testID="kitchen-purchases-ledger-stats"

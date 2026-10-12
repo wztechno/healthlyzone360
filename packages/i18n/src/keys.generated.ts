@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8312 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8308 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3128,8 +3128,6 @@ export interface NamespaceKeys {
     | 'classes.emptyBody'
     | 'classes.emptyTitle'
     | 'classes.errorTitle'
-    | 'classes.governanceBody'
-    | 'classes.governanceTitle'
     | 'classes.inactive'
     | 'classes.noMarkets'
     | 'classes.searchPlaceholder'
@@ -4118,8 +4116,6 @@ export interface NamespaceKeys {
     | 'ops.ledger.columnSupplier'
     | 'ops.ledger.columnUnitPrice'
     | 'ops.ledger.completeBadge'
-    | 'ops.ledger.costNoteBody'
-    | 'ops.ledger.costNoteTitle'
     | 'ops.ledger.emptyBody'
     | 'ops.ledger.emptyTitle'
     | 'ops.ledger.filterFrom'
@@ -11458,8 +11454,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:classes.emptyBody',
   'kitchen:classes.emptyTitle',
   'kitchen:classes.errorTitle',
-  'kitchen:classes.governanceBody',
-  'kitchen:classes.governanceTitle',
   'kitchen:classes.inactive',
   'kitchen:classes.noMarkets',
   'kitchen:classes.searchPlaceholder',
@@ -12448,8 +12442,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.columnSupplier',
   'kitchen:ops.ledger.columnUnitPrice',
   'kitchen:ops.ledger.completeBadge',
-  'kitchen:ops.ledger.costNoteBody',
-  'kitchen:ops.ledger.costNoteTitle',
   'kitchen:ops.ledger.emptyBody',
   'kitchen:ops.ledger.emptyTitle',
   'kitchen:ops.ledger.filterFrom',

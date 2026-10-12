@@ -669,7 +669,7 @@
         "procurement": {
             "title": "Procurement",
             "emptyTitle": "No goods receipts yet",
-            "emptyBody": "Post a receipt against stock items. Supplier contacts are listed above when seeded.",
+            "emptyBody": "Post a receipt against stock items.",
             "receiptsTitle": "Goods receipts",
             "postReceipt": "Post receipt",
             "postTitle": "Post a goods receipt",
@@ -945,8 +945,6 @@
             "searchPlaceholder": "Item or supplier on this page",
             "columnQuantity": "Quantity",
             "columnState": "Price",
-            "costNoteTitle": "This ledger is the valuation.",
-            "costNoteBody": "It is gated on the organisation cost permission — a kitchen hand who counts stock and posts receipts does not thereby see what those receipts cost.",
             "stateUnpriced": "No price yet",
             "statePendingFx": "Pending FX",
             "statePriced": "Priced",
@@ -2635,8 +2633,6 @@
     "classes": {
         "title": "Allergen classes",
         "subtitle": "The regulatory vocabulary an ingredient is mapped onto.",
-        "governanceTitle": "These are managed by the platform",
-        "governanceBody": "A class code is a regulatory identity: it is never renamed, never deleted and never invented here. A kitchen owns its own mappings onto these classes and nothing else.",
         "noMarkets": "No market in this list requires it",
         "thresholdAny": "Any detectable amount",
         "thresholdValue": "{{value}} {{unit}}",
