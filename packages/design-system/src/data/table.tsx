@@ -334,7 +334,9 @@ export function Table<Row>({
                                 role="listitem"
                                 className={cx(
                                     'flex-col gap-2 border border-stroke-subtle bg-surface-raised',
-                                    desk ? 'rounded-panel p-4 shadow-elevation-1' : 'rounded-lg p-3',
+                                    desk
+                                        ? 'rounded-panel p-4 shadow-elevation-1'
+                                        : 'rounded-lg p-3',
                                     rowTone?.(row) === 'muted' && 'opacity-60',
                                 )}
                             >

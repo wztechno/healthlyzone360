@@ -155,7 +155,12 @@ export function IconButton({
                 className,
             )}
         >
-            <View className={cx(buttonVariantClasses(density === 'compact').label[variant], TONE_CLASS[tone])}>
+            <View
+                className={cx(
+                    buttonVariantClasses(density === 'compact').label[variant],
+                    TONE_CLASS[tone],
+                )}
+            >
                 {icon}
             </View>
             {showLabel ? (

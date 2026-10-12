@@ -341,7 +341,8 @@ export function dataListColumnAlign(
  * A column header's text — exported so a custom header (the Catalogue's sort-and-filter header)
  * speaks in the same voice as a plain one.
  */
-export const DATA_LIST_HEADER_TEXT = 'text-role-micro uppercase tracking-[0.08em] text-content-secondary';
+export const DATA_LIST_HEADER_TEXT =
+    'text-role-micro uppercase tracking-[0.08em] text-content-secondary';
 
 /** The text of a cell with no renderer — the one size and ink every cell is set in. */
 function cellClass(column: DataListColumn<unknown>): string {

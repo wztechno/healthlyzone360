@@ -69,7 +69,8 @@ export const LABEL_VARIANT: Readonly<Record<ButtonVariant, string>> = {
  */
 export const COMPACT_CONTAINER_VARIANT: Readonly<Record<ButtonVariant, string>> = {
     primary: 'bg-surface-brand-strong border border-transparent hover:opacity-90',
-    secondary: 'bg-surface-raised border border-stroke-subtle hover:border-stroke hover:bg-surface-sunken',
+    secondary:
+        'bg-surface-raised border border-stroke-subtle hover:border-stroke hover:bg-surface-sunken',
     quiet: 'bg-surface-sunken border border-transparent hover:bg-surface-brand-subtle',
     ghost: 'bg-transparent border border-transparent hover:bg-surface-sunken',
     danger: 'bg-danger border border-transparent hover:opacity-90',

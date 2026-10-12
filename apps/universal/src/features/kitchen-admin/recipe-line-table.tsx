@@ -802,9 +802,7 @@ function TotalsRow({
                         flexShrink: 0,
                         minWidth: 0,
                     }}
-                    className={
-                        column.align === 'end' ? 'items-end px-control-sm' : 'px-control-sm'
-                    }
+                    className={column.align === 'end' ? 'items-end px-control-sm' : 'px-control-sm'}
                 >
                     {content[column.key] ?? null}
                 </View>

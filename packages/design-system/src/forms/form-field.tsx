@@ -212,7 +212,10 @@ export function FormField({
                     />
                     {inlineHint ? (
                         <>
-                            <RNText aria-hidden className={cx(supportClass, 'text-content-secondary')}>
+                            <RNText
+                                aria-hidden
+                                className={cx(supportClass, 'text-content-secondary')}
+                            >
                                 ·
                             </RNText>
                             {hintText}
