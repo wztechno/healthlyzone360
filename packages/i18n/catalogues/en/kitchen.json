@@ -1194,7 +1194,8 @@
             "labelBatchOf": "Batch of {{quantity}} {{unit}}",
             "expiryFromRecipe": "Made on plus {{days}}, from the recipe's shelf life.",
             "scanLabel": "Scan or type a lot",
-            "scanNoMatch": "No batch carries that code"
+            "scanNoMatch": "No batch carries that code",
+            "recipeNoOutput": "{{name}} makes no produced item, so a batch has nothing to put on the shelf. Set what it produces in the recipe editor first."
         },
         "qc": {
             "title": "Quality control",
