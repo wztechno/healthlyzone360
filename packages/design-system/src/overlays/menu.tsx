@@ -127,7 +127,7 @@ function MenuRow({
                 if (!toggleable) onClose();
             }}
             className={cx(
-                'h-control-sm flex-row items-center gap-control-sm px-control-sm',
+                'h-control-sm flex-row items-center gap-control-sm rounded-lg px-control-sm',
                 active ? 'bg-surface-sunken' : 'bg-transparent',
                 disabled ? 'opacity-60' : null,
             )}

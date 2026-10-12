@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { useDensity } from '../hooks/use-density.tsx';
 import type { Density } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
-import { CONTAINER_VARIANT, LABEL_VARIANT } from './button-shared.ts';
+import { buttonVariantClasses } from './button-shared.ts';
 import { showFloatingLabel } from './floating-label.ts';
 import type { FloatingLabel } from './floating-label.ts';
 import type { ButtonSize, ButtonVariant } from './button-shared.ts';
@@ -56,9 +56,9 @@ const COMFORTABLE_SIZE: Readonly<Record<ButtonSize, string>> = {
 };
 
 const COMPACT_SIZE: Readonly<Record<ButtonSize, string>> = {
-    sm: 'h-control-sm aspect-square rounded-sm',
-    md: 'h-control-md aspect-square rounded-sm',
-    lg: 'h-control-lg aspect-square rounded-sm',
+    sm: 'h-control-sm aspect-square rounded-control',
+    md: 'h-control-md aspect-square rounded-control',
+    lg: 'h-control-lg aspect-square rounded-control',
 };
 
 const ICON_BUTTON_SIZE: Readonly<Record<Density, Readonly<Record<ButtonSize, string>>>> = {
@@ -149,13 +149,15 @@ export function IconButton({
             }}
             className={cx(
                 'relative items-center justify-center',
-                CONTAINER_VARIANT[variant],
+                buttonVariantClasses(density === 'compact').container[variant],
                 ICON_BUTTON_SIZE[density][size],
                 disabled ? 'opacity-50' : null,
                 className,
             )}
         >
-            <View className={cx(LABEL_VARIANT[variant], TONE_CLASS[tone])}>{icon}</View>
+            <View className={cx(buttonVariantClasses(density === 'compact').label[variant], TONE_CLASS[tone])}>
+                {icon}
+            </View>
             {showLabel ? (
                 <View
                     testID={testID === undefined ? undefined : `${testID}-hover-label`}

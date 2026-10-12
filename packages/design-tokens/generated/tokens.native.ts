@@ -26,17 +26,19 @@ export const nativeTokens = {
         "brandSurface": "#16a34a",
         "brandSurfaceSubtle": "#dcfce7",
         "onBrandSurfaceSubtle": "#14532d",
+        "brandSurfaceStrong": "#157043",
+        "onBrandSurfaceStrong": "#ffffff",
         "accentSurface": "#6d28d9",
         "onAccentSurface": "#ffffff",
         "surfaceCanopy": "#0b3b26",
         "surfaceCanopyDeep": "#124f33",
         "onCanopy": "#ffffff",
         "onCanopyMuted": "#dcfce7",
-        "surfaceSidebar": "#16a34a",
-        "onSidebar": "#ffffff",
-        "onSidebarMuted": "#ffffff",
-        "sidebarActive": "#ffffff",
-        "onSidebarActive": "#16a34a",
+        "surfaceSidebar": "#0b3b26",
+        "onSidebar": "#d6ebdd",
+        "onSidebarMuted": "#a3c9b1",
+        "sidebarActive": "#157043",
+        "onSidebarActive": "#ffffff",
         "accentSubtle": "#f1ebfd",
         "onAccentSubtle": "#4c1d95",
         "ratingStar": "#b57d0d",
@@ -136,6 +138,8 @@ export const nativeTokens = {
         "brandSurface": "#86efac",
         "brandSurfaceSubtle": "#153a26",
         "onBrandSurfaceSubtle": "#b6e8c2",
+        "brandSurfaceStrong": "#86efac",
+        "onBrandSurfaceStrong": "#06160c",
         "accentSurface": "#a78bfa",
         "onAccentSurface": "#1e1541",
         "surfaceCanopy": "#123324",
@@ -260,6 +264,7 @@ export const nativeTokens = {
     "xs": 2,
     "sm": 4,
     "md": 8,
+    "control": 10,
     "lg": 12,
     "panel": 14,
     "xl": 16,
@@ -288,33 +293,33 @@ export const nativeTokens = {
   },
   "control": {
     "height": {
-      "xs": 24,
-      "sm": 28,
-      "md": 32,
-      "lg": 36
+      "xs": 28,
+      "sm": 36,
+      "md": 40,
+      "lg": 44
     },
     "paddingX": {
-      "xs": 6,
-      "sm": 8,
-      "md": 10,
-      "lg": 14
+      "xs": 8,
+      "sm": 14,
+      "md": 18,
+      "lg": 20
     },
     "gap": {
-      "xs": 4,
-      "sm": 6,
-      "md": 6,
+      "xs": 6,
+      "sm": 8,
+      "md": 8,
       "lg": 8
     },
     "iconSize": {
-      "xs": 12,
-      "sm": 14,
+      "xs": 14,
+      "sm": 16,
       "md": 16,
       "lg": 18
     },
     "rowHeight": {
-      "sm": 28,
-      "md": 32,
-      "lg": 36
+      "sm": 36,
+      "md": 44,
+      "lg": 52
     },
     "fieldWidth": 280,
     "cardWidth": {
@@ -404,160 +409,179 @@ export const nativeTokens = {
     },
     "textRoles": {
       "micro": {
-        "size": 10,
-        "lineHeight": 14,
+        "size": 11.5,
+        "lineHeight": 16,
+        "weight": "700",
+        "letterSpacing": 0,
+        "uppercase": false
+      },
+      "label": {
+        "size": 12.5,
+        "lineHeight": 18,
         "weight": "600",
         "letterSpacing": 0,
         "uppercase": false
       },
       "caption": {
-        "size": 11,
-        "lineHeight": 16,
-        "weight": "400",
-        "letterSpacing": 0,
-        "uppercase": false
-      },
-      "body": {
-        "size": 12,
+        "size": 13,
         "lineHeight": 18,
-        "weight": "400",
-        "letterSpacing": 0,
-        "uppercase": false
-      },
-      "label": {
-        "size": 12,
-        "lineHeight": 16,
         "weight": "500",
         "letterSpacing": 0,
         "uppercase": false
       },
+      "body": {
+        "size": 13.5,
+        "lineHeight": 20,
+        "weight": "400",
+        "letterSpacing": 0,
+        "uppercase": false
+      },
       "strong": {
-        "size": 13,
-        "lineHeight": 18,
+        "size": 14,
+        "lineHeight": 20,
         "weight": "600",
         "letterSpacing": 0,
         "uppercase": false
       },
       "section": {
-        "size": 13,
-        "lineHeight": 18,
-        "weight": "600",
-        "letterSpacing": 0,
-        "uppercase": false
-      },
-      "title": {
         "size": 16,
         "lineHeight": 22,
-        "weight": "600",
-        "letterSpacing": -0.16,
+        "weight": "700",
+        "letterSpacing": -0.32,
+        "uppercase": false
+      },
+      "heading": {
+        "size": 21,
+        "lineHeight": 28,
+        "weight": "700",
+        "letterSpacing": -0.42,
         "uppercase": false
       },
       "display": {
-        "size": 20,
-        "lineHeight": 26,
+        "size": 25,
+        "lineHeight": 30,
         "weight": "700",
-        "letterSpacing": -0.3,
+        "letterSpacing": -0.5,
+        "uppercase": false
+      },
+      "title": {
+        "size": 30,
+        "lineHeight": 36,
+        "weight": "700",
+        "letterSpacing": -0.6,
         "uppercase": false
       }
     },
     "textRoleMetrics": {
       "latin": {
         "micro": {
-          "fontSize": 10,
-          "lineHeight": 14,
+          "fontSize": 11.5,
+          "lineHeight": 16,
+          "letterSpacing": 0,
+          "fontWeight": "700"
+        },
+        "label": {
+          "fontSize": 12.5,
+          "lineHeight": 18,
           "letterSpacing": 0,
           "fontWeight": "600"
         },
         "caption": {
-          "fontSize": 11,
-          "lineHeight": 16,
-          "letterSpacing": 0,
-          "fontWeight": "400"
-        },
-        "body": {
-          "fontSize": 12,
+          "fontSize": 13,
           "lineHeight": 18,
-          "letterSpacing": 0,
-          "fontWeight": "400"
-        },
-        "label": {
-          "fontSize": 12,
-          "lineHeight": 16,
           "letterSpacing": 0,
           "fontWeight": "500"
         },
+        "body": {
+          "fontSize": 13.5,
+          "lineHeight": 20,
+          "letterSpacing": 0,
+          "fontWeight": "400"
+        },
         "strong": {
-          "fontSize": 13,
-          "lineHeight": 18,
+          "fontSize": 14,
+          "lineHeight": 20,
           "letterSpacing": 0,
           "fontWeight": "600"
         },
         "section": {
-          "fontSize": 13,
-          "lineHeight": 18,
-          "letterSpacing": 0,
-          "fontWeight": "600"
-        },
-        "title": {
           "fontSize": 16,
           "lineHeight": 22,
-          "letterSpacing": -0.16,
-          "fontWeight": "600"
+          "letterSpacing": -0.32,
+          "fontWeight": "700"
+        },
+        "heading": {
+          "fontSize": 21,
+          "lineHeight": 28,
+          "letterSpacing": -0.42,
+          "fontWeight": "700"
         },
         "display": {
-          "fontSize": 20,
-          "lineHeight": 26,
-          "letterSpacing": -0.3,
+          "fontSize": 25,
+          "lineHeight": 30,
+          "letterSpacing": -0.5,
+          "fontWeight": "700"
+        },
+        "title": {
+          "fontSize": 30,
+          "lineHeight": 36,
+          "letterSpacing": -0.6,
           "fontWeight": "700"
         }
       },
       "arabic": {
         "micro": {
-          "fontSize": 10,
-          "lineHeight": 18,
+          "fontSize": 11.5,
+          "lineHeight": 20,
+          "letterSpacing": 0,
+          "fontWeight": "700"
+        },
+        "label": {
+          "fontSize": 12.5,
+          "lineHeight": 22,
           "letterSpacing": 0,
           "fontWeight": "600"
         },
         "caption": {
-          "fontSize": 11,
-          "lineHeight": 19,
-          "letterSpacing": 0,
-          "fontWeight": "400"
-        },
-        "body": {
-          "fontSize": 12,
-          "lineHeight": 21,
-          "letterSpacing": 0,
-          "fontWeight": "400"
-        },
-        "label": {
-          "fontSize": 12,
-          "lineHeight": 21,
+          "fontSize": 13,
+          "lineHeight": 23,
           "letterSpacing": 0,
           "fontWeight": "500"
         },
+        "body": {
+          "fontSize": 13.5,
+          "lineHeight": 24,
+          "letterSpacing": 0,
+          "fontWeight": "400"
+        },
         "strong": {
-          "fontSize": 13,
-          "lineHeight": 23,
+          "fontSize": 14,
+          "lineHeight": 25,
           "letterSpacing": 0,
           "fontWeight": "600"
         },
         "section": {
-          "fontSize": 13,
-          "lineHeight": 23,
-          "letterSpacing": 0,
-          "fontWeight": "600"
-        },
-        "title": {
           "fontSize": 16,
           "lineHeight": 28,
-          "letterSpacing": -0.16,
-          "fontWeight": "600"
+          "letterSpacing": -0.32,
+          "fontWeight": "700"
+        },
+        "heading": {
+          "fontSize": 21,
+          "lineHeight": 37,
+          "letterSpacing": -0.42,
+          "fontWeight": "700"
         },
         "display": {
-          "fontSize": 20,
-          "lineHeight": 35,
-          "letterSpacing": -0.3,
+          "fontSize": 25,
+          "lineHeight": 44,
+          "letterSpacing": -0.5,
+          "fontWeight": "700"
+        },
+        "title": {
+          "fontSize": 30,
+          "lineHeight": 53,
+          "letterSpacing": -0.6,
           "fontWeight": "700"
         }
       }

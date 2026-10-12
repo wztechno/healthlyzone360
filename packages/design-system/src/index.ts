@@ -214,6 +214,7 @@ export type { DerivedChipPanelProps } from './content/derived-chip-panel.tsx';
 export { ListItem } from './content/list-item.tsx';
 export type { ListItemProps } from './content/list-item.tsx';
 export {
+    DATA_LIST_HEADER_TEXT,
     DataList,
     UNDROPPABLE_PRIORITY,
     dataListColumnAlign,

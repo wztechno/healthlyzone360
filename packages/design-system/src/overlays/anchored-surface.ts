@@ -277,7 +277,7 @@ export function usePointerSwallow(): PointerSwallowProps {
  * lifted web panel does (`anchored-layer.web.tsx`).
  */
 export const ANCHORED_PANEL_FRAME_CLASS =
-    'flex-col rounded-md border border-stroke-subtle bg-surface-raised shadow-elevation-3';
+    'flex-col rounded-panel border border-stroke-subtle bg-surface-raised p-1.5 shadow-elevation-4';
 
 /**
  * The panel frame every anchored surface shares, at the one popover elevation §1.3 allows.

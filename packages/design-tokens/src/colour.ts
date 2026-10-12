@@ -333,6 +333,14 @@ export interface ThemeColours {
     readonly brandSurface: string;
     readonly brandSurfaceSubtle: string;
     readonly onBrandSurfaceSubtle: string;
+    /**
+     * The deep emerald a dense surface fills its primary action with — the kitchen's buttons and
+     * the sidebar's active pill. `brandSurface` stays the mood board's bright `#16A34A` for the
+     * customer app; this is the AA-clean partner for 14px labels, which white on the bright green
+     * is not.
+     */
+    readonly brandSurfaceStrong: string;
+    readonly onBrandSurfaceStrong: string;
     readonly accentSurface: string;
     readonly onAccentSurface: string;
     /**
@@ -351,8 +359,8 @@ export interface ThemeColours {
      */
     readonly onCanopyMuted: string;
     /**
-     * The app shell's sidebar — the panel the modules live in. The primary green in light mode, with
-     * white items on it and the active item as a white pill in green text.
+     * The app shell's sidebar — the panel the modules live in. The deep forest canopy in light mode,
+     * with white items on it and the active item as a deep emerald pill.
      */
     readonly surfaceSidebar: string;
     /** Item text on the sidebar. */
@@ -390,17 +398,19 @@ export const themeLight: ThemeColours = {
     brandSurface: palette.primary,
     brandSurfaceSubtle: '#dcfce7', // soft green — panels, active pill
     onBrandSurfaceSubtle: '#14532d',
+    brandSurfaceStrong: '#157043', // deep emerald — kitchen primary actions, 6.1:1 with white
+    onBrandSurfaceStrong: palette.onPrimary,
     accentSurface: palette.ai, // violet — the AI / premium accent, white-text-safe
     onAccentSurface: palette.onAi,
     surfaceCanopy: '#0b3b26', // deep forest band
     surfaceCanopyDeep: '#124f33', // gradient partner
     onCanopy: '#ffffff',
     onCanopyMuted: '#dcfce7',
-    surfaceSidebar: palette.primary, // the primary green
-    onSidebar: palette.onPrimary, // 3.05:1 — see "brand green, as chosen" in colour.test.ts
-    onSidebarMuted: palette.onPrimary, // headings differ by weight and size, not by a fainter ink
-    sidebarActive: palette.onPrimary, // white pill
-    onSidebarActive: palette.primary, // green text on it, 3.05:1
+    surfaceSidebar: '#0b3b26', // the deep forest canopy, as the Kitchen Ops design draws it
+    onSidebar: '#d6ebdd', // mint at the design's 0.78 over the forest, flattened: 10.1:1
+    onSidebarMuted: '#a3c9b1', // group headings and markers, the design's 0.62 flattened: 6.9:1
+    sidebarActive: '#157043', // deep emerald pill
+    onSidebarActive: '#ffffff',
     accentSubtle: '#f1ebfd', // violet tint, AI surfaces
     onAccentSubtle: '#4c1d95',
     ratingStar: '#b57d0d', // gold, AA on mint and white
@@ -424,6 +434,8 @@ export const themeDark: ThemeColours = {
     brandSurface: '#86efac', // bright mint-emerald reads as the brand on dark surfaces
     brandSurfaceSubtle: '#153a26',
     onBrandSurfaceSubtle: '#b6e8c2',
+    brandSurfaceStrong: '#86efac',
+    onBrandSurfaceStrong: '#06160c',
     accentSurface: '#a78bfa', // violet accent, lightened for dark surfaces
     onAccentSurface: '#1e1541',
     // Lifted off the near-black page so the hero band still reads as a band; in light mode the

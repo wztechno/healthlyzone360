@@ -9,12 +9,7 @@ import type { ReactNode } from 'react';
 import { useDensity } from '../hooks/use-density.tsx';
 import type { Density } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
-import {
-    BUTTON_SIZES,
-    BUTTON_VARIANTS,
-    CONTAINER_VARIANT,
-    LABEL_VARIANT,
-} from './button-shared.ts';
+import { BUTTON_SIZES, BUTTON_VARIANTS, buttonVariantClasses } from './button-shared.ts';
 import type { ButtonSize, ButtonVariant } from './button-shared.ts';
 import { showFloatingLabel } from './floating-label.ts';
 import type { FloatingLabel } from './floating-label.ts';
@@ -55,13 +50,13 @@ const COMFORTABLE_CONTAINER_SIZE: Readonly<Record<ButtonSize, string>> = {
 
 /*
  * The admin ladder: height from `controlHeight`, inset from `controlPaddingX`, gap from
- * `controlGap`, corner 4px for every size. Nothing is written as a number and nothing is derived
+ * `controlGap`, the mood board's 10px control corner for every size. Nothing is written as a number and nothing is derived
  * from padding, so "make the admin two pixels tighter" stays one edit in `control.ts`.
  */
 const COMPACT_CONTAINER_SIZE: Readonly<Record<ButtonSize, string>> = {
-    sm: 'h-control-sm px-control-sm gap-control-sm rounded-sm',
-    md: 'h-control-md px-control-md gap-control-md rounded-sm',
-    lg: 'h-control-lg px-control-lg gap-control-lg rounded-sm',
+    sm: 'h-control-sm px-control-sm gap-control-sm rounded-control',
+    md: 'h-control-md px-control-md gap-control-md rounded-control',
+    lg: 'h-control-lg px-control-lg gap-control-lg rounded-control',
 };
 
 const CONTAINER_SIZE: Readonly<Record<Density, Readonly<Record<ButtonSize, string>>>> = {
@@ -81,14 +76,14 @@ const COMFORTABLE_LABEL_SIZE: Readonly<Record<ButtonSize, string>> = {
 };
 
 /*
- * One label size across the admin ladder — `role-label`, the ramp's 12/16 500. A 28px and a 36px
- * button in the same toolbar are the same control at two emphases, not two type sizes; the ramp
- * gives the size and the variant gives the weight, so the two never disagree.
+ * One label size across the admin ladder — `role-strong`, the mood board's 14/600 button text. A
+ * 36px and a 40px button in the same toolbar are the same control at two emphases, not two type
+ * sizes.
  */
 const COMPACT_LABEL_SIZE: Readonly<Record<ButtonSize, string>> = {
-    sm: 'text-role-label',
-    md: 'text-role-label',
-    lg: 'text-role-label',
+    sm: 'text-role-strong',
+    md: 'text-role-strong',
+    lg: 'text-role-strong',
 };
 
 const LABEL_SIZE: Readonly<Record<Density, Readonly<Record<ButtonSize, string>>>> = {
@@ -155,6 +150,7 @@ export function Button({
     ...rest
 }: ButtonProps) {
     const density = useDensity();
+    const tables = buttonVariantClasses(density === 'compact');
     const { colorScheme } = useColorScheme();
     // A loading button is not merely styled as busy — it must not fire again, or a double tap
     // submits the form twice while the first request is still in flight.
@@ -207,7 +203,7 @@ export function Button({
             }}
             className={cx(
                 'flex-row items-center justify-center',
-                CONTAINER_VARIANT[variant],
+                tables.container[variant],
                 CONTAINER_SIZE[density][size],
                 block ? 'self-stretch' : 'self-start',
                 inert ? 'opacity-50' : null,
@@ -233,7 +229,7 @@ export function Button({
                 // No family class: there is one Latin family, set on `html` per script. This used
                 // to add `ADMIN_FONT_CLASS` on the compact branch, which is now an empty string —
                 // a concatenation that costs a branch and says nothing.
-                className={cx(LABEL_VARIANT[variant], LABEL_SIZE[density][size], 'text-center')}
+                className={cx(tables.label[variant], LABEL_SIZE[density][size], 'text-center')}
                 numberOfLines={1}
             >
                 {label}

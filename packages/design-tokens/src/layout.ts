@@ -17,7 +17,18 @@ export const spacing: Readonly<Record<`${SpacingStep}`, number>> = Object.fromEn
     SPACING_STEPS.map((step) => [String(step), step * SPACING_BASE]),
 ) as Record<`${SpacingStep}`, number>;
 
-export const RADIUS_NAMES = ['none', 'xs', 'sm', 'md', 'lg', 'panel', 'xl', '2xl', 'full'] as const;
+export const RADIUS_NAMES = [
+    'none',
+    'xs',
+    'sm',
+    'md',
+    'control',
+    'lg',
+    'panel',
+    'xl',
+    '2xl',
+    'full',
+] as const;
 export type RadiusName = (typeof RADIUS_NAMES)[number];
 
 export const radius: Readonly<Record<RadiusName, number>> = {
@@ -25,6 +36,8 @@ export const radius: Readonly<Record<RadiusName, number>> = {
     xs: 2,
     sm: 4,
     md: 8,
+    /** Buttons, inputs and segmented controls — the mood board's 10px control corner. */
+    control: 10,
     lg: 12,
     /**
      * Panels, trays and editor frames — the boxes that *hold* content rather than being content.

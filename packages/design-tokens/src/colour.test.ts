@@ -94,12 +94,15 @@ describe('surface and text pairs meet WCAG AA for normal text', () => {
             pairs.push([theme, `textPrimary/${role}-subtle`, c.textPrimary, subtle]);
             pairs.push([theme, `textSecondary/${role}-subtle`, c.textSecondary, subtle]);
         }
-        // Light theme: white on the #16A34A panel — see "brand green, as chosen" below.
-        if (theme === 'dark') {
-            pairs.push([theme, 'onSidebar/surfaceSidebar', c.onSidebar, c.surfaceSidebar]);
-            pairs.push([theme, 'onSidebarMuted/surfaceSidebar', c.onSidebarMuted, c.surfaceSidebar]);
-            pairs.push([theme, 'onSidebarActive/sidebarActive', c.onSidebarActive, c.sidebarActive]);
-        }
+        pairs.push([theme, 'onSidebar/surfaceSidebar', c.onSidebar, c.surfaceSidebar]);
+        pairs.push([theme, 'onSidebarMuted/surfaceSidebar', c.onSidebarMuted, c.surfaceSidebar]);
+        pairs.push([theme, 'onSidebarActive/sidebarActive', c.onSidebarActive, c.sidebarActive]);
+        pairs.push([
+            theme,
+            'onBrandSurfaceStrong/brandSurfaceStrong',
+            c.onBrandSurfaceStrong,
+            c.brandSurfaceStrong,
+        ]);
         pairs.push([theme, 'textInverse/surfaceInverse', c.textInverse, c.surfaceInverse]);
         // Light theme: white on the mood board's #16A34A — see "brand green, as chosen" below.
         if (theme === 'dark') {
@@ -131,11 +134,11 @@ describe('surface and text pairs meet WCAG AA for normal text', () => {
 /**
  * Brand green, as chosen.
  *
- * The product owner chose the mood board's primary exactly — `#16A34A` with white text on buttons,
- * the module panel filled with it in white text, and its active item a white pill in `#16A34A` —
- * knowing these sit near 3:1, below AA for normal-size text. They are held to the 3:1 large-text /
- * UI floor instead, so the exception is written down and a value that drifts *below* even that
- * still fails.
+ * The product owner chose the mood board's primary exactly — `#16A34A` with white text on the
+ * customer app's buttons — knowing it sits near 3:1, below AA for normal-size text. It is held to
+ * the 3:1 large-text / UI floor instead, so the exception is written down and a value that drifts
+ * *below* even that still fails. The sidebar left this exception on 2026-10-12, when it moved to
+ * the deep forest canopy, and is held to full AA above.
  */
 describe('brand green, as chosen (light theme)', () => {
     const c = themes.light.colours;
@@ -145,14 +148,6 @@ describe('brand green, as chosen (light theme)', () => {
         expect(ratio, `only ${formatContrast(ratio)}`).toBeGreaterThanOrEqual(WCAG_AA_LARGE_TEXT);
     });
 
-    it.each([
-        ['items on the panel', c.onSidebar, c.surfaceSidebar],
-        ['headings and icons on the panel', c.onSidebarMuted, c.surfaceSidebar],
-        ['the active item on its pill', c.onSidebarActive, c.sidebarActive],
-    ] as const)('%s clear the 3:1 floor', (_label, foreground, background) => {
-        const ratio = contrastRatio(foreground, background);
-        expect(ratio, `only ${formatContrast(ratio)}`).toBeGreaterThanOrEqual(WCAG_AA_LARGE_TEXT);
-    });
 });
 
 /**

@@ -103,14 +103,14 @@ describe('compact density', () => {
             </>,
         );
 
-        // 4px controls, 8px panels — the two radii §1.3 allows.
-        expect(screen.getByTestId('save').props.className).toContain('rounded-sm');
+        // The mood board's corners: 10px on controls, 14px on panels.
+        expect(screen.getByTestId('save').props.className).toContain('rounded-control');
         const panel: string = screen.getByTestId('panel').props.className;
-        expect(panel).toMatch(/\brounded\b/);
+        expect(panel).toContain('rounded-panel');
         expect(panel).not.toContain('rounded-xl');
     });
 
-    it('casts the card shadow in the admin, but does not lift on hover', async () => {
+    it('rests the admin card flat and casts its shadow on hover, without moving', async () => {
         await renderCompact(
             <>
                 <Card testID="panel" tone="raised" interactive onPress={jest.fn()}>
@@ -123,8 +123,8 @@ describe('compact density', () => {
         );
         const classes: string = screen.getByTestId('panel').props.className;
 
-        expect(classes).toContain('shadow-elevation-card');
-        expect(classes).not.toContain('hover:shadow-elevation-card-hover');
+        expect(classes).toContain('shadow-elevation-1');
+        expect(classes).toContain('hover:shadow-elevation-card-hover');
         expect(classes).not.toContain('hover:-translate-y-1');
         // An inset well is the page's ground, not an object on it.
         expect(screen.getByTestId('well').props.className).not.toContain('shadow-elevation');
@@ -175,7 +175,7 @@ describe('compact density', () => {
         'title',
         'display',
     ] as const)(
-        'renders %s on the role ramp, naming a family only for display',
+        'renders %s on the role ramp, naming a family only for headings and figures',
         async (variant) => {
             await renderCompact(
                 <Text testID="copy" variant={variant}>
@@ -185,11 +185,12 @@ describe('compact density', () => {
             const classes: string = screen.getByTestId('copy').props.className;
 
             expect(classes).toContain(`text-role-${variant.toLowerCase()}`);
-            // The ramp is the whole treatment, except that `display` — one number, a KPI — is set in
-            // the mood board's display face. It used to be the ramp *plus* `font-admin` everywhere;
-            // asserting the absence is what keeps a family from creeping back in under a role name.
+            // The ramp is the whole treatment, except that headings and figures — `section`,
+            // `title`, `display` — are set in the mood board's display face. Asserting the absence
+            // everywhere else is what keeps a family from creeping back in under a role name.
+            const displayFace = ['section', 'title', 'display'].includes(variant);
             for (const face of ['font-admin', 'font-display', 'font-mono']) {
-                if (variant === 'display' && face === 'font-display') {
+                if (displayFace && face === 'font-display') {
                     expect(classes).toContain(face);
                 } else {
                     expect(classes).not.toContain(face);
@@ -212,9 +213,11 @@ describe('compact density', () => {
         expect(classes).not.toContain('font-mono');
     });
 
-    it('sets a badge 18px tall, so a status sits in a 32px row without setting its height', async () => {
+    it('sets a badge as the mood board pill, 28px tall inside a 44px row', async () => {
         await renderCompact(<Badge testID="status" label="Draft" tone="warning" />);
-        expect(screen.getByTestId('status').props.className).toContain('h-[18px]');
+        const classes: string = screen.getByTestId('status').props.className;
+        expect(classes).toContain('h-7');
+        expect(classes).toContain('rounded-full');
     });
 });
 

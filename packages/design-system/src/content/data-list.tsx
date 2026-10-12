@@ -337,6 +337,12 @@ export function dataListColumnAlign(
     return column.align ?? 'start';
 }
 
+/**
+ * A column header's text — exported so a custom header (the Catalogue's sort-and-filter header)
+ * speaks in the same voice as a plain one.
+ */
+export const DATA_LIST_HEADER_TEXT = 'text-role-micro uppercase tracking-[0.08em] text-content-secondary';
+
 /** The text of a cell with no renderer — the one size and ink every cell is set in. */
 function cellClass(column: DataListColumn<unknown>): string {
     return cx(
@@ -425,10 +431,11 @@ export function DataList<Row>({
                      * there.
                      */
                     className={cx(
-                        'min-h-row-sm z-raised flex-row items-center border-b border-stroke-subtle',
-                        // The brand's subtle ground: the header reads as the table's green band.
+                        // The mood board's quiet header (2026-10-12): the card's own white under
+                        // small capitals, closed by one firm rule — the table's one heavy line.
                         // Opaque, which the sticky header needs so rows do not show through.
-                        'bg-surface-brand-subtle web:sticky web:top-0',
+                        'min-h-row-sm z-raised flex-row items-center border-b-[1.5px] border-stroke',
+                        'bg-surface-raised web:sticky web:top-0',
                         framed ? 'rounded-t-panel' : null,
                     )}
                 >
@@ -455,10 +462,10 @@ export function DataList<Row>({
                                     numberOfLines={1}
                                     {...truncationHoverProps}
                                     className={cx(
-                                        // `strong`: a step larger and heavier than the 12px cells
-                                        // under it, so the header reads as the column's name — the
-                                        // same role the sort and filter headers draw with.
-                                        'text-role-strong text-content-on-brand-subtle',
+                                        // The eyebrow: small, bold, tracked capitals in the
+                                        // secondary ink — the same voice the sort and filter
+                                        // headers draw with (`DATA_LIST_HEADER_TEXT`).
+                                        DATA_LIST_HEADER_TEXT,
                                         TEXT_ALIGN_CLASS[
                                             dataListColumnAlign(column as DataListColumn<unknown>)
                                         ],
@@ -521,15 +528,15 @@ export function DataList<Row>({
 
                           const last = index === rows.length - 1;
                           /*
-                           * No hairline between rows — the header's rule is the table's one line.
-                           * The rows are told apart by their height and the hover tint, and a rule
-                           * under every one of them striped a dense page into a ledger. The last
-                           * row of a framed list takes the frame's bottom corners, so its tint does
-                           * not square them off.
+                           * A hairline between rows, in the soft green grey, and a tint under the
+                           * pointer — the mood board's list rows. The last row drops the hairline
+                           * (the frame's own edge closes it) and, in a framed list, takes the
+                           * frame's bottom corners so its tint does not square them off.
                            */
                           const rowClass = cx(
                               ROW_HEIGHT_CLASS[density],
-                              'flex-row items-center',
+                              'flex-row items-center web:hover:bg-surface-sunken',
+                              last ? null : 'border-b border-stroke-subtle',
                               framed && last ? 'rounded-b-panel' : null,
                           );
 
@@ -557,7 +564,7 @@ export function DataList<Row>({
                                       // chevron and no button — so it covers the whole track sum
                                       // rather than the port, which is what the `minWidth` above
                                       // buys.
-                                      className={cx(rowClass, 'hover:bg-surface-sunken')}
+                                      className={rowClass}
                                   >
                                       {cells}
                                   </Pressable>

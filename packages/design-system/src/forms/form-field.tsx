@@ -69,7 +69,10 @@ export interface FormFieldProps extends GridSpanProps {
      * page is a field a sighted reader has to hold in their head too.
      */
     readonly labelHidden?: boolean | undefined;
-    /** Supporting copy shown under the label and referenced by `aria-describedby`. */
+    /**
+     * Supporting copy, referenced by `aria-describedby`. Up to {@link INLINE_HINT_MAX} characters it
+     * sits on the label's line ("Quantity · In kg"); longer, it sits under the control.
+     */
     readonly hint?: string | undefined;
     /**
      * Validation message. Its presence is what marks the control invalid.
@@ -99,6 +102,9 @@ export interface FormFieldProps extends GridSpanProps {
     readonly testID?: string | undefined;
     readonly children: (control: FieldControlProps) => ReactNode;
 }
+
+/** The longest hint that shares the label's line; anything longer goes under the control. */
+export const INLINE_HINT_MAX = 32;
 
 /** Marks a required field for sighted users; `aria-required` covers assistive technology. */
 export const REQUIRED_MARK = '*';
@@ -144,10 +150,33 @@ export function FormField({
         accessibilityState: { disabled },
     };
 
-    // Helper and error copy drop to the `caption` step in the admin — 11px against the label's 12
-    // — so the supporting line reads as support rather than as a second label. The 4px gap is the
-    // same on both ladders: §4.4's "labels above 28px controls at 4px gap" is already `gap-hair`.
+    // Helper and error copy take the `caption` step in the admin — the mood board's 13/500 in the
+    // secondary ink, against the label's 12.5/600 — so the supporting line reads as support rather
+    // than as a second label. The 4px gap is the same on both ladders (`gap-hair`).
     const supportClass = density === 'compact' ? 'text-role-caption' : 'text-xs';
+
+    /*
+     * A hint never pushes the control down (owner, 2026-10-12). A short one — a unit, a range, "In
+     * kg" — rides on the label's own line, so every control in a row of fields starts at the same
+     * height whether its neighbours carry a hint or not. A longer one moves under the control,
+     * where it no longer shifts anything. A field with a hidden label has no label line to share.
+     */
+    const inlineHint = hint !== undefined && !labelHidden && hint.length <= INLINE_HINT_MAX;
+    const hintText =
+        hint === undefined ? null : (
+            <RNText
+                nativeID={hintId}
+                testID={testID === undefined ? undefined : `${testID}-hint`}
+                numberOfLines={inlineHint ? 1 : undefined}
+                className={cx(
+                    supportClass,
+                    'text-content-secondary text-start',
+                    inlineHint ? 'min-w-0 shrink' : null,
+                )}
+            >
+                {hint}
+            </RNText>
+        );
 
     return (
         /*
@@ -172,27 +201,29 @@ export function FormField({
              * reported as `label-title-only`.
              */}
             {labelHidden ? null : (
-                <FieldLabel
-                    id={labelId}
-                    htmlFor={base}
-                    text={label}
-                    disabled={disabled}
-                    {...(required ? { requiredMark: REQUIRED_MARK } : {})}
-                    {...(testID === undefined ? {} : { testID: `${testID}-label` })}
-                />
-            )}
-
-            {hint === undefined ? null : (
-                <RNText
-                    nativeID={hintId}
-                    testID={testID === undefined ? undefined : `${testID}-hint`}
-                    className={cx(supportClass, 'text-content-secondary text-start')}
-                >
-                    {hint}
-                </RNText>
+                <View className="z-auto min-w-0 flex-row items-baseline gap-1.5">
+                    <FieldLabel
+                        id={labelId}
+                        htmlFor={base}
+                        text={label}
+                        disabled={disabled}
+                        {...(required ? { requiredMark: REQUIRED_MARK } : {})}
+                        {...(testID === undefined ? {} : { testID: `${testID}-label` })}
+                    />
+                    {inlineHint ? (
+                        <>
+                            <RNText aria-hidden className={cx(supportClass, 'text-content-secondary')}>
+                                ·
+                            </RNText>
+                            {hintText}
+                        </>
+                    ) : null}
+                </View>
             )}
 
             {children(control)}
+
+            {hint !== undefined && !inlineHint ? hintText : null}
 
             {/*
              * A message the banner already names stays in the tree — it is still what

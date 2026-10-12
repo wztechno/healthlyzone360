@@ -69,10 +69,10 @@ const COMFORTABLE_FRAME_SIZE: Readonly<Record<InputSize, string>> = {
 };
 
 const COMPACT_FRAME_SIZE: Readonly<Record<InputSize, string>> = {
-    xs: 'h-control-xs gap-control-xs rounded-sm px-control-xs',
-    sm: 'h-control-sm gap-control-sm rounded-sm px-control-sm',
-    md: 'h-control-md gap-control-md rounded-sm px-control-md',
-    lg: 'h-control-lg gap-control-lg rounded-sm px-control-lg',
+    xs: 'h-control-xs gap-control-xs rounded-control px-control-xs',
+    sm: 'h-control-sm gap-control-sm rounded-control px-control-sm',
+    md: 'h-control-md gap-control-md rounded-control px-control-md',
+    lg: 'h-control-lg gap-control-lg rounded-control px-control-lg',
 };
 
 const FRAME_SIZE: Readonly<Record<Density, Readonly<Record<InputSize, string>>>> = {
@@ -97,10 +97,10 @@ const COMFORTABLE_MULTILINE_FRAME_SIZE: Readonly<Record<InputSize, string>> = {
 };
 
 const COMPACT_MULTILINE_FRAME_SIZE: Readonly<Record<InputSize, string>> = {
-    xs: 'min-h-control-xs gap-control-xs rounded-sm px-control-xs py-2',
-    sm: 'min-h-control-sm gap-control-sm rounded-sm px-control-sm py-2',
-    md: 'min-h-control-md gap-control-md rounded-sm px-control-md py-2',
-    lg: 'min-h-control-lg gap-control-lg rounded-sm px-control-lg py-2',
+    xs: 'min-h-control-xs gap-control-xs rounded-control px-control-xs py-2',
+    sm: 'min-h-control-sm gap-control-sm rounded-control px-control-sm py-2',
+    md: 'min-h-control-md gap-control-md rounded-control px-control-md py-2',
+    lg: 'min-h-control-lg gap-control-lg rounded-control px-control-lg py-2',
 };
 
 const MULTILINE_FRAME_SIZE: Readonly<Record<Density, Readonly<Record<InputSize, string>>>> = {
@@ -126,6 +126,7 @@ export function inputFrameClassName(options: {
     const density = options.density ?? 'comfortable';
     const size = options.size ?? 'md';
     const multiline = options.multiline ?? false;
+    const compact = density === 'compact';
 
     return cx(
         // `surfaceRaised`, not `surfaceBase`. The handoff's own role mapping puts *cards and
@@ -135,7 +136,10 @@ export function inputFrameClassName(options: {
         // disabled or derived value is set below and still wins, because it is stated after.
         // `items-stretch` for a paragraph field: `items-center` is what pushed an over-tall
         // textarea equally above and below the frame instead of letting the frame follow it.
-        'flex-row border bg-surface-raised',
+        //
+        // The kitchen (compact) takes the mood board's field instead: a mint fill inside the white
+        // card, a 1.5px edge and a 3px brand-tint ring on focus.
+        compact ? 'flex-row border-[1.5px] bg-surface-base' : 'flex-row border bg-surface-raised',
         multiline ? 'items-stretch' : 'items-center',
         (multiline ? MULTILINE_FRAME_SIZE : FRAME_SIZE)[density][size],
         /*
@@ -151,7 +155,11 @@ export function inputFrameClassName(options: {
               : 'border-stroke',
         // A visible focus ring is a WCAG 2.4.7 requirement, and on native there is no browser
         // default to fall back on, so it is drawn explicitly.
-        options.focused ? 'border-stroke-focus border-focus' : null,
+        options.focused
+            ? compact
+                ? 'border-stroke-focus web:shadow-[0_0_0_3px_rgb(var(--h360-color-brand-surface-subtle))]'
+                : 'border-stroke-focus border-focus'
+            : null,
         // Recessed fill and a lighter border — deliberately *not* an opacity.
         //
         // `opacity-60` here dimmed the value along with the frame, which put the text at 3.97:1

@@ -58,3 +58,37 @@ export const LABEL_VARIANT: Readonly<Record<ButtonVariant, string>> = {
     ghost: 'text-content-primary font-medium',
     danger: 'text-danger-on-default font-semibold',
 };
+
+/**
+ * The kitchen's variant tables — the mood board's buttons on the dense surface (2026-10-12).
+ *
+ * The primary fills with the deep emerald (`brand-strong`), not the bright `brand`: white on the
+ * bright green is 3:1, and the kitchen's labels are 14px. Every level is 600 weight, as the board
+ * draws its whole button family. Hover darkens by opacity rather than to a named colour, because
+ * the strong fill flips to a light mint in the dark theme and a darker named colour would not.
+ */
+export const COMPACT_CONTAINER_VARIANT: Readonly<Record<ButtonVariant, string>> = {
+    primary: 'bg-surface-brand-strong border border-transparent hover:opacity-90',
+    secondary: 'bg-surface-raised border border-stroke-subtle hover:border-stroke hover:bg-surface-sunken',
+    quiet: 'bg-surface-sunken border border-transparent hover:bg-surface-brand-subtle',
+    ghost: 'bg-transparent border border-transparent hover:bg-surface-sunken',
+    danger: 'bg-danger border border-transparent hover:opacity-90',
+};
+
+export const COMPACT_LABEL_VARIANT: Readonly<Record<ButtonVariant, string>> = {
+    primary: 'text-content-on-brand-strong font-semibold',
+    secondary: 'text-content-on-brand-subtle font-semibold',
+    quiet: 'text-content-primary font-semibold',
+    ghost: 'text-content-secondary font-semibold',
+    danger: 'text-danger-on-default font-semibold',
+};
+
+/** The variant tables for a density — comfortable keeps the customer app's buttons untouched. */
+export function buttonVariantClasses(compact: boolean): {
+    readonly container: Readonly<Record<ButtonVariant, string>>;
+    readonly label: Readonly<Record<ButtonVariant, string>>;
+} {
+    return compact
+        ? { container: COMPACT_CONTAINER_VARIANT, label: COMPACT_LABEL_VARIANT }
+        : { container: CONTAINER_VARIANT, label: LABEL_VARIANT };
+}

@@ -184,7 +184,7 @@ export function ListItem({
               cx(
                   'items-center px-control-sm',
                   divider ? 'border-b border-stroke-subtle' : null,
-                  stacked ? 'py-tight' : 'h-row-md',
+                  stacked ? 'min-h-14 py-snug' : 'h-row-md',
               )
             : 'items-center rounded-lg px-3 py-3 min-h-touch',
         selected ? 'bg-surface-brand-subtle' : 'bg-transparent',
