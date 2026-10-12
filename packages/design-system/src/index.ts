@@ -346,7 +346,7 @@ export type {
 export { Menu } from './overlays/menu.tsx';
 export type { MenuItem, MenuProps, MenuSection } from './overlays/menu.tsx';
 export { Dialog } from './overlays/dialog.tsx';
-export type { DialogProps } from './overlays/dialog.tsx';
+export type { DialogProps, DialogSize } from './overlays/dialog.tsx';
 export { RecordWindow, RecordWindowFieldGrid } from './overlays/record-window.tsx';
 export type { RecordWindowField, RecordWindowProps } from './overlays/record-window.tsx';
 export { DRAWER_PLACEMENTS, Drawer } from './overlays/drawer.tsx';

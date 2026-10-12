@@ -150,6 +150,8 @@
             "motion": "Motion"
         },
         "openDialog": "Open the dialog",
+        "openSquareDialog": "Open the square dialog",
+        "squareDialogTitle": "Report what came out",
         "openDrawer": "Open the drawer",
         "showToast": "Show a toast",
         "dialogTitle": "Revoke this session?",

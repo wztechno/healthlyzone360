@@ -1268,6 +1268,8 @@
             "wasteHeading": "ما ذهب إلى القمامة",
             "wasteHint": "مدخلات فسدت أو سقطت أثناء الدفعة. لم تصبح منتجاً، فليست جزءاً من تكلفة الدفعة.",
             "asPlanned": "كما حُجز",
+            "consumedLineLabel": "المستخدم من {{item}}",
+            "wasteLineLabel": "الهدر من {{item}}",
             "sheetLink": "البطاقة الفنية",
             "openBatch": "فتح الدفعة",
             "backToDesk": "العودة إلى المكتب",

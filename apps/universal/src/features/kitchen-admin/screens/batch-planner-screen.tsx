@@ -10,7 +10,6 @@ import {
     Callout,
     Cascade,
     ErrorState,
-    FormSection,
     InfoTip,
     Inline,
     QuantityInput,
@@ -41,17 +40,12 @@ import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import type { ColumnFilter, ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
+import { compareNumber, compareText } from '../catalogue/use-column-controls.tsx';
 import { CATALOGUE_VIEW_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, parseQuantity, statusShortKey, unitShortKey } from '../format.ts';
 import { BATCH_QUANTITY_FORMAT, useBatchIngredients } from '../operations/batch-sheet.tsx';
 import { usePrintSheet } from '../print-sheet.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { ProductionTable } from '../production-desk/production-table.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 
 /**
@@ -647,19 +641,20 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
         },
     ];
 
-    const lineControls = useColumnControls(version.lines, lineColumns, 'kitchen-batch-ingredients');
-    const packagingControls = useColumnControls(
-        version.packaging,
-        packagingColumns,
-        'kitchen-batch-packaging',
-    );
-
     return (
         <Stack space="md">
-            <FormSection
+            {/*
+             * ponytail: rows are keyed by ingredient id. A sheet that lists one ingredient twice
+             * gives the two rows one key — index the rows if a kitchen hits it.
+             */}
+            <ProductionTable<RecipeLine>
                 first
-                testID="kitchen-batch-consume"
+                testID="kitchen-batch-ingredients"
+                sectionTestID="kitchen-batch-consume"
                 title={t('kitchen:ops.batch.rawMaterialsHeading')}
+                rows={version.lines}
+                columns={lineColumns}
+                rowKey={(line) => String(line.ingredientId)}
                 aside={
                     <Text variant="caption" tone="secondary" testID="kitchen-batch-base-times">
                         {version.wastePercent > 0
@@ -670,28 +665,19 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
                             : t('kitchen:ops.batch.baseTimes', { factor: number(factor) })}
                     </Text>
                 }
-                // The picker at the heading's end, as the supply orders' needs table has it,
-                // rather than a button floating over the table.
-                actions={<ColumnPicker {...lineControls.picker} />}
-            >
-                {/*
-                 * ponytail: rows are keyed by ingredient id. A sheet that lists one ingredient twice
-                 * gives the two rows one key — index the rows if a kitchen hits it.
-                 */}
-                <CatalogueList<RecipeLine>
-                    testID="kitchen-batch-ingredients"
-                    label={t('kitchen:ops.batch.rawMaterialsHeading')}
-                    columns={lineControls.columns}
-                    rows={lineControls.rows}
-                    rowKey={(line) => String(line.ingredientId)}
-                    density="sm"
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                />
-            </FormSection>
+            />
 
-            <FormSection
-                testID="kitchen-batch-packaging-section"
+            <ProductionTable<RecipePackagingLine>
+                testID="kitchen-batch-packaging"
                 title={t('kitchen:ops.batch.packagingScaledHeading')}
+                rows={version.packaging}
+                columns={packagingColumns}
+                rowKey={(row) => String(row.ingredientId)}
+                empty={
+                    <Text testID="kitchen-batch-packaging-empty" variant="caption" tone="secondary">
+                        {t('kitchen:ops.batch.noPackaging')}
+                    </Text>
+                }
                 aside={
                     <Inline space="xs" align="center">
                         <Text variant="caption" tone="secondary">
@@ -714,28 +700,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
                         ) : null}
                     </Inline>
                 }
-                actions={
-                    version.packaging.length === 0 ? undefined : (
-                        <ColumnPicker {...packagingControls.picker} />
-                    )
-                }
-            >
-                {version.packaging.length === 0 ? (
-                    <Text testID="kitchen-batch-packaging-empty" variant="caption" tone="secondary">
-                        {t('kitchen:ops.batch.noPackaging')}
-                    </Text>
-                ) : (
-                    <CatalogueList<RecipePackagingLine>
-                        testID="kitchen-batch-packaging"
-                        label={t('kitchen:ops.batch.packagingScaledHeading')}
-                        columns={packagingControls.columns}
-                        rows={packagingControls.rows}
-                        rowKey={(row) => String(row.ingredientId)}
-                        density="sm"
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                    />
-                )}
-            </FormSection>
+            />
         </Stack>
     );
 }

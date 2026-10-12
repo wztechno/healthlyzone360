@@ -1,26 +1,46 @@
 import { useId } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, Text as RNText, ScrollView, View } from 'react-native';
+import {
+    Modal,
+    Pressable,
+    Text as RNText,
+    ScrollView,
+    View,
+    useWindowDimensions,
+} from 'react-native';
 
 import { IconButton } from '../actions/button.tsx';
 import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
 import { FadeIn } from '../motion/fade-in.tsx';
+import { RECORD_WINDOW_SIDE } from './record-window.tsx';
+
+/**
+ * `md` is the confirmation: 480px wide, as tall as its content. `square` is a form with a table in
+ * it — `RecordWindow`'s 640 × 640 frame, a pinned header and footer around a scrolling body.
+ */
+export type DialogSize = 'md' | 'square';
 
 export interface DialogProps {
     readonly open: boolean;
     readonly onClose: () => void;
     readonly title: string;
+    /** Beside the title — an `InfoTip` carrying what would otherwise be a sentence under it. */
+    readonly titleAside?: ReactNode | undefined;
     readonly description?: string | undefined;
     readonly children?: ReactNode | undefined;
     /** Buttons. Rendered in a row that wraps, with the confirming action last. */
     readonly actions?: ReactNode | undefined;
     /** Blocks dismissal by backdrop tap. Escape still works — never trap a keyboard user. */
     readonly dismissOnBackdrop?: boolean | undefined;
+    readonly size?: DialogSize | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
+
+/** The backdrop's breathing room around a square, on either axis. */
+const SQUARE_GUTTER = 32;
 
 /**
  * Dialog.
@@ -41,23 +61,68 @@ export interface DialogProps {
  * fixed modal rather than in the page. So the surface is bounded by the screen and its body — the
  * description and the caller's children — is the part that scrolls; the title row and the actions
  * are always on screen, which is the property a confirmation depends on.
+ *
+ * ## The square
+ *
+ * `size="square"` is for a form whose body is a table — a settlement with a row per shelf. At 480px
+ * every input stacked under its label and every row under the last; the square gives the table its
+ * width. Its side is set in pixels on a plain wrapper, for the reason `RecordWindow` states: a class
+ * cap on the animated wrapper did not hold.
  */
 export function Dialog({
     open,
     onClose,
     title,
+    titleAside,
     description,
     children,
     actions,
     dismissOnBackdrop = true,
+    size = 'md',
     className,
     testID,
 }: DialogProps) {
     const { t } = useTranslation();
     const generated = useId();
+    const viewport = useWindowDimensions();
     const base = testID ?? `dialog-${generated.replace(/:/g, '')}`;
     const titleId = `${base}-title`;
     const descriptionId = description === undefined ? undefined : `${base}-description`;
+    const square = size === 'square';
+    const side = Math.max(
+        0,
+        Math.min(
+            RECORD_WINDOW_SIDE,
+            viewport.width - SQUARE_GUTTER * 2,
+            viewport.height - SQUARE_GUTTER * 2,
+        ),
+    );
+
+    const descriptionNode =
+        description === undefined ? null : (
+            <RNText
+                nativeID={descriptionId}
+                testID={`${base}-description`}
+                className="text-sm text-content-secondary text-start"
+            >
+                {description}
+            </RNText>
+        );
+
+    const actionsNode =
+        actions === undefined ? null : (
+            <View
+                testID={`${base}-actions`}
+                className={cx(
+                    'flex-row flex-wrap items-center justify-end gap-2',
+                    // Padded rather than a fixed `h-12`: a wrapping row in a fixed box packs its
+                    // line at the top, which sat the buttons on the rule above them.
+                    square ? 'border-t border-stroke-subtle px-base py-3' : null,
+                )}
+            >
+                {actions}
+            </View>
+        );
 
     return (
         <Modal
@@ -91,76 +156,115 @@ export function Dialog({
                     className="absolute inset-0 bg-overlay"
                 />
 
-                {/*
-                 * The width bound is on a plain `View`, not on `FadeIn`. `FadeIn` is an
-                 * `Animated.View`, which drops `className` on the web, so a bound written there
-                 * was never applied: the panel sized to its content, and a dialog with a wide
-                 * body — the column picker's eighteen checkboxes — spread across the screen.
-                 */}
-                <View className="w-full max-w-[480px]">
+                {square ? (
                     <FadeIn>
-                        <View
-                            testID={base}
-                            role="dialog"
-                            aria-modal
-                            aria-labelledby={titleId}
-                            aria-describedby={descriptionId}
-                            // `max-h` in viewport units, not per cent: the animating wrapper's box is
-                            // whatever this panel asks for, so a percentage would resolve against the
-                            // panel itself and bound nothing at all.
-                            className={cx(
-                                'w-full max-h-[85vh] min-h-0 shrink flex-col gap-4 rounded-xl bg-surface-raised p-6 shadow-elevation-4',
-                                className,
-                            )}
-                        >
-                            <View className="flex-row items-start gap-3">
-                                <RNText
-                                    nativeID={titleId}
-                                    testID={`${base}-title`}
-                                    accessibilityRole="header"
-                                    aria-level={2}
-                                    className="flex-1 text-xl font-semibold text-content-primary text-start"
-                                >
-                                    {title}
-                                </RNText>
-                                <IconButton
-                                    testID={`${base}-close`}
-                                    size="sm"
-                                    label={t('common:action.close')}
-                                    icon={<Icon name="close" />}
-                                    onPress={onClose}
-                                />
-                            </View>
-
-                            <ScrollView
-                                testID={`${base}-body`}
-                                className="min-h-0 shrink"
-                                contentContainerClassName="flex-col gap-4"
-                            >
-                                {description === undefined ? null : (
-                                    <RNText
-                                        nativeID={descriptionId}
-                                        testID={`${base}-description`}
-                                        className="text-sm text-content-secondary text-start"
-                                    >
-                                        {description}
-                                    </RNText>
+                        <View style={{ width: side, height: side }}>
+                            <View
+                                testID={base}
+                                role="dialog"
+                                aria-modal
+                                aria-labelledby={titleId}
+                                aria-describedby={descriptionId}
+                                className={cx(
+                                    'h-full w-full flex-col overflow-hidden rounded border border-stroke bg-surface-raised shadow-elevation-4',
+                                    className,
                                 )}
-
-                                {children}
-                            </ScrollView>
-
-                            {actions === undefined ? null : (
-                                <View
-                                    testID={`${base}-actions`}
-                                    className="flex-row flex-wrap items-center justify-end gap-2"
-                                >
-                                    {actions}
+                            >
+                                <View className="h-11 flex-row items-center gap-2.5 border-b border-stroke-subtle pe-2.5 ps-base">
+                                    <RNText
+                                        nativeID={titleId}
+                                        testID={`${base}-title`}
+                                        accessibilityRole="header"
+                                        aria-level={2}
+                                        numberOfLines={1}
+                                        className="min-w-0 shrink text-role-strong text-content-primary text-start"
+                                    >
+                                        {title}
+                                    </RNText>
+                                    {titleAside}
+                                    <View className="flex-1" />
+                                    <IconButton
+                                        testID={`${base}-close`}
+                                        variant="ghost"
+                                        size="sm"
+                                        label={t('common:action.close')}
+                                        icon={<Icon name="close" size="sm" />}
+                                        onPress={onClose}
+                                    />
                                 </View>
-                            )}
+
+                                <ScrollView
+                                    testID={`${base}-body`}
+                                    className="min-h-0 flex-1"
+                                    contentContainerClassName="flex-col gap-base px-base pb-base pt-3.5"
+                                >
+                                    {descriptionNode}
+                                    {children}
+                                </ScrollView>
+
+                                {actionsNode}
+                            </View>
                         </View>
                     </FadeIn>
-                </View>
+                ) : (
+                    /*
+                     * The width bound is on a plain `View`, not on `FadeIn`. `FadeIn` is an
+                     * `Animated.View`, which drops `className` on the web, so a bound written there
+                     * was never applied: the panel sized to its content, and a dialog with a wide
+                     * body — the column picker's eighteen checkboxes — spread across the screen.
+                     */
+                    <View className="w-full max-w-[480px]">
+                        <FadeIn>
+                            <View
+                                testID={base}
+                                role="dialog"
+                                aria-modal
+                                aria-labelledby={titleId}
+                                aria-describedby={descriptionId}
+                                // `max-h` in viewport units, not per cent: the animating wrapper's
+                                // box is whatever this panel asks for, so a percentage would resolve
+                                // against the panel itself and bound nothing at all.
+                                className={cx(
+                                    'w-full max-h-[85vh] min-h-0 shrink flex-col gap-4 rounded-xl bg-surface-raised p-6 shadow-elevation-4',
+                                    className,
+                                )}
+                            >
+                                <View className="flex-row items-start gap-3">
+                                    <View className="min-w-0 flex-1 flex-row items-center gap-2">
+                                        <RNText
+                                            nativeID={titleId}
+                                            testID={`${base}-title`}
+                                            accessibilityRole="header"
+                                            aria-level={2}
+                                            className="min-w-0 shrink text-xl font-semibold text-content-primary text-start"
+                                        >
+                                            {title}
+                                        </RNText>
+                                        {titleAside}
+                                    </View>
+                                    <IconButton
+                                        testID={`${base}-close`}
+                                        size="sm"
+                                        label={t('common:action.close')}
+                                        icon={<Icon name="close" />}
+                                        onPress={onClose}
+                                    />
+                                </View>
+
+                                <ScrollView
+                                    testID={`${base}-body`}
+                                    className="min-h-0 shrink"
+                                    contentContainerClassName="flex-col gap-4"
+                                >
+                                    {descriptionNode}
+                                    {children}
+                                </ScrollView>
+
+                                {actionsNode}
+                            </View>
+                        </FadeIn>
+                    </View>
+                )}
             </View>
         </Modal>
     );

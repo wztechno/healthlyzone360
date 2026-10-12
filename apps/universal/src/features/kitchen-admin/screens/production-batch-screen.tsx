@@ -67,9 +67,9 @@ import {
  * Batch B-0012 [DRAFT] Classic Burger Sauce    [Technical sheet] [Call it off] [Confirm]
  * ┌ PLANNED ┐ ┌ RUNS ┐ ┌ SHELVES SHORT ┐ ┌ USABLE (once made) ┐
  * ┌ WHAT CAME OUT (once made) ─────────────┐   ┌ STATUS ── what it means · stamps · notes ┐
- * ┌ WHAT IT NEEDS / WHAT IT CLAIMED ───────┐   ┌ COST ── estimated · actual · per unit    ┐
- * │ Ingredients table · Packaging table    │   ┌ BATCH RECORD ── made on · label · …      ┐
- * └────────────────────────────────────────┘   beside from xl, under below it
+ * Ingredients · Packaging  [Columns]          ┌ COST ── estimated · actual · per unit    ┐
+ *   (or What it claimed) — ProductionTable    ┌ BATCH RECORD ── made on · label · …      ┐
+ *                                             beside from xl, under below it
  * ```
  *
  * The record page's shape (`record-view-page.tsx`): the work in a wide column, the batch's status,
@@ -472,24 +472,15 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                         </Card>
                     )}
 
-                    <Card
-                        testID="kitchen-production-batch-needs"
-                        tone="raised"
-                        padding="md"
-                        title={t(
-                            detail.plan === null
-                                ? 'kitchen:ops.production.headingLines'
-                                : 'kitchen:ops.production.headingPlan',
-                        )}
-                        subtitle={
-                            detail.plan === null
-                                ? undefined
-                                : t('kitchen:ops.production.planLiveCaption')
-                        }
-                    >
+                    {/*
+                     * The tables as every production step draws them — a section title, the column
+                     * picker at its end and the admin list under it — rather than inside a card of
+                     * their own, which framed the batch's shelves unlike the planner's.
+                     */}
+                    <View testID="kitchen-production-batch-needs">
                         {detail.plan === null ? (
                             <BatchLinesPanel
-                                headless
+                                first
                                 testID="kitchen-production-batch-lines"
                                 lines={detail.lines}
                                 costsVisible={detail.costsVisible}
@@ -497,13 +488,13 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                             />
                         ) : (
                             <BatchPlanPanel
-                                headless
+                                first
                                 testID="kitchen-production-batch-plan"
                                 plan={detail.plan}
                                 costsVisible={detail.costsVisible}
                             />
                         )}
-                    </Card>
+                    </View>
                 </View>
 
                 <View

@@ -5,8 +5,7 @@ import type {
     RecipePackagingLine,
     RecipeVersionAdmin,
 } from '@healthy360/api-client/contracts';
-import { Badge, FormSection, Inline, Stack, Table, Text } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
+import { Badge, Inline, Text } from '@healthy360/design-system';
 import type { IngredientId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { MeasureUnit } from '@healthy360/nutrition';
@@ -17,8 +16,12 @@ import { useCan } from '../../../access/gate.tsx';
 import { useIngredientsByIds } from '../../../data/kitchen-admin-hooks.ts';
 import { useStockItemsQuery, useStockLevelsQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { displayQuantity, scaleLine, scalePackaging, withWaste } from '../batch-scaling.ts';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import type { ColumnFilter, ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import { compareAmount, compareNumber, compareText } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, unitShortKey } from '../format.ts';
+import { ProductionTable } from '../production-desk/production-table.tsx';
 
 /**
  * The batch sheet (Operations handoff `edProduction`) — what one version, scaled, will consume, set
@@ -106,6 +109,10 @@ export interface BatchSheetProps {
 
 /**
  * What it will consume, then what it is packed in. Row test ids stay `kitchen-batch-row-<id>-*`.
+ *
+ * Both tables are {@link ProductionTable}s, as the planner's and the batch page's are. Their lists
+ * are `kitchen-batch-sheet-*` rather than the planner's `kitchen-batch-*`: the column choice is
+ * remembered under the list's id, and the two sheets do not carry the same columns.
  */
 export function BatchSheet({ version, factor, ingredients, availability, first }: BatchSheetProps) {
     const { t } = useTranslation();
@@ -123,6 +130,11 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         const found = ingredients[String(ingredientId)];
         return found === undefined ? dash : displayName(found.name, locale).value;
     };
+    // Blank rather than the dash, so an unresolved name sorts last rather than among the dashes.
+    const sortName = (ingredientId: IngredientId): string | null => {
+        const found = ingredients[String(ingredientId)];
+        return found === undefined ? null : displayName(found.name, locale).value;
+    };
 
     const shortOf = (line: RecipeLine): { available: number | null; short: number | null } => {
         const available = availability(line.ingredientId, line.unit);
@@ -131,16 +143,64 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         return { available, short: Math.max(0, required - available) };
     };
 
-    const shelfLineColumns: readonly TableColumn<RecipeLine>[] = [
+    /** A figure that may be unknown, unknowns last either way. */
+    const byKnown = (left: number | null, right: number | null, direction: 'asc' | 'desc') =>
+        compareAmount(
+            left === null ? null : String(left),
+            right === null ? null : String(right),
+            direction,
+        );
+
+    const required = (line: RecipeLine) =>
+        displayQuantity(scaleLine(line.quantity, ingredientFactor), line.unit);
+    const packed = (row: RecipePackagingLine) =>
+        displayQuantity(scalePackaging(row.quantity, packagingFactor, row.unit), row.unit);
+
+    /** The unit a figure is read in — grams under a kilogram. See `displayQuantity`. */
+    function unitFilter<Row>(unitOf: (row: Row) => MeasureUnit): ColumnFilter<Row> {
+        return {
+            values: (loaded) =>
+                [...new Set(loaded.map(unitOf))].map((unit) => ({
+                    key: unit,
+                    label: t(unitShortKey(unit)),
+                })),
+            match: (row, value) => unitOf(row) === value,
+        };
+    }
+
+    const available = (line: RecipeLine): string => {
+        const figure = shortOf(line).available;
+        return figure === null ? dash : `${number(figure)} ${t(unitShortKey(line.unit))}`;
+    };
+    const short = (line: RecipeLine): string => {
+        const figure = shortOf(line).short;
+        return figure === null || figure === 0
+            ? dash
+            : `${number(figure)} ${t(unitShortKey(line.unit))}`;
+    };
+    const position = (line: RecipeLine): string => {
+        const figure = shortOf(line).short;
+        if (figure === null) return dash;
+        return t(
+            figure > 0 ? 'kitchen:ops.batch.positionShort' : 'kitchen:ops.batch.positionCovered',
+        );
+    };
+
+    const shelfLineColumns: readonly ControlledColumn<RecipeLine, CatalogueColumn<RecipeLine>>[] = [
         {
             key: 'item',
-            header: t('kitchen:ops.batch.columnItem'),
-            rowHeader: true,
-            flex: 2,
+            role: 'title',
+            label: t('kitchen:ops.batch.columnItem'),
+            width: 200,
+            priority: 100,
+            sort: (left, right, direction) =>
+                compareText(sortName(left.ingredientId), sortName(right.ingredientId), direction),
+            value: (line) => nameOf(line.ingredientId),
             render: (line) => (
-                <Inline space="xs" align="center" wrap>
+                <Inline space="xs" align="center">
                     <Text
                         variant="bodyStrong"
+                        numberOfLines={1}
                         testID={`kitchen-batch-row-${String(line.ingredientId)}-name`}
                     >
                         {nameOf(line.ingredientId)}
@@ -158,111 +218,116 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         },
         {
             key: 'quantity',
+            role: 'metric',
             width: 104,
-            header: t('kitchen:ops.batch.columnRequired'),
-            numeric: true,
-            primary: true,
+            label: t('kitchen:ops.batch.columnRequired'),
+            priority: 90,
+            mono: true,
+            sort: (left, right, direction) =>
+                compareNumber(
+                    scaleLine(left.quantity, ingredientFactor),
+                    scaleLine(right.quantity, ingredientFactor),
+                    direction,
+                ),
+            value: (line) => number(required(line).quantity),
             render: (line) => (
                 <Text
                     variant="mono"
                     testID={`kitchen-batch-row-${String(line.ingredientId)}-quantity`}
                 >
-                    {number(
-                        displayQuantity(scaleLine(line.quantity, ingredientFactor), line.unit)
-                            .quantity,
-                    )}
+                    {number(required(line).quantity)}
                 </Text>
             ),
         },
         {
             key: 'unit',
+            role: 'meta',
             width: 64,
-            numeric: true,
-            header: t('kitchen:ops.batch.columnUnit'),
-            // The unit the required figure is read in — grams under a kilogram. See `displayQuantity`.
-            render: (line) => (
-                <Text tone="secondary">
-                    {t(
-                        unitShortKey(
-                            displayQuantity(scaleLine(line.quantity, ingredientFactor), line.unit)
-                                .unit,
-                        ),
-                    )}
-                </Text>
-            ),
+            label: t('kitchen:ops.batch.columnUnit'),
+            priority: 70,
+            filter: unitFilter<RecipeLine>((line) => required(line).unit),
+            value: (line) => t(unitShortKey(required(line).unit)),
         },
         {
             key: 'available',
             width: 104,
-            header: t('kitchen:ops.batch.columnAvailable'),
-            numeric: true,
-            render: (line) => {
-                const { available } = shortOf(line);
-                return (
-                    <Text
-                        variant="mono"
-                        tone="secondary"
-                        testID={`kitchen-batch-row-${String(line.ingredientId)}-available`}
-                    >
-                        {available === null
-                            ? dash
-                            : `${number(available)} ${t(unitShortKey(line.unit))}`}
-                    </Text>
-                );
-            },
+            label: t('kitchen:ops.batch.columnAvailable'),
+            priority: 60,
+            mono: true,
+            sort: (left, right, direction) =>
+                byKnown(shortOf(left).available, shortOf(right).available, direction),
+            value: available,
+            render: (line) => (
+                <Text
+                    variant="mono"
+                    tone="secondary"
+                    testID={`kitchen-batch-row-${String(line.ingredientId)}-available`}
+                >
+                    {available(line)}
+                </Text>
+            ),
         },
         {
             key: 'short',
             width: 104,
-            header: t('kitchen:ops.batch.columnShort'),
-            numeric: true,
+            label: t('kitchen:ops.batch.columnShort'),
+            priority: 80,
+            mono: true,
+            sort: (left, right, direction) =>
+                byKnown(shortOf(left).short, shortOf(right).short, direction),
+            value: short,
             render: (line) => {
-                const { short } = shortOf(line);
+                const figure = shortOf(line).short;
                 return (
                     <Text
                         variant="mono"
-                        tone={short !== null && short > 0 ? 'danger' : 'secondary'}
+                        tone={figure !== null && figure > 0 ? 'danger' : 'secondary'}
                         testID={`kitchen-batch-row-${String(line.ingredientId)}-short`}
                     >
-                        {short === null || short === 0
-                            ? dash
-                            : `${number(short)} ${t(unitShortKey(line.unit))}`}
+                        {short(line)}
                     </Text>
                 );
             },
         },
         {
             key: 'position',
-            header: t('kitchen:ops.batch.columnPosition'),
+            role: 'status',
+            badge: true,
+            width: 104,
+            label: t('kitchen:ops.batch.columnPosition'),
+            priority: 85,
+            value: position,
             render: (line) => {
-                const { short } = shortOf(line);
-                if (short === null) return <Text tone="secondary">{dash}</Text>;
-                return short > 0 ? (
+                const figure = shortOf(line).short;
+                if (figure === null) return <Text tone="secondary">{dash}</Text>;
+                return (
                     <Badge
                         testID={`kitchen-batch-row-${String(line.ingredientId)}-position`}
-                        tone="danger"
-                        label={t('kitchen:ops.batch.positionShort')}
-                    />
-                ) : (
-                    <Badge
-                        testID={`kitchen-batch-row-${String(line.ingredientId)}-position`}
-                        tone="success"
-                        label={t('kitchen:ops.batch.positionCovered')}
+                        tone={figure > 0 ? 'danger' : 'success'}
+                        label={position(line)}
                     />
                 );
             },
         },
     ];
 
-    const packagingColumns: readonly TableColumn<RecipePackagingLine>[] = [
+    const packagingColumns: readonly ControlledColumn<
+        RecipePackagingLine,
+        CatalogueColumn<RecipePackagingLine>
+    >[] = [
         {
             key: 'item',
-            header: t('kitchen:ops.batch.columnItem'),
-            rowHeader: true,
-            flex: 2,
+            role: 'title',
+            label: t('kitchen:ops.batch.columnItem'),
+            width: 200,
+            priority: 100,
+            sort: (left, right, direction) =>
+                compareText(sortName(left.ingredientId), sortName(right.ingredientId), direction),
+            value: (row) => nameOf(row.ingredientId),
             render: (row) => (
                 <Text
                     variant="bodyStrong"
+                    numberOfLines={1}
                     testID={`kitchen-batch-row-${String(row.ingredientId)}-name`}
                 >
                     {nameOf(row.ingredientId)}
@@ -271,15 +336,23 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         },
         {
             key: 'quantity',
-            width: 104,
-            header: t('kitchen:ops.batch.columnQuantity'),
-            numeric: true,
-            primary: true,
+            role: 'metric',
+            width: 140,
+            label: t('kitchen:ops.batch.columnQuantity'),
+            priority: 90,
+            mono: true,
+            sort: (left, right, direction) =>
+                compareNumber(
+                    scalePackaging(left.quantity, packagingFactor, left.unit),
+                    scalePackaging(right.quantity, packagingFactor, right.unit),
+                    direction,
+                ),
+            value: (row) => number(packed(row).quantity),
             render: (row) => {
                 const applied = scalePackaging(row.quantity, packagingFactor, row.unit);
                 const exact = scaleLine(row.quantity, packagingFactor);
                 return (
-                    <Inline space="xs" align="center" wrap>
+                    <Inline space="xs" align="center">
                         <Text
                             variant="mono"
                             testID={`kitchen-batch-row-${String(row.ingredientId)}-quantity`}
@@ -303,66 +376,58 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         },
         {
             key: 'unit',
+            role: 'meta',
             width: 64,
-            numeric: true,
-            header: t('kitchen:ops.batch.columnUnit'),
-            render: (row) => (
-                <Text tone="secondary">
-                    {t(
-                        unitShortKey(
-                            displayQuantity(
-                                scalePackaging(row.quantity, packagingFactor, row.unit),
-                                row.unit,
-                            ).unit,
-                        ),
-                    )}
-                </Text>
-            ),
+            label: t('kitchen:ops.batch.columnUnit'),
+            priority: 70,
+            filter: unitFilter<RecipePackagingLine>((row) => packed(row).unit),
+            value: (row) => t(unitShortKey(packed(row).unit)),
         },
         {
             key: 'basis',
-            header: t('kitchen:ops.batch.columnBasis'),
-            render: (row) => (
-                <Stack space="none">
-                    <Text tone="secondary">{t(BASIS_KEYS[row.basis])}</Text>
-                    {row.comment === null ? null : (
-                        <Text tone="secondary" variant="caption">
-                            {row.comment}
-                        </Text>
-                    )}
-                </Stack>
-            ),
+            role: 'meta',
+            width: 160,
+            label: t('kitchen:ops.batch.columnBasis'),
+            priority: 60,
+            filter: {
+                values: (loaded) =>
+                    [...new Set(loaded.map((row) => row.basis))].map((basis) => ({
+                        key: basis,
+                        label: t(BASIS_KEYS[basis]),
+                    })),
+                match: (row, value) => row.basis === value,
+            },
+            // One line: the comment follows the basis and reads whole on hover.
+            value: (row) =>
+                row.comment === null
+                    ? t(BASIS_KEYS[row.basis])
+                    : `${t(BASIS_KEYS[row.basis])} · ${row.comment}`,
         },
     ];
 
     return (
         <>
-            <FormSection
+            {/*
+             * ponytail: rows are keyed by ingredient id. A sheet that lists one ingredient twice
+             * gives the two rows one key — index the rows if a kitchen hits it.
+             */}
+            <ProductionTable<RecipeLine>
                 first={first}
-                testID="kitchen-batch-consume"
+                testID="kitchen-batch-sheet-ingredients"
+                sectionTestID="kitchen-batch-consume"
                 title={t('kitchen:ops.batch.consumeHeading')}
                 description={t('kitchen:ops.batch.consumeBody')}
                 aside={
                     <Badge tone="info" icon={null} label={t('kitchen:ops.batch.fromDatabase')} />
                 }
-            >
-                {/*
-                 * ponytail: rows are keyed by ingredient id. A sheet that lists one ingredient twice
-                 * gives the two rows one key — index the rows if a kitchen hits it.
-                 */}
-                <Table<RecipeLine>
-                    testID="kitchen-batch-ingredients"
-                    caption={t('kitchen:ops.batch.ingredientsHeading')}
-                    captionHidden
-                    columns={shelfLineColumns}
-                    rows={version.lines}
-                    rowKey={(line) => String(line.ingredientId)}
-                    rowSize="sm"
-                />
-            </FormSection>
+                rows={version.lines}
+                columns={shelfLineColumns}
+                rowKey={(line) => String(line.ingredientId)}
+            />
 
-            <FormSection
-                testID="kitchen-batch-packaging-section"
+            <ProductionTable<RecipePackagingLine>
+                testID="kitchen-batch-sheet-packaging"
+                sectionTestID="kitchen-batch-packaging-section"
                 title={t('kitchen:ops.batch.packagingHeading')}
                 aside={
                     <Text variant="caption" tone="secondary">
@@ -373,23 +438,15 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
                               })}
                     </Text>
                 }
-            >
-                {version.packaging.length === 0 ? (
+                rows={version.packaging}
+                columns={packagingColumns}
+                rowKey={(row) => String(row.ingredientId)}
+                empty={
                     <Text testID="kitchen-batch-packaging-empty" variant="caption" tone="secondary">
                         {t('kitchen:ops.batch.noPackaging')}
                     </Text>
-                ) : (
-                    <Table<RecipePackagingLine>
-                        testID="kitchen-batch-packaging"
-                        caption={t('kitchen:ops.batch.packagingHeading')}
-                        captionHidden
-                        columns={packagingColumns}
-                        rows={version.packaging}
-                        rowKey={(row) => String(row.ingredientId)}
-                        rowSize="sm"
-                    />
-                )}
-            </FormSection>
+                }
+            />
         </>
     );
 }

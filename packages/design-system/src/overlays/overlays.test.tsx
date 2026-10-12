@@ -158,6 +158,34 @@ describe('Dialog', () => {
         );
         assertSubtreeIsLogical(screen.getByTestId('confirm'));
     });
+
+    it('draws the square as the record window does, with the aside beside the title', async () => {
+        const onClose = jest.fn();
+        await renderWithI18n(
+            <Dialog
+                testID="settle"
+                open
+                size="square"
+                onClose={onClose}
+                title="Report what came out"
+                titleAside={<RNText testID="settle-aside">i</RNText>}
+                actions={<Button testID="go" label="Complete" onPress={jest.fn()} />}
+            >
+                <Text>Body</Text>
+            </Dialog>,
+            'ar',
+        );
+
+        const node = screen.getByTestId('settle');
+        expect(node.props.role).toBe('dialog');
+        expect(node.props['aria-labelledby']).toBe('settle-title');
+        expect(screen.getByTestId('settle-aside')).toBeTruthy();
+        expect(screen.getByTestId('settle-actions')).toBeTruthy();
+        assertSubtreeIsLogical(node);
+
+        await fireEvent.press(screen.getByTestId('settle-close'));
+        expect(onClose).toHaveBeenCalledTimes(1);
+    });
 });
 
 describe('Drawer', () => {

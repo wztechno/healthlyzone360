@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8299 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8303 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2456,6 +2456,7 @@ export interface NamespaceKeys {
     | 'showcase.openDialog'
     | 'showcase.openDrawer'
     | 'showcase.openDrawerEnd'
+    | 'showcase.openSquareDialog'
     | 'showcase.placeholderLabel'
     | 'showcase.popoverBody'
     | 'showcase.popoverTitle'
@@ -2485,6 +2486,7 @@ export interface NamespaceKeys {
     | 'showcase.showToast'
     | 'showcase.sliderAtLeastLabel'
     | 'showcase.sliderAtMostLabel'
+    | 'showcase.squareDialogTitle'
     | 'showcase.stepperLabel'
     | 'showcase.stepperStep'
     | 'showcase.subtitle'
@@ -4402,6 +4404,7 @@ export interface NamespaceKeys {
     | 'ops.production.confirmedToast'
     | 'ops.production.consumedHeading'
     | 'ops.production.consumedHint'
+    | 'ops.production.consumedLineLabel'
     | 'ops.production.costStatusPartial'
     | 'ops.production.costStatusPartialBody'
     | 'ops.production.costStatusUnvalued'
@@ -4569,6 +4572,7 @@ export interface NamespaceKeys {
     | 'ops.production.viewKind'
     | 'ops.production.wasteHeading'
     | 'ops.production.wasteHint'
+    | 'ops.production.wasteLineLabel'
     | 'ops.production.yieldPlanned'
     | 'ops.production.yieldProduced'
     | 'ops.production.yieldRejected'
@@ -10777,6 +10781,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:showcase.openDialog',
   'designSystem:showcase.openDrawer',
   'designSystem:showcase.openDrawerEnd',
+  'designSystem:showcase.openSquareDialog',
   'designSystem:showcase.placeholderLabel',
   'designSystem:showcase.popoverBody',
   'designSystem:showcase.popoverTitle',
@@ -10806,6 +10811,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:showcase.showToast',
   'designSystem:showcase.sliderAtLeastLabel',
   'designSystem:showcase.sliderAtMostLabel',
+  'designSystem:showcase.squareDialogTitle',
   'designSystem:showcase.stepperLabel',
   'designSystem:showcase.stepperStep',
   'designSystem:showcase.subtitle',
@@ -12719,6 +12725,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.confirmedToast',
   'kitchen:ops.production.consumedHeading',
   'kitchen:ops.production.consumedHint',
+  'kitchen:ops.production.consumedLineLabel',
   'kitchen:ops.production.costStatusPartial',
   'kitchen:ops.production.costStatusPartialBody',
   'kitchen:ops.production.costStatusUnvalued',
@@ -12886,6 +12893,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.viewKind',
   'kitchen:ops.production.wasteHeading',
   'kitchen:ops.production.wasteHint',
+  'kitchen:ops.production.wasteLineLabel',
   'kitchen:ops.production.yieldPlanned',
   'kitchen:ops.production.yieldProduced',
   'kitchen:ops.production.yieldRejected',

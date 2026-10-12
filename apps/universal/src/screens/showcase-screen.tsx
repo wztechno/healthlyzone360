@@ -3133,6 +3133,7 @@ export function ShowcaseScreen() {
     const toast = useToast();
 
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [squareDialogOpen, setSquareDialogOpen] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [endDrawerOpen, setEndDrawerOpen] = useState(false);
     const [sheetOpen, setSheetOpen] = useState(false);
@@ -4512,6 +4513,14 @@ export function ShowcaseScreen() {
                             }}
                         />
                         <Button
+                            testID="showcase-open-square-dialog"
+                            variant="secondary"
+                            label={t('designSystem:showcase.openSquareDialog')}
+                            onPress={() => {
+                                setSquareDialogOpen(true);
+                            }}
+                        />
+                        <Button
                             testID="showcase-open-drawer"
                             variant="secondary"
                             label={t('designSystem:showcase.openDrawer')}
@@ -4603,6 +4612,47 @@ export function ShowcaseScreen() {
                             </>
                         }
                     />
+
+                    {/* A form with a table in it: the record window's square, pinned ends. */}
+                    <Dialog
+                        testID="showcase-square-dialog"
+                        size="square"
+                        open={squareDialogOpen}
+                        onClose={() => {
+                            setSquareDialogOpen(false);
+                        }}
+                        title={t('designSystem:showcase.squareDialogTitle')}
+                        titleAside={
+                            <InfoTip
+                                testID="showcase-square-dialog-info"
+                                label={t('designSystem:showcase.squareDialogTitle')}
+                                text={t('designSystem:showcase.popoverBody')}
+                            />
+                        }
+                        actions={
+                            <>
+                                <Button
+                                    testID="showcase-square-dialog-cancel"
+                                    variant="quiet"
+                                    size="sm"
+                                    label={t('common:action.cancel')}
+                                    onPress={() => {
+                                        setSquareDialogOpen(false);
+                                    }}
+                                />
+                                <Button
+                                    testID="showcase-square-dialog-confirm"
+                                    size="sm"
+                                    label={t('common:action.confirm')}
+                                    onPress={() => {
+                                        setSquareDialogOpen(false);
+                                    }}
+                                />
+                            </>
+                        }
+                    >
+                        <Text>{t('designSystem:showcase.dialogBody')}</Text>
+                    </Dialog>
 
                     <Drawer
                         testID="showcase-drawer"

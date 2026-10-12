@@ -1101,6 +1101,8 @@
             "wasteHeading": "What went in the bin",
             "wasteHint": "Input spoiled or dropped during the batch. It never became product, so it is not part of the batch's cost.",
             "asPlanned": "as claimed",
+            "consumedLineLabel": "{{item}} used",
+            "wasteLineLabel": "{{item}} wasted",
             "sheetLink": "Technical sheet",
             "openBatch": "Open batch",
             "backToDesk": "Back to the desk",

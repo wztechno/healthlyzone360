@@ -158,6 +158,8 @@
             "motion": "الحركة"
         },
         "openDialog": "فتح الحوار",
+        "openSquareDialog": "فتح الحوار المربّع",
+        "squareDialogTitle": "سجّل ما نتج",
         "openDrawer": "فتح اللوحة الجانبية",
         "showToast": "إظهار تنبيه",
         "dialogTitle": "إلغاء هذه الجلسة؟",
