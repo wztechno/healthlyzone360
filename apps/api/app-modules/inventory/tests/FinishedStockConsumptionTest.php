@@ -136,6 +136,47 @@ it('takes one piece a sale from a shelf that counts in pieces', function (): voi
         ->toBe('35.0000');
 });
 
+/*
+| The v6 weights live on the B2B/B2C packs, not on the item, so a pack-sold
+| sauce states no net content of its own — and every one of them answered
+| `no_net_content` while the order line said exactly what was sold.
+*/
+it('deducts the pack the line sold, which the order snapshotted, when the item states no net content', function (): void {
+    [$item, $stockItem] = finishedStockItem($this, $this->kg, '10', ['item_type' => CatalogueItemType::Sauce]);
+
+    $order = orderFor($this, $item, '2');
+    $order->lines()->sole()->forceFill(['pack_summary' => [
+        'pack_quantity' => '0.3000',
+        'pack_unit_id' => (string) $this->kg->getKey(),
+        'pack_piece_count' => null,
+        'pack_format' => null,
+        'net_weight_grams' => 300,
+    ]])->save();
+
+    $this->lifecycle->confirm($order, $order->lock_version);
+
+    expect(StockLevel::withoutTenancy()->where('stock_item_id', $stockItem->getKey())->value('quantity'))->toBe('9.4000')
+        ->and(OrderConsumptionException::withoutTenancy()->where('order_id', $order->getKey())->count())->toBe(0);
+});
+
+it('prefers the pack sold over the item\'s own net content', function (): void {
+    [$item, $stockItem] = finishedStockItem($this, $this->kg, '10', [
+        'net_content_quantity' => '350',
+        'net_content_unit_id' => (string) $this->g->getKey(),
+    ]);
+
+    // The B2B kilogram tub of the same item, not its 350 g retail tray.
+    $order = orderFor($this, $item, '1');
+    $order->lines()->sole()->forceFill(['pack_summary' => [
+        'pack_quantity' => '1000',
+        'pack_unit_id' => (string) $this->g->getKey(),
+    ]])->save();
+
+    $this->lifecycle->confirm($order, $order->lock_version);
+
+    expect(StockLevel::withoutTenancy()->where('stock_item_id', $stockItem->getKey())->value('quantity'))->toBe('9.0000');
+});
+
 it('refuses to guess how much a mass shelf loses when nothing says', function (): void {
     [$item, $stockItem] = finishedStockItem($this, $this->kg, '10');
 
