@@ -3076,11 +3076,7 @@ function RecipeEditor({
                         </Callout>
                     )}
 
-                    {publishFailure === null ||
-                    // The list above already names each ingredient and links to it; the server's
-                    // sentence under it only said the same thing again, without the names.
-                    (publishFailure.code === 'catalogue.allergen_unmapped' &&
-                        unmappedIngredients.length > 0) ? null : publishQuarantined ? (
+                    {publishFailure === null ? null : publishQuarantined ? (
                         <Callout
                             testID="kitchen-recipe-publish-refused-quarantine"
                             role="alert"
@@ -3097,15 +3093,25 @@ function RecipeEditor({
                             body={publishFailure.message}
                         >
                             <Stack space="none">
-                                {Object.entries(publishFields).map(([field, messages]) => (
-                                    <Text
-                                        key={field}
-                                        testID={`kitchen-recipe-publish-field-${field}`}
-                                        variant="caption"
-                                    >
-                                        {messages.join(' ')}
-                                    </Text>
-                                ))}
+                                {/*
+                                 * A catalogue refusal reaches the client as a validation failure
+                                 * whose one field repeats the message; only lines that add
+                                 * something are drawn, or the callout says it twice.
+                                 */}
+                                {Object.entries(publishFields)
+                                    .filter(
+                                        ([, messages]) =>
+                                            messages.join(' ') !== publishFailure.message,
+                                    )
+                                    .map(([field, messages]) => (
+                                        <Text
+                                            key={field}
+                                            testID={`kitchen-recipe-publish-field-${field}`}
+                                            variant="caption"
+                                        >
+                                            {messages.join(' ')}
+                                        </Text>
+                                    ))}
                             </Stack>
                         </Callout>
                     )}

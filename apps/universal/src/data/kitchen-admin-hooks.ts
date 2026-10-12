@@ -1247,16 +1247,16 @@ export function useCatalogueDraftCountQuery(
         enabled: enabled && repositories !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
-            return countAcrossPages((cursor) => {
-                const page = {
-                    limit: SUMMARY_PAGE_LIMIT,
-                    statuses: ['draft'] as const,
-                    ...(cursor === undefined ? {} : { cursor }),
-                };
-                return kind === 'meal'
-                    ? repositories.kitchenAdmin.listMeals(page)
-                    : repositories.kitchenAdmin.listProducts({ ...page, itemType: kind });
+            const page = (cursor: string | undefined) => ({
+                limit: SUMMARY_PAGE_LIMIT,
+                statuses: ['draft'] as const,
+                ...(cursor === undefined ? {} : { cursor }),
             });
+            return kind === 'meal'
+                ? countAcrossPages((cursor) => repositories.kitchenAdmin.listMeals(page(cursor)))
+                : countAcrossPages((cursor) =>
+                      repositories.kitchenAdmin.listProducts({ ...page(cursor), itemType: kind }),
+                  );
         },
     });
 }
