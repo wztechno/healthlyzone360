@@ -79,6 +79,7 @@ import {
     paymentMethodsFor,
     saleShortfall,
     offeredDeskWindows,
+    windowsOverAt,
     scheduleFor,
     withCustomer,
     withFulfilmentType,
@@ -349,6 +350,7 @@ function Sale() {
         state,
         todayIso(),
         windowList.map((window) => window.code),
+        windowsOverAt(windowList),
     );
 
     function onPlace() {
