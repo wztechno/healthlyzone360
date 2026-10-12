@@ -251,6 +251,14 @@ export function trimDecimal(value: string): string {
     return value.includes('.') ? value.replace(/0+$/, '').replace(/\.$/, '') : value;
 }
 
+/**
+ * A calendar date (`YYYY-MM-DD`) read as the local day it names — a bare ISO date parses as UTC
+ * midnight, which west of Greenwich is the evening before.
+ */
+export function localDay(isoDate: string): string {
+    return `${isoDate}T00:00:00`;
+}
+
 export function humaniseCode(code: string): string {
     if (code.trim() === '') return '';
     const spaced = code.replace(/[-_]+/g, ' ').trim();
