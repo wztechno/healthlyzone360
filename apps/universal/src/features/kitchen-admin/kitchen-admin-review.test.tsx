@@ -687,9 +687,10 @@ describe('the review queue screen', () => {
         expect(screen.getByTestId(`${row}-reason-quarantined`)).toBeTruthy();
         expect(screen.getByTestId(`${row}-status`)).toHaveTextContent(/Awaiting review/);
         expect(screen.getByTestId(`${row}-name`)).toHaveTextContent(QUARANTINED_INGREDIENT.name.en);
-        // Provenance: this row came out of the import, and the queue says so rather than
-        // attributing it to whoever last signed in.
-        expect(screen.getByTestId(`${row}-updated`)).toHaveTextContent(/import/);
+        // Provenance: nobody is named, so the line gives the time alone — never whoever last
+        // signed in, and no longer "the import", which every hand-made row used to claim too.
+        expect(screen.getByTestId(`${row}-updated`)).toHaveTextContent(/Last changed/);
+        expect(screen.getByTestId(`${row}-updated`)).not.toHaveTextContent(/import/);
     });
 
     it('leads with a summary that counts what is blocked separately from what is unfinished', async () => {
