@@ -14,6 +14,7 @@ use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
+use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\ReferenceData\Exceptions\UnitConversionUnsupported;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\ReferenceData\Services\UnitConversionService;
@@ -143,10 +144,13 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             return;
         }
 
-        if ($order->branch_id === null) {
-            // Stock is a per-branch quantity; an order with no branch has no
-            // shelf to take from. Recorded rather than guessed.
-            $this->persistException($order, null, null, 'no_branch', 'The order has no branch, so no stock could be deducted.');
+        $branchId = $this->deductionBranch($order);
+
+        if ($branchId === null) {
+            // Stock is a per-branch quantity; an order with no branch, at a
+            // kitchen with more than one, has no shelf to take from. Recorded
+            // rather than guessed.
+            $this->persistException($order, null, null, 'no_branch', 'The order has no branch and the kitchen has more than one active branch, so no stock could be deducted.');
 
             return;
         }
@@ -158,7 +162,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             /** @var list<array{ingredient_id: string, stock_unit_id: string, quantity: numeric-string}> $drawn */
             $drawn = [];
 
-            $this->resolveLine($order, $line, (string) $order->branch_id, $failures, $drawn);
+            $this->resolveLine($order, $line, $branchId, $failures, $drawn);
 
             /*
              * Freeze what this line was *expected* to cost, at the prices
@@ -261,7 +265,9 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
                 return $fresh;
             }
 
-            if ($order->branch_id === null) {
+            $branchId = $this->deductionBranch($order);
+
+            if ($branchId === null) {
                 $fresh->detail = 'Retry could not run: the order still has no branch to deduct from.';
                 $fresh->save();
 
@@ -269,14 +275,14 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             }
 
             // An order-level exception (no line) is a `no_branch` from a confirm
-            // when the order had no branch. The branch is present now, so re-run
-            // every line and settle the order-level row.
+            // when the order had no branch. There is one to deduct from now, so
+            // re-run every line and settle the order-level row.
             if ($fresh->order_line_id === null) {
                 foreach ($order->lines()->get() as $line) {
-                    $this->retryLine($order, $line, $actorUserId);
+                    $this->retryLine($order, $line, $branchId, $actorUserId);
                 }
 
-                $this->markResolved($fresh, $actorUserId, 'Auto-resolved on retry: the order now has a branch and its lines were re-run.');
+                $this->markResolved($fresh, $actorUserId, 'Auto-resolved on retry: the order now has a branch to deduct from and its lines were re-run.');
 
                 return $fresh->refresh();
             }
@@ -293,17 +299,43 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
                 return $fresh;
             }
 
-            $this->retryLine($order, $line, $actorUserId);
+            $this->retryLine($order, $line, $branchId, $actorUserId);
 
             return $fresh->refresh();
         });
     }
 
     /**
+     * The branch whose shelves an order is deducted from: the order's own, or —
+     * when it carries none — the kitchen's only active branch.
+     *
+     * An order often has no branch by design: neither the web shop nor the
+     * order desk states one, and an organisation-wide delivery zone resolves to
+     * none. At a kitchen with a single active branch there is only one shelf the
+     * stock can have come off, so naming it is not a guess. With two or more the
+     * answer is genuinely unknown and stays a `no_branch` exception. The order
+     * itself is left as it is; only the movements name the branch.
+     */
+    private function deductionBranch(Order $order): ?string
+    {
+        if ($order->branch_id !== null) {
+            return (string) $order->branch_id;
+        }
+
+        $branches = OrganisationBranch::withoutTenancy()
+            ->where('organisation_id', $order->organisation_id)
+            ->where('status', 'active')
+            ->limit(2)
+            ->pluck('id');
+
+        return $branches->count() === 1 ? (string) $branches->first() : null;
+    }
+
+    /**
      * Re-run one order line and reconcile the exceptions on it. Shared by a
      * line-level retry and the per-line sweep of an order-level retry.
      */
-    private function retryLine(Order $order, OrderLine $line, ?string $actorUserId): void
+    private function retryLine(Order $order, OrderLine $line, string $branchId, ?string $actorUserId): void
     {
         $before = $this->consumeMovementCountForLine($order, $line);
 
@@ -313,7 +345,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         /** @var list<array{ingredient_id: string, stock_unit_id: string, quantity: numeric-string}> $drawn */
         $drawn = [];
 
-        $this->resolveLine($order, $line, (string) $order->branch_id, $failures, $drawn);
+        $this->resolveLine($order, $line, $branchId, $failures, $drawn);
 
         /*
          * A retry that finally resolves a blocked line is the first moment this
@@ -572,7 +604,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             return;
         }
 
-        $perSoldUnit = $this->perSoldUnit($item, $stockUnit, $failures);
+        $perSoldUnit = $this->perSoldUnit($item, $line, $stockUnit, $failures);
 
         if ($perSoldUnit === null) {
             return;
@@ -596,6 +628,11 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
      *
      * Three cases, and the third is a refusal rather than a default:
      *
+     * 0. **The line sold a pack.** The order snapshotted the pack's size when it
+     *    was placed (`order_lines.pack_summary`) — a 300 g jar of dip, the B2B
+     *    kilogram tub — and that is exactly what left the shelf. It wins over
+     *    the item's own net content, which a pack-sold item usually leaves empty:
+     *    the v6 weights live on the B2B/B2C packs, not on the item.
      * 1. **Net content is declared.** One sold unit *is* this much of the
      *    produced ingredient — a 350 g tray, a 500 ml bottle — converted into
      *    whatever unit the shelf counts in. This is the only figure that can
@@ -613,32 +650,18 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
      * @param  list<ConsumptionFailure>  $failures
      * @return numeric-string|null
      */
-    private function perSoldUnit(CatalogueItem $item, MeasurementUnit $stockUnit, array &$failures): ?string
+    private function perSoldUnit(CatalogueItem $item, OrderLine $line, MeasurementUnit $stockUnit, array &$failures): ?string
     {
+        $pack = $line->pack_summary ?? [];
+        $packQuantity = $pack['pack_quantity'] ?? null;
+        $packUnitId = $pack['pack_unit_id'] ?? null;
+
+        if (is_numeric($packQuantity) && bccomp((string) $packQuantity, '0', self::SCALE) > 0 && is_string($packUnitId)) {
+            return $this->contentInShelfUnit($item, (string) $packQuantity, $packUnitId, $stockUnit, 'pack size', $failures);
+        }
+
         if ($item->net_content_quantity !== null && $item->net_content_unit_id !== null) {
-            $netUnit = MeasurementUnit::query()->find($item->net_content_unit_id);
-
-            if (! $netUnit instanceof MeasurementUnit) {
-                $failures[] = $this->failure((string) $item->getKey(), 'no_stock_unit', 'The net content of this item names a unit that does not exist.');
-
-                return null;
-            }
-
-            if (! $this->conversion->canConvert($netUnit, $stockUnit)) {
-                $failures[] = $this->failure(
-                    (string) $item->getKey(),
-                    'unit_conversion_unsupported',
-                    'The net content is stated in '.$netUnit->code.' and the shelf counts in '.$stockUnit->code.', which do not convert.',
-                );
-
-                return null;
-            }
-
-            return $this->conversion->convert(
-                $this->numeric((string) $item->net_content_quantity),
-                $netUnit,
-                $stockUnit,
-            );
+            return $this->contentInShelfUnit($item, (string) $item->net_content_quantity, (string) $item->net_content_unit_id, $stockUnit, 'net content', $failures);
         }
 
         if ($stockUnit->dimension === 'count' || $stockUnit->dimension === 'package' || $stockUnit->dimension === 'serving') {
@@ -652,6 +675,36 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         );
 
         return null;
+    }
+
+    /**
+     * A stated content — a pack size or a net content — converted into the unit
+     * the shelf counts in, or a recorded failure when it cannot be.
+     *
+     * @param  list<ConsumptionFailure>  $failures
+     * @return numeric-string|null
+     */
+    private function contentInShelfUnit(CatalogueItem $item, string $quantity, string $unitId, MeasurementUnit $stockUnit, string $what, array &$failures): ?string
+    {
+        $unit = MeasurementUnit::query()->find($unitId);
+
+        if (! $unit instanceof MeasurementUnit) {
+            $failures[] = $this->failure((string) $item->getKey(), 'no_stock_unit', 'The '.$what.' of this item names a unit that does not exist.');
+
+            return null;
+        }
+
+        if (! $this->conversion->canConvert($unit, $stockUnit)) {
+            $failures[] = $this->failure(
+                (string) $item->getKey(),
+                'unit_conversion_unsupported',
+                'The '.$what.' is stated in '.$unit->code.' and the shelf counts in '.$stockUnit->code.', which do not convert.',
+            );
+
+            return null;
+        }
+
+        return $this->conversion->convert($this->numeric($quantity), $unit, $stockUnit);
     }
 
     /**

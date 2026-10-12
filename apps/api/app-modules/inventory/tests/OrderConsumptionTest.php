@@ -629,13 +629,65 @@ it('retries a blocked line once the stock item exists, deducting and auto-resolv
         ->and(levelOf($stockItem))->toBe('99.9500');
 });
 
-it('records an order-level exception when the order has no branch to deduct from', function (): void {
+/*
+| Neither the web shop nor the order desk states a branch, and an org-wide
+| delivery zone resolves to none — so at a one-branch kitchen almost every order
+| arrives branchless. There is only one shelf it can have come off. Dev ran 39
+| orders, 39 `no_branch` exceptions, before this.
+*/
+it('deducts a branchless order from the kitchen\'s only active branch', function (): void {
     $flour = stockedIngredient($this, $this->kg, '2.000000', '100', '100');
     $meal = publishedMeal($this, 5, '0.00', [[$flour, '250', $this->g]]);
+
+    // A closed branch is not a shelf anything is sold from.
+    OrganisationBranch::factory()->create([
+        'organisation_id' => $this->organisation->getKey(),
+        'country_code' => $this->organisation->country_code,
+        'status' => 'closed',
+    ]);
+
+    $order = orderFor($this, $meal, '1', withBranch: false);
+    $this->lifecycle->confirm($order, 0);
+
+    expect(OrderConsumptionException::withoutTenancy()->count())->toBe(0)
+        ->and(consumeMovements($order)->sole()->branch_id)->toBe((string) $this->branch->getKey())
+        ->and(levelOf($flour))->toBe('99.9500')
+        // The order is left as it was; only the movement names the branch.
+        ->and($order->refresh()->branch_id)->toBeNull();
+});
+
+it('records an order-level exception when a branchless order\'s kitchen has more than one branch', function (): void {
+    $flour = stockedIngredient($this, $this->kg, '2.000000', '100', '100');
+    $meal = publishedMeal($this, 5, '0.00', [[$flour, '250', $this->g]]);
+
+    OrganisationBranch::factory()->create([
+        'organisation_id' => $this->organisation->getKey(),
+        'country_code' => $this->organisation->country_code,
+    ]);
 
     $order = orderFor($this, $meal, '1', withBranch: false);
     $this->lifecycle->confirm($order, 0);
 
     expect(consumeMovements($order)->count())->toBe(0)
         ->and(OrderConsumptionException::withoutTenancy()->sole()->reason_code)->toBe('no_branch');
+});
+
+it('settles a no_branch exception on file by retrying it against the only branch', function (): void {
+    $flour = stockedIngredient($this, $this->kg, '2.000000', '100', '100');
+    $meal = publishedMeal($this, 5, '0.00', [[$flour, '250', $this->g]]);
+
+    // The state dev is in: an order confirmed while the rule was missing.
+    $order = orderFor($this, $meal, '1', withBranch: false);
+    $exception = OrderConsumptionException::query()->create([
+        'organisation_id' => $this->organisation->getKey(),
+        'order_id' => (string) $order->getKey(),
+        'reason_code' => 'no_branch',
+        'detail' => 'The order has no branch, so no stock could be deducted.',
+    ]);
+
+    $result = app(OrderConsumptionService::class)->retry($exception, (string) $this->tenant->user->getKey());
+
+    expect($result->resolved_at)->not->toBeNull()
+        ->and(consumeMovements($order)->sole()->branch_id)->toBe((string) $this->branch->getKey())
+        ->and(levelOf($flour))->toBe('99.9500');
 });
