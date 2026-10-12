@@ -1269,7 +1269,14 @@ function RecipeEditor({
         const rows: IngredientAdmin[] = [];
         for (const line of data.currentVersion.lines) {
             const entry = ingredients.find((candidate) => candidate.id === line.ingredientId);
-            if (entry === undefined || entry.allergens.length > 0) continue;
+            // Confirmed clear is a determination too — the one an empty mapping cannot state.
+            if (
+                entry === undefined ||
+                entry.allergens.length > 0 ||
+                entry.allergensAssessedClear === true
+            ) {
+                continue;
+            }
             if (seen.has(String(entry.id))) continue;
             seen.add(String(entry.id));
             rows.push(entry);
@@ -1668,7 +1675,9 @@ function RecipeEditor({
         .map((id) => library.find((entry) => String(entry.id) === String(id)))
         .filter(
             (entry): entry is IngredientAdmin =>
-                entry !== undefined && entry.allergens.length === 0,
+                entry !== undefined &&
+                entry.allergens.length === 0 &&
+                entry.allergensAssessedClear !== true,
         )
         .map((entry) => displayName(entry.name, locale).value)
         .join(t('kitchen:common.listSeparator'));
@@ -3067,7 +3076,11 @@ function RecipeEditor({
                         </Callout>
                     )}
 
-                    {publishFailure === null ? null : publishQuarantined ? (
+                    {publishFailure === null ||
+                    // The list above already names each ingredient and links to it; the server's
+                    // sentence under it only said the same thing again, without the names.
+                    (publishFailure.code === 'catalogue.allergen_unmapped' &&
+                        unmappedIngredients.length > 0) ? null : publishQuarantined ? (
                         <Callout
                             testID="kitchen-recipe-publish-refused-quarantine"
                             role="alert"
