@@ -31,7 +31,7 @@ import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, Pressable, View } from 'react-native';
+import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -187,6 +187,16 @@ const TILE_GAP = 12;
  */
 const LINE_QUANTITY_WIDTH = 28;
 const LINE_TOTAL_WIDTH = 88;
+
+/**
+ * What the sticky ticket spends on everything but its lines — the top bar and content padding above
+ * it, the card's title, the totals, the payment choice and Charge. An estimate on the generous side:
+ * guessing short would push Charge back under the fold, guessing long only scrolls the lines sooner.
+ */
+const TICKET_CHROME_HEIGHT = 420;
+
+/** The lines' floor, about three of them, however short the window. */
+const TICKET_LINES_MIN_HEIGHT = 168;
 
 /** The gap between the menu and the ticket — `gap-base`, repeated for the same reason. */
 const BODY_GAP = 16;
@@ -1090,6 +1100,14 @@ function Ticket({
     const { t } = useTranslation();
     const { locale } = useLocale();
     const formatter = useFormatter();
+    /*
+     * Beside the menu the ticket is sticky, and a sticky box taller than the screen cannot be
+     * scrolled to its own bottom — which is where Charge is. So its lines scroll inside it, capped at
+     * what the window leaves once the ticket's own header, totals and buttons are counted, and the
+     * totals and Charge stay in view on a 720p laptop's ~600px. Never below three lines' worth.
+     */
+    const { height: windowHeight } = useWindowDimensions();
+    const linesMaxHeight = Math.max(TICKET_LINES_MIN_HEIGHT, windowHeight - TICKET_CHROME_HEIGHT);
 
     const money = (amount: number, currency: OrderDeskQuote['currencyCode']) =>
         formatMoney(formatter, { amount, currency });
@@ -1197,7 +1215,11 @@ function Ticket({
                             {t('kitchen:desk.sale.ticketEmpty')}
                         </Text>
                     ) : (
-                        <View testID="kitchen-order-desk-sale-lines" className="flex-col">
+                        <ScrollView
+                            testID="kitchen-order-desk-sale-lines"
+                            style={beside ? { maxHeight: linesMaxHeight } : undefined}
+                            contentContainerClassName="flex-col"
+                        >
                             {lines.map((line) => {
                                 const key = lineKey(line);
                                 const quoted = quotedByKey.get(key) ?? null;
@@ -1315,7 +1337,7 @@ function Ticket({
                                     </View>
                                 );
                             })}
-                        </View>
+                        </ScrollView>
                     )}
 
                     {lines.length === 0 ? null : quoteFailed ? (

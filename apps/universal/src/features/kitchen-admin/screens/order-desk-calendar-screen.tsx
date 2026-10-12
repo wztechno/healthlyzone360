@@ -178,8 +178,10 @@ function Reading({
     // Only ever called for a known square: the unknown branch is taken whole, above.
     const count = reading.count ?? 0;
 
+    // Wrapping, so a narrow day (seven of them across a laptop's page, longer words in Arabic) sets
+    // the figure under its label rather than crushing the two into one line.
     const line = (
-        <View className="flex-row items-center justify-between gap-hair">
+        <View className="flex-row flex-wrap items-center justify-between gap-hair">
             <Text variant="micro" tone="secondary">
                 {label}
             </Text>

@@ -149,7 +149,12 @@ export function BatchSettlementDialog({
                     )}
                 </Text>
 
-                <View className="flex-col gap-3 md:flex-row">
+                {/*
+                 * Stacked at every width. The dialog is a fixed 480px, so a window breakpoint said
+                 * nothing about the room in it: `md:flex-row` cut two quantities and their units
+                 * into ~200px apiece on every desk.
+                 */}
+                <View className="flex-col gap-3">
                     <View className="flex-1">
                         <QuantityInput
                             testID={`${testID}-produced`}
@@ -201,10 +206,7 @@ export function BatchSettlementDialog({
                             const id = String(line.stockItemId);
 
                             return (
-                                <View
-                                    key={line.id}
-                                    className="flex-col gap-2 md:flex-row md:items-end"
-                                >
+                                <View key={line.id} className="flex-col gap-2">
                                     <View className="min-w-0 flex-1 justify-end pb-1">
                                         <Text variant="bodyStrong" numberOfLines={1}>
                                             {line.stockItemNameEn ?? t('kitchen:list.noValue')}

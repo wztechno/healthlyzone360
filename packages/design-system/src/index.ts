@@ -23,6 +23,16 @@ export type { Density, DensityProviderProps } from './hooks/use-density.tsx';
 export { useTheme } from './hooks/use-theme.ts';
 export type { UseThemeResult } from './hooks/use-theme.ts';
 export { BREAKPOINT_ORDER, useBreakpoint } from './hooks/use-breakpoint.ts';
+export {
+    ContentWidthProvider,
+    contentWidthFor,
+    useContentWidth,
+} from './hooks/use-content-width.tsx';
+export type {
+    ContentInset,
+    ContentWidth,
+    ContentWidthProviderProps,
+} from './hooks/use-content-width.tsx';
 export type { Breakpoint, UseBreakpointResult } from './hooks/use-breakpoint.ts';
 export { useReducedMotion } from './hooks/use-reduced-motion.ts';
 export { POINTER_KINDS, useIsCoarsePointer, usePointerKind } from './hooks/use-pointer.ts';

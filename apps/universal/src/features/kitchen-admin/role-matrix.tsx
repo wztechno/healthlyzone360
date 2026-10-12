@@ -1,4 +1,4 @@
-import { Icon, Text, cx } from '@healthy360/design-system';
+import { Icon, Text, cx, useContentWidth } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
@@ -39,12 +39,36 @@ export const MATRIX_ROW_TRACK = 320;
 export const MATRIX_CELL_FLOOR = 120;
 
 /**
+ * The same two on a laptop's page. The full-size matrix (320 + seven 120px columns) is 1160px wide
+ * and scrolled sideways on every page narrower than that, which was every laptop. A page name still
+ * fits 240 — its "Also opens" line wraps under it — and a 32px well sits in 96 with room to spare.
+ */
+const MATRIX_ROW_TRACK_COMPACT = 240;
+const MATRIX_CELL_FLOOR_COMPACT = 96;
+
+/** Below this much page, the matrix draws its compact tracks. */
+const MATRIX_FULL_MIN = 1160;
+
+export interface MatrixTracks {
+    readonly row: number;
+    readonly cell: number;
+}
+
+/** The tracks for the page this matrix is on — the content column, not the window. */
+export function useMatrixTracks(): MatrixTracks {
+    const full = useContentWidth().atLeast(MATRIX_FULL_MIN);
+    return full
+        ? { row: MATRIX_ROW_TRACK, cell: MATRIX_CELL_FLOOR }
+        : { row: MATRIX_ROW_TRACK_COMPACT, cell: MATRIX_CELL_FLOOR_COMPACT };
+}
+
+/**
  * A column's share of the width. A tick column is `1`; a column of named chips — Also allowed,
  * Other — is wider, so its names are read whole rather than cut to an ellipsis. The header and every
  * row take the same weights, which is what keeps the tracks aligned.
  */
-function trackStyle(weight: number) {
-    return { flex: weight, minWidth: MATRIX_CELL_FLOOR * weight };
+function trackStyle(weight: number, tracks: MatrixTracks) {
+    return { flex: weight, minWidth: tracks.cell * weight };
 }
 
 /** `CatalogueList`'s panel — the frame every kitchen table sits in. */
@@ -52,8 +76,16 @@ const PANEL =
     'flex-col overflow-hidden rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card';
 
 /** The width below which the matrix scrolls sideways: the name track plus each column's floor. */
-export function matrixFloor(weights: readonly number[]): number {
-    return MATRIX_ROW_TRACK + weights.reduce((sum, weight) => sum + weight, 0) * MATRIX_CELL_FLOOR;
+export function matrixFloor(
+    weights: readonly number[],
+    tracks: MatrixTracks = { row: MATRIX_ROW_TRACK, cell: MATRIX_CELL_FLOOR },
+): number {
+    return tracks.row + weights.reduce((sum, weight) => sum + weight, 0) * tracks.cell;
+}
+
+/** `matrixFloor` at the tracks this page draws. */
+export function useMatrixFloor(weights: readonly number[]): number {
+    return matrixFloor(weights, useMatrixTracks());
 }
 
 export function MatrixFrame({
@@ -110,9 +142,10 @@ export function MatrixHeader({
     readonly rowHeader: string;
     readonly columns: readonly (MatrixColumn | readonly MatrixColumn[])[];
 }) {
+    const tracks = useMatrixTracks();
     // `DataList`'s header: the brand's subtle band, labels a step heavier than the cells under it.
     const cell = (column: MatrixColumn) => (
-        <View key={column.key} style={trackStyle(column.weight ?? 1)} className="py-1.5">
+        <View key={column.key} style={trackStyle(column.weight ?? 1, tracks)} className="py-1.5">
             <Text variant="strong" align="center" className="text-content-on-brand-subtle">
                 {column.label}
             </Text>
@@ -121,7 +154,7 @@ export function MatrixHeader({
 
     return (
         <View className="min-h-row-sm flex-row items-center gap-tight border-b border-stroke-subtle bg-surface-brand-subtle px-control-sm">
-            <View style={{ width: MATRIX_ROW_TRACK }} className="py-1.5">
+            <View style={{ width: tracks.row }} className="py-1.5">
                 <Text variant="strong" className="text-content-on-brand-subtle">
                     {rowHeader}
                 </Text>
@@ -175,13 +208,14 @@ export function MatrixRow({
     readonly children: ReactNode;
     readonly testID: string;
 }) {
+    const tracks = useMatrixTracks();
     return (
         // No hairline: `DataList`'s rows are told apart by height and the hover tint alone.
         <View
             testID={testID}
             className="min-h-row-md flex-row items-center gap-tight px-control-sm py-1 hover:bg-surface-sunken"
         >
-            <View style={{ width: MATRIX_ROW_TRACK }} className="min-w-0 flex-col">
+            <View style={{ width: tracks.row }} className="min-w-0 flex-col">
                 <Text testID={`${testID}-name`}>{title}</Text>
                 {caption}
             </View>
@@ -201,10 +235,11 @@ export function MatrixSlot({
     readonly weight?: number | undefined;
     readonly testID?: string | undefined;
 }) {
+    const tracks = useMatrixTracks();
     return (
         <View
             testID={testID}
-            style={trackStyle(weight)}
+            style={trackStyle(weight, tracks)}
             className="flex-row flex-wrap items-center justify-center gap-hair"
         >
             {children}

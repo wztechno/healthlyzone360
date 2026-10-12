@@ -16,6 +16,7 @@ import {
     Text,
     TextInputField,
     useToast,
+    useContentWidth,
 } from '@healthy360/design-system';
 import type { IngredientAdmin, RecipeVersionAdmin } from '@healthy360/api-client/contracts';
 import type { GridSpanProps, SelectOption } from '@healthy360/design-system';
@@ -40,6 +41,7 @@ import { PRODUCTION_MANAGE_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-
 import { scaleLine } from '../batch-scaling.ts';
 import { focusField } from '../field-focus.ts';
 import { displayName, statusKey, statusTone, unitShortKey } from '../format.ts';
+import { RECORD_RAIL_MIN, RECORD_SPLIT_MIN } from '../desk-layout.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import {
     BATCH_QUANTITY_FORMAT,
@@ -142,6 +144,7 @@ type Scale = 'yield' | 'factor';
 
 function ProductionBatchNew() {
     const { t } = useTranslation();
+    const split = useContentWidth().atLeast(RECORD_SPLIT_MIN);
     const { locale } = useLocale();
     const formatter = useFormatter();
     const router = useRouter();
@@ -526,15 +529,24 @@ function ProductionBatchNew() {
             )}
 
             {/*
-             * The form beside what it will make. Below `xl` the summary drops under the form: with
-             * the admin rail open, `lg` leaves the summary narrower than a field. `z-auto` down the
+             * The form beside what it will make, where the *page* has room for both — the content
+             * width, not the window, which on a laptop clears `xl` with the page at ~920px. Below
+             * `RECORD_SPLIT_MIN` the summary drops under the form. `z-auto` down the
              * column — see `FormSection` on why a View would trap the recipe dropdown.
              */}
             <View
                 testID="kitchen-production-batch-new-body"
-                className="z-auto flex-col gap-base xl:flex-row xl:items-start"
+                className={
+                    split ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
+                }
             >
-                <View className="z-auto min-w-0 flex-col gap-loose xl:flex-[21]">
+                <View
+                    className={
+                        split
+                            ? 'z-auto min-w-0 flex-[21] flex-col gap-loose'
+                            : 'z-auto min-w-0 flex-col gap-loose'
+                    }
+                >
                     {/*
                      * One card: recipe, scale and amount on one row, the notes under it.
                      * `relative z-raised`, or the picker's panel opens underneath the preview
@@ -747,7 +759,10 @@ function ProductionBatchNew() {
 
                 <View
                     testID="kitchen-production-batch-new-rail"
-                    className="min-w-0 flex-col gap-base xl:flex-[10]"
+                    className={
+                        split ? 'min-w-0 flex-[10] flex-col gap-base' : 'min-w-0 flex-col gap-base'
+                    }
+                    style={split ? { minWidth: RECORD_RAIL_MIN } : undefined}
                 >
                     <Card
                         testID="kitchen-production-batch-new-summary"

@@ -28,8 +28,7 @@ import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
-import type { LayoutChangeEvent } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -50,6 +49,7 @@ import {
 import { focusField } from '../field-focus.ts';
 import { displayName } from '../format.ts';
 import { ChoiceTiles } from '../choice-tiles.tsx';
+import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { purchaseOrderStatusKey } from '../ops-format.ts';
 import {
@@ -225,7 +225,12 @@ function PostReceipt() {
     const [varianceNote, setVarianceNote] = useState('');
     // Problems are shown once Post has been pressed, and follow the form live from then on.
     const [submitted, setSubmitted] = useState(false);
-    const [bodyWidth, setBodyWidth] = useState(0);
+    /*
+     * Read from the node rather than `onLayout`, which on the web delivered one early width and
+     * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.
+     */
+    const port = useCataloguePort();
+    const bodyWidth = port.width;
 
     const [creatingSupplier, setCreatingSupplier] = useState(false);
     const [newSupplierTried, setNewSupplierTried] = useState(false);
@@ -772,9 +777,8 @@ function PostReceipt() {
                 />
             ) : (
                 <View
-                    onLayout={(event: LayoutChangeEvent) => {
-                        setBodyWidth(event.nativeEvent.layout.width);
-                    }}
+                    ref={Platform.OS === 'web' ? port.ref : undefined}
+                    onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
                     className={
                         sideBySide
                             ? 'z-auto flex-row items-start gap-base'

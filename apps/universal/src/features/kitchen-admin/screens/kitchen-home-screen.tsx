@@ -10,6 +10,7 @@ import {
     Skeleton,
     Stack,
     Text,
+    useContentWidth,
 } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
@@ -668,6 +669,13 @@ const GROUP_LABEL_KEYS: Readonly<Record<EntityGroup, string>> = {
 
 export function KitchenHomeScreen() {
     const { t } = useTranslation();
+    /*
+     * Family cards per row, from the page's width rather than the window's: four where four cards
+     * keep ~240px each, three down to a laptop's narrowest, two below that.
+     */
+    const { width: contentWidth } = useContentWidth();
+    const familyGrid =
+        contentWidth >= 1000 ? 'grid-cols-4' : contentWidth >= 740 ? 'grid-cols-3' : 'grid-cols-2';
     const router = useRouter();
     const state = useAccessState();
     const families = permittedFamilies(state);
@@ -964,7 +972,7 @@ export function KitchenHomeScreen() {
                                         <Heading level={3} className="text-content-secondary">
                                             {t(GROUP_LABEL_KEYS[group])}
                                         </Heading>
-                                        <View className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+                                        <View className={`grid gap-3 ${familyGrid}`}>
                                             {groupFamilies.map((family) => (
                                                 <View key={family.key} className="min-w-0">
                                                     {renderFamilyCard(family, summaries)}

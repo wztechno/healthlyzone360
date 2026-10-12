@@ -389,8 +389,7 @@ function RecipesList() {
                     statusSegments={segments.segments}
                     status={segments.value}
                     onStatusChange={segments.onChange}
-                >
-                    <Inline space="xs" align="center">
+                    filters={
                         <SegmentedControl<RecipeLayout>
                             testID="kitchen-recipes-layout"
                             label={t('kitchen:list.layoutLabel')}
@@ -411,9 +410,10 @@ function RecipesList() {
                                 },
                             ]}
                         />
-                        {/* Columns are a table's question; a card draws every field it has. */}
-                        {layout === 'table' ? <ColumnPicker {...controls.picker} /> : null}
-                    </Inline>
+                    }
+                >
+                    {/* Columns are a table's question; a card draws every field it has. */}
+                    {layout === 'table' ? <ColumnPicker {...controls.picker} /> : null}
                     {canManage ? (
                         <Inline space="xs" align="center">
                             <CatalogueTransferActions testID="kitchen-recipes-toolbar" />

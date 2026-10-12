@@ -11,7 +11,7 @@ import {
     MatrixNone,
     MatrixRow,
     MatrixSlot,
-    matrixFloor,
+    useMatrixFloor,
 } from './role-matrix.tsx';
 
 /**
@@ -198,6 +198,8 @@ export function RolePermissionsTab({
         { key: 'other', label: t('accessAdmin:advanced.actions.other'), weight: OTHER_WEIGHT },
     ];
 
+    const floor = useMatrixFloor([...ACTION_COLUMNS.map(() => 1), OTHER_WEIGHT]);
+
     return (
         <View testID={testID} className="z-auto flex-col gap-base">
             {readOnly ? null : (
@@ -217,7 +219,7 @@ export function RolePermissionsTab({
             <MatrixFrame
                 testID={`${testID}-matrix`}
                 label={t('accessAdmin:advanced.tableLabel')}
-                floor={matrixFloor([...ACTION_COLUMNS.map(() => 1), OTHER_WEIGHT])}
+                floor={floor}
             >
                 <MatrixHeader
                     rowHeader={t('accessAdmin:advanced.columns.area')}

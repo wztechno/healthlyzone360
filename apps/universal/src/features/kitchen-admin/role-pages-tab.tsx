@@ -13,7 +13,7 @@ import {
     MatrixNone,
     MatrixRow,
     MatrixSlot,
-    matrixFloor,
+    useMatrixFloor,
 } from './role-matrix.tsx';
 
 /**
@@ -70,12 +70,14 @@ export function RolePagesTab({ codes, onChange, disabled = false, testID }: Role
         { key: 'extras', label: t('accessAdmin:pages.columns.extras'), weight: EXTRAS_WEIGHT },
     ];
 
+    const floor = useMatrixFloor([...LEVEL_COLUMNS.map(() => 1), EXTRAS_WEIGHT]);
+
     return (
         <View testID={testID} className="z-auto flex-col gap-base">
             <MatrixFrame
                 testID={`${testID}-matrix`}
                 label={t('accessAdmin:pages.tableLabel')}
-                floor={matrixFloor([...LEVEL_COLUMNS.map(() => 1), EXTRAS_WEIGHT])}
+                floor={floor}
             >
                 <MatrixHeader rowHeader={t('accessAdmin:pages.columns.page')} columns={columns} />
 

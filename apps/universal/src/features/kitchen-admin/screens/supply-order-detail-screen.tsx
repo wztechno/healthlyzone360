@@ -23,8 +23,7 @@ import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
-import type { LayoutChangeEvent } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -36,6 +35,7 @@ import {
     useUpdatePurchaseOrderMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
+import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import {
     canCancelPurchaseOrder,
@@ -197,7 +197,12 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
     const [dirty, setDirty] = useState(false);
     const [confirmingIssue, setConfirmingIssue] = useState(false);
     const [confirmingCancel, setConfirmingCancel] = useState(false);
-    const [bodyWidth, setBodyWidth] = useState(0);
+    /*
+     * Read from the node rather than `onLayout`, which on the web delivered one early width and
+     * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.
+     */
+    const port = useCataloguePort();
+    const bodyWidth = port.width;
 
     const data = record.data;
 
@@ -755,9 +760,8 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
             )}
 
             <View
-                onLayout={(event: LayoutChangeEvent) => {
-                    setBodyWidth(event.nativeEvent.layout.width);
-                }}
+                ref={Platform.OS === 'web' ? port.ref : undefined}
+                onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
                 className={
                     sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
                 }

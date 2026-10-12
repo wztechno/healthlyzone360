@@ -2360,6 +2360,55 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
             </Stack>
 
             {/*
+             * The same toolbar on a laptop's page, with a filter of the entity's own and the row's
+             * actions. Narrowed to 640px so the break is visible: the search and the filters wrap
+             * inside their zone, and New keeps the end of the first line — it is never the control
+             * left on a line of its own.
+             */}
+            <Stack space="xs">
+                <Text variant="section" tone="secondary">
+                    Catalogue toolbar — filters and actions, 640px
+                </Text>
+                <View style={{ maxWidth: 640 }}>
+                    <CatalogueToolbar
+                        testID={id('toolbar-narrow')}
+                        search={toolbarSearch}
+                        onSearchChange={setToolbarSearch}
+                        searchLabel="Search the catalogue"
+                        searchPlaceholder="Search ingredients"
+                        statusLabel="Status"
+                        statusSegments={[
+                            { value: 'all', label: 'All' },
+                            { value: 'live', label: 'Live' },
+                            { value: 'draft', label: 'Draft' },
+                            { value: 'review', label: 'Review' },
+                        ]}
+                        status={toolbarStatus}
+                        onStatusChange={setToolbarStatus}
+                        filters={
+                            <SegmentedControl
+                                testID={id('toolbar-narrow-layout')}
+                                label="Layout"
+                                value="table"
+                                onChange={() => undefined}
+                                items={[
+                                    { value: 'table', label: 'Table' },
+                                    { value: 'cards', label: 'Cards' },
+                                ]}
+                            />
+                        }
+                    >
+                        <Button
+                            testID={id('toolbar-narrow-create')}
+                            label="New"
+                            iconStart={<Icon name="plus" size="sm" />}
+                            onPress={() => undefined}
+                        />
+                    </CatalogueToolbar>
+                </View>
+            </Stack>
+
+            {/*
              * What every list draws under that toolbar: loading, a filter that matched nothing (with
              * the create action a manager gets), a failed listing, and the table with its pager.
              */}

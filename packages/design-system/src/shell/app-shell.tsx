@@ -10,6 +10,7 @@ import { Icon } from '../icons/icon.tsx';
 import { CascadeItem } from '../motion/cascade.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
+import { ContentWidthProvider } from '../hooks/use-content-width.tsx';
 import { cx } from '../internal/class-names.ts';
 import { Drawer } from '../overlays/drawer.tsx';
 import { ShellDockHost } from './shell-dock.tsx';
@@ -176,13 +177,24 @@ function AppShellLayout({
     testID,
 }: AppShellProps & { readonly dock: ReactNode }) {
     const { t } = useTranslation();
-    const { atLeast } = useBreakpoint();
+    const { atLeast, width: windowWidth } = useBreakpoint();
     const [drawerOpen, setDrawerOpen] = useState(false);
+    /**
+     * Whether the window has room for the page panel *as well as* a page. Below this the panel
+     * starts shut — see `PANEL_OPEN_MIN_WIDTH`.
+     */
+    const roomyWindow = windowWidth >= PANEL_OPEN_MIN_WIDTH;
     /**
      * The workspace's page panel, slid shut by the top bar's hamburger. Held here, in the shell, so it
      * survives navigation: a layout keeps one shell mounted across every route under it.
+     *
+     * It opens on the reader's last choice when there is one, and otherwise on the window: open
+     * where there is room for it, shut on a laptop, where its 232px is a quarter of the page.
      */
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+        const stored = readPersistedPanel();
+        return stored === null ? !roomyWindow : stored === 'shut';
+    });
     /**
      * The panel's contents stay mounted until the slide has finished, then leave the tree — a shut
      * panel's links must not stay in the tab order behind a zero-width box.
@@ -192,6 +204,17 @@ function AppShellLayout({
     const [chosenGroup, setChosenGroup] = useState<string | null>(null);
     const wideEnoughForSidebar = atLeast('lg');
     const twoPane = variant === 'workspace' && wideEnoughForSidebar && navigation.length > 0;
+    /*
+     * What the page loses to the chrome, for `useContentWidth`. The panel term follows the panel's
+     * target state, so a page re-lays itself the moment the hamburger is pressed rather than after
+     * the slide. The `rail` variant's tablet strip is left out: no desk page renders under it.
+     */
+    const contentInset = {
+        chrome: twoPane
+            ? SIDEBAR_COLLAPSED_WIDTH + (sidebarCollapsed ? 0 : (sidebarWidth ?? 260))
+            : 0,
+        padding: wideEnoughForSidebar ? CONTENT_PADDING_LG : CONTENT_PADDING,
+    };
 
     const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
     useEffect(
@@ -243,6 +266,9 @@ function AppShellLayout({
      * browser's back button — drops the module the reader last picked, so the panel follows the page
      * to its own module, sliding open if it was shut. Keyed on the page, not on the module, so
      * moving between two pages of the module already listed changes nothing.
+     *
+     * Only where the window has room for the panel. On a laptop it starts shut to give the page its
+     * width back, and reopening it on every page change would undo that on the first click.
      */
     const activeKey = navigation.find((item) => item.active === true)?.key;
     const lastActiveKey = useRef(activeKey);
@@ -250,25 +276,32 @@ function AppShellLayout({
         if (lastActiveKey.current === activeKey) return;
         lastActiveKey.current = activeKey;
         setChosenGroup(null);
-        if (twoPane && sidebarCollapsed && activeGroup !== undefined) setCollapsed(false);
-    }, [activeKey, activeGroup, twoPane, sidebarCollapsed, setCollapsed]);
+        if (twoPane && roomyWindow && sidebarCollapsed && activeGroup !== undefined) {
+            setCollapsed(false);
+        }
+    }, [activeKey, activeGroup, twoPane, roomyWindow, sidebarCollapsed, setCollapsed]);
 
+    /** The reader's own open or shut — remembered, unlike the shell following a page. */
+    const chooseCollapsed = (next: boolean) => {
+        setCollapsed(next);
+        persistPanel(next ? 'shut' : 'open');
+    };
     const toggleSidebar = () => {
-        setCollapsed(!sidebarCollapsed);
+        chooseCollapsed(!sidebarCollapsed);
     };
     /** A module icon: show its pages, opening the panel if it is shut; the same icon again shuts it. */
     const chooseGroup = (group: string) => {
         if (!sidebarCollapsed && shownGroup === group) {
-            setCollapsed(true);
+            chooseCollapsed(true);
             return;
         }
         setChosenGroup(group);
-        if (sidebarCollapsed) setCollapsed(false);
+        if (sidebarCollapsed) chooseCollapsed(false);
     };
     /** An ungrouped destination: go there, and open the panel on its note if it is shut. */
     const chooseUngrouped = (item: NavigationItem) => {
         setChosenGroup(null);
-        if (sidebarCollapsed && groups.length > 0) setCollapsed(false);
+        if (sidebarCollapsed && groups.length > 0 && roomyWindow) setCollapsed(false);
         item.onPress();
     };
 
@@ -1126,7 +1159,7 @@ function AppShellLayout({
                             contentClassName,
                         )}
                     >
-                        {children}
+                        <ContentWidthProvider value={contentInset}>{children}</ContentWidthProvider>
                         {footer}
                     </ScrollView>
                     {dockBar}
@@ -1151,7 +1184,7 @@ function AppShellLayout({
                     className="flex-1"
                     contentContainerClassName={cx('flex-grow gap-4 p-4 lg:p-7', contentClassName)}
                 >
-                    {children}
+                    <ContentWidthProvider value={contentInset}>{children}</ContentWidthProvider>
                     {footer}
                 </ScrollView>
             </View>
@@ -1172,6 +1205,49 @@ function AppShellLayout({
 export const SIDEBAR_COLLAPSED_WIDTH = 56;
 /** How long the page panel takes to slide shut or open. */
 export const SIDEBAR_TRANSITION_MS = 200;
+
+/**
+ * The narrowest window the page panel opens on by itself.
+ *
+ * Not a breakpoint: nothing about the *page* changes here, only whether the shell spends 232px on
+ * a list the module rail can summon. At 1440 the page keeps ~1100px with the panel open, which is
+ * what the admin is drawn at. A 1920×1080 laptop at 150% scaling hands the browser 1280, where the
+ * open panel left the page ~920 and shutting it gives back a quarter of the screen. The reader's
+ * own choice, once made, outranks this either way.
+ */
+export const PANEL_OPEN_MIN_WIDTH = 1440;
+
+/** The content column's padding per side: `p-4`, and `lg:p-7` from `lg` up. */
+const CONTENT_PADDING = 16;
+const CONTENT_PADDING_LG = 28;
+
+/** Web only, beside the theme and locale cookies, and the same one-year, root, Lax shape. */
+const PANEL_COOKIE = 'h360_panel';
+const PANEL_COOKIE_MAX_AGE = 31_536_000;
+
+type PanelChoice = 'open' | 'shut';
+
+function readPersistedPanel(): PanelChoice | null {
+    if (Platform.OS !== 'web') return null;
+    try {
+        const cookie = globalThis.document?.cookie ?? '';
+        const value = new RegExp(`(?:^|;\\s*)${PANEL_COOKIE}=([^;]*)`).exec(cookie)?.[1];
+        return value === 'open' || value === 'shut' ? value : null;
+    } catch {
+        return null;
+    }
+}
+
+function persistPanel(choice: PanelChoice): void {
+    if (Platform.OS !== 'web') return;
+    try {
+        const document_ = globalThis.document;
+        if (document_ === undefined) return;
+        document_.cookie = `${PANEL_COOKIE}=${choice}; path=/; max-age=${String(PANEL_COOKIE_MAX_AGE)}; samesite=lax`;
+    } catch {
+        // A refused cookie still leaves a working toggle; the choice just does not outlive the tab.
+    }
+}
 
 /**
  * One glyph on the module rail. White on the green strip, and a white pill in green when lit. Its

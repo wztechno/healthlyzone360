@@ -12,8 +12,7 @@ import {
 import { KitchenBranchId } from '@healthy360/domain-types';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
-import type { LayoutChangeEvent } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -33,6 +32,7 @@ import {
 import type { OperatingDayDraft } from '../delivery-model.ts';
 import { OperatingWeekRows } from '../delivery-row-editors.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
@@ -157,7 +157,12 @@ function BranchOperatingEditor() {
     const [daysKey, setDaysKey] = useState<string | null>(null);
     const [dirty, setDirty] = useState(false);
     const [announcement, setAnnouncement] = useState('');
-    const [bodyWidth, setBodyWidth] = useState(0);
+    /*
+     * Read from the node rather than `onLayout`, which on the web delivered one early width and
+     * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.
+     */
+    const port = useCataloguePort();
+    const bodyWidth = port.width;
 
     const title = t('kitchen:branchHours.title');
     useKitchenTrailLeaf(title);
@@ -333,9 +338,8 @@ function BranchOperatingEditor() {
             ) : null}
 
             <View
-                onLayout={(event: LayoutChangeEvent) => {
-                    setBodyWidth(event.nativeEvent.layout.width);
-                }}
+                ref={Platform.OS === 'web' ? port.ref : undefined}
+                onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
                 className={
                     sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
                 }
