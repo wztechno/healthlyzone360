@@ -33,6 +33,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
+import { useWindowName } from '../order-desk/use-window-name.ts';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     useCancelOrderMutation,
@@ -587,6 +588,7 @@ function OrderRecord({
     readonly onBack: () => void;
 }) {
     const { t } = useTranslation();
+    const windowName = useWindowName();
     const formatter = useFormatter();
     const toast = useToast();
     const canManage = useCan(ORDER_MANAGE_PERMISSION);
@@ -743,7 +745,7 @@ function OrderRecord({
                         value={
                             shown.delivery.windowCode === null
                                 ? t('kitchen:common.notRecorded')
-                                : humaniseCode(shown.delivery.windowCode)
+                                : windowName(shown.delivery.windowCode)
                         }
                     />
                     <FactRow

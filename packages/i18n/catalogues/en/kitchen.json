@@ -397,8 +397,8 @@
             "createDrafts_other": "Create {{count}} draft orders",
             "createConfirmTitle": "Create these draft orders?",
             "createConfirmBody": "We'll create one draft order per supplier. Nothing is sent to anyone yet — you can review, edit and issue each order afterwards.",
-            "createConfirmCounts_one": "{{count}} order with {{lines}} lines in total.",
-            "createConfirmCounts_other": "{{count}} orders with {{lines}} lines in total.",
+            "createConfirmCounts_one": "{{count}} order with {{lines}} in total.",
+            "createConfirmCounts_other": "{{count}} orders with {{lines}} in total.",
             "createConfirm_one": "Create {{count}} order",
             "createConfirm_other": "Create {{count}} orders",
             "createCancel": "Keep editing",
@@ -536,7 +536,9 @@
             "outCount_one": "{{count}} out of stock",
             "outCount_other": "{{count}} out of stock",
             "groupCount_one": "{{count}} item",
-            "groupCount_other": "{{count}} items"
+            "groupCount_other": "{{count}} items",
+            "createConfirmLines_one": "{{count}} line",
+            "createConfirmLines_other": "{{count}} lines"
         },
         "suppliers": {
             "title": "Suppliers",

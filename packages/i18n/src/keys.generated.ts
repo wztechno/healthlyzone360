@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8311 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8312 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -5105,6 +5105,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.createConfirm'
     | 'ops.supplyOrders.createConfirmBody'
     | 'ops.supplyOrders.createConfirmCounts'
+    | 'ops.supplyOrders.createConfirmLines'
     | 'ops.supplyOrders.createConfirmTitle'
     | 'ops.supplyOrders.createDrafts'
     | 'ops.supplyOrders.createFailed'
@@ -13434,6 +13435,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.createConfirm',
   'kitchen:ops.supplyOrders.createConfirmBody',
   'kitchen:ops.supplyOrders.createConfirmCounts',
+  'kitchen:ops.supplyOrders.createConfirmLines',
   'kitchen:ops.supplyOrders.createConfirmTitle',
   'kitchen:ops.supplyOrders.createDrafts',
   'kitchen:ops.supplyOrders.createFailed',

@@ -397,8 +397,8 @@
       "createDrafts_other": "[[Çŕéáţé {{count}} ðŕáƒţ óŕðéŕš āēīōūāēīōūāē]]",
       "createConfirmTitle": "[[Çŕéáţé ţĥéšé ðŕáƒţ óŕðéŕš? āēīōūāēīōūā]]",
       "createConfirmBody": "[[Ŵé'łł çŕéáţé óñé ðŕáƒţ óŕðéŕ þéŕ šúþþłíéŕ. Ñóţĥíñĝ íš šéñţ ţó áñýóñé ýéţ — ýóú çáñ ŕéṽíéŵ, éðíţ áñð íššúé éáçĥ óŕðéŕ áƒţéŕŵáŕðš. āēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāē]]",
-      "createConfirmCounts_one": "[[{{count}} óŕðéŕ ŵíţĥ {{lines}} łíñéš íñ ţóţáł. āēīōūāēīōūāēīōūāēīō]]",
-      "createConfirmCounts_other": "[[{{count}} óŕðéŕš ŵíţĥ {{lines}} łíñéš íñ ţóţáł. āēīōūāēīōūāēīōūāēīō]]",
+      "createConfirmCounts_one": "[[{{count}} óŕðéŕ ŵíţĥ {{lines}} íñ ţóţáł. āēīōūāēīōūāēīōūā]]",
+      "createConfirmCounts_other": "[[{{count}} óŕðéŕš ŵíţĥ {{lines}} íñ ţóţáł. āēīōūāēīōūāēīōūāē]]",
       "createConfirm_one": "[[Çŕéáţé {{count}} óŕðéŕ āēīōūāēīō]]",
       "createConfirm_other": "[[Çŕéáţé {{count}} óŕðéŕš āēīōūāēīōū]]",
       "createCancel": "[[Ķééþ éðíţíñĝ āēīōū]]",
@@ -536,7 +536,9 @@
       "outCount_one": "[[{{count}} óúţ óƒ šţóçķ āēīōūāēīō]]",
       "outCount_other": "[[{{count}} óúţ óƒ šţóçķ āēīōūāēīō]]",
       "groupCount_one": "[[{{count}} íţéɱ āēīōūā]]",
-      "groupCount_other": "[[{{count}} íţéɱš āēīōūā]]"
+      "groupCount_other": "[[{{count}} íţéɱš āēīōūā]]",
+      "createConfirmLines_one": "[[{{count}} łíñé āēīōūā]]",
+      "createConfirmLines_other": "[[{{count}} łíñéš āēīōūā]]"
     },
     "suppliers": {
       "title": "[[Šúþþłíéŕš āēīō]]",
