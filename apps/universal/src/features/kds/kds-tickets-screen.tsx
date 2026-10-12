@@ -406,7 +406,16 @@ function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: Ti
                                                     ? 'danger'
                                                     : 'warning'
                                             }
-                                            label={humaniseCode(allergen.allergenCode)}
+                                            // Colour alone is not the claim: the words say it.
+                                            label={
+                                                allergen.containment === 'contains'
+                                                    ? humaniseCode(allergen.allergenCode)
+                                                    : t('kitchen:kds.mayContain', {
+                                                          allergen: humaniseCode(
+                                                              allergen.allergenCode,
+                                                          ),
+                                                      })
+                                            }
                                         />
                                     ))}
                                 </Inline>

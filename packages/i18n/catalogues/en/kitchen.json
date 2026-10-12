@@ -1613,7 +1613,8 @@
         "conflictBody": "Another station started or finished it. Refresh the board to see where it stands now.",
         "conflictRefresh": "Refresh the board",
         "noBranchTitle": "No kitchen chosen",
-        "noBranchBody": "Choose the branch this screen is displaying before the board can show its tickets."
+        "noBranchBody": "Choose the branch this screen is displaying before the board can show its tickets.",
+        "mayContain": "May contain {{allergen}}"
     },
     "driver": {
         "title": "Your deliveries",
