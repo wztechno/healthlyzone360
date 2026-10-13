@@ -631,13 +631,16 @@ function RecipeEditor({
      * second recipe and a second listing. The ref blocks a press in the same tick; the state keeps
      * the button busy. Released only on failure — on success the page leaves.
      */
-    const creatingRef = useRef(false);
+    // Holds the route parameter the create was started for, so a changed parameter releases it.
+    const creatingRef = useRef<string | undefined | null>(null);
     const [creatingNow, setCreatingNow] = useState(false);
-    // The router may keep this instance when `new` becomes the created id; start clean either way.
-    useEffect(() => {
-        creatingRef.current = false;
+    // The router may keep this instance when `new` becomes the created id; start clean either way —
+    // adjusted during render, React's pattern for state that follows a prop.
+    const [creatingFor, setCreatingFor] = useState(recipe);
+    if (creatingFor !== recipe) {
+        setCreatingFor(recipe);
         setCreatingNow(false);
-    }, [recipe]);
+    }
 
     const data = record.data;
     const serverKey =
@@ -1297,8 +1300,8 @@ function RecipeEditor({
             typeof value === 'number' && currency !== null ? { amount: value, currency } : null;
 
         if (isCreating) {
-            if (creatingRef.current) return;
-            creatingRef.current = true;
+            if (creatingRef.current === recipe) return;
+            creatingRef.current = recipe;
             setCreatingNow(true);
             /*
              * Create, then immediately write whatever was drafted on the other tabs.
@@ -1378,7 +1381,7 @@ function RecipeEditor({
                     router.replace(`/kitchen/recipes/${String(created.id)}` as never);
                 },
                 (error: unknown) => {
-                    creatingRef.current = false;
+                    creatingRef.current = null;
                     setCreatingNow(false);
                     setSaveError(toFailure(error)?.message ?? t('kitchen:recipes.saveFailed'));
                 },
