@@ -1597,7 +1597,7 @@
         "columnEmpty": {
             "incoming": "Nothing waiting to be started.",
             "preparing": "Nothing being prepared.",
-            "done": "Nothing finished today yet."
+            "done": "Nothing ready or handed over today yet."
         },
         "emptyTitle": "No tickets on the board",
         "emptyBody": "Orders placed against this kitchen appear here the moment they arrive.",
@@ -1614,7 +1614,8 @@
         "conflictRefresh": "Refresh the board",
         "noBranchTitle": "No kitchen chosen",
         "noBranchBody": "Choose the branch this screen is displaying before the board can show its tickets.",
-        "mayContain": "May contain {{allergen}}"
+        "mayContain": "May contain {{allergen}}",
+        "handedOver": "Handed over"
     },
     "driver": {
         "title": "Your deliveries",

@@ -23,6 +23,7 @@ import { toFailure } from '../../data/hooks.ts';
 import {
     useConfirmOrderMutation,
     useFulfilOrderMutation,
+    useMarkOrderReadyMutation,
     useKitchenOrdersQuery,
 } from '../../data/kitchen-orders-hooks.ts';
 import { useOnlineStatus } from '../../online/online-status.tsx';
@@ -99,6 +100,9 @@ import type { KdsColumnKey } from './kds-board.ts';
 /** Poll cadence for the board and its clock. See the header. */
 export const KDS_POLL_MS = 15_000;
 
+/** What a ticket's one button does: start it, mark it cooked, or hand it over. */
+type KdsAction = 'start' | 'ready' | 'handOver';
+
 export function KdsTicketsScreen() {
     return (
         <Gate area="kds" requirement={{ allOf: [ORDER_VIEW_PERMISSION] }} testID="kds-tickets">
@@ -153,6 +157,7 @@ function KdsTickets() {
     });
 
     const confirmOrder = useConfirmOrderMutation();
+    const markReady = useMarkOrderReadyMutation();
     const fulfilOrder = useFulfilOrderMutation();
 
     const board = useMemo(
@@ -161,29 +166,34 @@ function KdsTickets() {
     );
 
     const listFailure = toFailure(orders.error);
-    const actionFailure = toFailure(confirmOrder.error) ?? toFailure(fulfilOrder.error);
+    const actionFailure =
+        toFailure(confirmOrder.error) ?? toFailure(markReady.error) ?? toFailure(fulfilOrder.error);
     const isConflict = actionFailure?.code === 'resource.conflict';
 
     function clearActionState() {
         confirmOrder.reset();
+        markReady.reset();
         fulfilOrder.reset();
     }
 
-    function bump(order: KitchenOrder, action: 'start' | 'ready') {
+    function bump(order: KitchenOrder, action: KdsAction) {
         clearActionState();
         const request = { id: order.id, lockVersion: order.lockVersion };
         if (action === 'start') confirmOrder.mutate(request);
+        else if (action === 'ready') markReady.mutate(request);
         else fulfilOrder.mutate(request);
     }
 
     /** The ticket a write is in flight for, so only that one shows a spinner. */
     const pendingRequest = confirmOrder.isPending
         ? confirmOrder.variables
-        : fulfilOrder.isPending
-          ? fulfilOrder.variables
-          : undefined;
+        : markReady.isPending
+          ? markReady.variables
+          : fulfilOrder.isPending
+            ? fulfilOrder.variables
+            : undefined;
     const pendingId: OrderId | null = pendingRequest?.id ?? null;
-    const actionPending = confirmOrder.isPending || fulfilOrder.isPending;
+    const actionPending = confirmOrder.isPending || markReady.isPending || fulfilOrder.isPending;
 
     const empty =
         board.incoming.length === 0 && board.preparing.length === 0 && board.done.length === 0;
@@ -345,7 +355,7 @@ interface TicketProps {
     readonly pending: boolean;
     /** A write is in flight for some ticket — every bump button waits for it. */
     readonly disabled: boolean;
-    readonly onBump: (order: KitchenOrder, action: 'start' | 'ready') => void;
+    readonly onBump: (order: KitchenOrder, action: KdsAction) => void;
 }
 
 /**
@@ -446,7 +456,7 @@ function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: Ti
                             onBump(order, 'start');
                         }}
                     />
-                ) : canFulfilKitchenOrder(order.status) ? (
+                ) : canFulfilKitchenOrder(order.status) && (order.readyAt ?? null) === null ? (
                     <Button
                         testID={`${testID}-ready`}
                         block
@@ -455,6 +465,19 @@ function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: Ti
                         disabled={disabled}
                         onPress={() => {
                             onBump(order, 'ready');
+                        }}
+                    />
+                ) : canFulfilKitchenOrder(order.status) ? (
+                    // Cooked and waiting: handing it over is the step that fulfils it.
+                    <Button
+                        testID={`${testID}-handed-over`}
+                        block
+                        variant="secondary"
+                        label={t('kitchen:kds.handedOver')}
+                        loading={pending}
+                        disabled={disabled}
+                        onPress={() => {
+                            onBump(order, 'handOver');
                         }}
                     />
                 ) : null}

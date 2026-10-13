@@ -12275,6 +12275,50 @@ paths:
           $ref: '#/components/responses/PreconditionRequired'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/orders/{order}/ready:
+    post:
+      operationId: markKitchenOrderReady
+      tags:
+        - Kitchen orders
+      summary: Record that the kitchen finished an order
+      description: |
+        "Ready" on the kitchen display: cooked, not yet handed over. Stamps
+        `ready_at` and leaves the order `confirmed`; handing it over is
+        `/fulfil`. Reachable from `confirmed` only, once — a second press is
+        `409`.
+
+        Requires `order.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The order, still confirmed, with `ready_at` and its new validator.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/orders/{order}/cancel:
     post:
       operationId: cancelKitchenOrder
@@ -37055,6 +37099,12 @@ components:
             - string
             - 'null'
           format: date-time
+        ready_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: When the kitchen marked it ready. The order stays `confirmed` until it is handed over (`fulfilled_at`).
         fulfilled_at:
           type:
             - string
@@ -37178,6 +37228,12 @@ components:
             - string
             - 'null'
           format: date-time
+        ready_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: When the kitchen marked it ready. The order stays `confirmed` until it is handed over (`fulfilled_at`).
         fulfilled_at:
           type:
             - string

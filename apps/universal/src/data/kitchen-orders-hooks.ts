@@ -151,6 +151,22 @@ function useKitchenOrderWriteEffects(): (order: KitchenOrder) => void {
     };
 }
 
+/** "Ready" on the kitchen display: stamps `readyAt`, the order stays confirmed until handed over. */
+export function useMarkOrderReadyMutation(): UseMutationResult<
+    KitchenOrder,
+    unknown,
+    KitchenOrderTransitionRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOrderWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: KitchenOrderTransitionRequest) =>
+            repositories.kitchenOrders.markOrderReady(request),
+        onSuccess: onWritten,
+    });
+}
+
 /** `placed → confirmed`. Sends the `lockVersion` the caller read as `If-Match`. */
 export function useConfirmOrderMutation(): UseMutationResult<
     KitchenOrder,

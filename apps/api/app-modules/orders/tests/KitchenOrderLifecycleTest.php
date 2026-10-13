@@ -305,3 +305,32 @@ it('receipts the cash still outstanding when a cash order is fulfilled, and leav
 
     expect($wish->paymentReceipts()->count())->toBe(0);
 });
+
+it('marks a confirmed order ready without handing it over, then hands it over', function (): void {
+    $order = OrderWorld::place($this->world);
+
+    $confirmed = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/confirm', [], $this->kitchenHeaders + [
+        'If-Match' => '"'.$order->lock_version.'"',
+    ])->assertOk();
+
+    // Ready: cooked, still confirmed, still the customer's to collect.
+    $ready = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/ready', [], $this->kitchenHeaders + [
+        'If-Match' => $confirmed->headers->get('ETag'),
+    ])
+        ->assertOk()
+        ->assertJsonPath('data.order.status', 'confirmed')
+        ->assertJsonPath('data.order.ready_at', fn (mixed $at): bool => is_string($at))
+        ->assertJsonPath('data.order.fulfilled_at', null);
+
+    // Pressing Ready again is a conflict, not a second stamp.
+    $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/ready', [], $this->kitchenHeaders + [
+        'If-Match' => $ready->headers->get('ETag'),
+    ])->assertStatus(409);
+
+    // Handed over is the fulfil it always was.
+    $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/fulfil', [], $this->kitchenHeaders + [
+        'If-Match' => $ready->headers->get('ETag'),
+    ])
+        ->assertOk()
+        ->assertJsonPath('data.order.status', 'fulfilled');
+});

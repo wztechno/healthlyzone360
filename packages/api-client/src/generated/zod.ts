@@ -5327,6 +5327,7 @@ export const zCustomerOrder = z.object({
     delivery: zCustomerOrderDelivery,
     placed_at: z.iso.datetime({ offset: true }),
     confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    ready_at: z.iso.datetime({ offset: true }).nullish(),
     fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
     cancelled_at: z.iso.datetime({ offset: true }).nullable(),
     cancellation_reason: zCancellationReason.nullable(),
@@ -5369,6 +5370,7 @@ export const zKitchenOrder = z.object({
     delivery: zKitchenOrderDelivery,
     placed_at: z.iso.datetime({ offset: true }),
     confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    ready_at: z.iso.datetime({ offset: true }).nullish(),
     fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
     cancelled_at: z.iso.datetime({ offset: true }).nullable(),
     cancellation_reason: zCancellationReason.nullable(),
@@ -13246,6 +13248,21 @@ export const zFulfilKitchenOrderPath = z.object({
  * The fulfilled order, with its new validator.
  */
 export const zFulfilKitchenOrderResponse = zKitchenOrderEnvelope;
+
+export const zMarkKitchenOrderReadyHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zMarkKitchenOrderReadyPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order, still confirmed, with `ready_at` and its new validator.
+ */
+export const zMarkKitchenOrderReadyResponse = zKitchenOrderEnvelope;
 
 export const zCancelKitchenOrderBody = zCancelOrderRequest;
 

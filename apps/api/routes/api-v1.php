@@ -206,6 +206,7 @@ use Healthy360\Orders\Http\Controllers\KitchenOrderCancelController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderConfirmController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderFulfilController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderIndexController;
+use Healthy360\Orders\Http\Controllers\KitchenOrderReadyController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderShowController;
 use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
 use Healthy360\Orders\Http\Controllers\MyOrderShowController;
@@ -1934,6 +1935,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/orders/{order}/fulfil', KitchenOrderFulfilController::class)
                     ->middleware('precondition')
                     ->name('catalogue.orders.fulfil');
+
+                // "Ready" on the kitchen display: cooked, not yet handed over.
+                // Stamps `ready_at` and leaves the order confirmed.
+                Route::post('/orders/{order}/ready', KitchenOrderReadyController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.orders.ready');
 
                 Route::post('/orders/{order}/cancel', KitchenOrderCancelController::class)
                     ->middleware('precondition')

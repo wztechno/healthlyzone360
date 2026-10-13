@@ -135,6 +135,7 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
         delivery: mapDelivery(wire.delivery),
         placedAt: wire.placed_at,
         confirmedAt: wire.confirmed_at,
+        readyAt: wire.ready_at ?? null,
         fulfilledAt: wire.fulfilled_at,
         cancelledAt: wire.cancelled_at,
         cancellationReason: wire.cancellation_reason,
@@ -209,7 +210,7 @@ export function createApiKitchenOrdersRepository(transport: Transport): KitchenO
     async function transition(
         orderId: OrderId,
         lockVersion: number,
-        action: 'confirm' | 'fulfil' | 'cancel',
+        action: 'confirm' | 'ready' | 'fulfil' | 'cancel',
         body?: Record<string, unknown>,
     ): Promise<KitchenOrder> {
         const payload = await transport.request<{ readonly order: WireKitchenOrder }>({
@@ -246,6 +247,10 @@ export function createApiKitchenOrdersRepository(transport: Transport): KitchenO
 
         async confirmOrder(request: KitchenOrderTransitionRequest): Promise<KitchenOrder> {
             return transition(request.id, request.lockVersion, 'confirm');
+        },
+
+        async markOrderReady(request: KitchenOrderTransitionRequest): Promise<KitchenOrder> {
+            return transition(request.id, request.lockVersion, 'ready');
         },
 
         async fulfilOrder(request: KitchenOrderTransitionRequest): Promise<KitchenOrder> {
