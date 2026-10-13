@@ -3449,7 +3449,8 @@
         "saveAndCharge": "Save and charge",
         "saveDraft": "Save draft",
         "savedToastPublished": "Saved. The new prices apply from now.",
-        "savedToastDraft": "Draft saved."
+        "savedToastDraft": "Draft saved.",
+        "setOnMeal": "Set on the meal"
     },
     "plans": {
         "title": "Plans",

@@ -3892,7 +3892,8 @@
         "changesRemoved_two": "بندان محذوفان",
         "changesRemoved_few": "{{count}} بنود محذوفة",
         "changesRemoved_many": "{{count}} بندًا محذوفًا",
-        "changesRemoved_other": "{{count}} بند محذوف"
+        "changesRemoved_other": "{{count}} بند محذوف",
+        "setOnMeal": "يُحدَّد في صفحة الوجبة"
     },
     "plans": {
         "title": "الخطط",
