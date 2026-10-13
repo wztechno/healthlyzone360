@@ -70,6 +70,13 @@ export interface AppShellProps {
      * the application's job, and a shell that could hide items would be a second, weaker guard.
      */
     readonly navigation?: readonly NavigationItem[] | undefined;
+    /**
+     * The area switcher, drawn as the bottom tab bar under the page on `workspace`, `rail` and
+     * `kiosk` — every admin page keeps it in the same place, apart from the area's own rail. On a
+     * two-pane workspace it runs under the content column only; the rail keeps the full height.
+     * `driver` and `consumer` draw `navigation` in that bar instead and ignore this.
+     */
+    readonly bottomNavigation?: readonly NavigationItem[] | undefined;
     /** Leading topbar slot — brand, back control. */
     readonly topbarStart?: ReactNode | undefined;
     /**
@@ -161,6 +168,7 @@ function AppShellLayout({
     children,
     title,
     navigation = [],
+    bottomNavigation = [],
     topbarStart,
     topbarTitle,
     topbarEnd,
@@ -305,11 +313,77 @@ function AppShellLayout({
         item.onPress();
     };
 
+    // One bottom bar, shared by `driver` and `consumer` (their `navigation`) and by the admin
+    // variants (their `bottomNavigation`). Extracted rather than duplicated so they can never drift
+    // into two subtly different tab semantics.
+    //
+    // Two elements, not one: the bar is a navigation landmark *and* the row of tabs is a tablist.
+    // They cannot be the same element — `role` and `accessibilityRole` on one `View` do not compose,
+    // the DOM keeps whichever wins, and the loser takes the other with it. When `navigation` won,
+    // every `role="tab"` below sat with no `tablist` ancestor, which is an axe-critical
+    // `aria-required-parent` finding on every phone-width screen in the consumer area.
+    const renderTabBar = (items: readonly NavigationItem[]) => (
+        <View
+            role="navigation"
+            aria-label={t('designSystem:shell.primaryNavigation')}
+            className="border-t border-stroke-subtle bg-surface-raised"
+        >
+            <View
+                testID={testID === undefined ? undefined : `${testID}-tabs`}
+                role="tablist"
+                accessibilityRole="tablist"
+                aria-label={t('designSystem:shell.primaryNavigation')}
+                className="flex-row"
+            >
+                {items.map((item) => (
+                    <Pressable
+                        key={item.key}
+                        testID={item.testID}
+                        role="tab"
+                        accessibilityRole="tab"
+                        accessibilityLabel={item.label}
+                        accessibilityState={{ selected: item.active === true }}
+                        aria-selected={item.active === true}
+                        focusable
+                        onPress={item.onPress}
+                        className="min-h-touch flex-1 items-center justify-center gap-0.5 py-2"
+                    >
+                        {item.icon === undefined ? null : (
+                            <Icon
+                                name={item.icon}
+                                className={
+                                    item.active === true
+                                        ? 'text-content-on-brand-subtle'
+                                        : 'text-content-secondary'
+                                }
+                            />
+                        )}
+                        <RNText
+                            className={cx(
+                                'text-xs',
+                                item.active === true
+                                    ? 'text-content-on-brand-subtle font-medium'
+                                    : 'text-content-secondary',
+                            )}
+                        >
+                            {item.label}
+                        </RNText>
+                    </Pressable>
+                ))}
+            </View>
+        </View>
+    );
+
+    const tabBar = renderTabBar(navigation);
+    /** The admin variants' area switcher — nothing when the caller passes none. */
+    const bottomBar = bottomNavigation.length === 0 ? null : renderTabBar(bottomNavigation);
+
     if (variant === 'kiosk') {
         return (
             <View testID={testID} className="flex-1 bg-surface-base">
                 {banner}
                 <View className={cx('flex-1', contentClassName)}>{children}</View>
+                {bottomBar}
             </View>
         );
     }
@@ -353,66 +427,6 @@ function AppShellLayout({
             </View>
         );
     }
-
-    // One bottom bar, shared by `driver` and `consumer`. Extracted rather than duplicated so the
-    // two can never drift into two subtly different tab semantics.
-    //
-    // Two elements, not one: the bar is a navigation landmark *and* the row of tabs is a tablist.
-    // They cannot be the same element — `role` and `accessibilityRole` on one `View` do not compose,
-    // the DOM keeps whichever wins, and the loser takes the other with it. When `navigation` won,
-    // every `role="tab"` below sat with no `tablist` ancestor, which is an axe-critical
-    // `aria-required-parent` finding on every phone-width screen in the consumer area.
-    const tabBar = (
-        <View
-            role="navigation"
-            aria-label={t('designSystem:shell.primaryNavigation')}
-            className="border-t border-stroke-subtle bg-surface-raised"
-        >
-            <View
-                testID={testID === undefined ? undefined : `${testID}-tabs`}
-                role="tablist"
-                accessibilityRole="tablist"
-                aria-label={t('designSystem:shell.primaryNavigation')}
-                className="flex-row"
-            >
-                {navigation.map((item) => (
-                    <Pressable
-                        key={item.key}
-                        testID={item.testID}
-                        role="tab"
-                        accessibilityRole="tab"
-                        accessibilityLabel={item.label}
-                        accessibilityState={{ selected: item.active === true }}
-                        aria-selected={item.active === true}
-                        focusable
-                        onPress={item.onPress}
-                        className="min-h-touch flex-1 items-center justify-center gap-0.5 py-2"
-                    >
-                        {item.icon === undefined ? null : (
-                            <Icon
-                                name={item.icon}
-                                className={
-                                    item.active === true
-                                        ? 'text-content-on-brand-subtle'
-                                        : 'text-content-secondary'
-                                }
-                            />
-                        )}
-                        <RNText
-                            className={cx(
-                                'text-xs',
-                                item.active === true
-                                    ? 'text-content-on-brand-subtle font-medium'
-                                    : 'text-content-secondary',
-                            )}
-                        >
-                            {item.label}
-                        </RNText>
-                    </Pressable>
-                ))}
-            </View>
-        </View>
-    );
 
     if (variant === 'driver') {
         return (
@@ -1163,6 +1177,7 @@ function AppShellLayout({
                         {footer}
                     </ScrollView>
                     {dockBar}
+                    {bottomBar}
                 </View>
             </View>
         );
@@ -1190,6 +1205,7 @@ function AppShellLayout({
             </View>
 
             {dockBar}
+            {bottomBar}
 
             {variant === 'workspace' && !wideEnoughForSidebar && navigation.length > 0
                 ? navigationDrawer

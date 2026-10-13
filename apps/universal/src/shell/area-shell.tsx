@@ -47,6 +47,14 @@ export const AREA_SHELL_VARIANT: Readonly<Record<RouteArea, AppShellVariant>> = 
     'platform-admin': 'workspace',
 };
 
+/** The chromes that carry the workspace switcher: the staff desks, the KDS and the driver. */
+const SWITCHER_VARIANTS: ReadonlySet<AppShellVariant> = new Set([
+    'workspace',
+    'rail',
+    'kiosk',
+    'driver',
+]);
+
 export interface AreaShellProps {
     readonly area: RouteArea;
     readonly children: ReactNode;
@@ -56,8 +64,8 @@ export interface AreaShellProps {
     /** Skip the gate. Only the auth area does this; everything else must be guarded. */
     readonly unguarded?: boolean | undefined;
     /**
-     * Replaces the workspace destinations with an area-owned rail — the kitchen family rail.
-     * The default stays `permittedNavigation`, which is what every other area wants.
+     * The area's own rail — the kitchen family rail. Without one the area draws no rail at all:
+     * the workspace switcher is the bottom bar, not a rail module.
      */
     readonly navigation?: readonly NavigationItem[] | undefined;
     readonly sidebarWidth?: number | undefined;
@@ -131,9 +139,13 @@ function GuardedAreaShell({
     // Sign out must stay in the top bar or it stops existing.
     const sidebarPresent = signOutInSidebar && atLeast('lg');
 
-    const navigation = useMemo<readonly NavigationItem[]>(() => {
-        if (resolvedVariant === 'auth' || resolvedVariant === 'kiosk') return [];
-        if (navigationOverride !== undefined) return navigationOverride;
+    /*
+     * The workspace switcher — the other areas and the account pages. On every admin chrome it is
+     * the bottom bar, the same on every page; the driver's tabs *are* it. It used to be the first
+     * module on each rail, which buried area switching one panel deep.
+     */
+    const switcher = useMemo<readonly NavigationItem[]>(() => {
+        if (!SWITCHER_VARIANTS.has(resolvedVariant)) return [];
         return workspaceGroup({
             state: accessState,
             t,
@@ -143,7 +155,14 @@ function GuardedAreaShell({
                 router.push(href as never);
             },
         });
-    }, [accessState, area, navigationOverride, pathname, resolvedVariant, router, t]);
+    }, [accessState, area, pathname, resolvedVariant, router, t]);
+
+    const navigation = useMemo<readonly NavigationItem[]>(() => {
+        if (resolvedVariant === 'auth' || resolvedVariant === 'kiosk') return [];
+        if (resolvedVariant === 'driver') return switcher;
+        return navigationOverride ?? [];
+    }, [navigationOverride, resolvedVariant, switcher]);
+    const bottomNavigation = resolvedVariant === 'driver' ? [] : switcher;
 
     const signOut = () => {
         logout.mutate(undefined, {
@@ -237,6 +256,7 @@ function GuardedAreaShell({
             variant={resolvedVariant}
             title={title ?? t(`access:area.${area}`)}
             navigation={navigation}
+            bottomNavigation={bottomNavigation}
             banner={banner}
             topbarEnd={topbarEnd}
             {...(topbarTitle === undefined ? {} : { topbarTitle })}

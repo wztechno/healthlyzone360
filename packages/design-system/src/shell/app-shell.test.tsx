@@ -718,6 +718,69 @@ describe('AppShell — kiosk', () => {
     });
 });
 
+describe('AppShell — the workspace switcher bar', () => {
+    const switcher: readonly NavigationItem[] = [
+        {
+            key: 'area-kitchen',
+            label: 'Kitchen',
+            icon: 'organisation',
+            active: true,
+            onPress: jest.fn(),
+            testID: 'switch-kitchen',
+        },
+        { key: 'area-kds', label: 'KDS', icon: 'device', onPress: jest.fn(), testID: 'switch-kds' },
+    ];
+    const rail: readonly NavigationItem[] = [
+        { key: 'ingredients', label: 'Ingredients', group: 'Catalogue', onPress: jest.fn() },
+    ];
+
+    it('runs under the page column on a two-pane workspace, apart from the rail', async () => {
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="workspace"
+                navigation={rail}
+                bottomNavigation={switcher}
+            >
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        const tabs = screen.getByTestId('shell-tabs');
+        expect(tabs.props.accessibilityRole).toBe('tablist');
+        expect(within(screen.getByTestId('shell-rail')).queryByTestId('switch-kitchen')).toBeNull();
+        expect(screen.getByTestId('switch-kitchen').props.accessibilityState).toMatchObject({
+            selected: true,
+        });
+    });
+
+    it.each(['workspace', 'kiosk'] as const)(
+        'draws the bar in the %s variant with no rail at all',
+        async (variant) => {
+            await renderWithI18n(
+                <AppShell testID="shell" variant={variant} bottomNavigation={switcher}>
+                    <Text>Body</Text>
+                </AppShell>,
+            );
+
+            expect(screen.getByTestId('shell-tabs')).toBeTruthy();
+            expect(screen.queryByTestId('shell-rail')).toBeNull();
+            fireEvent.press(screen.getByTestId('switch-kds'));
+            expect(switcher[1]?.onPress).toHaveBeenCalled();
+        },
+    );
+
+    it('draws no bar when it is given nothing', async () => {
+        await renderWithI18n(
+            <AppShell testID="shell" variant="workspace" navigation={rail}>
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        expect(screen.queryByTestId('shell-tabs')).toBeNull();
+    });
+});
+
 describe('AppShell — driver', () => {
     it('renders a bottom tab bar with selectable tabs', async () => {
         await renderWithI18n(
