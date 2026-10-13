@@ -294,7 +294,7 @@ final readonly class PurchaseOrderService
         $missing = $order->lines()->whereNull('supplier_item_ref')->get();
         $references = $this->supplierReferences(
             $supplier,
-            $missing->pluck('stock_item_id')->map(static fn (mixed $id): string => (string) $id)->all(),
+            array_values($missing->pluck('stock_item_id')->map(static fn (mixed $id): string => (string) $id)->all()),
         );
 
         foreach ($missing as $line) {
