@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
+use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Ingredients\Contracts\IngredientWeeklyPriceLookup;
 use Healthy360\Ingredients\Models\Ingredient;
@@ -609,8 +610,10 @@ it('names stock on quality hold for the desk, and nothing once it is released', 
     weeklyReceipt([['stock_item_id' => (string) $item->getKey(), 'quantity' => '5', 'unit_id' => (string) $this->kg->getKey(), 'unit_price_amount' => '3.00', 'cost_currency_code' => 'USD']], '2026-09-01');
 
     // A sauce is sold from its own shelf, so it draws exactly this ingredient.
+    $catalogue = Catalogue::factory()->create(['organisation_id' => $this->organisation->getKey()]);
     $sauce = CatalogueItem::factory()->create([
         'organisation_id' => $this->organisation->getKey(),
+        'catalogue_id' => (string) $catalogue->getKey(),
         'item_type' => 'sauce',
         'ingredient_id' => (string) $ingredient->getKey(),
     ]);
