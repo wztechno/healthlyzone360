@@ -6,6 +6,7 @@ namespace Healthy360\Procurement\Services;
 
 use Healthy360\Ingredients\Contracts\IngredientWeeklyPriceLookup;
 use Healthy360\Ingredients\Contracts\WeeklyIngredientPrice;
+use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Procurement\Enums\WeeklyPriceSource;
 use Healthy360\Procurement\Models\IngredientWeeklyPrice;
 use Illuminate\Database\Eloquent\Builder;
@@ -47,6 +48,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final readonly class WeeklyPriceLookup implements IngredientWeeklyPriceLookup
 {
+    public function __construct(private LastPurchasePriceQuery $lastPurchases) {}
+
     public function standing(string $organisationId, string $ingredientId): ?WeeklyIngredientPrice
     {
         $prices = $this->standingFor($organisationId, [$ingredientId]);
@@ -101,6 +104,67 @@ final readonly class WeeklyPriceLookup implements IngredientWeeklyPriceLookup
             ->all();
 
         return $this->map($rows);
+    }
+
+    /**
+     * The newest priced receipt line of each ingredient, read through its stock
+     * items (a resold product shares its ingredient's anchor, so the newest across
+     * them wins) by {@see LastPurchasePriceQuery}, the same read the stock screen's
+     * "last bought" column uses. A line with no unit or currency is not a price.
+     *
+     * @param  list<string>  $ingredientIds
+     * @return array<string, WeeklyIngredientPrice>
+     */
+    public function latestPurchaseFor(string $organisationId, array $ingredientIds): array
+    {
+        $ingredientIds = array_values(array_unique($ingredientIds));
+
+        if ($ingredientIds === []) {
+            return [];
+        }
+
+        /** @var array<string, string> $ingredientOf stock item id => ingredient id */
+        $ingredientOf = StockItem::withoutTenancy()
+            ->where('organisation_id', $organisationId)
+            ->whereIn('ingredient_id', $ingredientIds)
+            ->pluck('ingredient_id', 'id')
+            ->map(static fn (mixed $id): string => (string) $id)
+            ->all();
+
+        $newest = [];
+
+        foreach ($this->lastPurchases->perItem($organisationId, array_map(strval(...), array_keys($ingredientOf))) as $stockItemId => $line) {
+            $ingredientId = $ingredientOf[$stockItemId] ?? null;
+
+            if ($ingredientId === null || $line['unit_id'] === null || $line['cost_currency_code'] === null || $line['received_at'] === null) {
+                continue;
+            }
+
+            if (isset($newest[$ingredientId]) && $newest[$ingredientId]['received_at'] >= $line['received_at']) {
+                continue;
+            }
+
+            $newest[$ingredientId] = $line;
+        }
+
+        $prices = [];
+
+        foreach ($newest as $ingredientId => $line) {
+            $day = substr((string) $line['received_at'], 0, 10);
+
+            $prices[$ingredientId] = new WeeklyIngredientPrice(
+                $ingredientId,
+                $line['unit_price_amount'],
+                (string) $line['cost_currency_code'],
+                (string) $line['unit_id'],
+                $day,
+                $day,
+                'latest_purchase',
+                null,
+            );
+        }
+
+        return $prices;
     }
 
     /**

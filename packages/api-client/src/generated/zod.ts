@@ -804,6 +804,7 @@ export const zWeeklyCostLineSource = z.object({
     ingredient_id: z.uuid(),
     cost_source: z.enum([
         'weekly',
+        'latest_purchase',
         'component_recipe',
         'ingredient_fallback',
         'none'

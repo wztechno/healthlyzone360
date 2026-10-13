@@ -1102,7 +1102,13 @@ export interface RecipePackageCost {
 }
 
 /** Where one formulation line's weekly estimate came from. */
-export type WeeklyCostSource = 'weekly' | 'component_recipe' | 'ingredient_fallback' | 'none';
+export type WeeklyCostSource =
+    | 'weekly'
+    /** The newest priced receipt, until the ingredient's first weekly price is published. */
+    | 'latest_purchase'
+    | 'component_recipe'
+    | 'ingredient_fallback'
+    | 'none';
 
 /**
  * CONFIDENTIAL — the provenance of one line's weekly estimate.

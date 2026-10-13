@@ -1510,6 +1510,8 @@ export type WeeklyCostLineSource = {
     ingredient_id: string;
     /**
      * `weekly` is the published average of what was actually paid.
+     * `latest_purchase` is the newest priced receipt, standing in until the
+     * ingredient's first weekly price is published.
      * `component_recipe` means the line names something the kitchen makes,
      * so the figure is that recipe's own cost per unit of what it produces
      * — the rule that stops a dressing's oil being counted inside the
@@ -1519,7 +1521,7 @@ export type WeeklyCostLineSource = {
      * uncosted and the total is withheld, never zeroed.
      *
      */
-    cost_source: 'weekly' | 'component_recipe' | 'ingredient_fallback' | 'none';
+    cost_source: 'weekly' | 'latest_purchase' | 'component_recipe' | 'ingredient_fallback' | 'none';
     /**
      * Major currency units, per the line's own unit. Null when `cost_source` is `none`.
      */

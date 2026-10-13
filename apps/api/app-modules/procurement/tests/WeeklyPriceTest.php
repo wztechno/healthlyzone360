@@ -580,3 +580,21 @@ it('refuses both reads to a caller who may count stock but not read its cost', f
     $this->getJson('/api/v1/catalogue/procurement/weekly-prices', $headers)->assertForbidden();
     $this->getJson('/api/v1/catalogue/procurement/weekly-prices/publications', $headers)->assertForbidden();
 });
+
+it('answers a new ingredient from its latest purchase until a weekly price exists', function (): void {
+    [$ingredient, $item] = weeklyIngredient('LEN', $this->kg);
+
+    weeklyReceipt([['stock_item_id' => (string) $item->getKey(), 'quantity' => '10', 'unit_id' => (string) $this->kg->getKey(), 'unit_price_amount' => '1.80', 'cost_currency_code' => 'USD']], '2026-09-01');
+
+    $lookup = app(IngredientWeeklyPriceLookup::class);
+    $organisationId = (string) $this->organisation->getKey();
+
+    // Nothing published yet: no weekly price, but the purchase stands in.
+    $latest = $lookup->latestPurchaseFor($organisationId, [(string) $ingredient->getKey()])[(string) $ingredient->getKey()] ?? null;
+
+    expect($lookup->standing($organisationId, (string) $ingredient->getKey()))->toBeNull()
+        ->and($latest)->not->toBeNull()
+        ->and((float) $latest->amount)->toBe(1.8)
+        ->and($latest->isLatestPurchase())->toBeTrue()
+        ->and($latest->publicationId)->toBeNull();
+});
