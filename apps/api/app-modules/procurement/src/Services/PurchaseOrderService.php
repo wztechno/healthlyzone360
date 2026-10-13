@@ -288,6 +288,24 @@ final readonly class PurchaseOrderService
             throw $this->archived($supplier);
         }
 
+        // A reference recorded on the supplier link after these lines were
+        // drafted would otherwise never reach the sheet: issuing is when the
+        // supplier's details freeze, so a line without one takes the link's now.
+        $missing = $order->lines()->whereNull('supplier_item_ref')->get();
+        $references = $this->supplierReferences(
+            $supplier,
+            array_values($missing->pluck('stock_item_id')->map(static fn (mixed $id): string => (string) $id)->all()),
+        );
+
+        foreach ($missing as $line) {
+            $reference = $references[(string) $line->stock_item_id] ?? null;
+
+            if ($reference !== null) {
+                $line->supplier_item_ref = $reference;
+                $line->save();
+            }
+        }
+
         $order->status = PurchaseOrderStatus::Issued;
         $order->issued_at = now();
         $order->recipient_snapshot = $this->recipientSnapshot($supplier);

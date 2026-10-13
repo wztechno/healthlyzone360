@@ -19,6 +19,7 @@ import type { MenuItem } from '@healthy360/design-system';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -48,6 +49,11 @@ import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { QualityCheckCreate } from '../quality-check-create.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
+/** The subject as a reader names it, for sorting: its label, or the bare id when it has none. */
+function subjectName(row: QualityCheck): string {
+    return row.subjectLabel ?? row.subjectId;
+}
+
 /**
  * `/kitchen/qc` — quality checks on receipts and production batches (Operations handoff, `qc`).
  *
@@ -63,7 +69,7 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  *
  * ## What the design shows that the contract does not
  *
- * `QualityCheck` is an id, a subject and a status. The design's Opened, Opened by and Outcome
+ * `QualityCheck` is an id, a subject (named by the server where it still resolves) and a status. The design's Opened, Opened by and Outcome
  * columns have no field behind them, so they are not drawn.
  */
 export function QualityControlScreen() {
@@ -136,7 +142,9 @@ function QualityCheckList({
             (checks.data ?? []).filter((row) => {
                 if (status !== 'all' && row.status !== status) return false;
                 if (trimmed === '') return true;
-                return `${String(row.id)} ${row.subjectId}`.toLowerCase().includes(trimmed);
+                return `${String(row.id)} ${row.subjectId} ${row.subjectLabel ?? ''} ${row.subjectDetail ?? ''}`
+                    .toLowerCase()
+                    .includes(trimmed);
             }),
         [checks.data, status, trimmed],
     );
@@ -205,17 +213,31 @@ function QualityCheckList({
             label: t('kitchen:ops.qc.columnSubject'),
             width: 220,
             priority: 100,
-            value: (row) => row.subjectId,
+            value: (row) => subjectName(row),
             sort: (left, right, direction) =>
-                compareText(left.subjectId, right.subjectId, direction),
+                compareText(subjectName(left), subjectName(right), direction),
+            // By name — the supplier and invoice, or the batch's lot — with what it holds under it.
+            // The bare id only when the subject no longer resolves.
             render: (row) => (
-                <Text
-                    variant="mono"
-                    numberOfLines={1}
-                    testID={`${qualityCheckRowTestId(String(row.id))}-subject`}
-                >
-                    {shortId(row.subjectId)}
-                </Text>
+                <View className="min-w-0 flex-col">
+                    <Text
+                        {...(row.subjectLabel == null ? { variant: 'mono' as const } : {})}
+                        numberOfLines={1}
+                        testID={`${qualityCheckRowTestId(String(row.id))}-subject`}
+                    >
+                        {row.subjectLabel ?? shortId(row.subjectId)}
+                    </Text>
+                    {row.subjectDetail == null ? null : (
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            numberOfLines={1}
+                            testID={`${qualityCheckRowTestId(String(row.id))}-subject-detail`}
+                        >
+                            {row.subjectDetail}
+                        </Text>
+                    )}
+                </View>
             ),
         },
         {
@@ -295,7 +317,7 @@ function QualityCheckList({
                 onBack={() => {
                     setViewing(null);
                 }}
-                title={t(qualityCheckSubjectKey(viewing.subjectType))}
+                title={viewing.subjectLabel ?? t(qualityCheckSubjectKey(viewing.subjectType))}
                 kind={t('kitchen:ops.qc.viewKind')}
                 status={{
                     label: t(qualityCheckStatusKey(viewing.status)),
@@ -305,12 +327,6 @@ function QualityCheckList({
                 footNote={t('kitchen:ops.qc.footNote')}
                 fields={[
                     {
-                        key: 'reference',
-                        label: t('kitchen:ops.qc.fieldReference'),
-                        value: String(viewing.id),
-                        mono: true,
-                    },
-                    {
                         key: 'kind',
                         label: t('kitchen:ops.qc.columnKind'),
                         value: t(qualityCheckSubjectKey(viewing.subjectType)),
@@ -318,9 +334,18 @@ function QualityCheckList({
                     {
                         key: 'subject',
                         label: t('kitchen:ops.qc.columnSubject'),
-                        value: viewing.subjectId,
-                        mono: true,
+                        value: viewing.subjectLabel ?? viewing.subjectId,
+                        mono: viewing.subjectLabel == null,
                     },
+                    ...(viewing.subjectDetail == null
+                        ? []
+                        : [
+                              {
+                                  key: 'holds',
+                                  label: t('kitchen:ops.qc.fieldHolds'),
+                                  value: viewing.subjectDetail,
+                              },
+                          ]),
                 ]}
                 {...(viewingAction === null
                     ? {}
@@ -330,6 +355,9 @@ function QualityCheckList({
                               icon: null,
                               testID: `kitchen-qc-view-${viewingAction.key}`,
                               onPress: viewingAction.run,
+                              // A hold can take seconds on a slow server; say it is working.
+                              loading: holdCheck.isPending || releaseCheck.isPending,
+                              disabled: holdCheck.isPending || releaseCheck.isPending,
                           },
                       })}
             />

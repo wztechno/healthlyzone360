@@ -121,12 +121,13 @@ describe('initialLines', () => {
     it('prefills each row with what is still to come, not with what was ordered', () => {
         const lines = initialLines(order());
 
-        expect(lines[0]?.quantity).toBe('6.0000');
-        expect(lines[0]?.orderedQuantity).toBe('10.0000');
+        // Without the server's four-place padding: the same number, as a person types it.
+        expect(lines[0]?.quantity).toBe('6');
+        expect(lines[0]?.orderedQuantity).toBe('10');
         // A fully delivered line stays on the form so a person checking a pallet can see the row
         // accounted for — but it opens at nothing, because nothing is outstanding.
         expect(lines[1]?.quantity).toBe('');
-        expect(lines[1]?.outstandingQuantity).toBe('0.0000');
+        expect(lines[1]?.outstandingQuantity).toBe('0');
     });
 
     it('carries the order line and its unit through, so a delivery cannot be counted in something else', () => {

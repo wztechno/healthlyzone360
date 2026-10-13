@@ -1,7 +1,6 @@
 import type { PriceListAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Callout,
     Cascade,
     EmptyState,
     ErrorState,
@@ -304,7 +303,6 @@ function PriceListsList() {
     const controls = useColumnControls(rows, columns, 'kitchen-price-lists');
     const failure = toFailure(priceLists.error);
     const unfiltered = trimmed === '' && status === 'all' && channel === null;
-    const anyConfidential = controls.rows.some((row) => isAgreementPriced(row.channels));
 
     const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
         { value: 'all', label: t('kitchen:toolbar.statusAll') },
@@ -404,16 +402,6 @@ function PriceListsList() {
                 />
             ) : (
                 <Stack space="sm">
-                    {anyConfidential ? (
-                        <Callout
-                            testID="kitchen-price-lists-confidential"
-                            role="note"
-                            tone="warning"
-                            title={t('kitchen:priceLists.confidentialTitle')}
-                            body={t('kitchen:priceLists.confidentialBody')}
-                        />
-                    ) : null}
-
                     <CatalogueList<PriceListAdmin>
                         testID="kitchen-price-lists-table"
                         label={t('kitchen:priceLists.caption')}
@@ -510,7 +498,7 @@ function viewFields(row: PriceListAdmin, t: TFunction, formatter: ReturnType<typ
             label: t('kitchen:list.columnUpdated'),
             value:
                 row.meta.updatedByName === null
-                    ? `${formatter.formatRelativeTime(row.meta.updatedAt)} ${t('kitchen:list.updatedBySeed')}`
+                    ? formatter.formatRelativeTime(row.meta.updatedAt)
                     : `${formatter.formatRelativeTime(row.meta.updatedAt)} ${t('kitchen:list.updatedBy', { name: row.meta.updatedByName })}`,
         },
     ];

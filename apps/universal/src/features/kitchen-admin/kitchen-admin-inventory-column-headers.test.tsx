@@ -179,10 +179,10 @@ describe('stock headers', () => {
         await press('kitchen-stock-column-unit-clear');
 
         await press('kitchen-stock-column-status-trigger');
-        await untilVisible('kitchen-stock-column-status-out');
-        await press('kitchen-stock-column-status-out');
+        await untilVisible('kitchen-stock-column-status-none');
+        await press('kitchen-stock-column-status-none');
         await waitFor(() => {
-            // No level row at this branch is an empty shelf.
+            // No level row at this branch is a shelf never stocked here.
             expect(orderOf(STOCK_NAMES)).toEqual([stockName(3)]);
         });
     });

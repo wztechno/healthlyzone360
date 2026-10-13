@@ -44,6 +44,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
+import { useWindowName } from '../order-desk/use-window-name.ts';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     useConfirmOrderMutation,
@@ -72,7 +73,7 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import type { CatalogueStatCard } from '../catalogue/index.ts';
-import { humaniseCode, minorAmountToInput, parseMinorAmount } from '../format.ts';
+import { minorAmountToInput, parseMinorAmount } from '../format.ts';
 import {
     canAssignDeliveryJob,
     canConfirmKitchenOrder,
@@ -815,6 +816,7 @@ function useTickingNow(intervalMs: number, running: boolean): Date {
 
 function OrderDeskQueueList() {
     const { t } = useTranslation();
+    const windowName = useWindowName();
     const formatter = useFormatter();
     const router = useRouter();
     const toast = useToast();
@@ -1406,7 +1408,7 @@ function OrderDeskQueueList() {
                             value:
                                 shown.delivery.windowCode === null
                                     ? t('kitchen:desk.noSlot')
-                                    : humaniseCode(shown.delivery.windowCode),
+                                    : windowName(shown.delivery.windowCode),
                         },
                     ]}
                     sections={

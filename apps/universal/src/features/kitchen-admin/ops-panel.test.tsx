@@ -111,8 +111,9 @@ describe('ops panels', () => {
         const rowFor = (ordinal: number) => stockItemRowTestId(String(stockItem(ordinal).id));
         expect(screen.getByTestId(`${rowFor(1)}-status`)).toHaveTextContent(/In stock/);
         expect(screen.getByTestId(`${rowFor(2)}-status`)).toHaveTextContent(/Low/);
-        // No level row at this branch is an empty shelf, not a missing row.
-        expect(screen.getByTestId(`${rowFor(3)}-status`)).toHaveTextContent(/Empty/);
+        // No level row at this branch is a shelf never stocked here — not an empty one, which is
+        // what the supply-orders queue counts as out of stock.
+        expect(screen.getByTestId(`${rowFor(3)}-status`)).toHaveTextContent(/Not stocked/);
         // The item cell is the name alone; the code under it only repeated it as a slug.
         expect(screen.getByTestId(rowFor(1))).toHaveTextContent('Stock item 1');
         expect(screen.getByTestId(rowFor(1))).not.toHaveTextContent('ITEM-1');

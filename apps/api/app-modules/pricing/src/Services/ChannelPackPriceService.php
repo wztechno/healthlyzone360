@@ -168,6 +168,10 @@ final readonly class ChannelPackPriceService
 
                 if ($offer['amount_minor'] !== null) {
                     $this->offerOn($item, $step['channel']);
+
+                    if ($code === 'b2c') {
+                        $this->offerOnDesk($item);
+                    }
                 }
             }
         });
@@ -272,6 +276,29 @@ final readonly class ChannelPackPriceService
         $row->is_available = true;
         $row->created_by = $this->context->userId();
         $row->save();
+    }
+
+    /**
+     * The counter sells what the web shop sells — the mirror
+     * `kitchen:open-desk-channel` and the 003004 backfill set up, and which
+     * otherwise only a re-run of that command would extend. Without it a meal
+     * priced for B2C after the backfill shows "Not sold here" at the desk.
+     *
+     * `'desk'` is the literal `DeskChannelLocator` and `KitchenProvisioning`
+     * hold, for the module-boundary reasons their docblocks give. A kitchen
+     * with no open desk is left alone.
+     */
+    private function offerOnDesk(CatalogueItem $item): void
+    {
+        $desk = SalesChannel::withoutTenancy()
+            ->where('organisation_id', $item->organisation_id)
+            ->where('code', 'desk')
+            ->where('status', SalesChannelStatus::Active->value)
+            ->first();
+
+        if ($desk instanceof SalesChannel) {
+            $this->offerOn($item, $desk);
+        }
     }
 
     private function invalid(string $field, string $message): ApiException

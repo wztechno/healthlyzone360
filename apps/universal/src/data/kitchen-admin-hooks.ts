@@ -480,6 +480,15 @@ async function countAcrossPages<T>(
  * one `refetch`. Counts walk every page ({@link countAcrossPages}) because a live kitchen library
  * routinely exceeds one cursor page.
  */
+/**
+ * The ingredient library as the Ingredients page lists it: food in the `ING-` series. Without it
+ * the hub counted packaging and the sauce, dressing and resale twins too — 500 beside the page's 306.
+ */
+const LIBRARY_ONLY = {
+    excludeCategoryCode: PACKAGING_CATEGORY_CODE,
+    referenceSeries: 'ING-',
+} as const;
+
 export function useIngredientSummaryQuery(enabled = true): UseQueryResult<FamilySummary> {
     const { repositories } = useRepositoryContext();
 
@@ -492,12 +501,14 @@ export function useIngredientSummaryQuery(enabled = true): UseQueryResult<Family
                 countAcrossPages((cursor) =>
                     repositories.kitchenAdmin.listIngredients({
                         limit: SUMMARY_PAGE_LIMIT,
+                        ...LIBRARY_ONLY,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
                 countAcrossPages((cursor) =>
                     repositories.kitchenAdmin.listIngredients({
                         limit: SUMMARY_PAGE_LIMIT,
+                        ...LIBRARY_ONLY,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -505,6 +516,7 @@ export function useIngredientSummaryQuery(enabled = true): UseQueryResult<Family
                 countAcrossPages((cursor) =>
                     repositories.kitchenAdmin.listIngredients({
                         limit: SUMMARY_PAGE_LIMIT,
+                        ...LIBRARY_ONLY,
                         statuses: ['review_required'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -1216,6 +1228,39 @@ export function useProductCategoriesQuery(
     });
 }
 
+/**
+ * How many drafts one sold kind holds — the only figure the hub's Catalogue drafts tile reads for
+ * sauces, dressings and meals. One count each, where the full summary made four: the tile alone
+ * was twenty requests.
+ */
+export function useCatalogueDraftCountQuery(
+    kind: 'sauce' | 'dressing' | 'meal',
+    enabled = true,
+): UseQueryResult<number | null> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey:
+            kind === 'meal'
+                ? queryKeys.kitchenAdmin.meals({ derive: 'drafts' })
+                : queryKeys.kitchenAdmin.products({ derive: 'drafts', itemType: kind }),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            const page = (cursor: string | undefined) => ({
+                limit: SUMMARY_PAGE_LIMIT,
+                statuses: ['draft'] as const,
+                ...(cursor === undefined ? {} : { cursor }),
+            });
+            return kind === 'meal'
+                ? countAcrossPages((cursor) => repositories.kitchenAdmin.listMeals(page(cursor)))
+                : countAcrossPages((cursor) =>
+                      repositories.kitchenAdmin.listProducts({ ...page(cursor), itemType: kind }),
+                  );
+        },
+    });
+}
+
 /** The product counts behind the hub card, in one query. */
 export function useProductSummaryQuery(
     enabled = true,
@@ -1269,11 +1314,27 @@ export function useProductSummaryQuery(
 /* ── product writes ──────────────────────────────────────────────────────────────────────────── */
 
 /** Writes the record into its detail entry and invalidates the workspace root. */
+/**
+ * The channel-prices section on the same page carries the item's lock version too; a meal or
+ * product write moved it, so the next price save must not send the old one.
+ */
+function followLockVersion(
+    queryClient: ReturnType<typeof useQueryClient>,
+    itemId: string,
+    lockVersion: number,
+): void {
+    queryClient.setQueryData<ItemChannelPrices>(
+        queryKeys.kitchenAdmin.itemChannelPrices(itemId),
+        (prices) => (prices === undefined ? undefined : { ...prices, lockVersion }),
+    );
+}
+
 function useProductWriteEffects(): (product: ProductAdmin) => void {
     const queryClient = useQueryClient();
 
     return (product: ProductAdmin) => {
         queryClient.setQueryData(queryKeys.kitchenAdmin.product(product.id), product);
+        followLockVersion(queryClient, String(product.id), product.meta.lockVersion);
         void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
     };
 }
@@ -1438,6 +1499,24 @@ export function useSetItemChannelPricesMutation(): UseMutationResult<
             repositories.kitchenAdmin.setItemChannelPrices(itemId, request),
         onSuccess: (prices, { itemId }) => {
             queryClient.setQueryData(queryKeys.kitchenAdmin.itemChannelPrices(itemId), prices);
+            // The write moved the item's lock version. A save beside it on the same page (service
+            // days, the details) reads the meal or product record, so move that record's version
+            // now rather than after the refetch below lands — a second save made in that gap was
+            // refused as "someone else changed this record".
+            const bump = <T extends { readonly meta: { readonly lockVersion: number } }>(
+                record: T | undefined,
+            ): T | undefined =>
+                record === undefined
+                    ? undefined
+                    : { ...record, meta: { ...record.meta, lockVersion: prices.lockVersion } };
+            queryClient.setQueryData<MealAdmin>(
+                queryKeys.kitchenAdmin.meal(itemId as MealId),
+                bump,
+            );
+            queryClient.setQueryData<ProductAdmin>(
+                queryKeys.kitchenAdmin.product(itemId as ProductId),
+                bump,
+            );
             void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
         },
     });
@@ -2131,6 +2210,7 @@ function useMealWriteEffects(): (meal: MealAdmin) => void {
 
     return (meal: MealAdmin) => {
         queryClient.setQueryData(queryKeys.kitchenAdmin.meal(meal.id), meal);
+        followLockVersion(queryClient, String(meal.id), meal.meta.lockVersion);
         void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
         // The consumer roots read the same catalogue. Publication is the one write in this
         // workspace whose effect is visible outside it, so the marketplace cache is told.
@@ -2815,7 +2895,12 @@ export function useReviewQueueQuery(enabled = true): UseQueryResult<ReviewQueueS
                 repositories.kitchenAdmin.listProducts({ ...quarantine }),
                 repositories.kitchenAdmin.listMeals({ ...quarantine }),
                 repositories.kitchenAdmin.listPlans({ ...quarantine }),
-                repositories.kitchenAdmin.listPriceLists({ limit }),
+                /*
+                 * The index only. The queue's one entry-level reason, an inconsistent price, is a
+                 * row the database refuses to store (`price_list_items_confirmed_amount_check`), so
+                 * a full read per list — on every page, under the sidebar badge — bought nothing.
+                 */
+                repositories.kitchenAdmin.listPriceLists({ limit, withoutEntries: true }),
             ]);
 
             const pages = [

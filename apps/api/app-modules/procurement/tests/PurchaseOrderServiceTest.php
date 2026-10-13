@@ -455,6 +455,33 @@ it('reads the supplier item reference off the saved link rather than off the req
         ->and($lines[1]->supplier_item_ref)->toBeNull();
 });
 
+it('takes a reference recorded after drafting when the order is issued', function (): void {
+    $supplier = poSupplier($this->world->organisationId);
+    $item = poStockItem($this->world->organisationId, 'LEN-1', 'Red lentils');
+
+    $created = poService()->createBatch(
+        $this->world->organisationId,
+        $this->world->branchId,
+        [[
+            'supplier_id' => (string) $supplier->getKey(),
+            'lines' => [['stock_item_id' => (string) $item->getKey(), 'quantity' => '10']],
+        ]],
+    );
+
+    // The link's reference arrives after the draft's lines were written.
+    SupplierStockItem::withoutTenancy()->create([
+        'organisation_id' => $this->world->organisationId,
+        'supplier_id' => (string) $supplier->getKey(),
+        'stock_item_id' => (string) $item->getKey(),
+        'supplier_item_ref' => 'GS-LEN-25',
+    ]);
+
+    poService()->issue($created[0]);
+
+    expect(PurchaseOrderLine::query()->where('purchase_order_id', $created[0]->getKey())->sole()->supplier_item_ref)
+        ->toBe('GS-LEN-25');
+});
+
 it('refuses an order that names the same shelf twice', function (): void {
     $supplier = poSupplier($this->world->organisationId);
     $item = poStockItem($this->world->organisationId, 'FLR-1', 'Flour');

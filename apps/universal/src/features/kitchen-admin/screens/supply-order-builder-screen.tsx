@@ -1015,7 +1015,9 @@ function SupplyOrderBuilder() {
                     <Text testID="kitchen-supply-order-create-counts">
                         {t('kitchen:ops.supplyOrders.createConfirmCounts', {
                             count: plan.groups.length,
-                            lines: plan.lineCount,
+                            lines: t('kitchen:ops.supplyOrders.createConfirmLines', {
+                                count: plan.lineCount,
+                            }),
                         })}
                     </Text>
                     {/*

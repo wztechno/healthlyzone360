@@ -42,6 +42,7 @@ final class RecipeShowController
     public function __invoke(string $recipe): JsonResponse
     {
         $record = $this->locator->recipe($recipe);
+        $record->load('updater.profile');
 
         $versions = RecipeVersion::query()
             ->where('recipe_id', $record->getKey())

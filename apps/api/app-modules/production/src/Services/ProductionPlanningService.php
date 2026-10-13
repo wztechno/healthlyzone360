@@ -287,6 +287,9 @@ final readonly class ProductionPlanningService
             WeeklyLineCost::SOURCE_WEEKLY => ProductionOrderLine::SOURCE_WEEKLY,
             WeeklyLineCost::SOURCE_COMPONENT => ProductionOrderLine::SOURCE_COMPONENT,
             WeeklyLineCost::SOURCE_FALLBACK => ProductionOrderLine::SOURCE_FALLBACK,
+            // Not a published week, so not `weekly`: the column's CHECK names four
+            // sources, and a price that stands in for the week is its fallback.
+            WeeklyLineCost::SOURCE_LATEST_PURCHASE => ProductionOrderLine::SOURCE_FALLBACK,
             WeeklyLineCost::SOURCE_NONE => 'none',
             default => throw new RuntimeException('Unknown weekly cost source ['.$cost->source.'].'),
         };

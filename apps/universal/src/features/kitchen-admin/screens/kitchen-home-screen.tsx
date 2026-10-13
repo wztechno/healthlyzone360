@@ -26,7 +26,7 @@ import {
     useAllergenClassesQuery,
     useBranchOperatingQuery,
     useIngredientSummaryQuery,
-    useMealSummaryQuery,
+    useCatalogueDraftCountQuery,
     usePlanSummaryQuery,
     usePriceListSummaryQuery,
     useProductSummaryQuery,
@@ -690,9 +690,9 @@ export function KitchenHomeScreen() {
      * families went into the recipe book, so these reads are keyed on the code that lists the items
      * rather than on a family that no longer exists — keyed on the family, they would never load.
      */
-    const sauceSummary = useProductSummaryQuery(canViewCatalogue, 'sauce');
-    const dressingSummary = useProductSummaryQuery(canViewCatalogue, 'dressing');
-    const mealSummary = useMealSummaryQuery(canViewCatalogue);
+    const sauceDrafts = useCatalogueDraftCountQuery('sauce', canViewCatalogue);
+    const dressingDrafts = useCatalogueDraftCountQuery('dressing', canViewCatalogue);
+    const mealDrafts = useCatalogueDraftCountQuery('meal', canViewCatalogue);
     const priceListSummary = usePriceListSummaryQuery(permitted.has('price-lists'));
     const planSummary = usePlanSummaryQuery(permitted.has('plans'));
     const zoneSummary = useZoneSummaryQuery(permitted.has('delivery-zones'));
@@ -740,18 +740,14 @@ export function KitchenHomeScreen() {
     if (permitted.has('recipes')) draftParts.push(recipeSummary.data?.drafts);
     if (permitted.has('products')) draftParts.push(productSummary.data?.drafts);
     if (canViewCatalogue) {
-        draftParts.push(
-            sauceSummary.data?.drafts,
-            dressingSummary.data?.drafts,
-            mealSummary.data?.drafts,
-        );
+        draftParts.push(sauceDrafts.data, dressingDrafts.data, mealDrafts.data);
     }
     const knownDrafts = draftParts.filter((part): part is number => typeof part === 'number');
     const draftsPending =
         (permitted.has('ingredients') && ingredientSummary.isPending) ||
         (permitted.has('recipes') && recipeSummary.isPending) ||
         (permitted.has('products') && productSummary.isPending) ||
-        (canViewCatalogue && mealSummary.isPending);
+        (canViewCatalogue && mealDrafts.isPending);
     const draftTotal = draftsPending
         ? null
         : draftParts.length === 0

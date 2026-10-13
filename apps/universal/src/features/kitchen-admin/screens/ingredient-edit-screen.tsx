@@ -80,6 +80,7 @@ import {
     unitShortKey,
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
+import { IngredientAllergenEditor } from '../ingredient-allergen-editor.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
@@ -150,7 +151,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * March. Reference and category lead the line as drawn; publication status and the changed line
  * follow, because a draft that looks published is the one mistake this header can prevent.
  *
- * ## Nutrition and allergens are both read-only — handoff §6.2
+ * ## Nutrition is read-only — handoff §6.2
  *
  * The per-100 g figures come from the database and only from the database. They were inputs for a
  * while, so a kitchen could copy a supplier's label onto a row it had created; that path is closed.
@@ -168,15 +169,13 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * flag and the note on it too. That record gets a `Derived from a recipe` badge and no flag or note,
  * and the save sends nothing about nutrition at all.
  *
- * Allergen classes still resolve from the reference food database and are still rendered for
- * confirmation on the sunken fill. No input, no override; a correction
- * happens on the reference record.
- *
- * The mapping editor that stood here wrote `setIngredientAllergens` and enforced D-041's
- * upgrade-only rule on platform baselines. Nothing else in the product writes that determination, so
- * the mapping is read-only everywhere until a screen is built for it. The quarantine banner stays:
- * an ingredient can still *arrive* in `review_required` from a write made elsewhere, and that is the
- * one fact this screen most needs to state.
+ * Allergens are the exception, and editable. A recipe cannot publish while one of its ingredients
+ * has no determination, so a kitchen that creates an ingredient must be able to record one here —
+ * `IngredientAllergenEditor`, one choice per class, saved wholesale through
+ * `setIngredientAllergens`. An empty set is confirmed in words and recorded by the server as
+ * "assessed, carries nothing". The upgrade-only rule on platform baselines stays the server's. A
+ * row this caller cannot write still shows its determination as chips. The quarantine banner
+ * stays: an ingredient can still *arrive* in `review_required` from a write made elsewhere.
  *
  * ## One lock version, one save
  *
@@ -2020,7 +2019,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     </FormSection>
                 )}
 
-                {/* ── allergens, read-only per §6.2 (food) ─────────────────────────────────── */}
+                {/* ── allergens (food) ─────────────────────────────────────────────────────── */}
                 {!family.food ? null : (
                     <FormSection
                         first
@@ -2028,15 +2027,25 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         testID="kitchen-ingredient-allergens"
                         title={t('kitchen:forms.allergensTitle')}
                         aside={
-                            <Badge
-                                variant="label"
-                                testID="kitchen-ingredient-allergens-source"
-                                tone="info"
-                                label={t('kitchen:composition.fromDatabase')}
-                            />
+                            editable ? undefined : (
+                                <Badge
+                                    variant="label"
+                                    testID="kitchen-ingredient-allergens-source"
+                                    tone="info"
+                                    label={t('kitchen:composition.fromDatabase')}
+                                />
+                            )
                         }
                     >
-                        {allergens.length === 0 ? (
+                        {editable && data !== undefined && classes.data !== undefined ? (
+                            <IngredientAllergenEditor
+                                key={`${String(data.meta.lockVersion)}-${allergens
+                                    .map((m) => `${String(m.allergenCode)}:${m.containment}`)
+                                    .join(',')}-${String(data.allergensAssessedClear === true)}`}
+                                ingredient={data}
+                                classes={classes.data}
+                            />
+                        ) : allergens.length === 0 ? (
                             // An em dash, not a sentence: "none recorded" and "free of all
                             // fourteen" are different claims, and this panel can state neither.
                             <Text

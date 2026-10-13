@@ -79,6 +79,7 @@ import {
     paymentMethodsFor,
     saleShortfall,
     offeredDeskWindows,
+    windowsOverAt,
     scheduleFor,
     withCustomer,
     withFulfilmentType,
@@ -349,6 +350,7 @@ function Sale() {
         state,
         todayIso(),
         windowList.map((window) => window.code),
+        windowsOverAt(windowList),
     );
 
     function onPlace() {
@@ -1334,6 +1336,20 @@ function Ticket({
                                                 })}
                                             </Text>
                                         ))}
+                                        {/* A warning, never a block: the sale can still go ahead. */}
+                                        {(quoted?.heldStock ?? []).length === 0 ? null : (
+                                            <Text
+                                                variant="caption"
+                                                tone="warning"
+                                                testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-held`}
+                                            >
+                                                {t('kitchen:desk.sale.heldStock', {
+                                                    names: (quoted?.heldStock ?? []).join(
+                                                        t('kitchen:common.listSeparator'),
+                                                    ),
+                                                })}
+                                            </Text>
+                                        )}
                                     </View>
                                 );
                             })}

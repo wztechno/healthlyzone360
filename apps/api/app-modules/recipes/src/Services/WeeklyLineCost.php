@@ -31,6 +31,9 @@ final readonly class WeeklyLineCost
 {
     public const string SOURCE_WEEKLY = 'weekly';
 
+    /** The newest priced purchase, for an ingredient with no weekly price yet. */
+    public const string SOURCE_LATEST_PURCHASE = 'latest_purchase';
+
     public const string SOURCE_COMPONENT = 'component_recipe';
 
     public const string SOURCE_FALLBACK = 'ingredient_fallback';
@@ -38,7 +41,7 @@ final readonly class WeeklyLineCost
     public const string SOURCE_NONE = 'none';
 
     /**
-     * @param  'weekly'|'component_recipe'|'ingredient_fallback'|'none'  $source
+     * @param  'weekly'|'latest_purchase'|'component_recipe'|'ingredient_fallback'|'none'  $source
      * @param  numeric-string|null  $unitCostAmount  per the line's own unit
      */
     public function __construct(

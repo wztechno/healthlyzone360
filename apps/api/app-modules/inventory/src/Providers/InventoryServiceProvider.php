@@ -10,9 +10,11 @@ use Healthy360\Inventory\Console\DeriveStockItemsCommand;
 use Healthy360\Inventory\Contracts\ProductionValuationLedger;
 use Healthy360\Inventory\Contracts\SubscriptionMealDemand;
 use Healthy360\Inventory\Observers\DerivedStockObserver;
+use Healthy360\Inventory\Services\HeldStockForSale;
 use Healthy360\Inventory\Services\NullProductionValuationLedger;
 use Healthy360\Inventory\Services\NullSubscriptionMealDemand;
 use Healthy360\Inventory\Services\OrderConsumptionService;
+use Healthy360\Orders\Contracts\HeldStockLookup;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ServiceProvider;
@@ -76,6 +78,7 @@ class InventoryServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->app->bind(OrderStockConsumption::class, OrderConsumptionService::class);
+        $this->app->bind(HeldStockLookup::class, HeldStockForSale::class);
 
         foreach (self::STOCK_DERIVING_MODELS as $model) {
             $model::observe(DerivedStockObserver::class);

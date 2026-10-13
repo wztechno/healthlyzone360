@@ -292,10 +292,27 @@ function ingredientSortParameter(
     return sort;
 }
 
+/**
+ * One request for many concurrent callers. The lookups below cached their *answer*, so every
+ * caller that arrived before the first answer fired its own request — a page of price lists read
+ * the sales channels four to eight times. The promise is shared until it settles; a rejection is
+ * not kept, so the next caller asks again.
+ */
+function sharedInFlight<T>(load: () => Promise<T>): () => Promise<T> {
+    let pending: Promise<T> | null = null;
+    return () => {
+        pending ??= load().finally(() => {
+            pending = null;
+        });
+        return pending;
+    };
+}
+
 export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdminReads {
     let unitCodeLookup: ReadonlyMap<string, string> | null = null;
 
-    async function loadUnitCodeLookup(): Promise<ReadonlyMap<string, string>> {
+    const loadUnitCodeLookup = sharedInFlight(fetchUnitCodeLookup);
+    async function fetchUnitCodeLookup(): Promise<ReadonlyMap<string, string>> {
         if (unitCodeLookup !== null) return unitCodeLookup;
 
         try {
@@ -322,7 +339,8 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
     let categoryRows: readonly WireIngredientCategory[] | null = null;
     let salesChannelLookup: SalesChannelLookup | null = null;
 
-    async function loadCategories(): Promise<readonly WireIngredientCategory[]> {
+    const loadCategories = sharedInFlight(fetchCategories);
+    async function fetchCategories(): Promise<readonly WireIngredientCategory[]> {
         if (categoryRows !== null) return categoryRows;
 
         const categories = await transport.request<WireIngredientCategory[]>({
@@ -342,7 +360,8 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         return categoryLookup ?? buildCategoryLookup([]);
     }
 
-    async function loadSalesChannelLookup(): Promise<SalesChannelLookup> {
+    const loadSalesChannelLookup = sharedInFlight(fetchSalesChannelLookup);
+    async function fetchSalesChannelLookup(): Promise<SalesChannelLookup> {
         if (salesChannelLookup !== null) return salesChannelLookup;
 
         const channels = await transport.request<AdminSalesChannel[]>({
@@ -933,6 +952,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
 
             const meta = envelope.meta as PaginatedOrNumberedMeta;
             const page = mapAdminCursorPage(envelope.data, meta, (wire) => mapPriceListAdmin(wire));
+            if (filter?.withoutEntries === true) return page;
 
             /*
              * Whole records, entries and channels included — the contract every caller reads this

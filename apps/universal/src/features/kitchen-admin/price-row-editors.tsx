@@ -591,6 +591,12 @@ export interface PriceEntriesCardProps {
     readonly options: readonly PriceItemOption[];
     readonly currency: CurrencyCode;
     readonly canManage: boolean;
+    /**
+     * A meal's price on a public tariff is set on the meal (its B2C/B2B price, which writes this
+     * entry) — owner decision, 13 Oct 2026. Its rows here are shown, not edited, and a meal is not
+     * offered for a new row. Off for an agreement list, whose negotiated prices live only here.
+     */
+    readonly mealPricesSetOnMeal?: boolean | undefined;
     /** The catalogue is still being read, so an unresolved name is not yet a missing one. */
     readonly resolving: boolean;
     /** Page id. Parts: `-entries-card`, `-entries`, `-entries-row-{key}`, `-add-entry`, `-filter`… */
@@ -606,6 +612,7 @@ export function PriceEntriesCard({
     options,
     currency,
     canManage,
+    mealPricesSetOnMeal = false,
     resolving,
     testID,
 }: PriceEntriesCardProps) {
@@ -623,7 +630,13 @@ export function PriceEntriesCard({
     const gridID = `${testID}-entries`;
 
     const byKey = useMemo(() => new Map(options.map((option) => [option.key, option])), [options]);
-    const units = useMemo(() => priceableUnits(options), [options]);
+    const units = useMemo(
+        () =>
+            priceableUnits(options).filter(
+                (unit) => !(mealPricesSetOnMeal && unit.kind === 'meal'),
+            ),
+        [options, mealPricesSetOnMeal],
+    );
     const unitOptions: readonly SelectOption[] = useMemo(
         () =>
             units.map((unit) => ({
@@ -767,6 +780,7 @@ export function PriceEntriesCard({
         const isNew = saved === undefined;
         const rowProblems = problems.get(row.key);
         const confirmed = priceStatusCarriesAmount(row.priceStatus);
+        const lockedMeal = mealPricesSetOnMeal && row.item?.kind === 'meal';
         const isSelected = selected.has(row.key);
 
         /*
@@ -878,7 +892,7 @@ export function PriceEntriesCard({
             >
                 <View className="flex-row items-start gap-2.5">
                     <View role="cell" style={fixedTrack(TRACK.select)} className="pt-1.5">
-                        {canManage ? (
+                        {canManage && !lockedMeal ? (
                             <Checkbox
                                 testID={`${base}-select`}
                                 checked={isSelected}
@@ -934,7 +948,7 @@ export function PriceEntriesCard({
                             items={PRICE_STATUSES.map((status) => ({
                                 value: status,
                                 label: t(BASIS_KEYS[status]),
-                                disabled: !canManage,
+                                disabled: !canManage || lockedMeal,
                                 testID: `${base}-basis-${status}`,
                             }))}
                         />
@@ -950,7 +964,7 @@ export function PriceEntriesCard({
                             value={row.amount}
                             placeholder={confirmed ? minorAmountToInput(0, currency) : '—'}
                             required={confirmed}
-                            disabled={!confirmed || !canManage}
+                            disabled={!confirmed || !canManage || lockedMeal}
                             {...(firstField === 'amount' && firstText !== undefined
                                 ? { error: firstText }
                                 : {})}
@@ -958,7 +972,16 @@ export function PriceEntriesCard({
                                 patchRow(row.key, { amount: next });
                             }}
                         />
-                        {!confirmed ? (
+                        {lockedMeal ? (
+                            <Text
+                                testID={`${base}-set-on-meal`}
+                                variant="micro"
+                                tone="secondary"
+                                align="end"
+                            >
+                                {t('kitchen:priceLists.setOnMeal')}
+                            </Text>
+                        ) : !confirmed ? (
                             <Text
                                 testID={`${base}-no-amount`}
                                 variant="micro"

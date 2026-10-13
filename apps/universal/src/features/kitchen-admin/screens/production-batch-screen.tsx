@@ -35,7 +35,7 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { todayIso } from '../../commerce/dates.ts';
 import { PRODUCTION_MANAGE_PERMISSION, PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
-import { formatMoney, knownCurrency } from '../format.ts';
+import { formatMoney, knownCurrency, localDay } from '../format.ts';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
@@ -565,7 +565,13 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                         <RailRow
                             testID="kitchen-production-batch-production-date"
                             label={t('kitchen:ops.production.productionDateLabel')}
-                            value={batch.productionDate ?? noValue}
+                            value={
+                                batch.productionDate === null
+                                    ? noValue
+                                    : formatter.formatDate(localDay(batch.productionDate), {
+                                          dateStyle: 'medium',
+                                      })
+                            }
                         />
                         {/* What a cook typed before lots were minted — only old batches have it. */}
                         {batch.batchReference === null ? null : (
@@ -583,7 +589,13 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                         <RailRow
                             testID="kitchen-production-batch-expiry"
                             label={t('kitchen:ops.production.expiryDateLabel')}
-                            value={batch.expiryDate ?? t('kitchen:ops.production.noExpiry')}
+                            value={
+                                batch.expiryDate === null
+                                    ? t('kitchen:ops.production.noExpiry')
+                                    : formatter.formatDate(localDay(batch.expiryDate), {
+                                          dateStyle: 'medium',
+                                      })
+                            }
                         />
                     </Card>
                 </View>

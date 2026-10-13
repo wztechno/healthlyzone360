@@ -315,7 +315,7 @@ export function mapIngredientAdmin(
             lockVersion: wire.lock_version,
             status: publishableStatus,
             updatedAt: wire.updated_at ?? UNKNOWN_ISO_DATE_TIME,
-            updatedByName: null,
+            updatedByName: wire.updated_by_name ?? null,
         },
         name: { en: wire.name_en, ar: wire.name_ar },
         slug: wire.slug,
@@ -372,6 +372,7 @@ export function mapIngredientAdmin(
         // sub-resource, and no list can afford a request per row. The override stays for the callers
         // that read that sub-resource directly.
         allergens: options?.allergens ?? (wire.allergens ?? []).map(mapIngredientAllergenMapping),
+        allergensAssessedClear: wire.verification_status === 'verified',
         dietClassifications: [],
         aliases: options?.aliases ?? [],
         organisationId:
@@ -591,7 +592,7 @@ function mapCatalogueItemMeta(wire: AdminCatalogueItem): IngredientAdmin['meta']
         lockVersion: wire.lock_version,
         status: mapCataloguePublishableStatus(wire.status),
         updatedAt: wire.updated_at ?? UNKNOWN_ISO_DATE_TIME,
-        updatedByName: null,
+        updatedByName: wire.updated_by_name ?? null,
     };
 }
 
@@ -871,7 +872,7 @@ export function mapRecipeAdminSummary(
                 wire.published_version_number,
             ),
             updatedAt: wire.updated_at ?? UNKNOWN_ISO_DATE_TIME,
-            updatedByName: null,
+            updatedByName: wire.updated_by_name ?? null,
         },
         name: localised(wire.name_en, wire.name_ar),
         slug: wire.slug,

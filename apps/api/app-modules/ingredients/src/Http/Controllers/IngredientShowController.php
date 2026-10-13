@@ -35,7 +35,7 @@ final class IngredientShowController
     public function __invoke(string $ingredient): JsonResponse
     {
         $record = $this->locator->ingredient($ingredient);
-        $record->load(['aliases', 'defaultUnit', 'purchaseUnit', 'capacityUnit']);
+        $record->load(['aliases', 'defaultUnit', 'purchaseUnit', 'capacityUnit', 'updater.profile']);
 
         // Carried here as well as on the index so one shape answers both, and
         // so an editor that needs the declaration to render does not have to

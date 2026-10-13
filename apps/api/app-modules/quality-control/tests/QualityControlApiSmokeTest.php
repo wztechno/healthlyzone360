@@ -59,3 +59,14 @@ it('refuses a subject_type outside the allow-list', function (): void {
     ], $this->headers)->assertUnprocessable()
         ->assertJsonPath('error.code', 'validation.failed');
 });
+
+it('leaves a subject that no longer resolves unnamed rather than inventing one', function (): void {
+    $this->postJson('/api/v1/catalogue/quality-control/checks', [
+        'subject_type' => 'goods_receipt',
+        'subject_id' => (string) Str::uuid(),
+    ], $this->headers)->assertCreated();
+
+    $this->getJson('/api/v1/catalogue/quality-control/checks', $this->headers)->assertOk()
+        ->assertJsonPath('data.quality_checks.0.subject_label', null)
+        ->assertJsonPath('data.quality_checks.0.subject_detail', null);
+});

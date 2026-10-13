@@ -78,6 +78,7 @@ export function Select<T extends string = string>({
     required = false,
     disabled = false,
     searchable = false,
+    loading = false,
     size: sizeProp,
     id,
     className,
@@ -125,7 +126,7 @@ export function Select<T extends string = string>({
                         density === 'compact' ? 'text-role-body' : 'text-sm',
                     )}
                 >
-                    {t('designSystem:select.noResults')}
+                    {t(loading ? 'designSystem:select.loading' : 'designSystem:select.noResults')}
                 </RNText>
             )}
 

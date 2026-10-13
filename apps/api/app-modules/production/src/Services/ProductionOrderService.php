@@ -1046,9 +1046,12 @@ final readonly class ProductionOrderService
         $claims = [];
 
         foreach ($plan->lines() as $line) {
+            // The rounded requirement, as the line stores it: bcadd at this
+            // scale truncates, so the raw figure claimed 0.705 kg beside a
+            // line that required 0.706.
             $claims[$line->stockItemId] = bcadd(
                 $claims[$line->stockItemId] ?? '0',
-                $line->required,
+                $this->roundQuantity($line->required),
                 self::QUANTITY_SCALE,
             );
         }
