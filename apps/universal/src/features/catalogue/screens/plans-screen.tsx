@@ -8,19 +8,21 @@ import { View } from 'react-native';
 import { usePlansQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchensQuery, useSubscriptionsQuery } from '../../../data/marketplace-hooks.ts';
 import { useSession } from '../../../session/session-provider.tsx';
+import { ListingHeader } from '../../../ui/listing-header.tsx';
 import { PillChip } from '../../../ui/pill-chip.tsx';
 import { useMarketplaceFilters } from '../../marketplace/filter-bar.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { distinctKitchenIds, toPlanFilter } from '../plan-catalogue.ts';
 import { PlanCard } from '../plan-card.tsx';
 import { PlanComparisonTray } from '../plan-comparison-tray.tsx';
-import { PlanGrid, PlanGridItem, PlansIntro } from '../plans-intro.tsx';
+import { TextLink } from '../plan-controls.tsx';
+import { PlanGrid, PlanGridItem } from '../plan-grid.tsx';
 import { PlanSubscriberPanel } from '../plan-subscriber-panel.tsx';
 
 /**
- * `/plans` — the subscription-plan catalogue, laid out as HealthZone's `plans` screen: the intro
- * (eyebrow, two-line title, lede, "How plans work →"), the plan cards three across, and for a
- * subscriber the "Your week" card beside the "Active subscription" card.
+ * `/plans` — the subscription-plan catalogue: the listing title with its count and "How plans work
+ * →" on its baseline, the plan cards three across, for a subscriber the "Your week" card beside the
+ * "Active subscription" card, and — once a plan is ticked — the comparison bar pinned to the foot.
  *
  * ## The design's structure over a many-kitchen catalogue
  *
@@ -30,13 +32,13 @@ import { PlanSubscriberPanel } from '../plan-subscriber-panel.tsx';
  *
  * - **Choosing a kitchen** is one row of the design's `chip()` pills between the intro and the
  *   cards — "All kitchens" and one per kitchen that publishes a plan — shown only when there are at
- *   least two to choose between. It is URL-backed (`?kitchen=`), which is how the kitchen finder and
- *   the kitchen spotlight link into this page. The old filter panel's search, calorie band, sort
+ *   least two to choose between. It is URL-backed (`?kitchen=`), which is how a storefront links
+ *   into this page. The old filter panel's search, calorie band, sort
  *   and "Showing N of M" line are gone: none is in the design, and over a catalogue of a handful of
  *   plans each narrowed nothing a glance at the cards does not.
  * - **Comparing** is a "Compare" chip in each card's header — the slot the design gives its
- *   "Current" mark — and the tray that opens the comparison appears under the cards only once a
- *   plan is selected. The selection is its own URL parameter, so a shared link still opens it.
+ *   "Current" mark — and the bar that opens the comparison appears only once a plan is selected.
+ *   The selection is its own URL parameter, so a shared link still opens it.
  *
  * The "How to read the nutrition figures" notice is gone from this page: a plan card states calorie
  * bands, not nutrition figures, and the plan page that does show them keeps it.
@@ -153,10 +155,23 @@ export function PlansScreen() {
 
     return (
         <View testID="plans-screen" className="flex-col">
-            <PlansIntro
-                onHowItWorks={() => {
-                    router.push('/plans/how-it-works' as never);
-                }}
+            <ListingHeader
+                testID="plans-header"
+                title={t('catalogue:nav.plans')}
+                metaTestID="plans-count"
+                {...(plans.data === undefined
+                    ? {}
+                    : { meta: t('catalogue:plans.count', { count: items.length }) })}
+                trailing={
+                    <TextLink
+                        testID="plans-how-link"
+                        align="end"
+                        label={t('catalogue:plans.howItWorksLink')}
+                        onPress={() => {
+                            router.push('/plans/how-it-works' as never);
+                        }}
+                    />
+                }
             />
 
             {kitchenOptions.length > 1 ? (
@@ -164,11 +179,9 @@ export function PlansScreen() {
                     testID="plans-kitchens"
                     role="group"
                     aria-label={t('catalogue:plans.kitchenFilterLabel')}
-                    className="mt-6 flex-row flex-wrap gap-1.5"
+                    className="mt-6 flex-row flex-wrap gap-2"
                 >
                     <PillChip
-                        size="sm"
-                        floor="coarse"
                         testID="plans-kitchen-all"
                         label={t('catalogue:plans.allKitchens')}
                         selected={kitchenIds.length === 0}
@@ -181,8 +194,6 @@ export function PlansScreen() {
                         return (
                             <PillChip
                                 key={option.value}
-                                size="sm"
-                                floor="coarse"
                                 testID={`plans-kitchen-${option.value}`}
                                 label={option.label}
                                 selected={on}
@@ -253,12 +264,20 @@ export function PlansScreen() {
                 </QueryStates>
             </View>
 
+            {liveSubscription === undefined ? null : (
+                <View className="mt-6">
+                    <PlanSubscriberPanel subscription={liveSubscription} />
+                </View>
+            )}
+
+            {/* Sticky on the web against the shell's scroll port, so the bar stays in reach while
+                the cards scroll under it. The wrapper sticks, not the bar: a sticky box sticks
+                within its parent, and the parent here is the whole screen. */}
             {compared.length === 0 ? null : (
-                <View className="mt-4">
+                <View className="z-10 mt-6 web:sticky web:bottom-4">
                     <PlanComparisonTray
                         plans={comparedPlans}
                         selectedCount={compared.length}
-                        max={MAX_COMPARED_PLANS}
                         onRemove={(id) => {
                             toggleCompare(id, false);
                         }}
@@ -269,12 +288,6 @@ export function PlansScreen() {
                             router.push(`/plans/compare?plans=${compared.join(',')}` as never);
                         }}
                     />
-                </View>
-            )}
-
-            {liveSubscription === undefined ? null : (
-                <View className="mt-6">
-                    <PlanSubscriberPanel subscription={liveSubscription} />
                 </View>
             )}
         </View>

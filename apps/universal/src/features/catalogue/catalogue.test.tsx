@@ -1602,30 +1602,51 @@ describe('PlansScreen', () => {
         );
     });
 
-    it('caps the selection at three and says so', async () => {
+    it('caps the selection at three, and names each chosen plan as its own remove control', async () => {
         routerState.params = { compare: PLAN_IDS.slice(0, 3).join(',') };
         await renderStubScreen(<PlansScreen />, { repositories: CATALOGUE_REPOSITORIES });
 
         await waitFor(() => screen.getByTestId('plans-grid'));
-        expect(screen.getByTestId('plans-compare-full')).toBeTruthy();
         expect(screen.getByTestId('plans-compare-open').props.accessibilityState.disabled).toBe(
             false,
         );
+        expect(screen.getByTestId('plans-compare-open')).toHaveTextContent('Compare (3)');
+        await waitFor(() => {
+            expect(screen.getAllByTestId(/^plans-compare-remove-/)).toHaveLength(3);
+        });
+        // A fourth plan cannot be ticked.
+        const fourth = PLANS[3];
+        if (fourth !== undefined) {
+            expect(
+                screen.getByTestId(`plan-card-${fourth.slug}-compare`).props.accessibilityState
+                    .disabled,
+            ).toBe(true);
+        }
     });
 });
 
 describe('PlanComparisonScreen', () => {
-    it('renders one row per metric and a link back to each plan', async () => {
+    it('heads each plan’s column with its price and a way to choose it, then one row per figure', async () => {
         routerState.params = { plans: PLAN_IDS.slice(0, 3).join(',') };
         await renderStubScreen(<PlanComparisonScreen />, {
             repositories: CATALOGUE_REPOSITORIES,
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('plan-comparison-table')).toBeTruthy();
+            expect(screen.getByTestId('plan-comparison-head')).toBeTruthy();
         });
-        expect(screen.getByTestId('plan-comparison-links')).toBeTruthy();
+        expect(screen.getAllByTestId(/^plan-comparison-head-/)).toHaveLength(3);
+        expect(screen.getAllByTestId(/^plan-compare-price-/)).toHaveLength(3);
         expect(screen.getAllByTestId(/^plan-comparison-open-/)).toHaveLength(3);
+        for (const row of ['energy', 'protein', 'carbohydrate', 'fat', 'meals', 'snacks']) {
+            expect(screen.getByTestId(`plan-comparison-row-${row}`)).toBeTruthy();
+        }
+        // The rows that said the same unpublished thing in every column are gone.
+        expect(screen.queryByTestId('plan-comparison-row-delivery')).toBeNull();
+
+        const [first] = PLANS;
+        await fireEvent.press(screen.getByTestId(`plan-comparison-open-${first!.slug}`));
+        expect(routerMock.__push).toHaveBeenCalledWith(`/plans/${String(first!.id)}`);
     });
 
     it('shows the empty state when nothing was selected', async () => {

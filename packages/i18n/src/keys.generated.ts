@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8262 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8250 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1395,27 +1395,23 @@ export interface NamespaceKeys {
     | 'common.syntheticData'
     | 'compare.backToPlans'
     | 'compare.caption'
+    | 'compare.countRange'
     | 'compare.duration.12w'
     | 'compare.duration.1w'
     | 'compare.duration.2w'
     | 'compare.duration.4w'
     | 'compare.durationOption'
-    | 'compare.durationOptionNoDiscount'
     | 'compare.emptyBody'
     | 'compare.emptyTitle'
     | 'compare.macroCaveat'
-    | 'compare.openPlan'
+    | 'compare.noFigure'
     | 'compare.row.carbohydrate'
-    | 'compare.row.delivery'
     | 'compare.row.durations'
     | 'compare.row.energy'
     | 'compare.row.fat'
-    | 'compare.row.kitchen'
     | 'compare.row.meals'
-    | 'compare.row.open'
-    | 'compare.row.pricePerDay'
     | 'compare.row.protein'
-    | 'compare.subtitle'
+    | 'compare.row.snacks'
     | 'compare.title'
     | 'diet.browseAll'
     | 'diet.countsLabel'
@@ -1696,7 +1692,6 @@ export interface NamespaceKeys {
     | 'plan.deliveryBody'
     | 'plan.deliveryTitle'
     | 'plan.deliveryUnpublished'
-    | 'plan.deliveryUnpublishedShort'
     | 'plan.dietitianBody'
     | 'plan.dietitianFind'
     | 'plan.dietitianTitle'
@@ -1727,16 +1722,14 @@ export interface NamespaceKeys {
     | 'plans.balancePrice'
     | 'plans.balancePriceFrom'
     | 'plans.choosePlan'
+    | 'plans.choosePlanShort'
     | 'plans.compareClear'
-    | 'plans.compareEmpty'
-    | 'plans.compareFull'
+    | 'plans.compareCount'
     | 'plans.compareLabel'
     | 'plans.compareNamed'
-    | 'plans.compareOpen'
     | 'plans.compareRemove'
-    | 'plans.compareSelected'
-    | 'plans.compareTitle'
     | 'plans.compareTrayLabel'
+    | 'plans.count'
     | 'plans.ctaBody'
     | 'plans.ctaPrimary'
     | 'plans.ctaSecondary'
@@ -1754,7 +1747,6 @@ export interface NamespaceKeys {
     | 'plans.emptyBody'
     | 'plans.emptyTitle'
     | 'plans.energyBand'
-    | 'plans.eyebrow'
     | 'plans.featureBalances'
     | 'plans.featureBands'
     | 'plans.featureDiscount'
@@ -1764,8 +1756,6 @@ export interface NamespaceKeys {
     | 'plans.kitchenFilterLabel'
     | 'plans.managePlan'
     | 'plans.managePlanNamed'
-    | 'plans.mealsPerDay'
-    | 'plans.mealsPerDayNoSnacks'
     | 'plans.methodologyTitle'
     | 'plans.perDaySuffix'
     | 'plans.ratingLabel'
@@ -1801,9 +1791,7 @@ export interface NamespaceKeys {
     | 'plans.subscriber.unknown'
     | 'plans.subscriber.weekCount'
     | 'plans.subscriber.weekTitle'
-    | 'plans.subtitle'
     | 'plans.taglineWithKitchen'
-    | 'plans.title'
     | 'title'
     | 'tools.activity.extra_active'
     | 'tools.activity.lightly_active'
@@ -9682,27 +9670,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:common.syntheticData',
   'catalogue:compare.backToPlans',
   'catalogue:compare.caption',
+  'catalogue:compare.countRange',
   'catalogue:compare.duration.12w',
   'catalogue:compare.duration.1w',
   'catalogue:compare.duration.2w',
   'catalogue:compare.duration.4w',
   'catalogue:compare.durationOption',
-  'catalogue:compare.durationOptionNoDiscount',
   'catalogue:compare.emptyBody',
   'catalogue:compare.emptyTitle',
   'catalogue:compare.macroCaveat',
-  'catalogue:compare.openPlan',
+  'catalogue:compare.noFigure',
   'catalogue:compare.row.carbohydrate',
-  'catalogue:compare.row.delivery',
   'catalogue:compare.row.durations',
   'catalogue:compare.row.energy',
   'catalogue:compare.row.fat',
-  'catalogue:compare.row.kitchen',
   'catalogue:compare.row.meals',
-  'catalogue:compare.row.open',
-  'catalogue:compare.row.pricePerDay',
   'catalogue:compare.row.protein',
-  'catalogue:compare.subtitle',
+  'catalogue:compare.row.snacks',
   'catalogue:compare.title',
   'catalogue:diet.browseAll',
   'catalogue:diet.countsLabel',
@@ -9983,7 +9967,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plan.deliveryBody',
   'catalogue:plan.deliveryTitle',
   'catalogue:plan.deliveryUnpublished',
-  'catalogue:plan.deliveryUnpublishedShort',
   'catalogue:plan.dietitianBody',
   'catalogue:plan.dietitianFind',
   'catalogue:plan.dietitianTitle',
@@ -10014,16 +9997,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.balancePrice',
   'catalogue:plans.balancePriceFrom',
   'catalogue:plans.choosePlan',
+  'catalogue:plans.choosePlanShort',
   'catalogue:plans.compareClear',
-  'catalogue:plans.compareEmpty',
-  'catalogue:plans.compareFull',
+  'catalogue:plans.compareCount',
   'catalogue:plans.compareLabel',
   'catalogue:plans.compareNamed',
-  'catalogue:plans.compareOpen',
   'catalogue:plans.compareRemove',
-  'catalogue:plans.compareSelected',
-  'catalogue:plans.compareTitle',
   'catalogue:plans.compareTrayLabel',
+  'catalogue:plans.count',
   'catalogue:plans.ctaBody',
   'catalogue:plans.ctaPrimary',
   'catalogue:plans.ctaSecondary',
@@ -10041,7 +10022,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.emptyBody',
   'catalogue:plans.emptyTitle',
   'catalogue:plans.energyBand',
-  'catalogue:plans.eyebrow',
   'catalogue:plans.featureBalances',
   'catalogue:plans.featureBands',
   'catalogue:plans.featureDiscount',
@@ -10051,8 +10031,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.kitchenFilterLabel',
   'catalogue:plans.managePlan',
   'catalogue:plans.managePlanNamed',
-  'catalogue:plans.mealsPerDay',
-  'catalogue:plans.mealsPerDayNoSnacks',
   'catalogue:plans.methodologyTitle',
   'catalogue:plans.perDaySuffix',
   'catalogue:plans.ratingLabel',
@@ -10088,9 +10066,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.subscriber.unknown',
   'catalogue:plans.subscriber.weekCount',
   'catalogue:plans.subscriber.weekTitle',
-  'catalogue:plans.subtitle',
   'catalogue:plans.taglineWithKitchen',
-  'catalogue:plans.title',
   'catalogue:title',
   'catalogue:tools.activity.extra_active',
   'catalogue:tools.activity.lightly_active',
