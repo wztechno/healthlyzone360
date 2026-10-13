@@ -31,8 +31,6 @@
             "protein": "الأعلى بروتينًا",
             "rating": "الأعلى تقييمًا"
         },
-        "filters": "المرشّحات",
-        "filtersActive": "المرشّحات ({{n}})",
         "countAvailable_zero": "لا توجد وجبات متاحة للطلب من مطابخ السوق.",
         "countAvailable_one": "وجبة واحدة متاحة للطلب من مطابخ السوق.",
         "countAvailable_two": "وجبتان متاحتان للطلب من مطابخ السوق.",
@@ -46,17 +44,9 @@
         "countSoFar_many": "{{count}} وجبة معروضة حتى الآن — يمكن تحميل المزيد.",
         "countSoFar_other": "{{count}} وجبة معروضة حتى الآن — يمكن تحميل المزيد.",
         "moreFilters": "فلاتر إضافية",
-        "moreFiltersActive": "فلاتر إضافية ({{n}})",
         "moreFiltersDone": "عرض الوجبات"
     },
     "filters": {
-        "kitchen": "المطبخ",
-        "mealType": "نوع الوجبة",
-        "diet": "النظام الغذائي",
-        "excludeAllergens": "استبعاد مسبّبات الحساسية",
-        "groupWithCount": "{{label}} ({{n}})",
-        "excludeAllergensHint": "تُحذف من النتائج أي وجبة تُصرّح باحتوائها على ما تختاره هنا.",
-        "rangesTitle": "ضيّق النتائج بالأرقام",
         "rangesHint": "أعِد المؤشر إلى البداية لرفع الحد.",
         "atMost": "أقل من {{value}} {{unit}}",
         "atLeast": "{{value}} {{unit}} على الأقل",
@@ -71,14 +61,28 @@
         "unitGrams": "غ",
         "unitMinutes": "دقيقة",
         "clear": "امسح المرشّحات",
-        "clearAll": "امسح كل المرشّحات",
         "category": "الفئة",
-        "dietary": "النظام الغذائي",
         "allMeals": "الكل",
         "optionWithCount": "{{label}} ({{count}})",
-        "activeCount": "{{active}} مرشّحات مفعّلة",
         "removeFilter": "إزالة عامل التصفية: {{filter}}",
-        "moreDiets": "احتياجات غذائية أخرى"
+        "menu": {
+            "diet": "النظام الغذائي",
+            "calories": "السعرات",
+            "allergies": "الحساسية",
+            "kitchen": "المطبخ",
+            "more": "المزيد"
+        },
+        "menuCount": "{{label}} · {{n}}",
+        "clearGroup": "مسح",
+        "barLabel": "تصفية القائمة",
+        "short": {
+            "protein": "البروتين",
+            "carbohydrate": "الكربوهيدرات",
+            "fat": "الدهون",
+            "price": "السعر",
+            "preparationMinutes": "وقت التحضير"
+        },
+        "rangeChip": "{{label}}: {{readout}}"
     },
     "meal": {
         "loading": "جارٍ تحميل الوجبة",
@@ -701,11 +705,16 @@
     },
     "card": {
         "calories": "{{value}} سعرة",
-        "protein": "{{value}} غ بروتين",
         "rating": "★ {{value}}",
-        "notRated": "لم يُقيَّم بعد",
         "noFigure": "—",
         "soldOut": "نفدت الكمية",
-        "unavailable": "غير متاح"
+        "unavailable": "غير متاح",
+        "noNutrition": "القيم الغذائية غير منشورة",
+        "figure": "{{value}} {{unit}}",
+        "unit": {
+            "kcal": "سعرة",
+            "g": "غ",
+            "mg": "ملغ"
+        }
     }
 }

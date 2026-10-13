@@ -23,7 +23,6 @@ import type {
 } from '@healthy360/domain-types';
 import type { NutritionFacts } from '@healthy360/nutrition';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { Dimensions } from 'react-native';
 
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
@@ -849,7 +848,7 @@ describe('MealsScreen', () => {
         });
     });
 
-    it("draws the design's card: tag, name, figures, price and Add", async () => {
+    it('draws the card: tag, name, every published nutrient by name, price and Add', async () => {
         await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
 
         await waitFor(() => screen.getByTestId('meals-grid'));
@@ -858,43 +857,74 @@ describe('MealsScreen', () => {
         expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-tag`)).toHaveTextContent(
             'Bowls',
         );
-        expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-figures`)).toHaveTextContent(
-            /520 cal.*30g P.*★ 4\.4/,
+        // Full names, values and units — not "520 CAL · 30G P".
+        expect(
+            within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-nutrient-energy`),
+        ).toHaveTextContent(/Energy.*520 kcal/);
+        expect(
+            within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-nutrient-protein`),
+        ).toHaveTextContent(/Protein.*30 g/);
+        expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-rating`)).toHaveTextContent(
+            /4\.4/,
         );
         expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-open`)).toBeTruthy();
         expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-add`)).toBeTruthy();
     });
 
-    it('offers every range the specification asks for: calories on the panel, five more in the drawer', async () => {
+    it('says so on a card whose meal publishes no nutrition', async () => {
+        const [first, ...rest] = CATALOGUE_MEALS;
+        const bare = { ...first!, nutrition: { ...first!.nutrition, amounts: [] } };
+        await renderStubScreen(<MealsScreen />, {
+            repositories: {
+                ...CATALOGUE_REPOSITORIES,
+                marketplace: {
+                    ...CATALOGUE_REPOSITORIES.marketplace,
+                    listMeals: async () => page([bare, ...rest].slice(0, PAGE_SIZE)),
+                },
+            },
+        });
+
+        await waitFor(() => screen.getByTestId('meals-grid'));
+        expect(screen.getByTestId(`meal-card-${bare.slug}-figures`)).toHaveTextContent(
+            'Nutrition not published',
+        );
+    });
+
+    it('has no filter panel: the shelves are tabs and the filters are menus', async () => {
         await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
 
         await waitFor(() => screen.getByTestId('meals-grid'));
-        // The narrow-viewport panel is shut on a clean visit by design: the grid leads.
+        expect(screen.queryByTestId('meals-filter-rail')).toBeNull();
+        expect(screen.queryByTestId('meals-filter-toggle')).toBeNull();
+        expect(screen.getByTestId('meals-filter-bar')).toBeTruthy();
+        for (const menu of ['diet', 'calories', 'allergies', 'more']) {
+            expect(screen.getByTestId(`meals-menu-${menu}-trigger`)).toBeTruthy();
+        }
+        // Closed menus draw nothing.
         expect(screen.queryByTestId('meals-ranges-energy')).toBeNull();
-        await fireEvent.press(screen.getByTestId('meals-filter-toggle'));
-        await waitFor(() => screen.getByTestId('meals-ranges-energy'));
-        // The rail is the design's four groups and nothing else.
-        expect(screen.queryByTestId('meals-ranges-protein')).toBeNull();
-        expect(screen.queryByTestId('meals-filter-group-kitchen')).toBeNull();
 
-        await fireEvent.press(screen.getByTestId('meals-more-filters'));
+        await fireEvent.press(screen.getByTestId('meals-menu-calories-trigger'));
+        await waitFor(() => screen.getByTestId('meals-ranges-energy'));
+
+        await fireEvent.press(screen.getByTestId('meals-menu-more-trigger'));
         await waitFor(() => screen.getByTestId('meals-ranges-protein'));
         for (const key of ['protein', 'carbohydrate', 'fat', 'price', 'preparationMinutes']) {
             expect(screen.getByTestId(`meals-ranges-${key}`)).toBeTruthy();
         }
-        expect(screen.getByTestId('meals-filter-group-kitchen')).toBeTruthy();
-        expect(screen.getByTestId('meals-filter-exclude-sesame')).toBeTruthy();
     });
 
-    it('writes an allergen exclusion from the drawer, and counts it on the control that opens it', async () => {
+    it('writes an allergen from its menu, and counts it on the menu button', async () => {
         routerState.params = { exclude: 'milk' };
         await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
 
         await waitFor(() => screen.getByTestId('meals-grid'));
-        // A filter the rail does not draw is never silently in force.
-        expect(screen.getByTestId('meals-more-filters')).toHaveTextContent('More filters (1)');
+        // Never silently in force: the button counts it and a chip names it.
+        expect(screen.getByTestId('meals-menu-allergies-trigger')).toHaveTextContent(
+            /^Allergies · 1/,
+        );
+        expect(screen.getByTestId('meals-toolbar-chip-exclude-milk')).toBeTruthy();
 
-        await fireEvent.press(screen.getByTestId('meals-more-filters'));
+        await fireEvent.press(screen.getByTestId('meals-menu-allergies-trigger'));
         await waitFor(() => screen.getByTestId('meals-filter-exclude-sesame'));
         expect(
             screen.getByTestId('meals-filter-exclude-milk').props.accessibilityState,
@@ -903,13 +933,23 @@ describe('MealsScreen', () => {
         expect(routerMock.__setParams).toHaveBeenLastCalledWith({ exclude: 'milk,sesame' });
     });
 
-    it("draws the design's rail groups: counted shelves, diet pills and the calorie slider", async () => {
+    it('offers every diet in one menu', async () => {
         await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
 
         await waitFor(() => screen.getByTestId('meals-grid'));
-        await fireEvent.press(screen.getByTestId('meals-filter-toggle'));
+        await fireEvent.press(screen.getByTestId('meals-menu-diet-trigger'));
+        await waitFor(() => screen.getByTestId('meals-filter-diet-vegan'));
+        for (const diet of ['high_protein', 'vegetarian', 'vegan', 'gluten_free', 'low_carb']) {
+            expect(screen.getByTestId(`meals-filter-diet-${diet}`)).toBeTruthy();
+        }
+        await fireEvent.press(screen.getByTestId('meals-filter-diet-vegan'));
+        expect(routerMock.__setParams).toHaveBeenLastCalledWith({ diet: 'vegan' });
+    });
 
-        // The shelves are the kitchen's own, counted over the whole menu.
+    it('counts each shelf tab over the whole menu', async () => {
+        await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
+
+        await waitFor(() => screen.getByTestId('meals-grid'));
         await waitFor(() => {
             expect(
                 screen.getByTestId('meals-filter-category-all-count', {
@@ -927,29 +967,19 @@ describe('MealsScreen', () => {
                 includeHiddenElements: true,
             }),
         ).toHaveTextContent(String(CATALOGUE_SIZE - BOWL_COUNT));
-        // The figure is part of the row's name, not a stray number read out on its own.
+        // The figure is part of the tab's name, not a stray number read out on its own.
         expect(
             screen.getByTestId('meals-filter-category-bowls').props.accessibilityLabel,
         ).toContain(String(BOWL_COUNT));
         // "All" is lit while no shelf is chosen.
         expect(
             screen.getByTestId('meals-filter-category-all').props.accessibilityState,
-        ).toMatchObject({ selected: true });
-
-        // The design's four dietary pills, and only those on the rail.
-        for (const diet of ['high_protein', 'vegetarian', 'vegan', 'gluten_free']) {
-            expect(screen.getByTestId(`meals-filter-diet-${diet}`)).toBeTruthy();
-        }
-        expect(screen.queryByTestId('meals-filter-diet-low_carb')).toBeNull();
-        expect(screen.getByTestId('meals-ranges-energy')).toBeTruthy();
-        expect(screen.getByTestId('meals-filter-clear-all')).toBeTruthy();
+        ).toMatchObject({ checked: true });
     });
 
     it('picks one shelf at a time, filters on it server-side, and "All" lifts it', async () => {
         await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
 
-        await waitFor(() => screen.getByTestId('meals-grid'));
-        await fireEvent.press(screen.getByTestId('meals-filter-toggle'));
         await waitFor(() => screen.getByTestId('meals-filter-category-bowls'));
 
         await fireEvent.press(screen.getByTestId('meals-filter-category-bowls'));
@@ -959,60 +989,32 @@ describe('MealsScreen', () => {
         expect(routerMock.__setParams).toHaveBeenLastCalledWith({ category: '' });
     });
 
-    it('opens a filtered arrival with the controls showing, and lights what is applied', async () => {
-        routerState.params = { category: 'salads', diet: 'vegan' };
+    it('shows a filtered arrival as chips, lights its tab, and clears everything at once', async () => {
+        routerState.params = { category: 'salads', diet: 'vegan', energyMax: '500' };
         const { repositories } = await renderStubScreen(<MealsScreen />, {
             repositories: CATALOGUE_REPOSITORIES,
         });
 
-        // The disclosure opened itself, because the controls are what a filtered link came for.
         await waitFor(() => screen.getByTestId('meals-filter-category-salads'));
         expect(
             screen.getByTestId('meals-filter-category-salads').props.accessibilityState,
-        ).toMatchObject({ selected: true });
-        expect(
-            screen.getByTestId('meals-filter-category-all').props.accessibilityState,
-        ).toMatchObject({ selected: false });
-        expect(
-            screen.getByTestId('meals-filter-diet-vegan').props.accessibilityState,
-        ).toMatchObject({ selected: true });
+        ).toMatchObject({ checked: true });
+        expect(screen.getByTestId('meals-toolbar-chip-diet-vegan')).toBeTruthy();
+        expect(screen.getByTestId('meals-toolbar-chip-range-energy')).toHaveTextContent(
+            /Calories: Under 500 kcal/,
+        );
+        expect(screen.getByTestId('meals-menu-diet-trigger')).toHaveTextContent(/^Diet · 1/);
         expect(repositories.marketplace.listMeals).toHaveBeenCalledWith(
             expect.objectContaining({ categorySlug: 'salads', limit: PAGE_SIZE }),
         );
 
-        await fireEvent.press(screen.getByTestId('meals-filter-clear-all'));
+        await fireEvent.press(screen.getByTestId('meals-toolbar-chip-diet-vegan'));
+        expect(routerMock.__setParams).toHaveBeenLastCalledWith({ diet: '' });
+
+        await fireEvent.press(screen.getByTestId('meals-toolbar-clear'));
         expect(routerMock.__setParams).toHaveBeenCalledWith(
             expect.objectContaining({ category: '', diet: '' }),
         );
-    });
-
-    describe('above lg', () => {
-        const narrowWindow = Dimensions.get('window');
-        const narrowScreen = Dimensions.get('screen');
-        beforeAll(() => {
-            Dimensions.set({
-                window: { ...narrowWindow, width: 1440, height: 900 },
-                screen: { ...narrowScreen, width: 1440, height: 900 },
-            });
-        });
-        afterAll(() => {
-            Dimensions.set({ window: narrowWindow, screen: narrowScreen });
-        });
-
-        it('is a rail beside the grid, with nothing to disclose', async () => {
-            await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
-
-            await waitFor(() => screen.getByTestId('meals-grid'));
-            const rail = screen.getByTestId('meals-filter-rail');
-            // The controls are drawn outright, once, and there is no toggle to open them with.
-            expect(within(rail).getByTestId('meals-filter-category')).toBeTruthy();
-            expect(within(rail).getByTestId('meals-filter-dietary')).toBeTruthy();
-            expect(within(rail).getByTestId('meals-ranges-energy')).toBeTruthy();
-            expect(within(rail).getByTestId('meals-filter-clear-all')).toBeTruthy();
-            expect(within(rail).queryByTestId('meals-filter-group-kitchen')).toBeNull();
-            expect(screen.queryByTestId('meals-filter-toggle')).toBeNull();
-            expect(screen.getAllByTestId('meals-filter-diet-vegan')).toHaveLength(1);
-        });
     });
 
     it('narrows the catalogue from a URL range parameter', async () => {

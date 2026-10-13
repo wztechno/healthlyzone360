@@ -24,6 +24,12 @@ export interface PopoverProps {
     /** Visible trigger text. Omit for an icon-only trigger. */
     readonly triggerText?: string | undefined;
     readonly triggerIcon?: IconName | undefined;
+    /**
+     * Which side of the text the glyph sits on. `start` (default) leads with it, as an info glyph
+     * should; `end` trails it, as a disclosure chevron should — "Diet ⌄", the way a menu button
+     * reads.
+     */
+    readonly triggerIconPosition?: 'start' | 'end' | undefined;
     /** Heading inside the panel. */
     readonly title: string;
     readonly children: ReactNode;
@@ -76,6 +82,7 @@ export function Popover({
     triggerLabel,
     triggerText,
     triggerIcon = 'info',
+    triggerIconPosition = 'start',
     title,
     children,
     trigger = 'press',
@@ -166,7 +173,9 @@ export function Popover({
                         : 'px-2 py-1',
                 )}
             >
-                <Icon name={triggerIcon} size="sm" className="text-content-secondary" />
+                {triggerIconPosition === 'start' ? (
+                    <Icon name={triggerIcon} size="sm" className="text-content-secondary" />
+                ) : null}
                 {triggerText === undefined ? null : (
                     <RNText
                         className={cx(
@@ -179,6 +188,9 @@ export function Popover({
                         {triggerText}
                     </RNText>
                 )}
+                {triggerIconPosition === 'end' ? (
+                    <Icon name={triggerIcon} size="sm" className="text-content-secondary" />
+                ) : null}
             </Pressable>
 
             {open ? (
@@ -189,7 +201,10 @@ export function Popover({
                     aria-label={title}
                     accessibilityLabel={title}
                     className={cx(
-                        'absolute top-full z-tooltip mt-1 w-[280px] max-w-[92%] flex-col gap-2 rounded-lg border border-stroke-subtle bg-surface-raised p-3 shadow-elevation-3',
+                        // 280px, capped by the *viewport* on the web. A percentage cap is a share of the
+                        // container, which is only as wide as the trigger — a short "Diet ⌄" button
+                        // squeezed its panel to the width of the word.
+                        'absolute top-full z-tooltip mt-1 w-[280px] flex-col gap-2 rounded-lg border border-stroke-subtle bg-surface-raised p-3 shadow-elevation-3 web:max-w-[92vw]',
                         /*
                          * `start` adds nothing, and that is deliberate — asserted by
                          * "anchors the panel with no horizontal inset at all". An absolutely

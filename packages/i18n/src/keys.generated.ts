@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8174 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8177 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1381,12 +1381,15 @@ export interface NamespaceKeys {
     | 'title';
   readonly "catalogue":
     | 'card.calories'
+    | 'card.figure'
     | 'card.noFigure'
-    | 'card.notRated'
-    | 'card.protein'
+    | 'card.noNutrition'
     | 'card.rating'
     | 'card.soldOut'
     | 'card.unavailable'
+    | 'card.unit.g'
+    | 'card.unit.kcal'
+    | 'card.unit.mg'
     | 'common.back'
     | 'common.listSeparator'
     | 'common.loading'
@@ -1450,32 +1453,35 @@ export interface NamespaceKeys {
     | 'facts.syntheticNote'
     | 'facts.title'
     | 'facts.version'
-    | 'filters.activeCount'
     | 'filters.allMeals'
     | 'filters.anyValue'
     | 'filters.atLeast'
     | 'filters.atMost'
+    | 'filters.barLabel'
     | 'filters.carbohydrate'
     | 'filters.category'
     | 'filters.clear'
-    | 'filters.clearAll'
-    | 'filters.diet'
-    | 'filters.dietary'
+    | 'filters.clearGroup'
     | 'filters.energy'
-    | 'filters.excludeAllergens'
-    | 'filters.excludeAllergensHint'
     | 'filters.fat'
-    | 'filters.groupWithCount'
-    | 'filters.kitchen'
-    | 'filters.mealType'
-    | 'filters.moreDiets'
+    | 'filters.menu.allergies'
+    | 'filters.menu.calories'
+    | 'filters.menu.diet'
+    | 'filters.menu.kitchen'
+    | 'filters.menu.more'
+    | 'filters.menuCount'
     | 'filters.optionWithCount'
     | 'filters.preparationMinutes'
     | 'filters.price'
     | 'filters.protein'
+    | 'filters.rangeChip'
     | 'filters.rangesHint'
-    | 'filters.rangesTitle'
     | 'filters.removeFilter'
+    | 'filters.short.carbohydrate'
+    | 'filters.short.fat'
+    | 'filters.short.preparationMinutes'
+    | 'filters.short.price'
+    | 'filters.short.protein'
     | 'filters.unitGrams'
     | 'filters.unitKcal'
     | 'filters.unitMinutes'
@@ -1660,12 +1666,9 @@ export interface NamespaceKeys {
     | 'meals.countSoFar'
     | 'meals.emptyBody'
     | 'meals.emptyTitle'
-    | 'meals.filters'
-    | 'meals.filtersActive'
     | 'meals.loadMore'
     | 'meals.loadingMore'
     | 'meals.moreFilters'
-    | 'meals.moreFiltersActive'
     | 'meals.moreFiltersDone'
     | 'meals.sort.price'
     | 'meals.sort.protein'
@@ -9580,12 +9583,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:schedule.title',
   'business:title',
   'catalogue:card.calories',
+  'catalogue:card.figure',
   'catalogue:card.noFigure',
-  'catalogue:card.notRated',
-  'catalogue:card.protein',
+  'catalogue:card.noNutrition',
   'catalogue:card.rating',
   'catalogue:card.soldOut',
   'catalogue:card.unavailable',
+  'catalogue:card.unit.g',
+  'catalogue:card.unit.kcal',
+  'catalogue:card.unit.mg',
   'catalogue:common.back',
   'catalogue:common.listSeparator',
   'catalogue:common.loading',
@@ -9649,32 +9655,35 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:facts.syntheticNote',
   'catalogue:facts.title',
   'catalogue:facts.version',
-  'catalogue:filters.activeCount',
   'catalogue:filters.allMeals',
   'catalogue:filters.anyValue',
   'catalogue:filters.atLeast',
   'catalogue:filters.atMost',
+  'catalogue:filters.barLabel',
   'catalogue:filters.carbohydrate',
   'catalogue:filters.category',
   'catalogue:filters.clear',
-  'catalogue:filters.clearAll',
-  'catalogue:filters.diet',
-  'catalogue:filters.dietary',
+  'catalogue:filters.clearGroup',
   'catalogue:filters.energy',
-  'catalogue:filters.excludeAllergens',
-  'catalogue:filters.excludeAllergensHint',
   'catalogue:filters.fat',
-  'catalogue:filters.groupWithCount',
-  'catalogue:filters.kitchen',
-  'catalogue:filters.mealType',
-  'catalogue:filters.moreDiets',
+  'catalogue:filters.menu.allergies',
+  'catalogue:filters.menu.calories',
+  'catalogue:filters.menu.diet',
+  'catalogue:filters.menu.kitchen',
+  'catalogue:filters.menu.more',
+  'catalogue:filters.menuCount',
   'catalogue:filters.optionWithCount',
   'catalogue:filters.preparationMinutes',
   'catalogue:filters.price',
   'catalogue:filters.protein',
+  'catalogue:filters.rangeChip',
   'catalogue:filters.rangesHint',
-  'catalogue:filters.rangesTitle',
   'catalogue:filters.removeFilter',
+  'catalogue:filters.short.carbohydrate',
+  'catalogue:filters.short.fat',
+  'catalogue:filters.short.preparationMinutes',
+  'catalogue:filters.short.price',
+  'catalogue:filters.short.protein',
   'catalogue:filters.unitGrams',
   'catalogue:filters.unitKcal',
   'catalogue:filters.unitMinutes',
@@ -9859,12 +9868,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meals.countSoFar',
   'catalogue:meals.emptyBody',
   'catalogue:meals.emptyTitle',
-  'catalogue:meals.filters',
-  'catalogue:meals.filtersActive',
   'catalogue:meals.loadMore',
   'catalogue:meals.loadingMore',
   'catalogue:meals.moreFilters',
-  'catalogue:meals.moreFiltersActive',
   'catalogue:meals.moreFiltersDone',
   'catalogue:meals.sort.price',
   'catalogue:meals.sort.protein',

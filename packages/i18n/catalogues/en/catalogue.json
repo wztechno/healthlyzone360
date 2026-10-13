@@ -31,24 +31,14 @@
             "protein": "Highest protein",
             "rating": "Top rated"
         },
-        "filters": "Filters",
-        "filtersActive": "Filters ({{n}})",
         "countAvailable_one": "{{count}} meal available to order from kitchens on the marketplace.",
         "countAvailable_other": "{{count}} meals available to order from kitchens on the marketplace.",
         "countSoFar_one": "{{count}} meal shown so far — more to load.",
         "countSoFar_other": "{{count}} meals shown so far — more to load.",
         "moreFilters": "More filters",
-        "moreFiltersActive": "More filters ({{n}})",
         "moreFiltersDone": "Show meals"
     },
     "filters": {
-        "kitchen": "Kitchen",
-        "mealType": "Meal",
-        "diet": "Diet",
-        "excludeAllergens": "Exclude allergens",
-        "groupWithCount": "{{label}} ({{n}})",
-        "excludeAllergensHint": "Meals declaring any allergen you select here are removed from the results.",
-        "rangesTitle": "Narrow it by the numbers",
         "rangesHint": "Slide back to the start to lift a limit.",
         "atMost": "Under {{value}} {{unit}}",
         "atLeast": "At least {{value}} {{unit}}",
@@ -63,14 +53,28 @@
         "unitGrams": "g",
         "unitMinutes": "min",
         "clear": "Clear filters",
-        "clearAll": "Clear all filters",
         "category": "Category",
-        "dietary": "Dietary",
         "allMeals": "All",
         "optionWithCount": "{{label}} ({{count}})",
-        "activeCount": "{{active}} filters applied",
         "removeFilter": "Remove filter: {{filter}}",
-        "moreDiets": "More dietary needs"
+        "menu": {
+            "diet": "Diet",
+            "calories": "Calories",
+            "allergies": "Allergies",
+            "kitchen": "Kitchen",
+            "more": "More"
+        },
+        "menuCount": "{{label}} · {{n}}",
+        "clearGroup": "Clear",
+        "barLabel": "Filter the menu",
+        "short": {
+            "protein": "Protein",
+            "carbohydrate": "Carbs",
+            "fat": "Fat",
+            "price": "Price",
+            "preparationMinutes": "Prep time"
+        },
+        "rangeChip": "{{label}}: {{readout}}"
     },
     "meal": {
         "loading": "Loading the meal",
@@ -621,11 +625,16 @@
     },
     "card": {
         "calories": "{{value}} cal",
-        "protein": "{{value}}g P",
         "rating": "★ {{value}}",
-        "notRated": "Not rated yet",
         "noFigure": "—",
         "soldOut": "Sold out",
-        "unavailable": "Unavailable"
+        "unavailable": "Unavailable",
+        "noNutrition": "Nutrition not published",
+        "figure": "{{value}} {{unit}}",
+        "unit": {
+            "kcal": "kcal",
+            "g": "g",
+            "mg": "mg"
+        }
     }
 }

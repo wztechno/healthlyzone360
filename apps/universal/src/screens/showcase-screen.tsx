@@ -4575,6 +4575,17 @@ export function ShowcaseScreen() {
                     >
                         <Text variant="caption">{t('designSystem:showcase.popoverBody')}</Text>
                     </Popover>
+                    <Popover
+                        testID="showcase-popover-menu"
+                        triggerVariant="button"
+                        triggerIcon="chevronDown"
+                        triggerIconPosition="end"
+                        triggerLabel={t('designSystem:showcase.popoverTrigger')}
+                        triggerText={t('designSystem:showcase.popoverTrigger')}
+                        title={t('designSystem:showcase.popoverTitle')}
+                    >
+                        <Text variant="caption">{t('designSystem:showcase.popoverBody')}</Text>
+                    </Popover>
 
                     {/* A sentence of guidance beside a label: hover, focus or press. */}
                     <Inline space="xs" align="center">
