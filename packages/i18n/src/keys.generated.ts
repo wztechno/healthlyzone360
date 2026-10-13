@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8250 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8179 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1686,37 +1686,24 @@ export interface NamespaceKeys {
     | 'plan.combinationMeals'
     | 'plan.combinationNoSnacks'
     | 'plan.combinationSnacks'
-    | 'plan.combinationTitle'
     | 'plan.configure'
     | 'plan.configureSignIn'
-    | 'plan.deliveryBody'
-    | 'plan.deliveryTitle'
-    | 'plan.deliveryUnpublished'
-    | 'plan.dietitianBody'
-    | 'plan.dietitianFind'
-    | 'plan.dietitianTitle'
     | 'plan.durationDiscount'
     | 'plan.durationNoDiscount'
     | 'plan.durationTotal'
-    | 'plan.durationsBody'
     | 'plan.durationsTitle'
     | 'plan.imageLabel'
     | 'plan.loading'
     | 'plan.macroBandLabel'
     | 'plan.macroRange'
-    | 'plan.macrosBody'
     | 'plan.macrosTitle'
     | 'plan.notFoundBody'
     | 'plan.notFoundTitle'
-    | 'plan.priceBothUnits'
     | 'plan.pricePerDay'
     | 'plan.pricePerWeek'
     | 'plan.priceTitle'
-    | 'plan.sampleMenuBody'
-    | 'plan.sampleMenuEmpty'
     | 'plan.sampleMenuTitle'
     | 'plan.variantLabel'
-    | 'plan.variantsBody'
     | 'plan.variantsTitle'
     | 'plans.allKitchens'
     | 'plans.balancePrice'
@@ -1914,7 +1901,6 @@ export interface NamespaceKeys {
     | 'address.line2'
     | 'address.line2Hint'
     | 'address.line2Placeholder'
-    | 'address.notStored'
     | 'balance.cutOffNote'
     | 'balance.perDay'
     | 'balance.remaining'
@@ -2034,70 +2020,35 @@ export interface NamespaceKeys {
     | 'common.close'
     | 'common.listSeparator'
     | 'common.noPayment'
-    | 'configurator.allergyDisclaimerContext'
     | 'configurator.back'
-    | 'configurator.body'
     | 'configurator.browsePlans'
-    | 'configurator.checks.acknowledgeDescription'
     | 'configurator.checks.acknowledgeLabel'
-    | 'configurator.checks.allergens'
-    | 'configurator.checks.areaServedBody'
-    | 'configurator.checks.areaServedTitle'
-    | 'configurator.checks.areaUnknownBody'
-    | 'configurator.checks.areaUnknownTitle'
-    | 'configurator.checks.areaUnservedBody'
-    | 'configurator.checks.areaUnservedTitle'
-    | 'configurator.checks.body'
+    | 'configurator.checks.areaServed'
+    | 'configurator.checks.areaUnknown'
+    | 'configurator.checks.areaUnserved'
     | 'configurator.checks.noAllergens'
-    | 'configurator.checks.relaxedBody'
-    | 'configurator.checks.relaxedTitle'
-    | 'configurator.checks.title'
-    | 'configurator.combination.body'
-    | 'configurator.combination.couplingBody'
-    | 'configurator.combination.couplingTitle'
     | 'configurator.combination.label'
     | 'configurator.combination.meals'
-    | 'configurator.combination.noSnacks'
-    | 'configurator.combination.option'
     | 'configurator.combination.snacks'
-    | 'configurator.confirm.acknowledgeDescription'
+    | 'configurator.combination.withSnacks'
     | 'configurator.confirm.acknowledgeLabel'
-    | 'configurator.confirm.body'
-    | 'configurator.confirm.deliveries'
-    | 'configurator.confirm.termsBody'
-    | 'configurator.confirm.termsTitle'
-    | 'configurator.confirm.title'
     | 'configurator.confirm.total'
     | 'configurator.create'
     | 'configurator.createFailedTitle'
+    | 'configurator.delivery.addressPlaceholder'
     | 'configurator.delivery.addressTitle'
     | 'configurator.delivery.slotTitle'
-    | 'configurator.delivery.startHint'
     | 'configurator.delivery.startLabel'
     | 'configurator.delivery.useNextAllowed'
-    | 'configurator.delivery.weekdaysBody'
     | 'configurator.delivery.weekdaysLimited'
-    | 'configurator.delivery.weekdaysLoading'
     | 'configurator.delivery.weekdaysTitle'
-    | 'configurator.dietary.addedBody'
-    | 'configurator.dietary.addedTitle'
-    | 'configurator.dietary.allergensBody'
-    | 'configurator.dietary.allergensLoading'
-    | 'configurator.dietary.allergensNone'
     | 'configurator.dietary.allergensTitle'
-    | 'configurator.dietary.dietsBody'
     | 'configurator.dietary.dietsTitle'
-    | 'configurator.dietary.relaxedBody'
     | 'configurator.dietary.relaxedTitle'
     | 'configurator.disclaimerContext'
-    | 'configurator.duration.body'
-    | 'configurator.duration.caveat'
-    | 'configurator.duration.discount'
-    | 'configurator.duration.noDiscount'
-    | 'configurator.duration.optionLabel'
-    | 'configurator.duration.saving'
-    | 'configurator.duration.selected'
-    | 'configurator.duration.total'
+    | 'configurator.duration.label'
+    | 'configurator.duration.withDiscount'
+    | 'configurator.edit'
     | 'configurator.issues.address'
     | 'configurator.issues.areaUnserved'
     | 'configurator.issues.checks'
@@ -2111,62 +2062,40 @@ export interface NamespaceKeys {
     | 'configurator.issues.terms'
     | 'configurator.issues.variant'
     | 'configurator.issuesTitle'
-    | 'configurator.meals.body'
-    | 'configurator.meals.fromPlan'
-    | 'configurator.meals.noDates'
-    | 'configurator.meals.noteLoading'
-    | 'configurator.meals.noteStatic'
-    | 'configurator.meals.noteSwappable'
-    | 'configurator.meals.noteTitle'
     | 'configurator.meals.selectLabel'
+    | 'configurator.meals.title'
     | 'configurator.meals.unknown'
     | 'configurator.next'
     | 'configurator.notFoundBody'
     | 'configurator.notFoundTitle'
     | 'configurator.plan.band'
-    | 'configurator.plan.macroCaveat'
-    | 'configurator.plan.macroRange'
-    | 'configurator.plan.macrosTitle'
     | 'configurator.plan.variantLabel'
-    | 'configurator.plan.weeklyPrice'
-    | 'configurator.position'
     | 'configurator.previewEmptyBody'
     | 'configurator.previewEmptyTitle'
-    | 'configurator.priceLater'
     | 'configurator.progressLabel'
-    | 'configurator.steps.combination'
-    | 'configurator.steps.confirm'
     | 'configurator.steps.delivery'
-    | 'configurator.steps.dietary'
-    | 'configurator.steps.duration'
-    | 'configurator.steps.meals'
     | 'configurator.steps.plan'
-    | 'configurator.steps.summary'
+    | 'configurator.steps.review'
     | 'configurator.successBody'
     | 'configurator.successList'
-    | 'configurator.successNoPayment'
     | 'configurator.successOpen'
     | 'configurator.successTitle'
     | 'configurator.summary.address'
     | 'configurator.summary.allergens'
-    | 'configurator.summary.checksBody'
-    | 'configurator.summary.checksTitle'
-    | 'configurator.summary.configTitle'
     | 'configurator.summary.days'
     | 'configurator.summary.discount'
     | 'configurator.summary.duration'
+    | 'configurator.summary.everyDay'
     | 'configurator.summary.gross'
     | 'configurator.summary.perDelivery'
-    | 'configurator.summary.perDeliveryNote'
     | 'configurator.summary.plan'
-    | 'configurator.summary.priceCaption'
-    | 'configurator.summary.priceTitle'
-    | 'configurator.summary.slot'
+    | 'configurator.summary.starts'
     | 'configurator.summary.total'
     | 'configurator.summary.weekly'
     | 'configurator.summary.window'
     | 'configurator.summary.windowValue'
     | 'configurator.title'
+    | 'configurator.titleFor'
     | 'deliveries.caption'
     | 'deliveries.columns.consumed'
     | 'deliveries.columns.date'
@@ -9961,37 +9890,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plan.combinationMeals',
   'catalogue:plan.combinationNoSnacks',
   'catalogue:plan.combinationSnacks',
-  'catalogue:plan.combinationTitle',
   'catalogue:plan.configure',
   'catalogue:plan.configureSignIn',
-  'catalogue:plan.deliveryBody',
-  'catalogue:plan.deliveryTitle',
-  'catalogue:plan.deliveryUnpublished',
-  'catalogue:plan.dietitianBody',
-  'catalogue:plan.dietitianFind',
-  'catalogue:plan.dietitianTitle',
   'catalogue:plan.durationDiscount',
   'catalogue:plan.durationNoDiscount',
   'catalogue:plan.durationTotal',
-  'catalogue:plan.durationsBody',
   'catalogue:plan.durationsTitle',
   'catalogue:plan.imageLabel',
   'catalogue:plan.loading',
   'catalogue:plan.macroBandLabel',
   'catalogue:plan.macroRange',
-  'catalogue:plan.macrosBody',
   'catalogue:plan.macrosTitle',
   'catalogue:plan.notFoundBody',
   'catalogue:plan.notFoundTitle',
-  'catalogue:plan.priceBothUnits',
   'catalogue:plan.pricePerDay',
   'catalogue:plan.pricePerWeek',
   'catalogue:plan.priceTitle',
-  'catalogue:plan.sampleMenuBody',
-  'catalogue:plan.sampleMenuEmpty',
   'catalogue:plan.sampleMenuTitle',
   'catalogue:plan.variantLabel',
-  'catalogue:plan.variantsBody',
   'catalogue:plan.variantsTitle',
   'catalogue:plans.allKitchens',
   'catalogue:plans.balancePrice',
@@ -10188,7 +10104,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:address.line2',
   'commerce:address.line2Hint',
   'commerce:address.line2Placeholder',
-  'commerce:address.notStored',
   'commerce:balance.cutOffNote',
   'commerce:balance.perDay',
   'commerce:balance.remaining',
@@ -10308,70 +10223,35 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:common.close',
   'commerce:common.listSeparator',
   'commerce:common.noPayment',
-  'commerce:configurator.allergyDisclaimerContext',
   'commerce:configurator.back',
-  'commerce:configurator.body',
   'commerce:configurator.browsePlans',
-  'commerce:configurator.checks.acknowledgeDescription',
   'commerce:configurator.checks.acknowledgeLabel',
-  'commerce:configurator.checks.allergens',
-  'commerce:configurator.checks.areaServedBody',
-  'commerce:configurator.checks.areaServedTitle',
-  'commerce:configurator.checks.areaUnknownBody',
-  'commerce:configurator.checks.areaUnknownTitle',
-  'commerce:configurator.checks.areaUnservedBody',
-  'commerce:configurator.checks.areaUnservedTitle',
-  'commerce:configurator.checks.body',
+  'commerce:configurator.checks.areaServed',
+  'commerce:configurator.checks.areaUnknown',
+  'commerce:configurator.checks.areaUnserved',
   'commerce:configurator.checks.noAllergens',
-  'commerce:configurator.checks.relaxedBody',
-  'commerce:configurator.checks.relaxedTitle',
-  'commerce:configurator.checks.title',
-  'commerce:configurator.combination.body',
-  'commerce:configurator.combination.couplingBody',
-  'commerce:configurator.combination.couplingTitle',
   'commerce:configurator.combination.label',
   'commerce:configurator.combination.meals',
-  'commerce:configurator.combination.noSnacks',
-  'commerce:configurator.combination.option',
   'commerce:configurator.combination.snacks',
-  'commerce:configurator.confirm.acknowledgeDescription',
+  'commerce:configurator.combination.withSnacks',
   'commerce:configurator.confirm.acknowledgeLabel',
-  'commerce:configurator.confirm.body',
-  'commerce:configurator.confirm.deliveries',
-  'commerce:configurator.confirm.termsBody',
-  'commerce:configurator.confirm.termsTitle',
-  'commerce:configurator.confirm.title',
   'commerce:configurator.confirm.total',
   'commerce:configurator.create',
   'commerce:configurator.createFailedTitle',
+  'commerce:configurator.delivery.addressPlaceholder',
   'commerce:configurator.delivery.addressTitle',
   'commerce:configurator.delivery.slotTitle',
-  'commerce:configurator.delivery.startHint',
   'commerce:configurator.delivery.startLabel',
   'commerce:configurator.delivery.useNextAllowed',
-  'commerce:configurator.delivery.weekdaysBody',
   'commerce:configurator.delivery.weekdaysLimited',
-  'commerce:configurator.delivery.weekdaysLoading',
   'commerce:configurator.delivery.weekdaysTitle',
-  'commerce:configurator.dietary.addedBody',
-  'commerce:configurator.dietary.addedTitle',
-  'commerce:configurator.dietary.allergensBody',
-  'commerce:configurator.dietary.allergensLoading',
-  'commerce:configurator.dietary.allergensNone',
   'commerce:configurator.dietary.allergensTitle',
-  'commerce:configurator.dietary.dietsBody',
   'commerce:configurator.dietary.dietsTitle',
-  'commerce:configurator.dietary.relaxedBody',
   'commerce:configurator.dietary.relaxedTitle',
   'commerce:configurator.disclaimerContext',
-  'commerce:configurator.duration.body',
-  'commerce:configurator.duration.caveat',
-  'commerce:configurator.duration.discount',
-  'commerce:configurator.duration.noDiscount',
-  'commerce:configurator.duration.optionLabel',
-  'commerce:configurator.duration.saving',
-  'commerce:configurator.duration.selected',
-  'commerce:configurator.duration.total',
+  'commerce:configurator.duration.label',
+  'commerce:configurator.duration.withDiscount',
+  'commerce:configurator.edit',
   'commerce:configurator.issues.address',
   'commerce:configurator.issues.areaUnserved',
   'commerce:configurator.issues.checks',
@@ -10385,62 +10265,40 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.issues.terms',
   'commerce:configurator.issues.variant',
   'commerce:configurator.issuesTitle',
-  'commerce:configurator.meals.body',
-  'commerce:configurator.meals.fromPlan',
-  'commerce:configurator.meals.noDates',
-  'commerce:configurator.meals.noteLoading',
-  'commerce:configurator.meals.noteStatic',
-  'commerce:configurator.meals.noteSwappable',
-  'commerce:configurator.meals.noteTitle',
   'commerce:configurator.meals.selectLabel',
+  'commerce:configurator.meals.title',
   'commerce:configurator.meals.unknown',
   'commerce:configurator.next',
   'commerce:configurator.notFoundBody',
   'commerce:configurator.notFoundTitle',
   'commerce:configurator.plan.band',
-  'commerce:configurator.plan.macroCaveat',
-  'commerce:configurator.plan.macroRange',
-  'commerce:configurator.plan.macrosTitle',
   'commerce:configurator.plan.variantLabel',
-  'commerce:configurator.plan.weeklyPrice',
-  'commerce:configurator.position',
   'commerce:configurator.previewEmptyBody',
   'commerce:configurator.previewEmptyTitle',
-  'commerce:configurator.priceLater',
   'commerce:configurator.progressLabel',
-  'commerce:configurator.steps.combination',
-  'commerce:configurator.steps.confirm',
   'commerce:configurator.steps.delivery',
-  'commerce:configurator.steps.dietary',
-  'commerce:configurator.steps.duration',
-  'commerce:configurator.steps.meals',
   'commerce:configurator.steps.plan',
-  'commerce:configurator.steps.summary',
+  'commerce:configurator.steps.review',
   'commerce:configurator.successBody',
   'commerce:configurator.successList',
-  'commerce:configurator.successNoPayment',
   'commerce:configurator.successOpen',
   'commerce:configurator.successTitle',
   'commerce:configurator.summary.address',
   'commerce:configurator.summary.allergens',
-  'commerce:configurator.summary.checksBody',
-  'commerce:configurator.summary.checksTitle',
-  'commerce:configurator.summary.configTitle',
   'commerce:configurator.summary.days',
   'commerce:configurator.summary.discount',
   'commerce:configurator.summary.duration',
+  'commerce:configurator.summary.everyDay',
   'commerce:configurator.summary.gross',
   'commerce:configurator.summary.perDelivery',
-  'commerce:configurator.summary.perDeliveryNote',
   'commerce:configurator.summary.plan',
-  'commerce:configurator.summary.priceCaption',
-  'commerce:configurator.summary.priceTitle',
-  'commerce:configurator.summary.slot',
+  'commerce:configurator.summary.starts',
   'commerce:configurator.summary.total',
   'commerce:configurator.summary.weekly',
   'commerce:configurator.summary.window',
   'commerce:configurator.summary.windowValue',
   'commerce:configurator.title',
+  'commerce:configurator.titleFor',
   'commerce:deliveries.caption',
   'commerce:deliveries.columns.consumed',
   'commerce:deliveries.columns.date',

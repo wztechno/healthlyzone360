@@ -26,19 +26,19 @@ import { deliveryDatesFor, isIsoDate, isoWeekday } from './dates.ts';
  * makes "may this person move on from the delivery step?" a question a test can ask directly,
  * instead of one that can only be asked by pressing a button in a rendered tree.
  *
- * ## Eight steps, not one page — and why we diverge
+ * ## Three steps
  *
  * Doc 11, `SUB-01`/`SUB-03` record the reference product's whole pre-purchase configuration as
- * **three decisions on one page**, and doc 17, `SUB-01` endorses keeping configuration short. We
- * keep the *decisions* short and still take eight steps, because our product asks two questions the
- * reference defers past payment entirely (doc 11, `DEF-04` and `DEF-06`): does the kitchen deliver
- * to this address, and which allergens must be excluded. Doc 17, `SUB-02` makes that divergence
- * explicit and important — both are cheap to ask and both are dispositive — so both are answered
- * **before the price step**, which is the whole point.
+ * three decisions, and doc 17, `SUB-01` endorses keeping configuration short. So: `plan` (band,
+ * meals, length), `delivery` (days, start, window, address, diet and allergies) and `review` (the
+ * server's price, optional first-week meals, the terms).
  *
- * The step order encodes that: `plan → combination → duration → dietary → delivery → meals →
- * summary → confirm`. Allergies are settled at step 4, delivery area at step 5, and the first price
- * a person sees is at step 7.
+ * Doc 17, `SUB-02`'s two dispositive questions — does the kitchen deliver here, and what must be
+ * left out — are still settled before anything is created: both live in `delivery`, an unserved
+ * area is a hard stop, and dropping an allergy the profile records has to be acknowledged. What
+ * changed is the price: it is shown from the first step, estimated on the client, and replaced by
+ * the server's own figures on `review`. Hiding it until step seven of eight cost more than it
+ * protected.
  *
  * ## Combination and band are not independent, and the interface says so
  *
@@ -51,22 +51,10 @@ import { deliveryDatesFor, isIsoDate, isoWeekday } from './dates.ts';
  * between them; the screen states the coupling rather than hiding it. Recorded as a contract gap.
  */
 
-export const CONFIGURATOR_STEPS = [
-    'plan',
-    'combination',
-    'duration',
-    'dietary',
-    'delivery',
-    'meals',
-    'summary',
-    'confirm',
-] as const;
+export const CONFIGURATOR_STEPS = ['plan', 'delivery', 'review'] as const;
 export type ConfiguratorStep = (typeof CONFIGURATOR_STEPS)[number];
 
 export const CONFIGURATOR_STEP_COUNT = CONFIGURATOR_STEPS.length;
-
-/** The last step before any price is shown. Everything dispositive has to happen at or before it. */
-export const LAST_STEP_BEFORE_PRICE: ConfiguratorStep = 'meals';
 
 export function isConfiguratorStep(value: string): value is ConfiguratorStep {
     return (CONFIGURATOR_STEPS as readonly string[]).includes(value);
@@ -84,11 +72,6 @@ export function nextConfiguratorStep(step: ConfiguratorStep): ConfiguratorStep |
 export function previousConfiguratorStep(step: ConfiguratorStep): ConfiguratorStep | null {
     const index = CONFIGURATOR_STEPS.indexOf(step);
     return index <= 0 ? null : (CONFIGURATOR_STEPS[index - 1] ?? null);
-}
-
-/** True when the step comes before the first step that shows a price. */
-export function isBeforePriceStep(step: ConfiguratorStep): boolean {
-    return stepPosition(step) <= stepPosition(LAST_STEP_BEFORE_PRICE);
 }
 
 /* ── plan-derived options ────────────────────────────────────────────────────────────────────── */
@@ -192,10 +175,10 @@ export function variantForCombination(
 /**
  * The discounted total for a duration, in integer minor units.
  *
- * The same arithmetic the repository performs, deliberately duplicated so the interface can show a
- * total on the duration step without a round trip per option — and so a divergence between the two
+ * The same arithmetic the repository performs, deliberately duplicated so the summary can show a
+ * total from the first step without a round trip per choice — and so a divergence between the two
  * is a failing test rather than a number that quietly disagrees with the invoice. `previewSubscription`
- * remains the authority; step 7 shows *its* figures, not these.
+ * remains the authority; `review` shows *its* figures, not these.
  */
 export function discountedTotalMinorUnits(
     weeklyMinorUnits: number,
@@ -285,7 +268,7 @@ export interface AllergenChange {
  * The asymmetry is the point. Adding an exclusion narrows what a kitchen may send and needs no
  * ceremony. **Removing** one widens it — the person is telling the product to stop filtering for
  * something they previously recorded as an allergy — and that is a safety decision, so it raises a
- * callout, carries the medical disclaimer and has to be acknowledged before the flow continues.
+ * warning and has to be acknowledged before the flow continues.
  */
 export function diffAllergens(
     stored: readonly AllergenCode[],
@@ -315,7 +298,10 @@ export interface ConfiguratorState {
     readonly dietClassifications: readonly DietClassification[];
     readonly excludeAllergens: readonly AllergenCode[];
     readonly selectedMealIds: readonly MealId[];
-    /** The SUB-02 checkpoint: both pre-price checks, ticked by a person, before any price. */
+    /**
+     * Ticked by a person who drops an allergy their profile records. Only asked — and only
+     * required — when that has happened.
+     */
     readonly checksAcknowledged: boolean;
     /** The terms summary on the confirm step. `createSubscription` rejects without it. */
     readonly termsAcknowledged: boolean;
@@ -374,6 +360,8 @@ export interface StepContext {
      */
     readonly hasSavedAddress: boolean;
     readonly earliestStartDate: string;
+    /** The allergies the profile records; dropping one must be acknowledged. */
+    readonly storedAllergens: readonly AllergenCode[];
     readonly translate: (key: string) => string;
 }
 
@@ -387,29 +375,17 @@ export function validateConfiguratorStep(
 ): StepIssues {
     switch (step) {
         case 'plan':
-        case 'combination':
-            return state.variantId === null ? ['commerce:configurator.issues.variant'] : [];
-
-        case 'duration':
-            return context.plan.durations.some((option) => option.duration === state.duration)
-                ? []
-                : ['commerce:configurator.issues.duration'];
-
-        case 'dietary':
-            // Nothing is mandatory here. The consequence of a relaxed allergy is enforced at the
-            // delivery checkpoint, where it sits beside the delivery-area answer and before price.
-            return [];
+            return [
+                ...(state.variantId === null ? ['commerce:configurator.issues.variant'] : []),
+                ...(context.plan.durations.some((option) => option.duration === state.duration)
+                    ? []
+                    : ['commerce:configurator.issues.duration']),
+            ];
 
         case 'delivery':
             return deliveryIssues(state, context);
 
-        case 'meals':
-            return [];
-
-        case 'summary':
-            return [];
-
-        case 'confirm':
+        case 'review':
             return state.termsAcknowledged ? [] : ['commerce:configurator.issues.terms'];
     }
 }
@@ -447,9 +423,15 @@ function deliveryIssues(state: ConfiguratorState, context: StepContext): StepIss
 
     // The two SUB-02 checks. `unserved` is a hard stop: there is no acknowledgement that makes a
     // kitchen deliver somewhere it does not deliver, and offering one would sell an unfulfillable
-    // subscription — the exact outcome doc 11 §3 warns about.
+    // subscription — the exact outcome doc 11 §3 warns about. A dropped allergy is allowed, but
+    // only once somebody has said they meant it.
     if (context.areaStatus === 'unserved') issues.push('commerce:configurator.issues.areaUnserved');
-    if (!state.checksAcknowledged) issues.push('commerce:configurator.issues.checks');
+    if (
+        diffAllergens(context.storedAllergens, state.excludeAllergens).relaxed &&
+        !state.checksAcknowledged
+    ) {
+        issues.push('commerce:configurator.issues.checks');
+    }
 
     return issues;
 }
@@ -511,7 +493,7 @@ export function toConfiguration(
 }
 
 /**
- * The delivery days the current configuration produces, for the summary and the meal-preview step.
+ * The delivery days the current configuration produces, for the summary and the first-week meals.
  *
  * Derived from the same rule the repository applies, so the sample week a person chooses meals for
  * is the week they will actually receive.

@@ -1677,9 +1677,9 @@ describe('PlanDetailScreen', () => {
         expect(screen.getByTestId('plan-detail-macro-protein')).toBeTruthy();
         expect(screen.getByTestId('plan-detail-snacks')).toBeTruthy();
         expect(screen.getByTestId('plan-detail-duration-12w')).toBeTruthy();
-        expect(screen.getByTestId('plan-detail-delivery')).toBeTruthy();
         expect(screen.getByTestId('plan-detail-price')).toBeTruthy();
-        expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
+        // The prose-only delivery note and the disclaimer moved off this page.
+        expect(screen.queryByTestId('plan-detail-delivery')).toBeNull();
 
         await waitFor(() => {
             expect(screen.getByTestId('plan-detail-sample-grid')).toBeTruthy();

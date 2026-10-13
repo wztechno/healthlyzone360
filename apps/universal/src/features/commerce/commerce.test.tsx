@@ -75,7 +75,6 @@ import {
     firstIncompleteStep,
     grossMinorUnits,
     initialConfiguratorState,
-    isBeforePriceStep,
     isStepReachable,
     mealCombinations,
     nextConfiguratorStep,
@@ -1058,34 +1057,17 @@ describe('the delivery address', () => {
 /* ══ pure: the configurator ════════════════════════════════════════════════════════════════════ */
 
 describe('configurator steps', () => {
-    it('asks both dispositive questions before it shows a price', () => {
-        expect([...CONFIGURATOR_STEPS]).toEqual([
-            'plan',
-            'combination',
-            'duration',
-            'dietary',
-            'delivery',
-            'meals',
-            'summary',
-            'confirm',
-        ]);
-        // Doc 17, SUB-02: allergies (step 4) and delivery area (step 5) both precede the price.
-        expect(stepPosition('dietary')).toBeLessThan(stepPosition('summary'));
-        expect(stepPosition('delivery')).toBeLessThan(stepPosition('summary'));
-    });
-
-    it('marks every step up to the sample week as being before the price', () => {
-        expect(isBeforePriceStep('delivery')).toBe(true);
-        expect(isBeforePriceStep('meals')).toBe(true);
-        expect(isBeforePriceStep('summary')).toBe(false);
-        expect(isBeforePriceStep('confirm')).toBe(false);
+    it('is three steps, and settles delivery and allergies before the review', () => {
+        expect([...CONFIGURATOR_STEPS]).toEqual(['plan', 'delivery', 'review']);
+        // Doc 17, SUB-02: the area and the allergies are both answered before anything is created.
+        expect(stepPosition('delivery')).toBeLessThan(stepPosition('review'));
     });
 
     it('walks forwards and backwards and stops at both ends', () => {
         expect(previousConfiguratorStep('plan')).toBeNull();
-        expect(nextConfiguratorStep('confirm')).toBeNull();
-        expect(nextConfiguratorStep('plan')).toBe('combination');
-        expect(previousConfiguratorStep('summary')).toBe('meals');
+        expect(nextConfiguratorStep('review')).toBeNull();
+        expect(nextConfiguratorStep('plan')).toBe('delivery');
+        expect(previousConfiguratorStep('review')).toBe('delivery');
     });
 });
 
@@ -1242,6 +1224,7 @@ describe('step validation', () => {
             // saved-address shortcut stays out of the way.
             hasSavedAddress: false,
             earliestStartDate: '2026-07-31',
+            storedAllergens: [],
             translate,
         };
         return { state, context };
@@ -1324,14 +1307,17 @@ describe('step validation', () => {
         expect(issues).toEqual([]);
     });
 
-    it('will not leave the delivery step until both checks are acknowledged', () => {
+    it('asks for an acknowledgement only when an allergy from the profile is dropped', () => {
         const { state, context } = fixture();
-        const issues = validateConfiguratorStep(
-            'delivery',
-            { ...state, checksAcknowledged: false },
-            context,
+        const unacknowledged = { ...state, checksAcknowledged: false };
+        // Nothing dropped: nothing to acknowledge.
+        expect(validateConfiguratorStep('delivery', unacknowledged, context)).toEqual([]);
+        // The profile excludes tree nuts and this subscription would not.
+        const relaxed = { ...context, storedAllergens: [TREE_NUT] };
+        expect(validateConfiguratorStep('delivery', unacknowledged, relaxed)).toContain(
+            'commerce:configurator.issues.checks',
         );
-        expect(issues).toContain('commerce:configurator.issues.checks');
+        expect(validateConfiguratorStep('delivery', state, relaxed)).toEqual([]);
     });
 
     it('will not leave the delivery step on an incomplete address', () => {
@@ -1347,15 +1333,15 @@ describe('step validation', () => {
     it('will not confirm without the terms acknowledgement the repository requires', () => {
         const { state, context } = fixture();
         expect(
-            validateConfiguratorStep('confirm', { ...state, termsAcknowledged: false }, context),
+            validateConfiguratorStep('review', { ...state, termsAcknowledged: false }, context),
         ).toEqual(['commerce:configurator.issues.terms']);
     });
 
     it('makes a later step unreachable while an earlier one is unanswered', () => {
         const { state, context } = fixture();
         const broken = { ...state, deliveryWeekdays: [] };
-        expect(isStepReachable('summary', broken, context)).toBe(false);
-        expect(isStepReachable('dietary', broken, context)).toBe(true);
+        expect(isStepReachable('review', broken, context)).toBe(false);
+        expect(isStepReachable('delivery', broken, context)).toBe(true);
         expect(firstIncompleteStep(broken, context)).toBe('delivery');
     });
 });
@@ -2284,14 +2270,13 @@ async function fillAddress(prefix: string, area: string): Promise<void> {
     });
 }
 
-/** Plan → combination → duration → dietary → delivery → meals → summary → confirm. */
-async function walkToConfirmStep(): Promise<void> {
+/** Plan → delivery → review. */
+async function walkToReviewStep(): Promise<void> {
     await waitFor(() => {
         expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
     });
 
-    // 1 plan → 2 combination → 3 duration → 4 dietary → 5 delivery
-    await pressNext(4);
+    await pressNext(1);
     await waitFor(() => {
         expect(screen.getByTestId('configurator-step-delivery')).toBeTruthy();
     });
@@ -2300,19 +2285,9 @@ async function walkToConfirmStep(): Promise<void> {
     await waitFor(() => {
         expect(screen.getByTestId('configurator-area-served')).toBeTruthy();
     });
-    await act(async () => {
-        fireEvent.press(screen.getByTestId('configurator-checks-acknowledge-control'));
-    });
     await pressNext(1);
 
-    // 6 the sample week
-    await waitFor(() => {
-        expect(screen.getByTestId('configurator-step-meals')).toBeTruthy();
-    });
-    expect(screen.getByTestId('configurator-meals-note')).toBeTruthy();
-    await pressNext(1);
-
-    // 7 the first price anybody has seen
+    // The server's price, on the review step.
     await waitFor(
         () => {
             expect(screen.getByTestId('configurator-price-total-amount')).toBeTruthy();
@@ -2320,13 +2295,7 @@ async function walkToConfirmStep(): Promise<void> {
         { timeout: 5000 },
     );
     expect(screen.getByTestId('configurator-price-per-delivery-amount')).toBeTruthy();
-    expect(screen.getByTestId('configurator-summary-checks')).toBeTruthy();
-    await pressNext(1);
-
-    // 8 confirm
-    await waitFor(() => {
-        expect(screen.getByTestId('configurator-step-confirm')).toBeTruthy();
-    });
+    expect(screen.getByTestId('configurator-step-review')).toBeTruthy();
 }
 
 describe('SubscriptionConfiguratorScreen', () => {
@@ -2349,28 +2318,25 @@ describe('SubscriptionConfiguratorScreen', () => {
         });
     });
 
-    it('opens on the calorie band, the macro ranges and their variability caveat', async () => {
+    it('opens on the band, the meals and the length, with the progress beside them', async () => {
         await renderConfigurator({ planId: String(PLAN.id) });
 
         await waitFor(() => {
             expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
         });
-        expect(screen.getByTestId('configurator-energy-band')).toBeTruthy();
-        expect(screen.getByTestId('configurator-macro-protein')).toBeTruthy();
-        expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
+        expect(screen.getByTestId('configurator-variant-detail')).toBeTruthy();
+        expect(screen.getByTestId('configurator-combination')).toBeTruthy();
+        expect(screen.getByTestId('configurator-duration')).toBeTruthy();
         expect(screen.getByTestId('configurator-stepper')).toBeTruthy();
     });
 
-    it('shows no price at all before the summary step, and says why', async () => {
+    it('prices the plan from the first step, without asking the server yet', async () => {
         const harness = await renderConfigurator({ planId: String(PLAN.id) });
 
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
+            expect(screen.getByTestId('configurator-summary-total')).toBeTruthy();
         });
-        expect(screen.getByTestId('configurator-price-later')).toBeTruthy();
-        expect(screen.queryByTestId('configurator-price')).toBeNull();
-        // Structural, not cosmetic: no configuration reaches the preview before the summary step,
-        // so nothing earlier *can* show a price.
+        // An estimate from the variant and the length; the server prices on the review step.
         expect(harness.repositories.commerce.previewSubscription).not.toHaveBeenCalled();
     });
 
@@ -2380,54 +2346,50 @@ describe('SubscriptionConfiguratorScreen', () => {
         await renderConfigurator({ planId: String(PLAN.id), variantId: String(light.id) });
 
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-energy-band')).toBeTruthy();
+            expect(screen.getByTestId('configurator-variant-detail')).toBeTruthy();
         });
-        expect(screen.getByTestId(`configurator-variant-${String(light.id)}`)).toBeTruthy();
+        expect(
+            screen.getByTestId(`configurator-variant-${String(light.id)}`).props.accessibilityState
+                ?.checked,
+        ).toBe(true);
         // The band on screen is the supplied variant's, not the plan's own default one.
-        expect(screen.getByTestId('configurator-energy-band')).toHaveTextContent(/1,400 to 1,600/);
+        expect(screen.getByTestId('configurator-variant-detail')).toHaveTextContent(
+            /1,400 to 1,600/,
+        );
     });
 
-    it('states that the combination and the calorie band are not independent', async () => {
+    it('states a choice with one option as its answer, not as a lone chip', async () => {
+        const single = { ...PLAN, durations: PLAN.durations.slice(0, 1) };
+        await renderConfigurator({ planId: String(PLAN.id) }, { plan: async () => single });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('configurator-duration-only')).toBeTruthy();
+        });
+        expect(
+            screen.queryByTestId(`configurator-duration-${single.durations[0]!.duration}`),
+        ).toBeNull();
+        // The plan's six bands are still a choice.
+        expect(screen.queryByTestId('configurator-variant-only')).toBeNull();
+    });
+
+    it('attaches the discount to the length option itself (doc 17, SUB-05)', async () => {
+        await renderConfigurator({ planId: String(PLAN.id) });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('configurator-duration-4w')).toBeTruthy();
+        });
+        expect(screen.getByTestId('configurator-duration-4w')).toHaveTextContent(/−10%/);
+    });
+
+    it('pre-fills the allergies already on the profile, and gates removing one', async () => {
         await renderConfigurator({ planId: String(PLAN.id) });
         await waitFor(() => {
             expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
         });
 
         await pressNext(1);
-
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-step-combination')).toBeTruthy();
-        });
-        expect(screen.getByTestId('configurator-combination-note')).toBeTruthy();
-    });
-
-    it('attaches the discount to the duration option itself (doc 17, SUB-05)', async () => {
-        await renderConfigurator({ planId: String(PLAN.id) });
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
-        });
-
-        await pressNext(2);
-
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-step-duration')).toBeTruthy();
-        });
-        expect(screen.getByTestId('configurator-duration-4w-discount')).toHaveTextContent(
-            /10 % off/,
-        );
-        expect(screen.getByTestId('configurator-duration-4w-total')).toBeTruthy();
-        expect(screen.queryByTestId('configurator-price')).toBeNull();
-    });
-
-    it('pre-fills the allergies already on the profile, and flags removing one', async () => {
-        await renderConfigurator({ planId: String(PLAN.id) });
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
-        });
-
-        await pressNext(3);
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-step-dietary')).toBeTruthy();
+            expect(screen.getByTestId('configurator-step-delivery')).toBeTruthy();
         });
 
         // The authored profile records one allergy: tree nuts.
@@ -2439,25 +2401,34 @@ describe('SubscriptionConfiguratorScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('configurator-allergen-relaxed')).toBeTruthy();
         });
-        expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
+        await fillAddress('configurator-address-form', SERVED_AREAS[0]!);
+
+        // Dropping a recorded allergy has to be acknowledged before the flow moves on.
+        await pressNext(1);
+        await waitFor(() => {
+            expect(screen.getByTestId('configurator-issue-checks')).toBeTruthy();
+        });
+        expect(screen.getByTestId('configurator-step-delivery')).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-checks-acknowledge-control'));
+        });
+        await pressNext(1);
+        await waitFor(() => {
+            expect(screen.getByTestId('configurator-step-review')).toBeTruthy();
+        });
     });
 
-    it('will not leave the delivery step until the two checks are acknowledged', async () => {
+    it('will not leave the delivery step without an address', async () => {
         await renderConfigurator({ planId: String(PLAN.id) });
         await waitFor(() => {
             expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
         });
 
-        await pressNext(4);
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-step-delivery')).toBeTruthy();
-        });
-        expect(screen.getByTestId('configurator-checks')).toBeTruthy();
-
-        await pressNext(1);
+        await pressNext(2);
 
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-issues')).toBeTruthy();
+            expect(screen.getByTestId('configurator-issue-address')).toBeTruthy();
         });
         expect(screen.getByTestId('configurator-step-delivery')).toBeTruthy();
     });
@@ -2472,7 +2443,7 @@ describe('SubscriptionConfiguratorScreen', () => {
             expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
         });
 
-        await pressNext(4);
+        await pressNext(1);
 
         await waitFor(() => {
             expect(screen.getByTestId('configurator-weekdays-limited')).toBeTruthy();
@@ -2483,14 +2454,28 @@ describe('SubscriptionConfiguratorScreen', () => {
         );
     });
 
-    it('walks all eight steps and creates a real subscription at the end', async () => {
+    it('goes back to a step from its Edit on the review', async () => {
+        await renderConfigurator({ planId: String(PLAN.id) });
+
+        await walkToReviewStep();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-review-plan-edit'));
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
+        });
+    }, 30_000);
+
+    it('walks the three steps and creates a real subscription at the end', async () => {
         const created = testSubscription({ state: 'active' });
         const harness = await renderConfigurator(
             { planId: String(PLAN.id) },
             { commerce: { createSubscription: async () => created } },
         );
 
-        await walkToConfirmStep();
+        await walkToReviewStep();
+        expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
@@ -2507,7 +2492,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         );
         expect(screen.getByTestId('configurator-success-state')).toBeTruthy();
 
-        // What the eight steps actually sent: the configuration the person assembled, the
+        // What the three steps actually sent: the configuration the person assembled, the
         // acknowledgement the contract requires, and nothing resembling a payment.
         expect(harness.repositories.commerce.createSubscription).toHaveBeenCalledTimes(1);
         const request = (harness.repositories.commerce.createSubscription as unknown as jest.Mock)
@@ -2521,36 +2506,17 @@ describe('SubscriptionConfiguratorScreen', () => {
         expect(request.configuration.slotCode).toBe(DEFAULT_SLOT_CODE);
     }, 30_000);
 
-    it('surfaces the checkpoint refusal when the two checks were never acknowledged', async () => {
-        await renderConfigurator({ planId: String(PLAN.id) });
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
-        });
-
-        await pressNext(4);
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-step-delivery')).toBeTruthy();
-        });
-
-        // Pressing Next without the acknowledgement names the missing answer rather than
-        // silently doing nothing, which is the whole point of the checkpoint.
-        await pressNext(1);
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-issue-checks')).toBeTruthy();
-        });
-    });
-
     /**
      * The repository refuses a creation whose summary was never acknowledged. That guard now lives
      * on the server, so what this asserts is the client half: the request is never sent at all.
      */
-    it('will not send a creation whose terms summary was never acknowledged', async () => {
+    it('will not send a creation whose terms were never acknowledged', async () => {
         const harness = await renderConfigurator(
             { planId: String(PLAN.id) },
             { commerce: { createSubscription: async () => testSubscription() } },
         );
 
-        await walkToConfirmStep();
+        await walkToReviewStep();
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('configurator-create'));
