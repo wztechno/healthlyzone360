@@ -3,6 +3,7 @@ import {
     Callout,
     Card,
     EmptyState,
+    Icon,
     Inline,
     Stack,
     StepProgress,
@@ -20,7 +21,7 @@ import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 import { mealsFromPages, useMealsQuery, usePlanQuery } from '../../../data/catalogue-hooks.ts';
 import {
@@ -37,7 +38,12 @@ import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { EMPTY_ADDRESS, toDeliveryAddress, validateAddress } from '../address.ts';
 import type { AddressField } from '../address.ts';
-import { DeliveryStep, PlanStep, ReviewStep } from '../configurator-steps.tsx';
+import {
+    DeliveryStep,
+    PlanStep,
+    ReviewStep,
+    TermsAcknowledgement,
+} from '../configurator-steps.tsx';
 import {
     CONFIGURATOR_STEPS,
     combinationKey,
@@ -476,46 +482,10 @@ export function SubscriptionConfiguratorScreen({
                                         preview={preview.data}
                                         savedAddress={savedAddress}
                                         menu={menu}
-                                        showIssues={showIssues}
                                         onEdit={goTo}
                                     />
                                 </QueryStates>
                             ) : null}
-
-                            {showIssues && issues.length > 0 ? (
-                                <View className="mt-5">
-                                    <Callout
-                                        testID="configurator-issues"
-                                        role="alert"
-                                        tone="danger"
-                                        icon="warning"
-                                        title={t('commerce:configurator.issuesTitle')}
-                                    >
-                                        <Stack space="none">
-                                            {issues.map((key) => (
-                                                <Text
-                                                    key={key}
-                                                    testID={`configurator-issue-${key.split('.').pop() ?? key}`}
-                                                >
-                                                    {t(key)}
-                                                </Text>
-                                            ))}
-                                        </Stack>
-                                    </Callout>
-                                </View>
-                            ) : null}
-
-                            {createFailure === null ? null : (
-                                <View className="mt-5">
-                                    <Callout
-                                        testID="configurator-create-error"
-                                        role="alert"
-                                        tone="danger"
-                                        title={t('commerce:configurator.createFailedTitle')}
-                                        body={createFailure.message}
-                                    />
-                                </View>
-                            )}
 
                             {previousConfiguratorStep(step) === null ? null : (
                                 <View className="mt-5 self-start">
@@ -557,11 +527,67 @@ export function SubscriptionConfiguratorScreen({
                                 }
                                 actionLoading={step === 'review' && create.isPending}
                                 onAction={step === 'review' ? onCreate : onNext}
+                                notice={
+                                    <SetupNotice
+                                        issues={showIssues ? issues : []}
+                                        failure={createFailure?.message ?? null}
+                                    />
+                                }
+                                {...(step === 'review'
+                                    ? {
+                                          confirm: (
+                                              <TermsAcknowledgement state={state} patch={patch} />
+                                          ),
+                                      }
+                                    : {})}
                             />
                         </View>
                     </View>
                 )}
             </QueryStates>
+        </View>
+    );
+}
+
+/**
+ * What still stands between the person and the action, drawn beside the action itself: each
+ * unanswered question as one line, and a refusal from the server under its title. Nothing at all
+ * when there is nothing to say.
+ */
+function SetupNotice({
+    issues,
+    failure,
+}: {
+    readonly issues: readonly string[];
+    readonly failure: string | null;
+}) {
+    const { t } = useTranslation();
+    if (issues.length === 0 && failure === null) return null;
+
+    return (
+        <View testID="configurator-issues" role="alert" className="flex-col gap-1.5">
+            {failure === null ? null : (
+                <View testID="configurator-create-error" className="flex-col gap-0.5">
+                    <RNText className="self-start text-sm font-semibold text-danger-on-subtle text-start">
+                        {t('commerce:configurator.createFailedTitle')}
+                    </RNText>
+                    <RNText className="self-start text-sm text-danger-on-subtle text-start">
+                        {failure}
+                    </RNText>
+                </View>
+            )}
+            {issues.map((key) => (
+                <View
+                    key={key}
+                    testID={`configurator-issue-${key.split('.').pop() ?? key}`}
+                    className="flex-row items-start gap-2"
+                >
+                    <Icon name="warning" size="sm" className="mt-0.5 text-danger-on-subtle" />
+                    <RNText className="min-w-0 shrink self-start text-sm text-danger-on-subtle text-start">
+                        {t(key)}
+                    </RNText>
+                </View>
+            ))}
         </View>
     );
 }

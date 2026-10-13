@@ -44,6 +44,7 @@ import { earliestStartDate, isoWeekday, nextAllowedDate } from './dates.ts';
 import { DELIVERY_SLOTS } from './delivery.ts';
 import type { DeliveryAreaStatus } from './delivery.ts';
 import { PriceSummary } from './price-summary.tsx';
+import { CardPanel, SummaryCard } from './summary-card.tsx';
 import type { PriceRow } from './price-summary.tsx';
 import { displayableWarnings, isCriticalWarning, warningMessageKey } from './warnings.ts';
 
@@ -614,7 +615,7 @@ function AreaStatus({
     );
 }
 
-/* ── ③ review: the choices, the server's price, first-week meals, the terms ─────────────────── */
+/* ── ③ review: the choices, the server's price, first-week meals ────────────────────────────── */
 
 export interface ReviewStepProps {
     readonly plan: SubscriptionPlan;
@@ -624,7 +625,6 @@ export interface ReviewStepProps {
     /** The saved address chosen on the delivery step, when one was. */
     readonly savedAddress: CustomerAddress | undefined;
     readonly menu: readonly MarketplaceMeal[];
-    readonly showIssues: boolean;
     readonly onEdit: (step: ConfiguratorStep) => void;
 }
 
@@ -635,7 +635,6 @@ export function ReviewStep({
     preview,
     savedAddress,
     menu,
-    showIssues,
     onEdit,
 }: ReviewStepProps) {
     const { t } = useTranslation();
@@ -667,15 +666,21 @@ export function ReviewStep({
                   .join(' · ');
 
     return (
-        <View testID="configurator-step-review" className="flex-col">
-            <ReviewGroup
+        <View testID="configurator-step-review" className="flex-col gap-4">
+            <SummaryCard
                 testID="configurator-review-plan"
-                onEdit={() => {
-                    onEdit('plan');
+                title={t('commerce:configurator.review.planTitle')}
+                action={{
+                    label: t('commerce:configurator.edit'),
+                    testID: 'configurator-review-plan-edit',
+                    onPress: () => {
+                        onEdit('plan');
+                    },
                 }}
                 rows={[
                     {
                         key: 'plan',
+                        testID: 'configurator-summary-plan',
                         label: t('commerce:configurator.summary.plan'),
                         value:
                             variant === null
@@ -684,24 +689,33 @@ export function ReviewStep({
                     },
                     {
                         key: 'duration',
+                        testID: 'configurator-summary-duration',
                         label: t('commerce:configurator.summary.duration'),
                         value: t(`catalogue:compare.duration.${state.duration}`),
                     },
                 ]}
             />
-            <ReviewGroup
+
+            <SummaryCard
                 testID="configurator-review-delivery"
-                onEdit={() => {
-                    onEdit('delivery');
+                title={t('commerce:configurator.review.deliveryTitle')}
+                action={{
+                    label: t('commerce:configurator.edit'),
+                    testID: 'configurator-review-delivery-edit',
+                    onPress: () => {
+                        onEdit('delivery');
+                    },
                 }}
                 rows={[
                     {
                         key: 'days',
+                        testID: 'configurator-summary-days',
                         label: t('commerce:configurator.summary.days'),
                         value: `${weekdayRun(state.deliveryWeekdays, t)} · ${t(`commerce:slots.${state.slotCode}`)}`,
                     },
                     {
                         key: 'window',
+                        testID: 'configurator-summary-window',
                         label: t('commerce:configurator.summary.window'),
                         value:
                             preview === undefined
@@ -719,11 +733,13 @@ export function ReviewStep({
                     },
                     {
                         key: 'address',
+                        testID: 'configurator-summary-address',
                         label: t('commerce:configurator.summary.address'),
                         value: address,
                     },
                     {
                         key: 'allergens',
+                        testID: 'configurator-summary-allergens',
                         label: t('commerce:configurator.summary.allergens'),
                         value:
                             state.excludeAllergens.length === 0
@@ -736,27 +752,26 @@ export function ReviewStep({
             />
 
             {preview === undefined ? null : (
-                <View
+                <SummaryCard
                     testID="configurator-summary-price"
-                    className="border-b border-stroke-subtle py-5"
+                    title={t('commerce:configurator.review.priceTitle')}
                 >
                     <PriceSummary rows={rows} testID="configurator-price" />
-                </View>
+                </SummaryCard>
             )}
 
             {displayableWarnings(preview?.warnings ?? []).map((code) => (
-                <View key={code} className="pt-5">
-                    <Callout
-                        testID={`configurator-warning-${code.replace(/\./g, '-')}`}
-                        role={isCriticalWarning(code) ? 'alert' : 'note'}
-                        tone={isCriticalWarning(code) ? 'danger' : 'warning'}
-                        icon="warning"
-                        title={t(warningMessageKey(code), { code })}
-                    />
-                </View>
+                <Callout
+                    key={code}
+                    testID={`configurator-warning-${code.replace(/\./g, '-')}`}
+                    role={isCriticalWarning(code) ? 'alert' : 'note'}
+                    tone={isCriticalWarning(code) ? 'danger' : 'warning'}
+                    icon="warning"
+                    title={t(warningMessageKey(code), { code })}
+                />
             ))}
 
-            <View className="border-b border-stroke-subtle py-2">
+            <CardPanel className="gap-0 py-2">
                 <Pressable
                     testID="configurator-meals-toggle"
                     role="button"
@@ -769,7 +784,7 @@ export function ReviewStep({
                     }}
                     className="min-h-touch flex-row items-center justify-between gap-3"
                 >
-                    <RNText className="text-sm font-semibold text-content-primary text-start">
+                    <RNText className="text-base font-semibold text-content-primary text-start">
                         {t('commerce:configurator.meals.title')}
                     </RNText>
                     <Icon
@@ -785,76 +800,37 @@ export function ReviewStep({
                 >
                     <FirstWeekMeals plan={plan} state={state} patch={patch} menu={menu} />
                 </Collapse>
-            </View>
+            </CardPanel>
 
-            <View className="flex-col gap-4 pt-5">
-                <Checkbox
-                    testID="configurator-confirm-acknowledge"
-                    checked={state.termsAcknowledged}
-                    onChange={(checked) => {
-                        patch({ termsAcknowledged: checked });
-                    }}
-                    label={t('commerce:configurator.confirm.acknowledgeLabel')}
-                    required
-                    {...(showIssues && !state.termsAcknowledged
-                        ? { error: t('commerce:configurator.issues.terms') }
-                        : {})}
-                />
-                <MedicalDisclaimer context={t('commerce:configurator.disclaimerContext')} />
-            </View>
+            <MedicalDisclaimer context={t('commerce:configurator.disclaimerContext')} />
         </View>
     );
 }
 
-/** A group of review rows that share one Edit, back to the step that set them. */
-function ReviewGroup({
-    rows,
-    onEdit,
-    testID,
+/**
+ * The terms acknowledgement, drawn by the screen beside the Subscribe button rather than in the
+ * step: it is the last thing standing between the person and the action. When it is missing the
+ * summary's notice says so, directly above it — once, rather than here as well.
+ */
+export function TermsAcknowledgement({
+    state,
+    patch,
 }: {
-    readonly rows: readonly {
-        readonly key: string;
-        readonly label: string;
-        readonly value: string;
-    }[];
-    readonly onEdit: () => void;
-    readonly testID: string;
+    readonly state: ConfiguratorState;
+    readonly patch: StepPatch;
 }) {
     const { t } = useTranslation();
 
     return (
-        <View
-            testID={testID}
-            className="flex-row items-start gap-4 border-b border-stroke-subtle py-5"
-        >
-            <View className="min-w-0 flex-1 flex-col gap-3">
-                {rows.map((row) => (
-                    <View
-                        key={row.key}
-                        testID={`configurator-summary-${row.key}`}
-                        className="flex-col gap-0.5 md:flex-row md:gap-4"
-                    >
-                        <RNText className="self-start text-sm text-content-secondary text-start md:w-[140px]">
-                            {row.label}
-                        </RNText>
-                        <RNText className="min-w-0 shrink self-start text-base text-content-primary text-start">
-                            {row.value}
-                        </RNText>
-                    </View>
-                ))}
-            </View>
-            <Pressable
-                testID={`${testID}-edit`}
-                role="button"
-                accessibilityRole="button"
-                onPress={onEdit}
-                className="min-h-touch justify-center"
-            >
-                <RNText className="text-sm font-semibold text-content-on-brand-subtle">
-                    {t('commerce:configurator.edit')}
-                </RNText>
-            </Pressable>
-        </View>
+        <Checkbox
+            testID="configurator-confirm-acknowledge"
+            checked={state.termsAcknowledged}
+            onChange={(checked) => {
+                patch({ termsAcknowledged: checked });
+            }}
+            label={t('commerce:configurator.confirm.acknowledgeLabel')}
+            required
+        />
     );
 }
 

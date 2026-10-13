@@ -51,7 +51,7 @@ import type {
     SubscriptionPlanId,
 } from '@healthy360/domain-types';
 import type { NutritionConstraint } from '@healthy360/nutrition';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import { testMeResponse } from '../../testing/session-fixtures.ts';
@@ -2430,6 +2430,12 @@ describe('SubscriptionConfiguratorScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('configurator-issue-address')).toBeTruthy();
         });
+        // Beside the button that was pressed, not at the foot of a long step.
+        expect(
+            within(screen.getByTestId('configurator-summary')).getByTestId(
+                'configurator-issue-address',
+            ),
+        ).toBeTruthy();
         expect(screen.getByTestId('configurator-step-delivery')).toBeTruthy();
     });
 
@@ -2732,14 +2738,15 @@ describe('SubscriptionDetailScreen', () => {
         });
     });
 
-    it('renders the record, the configuration table and the actions', async () => {
+    it('renders the record, the plan card with its Change links, and the actions', async () => {
         await renderDetail(liveWorld());
 
         await waitFor(() => {
             expect(screen.getByTestId('subscription-detail-name')).toHaveTextContent(PLAN.name);
         });
-        expect(screen.getByTestId('subscription-detail-timeline')).toBeTruthy();
-        expect(screen.getByTestId('subscription-detail-config-table')).toBeTruthy();
+        expect(screen.getByTestId('subscription-detail-configuration')).toBeTruthy();
+        expect(screen.getByTestId('subscription-detail-row-address')).toBeTruthy();
+        expect(screen.getByTestId('subscription-detail-manage')).toBeTruthy();
         expect(screen.getByTestId('subscription-detail-next')).toBeTruthy();
         expect(screen.getByTestId('subscription-pause')).toBeTruthy();
         expect(screen.getByTestId('subscription-skip')).toBeTruthy();

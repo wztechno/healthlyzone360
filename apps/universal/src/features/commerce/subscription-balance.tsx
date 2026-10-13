@@ -1,11 +1,13 @@
-import { Badge, Card, Heading, Inline, Stack, Table, Text } from '@healthy360/design-system';
+import { Badge, Heading, Inline, Stack, Table, Text } from '@healthy360/design-system';
 import type { TableColumn } from '@healthy360/design-system';
 import type { SubscriptionBalance, SubscriptionDelivery } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
+import { Text as RNText, View } from 'react-native';
 
 import { formatMoney } from '../marketplace/format.ts';
+import { CardPanel } from './summary-card.tsx';
 
 /**
  * The balance, and the ledger behind it.
@@ -39,10 +41,9 @@ export function SubscriptionBalanceCard({
     const formatter = useFormatter();
 
     return (
-        <Card padding="md" testID={testID}>
+        // No card of its own: it is the first thing in the subscription page's Manage card.
+        <View testID={testID}>
             <Stack space="sm">
-                <Text variant="label">{t('commerce:balance.title')}</Text>
-
                 <Inline space="lg" wrap>
                     <Stack space="xs">
                         <Heading level={3} testID={`${testID}-remaining`}>
@@ -81,7 +82,7 @@ export function SubscriptionBalanceCard({
                     {t('commerce:balance.cutOffNote', { count: balance.changeCutoffHours })}
                 </Text>
             </Stack>
-        </Card>
+        </View>
     );
 }
 
@@ -138,13 +139,24 @@ export function SubscriptionDeliveries({
     ];
 
     return (
-        <Stack space="sm" testID={testID}>
-            <Inline space="sm" align="center" justify="between">
-                <Text variant="label">{t('commerce:deliveries.title')}</Text>
-                <Text tone="secondary" variant="caption" testID={`${testID}-count`}>
-                    {t('commerce:deliveries.count', { count: deliveries.length })}
-                </Text>
-            </Inline>
+        <CardPanel testID={testID}>
+            <View className="-my-2 min-h-touch flex-row items-center justify-between gap-3">
+                <RNText
+                    accessibilityRole="header"
+                    aria-level={2}
+                    className="self-center text-base font-semibold text-content-primary text-start"
+                >
+                    {t('commerce:deliveries.title')}
+                </RNText>
+                {deliveries.length === 0 ? null : (
+                    <RNText
+                        testID={`${testID}-count`}
+                        className="text-sm tabular-nums text-content-secondary"
+                    >
+                        {t('commerce:deliveries.count', { count: deliveries.length })}
+                    </RNText>
+                )}
+            </View>
 
             {deliveries.length === 0 ? (
                 <Text tone="secondary" testID={`${testID}-empty`}>
@@ -160,15 +172,7 @@ export function SubscriptionDeliveries({
                     rowKey={(row) => row.id}
                 />
             )}
-
-            {/*
-             * The one sentence the whole ledger exists to make checkable. It is copy rather than a
-             * computed claim: the rows above are the evidence, and this says what to look for.
-             */}
-            <Text tone="secondary" variant="caption" testID={`${testID}-note`}>
-                {t('commerce:deliveries.skipNote')}
-            </Text>
-        </Stack>
+        </CardPanel>
     );
 }
 

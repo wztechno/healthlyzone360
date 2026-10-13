@@ -5,6 +5,7 @@ import type {
     SubscriptionPreview,
 } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 
@@ -18,6 +19,13 @@ import type { ConfiguratorState } from './configurator.ts';
  * The configurator's summary: what has been chosen so far, the price, and the one action that moves
  * the flow on. A card beside the step from `lg`; below it, a bar pinned to the foot of the page
  * carrying only the price and the action.
+ *
+ * ## What stands between the person and the action sits beside it
+ *
+ * The terms acknowledgement and anything still wrong with the configuration are drawn here,
+ * directly above the button — not at the foot of the step, which on a long step is below the fold.
+ * Pressing Continue and seeing nothing happen, because the reason is three screens down, is the
+ * failure this placement exists to prevent.
  *
  * ## Which price
  *
@@ -36,6 +44,10 @@ export interface PlanSetupSummaryProps {
     readonly actionTestID: string;
     readonly actionLoading?: boolean | undefined;
     readonly onAction: () => void;
+    /** What still needs an answer — the issues list or a refusal — shown above the action. */
+    readonly notice?: ReactNode | undefined;
+    /** The acknowledgement the action needs, shown directly above it. */
+    readonly confirm?: ReactNode | undefined;
 }
 
 export function PlanSetupSummary({
@@ -48,6 +60,8 @@ export function PlanSetupSummary({
     actionTestID,
     actionLoading,
     onAction,
+    notice,
+    confirm,
 }: PlanSetupSummaryProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -110,10 +124,14 @@ export function PlanSetupSummary({
         return (
             <View
                 testID="configurator-summary"
-                className="flex-row items-center justify-between gap-4 rounded-panel border border-stroke bg-surface-raised px-4 py-3 shadow-elevation-2"
+                className="flex-col gap-3 rounded-panel border border-stroke bg-surface-raised px-4 py-3 shadow-elevation-2"
             >
-                {price}
-                {action}
+                {notice}
+                {confirm}
+                <View className="flex-row items-center justify-between gap-4">
+                    {price}
+                    {action}
+                </View>
             </View>
         );
     }
@@ -156,6 +174,8 @@ export function PlanSetupSummary({
                 ))}
             </View>
             <View className="border-t border-stroke-subtle pt-4">{price}</View>
+            {notice}
+            {confirm}
             {action}
         </View>
     );

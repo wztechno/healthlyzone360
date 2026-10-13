@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8179 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8174 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1905,7 +1905,6 @@ export interface NamespaceKeys {
     | 'balance.perDay'
     | 'balance.remaining'
     | 'balance.skipped'
-    | 'balance.title'
     | 'balance.used'
     | 'cancel.body'
     | 'cancel.confirm'
@@ -2073,6 +2072,9 @@ export interface NamespaceKeys {
     | 'configurator.previewEmptyBody'
     | 'configurator.previewEmptyTitle'
     | 'configurator.progressLabel'
+    | 'configurator.review.deliveryTitle'
+    | 'configurator.review.planTitle'
+    | 'configurator.review.priceTitle'
     | 'configurator.steps.delivery'
     | 'configurator.steps.plan'
     | 'configurator.steps.review'
@@ -2104,7 +2106,6 @@ export interface NamespaceKeys {
     | 'deliveries.consumedYes'
     | 'deliveries.count'
     | 'deliveries.empty'
-    | 'deliveries.skipNote'
     | 'deliveries.statuses.cancelled'
     | 'deliveries.statuses.delivered'
     | 'deliveries.statuses.generated'
@@ -2127,18 +2128,16 @@ export interface NamespaceKeys {
     | 'states.paused'
     | 'states.skipped_today'
     | 'subscription.actionFailedTitle'
-    | 'subscription.actionsNote'
-    | 'subscription.actionsTitle'
     | 'subscription.addressConfirm'
     | 'subscription.addressDialogBody'
     | 'subscription.addressDialogTitle'
     | 'subscription.backToList'
+    | 'subscription.change'
     | 'subscription.changeAddress'
     | 'subscription.changeSlot'
-    | 'subscription.configCaption'
-    | 'subscription.configTitle'
-    | 'subscription.created'
-    | 'subscription.noSkippedDates'
+    | 'subscription.crumbAccount'
+    | 'subscription.crumbSubscriptions'
+    | 'subscription.manageTitle'
     | 'subscription.notFoundBody'
     | 'subscription.notFoundTitle'
     | 'subscription.pause'
@@ -2151,6 +2150,7 @@ export interface NamespaceKeys {
     | 'subscription.pauseUntilHint'
     | 'subscription.pauseUntilLabel'
     | 'subscription.pausedUntilBadge'
+    | 'subscription.planTitle'
     | 'subscription.readOnly.active'
     | 'subscription.readOnly.cancelled'
     | 'subscription.readOnly.draft'
@@ -2166,11 +2166,9 @@ export interface NamespaceKeys {
     | 'subscription.rows.allergens'
     | 'subscription.rows.days'
     | 'subscription.rows.duration'
-    | 'subscription.rows.field'
     | 'subscription.rows.plan'
     | 'subscription.rows.slot'
     | 'subscription.rows.start'
-    | 'subscription.rows.value'
     | 'subscription.skip'
     | 'subscription.skipConfirm'
     | 'subscription.skipConsequenceBody'
@@ -2186,9 +2184,6 @@ export interface NamespaceKeys {
     | 'subscription.slotDaysTitle'
     | 'subscription.slotDialogBody'
     | 'subscription.slotDialogTitle'
-    | 'subscription.stateSince'
-    | 'subscription.timelineNote'
-    | 'subscription.timelineTitle'
     | 'subscriptions.body'
     | 'subscriptions.browse'
     | 'subscriptions.clearFilter'
@@ -10108,7 +10103,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:balance.perDay',
   'commerce:balance.remaining',
   'commerce:balance.skipped',
-  'commerce:balance.title',
   'commerce:balance.used',
   'commerce:cancel.body',
   'commerce:cancel.confirm',
@@ -10276,6 +10270,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.previewEmptyBody',
   'commerce:configurator.previewEmptyTitle',
   'commerce:configurator.progressLabel',
+  'commerce:configurator.review.deliveryTitle',
+  'commerce:configurator.review.planTitle',
+  'commerce:configurator.review.priceTitle',
   'commerce:configurator.steps.delivery',
   'commerce:configurator.steps.plan',
   'commerce:configurator.steps.review',
@@ -10307,7 +10304,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:deliveries.consumedYes',
   'commerce:deliveries.count',
   'commerce:deliveries.empty',
-  'commerce:deliveries.skipNote',
   'commerce:deliveries.statuses.cancelled',
   'commerce:deliveries.statuses.delivered',
   'commerce:deliveries.statuses.generated',
@@ -10330,18 +10326,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:states.paused',
   'commerce:states.skipped_today',
   'commerce:subscription.actionFailedTitle',
-  'commerce:subscription.actionsNote',
-  'commerce:subscription.actionsTitle',
   'commerce:subscription.addressConfirm',
   'commerce:subscription.addressDialogBody',
   'commerce:subscription.addressDialogTitle',
   'commerce:subscription.backToList',
+  'commerce:subscription.change',
   'commerce:subscription.changeAddress',
   'commerce:subscription.changeSlot',
-  'commerce:subscription.configCaption',
-  'commerce:subscription.configTitle',
-  'commerce:subscription.created',
-  'commerce:subscription.noSkippedDates',
+  'commerce:subscription.crumbAccount',
+  'commerce:subscription.crumbSubscriptions',
+  'commerce:subscription.manageTitle',
   'commerce:subscription.notFoundBody',
   'commerce:subscription.notFoundTitle',
   'commerce:subscription.pause',
@@ -10354,6 +10348,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscription.pauseUntilHint',
   'commerce:subscription.pauseUntilLabel',
   'commerce:subscription.pausedUntilBadge',
+  'commerce:subscription.planTitle',
   'commerce:subscription.readOnly.active',
   'commerce:subscription.readOnly.cancelled',
   'commerce:subscription.readOnly.draft',
@@ -10369,11 +10364,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscription.rows.allergens',
   'commerce:subscription.rows.days',
   'commerce:subscription.rows.duration',
-  'commerce:subscription.rows.field',
   'commerce:subscription.rows.plan',
   'commerce:subscription.rows.slot',
   'commerce:subscription.rows.start',
-  'commerce:subscription.rows.value',
   'commerce:subscription.skip',
   'commerce:subscription.skipConfirm',
   'commerce:subscription.skipConsequenceBody',
@@ -10389,9 +10382,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscription.slotDaysTitle',
   'commerce:subscription.slotDialogBody',
   'commerce:subscription.slotDialogTitle',
-  'commerce:subscription.stateSince',
-  'commerce:subscription.timelineNote',
-  'commerce:subscription.timelineTitle',
   'commerce:subscriptions.body',
   'commerce:subscriptions.browse',
   'commerce:subscriptions.clearFilter',
