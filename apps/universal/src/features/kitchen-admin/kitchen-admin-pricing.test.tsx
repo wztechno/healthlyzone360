@@ -254,6 +254,13 @@ const CONFIRMED_LIST: PriceListAdmin = {
 };
 
 /**
+ * The meal menu sold under an agreement. A meal's price on a public list is set on the meal (owner
+ * decision, 13 Oct 2026), so the editing mechanics below are exercised where meals stay editable:
+ * a negotiated tariff, whose prices live only here.
+ */
+const AGREED_LIST: PriceListAdmin = { ...CONFIRMED_LIST, channels: ['b2b'] };
+
+/**
  * A draft list with no confirmed amount in it at all — the retail packs, sold under a negotiated
  * agreement. `b2b` is what makes it confidential; see `isAgreementPriced`.
  */
@@ -901,15 +908,32 @@ describe('the price-list list', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('editing a price list', () => {
-    it('states the currency and the channels as facts, with no control to change them', async () => {
+    it('shows a meal on a public list but leaves its price to the meal', async () => {
         await renderStubScreen(<PriceListEditScreen priceList={String(CONFIRMED_LIST.id)} />, {
             session: kitchenManagerSession(),
             repositories: editorReads(() => CONFIRMED_LIST),
         });
+        await openEntriesStep();
+        await untilVisible('kitchen-price-list-entries');
+
+        const first = CONFIRMED_LIST.entries[0]!;
+        const row = `kitchen-price-list-entries-row-seed-0-${priceItemKey(first.item)}`;
+
+        // Owner decision, 13 Oct 2026: the meal's own price is the source on a public tariff.
+        expect(screen.getByTestId(`${row}-amount-input`).props.value).toBe('12.50');
+        expect(screen.getByTestId(`${row}-set-on-meal`)).toHaveTextContent(/Set on the meal/);
+        expect(screen.queryByTestId(`${row}-select`)).toBeNull();
+    });
+
+    it('states the currency and the channels as facts, with no control to change them', async () => {
+        await renderStubScreen(<PriceListEditScreen priceList={String(AGREED_LIST.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: editorReads(() => AGREED_LIST),
+        });
         await untilVisible('kitchen-price-list-facts');
 
         expect(screen.getByTestId('kitchen-price-list-fact-currency-value')).toHaveTextContent(
-            new RegExp(CONFIRMED_LIST.currency),
+            new RegExp(AGREED_LIST.currency),
         );
         expect(screen.queryByTestId('kitchen-price-list-currency-trigger')).toBeNull();
     });
@@ -926,30 +950,30 @@ describe('editing a price list', () => {
     });
 
     it('renders every entry with its amount in major units', async () => {
-        await renderStubScreen(<PriceListEditScreen priceList={String(CONFIRMED_LIST.id)} />, {
+        await renderStubScreen(<PriceListEditScreen priceList={String(AGREED_LIST.id)} />, {
             session: kitchenManagerSession(),
-            repositories: editorReads(() => CONFIRMED_LIST),
+            repositories: editorReads(() => AGREED_LIST),
         });
         await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
-        const first = CONFIRMED_LIST.entries[0]!;
+        const first = AGREED_LIST.entries[0]!;
         const row = `kitchen-price-list-entries-row-seed-0-${priceItemKey(first.item)}`;
         expect(screen.getByTestId(`${row}-amount-input`).props.value).toBe(
-            minorAmountToInput(first.amountMinor ?? 0, CONFIRMED_LIST.currency),
+            minorAmountToInput(first.amountMinor ?? 0, AGREED_LIST.currency),
         );
         expect(screen.getByTestId(`${row}-amount-input`).props.value).toBe('12.50');
     });
 
     it('clears and disables the amount when a row stops being a confirmed price', async () => {
-        await renderStubScreen(<PriceListEditScreen priceList={String(CONFIRMED_LIST.id)} />, {
+        await renderStubScreen(<PriceListEditScreen priceList={String(AGREED_LIST.id)} />, {
             session: kitchenManagerSession(),
-            repositories: editorReads(() => CONFIRMED_LIST),
+            repositories: editorReads(() => AGREED_LIST),
         });
         await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
-        const first = CONFIRMED_LIST.entries[0]!;
+        const first = AGREED_LIST.entries[0]!;
         const row = `kitchen-price-list-entries-row-seed-0-${priceItemKey(first.item)}`;
 
         expect(screen.getByTestId(`${row}-amount-input`).props.value).toBe('12.50');
@@ -975,10 +999,10 @@ describe('editing a price list', () => {
     });
 
     it('names an entry left without an amount when Save is pressed, and saves once it has one', async () => {
-        let stored: PriceListAdmin = CONFIRMED_LIST;
+        let stored: PriceListAdmin = AGREED_LIST;
 
         const { repositories } = await renderStubScreen(
-            <PriceListEditScreen priceList={String(CONFIRMED_LIST.id)} />,
+            <PriceListEditScreen priceList={String(AGREED_LIST.id)} />,
             {
                 session: kitchenManagerSession(),
                 repositories: {
@@ -1000,7 +1024,7 @@ describe('editing a price list', () => {
         await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
-        const first = CONFIRMED_LIST.entries[0]!;
+        const first = AGREED_LIST.entries[0]!;
         const row = `kitchen-price-list-entries-row-seed-0-${priceItemKey(first.item)}`;
 
         // Nothing is wrong until a save is tried: a field being emptied is a field being edited.
@@ -1033,14 +1057,14 @@ describe('editing a price list', () => {
     });
 
     it('marks what changed, says what it was, and filters to it', async () => {
-        await renderStubScreen(<PriceListEditScreen priceList={String(CONFIRMED_LIST.id)} />, {
+        await renderStubScreen(<PriceListEditScreen priceList={String(AGREED_LIST.id)} />, {
             session: kitchenManagerSession(),
-            repositories: editorReads(() => CONFIRMED_LIST),
+            repositories: editorReads(() => AGREED_LIST),
         });
         await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
-        const [first, second] = CONFIRMED_LIST.entries;
+        const [first, second] = AGREED_LIST.entries;
         const firstRow = `kitchen-price-list-entries-row-seed-0-${priceItemKey(first!.item)}`;
         const secondRow = `kitchen-price-list-entries-row-seed-1-${priceItemKey(second!.item)}`;
 
@@ -1078,14 +1102,14 @@ describe('editing a price list', () => {
     });
 
     it('changes the selected confirmed prices by a percentage', async () => {
-        await renderStubScreen(<PriceListEditScreen priceList={String(CONFIRMED_LIST.id)} />, {
+        await renderStubScreen(<PriceListEditScreen priceList={String(AGREED_LIST.id)} />, {
             session: kitchenManagerSession(),
-            repositories: editorReads(() => CONFIRMED_LIST),
+            repositories: editorReads(() => AGREED_LIST),
         });
         await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
-        const first = CONFIRMED_LIST.entries[0]!;
+        const first = AGREED_LIST.entries[0]!;
         const row = `kitchen-price-list-entries-row-seed-0-${priceItemKey(first.item)}`;
 
         await act(async () => {
@@ -1164,10 +1188,10 @@ describe('editing a price list', () => {
     it('saves a changed amount as minor units, and reads it back in major ones', async () => {
         // The record as the server holds it. The write rule below is the server's own: an accepted
         // write replaces the entry set and answers with the record at its *next* version.
-        let stored: PriceListAdmin = CONFIRMED_LIST;
+        let stored: PriceListAdmin = AGREED_LIST;
 
         const { repositories } = await renderStubScreen(
-            <PriceListEditScreen priceList={String(CONFIRMED_LIST.id)} />,
+            <PriceListEditScreen priceList={String(AGREED_LIST.id)} />,
             {
                 session: kitchenManagerSession(),
                 repositories: {
@@ -1189,7 +1213,7 @@ describe('editing a price list', () => {
         await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
-        const first = CONFIRMED_LIST.entries[0]!;
+        const first = AGREED_LIST.entries[0]!;
         const row = `kitchen-price-list-entries-row-seed-0-${priceItemKey(first.item)}`;
 
         await act(async () => {
@@ -1200,7 +1224,7 @@ describe('editing a price list', () => {
         // The write is the assertion: minor units, at the version the editor opened with.
         await waitFor(() => {
             expect(repositories.kitchenAdmin.setPriceListEntries).toHaveBeenCalledWith(
-                CONFIRMED_LIST.id,
+                AGREED_LIST.id,
                 expect.objectContaining({ lockVersion: 3 }),
             );
         });
@@ -1219,9 +1243,9 @@ describe('editing a price list', () => {
     });
 
     it('writes a placeholder as a NULL amount rather than as a stale number', async () => {
-        let stored: PriceListAdmin = CONFIRMED_LIST;
+        let stored: PriceListAdmin = AGREED_LIST;
 
-        await renderStubScreen(<PriceListEditScreen priceList={String(CONFIRMED_LIST.id)} />, {
+        await renderStubScreen(<PriceListEditScreen priceList={String(AGREED_LIST.id)} />, {
             session: kitchenManagerSession(),
             repositories: {
                 kitchenAdmin: {
@@ -1241,7 +1265,7 @@ describe('editing a price list', () => {
         await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
-        const first = CONFIRMED_LIST.entries[0]!;
+        const first = AGREED_LIST.entries[0]!;
         const row = `kitchen-price-list-entries-row-seed-0-${priceItemKey(first.item)}`;
 
         await chooseStatus(row, 'placeholder');
@@ -1259,16 +1283,16 @@ describe('editing a price list', () => {
 
     it('adds a row, removes one, and Discard puts the list back as it was read', async () => {
         const { repositories } = await renderStubScreen(
-            <PriceListEditScreen priceList={String(CONFIRMED_LIST.id)} />,
+            <PriceListEditScreen priceList={String(AGREED_LIST.id)} />,
             {
                 session: kitchenManagerSession(),
-                repositories: editorReads(() => CONFIRMED_LIST),
+                repositories: editorReads(() => AGREED_LIST),
             },
         );
         await openEntriesStep();
         await untilVisible('kitchen-price-list-add-entry');
 
-        const first = CONFIRMED_LIST.entries[0]!;
+        const first = AGREED_LIST.entries[0]!;
         const firstRow = `kitchen-price-list-entries-row-seed-0-${priceItemKey(first.item)}`;
 
         await act(async () => {
@@ -1301,10 +1325,10 @@ describe('editing a price list', () => {
     });
 
     it('offers reload-or-keep when somebody else has moved the list on', async () => {
-        let stored: PriceListAdmin = CONFIRMED_LIST;
+        let stored: PriceListAdmin = AGREED_LIST;
 
         const { repositories } = await renderStubScreen(
-            <PriceListEditScreen priceList={String(CONFIRMED_LIST.id)} />,
+            <PriceListEditScreen priceList={String(AGREED_LIST.id)} />,
             {
                 session: kitchenManagerSession(),
                 repositories: {
@@ -1335,7 +1359,7 @@ describe('editing a price list', () => {
         await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
-        const first = CONFIRMED_LIST.entries[0]!;
+        const first = AGREED_LIST.entries[0]!;
         const row = `kitchen-price-list-entries-row-seed-0-${priceItemKey(first.item)}`;
 
         // Somebody else saves the same row, dropping the second entry. The editor now holds a
@@ -1366,7 +1390,7 @@ describe('editing a price list', () => {
             expect(
                 screen.queryByTestId(
                     `kitchen-price-list-entries-row-seed-1-${priceItemKey(
-                        CONFIRMED_LIST.entries[1]!.item,
+                        AGREED_LIST.entries[1]!.item,
                     )}`,
                 ),
             ).toBeNull();
@@ -1374,9 +1398,9 @@ describe('editing a price list', () => {
     });
 
     it('asks before throwing away an unsaved entry', async () => {
-        await renderStubScreen(<PriceListEditScreen priceList={String(CONFIRMED_LIST.id)} />, {
+        await renderStubScreen(<PriceListEditScreen priceList={String(AGREED_LIST.id)} />, {
             session: kitchenManagerSession(),
-            repositories: editorReads(() => CONFIRMED_LIST),
+            repositories: editorReads(() => AGREED_LIST),
         });
         await openEntriesStep();
         await untilVisible('kitchen-price-list-add-entry');
