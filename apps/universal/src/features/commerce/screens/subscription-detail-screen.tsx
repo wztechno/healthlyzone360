@@ -233,7 +233,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
             variant="quiet"
             label={t('commerce:subscription.backToList')}
             onPress={() => {
-                router.push('/customer/subscriptions' as never);
+                router.push('/customer/account?section=subscriptions' as never);
             }}
         />
     );

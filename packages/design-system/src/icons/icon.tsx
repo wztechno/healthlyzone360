@@ -170,6 +170,7 @@ export const DRAWN_ICON_FALLBACKS = {
     lockOpen: 'eyeOff',
     clipboardList: 'calendar',
     shoppingCart: 'basket',
+    shoppingBasket: 'basket',
     packageCheck: 'check',
     percent: 'check',
     calendarDays: 'calendar',

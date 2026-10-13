@@ -1,41 +1,18 @@
-import { Button, Callout, Icon, Inline } from '@healthy360/design-system';
+import { Button, Callout, Inline } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text as RNText, View } from 'react-native';
+import { View } from 'react-native';
 
 import { useSubscriptionsQuery } from '../../../data/marketplace-hooks.ts';
-import { consumerNavigation } from '../../../navigation/consumer-items.ts';
-import type { ConsumerNavigationDescriptor } from '../../../navigation/consumer-items.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { useSession } from '../../../session/session-provider.tsx';
-import { isPathAvailable } from '../../availability.ts';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { formatMoney } from '../format.ts';
-import { HomeHero, HomeSectionHeader, HomeSections } from '../home/home-sections.tsx';
+import { HomeHero, HomeSections } from '../home/home-sections.tsx';
 import type { HomeOffer } from '../home/home-sections.tsx';
 import { useHomeMeals } from '../home/use-home-meals.ts';
 import { clearResumeIntent, useResumeIntent } from '../resume-intent.ts';
-import { TileGrid, TileGridItem } from '../section-header.tsx';
-
-/**
- * Destinations the customer header already carries, so the page does not list them twice: discover
- * is this page and the header's first item, and the basket is its cart pill.
- */
-const IN_HEADER: ReadonlySet<string> = new Set(['discover', 'cart']);
-
-/**
- * The account record's own screen. It is not in `CONSUMER_NAVIGATION` — the sidebar reached it
- * through the profile menu — so it is listed here beside the table's entries, through the same
- * availability filter.
- */
-const ACCOUNT_LINK: ConsumerNavigationDescriptor = {
-    key: 'account',
-    labelKey: 'marketplace:consumer.nav.account',
-    href: '/customer/account',
-    icon: 'userCircle',
-    area: 'customer',
-};
 
 /**
  * Discover — the marketplace home, and HealthZone's `home` screen for everybody.
@@ -61,10 +38,9 @@ const ACCOUNT_LINK: ConsumerNavigationDescriptor = {
  * - **The running subscription** takes the offer band. The band pitches plans; somebody already on
  *   one is better served by seeing theirs, and the band's button manages it. With no subscription
  *   the band is the plans offer again.
- * - **The account's destinations** close the page as one more section: a titled header row and a
- *   row of tiles like the categories'. They come from `consumerNavigation()`, which drops
- *   destinations with no backend. Subscriptions and profile are reachable from nowhere else in the
- *   customer chrome, which is why the section stays.
+ * - **No account tiles.** The page used to close on tiles for subscriptions, profile and account.
+ *   The header's account icon now opens the account page, subscriptions are a section of it, and
+ *   staff reach their profile from their own header icon, so the tiles had nothing left to do.
  *
  * The cards carry figures and the band can carry a price, so a signed-in page keeps the medical
  * disclaimer at the foot, as every customer surface that prints nutrition does.
@@ -92,7 +68,9 @@ export function DiscoverScreen() {
     const resume = useResumeIntent();
 
     const activeSubscription = signedIn
-        ? (subscriptions.data?.items ?? []).find((subscription) => subscription.state !== 'cancelled')
+        ? (subscriptions.data?.items ?? []).find(
+              (subscription) => subscription.state !== 'cancelled',
+          )
         : undefined;
 
     const nextDelivery =
@@ -131,13 +109,6 @@ export function DiscoverScreen() {
                       },
                   },
               };
-
-    const links: readonly ConsumerNavigationDescriptor[] = signedIn
-        ? [
-              ...consumerNavigation().filter((item) => !IN_HEADER.has(item.key)),
-              ...(isPathAvailable(ACCOUNT_LINK.href) ? [ACCOUNT_LINK] : []),
-          ]
-        : [];
 
     return (
         <View testID="discover-screen" className="flex-col pb-11">
@@ -201,50 +172,6 @@ export function DiscoverScreen() {
                 onAdd={basket.add}
                 offer={subscriptionOffer}
             />
-
-            {links.length === 0 ? null : (
-                <View testID="discover-links" className="mt-11 flex-col">
-                    <HomeSectionHeader
-                        testID="discover-links-header"
-                        title={t('marketplace:consumer.links.title')}
-                    />
-                    <View className="mt-4">
-                        <TileGrid>
-                            {links.map((link) => {
-                                const label = t(link.labelKey);
-                                return (
-                                    <TileGridItem key={link.key}>
-                                        <Pressable
-                                            testID={`discover-link-${link.key}`}
-                                            role="link"
-                                            accessibilityRole="link"
-                                            accessibilityLabel={label}
-                                            onPress={() => {
-                                                router.push(link.href as never);
-                                            }}
-                                            className="grow gap-3 rounded-panel border border-stroke-subtle bg-surface-raised p-3 hover:border-surface-brand"
-                                        >
-                                            <View className="h-24 items-center justify-center rounded bg-surface-brand-subtle">
-                                                <Icon
-                                                    name={link.icon}
-                                                    size="lg"
-                                                    className="text-content-on-brand-subtle"
-                                                />
-                                            </View>
-                                            <RNText
-                                                numberOfLines={1}
-                                                className="font-display text-base font-bold tracking-display text-content-primary text-start"
-                                            >
-                                                {label}
-                                            </RNText>
-                                        </Pressable>
-                                    </TileGridItem>
-                                );
-                            })}
-                        </TileGrid>
-                    </View>
-                </View>
-            )}
 
             {signedIn ? <MedicalDisclaimer className="mt-11" /> : null}
 

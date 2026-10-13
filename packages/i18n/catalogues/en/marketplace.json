@@ -370,9 +370,6 @@
             "continue": "Continue",
             "dismiss": "Not now"
         },
-        "links": {
-            "title": "Your account"
-        },
         "subscription": {
             "nextDelivery": "Next delivery {{date}}",
             "noNextDelivery": "No delivery scheduled",

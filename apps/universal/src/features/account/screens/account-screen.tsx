@@ -12,6 +12,7 @@ import {
 } from '@healthy360/design-system';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
@@ -22,7 +23,9 @@ import {
     useSetConsentMutation,
     toFailure,
 } from '../../../data/account-hooks.ts';
+import { useLogoutMutation } from '../../../data/hooks.ts';
 import { Eyebrow } from '../../../ui/eyebrow.tsx';
+import { SubscriptionsScreen } from '../../commerce/screens/subscriptions-screen.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { AccountSetupSteps } from '../account-setup-steps.tsx';
 import { ACCOUNT_CARD, PanelTitle } from '../account-card.tsx';
@@ -33,12 +36,14 @@ import { AccountProfilePanel } from '../account-profile-panel.tsx';
  * `/customer/account` — the HealthZone `account` screen: "Your account", a 220px side nav, one
  * panel.
  *
- * ## The six sections are the design's six
+ * ## The design's six sections, plus Subscriptions
  *
- * Orders · Favorites · Profile · Addresses · Payment methods · Notifications, in that order, as the
- * design's `sideBtn()` rows. Each panel is the design's card:
+ * Orders · Subscriptions · Favorites · Profile · Addresses · Payment methods · Notifications, in that
+ * order, as the design's `sideBtn()` rows. Each panel is the design's card:
  *
  * * **Orders** — "Order history" over `GET /me/orders` (`../account-orders-panel.tsx`).
+ * * **Subscriptions** — not one of the design's six. It had its own page, reached only from tiles on
+ *   Discover; it sits beside the orders now, and `/customer/subscriptions` redirects here.
  * * **Favorites** — there is no favourites capability anywhere in the product, so the design's grid
  *   holds its honest empty state and the way to the menu.
  * * **Profile** — "Profile & preferences" (`../account-profile-panel.tsx`).
@@ -80,6 +85,7 @@ import { AccountProfilePanel } from '../account-profile-panel.tsx';
 
 const SECTIONS = [
     'orders',
+    'subscriptions',
     'favorites',
     'profile',
     'addresses',
@@ -123,11 +129,13 @@ function SideNav({
     items,
     value,
     onChange,
+    footer,
 }: {
     readonly label: string;
     readonly items: readonly SectionItem[];
     readonly value: Section;
     readonly onChange: (next: Section) => void;
+    readonly footer: ReactNode;
 }) {
     return (
         <View
@@ -168,7 +176,35 @@ function SideNav({
                     </Pressable>
                 );
             })}
+            <View className="mt-3 border-t border-stroke-subtle pt-3">{footer}</View>
         </View>
+    );
+}
+
+/**
+ * Sign out — the header's account menu used to carry it; the header now opens this page instead.
+ * `replace`, not `push`: Back must not return a signed-out person to their account.
+ */
+function SignOutButton() {
+    const { t } = useTranslation();
+    const router = useRouter();
+    const logout = useLogoutMutation();
+
+    return (
+        <Button
+            testID="account-sign-out"
+            size="sm"
+            variant="quiet"
+            label={t('common:action.signOut')}
+            loading={logout.isPending}
+            onPress={() => {
+                logout.mutate(undefined, {
+                    onSuccess: () => {
+                        router.replace('/' as never);
+                    },
+                });
+            }}
+        />
     );
 }
 
@@ -448,6 +484,7 @@ export function AccountScreen() {
             )}
 
             {section === 'orders' ? <AccountOrdersPanel /> : null}
+            {section === 'subscriptions' ? <SubscriptionsScreen embedded /> : null}
             {section === 'favorites' ? <FavoritesPanel /> : null}
             {/* Not gated on the overview: the card's details come from the session. */}
             {section === 'profile' ? <AccountProfilePanel /> : null}
@@ -472,7 +509,13 @@ export function AccountScreen() {
 
             {wide ? (
                 <View className="z-auto flex-row items-start gap-6">
-                    <SideNav label={navLabel} items={items} value={section} onChange={setSection} />
+                    <SideNav
+                        label={navLabel}
+                        items={items}
+                        value={section}
+                        onChange={setSection}
+                        footer={<SignOutButton />}
+                    />
                     {panel}
                 </View>
             ) : (
@@ -489,6 +532,9 @@ export function AccountScreen() {
                         onChange={setSection}
                     />
                     {panel}
+                    <View className="items-start border-t border-stroke-subtle pt-4">
+                        <SignOutButton />
+                    </View>
                 </View>
             )}
         </View>

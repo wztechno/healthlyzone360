@@ -34,7 +34,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { queryKeys } from '../../data/query-keys.ts';
 import { consumerNavigation, marketplaceNavigation } from '../../navigation/consumer-items.ts';
 import { ConsumerShell } from '../../shell/consumer-shell.tsx';
-import { testMeResponse } from '../../testing/session-fixtures.ts';
+import { kitchenManagerSession, testMeResponse } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { clearResumeIntent, getResumeIntent, recordResumeIntent } from './resume-intent.ts';
@@ -1632,11 +1632,9 @@ describe('DiscoverScreen as the only home', () => {
         expect(routerMock.__push).toHaveBeenCalledWith('/plans');
     });
 
-    /*
-     * The account's destinations live at the foot of the home. They come from the navigation
-     * table — so only the ones with a backend — less the ones the header carries.
-     */
-    it('links every account destination the header does not already carry', async () => {
+    // The account's tiles are gone: the header's account icon opens the account page, which holds
+    // subscriptions, and staff reach their profile from their own header icon.
+    it('closes on no account tiles once signed in', async () => {
         await renderStubScreen(<DiscoverScreen />, {
             session: CONSUMER_SESSION,
             repositories: {
@@ -1645,19 +1643,8 @@ describe('DiscoverScreen as the only home', () => {
             },
         });
 
-        // The session restores asynchronously, and the tiles are a signed-in person's.
-        await waitFor(() => screen.getByTestId('discover-links'));
-        for (const [key, href] of [
-            ['subscriptions', '/customer/subscriptions'],
-            ['account', '/customer/account'],
-            ['profile', '/profile'],
-        ] as const) {
-            await fireEvent.press(screen.getByTestId(`discover-link-${key}`));
-            expect(routerMock.__push).toHaveBeenCalledWith(href);
-        }
-        for (const key of ['home', 'discover', 'cart', 'planner', 'nutrition']) {
-            expect(screen.queryByTestId(`discover-link-${key}`)).toBeNull();
-        }
+        await waitFor(() => screen.getByTestId('discover-hero'));
+        expect(screen.queryByTestId('discover-links')).toBeNull();
     });
 
     it('offers to resume a marketplace page recorded before sign-in', async () => {
@@ -1718,6 +1705,27 @@ describe('ConsumerShell', () => {
         // The session restores asynchronously; the basket is offered once it has.
         await fireEvent.press(await screen.findByTestId('marketplace-basket'));
         expect(routerMock.__push).toHaveBeenCalledWith('/customer/cart');
+
+        // The account is one icon straight to the account page — no menu in between.
+        expect(screen.queryByTestId('marketplace-account-menu')).toBeNull();
+        await fireEvent.press(screen.getByTestId('marketplace-account'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account');
+        expect(screen.getByTestId('locale-toggle')).toBeTruthy();
+        expect(screen.getByTestId('theme-toggle')).toBeTruthy();
+        // A plain customer has no staff workspace, so no staff profile icon.
+        expect(screen.queryByTestId('marketplace-staff-profile')).toBeNull();
+    });
+
+    it('gives staff a second icon, to their staff profile', async () => {
+        await renderStubScreen(
+            <ConsumerShell unguarded>
+                <></>
+            </ConsumerShell>,
+            { session: kitchenManagerSession() },
+        );
+
+        await fireEvent.press(await screen.findByTestId('marketplace-staff-profile'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/profile');
         expect(screen.queryByTestId('prototype-notice')).toBeNull();
     });
 });

@@ -340,7 +340,7 @@ export function SubscriptionConfiguratorScreen({
                     router.replace(`/customer/subscriptions/${String(created.id)}` as never);
                 }}
                 onList={() => {
-                    router.replace('/customer/subscriptions' as never);
+                    router.replace('/customer/account?section=subscriptions' as never);
                 }}
             />
         );

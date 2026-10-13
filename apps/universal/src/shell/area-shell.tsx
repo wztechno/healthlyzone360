@@ -8,7 +8,6 @@ import {
     useBreakpoint,
 } from '@healthy360/design-system';
 import type { AppShellVariant, NavigationItem } from '@healthy360/design-system';
-import { useLocale } from '@healthy360/i18n';
 import type { RouteArea } from '@healthy360/domain-types';
 import { Redirect, usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
@@ -22,6 +21,7 @@ import { isAreaAvailable } from '../features/availability.ts';
 import { workspaceGroup } from '../navigation/workspace-group.tsx';
 import { useOnlineStatus } from '../online/online-status.tsx';
 import { useAccessState } from '../session/session-provider.tsx';
+import { LocaleToggle } from './locale-toggle.tsx';
 import { ThemeToggle } from './theme-toggle.tsx';
 
 /**
@@ -130,7 +130,6 @@ function GuardedAreaShell({
     const pathname = usePathname();
     const accessState = useAccessState();
     const { state: connectivity } = useOnlineStatus();
-    const { locale, setLocale } = useLocale();
     const logout = useLogoutMutation();
     const { atLeast } = useBreakpoint();
 
@@ -182,15 +181,7 @@ function GuardedAreaShell({
         resolvedVariant === 'auth' || resolvedVariant === 'kiosk' ? undefined : (
             <Inline space="xs" wrap={false}>
                 {topbarSearch}
-                <Button
-                    testID="locale-toggle"
-                    size="sm"
-                    variant="ghost"
-                    label={locale.startsWith('ar') ? 'English' : t('common:locale.arabic')}
-                    onPress={() => {
-                        void setLocale(locale.startsWith('ar') ? 'en' : 'ar');
-                    }}
-                />
+                <LocaleToggle />
                 <ThemeToggle />
                 {/*
                  * Sign out is quiet here and the primary slot is left *empty*. Rule 4 is explicit

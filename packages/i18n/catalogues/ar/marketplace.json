@@ -406,9 +406,6 @@
             "continue": "متابعة",
             "dismiss": "ليس الآن"
         },
-        "links": {
-            "title": "حسابك"
-        },
         "subscription": {
             "nextDelivery": "التوصيل التالي {{date}}",
             "noNextDelivery": "لا يوجد توصيل مجدول",

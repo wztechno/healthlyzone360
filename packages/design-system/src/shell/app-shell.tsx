@@ -834,12 +834,12 @@ function AppShellLayout({
                     className="border-b border-stroke-subtle bg-surface-base px-4 py-3.5 md:px-10 lg:px-11"
                 >
                     {/*
-                     * The bar's contents sit on the page's measure, not on the window. HealthZone
-                     * centres its header on the same 1240px container as the content (1184px inside
-                     * its 28px gutters), so on a wide screen the brand mark lines up with the first
-                     * card rather than with the window edge — at 1440px the two used to be 84px apart.
+                     * The bar's contents span the window, not the page's measure. HealthZone centres
+                     * its header on the content's 1184px container, but on a wide screen that left
+                     * a band of empty bar either side: the brand and destinations sit at the start
+                     * edge and the search and controls at the end edge instead.
                      */}
-                    <View className="mx-auto w-full max-w-[1184px] flex-row items-center gap-3 md:gap-7">
+                    <View className="w-full flex-row items-center gap-3 md:gap-7">
                         {!wideEnoughForTopNav && navigation.length > 0 ? (
                             <IconButton
                                 testID={testID === undefined ? undefined : `${testID}-menu`}

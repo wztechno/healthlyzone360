@@ -51,9 +51,10 @@ import { PhoneScreen } from './screens/phone-screen.tsx';
 
 jest.mock('expo-router', () => {
     const push = jest.fn();
+    const replace = jest.fn();
     return {
         __esModule: true,
-        useRouter: () => ({ push, replace: jest.fn(), setParams: jest.fn(), back: jest.fn() }),
+        useRouter: () => ({ push, replace, setParams: jest.fn(), back: jest.fn() }),
         usePathname: () => '/customer/account',
         useLocalSearchParams: () => ({}),
         Redirect: () => null,
@@ -61,14 +62,16 @@ jest.mock('expo-router', () => {
         Slot: () => null,
         Stack: () => null,
         __push: push,
+        __replace: replace,
     };
 });
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __push: jest.Mock };
+const routerMock = require('expo-router') as { __push: jest.Mock; __replace: jest.Mock };
 
 beforeEach(() => {
     routerMock.__push.mockClear();
+    routerMock.__replace.mockClear();
     globalThis.localStorage?.clear();
 });
 
@@ -314,7 +317,48 @@ describe('the four consent states', () => {
 /* ══ the checklist ═════════════════════════════════════════════════════════════════════════════ */
 
 describe('AccountScreen', () => {
-    it('draws the design’s six sections in the design’s order', async () => {
+    // The header's account menu carried Sign out; the header now opens this page instead.
+    it('signs out from the page and leaves for the home', async () => {
+        const { repositories } = await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                auth: { logout: async () => undefined },
+                account: {
+                    getOverview: async () =>
+                        overview(checklist([], { lifecycle: 'active', canActivate: true })),
+                },
+                commerce: { listMyOrders: async () => NO_ORDERS },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('account-sign-out'));
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith('/');
+        });
+        expect(repositories.auth.logout).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps subscriptions as a section, without a page heading of its own', async () => {
+        await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getOverview: async () =>
+                        overview(checklist([], { lifecycle: 'active', canActivate: true })),
+                },
+                commerce: {
+                    listMyOrders: async () => NO_ORDERS,
+                    listSubscriptions: async () => ({ ...NO_ORDERS, items: [] }),
+                },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('account-tab-subscriptions'));
+        expect(await screen.findByTestId('subscriptions-screen')).toBeTruthy();
+        expect(screen.queryByTestId('subscriptions-title')).toBeNull();
+    });
+
+    it('draws the design’s six sections, plus subscriptions, in order', async () => {
         await renderStubScreen(<AccountScreen />, {
             session: testMeResponse(),
             repositories: {
@@ -329,6 +373,7 @@ describe('AccountScreen', () => {
         expect(await screen.findByTestId('account-orders-states-empty')).toBeTruthy();
         const expected = [
             ['orders', 'Orders'],
+            ['subscriptions', 'Subscriptions'],
             ['favorites', 'Favorites'],
             ['profile', 'Profile'],
             ['addresses', 'Addresses'],

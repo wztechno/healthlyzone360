@@ -521,6 +521,7 @@ export interface NamespaceKeys {
     | 'nav.orders'
     | 'nav.payments'
     | 'nav.profile'
+    | 'nav.subscriptions'
     | 'orders.backToHistory'
     | 'orders.browse'
     | 'orders.empty'
@@ -6435,7 +6436,6 @@ export interface NamespaceKeys {
     | 'channels.pos'
     | 'channels.subscription'
     | 'common.listSeparator'
-    | 'consumer.links.title'
     | 'consumer.nav.account'
     | 'consumer.nav.cart'
     | 'consumer.nav.cartWithCount'
@@ -8851,6 +8851,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:nav.orders',
   'account:nav.payments',
   'account:nav.profile',
+  'account:nav.subscriptions',
   'account:orders.backToHistory',
   'account:orders.browse',
   'account:orders.empty',
@@ -14753,7 +14754,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:channels.pos',
   'marketplace:channels.subscription',
   'marketplace:common.listSeparator',
-  'marketplace:consumer.links.title',
   'marketplace:consumer.nav.account',
   'marketplace:consumer.nav.cart',
   'marketplace:consumer.nav.cartWithCount',
