@@ -135,7 +135,7 @@ export function StockScreen() {
 const PAGE_SIZE = 18;
 
 type Kind = 'ingredients' | 'products';
-type LevelSegment = 'all' | 'low' | 'out' | 'ok';
+type LevelSegment = 'all' | 'low' | 'out' | 'ok' | 'none';
 type LevelState = Exclude<LevelSegment, 'all'>;
 
 /** One item with this branch's level joined on, and the level state derived once. */
@@ -145,25 +145,33 @@ interface StockRow {
     readonly state: LevelState;
 }
 
+/**
+ * `none` is an item that has never had a level at this branch. It is not "out of stock": the
+ * supply-orders queue (`SupplyNeedsQuery`) counts levels only, and a page that called every
+ * never-stocked shelf empty said 443 beside that queue's 0.
+ */
 function levelState(level: StockLevel | null): LevelState {
-    if (level === null || isOutOfStock(level.quantity)) return 'out';
+    if (level === null) return 'none';
+    if (isOutOfStock(level.quantity)) return 'out';
     return level.isLow ? 'low' : 'ok';
 }
 
 const STATE_TONE: Readonly<Record<LevelState, BadgeTone>> = {
+    none: 'neutral',
     out: 'danger',
     low: 'warning',
     ok: 'success',
 };
 
 const STATE_LABEL: Readonly<Record<LevelState, string>> = {
+    none: 'kitchen:ops.stock.notStocked',
     out: 'kitchen:ops.stock.emptyShelf',
     low: 'kitchen:ops.stock.lowBadge',
     ok: 'kitchen:ops.stock.inStockBadge',
 };
 
 /** The Status column's filter values, in the order the badge escalates. */
-const LEVEL_STATES: readonly LevelState[] = ['ok', 'low', 'out'];
+const LEVEL_STATES: readonly LevelState[] = ['ok', 'low', 'out', 'none'];
 
 /** Decimal strings in `direction`, an unset figure last both ways. */
 function compareDecimal(
@@ -300,7 +308,13 @@ function Stock() {
             render: (row) => (
                 <Text
                     variant="mono"
-                    tone={row.state === 'ok' ? 'primary' : 'danger'}
+                    tone={
+                        row.state === 'ok'
+                            ? 'primary'
+                            : row.state === 'none'
+                              ? 'secondary'
+                              : 'danger'
+                    }
                     testID={`${stockItemRowTestId(String(row.item.id))}-quantity`}
                 >
                     {quantityText(row)}
@@ -590,6 +604,7 @@ function Stock() {
         { value: 'low', label: t('kitchen:ops.stock.lowBadge') },
         { value: 'out', label: t('kitchen:ops.stock.levelOut') },
         { value: 'ok', label: t('kitchen:ops.stock.inStockBadge') },
+        { value: 'none', label: t('kitchen:ops.stock.notStocked') },
     ];
 
     if (viewing !== null) {
@@ -613,7 +628,7 @@ function Stock() {
                     label: t(STATE_LABEL[viewing.state]),
                     tone: STATE_TONE[viewing.state],
                 }}
-                {...(viewing.state === 'ok'
+                {...(viewing.state === 'ok' || viewing.state === 'none'
                     ? {}
                     : {
                           note: t(

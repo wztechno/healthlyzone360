@@ -61,7 +61,8 @@
         "searchResults_few": "{{count}} خيارات مطابقة",
         "searchResults_many": "{{count}} خيارًا مطابقًا",
         "searchResults_other": "{{count}} خيار مطابق",
-        "noResults": "لا يوجد خيار يطابق بحثك."
+        "noResults": "لا يوجد خيار يطابق بحثك.",
+        "loading": "جارٍ تحميل الخيارات…"
     },
     "fileUpload": {
         "choose": "اختر ملفًا",

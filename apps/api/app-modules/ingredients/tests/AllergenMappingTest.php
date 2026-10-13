@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Ingredients\Enums\AllergenContainment;
+use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Organisations\Models\Organisation;
@@ -304,4 +305,38 @@ it('audits the mapping change with allergen classes and no redactable key', func
     foreach (array_keys($event->metadata ?? []) as $key) {
         expect(str_ends_with((string) $key, '_code'))->toBeFalse();
     }
+});
+
+it('records an empty set on a kitchen\'s own ingredient as assessed and clear', function (): void {
+    $ownRow = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    $this->actingAs($this->a->user);
+
+    $this->putJson('/api/v1/catalogue/ingredients/'.$ownRow->getKey().'/allergens', [
+        'mappings' => [],
+    ], catalogueHeaders($this->a))->assertOk();
+
+    // The publish gate reads "assessed, carries nothing" from here, so a new
+    // ingredient is no longer stuck behind `catalogue.allergen_unmapped`.
+    expect(Ingredient::withoutTenancy()->findOrFail($ownRow->getKey())->verification_status)
+        ->toBe(IngredientVerificationStatus::Verified);
+});
+
+it('never verifies a row held for review, or one the kitchen does not own', function (): void {
+    $held = Ingredient::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'verification_status' => IngredientVerificationStatus::RequiresReview,
+    ]);
+    $theirs = Ingredient::factory()->create(['organisation_id' => $this->b->organisation->getKey()]);
+
+    $this->actingAs($this->a->user);
+
+    $this->putJson('/api/v1/catalogue/ingredients/'.$held->getKey().'/allergens', [
+        'mappings' => [],
+    ], catalogueHeaders($this->a))->assertOk();
+
+    expect(Ingredient::withoutTenancy()->findOrFail($held->getKey())->verification_status)
+        ->toBe(IngredientVerificationStatus::RequiresReview)
+        ->and(Ingredient::withoutTenancy()->findOrFail($theirs->getKey())->verification_status)
+        ->toBe(IngredientVerificationStatus::Unverified);
 });

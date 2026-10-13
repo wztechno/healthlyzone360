@@ -1,7 +1,6 @@
 import type { AllergenClass } from '@healthy360/api-client/contracts';
 import {
     Button,
-    Callout,
     Cascade,
     EmptyState,
     ErrorState,
@@ -79,9 +78,8 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * **No pager.** The resource is not paged: it returns all fourteen, always. A pager under a
  * fourteen-row list would be a control with one page to offer.
  *
- * The governance rule that used to be the page's only explanation is still stated, as the Callout
- * under the stat row — it is the reason there are no controls, and a reader who wonders why should
- * not have to infer it from their absence.
+ * The governance banner that explained why there are no controls is gone (the team's no-helper-copy
+ * rule): the page is read-only and draws no control to explain away.
  *
  * ## The row opens a View panel
  *
@@ -180,14 +178,6 @@ function AllergenClasses() {
                 testID="kitchen-allergen-classes-stats"
                 cards={statCards(list, t)}
                 pending={list.isPending}
-            />
-
-            <Callout
-                testID="kitchen-allergen-classes-governance"
-                role="note"
-                tone="info"
-                title={t('kitchen:classes.governanceTitle')}
-                body={t('kitchen:classes.governanceBody')}
             />
 
             <CatalogueToolbar<AllergenStatusFilter>

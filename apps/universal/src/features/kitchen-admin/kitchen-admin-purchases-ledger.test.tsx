@@ -202,8 +202,8 @@ describe('purchases ledger detail mode', () => {
 
         expect(harness.repositories.kitchenOps.getSpendSummary).not.toHaveBeenCalled();
 
-        // The ledger is the valuation, and says so above the figures.
-        expect(screen.getByTestId('kitchen-purchases-ledger-cost-note')).toBeTruthy();
+        // No banner explaining the cost permission: the team's no-helper-copy rule.
+        expect(screen.queryByTestId('kitchen-purchases-ledger-cost-note')).toBeNull();
     });
 
     it('keeps its filters on one row: the dates beside the search, and no panel under it', async () => {

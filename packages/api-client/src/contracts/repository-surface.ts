@@ -323,6 +323,7 @@ export const REPOSITORY_SURFACE = {
         'fulfilOrder',
         'getOrder',
         'listOrders',
+        'markOrderReady',
         'recordPayment',
     ],
     orderDesk: [

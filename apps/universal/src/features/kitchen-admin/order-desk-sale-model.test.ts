@@ -24,6 +24,7 @@ import {
     paymentMethodsFor,
     saleShortfall,
     scheduleFor,
+    windowsOverAt,
     withCustomer,
     withFulfilmentType,
     withPaymentMethod,
@@ -255,6 +256,44 @@ describe('desk sale — the schedule a sale is placed for', () => {
             deliveryWindowCode: 'evening',
         });
         expect(scheduleFor(delivery, TODAY, ['midday'])?.deliveryWindowCode).toBe('midday');
+    });
+
+    it('never defaults to a slot that is already over today', () => {
+        const pickup = withFulfilmentType(counterState(), 'pickup');
+
+        // Midday is over: the next open window instead.
+        expect(
+            scheduleFor(
+                pickup,
+                TODAY,
+                ['morning', 'midday', 'evening'],
+                new Set(['morning', 'midday']),
+            ),
+        ).toEqual({ requestedDeliveryDate: TODAY, deliveryWindowCode: 'evening' });
+        // Everything today is over: tomorrow, at the default.
+        const tomorrow = scheduleFor(
+            pickup,
+            '2026-10-12',
+            ['morning', 'midday'],
+            new Set(['morning', 'midday']),
+        );
+        expect(tomorrow).toEqual({
+            requestedDeliveryDate: '2026-10-13',
+            deliveryWindowCode: 'midday',
+        });
+    });
+
+    it('reads which windows have ended from their end time', () => {
+        const at = new Date(2026, 9, 12, 21, 50);
+        const over = windowsOverAt(
+            [
+                { code: 'midday', endsAt: '15:00:00' },
+                { code: 'evening', endsAt: '22:00:00' },
+                { code: 'open', endsAt: null },
+            ],
+            at,
+        );
+        expect([...over]).toEqual(['midday']);
     });
 });
 

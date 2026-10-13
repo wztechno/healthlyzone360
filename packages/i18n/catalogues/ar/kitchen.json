@@ -346,7 +346,8 @@
             "effectCount": "ضبط على الجرد",
             "countInvalid": "أدخل الكمية التي عددتها — صفر أو أكثر.",
             "exceedsShelf": "المتوفر على الرف {{amount}} فقط. إذا كان هناك أكثر فعلًا، سجّل جردًا أولًا ثم أعد المحاولة.",
-            "parNotAboveThreshold": "يجب أن يكون المستوى المستهدف أعلى من حد إعادة الطلب."
+            "parNotAboveThreshold": "يجب أن يكون المستوى المستهدف أعلى من حد إعادة الطلب.",
+            "notStocked": "غير مخزَّن"
         },
         "supplyOrders": {
             "title": "طلبات التوريد",
@@ -440,11 +441,11 @@
             "createConfirmTitle": "إنشاء طلبات المسودة هذه؟",
             "createConfirmBody": "سننشئ طلب مسودة واحدًا لكل مورّد. لا يُرسل شيء إلى أحد بعد — يمكنك مراجعة كل طلب وتعديله وإصداره لاحقًا.",
             "createConfirmCounts_zero": "لا طلبات.",
-            "createConfirmCounts_one": "طلب واحد يضم {{lines}} سطرًا في المجموع.",
-            "createConfirmCounts_two": "طلبان يضمان {{lines}} سطرًا في المجموع.",
-            "createConfirmCounts_few": "{{count}} طلبات تضم {{lines}} سطرًا في المجموع.",
-            "createConfirmCounts_many": "{{count}} طلبًا تضم {{lines}} سطرًا في المجموع.",
-            "createConfirmCounts_other": "{{count}} طلب يضم {{lines}} سطرًا في المجموع.",
+            "createConfirmCounts_one": "طلب واحد يضم {{lines}} في المجموع.",
+            "createConfirmCounts_two": "طلبان يضمان {{lines}} في المجموع.",
+            "createConfirmCounts_few": "{{count}} طلبات تضم {{lines}} في المجموع.",
+            "createConfirmCounts_many": "{{count}} طلبًا تضم {{lines}} في المجموع.",
+            "createConfirmCounts_other": "{{count}} طلب يضم {{lines}} في المجموع.",
             "createConfirm_zero": "إنشاء",
             "createConfirm_one": "إنشاء طلب واحد",
             "createConfirm_two": "إنشاء طلبين",
@@ -622,7 +623,13 @@
             "groupCount_two": "صنفان",
             "groupCount_few": "{{count}} أصناف",
             "groupCount_many": "{{count}} صنفًا",
-            "groupCount_other": "{{count}} صنف"
+            "groupCount_other": "{{count}} صنف",
+            "createConfirmLines_zero": "لا أسطر",
+            "createConfirmLines_one": "سطر واحد",
+            "createConfirmLines_two": "سطران",
+            "createConfirmLines_few": "{{count}} أسطر",
+            "createConfirmLines_many": "{{count}} سطرًا",
+            "createConfirmLines_other": "{{count}} سطر"
         },
         "suppliers": {
             "title": "المورّدون",
@@ -765,7 +772,7 @@
         "procurement": {
             "title": "المشتريات",
             "emptyTitle": "لا توجد إيصالات استلام بعد",
-            "emptyBody": "سجّل استلاماً مقابل أصناف المخزون. تظهر جهات الموردين أعلاه عند التهيئة.",
+            "emptyBody": "سجّل استلامًا مقابل أصناف المخزون.",
             "receiptsTitle": "إيصالات الاستلام",
             "postReceipt": "تسجيل استلام",
             "postTitle": "تسجيل استلام بضاعة",
@@ -1101,8 +1108,6 @@
             "searchPlaceholder": "الصنف أو المورّد في هذه الصفحة",
             "columnQuantity": "الكمية",
             "columnState": "السعر",
-            "costNoteTitle": "هذا السجل هو التقييم.",
-            "costNoteBody": "يخضع لصلاحية تكاليف المؤسسة — فمن يعدّ المخزون ويرحّل الاستلامات لا يرى بذلك ما كلّفته تلك الاستلامات.",
             "stateUnpriced": "بلا سعر بعد",
             "statePendingFx": "بانتظار سعر الصرف",
             "statePriced": "مسعّر",
@@ -1361,7 +1366,8 @@
             "labelBatchOf": "دفعة من {{quantity}} {{unit}}",
             "expiryFromRecipe": "تاريخ الإنتاج مضافًا إليه {{days}}، حسب مدة صلاحية الوصفة.",
             "scanLabel": "امسح رقم التشغيلة أو اكتبه",
-            "scanNoMatch": "لا توجد دفعة تحمل هذا الرمز"
+            "scanNoMatch": "لا توجد دفعة تحمل هذا الرمز",
+            "recipeNoOutput": "لا تُنتج {{name}} أي صنف، لذا لا يوجد ما تضعه الدفعة على الرف. حدّد ما تنتجه في محرر الوصفة أولاً."
         },
         "qc": {
             "title": "مراقبة الجودة",
@@ -1471,7 +1477,8 @@
             "coverMore_two": "وبندان آخران — يشملها التعليق كلها",
             "coverMore_few": "و{{count}} بنود أخرى — يشملها التعليق كلها",
             "coverMore_many": "و{{count}} بندًا آخر — يشملها التعليق كلها",
-            "coverMore_other": "و{{count}} بند آخر — يشملها التعليق كلها"
+            "coverMore_other": "و{{count}} بند آخر — يشملها التعليق كلها",
+            "fieldHolds": "يحتوي"
         },
         "costReport": {
             "title": "تقرير التكاليف الشهري",
@@ -1813,7 +1820,7 @@
         "columnEmpty": {
             "incoming": "لا شيء بانتظار البدء.",
             "preparing": "لا شيء قيد التحضير.",
-            "done": "لم يكتمل شيء اليوم بعد."
+            "done": "لا شيء جاهز أو مُسلَّم اليوم بعد."
         },
         "emptyTitle": "لا توجد تذاكر على اللوحة",
         "emptyBody": "تظهر هنا الطلبات الواردة إلى هذا المطبخ فور وصولها.",
@@ -1829,7 +1836,9 @@
         "conflictBody": "قامت محطة أخرى ببدئها أو إنهائها. حدّث اللوحة لمعرفة وضعها الآن.",
         "conflictRefresh": "تحديث اللوحة",
         "noBranchTitle": "لم يُحدَّد فرع",
-        "noBranchBody": "اختر الفرع الذي تعرضه هذه الشاشة كي تظهر تذاكره."
+        "noBranchBody": "اختر الفرع الذي تعرضه هذه الشاشة كي تظهر تذاكره.",
+        "mayContain": "قد يحتوي على {{allergen}}",
+        "handedOver": "تم التسليم"
     },
     "driver": {
         "title": "توصيلاتك",
@@ -2117,7 +2126,8 @@
                 "address": "احفظ عنوان التوصيل لتأكيد هذا الطلب.",
                 "reference": "اكتب رقم التحويل لقبول دفعة Whish."
             },
-            "zoneNoSlots": "منطقة التوصيل لهذا العنوان لا تعرض أيًّا من فترات المطبخ. حدّد واحدة في خطوة نوافذ التوصيل للمنطقة."
+            "zoneNoSlots": "منطقة التوصيل لهذا العنوان لا تعرض أيًّا من فترات المطبخ. حدّد واحدة في خطوة نوافذ التوصيل للمنطقة.",
+            "heldStock": "قيد الحجز للفحص: {{names}}"
         },
         "refusal": {
             "customer_required": "هذا النوع من البيع يحتاج إلى عميل. ارجع واختر واحدًا أو أضفه.",
@@ -2470,7 +2480,7 @@
         "summaryUnblocked": "لا شيء منها ممنوع تمامًا — هذا عمل يجب إتمامه، لا جدار.",
         "open": "فتح السجل",
         "updatedBy": "آخر تغيير {{when}} بواسطة {{name}}",
-        "updatedBySeed": "آخر تغيير {{when}} بواسطة الاستيراد",
+        "updatedBySeed": "آخر تغيير {{when}}",
         "reasonQuarantined": "محجوز للمراجعة — النشر مرفوض",
         "reasonDerivationStale": "الأرقام قديمة منذ آخر تعديل",
         "reasonInconsistentPrices_zero": "لا بنود سعر تخالف قاعدة المبلغ",
@@ -2653,7 +2663,7 @@
         "noCategory": "بدون فئة",
         "noValue": "—",
         "updatedBy": "بواسطة {{name}}",
-        "updatedBySeed": "بواسطة الاستيراد",
+        "updatedBySeed": "—",
         "missingArabic": "العربية ناقصة",
         "missingArabicHint": "لا يحمل هذا السجل اسمًا عربيًا بعد، لذا لا يمكن نشره.",
         "archivedToast": "تمت أرشفة {{name}}.",
@@ -2707,7 +2717,7 @@
         "editTitle": "تعديل المكوّن",
         "backToList": "العودة إلى المكوّنات",
         "lastUpdated": "آخر تغيير {{when}}",
-        "lastUpdatedBySeed": "آخر تغيير {{when}} بواسطة الاستيراد",
+        "lastUpdatedBySeed": "آخر تغيير {{when}}",
         "lastUpdatedBy": "آخر تغيير {{when}} بواسطة {{name}}",
         "neverSaved": "لم يُحفظ بعد",
         "unsaved": "تغييرات غير محفوظة",
@@ -2884,12 +2894,16 @@
         "saveBlocked": "عالِج الصفوف المعلَّمة قبل الحفظ.",
         "duplicateClass": "هذا الصنف مربوط بالفعل.",
         "chooseClass": "اختر صنفًا لكل صف.",
-        "save": "حفظ الربط",
-        "savedToast": "حُفظ ربط مسبّبات الحساسية.",
+        "save": "حفظ مسببات الحساسية",
+        "savedToast": "تم حفظ مسببات الحساسية.",
         "saveError": "تعذّر حفظ ربط مسبّبات الحساسية.",
         "quarantineTitle": "هذا المكوّن الآن بانتظار المراجعة",
         "quarantineBody": "يناقض التغيير بطاقة منشورة، لذا يُحجَز السجل وكل ما يُشتقّ منه عن النشر حتى يعالج أحدهم الأمر.",
-        "classesError": "تعذّر تحميل أصناف مسبّبات الحساسية، فلا يمكن تعديل أي ربط."
+        "classesError": "تعذّر تحميل أصناف مسبّبات الحساسية، فلا يمكن تعديل أي ربط.",
+        "none": "غير موجود",
+        "confirmNone": "تأكيد خلوّه من مسببات الحساسية",
+        "assessedClear": "تم التحقق: لا يحتوي على مسببات حساسية",
+        "notAssessed": "لم تُسجَّل مسببات الحساسية بعد. لا يمكن نشر الوصفات التي تستخدم هذا المكوّن."
     },
     "containment": {
         "contains": "يحتوي",
@@ -2917,8 +2931,6 @@
     "classes": {
         "title": "أصناف مسبّبات الحساسية",
         "subtitle": "المفردات التنظيمية التي تُربط بها المكوّنات.",
-        "governanceTitle": "تديرها المنصّة",
-        "governanceBody": "رمز الصنف هوية تنظيمية: لا يُعاد تسميته ولا يُحذف ولا يُستحدَث هنا. يملك المطبخ ربطه الخاص بهذه الأصناف ولا شيء غير ذلك.",
         "noMarkets": "لا يشترطه أي سوق في هذه القائمة",
         "thresholdAny": "أي كمية قابلة للكشف",
         "thresholdValue": "{{value}} {{unit}}",
@@ -3881,7 +3893,8 @@
         "changesRemoved_two": "بندان محذوفان",
         "changesRemoved_few": "{{count}} بنود محذوفة",
         "changesRemoved_many": "{{count}} بندًا محذوفًا",
-        "changesRemoved_other": "{{count}} بند محذوف"
+        "changesRemoved_other": "{{count}} بند محذوف",
+        "setOnMeal": "يُحدَّد في صفحة الوجبة"
     },
     "plans": {
         "title": "الخطط",

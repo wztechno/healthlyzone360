@@ -243,6 +243,22 @@ export function unitShortKey(unit: MeasureUnit): string {
  * "Fresh produce" is a presentation of the code itself, and inventing an i18n key per code would
  * claim a vocabulary the server has never published.
  */
+/**
+ * A server decimal without its four-place padding: `10.0000` → `10`, `0.3000` → `0.3`. The same
+ * number; the zeros were noise on every quantity a kitchen read or edited.
+ */
+export function trimDecimal(value: string): string {
+    return value.includes('.') ? value.replace(/0+$/, '').replace(/\.$/, '') : value;
+}
+
+/**
+ * A calendar date (`YYYY-MM-DD`) read as the local day it names — a bare ISO date parses as UTC
+ * midnight, which west of Greenwich is the evening before.
+ */
+export function localDay(isoDate: string): string {
+    return `${isoDate}T00:00:00`;
+}
+
 export function humaniseCode(code: string): string {
     if (code.trim() === '') return '';
     const spaced = code.replace(/[-_]+/g, ' ').trim();

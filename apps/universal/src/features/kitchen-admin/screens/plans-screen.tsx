@@ -143,7 +143,7 @@ function PlansList() {
     /** "yesterday by Omar Fares" — the design's Last changed cell. */
     const updatedText = (row: PlanAdmin): string =>
         row.meta.updatedByName === null
-            ? `${formatter.formatRelativeTime(row.meta.updatedAt)} ${t('kitchen:list.updatedBySeed')}`
+            ? formatter.formatRelativeTime(row.meta.updatedAt)
             : `${formatter.formatRelativeTime(row.meta.updatedAt)} ${t('kitchen:list.updatedBy', {
                   name: row.meta.updatedByName,
               })}`;

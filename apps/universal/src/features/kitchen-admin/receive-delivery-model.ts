@@ -7,6 +7,8 @@ import type {
 import { PurchaseOrderId, StockItemId, SupplierId } from '@healthy360/domain-types';
 import type { BranchId } from '@healthy360/domain-types';
 
+import { trimDecimal } from './format.ts';
+
 /**
  * The receive screen's arithmetic, as pure functions (SUP5, §4).
  *
@@ -139,9 +141,9 @@ export function initialLines(order: ReceivableOrder): readonly ReceiveLineDraft[
         itemLabel: `${line.itemCode} — ${line.itemNameEn}`,
         unitCode: line.unitCode,
         unitId: line.unitId,
-        orderedQuantity: line.orderedQuantity,
-        outstandingQuantity: line.outstandingQuantity,
-        quantity: Number(line.outstandingQuantity) > 0 ? line.outstandingQuantity : '',
+        orderedQuantity: trimDecimal(line.orderedQuantity),
+        outstandingQuantity: trimDecimal(line.outstandingQuantity),
+        quantity: Number(line.outstandingQuantity) > 0 ? trimDecimal(line.outstandingQuantity) : '',
         unitPrice: '',
     }));
 }

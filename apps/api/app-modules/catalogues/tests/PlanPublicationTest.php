@@ -204,3 +204,23 @@ it('leaves the product and meal gates exactly as K1.4 left them', function (): v
         ->assertOk()
         ->assertJsonPath('data.item.status', 'published');
 });
+
+it('refuses to empty a published plan of its configurations', function (): void {
+    $this->putJson('/api/v1/catalogue/plans/'.$this->plan->getKey().'/variants', [
+        'cells' => [['meal_combination_option_id' => (string) $this->combination->getKey(), 'meals_per_day' => 2]],
+    ], $this->headers + ['If-Match' => '"0"'])->assertOk();
+
+    // On sale, by whatever route: the guard is about the state, not how it was reached.
+    CatalogueItem::withoutTenancy()->whereKey($this->plan->getKey())->update(['status' => CatalogueItemStatus::Published->value]);
+
+    $this->putJson('/api/v1/catalogue/plans/'.$this->plan->getKey().'/variants', [
+        'cells' => [],
+    ], $this->headers + ['If-Match' => '"1"'])
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed');
+
+    expect(CatalogueItemVariant::withoutTenancy()
+        ->where('catalogue_item_id', $this->plan->getKey())
+        ->where('status', 'active')
+        ->count())->toBe(1);
+});

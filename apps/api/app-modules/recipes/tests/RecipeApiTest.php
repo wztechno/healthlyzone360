@@ -72,6 +72,14 @@ it('creates a recipe together with its first draft version', function (): void {
         ->and(AuditLog::query()->where('action', 'catalogue.recipe_version_created')->count())->toBe(1);
 });
 
+it('leaves a blank Arabic name blank rather than copying the English', function (): void {
+    $this->actingAs($this->a->user);
+
+    $this->postJson('/api/v1/catalogue/recipes', ['name_en' => 'Lentil Soup'], RecipeWorld::headers($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.recipe.name_ar', '');
+});
+
 it('marks the empty first version stale as soon as it has a line', function (): void {
     $this->actingAs($this->a->user);
     $headers = RecipeWorld::headers($this->a);

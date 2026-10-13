@@ -68,6 +68,7 @@ use Healthy360\Recipes\Services\RecipeSummaries;
  *     lock_version: int,
  *     created_at: string|null,
  *     updated_at: string|null,
+ *     updated_by_name: string|null,
  *     kinds?: list<string>,
  *     sold_as?: list<RecipeSeller>,
  * }
@@ -147,6 +148,8 @@ final class RecipeAdminPresenter
             'lock_version' => $recipe->lock_version,
             'created_at' => $recipe->created_at?->toIso8601String(),
             'updated_at' => $recipe->updated_at?->toIso8601String(),
+            // Only where the caller loaded `updater.profile` (the show endpoint).
+            'updated_by_name' => $recipe->relationLoaded('updater') ? $recipe->updater?->displayName() : null,
         ];
 
         if ($sellers !== null) {

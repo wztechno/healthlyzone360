@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Catalogues\Services;
 
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\ServiceTier;
 use Healthy360\Catalogues\Enums\VariantStatus;
@@ -96,6 +97,18 @@ final readonly class PlanVariantService
         $this->items->assertEditable($item);
 
         $prepared = $this->prepare($item, $cells);
+
+        // A published plan is on sale; withdrawing every configuration would leave a
+        // live listing with nothing to subscribe to — the publish gate's own
+        // `no_active_plan_configuration`, reached the back way. Two such plans were found
+        // in the 12 Oct 2026 admin test. Retire the plan instead.
+        if ($item->status === CatalogueItemStatus::Published
+            && array_filter($prepared, static fn (array $cell): bool => $cell['status'] === VariantStatus::Active) === []) {
+            throw $this->invalid(
+                'cells',
+                'A published plan must keep at least one active configuration. Retire the plan to take it off sale.',
+            );
+        }
 
         $counts = DB::transaction(function () use ($item, $prepared, $expectedLockVersion): array {
             $this->items->compareAndSwap($item, ['updated_by' => $this->context->userId()], $expectedLockVersion);

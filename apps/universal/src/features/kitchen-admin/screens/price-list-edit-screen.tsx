@@ -802,6 +802,7 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
                     options={itemOptions}
                     currency={data.currency}
                     canManage={canManage}
+                    mealPricesSetOnMeal={!isAgreementPriced(data.channels)}
                     resolving={catalogueResolving}
                 />
             </Cascade>

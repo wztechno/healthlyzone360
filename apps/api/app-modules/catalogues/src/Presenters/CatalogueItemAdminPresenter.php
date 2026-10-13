@@ -72,7 +72,8 @@ final class CatalogueItemAdminPresenter
      *     source_ref: string|null,
      *     lock_version: int,
      *     created_at: string|null,
-     *     updated_at: string|null
+     *     updated_at: string|null,
+     *     updated_by_name: string|null
      * }
      */
     public function item(CatalogueItem $item): array
@@ -125,6 +126,8 @@ final class CatalogueItemAdminPresenter
             'lock_version' => $item->lock_version,
             'created_at' => $item->created_at?->toIso8601String(),
             'updated_at' => $item->updated_at?->toIso8601String(),
+            // Only where the caller loaded `updater.profile` (the show endpoint).
+            'updated_by_name' => $item->relationLoaded('updater') ? $item->updater?->displayName() : null,
         ];
     }
 

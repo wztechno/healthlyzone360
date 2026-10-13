@@ -318,7 +318,8 @@
             "effectCount": "Set to the count",
             "countInvalid": "Enter what you counted — zero or more.",
             "exceedsShelf": "Only {{amount}} is on the shelf. If there is really more, post a Count first, then try again.",
-            "parNotAboveThreshold": "The restock level must be above the reorder threshold."
+            "parNotAboveThreshold": "The restock level must be above the reorder threshold.",
+            "notStocked": "Not stocked"
         },
         "supplyOrders": {
             "title": "Supply orders",
@@ -396,8 +397,8 @@
             "createDrafts_other": "Create {{count}} draft orders",
             "createConfirmTitle": "Create these draft orders?",
             "createConfirmBody": "We'll create one draft order per supplier. Nothing is sent to anyone yet — you can review, edit and issue each order afterwards.",
-            "createConfirmCounts_one": "{{count}} order with {{lines}} lines in total.",
-            "createConfirmCounts_other": "{{count}} orders with {{lines}} lines in total.",
+            "createConfirmCounts_one": "{{count}} order with {{lines}} in total.",
+            "createConfirmCounts_other": "{{count}} orders with {{lines}} in total.",
             "createConfirm_one": "Create {{count}} order",
             "createConfirm_other": "Create {{count}} orders",
             "createCancel": "Keep editing",
@@ -535,7 +536,9 @@
             "outCount_one": "{{count}} out of stock",
             "outCount_other": "{{count}} out of stock",
             "groupCount_one": "{{count}} item",
-            "groupCount_other": "{{count}} items"
+            "groupCount_other": "{{count}} items",
+            "createConfirmLines_one": "{{count}} line",
+            "createConfirmLines_other": "{{count}} lines"
         },
         "suppliers": {
             "title": "Suppliers",
@@ -666,7 +669,7 @@
         "procurement": {
             "title": "Procurement",
             "emptyTitle": "No goods receipts yet",
-            "emptyBody": "Post a receipt against stock items. Supplier contacts are listed above when seeded.",
+            "emptyBody": "Post a receipt against stock items.",
             "receiptsTitle": "Goods receipts",
             "postReceipt": "Post receipt",
             "postTitle": "Post a goods receipt",
@@ -942,8 +945,6 @@
             "searchPlaceholder": "Item or supplier on this page",
             "columnQuantity": "Quantity",
             "columnState": "Price",
-            "costNoteTitle": "This ledger is the valuation.",
-            "costNoteBody": "It is gated on the organisation cost permission — a kitchen hand who counts stock and posts receipts does not thereby see what those receipts cost.",
             "stateUnpriced": "No price yet",
             "statePendingFx": "Pending FX",
             "statePriced": "Priced",
@@ -1194,7 +1195,8 @@
             "labelBatchOf": "Batch of {{quantity}} {{unit}}",
             "expiryFromRecipe": "Made on plus {{days}}, from the recipe's shelf life.",
             "scanLabel": "Scan or type a lot",
-            "scanNoMatch": "No batch carries that code"
+            "scanNoMatch": "No batch carries that code",
+            "recipeNoOutput": "{{name}} makes no produced item, so a batch has nothing to put on the shelf. Set what it produces in the recipe editor first."
         },
         "qc": {
             "title": "Quality control",
@@ -1296,7 +1298,8 @@
             "stateReleased": "Inspected and let through.",
             "createSubmitHold": "Open and hold",
             "createdHeldToast": "Check opened and on hold — {{subject}}.",
-            "holdAfterCreateFailed": "The check was opened, but it could not be put on hold. Hold it from Quality control."
+            "holdAfterCreateFailed": "The check was opened, but it could not be put on hold. Hold it from Quality control.",
+            "fieldHolds": "Holds"
         },
         "costReport": {
             "title": "Monthly cost report",
@@ -1594,7 +1597,7 @@
         "columnEmpty": {
             "incoming": "Nothing waiting to be started.",
             "preparing": "Nothing being prepared.",
-            "done": "Nothing finished today yet."
+            "done": "Nothing ready or handed over today yet."
         },
         "emptyTitle": "No tickets on the board",
         "emptyBody": "Orders placed against this kitchen appear here the moment they arrive.",
@@ -1610,7 +1613,9 @@
         "conflictBody": "Another station started or finished it. Refresh the board to see where it stands now.",
         "conflictRefresh": "Refresh the board",
         "noBranchTitle": "No kitchen chosen",
-        "noBranchBody": "Choose the branch this screen is displaying before the board can show its tickets."
+        "noBranchBody": "Choose the branch this screen is displaying before the board can show its tickets.",
+        "mayContain": "May contain {{allergen}}",
+        "handedOver": "Handed over"
     },
     "driver": {
         "title": "Your deliveries",
@@ -1890,7 +1895,8 @@
                 "address": "Save the delivery address to place this order.",
                 "reference": "Write down the transfer reference to take a Whish payment."
             },
-            "zoneNoSlots": "The delivery zone for this address offers none of the kitchen’s slots. Tick one on the zone’s Delivery windows step."
+            "zoneNoSlots": "The delivery zone for this address offers none of the kitchen’s slots. Tick one on the zone’s Delivery windows step.",
+            "heldStock": "On quality hold: {{names}}"
         },
         "refusal": {
             "customer_required": "This kind of sale needs a customer. Go back and choose or add one.",
@@ -2211,7 +2217,7 @@
         "summaryUnblocked": "None of them is blocked outright — this is work to finish, not a wall.",
         "open": "Open the record",
         "updatedBy": "Last changed {{when}} by {{name}}",
-        "updatedBySeed": "Last changed {{when}} by the import",
+        "updatedBySeed": "Last changed {{when}}",
         "reasonQuarantined": "Quarantined — publication refused",
         "reasonDerivationStale": "Figures out of date since the last change",
         "reasonInconsistentPrices_one": "{{count}} price entry breaks the amount rule",
@@ -2366,7 +2372,7 @@
         "noCategory": "Uncategorised",
         "noValue": "—",
         "updatedBy": "by {{name}}",
-        "updatedBySeed": "by the import",
+        "updatedBySeed": "—",
         "missingArabic": "AR missing",
         "missingArabicHint": "This record has no Arabic name yet, so it cannot be published.",
         "archivedToast": "{{name}} was archived.",
@@ -2420,7 +2426,7 @@
         "editTitle": "Edit ingredient",
         "backToList": "Back to ingredients",
         "lastUpdated": "Last changed {{when}}",
-        "lastUpdatedBySeed": "Last changed {{when}} by the import",
+        "lastUpdatedBySeed": "Last changed {{when}}",
         "lastUpdatedBy": "Last changed {{when}} by {{name}}",
         "neverSaved": "Not saved yet",
         "unsaved": "Unsaved changes",
@@ -2593,12 +2599,16 @@
         "saveBlocked": "Resolve the marked rows before saving.",
         "duplicateClass": "That class is already mapped.",
         "chooseClass": "Choose a class for every row.",
-        "save": "Save the mapping",
-        "savedToast": "The allergen mapping was saved.",
+        "save": "Save allergens",
+        "savedToast": "Allergens saved.",
         "saveError": "The allergen mapping could not be saved.",
         "quarantineTitle": "This ingredient is now awaiting review",
         "quarantineBody": "The change contradicts a published label, so the record and everything that derives from it are held back from publication until somebody resolves it.",
-        "classesError": "The allergen classes could not be loaded, so no mapping can be edited."
+        "classesError": "The allergen classes could not be loaded, so no mapping can be edited.",
+        "none": "Not present",
+        "confirmNone": "Confirm no allergens",
+        "assessedClear": "Checked: carries no allergens",
+        "notAssessed": "Allergens not recorded yet. Recipes using this ingredient cannot be published."
     },
     "containment": {
         "contains": "Contains",
@@ -2626,8 +2636,6 @@
     "classes": {
         "title": "Allergen classes",
         "subtitle": "The regulatory vocabulary an ingredient is mapped onto.",
-        "governanceTitle": "These are managed by the platform",
-        "governanceBody": "A class code is a regulatory identity: it is never renamed, never deleted and never invented here. A kitchen owns its own mappings onto these classes and nothing else.",
         "noMarkets": "No market in this list requires it",
         "thresholdAny": "Any detectable amount",
         "thresholdValue": "{{value}} {{unit}}",
@@ -3442,7 +3450,8 @@
         "saveAndCharge": "Save and charge",
         "saveDraft": "Save draft",
         "savedToastPublished": "Saved. The new prices apply from now.",
-        "savedToastDraft": "Draft saved."
+        "savedToastDraft": "Draft saved.",
+        "setOnMeal": "Set on the meal"
     },
     "plans": {
         "title": "Plans",

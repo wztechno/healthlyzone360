@@ -1967,6 +1967,18 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         value={null}
                         onChange={() => undefined}
                     />
+                    {/* Options still arriving: the open list says so, never "No option matches". */}
+                    <Select
+                        testID={id('select-loading')}
+                        id={id('select-loading')}
+                        label="Recipe"
+                        placeholder="Choose a recipe"
+                        searchable
+                        loading
+                        options={[]}
+                        value={null}
+                        onChange={() => undefined}
+                    />
                 </FormGrid>
             </Stack>
 

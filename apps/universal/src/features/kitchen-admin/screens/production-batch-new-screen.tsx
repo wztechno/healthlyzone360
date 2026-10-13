@@ -296,6 +296,8 @@ function ProductionBatchNew() {
      */
     const recipeResolving = recipeId !== null && record.isPending;
     const recipeUnpublished = recipe !== null && publishedVersion === null;
+    // Published, but makes no shelf item: the server refuses a batch of it, so say so on picking.
+    const recipeNoOutput = recipe !== null && previewVersion !== null && primaryOutput === null;
     const recipeError =
         submitted && recipeId === null
             ? t('kitchen:ops.production.recipeRequired')
@@ -303,7 +305,11 @@ function ProductionBatchNew() {
               ? t('kitchen:ops.production.recipeUnpublished', {
                     name: displayName(recipe.name, locale).value,
                 })
-              : undefined;
+              : recipeNoOutput
+                ? t('kitchen:ops.production.recipeNoOutput', {
+                      name: displayName(recipe.name, locale).value,
+                  })
+                : undefined;
 
     useKitchenTrailLeaf(t('kitchen:ops.production.newTitle'));
 
@@ -329,7 +335,7 @@ function ProductionBatchNew() {
         readonly fieldId: string;
         readonly required: boolean;
     }[] = [
-        ...(recipeId === null || recipeUnpublished
+        ...(recipeId === null || recipeUnpublished || recipeNoOutput
             ? [
                   {
                       key: 'recipe',
@@ -366,7 +372,7 @@ function ProductionBatchNew() {
         // The version is resolved from a second read, so unlike the pasted-id form this cannot
         // submit the instant the button is pressed: a recipe whose detail is still in flight has no
         // version to send yet, and one with nothing published never will.
-        if (publishedVersion === null || !amountValid) return;
+        if (publishedVersion === null || recipeNoOutput || !amountValid) return;
 
         create.mutate(
             {
@@ -576,6 +582,7 @@ function ProductionBatchNew() {
                                         placeholder={t('kitchen:ops.production.recipePlaceholder')}
                                         searchable
                                         required
+                                        loading={recipes.isPending}
                                         options={recipeOptions}
                                         value={recipeId === null ? null : String(recipeId)}
                                         {...(recipeError === undefined

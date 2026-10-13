@@ -127,3 +127,19 @@ it('refuses a stale lock, an unknown unit, and a channel with no price list', fu
 
     expect(PriceListItem::withoutTenancy()->count())->toBe(0);
 });
+
+it('offers a meal priced for B2C at the order desk too', function (): void {
+    $desk = PricingWorld::channel($this->a->organisation, 'desk');
+    $desk->channel_kind = SalesChannelKind::Pos;
+    $desk->save();
+
+    $this->putJson($this->url, [
+        'b2c' => ['quantity' => 0.3, 'unit' => 'kg', 'amount_minor' => 600],
+    ], $this->headers + ['If-Match' => '"0"'])->assertOk();
+
+    // The counter mirrors the web shop; without this row it answers "Not sold here".
+    expect(ChannelCatalogueItem::withoutTenancy()
+        ->where('catalogue_item_id', $this->meal->getKey())
+        ->where('sales_channel_id', $desk->getKey())
+        ->exists())->toBeTrue();
+});

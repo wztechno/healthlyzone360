@@ -83,6 +83,7 @@ final class IngredientPresenter
      *     lock_version: int,
      *     created_at: string|null,
      *     updated_at: string|null,
+     *     updated_by_name: string|null,
      *     allergens?: list<array<string, mixed>>
      * }
      */
@@ -165,6 +166,9 @@ final class IngredientPresenter
             'lock_version' => $ingredient->lock_version,
             'created_at' => $ingredient->created_at?->toIso8601String(),
             'updated_at' => $ingredient->updated_at?->toIso8601String(),
+            // Only where the caller loaded `updater.profile` (the show endpoint): a list
+            // naming every row's editor would be a query per row.
+            'updated_by_name' => $ingredient->relationLoaded('updater') ? $ingredient->updater?->displayName() : null,
         ];
 
         // Added rather than spread in: a conditional spread leaves the shape of what comes back

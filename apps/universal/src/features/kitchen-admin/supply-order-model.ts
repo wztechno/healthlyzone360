@@ -1,6 +1,8 @@
 import type { OrderProposalItem, SupplierOption } from '@healthy360/api-client/contracts';
 import type { BranchId, StockItemId, SupplierId } from '@healthy360/domain-types';
 
+import { trimDecimal } from './format.ts';
+
 /**
  * The supply-order builder's arithmetic and grouping, with no React in it (SUP3).
  *
@@ -144,9 +146,7 @@ export type SupplyOrderChoices = Readonly<Record<string, SupplyOrderRowChoice>>;
 export function initialChoice(row: OrderProposalItem): SupplyOrderRowChoice {
     const suggested = row.suggestedQuantity ?? '';
     return {
-        quantity: suggested.includes('.')
-            ? suggested.replace(/0+$/, '').replace(/\.$/, '')
-            : suggested,
+        quantity: trimDecimal(suggested),
         supplierId: row.suggestedSupplierId,
         ordering: true,
     };

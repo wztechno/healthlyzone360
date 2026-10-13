@@ -135,12 +135,31 @@ export function bucketTickets(
 ): KdsBoard {
     const mine = orders.filter((order) => ticketBelongsToBranch(order, branchId));
 
+    /*
+     * Ready and Handed over are two steps (owner decision, 13 Oct 2026). A confirmed order the
+     * kitchen marked ready waits at the top of the Ready column for its hand-over; what was handed
+     * over today follows it. A counter sale is handed over at the till, so it never passed through
+     * the kitchen's Ready and is not drawn there.
+     */
+    const isReady = (order: KitchenOrder) =>
+        order.status === 'confirmed' && (order.readyAt ?? null) !== null;
+
     return {
         incoming: mine.filter((order) => order.status === 'placed').sort(byPlacedAscending),
-        preparing: mine.filter((order) => order.status === 'confirmed').sort(byPlacedAscending),
-        done: mine
-            .filter((order) => order.status === 'fulfilled' && isDoneToday(order, now))
-            .sort(byFulfilledDescending),
+        preparing: mine
+            .filter((order) => order.status === 'confirmed' && !isReady(order))
+            .sort(byPlacedAscending),
+        done: [
+            ...mine.filter(isReady).sort(byPlacedAscending),
+            ...mine
+                .filter(
+                    (order) =>
+                        order.status === 'fulfilled' &&
+                        order.fulfilmentType !== 'counter' &&
+                        isDoneToday(order, now),
+                )
+                .sort(byFulfilledDescending),
+        ],
     };
 }
 

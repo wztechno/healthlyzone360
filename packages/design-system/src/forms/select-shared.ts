@@ -51,6 +51,11 @@ export interface SelectProps<T extends string = string> extends GridSpanProps {
      */
     readonly searchable?: boolean | undefined;
     /**
+     * The options are still being fetched. An empty list then says so rather than "No option
+     * matches", which read as a refusal for the half minute a slow list took to arrive.
+     */
+    readonly loading?: boolean | undefined;
+    /**
      * The frame's height step. Unset, it is the ladder's ordinary control — `sm` under the compact
      * ladder, `md` on the comfortable one. `xs` is the 24px cell step `TextInputField` already has,
      * for a picker that sits in a dense line table beside `xs` inputs: a 28px picker between two

@@ -48,7 +48,7 @@ import { coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
 import type { MeasureUnit, NutritionFacts } from '@healthy360/nutrition';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -623,6 +623,24 @@ function RecipeEditor({
     const [showPublish, setShowPublish] = useState(false);
     const [showRetire, setShowRetire] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    /**
+     * A create in flight, from the press until the page has moved on.
+     *
+     * The mutations' own `isPending` drops between the recipe's writes and the host's `onCreated`
+     * (which creates the meal listing before it navigates), and a second press in that gap made a
+     * second recipe and a second listing. The ref blocks a press in the same tick; the state keeps
+     * the button busy. Released only on failure — on success the page leaves.
+     */
+    // Holds the route parameter the create was started for, so a changed parameter releases it.
+    const creatingRef = useRef<string | undefined | null>(null);
+    const [creatingNow, setCreatingNow] = useState(false);
+    // The router may keep this instance when `new` becomes the created id; start clean either way —
+    // adjusted during render, React's pattern for state that follows a prop.
+    const [creatingFor, setCreatingFor] = useState(recipe);
+    if (creatingFor !== recipe) {
+        setCreatingFor(recipe);
+        setCreatingNow(false);
+    }
 
     const data = record.data;
     const serverKey =
@@ -1254,7 +1272,14 @@ function RecipeEditor({
         const rows: IngredientAdmin[] = [];
         for (const line of data.currentVersion.lines) {
             const entry = ingredients.find((candidate) => candidate.id === line.ingredientId);
-            if (entry === undefined || entry.allergens.length > 0) continue;
+            // Confirmed clear is a determination too — the one an empty mapping cannot state.
+            if (
+                entry === undefined ||
+                entry.allergens.length > 0 ||
+                entry.allergensAssessedClear === true
+            ) {
+                continue;
+            }
             if (seen.has(String(entry.id))) continue;
             seen.add(String(entry.id));
             rows.push(entry);
@@ -1275,6 +1300,9 @@ function RecipeEditor({
             typeof value === 'number' && currency !== null ? { amount: value, currency } : null;
 
         if (isCreating) {
+            if (creatingRef.current === recipe) return;
+            creatingRef.current = recipe;
+            setCreatingNow(true);
             /*
              * Create, then immediately write whatever was drafted on the other tabs.
              *
@@ -1353,6 +1381,8 @@ function RecipeEditor({
                     router.replace(`/kitchen/recipes/${String(created.id)}` as never);
                 },
                 (error: unknown) => {
+                    creatingRef.current = null;
+                    setCreatingNow(false);
                     setSaveError(toFailure(error)?.message ?? t('kitchen:recipes.saveFailed'));
                 },
             );
@@ -1648,7 +1678,9 @@ function RecipeEditor({
         .map((id) => library.find((entry) => String(entry.id) === String(id)))
         .filter(
             (entry): entry is IngredientAdmin =>
-                entry !== undefined && entry.allergens.length === 0,
+                entry !== undefined &&
+                entry.allergens.length === 0 &&
+                entry.allergensAssessedClear !== true,
         )
         .map((entry) => displayName(entry.name, locale).value)
         .join(t('kitchen:common.listSeparator'));
@@ -2880,8 +2912,13 @@ function RecipeEditor({
                     <Button
                         testID="kitchen-recipe-editor-screen-save"
                         label={t(isEditable ? 'kitchen:common.saveDraft' : 'kitchen:common.save')}
-                        loading={create.isPending || update.isPending || setLines.isPending}
-                        disabled={!canManage || (!isEditable && !shelfLifeChanged)}
+                        loading={
+                            creatingNow ||
+                            create.isPending ||
+                            update.isPending ||
+                            setLines.isPending
+                        }
+                        disabled={creatingNow || !canManage || (!isEditable && !shelfLifeChanged)}
                         onPress={attemptSave}
                     />
                 }
@@ -3059,15 +3096,25 @@ function RecipeEditor({
                             body={publishFailure.message}
                         >
                             <Stack space="none">
-                                {Object.entries(publishFields).map(([field, messages]) => (
-                                    <Text
-                                        key={field}
-                                        testID={`kitchen-recipe-publish-field-${field}`}
-                                        variant="caption"
-                                    >
-                                        {messages.join(' ')}
-                                    </Text>
-                                ))}
+                                {/*
+                                 * A catalogue refusal reaches the client as a validation failure
+                                 * whose one field repeats the message; only lines that add
+                                 * something are drawn, or the callout says it twice.
+                                 */}
+                                {Object.entries(publishFields)
+                                    .filter(
+                                        ([, messages]) =>
+                                            messages.join(' ') !== publishFailure.message,
+                                    )
+                                    .map(([field, messages]) => (
+                                        <Text
+                                            key={field}
+                                            testID={`kitchen-recipe-publish-field-${field}`}
+                                            variant="caption"
+                                        >
+                                            {messages.join(' ')}
+                                        </Text>
+                                    ))}
                             </Stack>
                         </Callout>
                     )}

@@ -182,6 +182,7 @@ interface OrderBook {
     readonly find: (id: OrderId) => KitchenOrder | undefined;
     readonly listOrders: () => KitchenOrderPage;
     readonly confirmOrder: (request: KitchenOrderTransitionRequest) => KitchenOrder;
+    readonly markOrderReady: (request: KitchenOrderTransitionRequest) => KitchenOrder;
     readonly fulfilOrder: (request: KitchenOrderTransitionRequest) => KitchenOrder;
 }
 
@@ -221,6 +222,11 @@ function createOrderBook(seed: KitchenOrder[] = seedOrders()): OrderBook {
                 status: 'confirmed',
                 confirmedAt: new Date().toISOString(),
             }),
+        // Ready is not a transition: the order stays confirmed and only `readyAt` is stamped.
+        markOrderReady: (request) =>
+            transition('confirmed', request, {
+                readyAt: new Date().toISOString(),
+            }),
         fulfilOrder: (request) =>
             transition('confirmed', request, {
                 status: 'fulfilled',
@@ -249,6 +255,7 @@ async function renderBoard(book: OrderBook, options: { readonly canManage?: bool
             kitchenOrders: {
                 listOrders: async () => book.listOrders(),
                 confirmOrder: async (request) => book.confirmOrder(request),
+                markOrderReady: async (request) => book.markOrderReady(request),
                 fulfilOrder: async (request) => book.fulfilOrder(request),
             },
         },
@@ -338,7 +345,7 @@ describe('kds ticket board', () => {
         expect(screen.queryByTestId(`${ticketId(placed.id)}-start`)).toBeNull();
     });
 
-    it('marks a confirmed ticket ready, which lands it in the done column for today', async () => {
+    it('marks a ticket ready without handing it over, then hands it over', async () => {
         const book = createOrderBook();
         const { repositories } = await renderBoard(book);
 
@@ -352,27 +359,31 @@ describe('kds ticket board', () => {
         const confirmed = book.orders().find((order) => order.status === 'confirmed');
         if (confirmed === undefined) throw new Error('this test authored no confirmed order');
 
+        // Ready: cooked, still confirmed — a collection order nobody has picked up is not fulfilled.
         fireEvent.press(screen.getByTestId(`${ticketId(confirmed.id)}-ready`));
 
         await waitFor(() => {
-            expect(repositories.kitchenOrders.fulfilOrder).toHaveBeenCalledWith({
+            expect(repositories.kitchenOrders.markOrderReady).toHaveBeenCalledWith({
                 id: confirmed.id,
                 lockVersion: confirmed.lockVersion,
             });
         });
-        await waitFor(() => {
-            expect(book.find(confirmed.id)?.status).toBe('fulfilled');
-        });
-
-        // `fulfilledAt` is stamped now, so the ticket crosses into Ready rather than disappearing —
-        // which is the whole reason the done column is bounded by the bump and not by the requested
-        // delivery day (the order authored above carries no requested date at all).
+        expect(repositories.kitchenOrders.fulfilOrder).not.toHaveBeenCalled();
         await waitFor(() => {
             expect(screen.getByTestId('kds-column-done-count')).toHaveTextContent('1');
         });
-        expect(screen.getByTestId(ticketId(confirmed.id))).toBeTruthy();
+        expect(book.find(confirmed.id)?.status).toBe('confirmed');
         expect(screen.getByTestId('kds-column-preparing-count')).toHaveTextContent('0');
-        expect(screen.queryByTestId(`${ticketId(confirmed.id)}-ready`)).toBeNull();
+
+        // Handed over is the step that fulfils it.
+        fireEvent.press(screen.getByTestId(`${ticketId(confirmed.id)}-handed-over`));
+        await waitFor(() => {
+            expect(book.find(confirmed.id)?.status).toBe('fulfilled');
+        });
+        await waitFor(() => {
+            expect(screen.queryByTestId(`${ticketId(confirmed.id)}-handed-over`)).toBeNull();
+        });
+        expect(screen.getByTestId(ticketId(confirmed.id))).toBeTruthy();
     });
 
     it('shows the tickets but no bump buttons to somebody who may not manage orders', async () => {

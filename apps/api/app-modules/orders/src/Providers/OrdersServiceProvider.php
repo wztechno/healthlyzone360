@@ -7,6 +7,7 @@ namespace Healthy360\Orders\Providers;
 use Healthy360\B2b\Contracts\SellerOpenOrders;
 use Healthy360\Customers\Closure\Contracts\OrderAnonymisation;
 use Healthy360\Orders\Contracts\DeliveryJobProjection;
+use Healthy360\Orders\Contracts\HeldStockLookup;
 use Healthy360\Orders\Contracts\OpenOrderQuery;
 use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
@@ -14,6 +15,7 @@ use Healthy360\Orders\Contracts\SubscriptionOutlook;
 use Healthy360\Orders\Services\BranchScheduleLookup;
 use Healthy360\Orders\Services\BuyerOpenOrderQuery;
 use Healthy360\Orders\Services\NullDeliveryJobProjection;
+use Healthy360\Orders\Services\NullHeldStockLookup;
 use Healthy360\Orders\Services\NullOrderStockConsumption;
 use Healthy360\Orders\Services\NullSubscriptionOutlook;
 use Healthy360\Orders\Services\OrderQuery;
@@ -91,6 +93,7 @@ class OrdersServiceProvider extends ServiceProvider
         $this->app->bind(OrderStockConsumption::class, NullOrderStockConsumption::class);
         $this->app->bind(DeliveryJobProjection::class, NullDeliveryJobProjection::class);
         $this->app->bind(SubscriptionOutlook::class, NullSubscriptionOutlook::class);
+        $this->app->bind(HeldStockLookup::class, NullHeldStockLookup::class);
     }
 
     public function boot(): void {}

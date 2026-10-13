@@ -256,7 +256,7 @@ final readonly class WeeklyRecipeCostingService
                 return new WeeklyLineCost(
                     $lineNumber,
                     $ingredientId,
-                    WeeklyLineCost::SOURCE_WEEKLY,
+                    $price->isLatestPurchase() ? WeeklyLineCost::SOURCE_LATEST_PURCHASE : WeeklyLineCost::SOURCE_WEEKLY,
                     $restated,
                     $price->currencyCode,
                     $price->effectiveFrom,
@@ -617,9 +617,19 @@ final readonly class WeeklyRecipeCostingService
      */
     private function pricesFor(string $organisationId, array $ingredientIds, ?string $publicationId): array
     {
-        return $publicationId === null
-            ? $this->weeklyPrices->standingFor($organisationId, $ingredientIds)
-            : $this->weeklyPrices->atPublication($organisationId, $publicationId, $ingredientIds);
+        if ($publicationId !== null) {
+            return $this->weeklyPrices->atPublication($organisationId, $publicationId, $ingredientIds);
+        }
+
+        $prices = $this->weeklyPrices->standingFor($organisationId, $ingredientIds);
+
+        // Live estimates only: an ingredient with no weekly price yet is costed from
+        // what was last paid for it (owner decision, 13 Oct 2026), so a recipe
+        // using something bought today is costed today rather than next Monday.
+        // A pinned publication never takes it — it stands on that week alone.
+        $unpriced = array_values(array_diff($ingredientIds, array_keys($prices)));
+
+        return $prices + $this->weeklyPrices->latestPurchaseFor($organisationId, $unpriced);
     }
 
     /**

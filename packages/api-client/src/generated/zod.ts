@@ -445,6 +445,7 @@ export const zAdminIngredient = z.object({
     lock_version: z.int().gte(0),
     created_at: z.iso.datetime({ offset: true }).nullish(),
     updated_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_by_name: z.string().nullish(),
     allergens: z.array(zIngredientAllergenMapping).optional()
 });
 
@@ -803,6 +804,7 @@ export const zWeeklyCostLineSource = z.object({
     ingredient_id: z.uuid(),
     cost_source: z.enum([
         'weekly',
+        'latest_purchase',
         'component_recipe',
         'ingredient_fallback',
         'none'
@@ -1196,7 +1198,8 @@ export const zAdminRecipe = z.object({
     source_ref: z.string().nullish(),
     lock_version: z.int().gte(0),
     created_at: z.iso.datetime({ offset: true }).nullish(),
-    updated_at: z.iso.datetime({ offset: true }).nullish()
+    updated_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_by_name: z.string().nullish()
 });
 
 export const zRecipeEnvelope = z.object({
@@ -1378,7 +1381,8 @@ export const zAdminCatalogueItem = z.object({
     source_ref: z.string().nullish(),
     lock_version: z.int().gte(0),
     created_at: z.iso.datetime({ offset: true }).nullish(),
-    updated_at: z.iso.datetime({ offset: true }).nullish()
+    updated_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_by_name: z.string().nullish()
 });
 
 export const zCatalogueItemEnvelope = z.object({
@@ -5234,6 +5238,8 @@ export const zQualityCheck = z.object({
     id: zUuid,
     subject_type: zQualityCheckSubjectType,
     subject_id: zUuid,
+    subject_label: z.string().nullish(),
+    subject_detail: z.string().nullish(),
     status: z.enum([
         'pending',
         'passed',
@@ -5321,6 +5327,7 @@ export const zCustomerOrder = z.object({
     delivery: zCustomerOrderDelivery,
     placed_at: z.iso.datetime({ offset: true }),
     confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    ready_at: z.iso.datetime({ offset: true }).nullish(),
     fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
     cancelled_at: z.iso.datetime({ offset: true }).nullable(),
     cancellation_reason: zCancellationReason.nullable(),
@@ -5363,6 +5370,7 @@ export const zKitchenOrder = z.object({
     delivery: zKitchenOrderDelivery,
     placed_at: z.iso.datetime({ offset: true }),
     confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    ready_at: z.iso.datetime({ offset: true }).nullish(),
     fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
     cancelled_at: z.iso.datetime({ offset: true }).nullable(),
     cancellation_reason: zCancellationReason.nullable(),
@@ -5635,7 +5643,8 @@ export const zOrderDeskQuoteLine = z.object({
     unit_price_minor: z.int().nullable(),
     line_total_minor: z.int().nullable(),
     currency_code: z.string().length(3),
-    refusals: z.array(zOrderDeskQuoteRefusal)
+    refusals: z.array(zOrderDeskQuoteRefusal),
+    held_stock: z.array(z.string()).optional()
 });
 
 /**
@@ -13239,6 +13248,21 @@ export const zFulfilKitchenOrderPath = z.object({
  * The fulfilled order, with its new validator.
  */
 export const zFulfilKitchenOrderResponse = zKitchenOrderEnvelope;
+
+export const zMarkKitchenOrderReadyHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zMarkKitchenOrderReadyPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order, still confirmed, with `ready_at` and its new validator.
+ */
+export const zMarkKitchenOrderReadyResponse = zKitchenOrderEnvelope;
 
 export const zCancelKitchenOrderBody = zCancelOrderRequest;
 

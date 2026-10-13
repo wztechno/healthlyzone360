@@ -29,6 +29,7 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
+import { localDay } from '../format.ts';
 import { productionBatchTestId, productionStatusKey, productionStatusTone } from '../ops-format.ts';
 import {
     countByStatus,
@@ -193,7 +194,11 @@ function ProductionBatches() {
                     compareText(left.productionDate, right.productionDate, direction),
                 render: (row) => (
                     <Text variant="mono" tone="secondary">
-                        {row.productionDate ?? noValue}
+                        {row.productionDate === null
+                            ? noValue
+                            : formatter.formatDate(localDay(row.productionDate), {
+                                  dateStyle: 'medium',
+                              })}
                     </Text>
                 ),
             },
@@ -214,7 +219,9 @@ function ProductionBatches() {
                     ) : (
                         <View className="flex-row flex-wrap items-center gap-1.5">
                             <Text variant="mono" tone={row.isExpired ? 'danger' : 'secondary'}>
-                                {row.expiryDate}
+                                {formatter.formatDate(localDay(row.expiryDate), {
+                                    dateStyle: 'medium',
+                                })}
                             </Text>
                             {row.isExpired ? (
                                 <Badge

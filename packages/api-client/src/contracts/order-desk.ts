@@ -777,6 +777,11 @@ export interface OrderDeskQuoteLine {
     readonly lineTotalMinor: number | null;
     readonly currencyCode: CurrencyCode;
     readonly refusals: readonly OrderDeskRefusal[];
+    /**
+     * Ingredients this line would draw that have stock on quality hold — a warning the agent
+     * reads before selling, never a refusal. Empty when nothing is held.
+     */
+    readonly heldStock?: readonly string[];
 }
 
 /**

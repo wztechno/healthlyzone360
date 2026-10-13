@@ -8,6 +8,7 @@ use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Audit\Models\AuditLog;
+use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAlias;
@@ -144,6 +145,38 @@ pest()->use(SeedDatabaseOnce::class);
 beforeEach(function (): void {
     $this->a = catalogueTenant('chef-a@kitchen.test');
     $this->b = catalogueTenant('chef-b@kitchen.test');
+});
+
+it('names the person who last changed an ingredient on its own read', function (): void {
+    UserProfile::factory()->create([
+        'user_id' => $this->a->user->getKey(),
+        'given_name' => 'Rana',
+        'family_name' => 'Haddad',
+    ]);
+    $this->actingAs($this->a->user);
+
+    $id = $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Bulgur',
+        'default_unit_id' => gramsId(),
+    ], catalogueHeaders($this->a))->assertCreated()->json('data.ingredient.id');
+
+    $this->getJson('/api/v1/catalogue/ingredients/'.$id, catalogueHeaders($this->a))
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.updated_by_name', 'Rana Haddad');
+});
+
+it('leaves a blank Arabic name blank rather than copying the English', function (): void {
+    $this->actingAs($this->a->user);
+
+    $id = $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Red Lentils',
+        'default_unit_id' => gramsId(),
+    ], catalogueHeaders($this->a))
+        ->assertCreated()
+        ->json('data.ingredient.id');
+
+    // A copied English name made the "Missing Arabic" check impossible to fire.
+    expect(Ingredient::withoutTenancy()->whereKey($id)->value('name_ar'))->toBe('');
 });
 
 it('creates an ingredient as an active, unverified tenant row', function (): void {

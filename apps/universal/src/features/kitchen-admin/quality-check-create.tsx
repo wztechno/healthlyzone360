@@ -252,9 +252,13 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
     const duplicate =
         picked?.check != null && OPEN_STATUSES.has(picked.check.status) ? picked.check : null;
 
-    const loading = isReceipt
-        ? receipts.isPending || stockItems.isPending || reference.isPending
-        : openBatches.isPending || doneBatches.isPending;
+    // The checks too: until they arrive every row would claim "no checks" and a duplicate would
+    // look safe to open.
+    const loading =
+        checks.isPending ||
+        (isReceipt
+            ? receipts.isPending || stockItems.isPending || reference.isPending
+            : openBatches.isPending || doneBatches.isPending);
     const loadFailure = toFailure(
         isReceipt ? receipts.error : (openBatches.error ?? doneBatches.error),
     );

@@ -1976,6 +1976,10 @@ export interface QualityCheck {
     readonly subjectType: QualityCheckSubjectType;
     /** A {@link GoodsReceiptId} or a {@link ProductionOrderId}, depending on `subjectType`. */
     readonly subjectId: string;
+    /** The subject by name: a delivery's supplier and invoice, or a batch's lot. `null` when unknown. */
+    readonly subjectLabel?: string | null;
+    /** What it holds: a delivery's first items, or a batch's recipe. */
+    readonly subjectDetail?: string | null;
     readonly status: QualityCheckStatus;
 }
 

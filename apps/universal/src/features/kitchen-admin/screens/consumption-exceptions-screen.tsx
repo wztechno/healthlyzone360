@@ -35,7 +35,6 @@ import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { WithColumnPicker } from '../catalogue/column-picker.tsx';
-import { todayIsoDate } from '../receive-delivery-model.ts';
 
 /**
  * `/kitchen/consumption-exceptions` — what a confirmed order could not deduct honestly (INV1.5), as
@@ -90,10 +89,10 @@ function ConsumptionExceptions() {
     const state = useAccessState();
     const canManage = can(state, INVENTORY_MANAGE_PERMISSION);
 
-    // Every status, from today: the page opens on what happened today, whatever its state, and
-    // the date is computed at mount so it follows the calendar rather than a build.
-    const [status, setStatus] = useState<StatusFilter>('all');
-    const [from, setFrom] = useState(() => todayIsoDate());
+    // Every unresolved gap, whenever it opened: the count the sidebar, the home tile and the cost
+    // report link to is the unresolved total, and a page that opened on today showed 0 beside 14.
+    const [status, setStatus] = useState<StatusFilter>('unresolved');
+    const [from, setFrom] = useState('');
     const [cursor, setCursor] = useState<string | undefined>(undefined);
     const [viewing, setViewing] = useState<ConsumptionException | null>(null);
     const [resolving, setResolving] = useState<ConsumptionException | null>(null);

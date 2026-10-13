@@ -424,6 +424,12 @@ export interface IngredientAdmin {
      */
     readonly nutritionNote: string | null;
     readonly allergens: readonly IngredientAllergenMapping[];
+    /**
+     * Someone assessed this ingredient and found it carries no allergen — the state an empty
+     * {@link IngredientAllergenMapping} set cannot express on its own. Absent on payloads that do
+     * not say, which reads as "not assessed".
+     */
+    readonly allergensAssessedClear?: boolean;
     readonly dietClassifications: readonly DietClassification[];
     /** Alternative designations seen on delivery notes and technical sheets. */
     readonly aliases: readonly string[];
@@ -1096,7 +1102,13 @@ export interface RecipePackageCost {
 }
 
 /** Where one formulation line's weekly estimate came from. */
-export type WeeklyCostSource = 'weekly' | 'component_recipe' | 'ingredient_fallback' | 'none';
+export type WeeklyCostSource =
+    | 'weekly'
+    /** The newest priced receipt, until the ingredient's first weekly price is published. */
+    | 'latest_purchase'
+    | 'component_recipe'
+    | 'ingredient_fallback'
+    | 'none';
 
 /**
  * CONFIDENTIAL — the provenance of one line's weekly estimate.
@@ -1589,6 +1601,12 @@ export interface PriceListAdminFilter extends CursorPageRequest, OffsetPageReque
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly channels?: readonly SalesChannel[] | undefined;
     readonly currency?: CurrencyCode | undefined;
+    /**
+     * The index alone: `entries` come back empty, and `channels` as the list's scope implies,
+     * instead of one full read per list.
+     * For a caller that needs only the lists — the review badge, which every kitchen page draws.
+     */
+    readonly withoutEntries?: boolean | undefined;
 }
 
 export interface SetPriceListEntriesRequest extends LockedRequest {

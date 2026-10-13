@@ -12275,6 +12275,50 @@ paths:
           $ref: '#/components/responses/PreconditionRequired'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/orders/{order}/ready:
+    post:
+      operationId: markKitchenOrderReady
+      tags:
+        - Kitchen orders
+      summary: Record that the kitchen finished an order
+      description: |
+        "Ready" on the kitchen display: cooked, not yet handed over. Stamps
+        `ready_at` and leaves the order `confirmed`; handing it over is
+        `/fulfil`. Reachable from `confirmed` only, once — a second press is
+        `409`.
+
+        Requires `order.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The order, still confirmed, with `ready_at` and its new validator.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/orders/{order}/cancel:
     post:
       operationId: cancelKitchenOrder
@@ -24476,6 +24520,11 @@ components:
             - string
             - 'null'
           format: date-time
+        updated_by_name:
+          type:
+            - string
+            - 'null'
+          description: Who last changed the record, from their profile. Set on the single-record read only; null on lists.
         allergens:
           type: array
           description: |
@@ -25227,6 +25276,11 @@ components:
             - string
             - 'null'
           format: date-time
+        updated_by_name:
+          type:
+            - string
+            - 'null'
+          description: Who last changed the record, from their profile. Set on the single-record read only; null on lists.
       additionalProperties: false
     RecipeKind:
       type: string
@@ -26030,11 +26084,14 @@ components:
           type: string
           enum:
             - weekly
+            - latest_purchase
             - component_recipe
             - ingredient_fallback
             - none
           description: |
             `weekly` is the published average of what was actually paid.
+            `latest_purchase` is the newest priced receipt, standing in until the
+            ingredient's first weekly price is published.
             `component_recipe` means the line names something the kitchen makes,
             so the figure is that recipe's own cost per unit of what it produces
             — the rule that stops a dressing's oil being counted inside the
@@ -27406,6 +27463,11 @@ components:
             - string
             - 'null'
           format: date-time
+        updated_by_name:
+          type:
+            - string
+            - 'null'
+          description: Who last changed the record, from their profile. Set on the single-record read only; null on lists.
       additionalProperties: false
     CatalogueItemEnvelope:
       type: object
@@ -36861,6 +36923,16 @@ components:
           $ref: '#/components/schemas/QualityCheckSubjectType'
         subject_id:
           $ref: '#/components/schemas/Uuid'
+        subject_label:
+          type:
+            - string
+            - 'null'
+          description: What the check is on, by name — the supplier and invoice of a delivery, or a batch's lot or work-order number. Null when the subject no longer resolves. Index only.
+        subject_detail:
+          type:
+            - string
+            - 'null'
+          description: What it holds — a delivery's first items, or a batch's recipe. Index only.
         status:
           type: string
           enum:
@@ -37027,6 +37099,12 @@ components:
             - string
             - 'null'
           format: date-time
+        ready_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: When the kitchen marked it ready. The order stays `confirmed` until it is handed over (`fulfilled_at`).
         fulfilled_at:
           type:
             - string
@@ -37150,6 +37228,12 @@ components:
             - string
             - 'null'
           format: date-time
+        ready_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: When the kitchen marked it ready. The order stays `confirmed` until it is handed over (`fulfilled_at`).
         fulfilled_at:
           type:
             - string
@@ -37963,6 +38047,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/OrderDeskQuoteRefusal'
+        held_stock:
+          type: array
+          items:
+            type: string
+          description: |
+            A warning, never a refusal: the names of the ingredients this line
+            would draw that have stock on quality hold (a receipt or a batch under
+            a held check). Empty on a refused line and when nothing is held.
       additionalProperties: false
     OrderDeskQuote:
       type: object

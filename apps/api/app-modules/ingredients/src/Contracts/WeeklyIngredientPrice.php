@@ -29,7 +29,7 @@ final readonly class WeeklyIngredientPrice
 {
     /**
      * @param  numeric-string  $amount  major currency units (§4.4), per $unitId
-     * @param  'computed'|'carried_forward'  $source
+     * @param  'computed'|'carried_forward'|'latest_purchase'  $source
      */
     public function __construct(
         public string $ingredientId,
@@ -39,11 +39,21 @@ final readonly class WeeklyIngredientPrice
         public string $effectiveFrom,
         public string $purchaseWeekStartDate,
         public string $source,
-        public string $publicationId,
+        public ?string $publicationId,
     ) {}
 
     public function isCarriedForward(): bool
     {
         return $this->source === 'carried_forward';
+    }
+
+    /**
+     * The newest priced receipt, standing in until the ingredient's first weekly
+     * price is published. Real money, not yet averaged, and tied to no
+     * publication — so `publicationId` is null and a pinned estimate never uses it.
+     */
+    public function isLatestPurchase(): bool
+    {
+        return $this->source === 'latest_purchase';
     }
 }

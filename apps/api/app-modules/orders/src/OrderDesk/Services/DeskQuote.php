@@ -15,6 +15,7 @@ use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Services\ZoneResolver;
 use Healthy360\Delivery\Services\ZoneWindowService;
+use Healthy360\Orders\Contracts\HeldStockLookup;
 use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Services\ComposedLine;
@@ -90,6 +91,7 @@ final readonly class DeskQuote
         private ZoneWindowService $zoneWindows,
         private OrderSchedulingLookup $scheduling,
         private SellerContext $seller,
+        private HeldStockLookup $held,
     ) {}
 
     /**
@@ -227,7 +229,7 @@ final readonly class DeskQuote
             $refusals = [...$refusals, ...$this->scheduleRefusals($branchId, $requestedDate, $now)];
         }
 
-        [$quoted, $lineRefused] = $this->lines($channel, $lines, $currencyCode, $requestedDate, $account);
+        [$quoted, $lineRefused] = $this->lines($channel, $lines, $currencyCode, $requestedDate, $account, $branchId);
 
         $subtotal = 0;
 
@@ -274,6 +276,7 @@ final readonly class DeskQuote
         string $currencyCode,
         ?CarbonImmutable $on,
         ?CustomerAccount $account,
+        ?string $branchId,
     ): array {
         $quoted = [];
         $anyRefused = false;
@@ -319,6 +322,11 @@ final readonly class DeskQuote
                 // rest of the basket is denominated in.
                 'currency_code' => $price->currencyCode ?? $currencyCode,
                 'refusals' => $this->attributed($result->refusals, $line),
+                // A warning, never a refusal (owner decision, 13 Oct 2026): the
+                // ingredients this line would draw that have stock on quality hold.
+                'held_stock' => $refused || ! $item instanceof CatalogueItem
+                    ? []
+                    : $this->held->heldFor((string) $channel->organisation_id, $branchId, $item, $line->quantity),
             ];
         }
 

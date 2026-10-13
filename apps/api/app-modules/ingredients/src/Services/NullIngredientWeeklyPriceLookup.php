@@ -37,6 +37,11 @@ final class NullIngredientWeeklyPriceLookup implements IngredientWeeklyPriceLook
      * @param  list<string>  $ingredientIds
      * @return array<string, WeeklyIngredientPrice>
      */
+    public function latestPurchaseFor(string $organisationId, array $ingredientIds): array
+    {
+        return [];
+    }
+
     public function atPublication(string $organisationId, string $publicationId, array $ingredientIds): array
     {
         return [];

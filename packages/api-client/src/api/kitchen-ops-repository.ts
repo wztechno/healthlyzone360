@@ -1006,6 +1006,8 @@ function mapQualityCheck(wire: WireQualityCheck): QualityCheck {
         id: QualityCheckId.unsafe(wire.id),
         subjectType: wire.subject_type,
         subjectId: wire.subject_id,
+        subjectLabel: wire.subject_label ?? null,
+        subjectDetail: wire.subject_detail ?? null,
         status: wire.status,
     };
 }

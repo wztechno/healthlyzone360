@@ -33,6 +33,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
+import { useWindowName } from '../order-desk/use-window-name.ts';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     useCancelOrderMutation,
@@ -122,6 +123,9 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 type StatusFilter = KitchenOrderStatus | 'all';
 
+/** The admin's one date style — "Oct 12, 2026", as every other kitchen page reads. */
+const MEDIUM_DATE: Intl.DateTimeFormatOptions = { dateStyle: 'medium' };
+
 export function OrdersScreen() {
     return (
         <Gate
@@ -206,7 +210,7 @@ function Orders() {
             label: t('kitchen:ops.orders.columnPlaced'),
             width: 130,
             priority: 70,
-            value: (row) => formatter.formatDate(row.placedAt),
+            value: (row) => formatter.formatDate(row.placedAt, MEDIUM_DATE),
             sort: (left, right, direction) => compareText(left.placedAt, right.placedAt, direction),
             render: (row) => (
                 <Text
@@ -215,7 +219,7 @@ function Orders() {
                     numberOfLines={1}
                     testID={`${kitchenOrderRowTestId(String(row.id))}-placed`}
                 >
-                    {formatter.formatDate(row.placedAt)}
+                    {formatter.formatDate(row.placedAt, MEDIUM_DATE)}
                 </Text>
             ),
         },
@@ -239,7 +243,10 @@ function Orders() {
                         ]),
                     ]
                         .sort((left, right) => left.localeCompare(right))
-                        .map((day) => ({ key: day, label: formatter.formatDate(day) })),
+                        .map((day) => ({
+                            key: day,
+                            label: formatter.formatDate(day, MEDIUM_DATE),
+                        })),
                 external: { value: deliveryDate, onChange: changeDeliveryDate },
             },
             render: (row) => (
@@ -587,6 +594,7 @@ function OrderRecord({
     readonly onBack: () => void;
 }) {
     const { t } = useTranslation();
+    const windowName = useWindowName();
     const formatter = useFormatter();
     const toast = useToast();
     const canManage = useCan(ORDER_MANAGE_PERMISSION);
@@ -734,7 +742,7 @@ function OrderRecord({
                         value={
                             shown.delivery.requestedDate === null
                                 ? t('kitchen:common.notRecorded')
-                                : formatter.formatDate(shown.delivery.requestedDate)
+                                : formatter.formatDate(shown.delivery.requestedDate, MEDIUM_DATE)
                         }
                     />
                     <FactRow
@@ -743,7 +751,7 @@ function OrderRecord({
                         value={
                             shown.delivery.windowCode === null
                                 ? t('kitchen:common.notRecorded')
-                                : humaniseCode(shown.delivery.windowCode)
+                                : windowName(shown.delivery.windowCode)
                         }
                     />
                     <FactRow
@@ -780,7 +788,7 @@ function OrderRecord({
                     <FactRow
                         testID="kitchen-orders-detail-placed-at"
                         label={t('kitchen:ops.orders.placedAt')}
-                        value={formatter.formatDate(shown.placedAt)}
+                        value={formatter.formatDate(shown.placedAt, MEDIUM_DATE)}
                     />
                     {/* The design states every step, recorded or not. */}
                     <FactRow
@@ -797,7 +805,7 @@ function OrderRecord({
                         <FactRow
                             testID="kitchen-orders-detail-cancelled-at"
                             label={t('kitchen:ops.orders.cancelledAt')}
-                            value={formatter.formatDate(shown.cancelledAt)}
+                            value={formatter.formatDate(shown.cancelledAt, MEDIUM_DATE)}
                         />
                     )}
                     {shown.cancellationReason === null ? null : (
@@ -992,7 +1000,7 @@ function viewFields(
         {
             key: 'placed',
             label: t('kitchen:ops.orders.columnPlaced'),
-            value: formatter.formatDate(row.placedAt),
+            value: formatter.formatDate(row.placedAt, MEDIUM_DATE),
             mono: true,
         },
         {
@@ -1024,7 +1032,9 @@ function money(
 }
 
 function stamp(value: string | null, t: TFunction, formatter: Formatter): string {
-    return value === null ? t('kitchen:common.notRecorded') : formatter.formatDate(value);
+    return value === null
+        ? t('kitchen:common.notRecorded')
+        : formatter.formatDate(value, MEDIUM_DATE);
 }
 
 /** "Delivery · 2026-09-14" — how it leaves and the day asked for. */
@@ -1032,7 +1042,7 @@ function deliveryText(row: KitchenOrder, t: TFunction, formatter: Formatter): st
     const day =
         row.delivery.requestedDate === null
             ? t('kitchen:common.notRecorded')
-            : formatter.formatDate(row.delivery.requestedDate);
+            : formatter.formatDate(row.delivery.requestedDate, MEDIUM_DATE);
     return `${t(kitchenOrderFulfilmentTypeKey(row.fulfilmentType))} · ${day}`;
 }
 

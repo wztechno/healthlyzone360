@@ -96,6 +96,24 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * The name a record's "last changed by" line shows: the profile's given and
+     * family name, or null when there is no profile to read. Reads the
+     * relation, so load `profile` first on anything presenting a list.
+     */
+    public function displayName(): ?string
+    {
+        $profile = $this->profile;
+
+        if ($profile === null) {
+            return null;
+        }
+
+        $name = trim($profile->given_name.' '.$profile->family_name);
+
+        return $name === '' ? null : $name;
+    }
+
+    /**
      * @return HasMany<UserDevice, $this>
      */
     public function devices(): HasMany

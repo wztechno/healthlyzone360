@@ -95,6 +95,59 @@ final readonly class OrderLifecycle
     }
 
     /**
+     * The kitchen has finished it: "Ready" on the kitchen display (owner decision,
+     * 13 Oct 2026). Not a transition — the order stays `confirmed` until it is
+     * handed over, which is {@see fulfil()} — so it only stamps `ready_at`, at the
+     * caller's lock version, and moves the lock like any other write.
+     *
+     * @throws ApiException
+     */
+    public function markReady(Order $order, ?int $expectedLockVersion = null): Order
+    {
+        if ($order->status !== OrderStatus::Confirmed) {
+            throw new ApiException(
+                ErrorCode::ResourceConflict,
+                'Only an order being prepared can be marked ready.',
+                ['status' => $order->status->value, 'current_lock_version' => $order->lock_version],
+            );
+        }
+
+        $query = Order::query()
+            ->whereKey($order->getKey())
+            ->where('status', OrderStatus::Confirmed->value)
+            ->whereNull('ready_at');
+
+        if ($expectedLockVersion !== null) {
+            $query->where('lock_version', $expectedLockVersion);
+        }
+
+        $updated = $query->update([
+            'ready_at' => CarbonImmutable::now(),
+            'lock_version' => DB::raw('lock_version + 1'),
+            'updated_at' => CarbonImmutable::now(),
+        ]);
+
+        if ($updated === 0) {
+            throw new ApiException(
+                ErrorCode::ResourceConflict,
+                'This order changed while you were working on it. Reload it and try again.',
+            );
+        }
+
+        $order->refresh();
+
+        $this->audit->record(
+            'order.ready',
+            actorUserId: $this->context->userId(),
+            subjectType: 'order',
+            subjectId: (string) $order->getKey(),
+            metadata: ['lock_version' => $order->lock_version],
+        );
+
+        return $order;
+    }
+
+    /**
      * @throws ApiException
      */
     public function fulfil(Order $order, ?int $expectedLockVersion = null): Order

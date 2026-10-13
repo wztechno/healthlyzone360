@@ -64,4 +64,16 @@ interface IngredientWeeklyPriceLookup
      * @return array<string, WeeklyIngredientPrice> keyed by ingredient id
      */
     public function atPublication(string $organisationId, string $publicationId, array $ingredientIds): array;
+
+    /**
+     * The newest priced purchase of each ingredient, for one that has no weekly
+     * price yet (owner decision, 13 Oct 2026: cost a new ingredient from what was
+     * just paid rather than leave its recipes "Not costed" until Monday).
+     *
+     * Absent, never null, for an ingredient never bought at a recorded price.
+     *
+     * @param  list<string>  $ingredientIds
+     * @return array<string, WeeklyIngredientPrice> keyed by ingredient id, source `latest_purchase`
+     */
+    public function latestPurchaseFor(string $organisationId, array $ingredientIds): array;
 }

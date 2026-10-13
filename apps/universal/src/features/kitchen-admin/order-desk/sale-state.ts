@@ -208,23 +208,65 @@ export function withFulfilmentType(
  * stated slot or the default among `offeredCodes` — `null` when the kitchen offers none, so nothing
  * is sent rather than a code no window answers to. A stated slot the kitchen no longer offers is
  * dropped to the default for the same reason.
+ *
+ * The default never lands on a slot already over: `overToday` names the windows that have ended
+ * today, and on today the default skips them — to the next one, or to tomorrow's default when every
+ * window today has closed. A Lunch slot picked at 9:50 PM made the order "Past due" on arrival.
  */
 export function scheduleFor(
     state: SaleState,
     today: string,
     offeredCodes: readonly string[],
+    overToday: ReadonlySet<string> = new Set(),
 ): { readonly requestedDeliveryDate: string; readonly deliveryWindowCode: string | null } | null {
     if (state.fulfilmentType === 'counter') return null;
 
+    const date = state.requestedDeliveryDate ?? today;
     const stated = state.deliveryWindowCode;
-    const fallback = offeredCodes.includes(DEFAULT_SLOT_CODE)
-        ? DEFAULT_SLOT_CODE
-        : (offeredCodes[0] ?? null);
+    if (stated !== null && offeredCodes.includes(stated)) {
+        return { requestedDeliveryDate: date, deliveryWindowCode: stated };
+    }
 
-    return {
-        requestedDeliveryDate: state.requestedDeliveryDate ?? today,
-        deliveryWindowCode: stated !== null && offeredCodes.includes(stated) ? stated : fallback,
-    };
+    const preferred = (codes: readonly string[]): string | null =>
+        codes.includes(DEFAULT_SLOT_CODE) ? DEFAULT_SLOT_CODE : (codes[0] ?? null);
+
+    if (date !== today)
+        return { requestedDeliveryDate: date, deliveryWindowCode: preferred(offeredCodes) };
+
+    const open = offeredCodes.filter((code) => !overToday.has(code));
+    if (open.length > 0 || offeredCodes.length === 0) {
+        return { requestedDeliveryDate: date, deliveryWindowCode: preferred(open) };
+    }
+    // Every window today is over, and the agent did not choose the day: tomorrow, at the default.
+    return state.requestedDeliveryDate === null
+        ? { requestedDeliveryDate: nextIsoDate(today), deliveryWindowCode: preferred(offeredCodes) }
+        : { requestedDeliveryDate: date, deliveryWindowCode: preferred(offeredCodes) };
+}
+
+/** The calendar day after an ISO `YYYY-MM-DD`, computed in UTC so no zone shifts it. */
+function nextIsoDate(iso: string): string {
+    const day = new Date(`${iso}T00:00:00Z`);
+    day.setUTCDate(day.getUTCDate() + 1);
+    return day.toISOString().slice(0, 10);
+}
+
+/**
+ * The codes of the windows that have already ended at `now`, read against the window's `endsAt`
+ * (`HH:MM[:SS]`, the kitchen's wall clock).
+ *
+ * ponytail: compares against this device's clock, which is the kitchen's for a desk in the kitchen.
+ * A desk run from another zone wants the organisation's timezone here.
+ */
+export function windowsOverAt(
+    windows: readonly { readonly code: string; readonly endsAt: string | null }[],
+    now: Date = new Date(),
+): ReadonlySet<string> {
+    const clock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    return new Set(
+        windows
+            .filter((window) => window.endsAt !== null && window.endsAt.slice(0, 5) <= clock)
+            .map((window) => window.code),
+    );
 }
 
 /**
