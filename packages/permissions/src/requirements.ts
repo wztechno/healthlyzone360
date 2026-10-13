@@ -32,7 +32,9 @@ export const ROUTE_PATHS = {
     selectBranch: '/select-branch',
     forbidden: '/forbidden',
     workspace: '/workspace',
-    customerHome: '/customer',
+    // The marketplace home, the same page for a visitor and a signed-in customer. `/customer`
+    // itself only redirects here; the area keeps its sub-pages (basket, account, orders).
+    customerHome: '/discover',
     kdsHome: '/kds',
     driverHome: '/driver',
 } as const;

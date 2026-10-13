@@ -1,27 +1,25 @@
 import {
     ActionSheet,
-    Badge,
+    Breadcrumbs,
     Button,
     Callout,
     DateField,
     Dialog,
     EmptyState,
     FilterChip,
-    Heading,
     Inline,
     SegmentedControl,
     Select,
     Stack,
-    Table,
     Text,
 } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
 import type { Subscription, CustomerAddress } from '@healthy360/api-client/contracts';
 import { SubscriptionId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import {
     toFailure,
@@ -41,6 +39,7 @@ import {
 import { useAddressesQuery } from '../../../data/account-hooks.ts';
 import { useKitchenMenuQuery } from '../../../data/marketplace-hooks.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
+import { weekdayRun } from '../configurator-steps.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { formatAddress } from '../address.ts';
 import { earliestStartDate, upcomingDeliveryDates } from '../dates.ts';
@@ -53,6 +52,8 @@ import {
     isTerminalSubscriptionState,
 } from '../state-badge.tsx';
 import { SubscriptionBalanceCard, SubscriptionDeliveries } from '../subscription-balance.tsx';
+import { CardPanel, SummaryCard } from '../summary-card.tsx';
+import type { SummaryCardRow } from '../summary-card.tsx';
 import {
     CancelSubscriptionDialog,
     MealChoicesDialog,
@@ -93,13 +94,14 @@ import {
  * `MGT-08` record the reference's own terms drawing the same line between a live package and a
  * finished one.
  *
- * ## What the timeline can and cannot say
+ * ## Laid out as cards
  *
- * `Subscription` publishes `createdAt`, `updatedAt`, the current state, `pausedUntil` and
- * `skippedDates` — and **no event log**. So the timeline reports exactly those facts and says it is
- * reporting the record rather than a history. A real backend should publish
- * `GET /api/v1/subscriptions/{subscription}/events`; inventing "paused on the 14th" from an
- * `updatedAt` would be the interface making something up.
+ * The opening states the plan, its state, its weekly price and the next delivery. Below it, from
+ * `lg`, two columns: "Your plan" (every setting, each changeable one with its own Change beside it)
+ * above the deliveries ledger, and beside them the "Manage" card — the balance and the actions —
+ * which stays in view while the ledger scrolls. A paused-until date and any skipped days are rows of
+ * the plan card rather than a separate timeline: `Subscription` publishes no event log, so they are
+ * stated as current facts and nothing is inferred about when they happened.
  */
 
 export interface SubscriptionDetailScreenProps {
@@ -114,12 +116,6 @@ const CHOICE_OPTIONS = 20;
 
 /** How many upcoming delivery days the skip sheet offers. */
 const SKIP_CHOICES = 6;
-
-interface ConfigurationRow {
-    readonly key: string;
-    readonly label: string;
-    readonly value: string;
-}
 
 export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailScreenProps) {
     const { t } = useTranslation();
@@ -233,7 +229,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
             variant="quiet"
             label={t('commerce:subscription.backToList')}
             onPress={() => {
-                router.push('/customer/subscriptions' as never);
+                router.push('/customer/account?section=subscriptions' as never);
             }}
         />
     );
@@ -253,7 +249,11 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
 
     const readOnly = subscription !== undefined && isTerminalSubscriptionState(subscription.state);
 
-    const configurationRows: readonly ConfigurationRow[] =
+    const separator = t('commerce:common.listSeparator');
+    const live = subscription !== undefined && !readOnly;
+    const canChange = subscription !== undefined && canChangeDelivery(subscription.state);
+
+    const configurationRows: readonly SummaryCardRow[] =
         subscription === undefined
             ? []
             : [
@@ -265,7 +265,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                   {
                       key: 'duration',
                       label: t('commerce:subscription.rows.duration'),
-                      value: t(`commerce:durations.${subscription.configuration.duration}`),
+                      value: t(`catalogue:compare.duration.${subscription.configuration.duration}`),
                   },
                   {
                       key: 'start',
@@ -277,9 +277,22 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                   {
                       key: 'days',
                       label: t('commerce:subscription.rows.days'),
-                      value: subscription.configuration.deliveryWeekdays
-                          .map((weekday) => t(weekdayKey(weekday)))
-                          .join(t('commerce:common.listSeparator')),
+                      value: weekdayRun(subscription.configuration.deliveryWeekdays, t),
+                      ...(canChange
+                          ? {
+                                action: {
+                                    label: t('commerce:subscription.change'),
+                                    accessibilityLabel: t('commerce:weekdays.open'),
+                                    testID: 'subscription-change-weekdays',
+                                    onPress: () => {
+                                        setEditedWeekdays([
+                                            ...subscription.configuration.deliveryWeekdays,
+                                        ]);
+                                        setDialog('weekdays');
+                                    },
+                                },
+                            }
+                          : {}),
                   },
                   {
                       key: 'slot',
@@ -287,11 +300,40 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                       value: t(`commerce:slots.${subscription.configuration.slotCode}`, {
                           defaultValue: subscription.configuration.slotCode,
                       }),
+                      ...(canChange
+                          ? {
+                                action: {
+                                    label: t('commerce:subscription.change'),
+                                    accessibilityLabel: t('commerce:subscription.changeSlot'),
+                                    testID: 'subscription-change-slot',
+                                    onPress: () => {
+                                        setSlotCode(subscription.configuration.slotCode);
+                                        setWeekdays([
+                                            ...subscription.configuration.deliveryWeekdays,
+                                        ]);
+                                        setDialog('slot');
+                                    },
+                                },
+                            }
+                          : {}),
                   },
                   {
                       key: 'address',
                       label: t('commerce:subscription.rows.address'),
                       value: formatAddress(subscription.configuration.address),
+                      ...(canChange
+                          ? {
+                                action: {
+                                    label: t('commerce:subscription.change'),
+                                    accessibilityLabel: t('commerce:subscription.changeAddress'),
+                                    testID: 'subscription-change-address',
+                                    onPress: () => {
+                                        setAddressId(null);
+                                        setDialog('address');
+                                    },
+                                },
+                            }
+                          : {}),
                   },
                   {
                       key: 'allergens',
@@ -301,28 +343,57 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                               ? t('commerce:configurator.checks.noAllergens')
                               : subscription.configuration.excludeAllergens
                                     .map((code) => t(`marketplace:allergens.${code}`))
-                                    .join(t('commerce:common.listSeparator')),
+                                    .join(separator),
                   },
+                  ...(subscription.pausedUntil === null
+                      ? []
+                      : [
+                            {
+                                key: 'pausedUntil',
+                                testID: 'subscription-timeline-paused-until',
+                                label: t('commerce:subscription.pausedUntilBadge'),
+                                value: formatter.formatDate(subscription.pausedUntil, {
+                                    dateStyle: 'medium',
+                                }),
+                            },
+                        ]),
+                  ...(subscription.skippedDates.length === 0
+                      ? []
+                      : [
+                            {
+                                key: 'skipped',
+                                testID: 'subscription-timeline-skipped',
+                                label: t('commerce:subscription.skippedBadge'),
+                                value: subscription.skippedDates
+                                    .map((date) =>
+                                        formatter.formatDate(date, { dateStyle: 'medium' }),
+                                    )
+                                    .join(separator),
+                            },
+                        ]),
               ];
 
-    // `Table` renders whatever a column returns straight into a `View`, so a bare string would be
-    // an invariant violation on native. Every cell is a `Text` node.
-    const columns: readonly TableColumn<ConfigurationRow>[] = [
-        {
-            key: 'label',
-            header: t('commerce:subscription.rows.field'),
-            rowHeader: true,
-            render: (row) => <Text tone="secondary">{row.label}</Text>,
-        },
-        {
-            key: 'value',
-            header: t('commerce:subscription.rows.value'),
-            render: (row) => <Text>{row.value}</Text>,
-        },
-    ];
-
     return (
-        <Stack space="lg" testID="subscription-detail-screen">
+        <View testID="subscription-detail-screen" className="flex-col">
+            <Breadcrumbs
+                testID="subscription-detail-breadcrumbs"
+                items={[
+                    {
+                        key: 'account',
+                        label: t('commerce:subscription.crumbAccount'),
+                        onPress: () => {
+                            router.push('/customer/account' as never);
+                        },
+                    },
+                    {
+                        key: 'subscriptions',
+                        label: t('commerce:subscription.crumbSubscriptions'),
+                        onPress: () => {
+                            router.push('/customer/account?section=subscriptions' as never);
+                        },
+                    },
+                ]}
+            />
             <QueryStates
                 query={query}
                 isEmpty={subscription === undefined}
@@ -333,195 +404,187 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                 testID="subscription-detail"
             >
                 {subscription === undefined ? null : (
-                    <Stack space="lg">
-                        <Stack space="xs">
-                            <Inline space="sm" align="center" justify="between">
-                                <Heading level={1} testID="subscription-detail-name">
+                    <View className="mt-3 flex-col gap-6">
+                        {/* The opening: the plan, its state on the title's line, and the two facts
+                            somebody opens this page for — what it costs and when the next one comes. */}
+                        <View className="flex-col gap-1.5">
+                            <View className="flex-row flex-wrap items-center gap-3">
+                                <RNText
+                                    testID="subscription-detail-name"
+                                    accessibilityRole="header"
+                                    aria-level={1}
+                                    className="self-start text-4xl leading-[1.05] tracking-display text-content-primary text-start"
+                                >
                                     {subscription.planName}
-                                </Heading>
+                                </RNText>
                                 <SubscriptionStateBadge
                                     state={subscription.state}
                                     testID="subscription-detail-state"
                                 />
-                            </Inline>
-                            <Text testID="subscription-detail-price">
-                                {t('commerce:subscriptions.weeklyPrice', {
-                                    price: formatMoney(formatter, subscription.weeklyPrice),
-                                })}
-                            </Text>
-                            <Text tone="secondary" testID="subscription-detail-next">
-                                {subscription.nextDeliveryDate === null
-                                    ? t('commerce:subscriptions.noNextDelivery')
-                                    : t('commerce:subscriptions.nextDelivery', {
-                                          date: formatter.formatDate(
-                                              subscription.nextDeliveryDate,
-                                              { dateStyle: 'full' },
-                                          ),
-                                      })}
-                            </Text>
-                        </Stack>
+                            </View>
+                            <View className="flex-row flex-wrap items-baseline gap-x-2">
+                                <RNText
+                                    testID="subscription-detail-price"
+                                    className="text-base text-content-primary text-start"
+                                >
+                                    {t('commerce:subscriptions.weeklyPrice', {
+                                        price: formatMoney(formatter, subscription.weeklyPrice),
+                                    })}
+                                </RNText>
+                                <RNText aria-hidden className="text-base text-content-secondary">
+                                    ·
+                                </RNText>
+                                <RNText
+                                    testID="subscription-detail-next"
+                                    className="text-base text-content-secondary text-start"
+                                >
+                                    {subscription.nextDeliveryDate === null
+                                        ? t('commerce:subscriptions.noNextDelivery')
+                                        : t('commerce:subscriptions.nextDelivery', {
+                                              date: formatter.formatDate(
+                                                  subscription.nextDeliveryDate,
+                                                  { dateStyle: 'full' },
+                                              ),
+                                          })}
+                                </RNText>
+                            </View>
+                        </View>
 
-                        {balanceQuery.data === undefined ? null : (
-                            <SubscriptionBalanceCard balance={balanceQuery.data} />
-                        )}
+                        <View className="flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
+                            <View className="min-w-0 flex-col gap-4 lg:flex-1">
+                                <SummaryCard
+                                    testID="subscription-detail-configuration"
+                                    title={t('commerce:subscription.planTitle')}
+                                    rows={configurationRows.map((row) => ({
+                                        ...row,
+                                        testID: row.testID ?? `subscription-detail-row-${row.key}`,
+                                    }))}
+                                />
 
-                        <SubscriptionDeliveries deliveries={deliveriesQuery.data?.items ?? []} />
+                                <SubscriptionDeliveries
+                                    deliveries={deliveriesQuery.data?.items ?? []}
+                                />
+                            </View>
 
-                        <SubscriptionTimeline subscription={subscription} />
+                            {/* Beside the plan from `lg`, and in view while it scrolls. */}
+                            <View className="flex-col lg:w-[320px] web:lg:sticky web:lg:top-6">
+                                <CardPanel testID="subscription-detail-manage">
+                                    <RNText
+                                        accessibilityRole="header"
+                                        aria-level={2}
+                                        className="self-start text-base font-semibold text-content-primary text-start"
+                                    >
+                                        {t('commerce:subscription.manageTitle')}
+                                    </RNText>
 
-                        <Stack space="sm" testID="subscription-detail-configuration">
-                            <Text variant="label">{t('commerce:subscription.configTitle')}</Text>
-                            <Table
-                                testID="subscription-detail-config-table"
-                                caption={t('commerce:subscription.configCaption')}
-                                captionHidden
-                                columns={columns}
-                                rows={configurationRows}
-                                rowKey={(row) => row.key}
-                            />
-                        </Stack>
+                                    {balanceQuery.data === undefined ? null : (
+                                        <SubscriptionBalanceCard balance={balanceQuery.data} />
+                                    )}
 
-                        {failure === null ? null : (
-                            <Callout
-                                testID="subscription-detail-error"
-                                role="alert"
-                                tone="danger"
-                                icon="warning"
-                                title={t('commerce:subscription.actionFailedTitle')}
-                                body={failure.message}
-                            />
-                        )}
+                                    {failure === null ? null : (
+                                        <Callout
+                                            testID="subscription-detail-error"
+                                            role="alert"
+                                            tone="danger"
+                                            icon="warning"
+                                            title={t('commerce:subscription.actionFailedTitle')}
+                                            body={failure.message}
+                                        />
+                                    )}
 
-                        {readOnly ? (
-                            <Callout
-                                testID="subscription-detail-read-only"
-                                role="note"
-                                tone="info"
-                                title={t('commerce:subscription.readOnlyTitle')}
-                                body={t(`commerce:subscription.readOnly.${subscription.state}`)}
-                                actions={listAction}
-                            />
-                        ) : (
-                            <Stack space="sm" testID="subscription-detail-actions">
-                                <Text variant="label">
-                                    {t('commerce:subscription.actionsTitle')}
-                                </Text>
-                                <Inline space="sm" wrap>
-                                    {canPauseOrSkip(subscription.state) ? (
-                                        <Button
-                                            testID="subscription-pause"
-                                            variant="secondary"
-                                            label={t('commerce:subscription.pause')}
-                                            disabled={busy}
-                                            onPress={() => {
-                                                setPauseUntil(null);
-                                                setDialog('pause');
-                                            }}
+                                    {readOnly ? (
+                                        <Callout
+                                            testID="subscription-detail-read-only"
+                                            role="note"
+                                            tone="info"
+                                            title={t('commerce:subscription.readOnlyTitle')}
+                                            body={t(
+                                                `commerce:subscription.readOnly.${subscription.state}`,
+                                            )}
                                         />
                                     ) : null}
-                                    {canResume(subscription.state) ? (
-                                        <Button
-                                            testID="subscription-resume"
-                                            label={t('commerce:subscription.resume')}
-                                            disabled={busy}
-                                            onPress={() => {
-                                                setDialog('resume');
-                                            }}
-                                        />
-                                    ) : null}
-                                    {canPauseOrSkip(subscription.state) ? (
-                                        <Button
-                                            testID="subscription-skip"
-                                            variant="quiet"
-                                            label={t('commerce:subscription.skip')}
-                                            disabled={busy || upcoming.length === 0}
-                                            onPress={() => {
-                                                setSkipSheetOpen(true);
-                                            }}
-                                        />
-                                    ) : null}
-                                    {canChangeDelivery(subscription.state) ? (
-                                        <Button
-                                            testID="subscription-change-address"
-                                            variant="secondary"
-                                            label={t('commerce:subscription.changeAddress')}
-                                            disabled={busy}
-                                            onPress={() => {
-                                                setAddressId(null);
-                                                setDialog('address');
-                                            }}
-                                        />
-                                    ) : null}
-                                    {canChangeDelivery(subscription.state) ? (
-                                        <Button
-                                            testID="subscription-change-slot"
-                                            variant="secondary"
-                                            label={t('commerce:subscription.changeSlot')}
-                                            disabled={busy}
-                                            onPress={() => {
-                                                setSlotCode(subscription.configuration.slotCode);
-                                                setWeekdays([
-                                                    ...subscription.configuration.deliveryWeekdays,
-                                                ]);
-                                                setDialog('slot');
-                                            }}
-                                        />
-                                    ) : null}
-                                    {canChangeDelivery(subscription.state) ? (
-                                        <Button
-                                            testID="subscription-change-weekdays"
-                                            variant="secondary"
-                                            label={t('commerce:weekdays.open')}
-                                            disabled={busy}
-                                            onPress={() => {
-                                                setEditedWeekdays([
-                                                    ...subscription.configuration.deliveryWeekdays,
-                                                ]);
-                                                setDialog('weekdays');
-                                            }}
-                                        />
-                                    ) : null}
-                                    {/*
-                                     * Free Selection, and only when the plan has it. A control that
-                                     * appeared for every plan and then refused would teach the
-                                     * wrong thing about what a plan is.
-                                     */}
-                                    {freeSelection && subscription.nextDeliveryDate !== null ? (
-                                        <Button
-                                            testID="subscription-choose-meals"
-                                            variant="secondary"
-                                            label={t('commerce:choices.open')}
-                                            disabled={busy}
-                                            onPress={() => {
-                                                setDialog('choices');
-                                            }}
-                                        />
-                                    ) : null}
-                                    {/*
-                                     * Cancellation is `danger` and last, and it is offered from
-                                     * every non-terminal state — including `paused`, because a
-                                     * paused subscription is still somebody's money.
-                                     */}
-                                    <Button
-                                        testID="subscription-cancel-open"
-                                        variant="danger"
-                                        label={t('commerce:cancel.open')}
-                                        disabled={busy}
-                                        onPress={() => {
-                                            setDialog('cancel');
-                                        }}
-                                    />
-                                </Inline>
-                                <Text tone="secondary" variant="caption">
-                                    {t('commerce:subscription.actionsNote')}
-                                </Text>
-                            </Stack>
-                        )}
 
-                        <Inline space="sm" wrap>
-                            {listAction}
-                        </Inline>
-                    </Stack>
+                                    {live ? (
+                                        <View
+                                            testID="subscription-detail-actions"
+                                            className="flex-col gap-2"
+                                        >
+                                            {canPauseOrSkip(subscription.state) ? (
+                                                <Button
+                                                    testID="subscription-skip"
+                                                    variant="secondary"
+                                                    block
+                                                    label={t('commerce:subscription.skip')}
+                                                    disabled={busy || upcoming.length === 0}
+                                                    onPress={() => {
+                                                        setSkipSheetOpen(true);
+                                                    }}
+                                                />
+                                            ) : null}
+                                            {freeSelection &&
+                                            subscription.nextDeliveryDate !== null ? (
+                                                <Button
+                                                    testID="subscription-choose-meals"
+                                                    variant="secondary"
+                                                    block
+                                                    label={t('commerce:choices.open')}
+                                                    disabled={busy}
+                                                    onPress={() => {
+                                                        setDialog('choices');
+                                                    }}
+                                                />
+                                            ) : null}
+                                            {canPauseOrSkip(subscription.state) ? (
+                                                <Button
+                                                    testID="subscription-pause"
+                                                    variant="secondary"
+                                                    block
+                                                    label={t('commerce:subscription.pause')}
+                                                    disabled={busy}
+                                                    onPress={() => {
+                                                        setPauseUntil(null);
+                                                        setDialog('pause');
+                                                    }}
+                                                />
+                                            ) : null}
+                                            {canResume(subscription.state) ? (
+                                                <Button
+                                                    testID="subscription-resume"
+                                                    block
+                                                    label={t('commerce:subscription.resume')}
+                                                    disabled={busy}
+                                                    onPress={() => {
+                                                        setDialog('resume');
+                                                    }}
+                                                />
+                                            ) : null}
+                                            {/*
+                                             * Cancellation is last and quiet, and it is offered from
+                                             * every non-terminal state — including `paused`, because
+                                             * a paused subscription is still somebody's money.
+                                             */}
+                                            <Pressable
+                                                testID="subscription-cancel-open"
+                                                role="button"
+                                                accessibilityRole="button"
+                                                disabled={busy}
+                                                aria-disabled={busy}
+                                                accessibilityState={{ disabled: busy }}
+                                                onPress={() => {
+                                                    setDialog('cancel');
+                                                }}
+                                                className="min-h-touch items-center justify-center"
+                                            >
+                                                <RNText className="text-sm font-semibold text-danger-on-subtle hover:underline">
+                                                    {t('commerce:cancel.open')}
+                                                </RNText>
+                                            </Pressable>
+                                        </View>
+                                    ) : null}
+                                </CardPanel>
+                            </View>
+                        </View>
+                    </View>
                 )}
             </QueryStates>
 
@@ -904,87 +967,6 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                     cancel.mutate({ subscriptionId: subscription.id });
                 }}
             />
-        </Stack>
-    );
-}
-
-interface TimelineProps {
-    readonly subscription: Subscription;
-}
-
-/**
- * What the record shows.
- *
- * Not a history: `Subscription` carries no event log, so this reports the five facts it does carry
- * and labels them as facts about the record. The alternative — inferring "paused on the 14th" from
- * `updatedAt` — would be a plausible sentence the data does not support.
- */
-function SubscriptionTimeline({ subscription }: TimelineProps) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-
-    return (
-        <Stack space="sm" testID="subscription-detail-timeline">
-            <Text variant="label">{t('commerce:subscription.timelineTitle')}</Text>
-
-            <Stack space="xs">
-                <Inline space="sm" align="center" testID="subscription-timeline-created">
-                    <Badge tone="neutral" icon="dot" label={t('commerce:subscription.created')} />
-                    <Text>
-                        {formatter.formatDate(subscription.createdAt, { dateStyle: 'medium' })}
-                    </Text>
-                </Inline>
-
-                <Inline space="sm" align="center" testID="subscription-timeline-state">
-                    <SubscriptionStateBadge
-                        state={subscription.state}
-                        testID="subscription-timeline-state-badge"
-                    />
-                    <Text>
-                        {t('commerce:subscription.stateSince', {
-                            date: formatter.formatDate(subscription.updatedAt, {
-                                dateStyle: 'medium',
-                            }),
-                        })}
-                    </Text>
-                </Inline>
-
-                {subscription.pausedUntil === null ? null : (
-                    <Inline space="sm" align="center" testID="subscription-timeline-paused-until">
-                        <Badge
-                            tone="warning"
-                            icon="offline"
-                            label={t('commerce:subscription.pausedUntilBadge')}
-                        />
-                        <Text>
-                            {formatter.formatDate(subscription.pausedUntil, {
-                                dateStyle: 'medium',
-                            })}
-                        </Text>
-                    </Inline>
-                )}
-
-                <Inline space="sm" align="center" wrap testID="subscription-timeline-skipped">
-                    <Badge
-                        tone="info"
-                        icon="info"
-                        label={t('commerce:subscription.skippedBadge')}
-                    />
-                    <Text testID="subscription-timeline-skipped-value">
-                        {subscription.skippedDates.length === 0
-                            ? t('commerce:subscription.noSkippedDates')
-                            : subscription.skippedDates
-                                  .map((date) =>
-                                      formatter.formatDate(date, { dateStyle: 'medium' }),
-                                  )
-                                  .join(t('commerce:common.listSeparator'))}
-                    </Text>
-                </Inline>
-            </Stack>
-
-            <Text tone="secondary" variant="caption" testID="subscription-timeline-note">
-                {t('commerce:subscription.timelineNote')}
-            </Text>
-        </Stack>
+        </View>
     );
 }

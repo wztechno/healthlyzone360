@@ -30,19 +30,22 @@ const build = (permissions: readonly string[], pathname = '/kitchen') =>
     });
 
 describe('the Workspace group', () => {
-    it('lists the openable areas first, then the account, all under one module', () => {
+    it('lists the openable areas first, then the account', () => {
         const state = hydrated(['device.manage_own']);
         const items = build(['device.manage_own']);
         const areas = availableWorkspaceAreas(state).map((option) => `area-${option.area}`);
 
         expect(items.map((item) => item.key)).toEqual([...areas, 'profile', 'devices']);
-        expect(new Set(items.map((item) => item.group))).toEqual(new Set(['common:nav.workspace']));
-        expect(items.find((item) => item.key === 'profile')?.section).toBe(
-            'common:nav.sectionAccount',
-        );
     });
 
-    it('drops the tile page link, which the panel replaces', () => {
+    it('carries no rail module — it is a tab bar, not a group', () => {
+        for (const item of build(['device.manage_own'])) {
+            expect(item.group).toBeUndefined();
+            expect(item.section).toBeUndefined();
+        }
+    });
+
+    it('drops the tile page link, which the bar replaces', () => {
         expect(build([]).some((item) => item.key === 'workspace')).toBe(false);
     });
 
@@ -50,11 +53,10 @@ describe('the Workspace group', () => {
         expect(build([]).some((item) => item.key === 'devices')).toBe(false);
     });
 
-    it('badges the current area without making it active', () => {
+    it('lights the current area and no other', () => {
         for (const item of build(['device.manage_own'])) {
             if (!item.key.startsWith('area-')) continue;
-            expect(item.active).toBeUndefined();
-            expect(item.badge !== undefined).toBe(item.key === 'area-kitchen');
+            expect(item.active).toBe(item.key === 'area-kitchen');
         }
     });
 

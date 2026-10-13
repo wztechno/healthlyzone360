@@ -1,4 +1,4 @@
-import { Button, Collapse, Drawer, Select, Stack, useBreakpoint } from '@healthy360/design-system';
+import { Button, Stack } from '@healthy360/design-system';
 import type {
     AllergenCode,
     CurrencyCode,
@@ -6,7 +6,8 @@ import type {
     KitchenId,
 } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -14,17 +15,16 @@ import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { mealsFromPages, totalFromPages, useMealsQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
-import { Eyebrow } from '../../../ui/eyebrow.tsx';
 import { ListingHeader } from '../../../ui/listing-header.tsx';
 import { useMarketplaceFilters } from '../../marketplace/filter-bar.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { ToolbarRow } from '../../marketplace/toolbar-row.tsx';
-import { MealFilterPanel, MoreMealFilters, moreFiltersCount } from '../meal-filter-panel.tsx';
+import { CategoryTabs, MealFilterBar, rangeChips } from '../meal-filter-bar.tsx';
 import { MEAL_RANGE_KEYS, toMealFilter, useMealRanges } from '../meal-filters.tsx';
-import { MENU_SORTS, isMenuSort, refineMeals } from '../meal-readings.ts';
+import { isMenuSort, refineMeals } from '../meal-readings.ts';
 import { MenuGrid } from '../menu-grid.tsx';
 import { MenuMealCard } from '../menu-meal-card.tsx';
-import { isShownShelf, shownCategory, shownItemTypes } from '../shown-shelves.ts';
+import { shownCategory, shownItemTypes } from '../shown-shelves.ts';
 import { useMealShelves } from '../use-meal-shelves.ts';
 
 /**
@@ -32,22 +32,11 @@ import { useMealShelves } from '../use-meal-shelves.ts';
  *
  * ## The page, top to bottom
  *
- * A trail, the title, the count where a listing usually writes a description, and `SORT` with its
- * select on the title's baseline — `ListingHeader`. Then a 236px rail beside the grid: `CATEGORY`,
- * `DIETARY`, `CALORIES PER SERVING`, "Clear all filters" (see `meal-filter-panel.tsx`). The grid is
- * the design's card at `auto-fill, minmax(238px, 1fr)`, which is three across at 1280.
- *
- * ## The filters take the form the width affords
- *
- * Above `lg` they are the rail, pinned the way the design pins its aside. Below `lg` there is no
- * room for a column beside a column, so the same panel sits in a **disclosure that is closed by
- * default** — a category list, the diet pills and a slider stacked above the grid would push the
- * meals off a phone screen. It opens itself when you *arrive* with a filter applied, because then
- * the controls are what you came to see. The panel is rendered once, in whichever container.
- *
- * The filters the rail does not draw — kitchen, more diets, allergen exclusions, five more ranges —
- * open in a drawer from "More filters" beside the sort, at every width. See the panel's notes for
- * why there and not on the rail.
+ * A trail, the title and the count — `ListingHeader`. Then the shelves as a row of tabs with their
+ * counts, and under them one bar of filter buttons — Diet, Calories, Allergies, Kitchen, More — with
+ * the sort at its end, pinned on the web while the grid scrolls (`meal-filter-bar.tsx`). Whatever is
+ * applied is listed under the bar as removable chips with "Clear all". The grid has the full width:
+ * there is no filter rail and no disclosure, at any width.
  *
  * ## Every control writes to the URL
  *
@@ -93,13 +82,7 @@ export function MealsScreen() {
     const filters = useMarketplaceFilters(GROUP_KEYS);
     const ranges = useMealRanges();
     const shelves = useMealShelves();
-    /*
-     * A structural choice, so it is made in JavaScript rather than with a class variant: the rail
-     * and the disclosure are different trees, not one tree at two widths, and only one of them may
-     * exist at a time.
-     */
-    const { atLeast } = useBreakpoint();
-    const showRail = atLeast('lg');
+    const formatter = useFormatter();
 
     const kitchens = useKitchensQuery({ channels: ['marketplace'], limit: 20 });
     const kitchenItems = useMemo(() => kitchens.data?.items ?? [], [kitchens.data]);
@@ -121,12 +104,6 @@ export function MealsScreen() {
         (key) => rangeValues[key].min !== null || rangeValues[key].max !== null,
     ).length;
     const activeCount = chipCount + rangeCount;
-    const moreCount = moreFiltersCount(filters, ranges);
-
-    // Closed on a fresh visit so the grid is the first thing you see; open when a filter is already
-    // applied on arrival. Only consulted below `lg`.
-    const [showFilters, setShowFilters] = useState(activeCount > 0);
-    const [showMore, setShowMore] = useState(false);
 
     const filter = useMemo(
         () => ({
@@ -182,7 +159,7 @@ export function MealsScreen() {
         return t('catalogue:meals.countSoFar', { count: items.length });
     })();
 
-    /** The removable chips the narrow toolbar shows, since the panel there is shut. */
+    /** Everything applied, as removable chips — the chip groups first, then the ranges. */
     const activeChips = useMemo(() => {
         const labelOf = (groupKey: (typeof CHIP_GROUP_KEYS)[number], value: string): string => {
             switch (groupKey) {
@@ -198,9 +175,10 @@ export function MealsScreen() {
                     return t(`marketplace:allergens.${value}`);
             }
         };
-        return CHIP_GROUP_KEYS.flatMap((groupKey) =>
+        const groups = CHIP_GROUP_KEYS.flatMap((groupKey) =>
             (selected[groupKey] ?? [])
-                .filter((value) => groupKey !== 'category' || isShownShelf(value))
+                // The shelf is a tab, and its lit tab already says so.
+                .filter(() => groupKey !== 'category')
                 .map((value) => ({
                     key: `${groupKey}-${value}`,
                     label: labelOf(groupKey, value),
@@ -212,17 +190,8 @@ export function MealsScreen() {
                     },
                 })),
         );
-    }, [selected, kitchenItems, shelves.shelves, filters, t]);
-
-    const filterPanel = (
-        <MealFilterPanel
-            filters={filters}
-            ranges={ranges}
-            shelves={shelves}
-            currency={PRICE_CURRENCY}
-            onClearAll={clearEverything}
-        />
-    );
+        return [...groups, ...rangeChips(ranges, PRICE_CURRENCY, t, formatter.formatNumber)];
+    }, [selected, kitchenItems, shelves.shelves, filters, ranges, formatter, t]);
 
     return (
         <Stack space="lg" testID="meals-screen">
@@ -241,174 +210,99 @@ export function MealsScreen() {
                 title={t('catalogue:meals.title')}
                 metaTestID="meals-count"
                 meta={countLine}
-                trailing={
-                    <View className="flex-row flex-wrap items-center gap-2">
-                        <Button
-                            testID="meals-more-filters"
-                            variant="ghost"
-                            size="sm"
-                            label={
-                                moreCount === 0
-                                    ? t('catalogue:meals.moreFilters')
-                                    : t('catalogue:meals.moreFiltersActive', { n: moreCount })
-                            }
-                            onPress={() => {
-                                setShowMore(true);
-                            }}
-                        />
-                        <Eyebrow>{t('catalogue:meals.sortLabel')}</Eyebrow>
-                        <Select
-                            testID="meals-sort"
-                            id="meals-sort"
-                            label={t('catalogue:meals.sortLabel')}
-                            labelHidden
-                            value={sort}
-                            options={MENU_SORTS.map((option) => ({
-                                value: option,
-                                label: t(`catalogue:meals.sort.${option}`),
-                            }))}
-                            onChange={(next) => {
-                                filters.select('sort', next === 'relevance' ? null : next);
-                            }}
-                            className="min-w-[180px]"
-                        />
-                    </View>
-                }
             />
 
-            {showRail ? null : (
-                <ToolbarRow
-                    testID="meals-toolbar"
-                    filtersTestID="meals-filter-toggle"
-                    filtersLabel={
-                        activeCount === 0
-                            ? t('catalogue:meals.filters')
-                            : t('catalogue:meals.filtersActive', { n: activeCount })
-                    }
-                    filtersActive={activeCount}
-                    filtersExpanded={showFilters}
-                    filtersPanelId="meals-filter-panel"
-                    onToggleFilters={() => {
-                        setShowFilters((open) => !open);
-                    }}
-                    activeFilters={activeChips}
-                    onClearAll={clearEverything}
-                    clearAllLabel={t('catalogue:filters.clear')}
-                />
-            )}
+            <CategoryTabs filters={filters} shelves={shelves} />
 
-            <View className="flex-col gap-6 lg:flex-row lg:gap-[26px]">
-                {showRail ? (
-                    /*
-                     * Pinned, as the design pins its aside. The web scroll port is the shell's
-                     * ScrollView, not the document, so the design's `top:130px` is `top-0` here —
-                     * the port's top edge already sits under the bar. `web:` keeps native in the
-                     * ordinary flow; `self-start` gives sticky room to travel.
-                     */
-                    <View
-                        testID="meals-filter-rail"
-                        className="w-full self-start lg:w-[236px] lg:shrink-0 web:sticky web:top-0"
-                    >
-                        {filterPanel}
-                    </View>
-                ) : null}
-
-                {/* `min-w-0` is load-bearing: without it React Native Web gives the column its
-                    max-content width and the page scrolls sideways at 1024. */}
-                <Stack space="md" className="min-w-0 flex-1">
-                    {showRail ? null : (
-                        <Collapse
-                            open={showFilters}
-                            nativeID="meals-filter-panel"
-                            testID="meals-filter-panel"
-                        >
-                            {filterPanel}
-                        </Collapse>
-                    )}
-
-                    <QueryStates
-                        query={meals}
-                        isEmpty={items.length === 0 && !meals.hasNextPage}
-                        emptyTitle={t('catalogue:meals.emptyTitle')}
-                        emptyBody={t('catalogue:meals.emptyBody')}
-                        emptyActions={
-                            isFiltered ? (
-                                <Button
-                                    testID="meals-empty-clear"
-                                    label={t('catalogue:filters.clear')}
-                                    onPress={clearEverything}
-                                />
-                            ) : undefined
-                        }
-                        testID="meals"
-                    >
-                        <Stack space="md">
-                            <MenuGrid testID="meals-grid">
-                                {items.map((meal) => (
-                                    <MenuMealCard
-                                        key={meal.id}
-                                        meal={meal}
-                                        onOpen={() => {
-                                            router.push(`/meals/${String(meal.id)}` as never);
-                                        }}
-                                        onAdd={() => {
-                                            basket.add(meal);
-                                        }}
-                                    />
-                                ))}
-                            </MenuGrid>
-
-                            {meals.hasNextPage ? (
-                                <View className="items-center">
-                                    <Button
-                                        testID="meals-load-more"
-                                        variant="secondary"
-                                        label={
-                                            meals.isFetchingNextPage
-                                                ? t('catalogue:meals.loadingMore')
-                                                : t('catalogue:meals.loadMore')
-                                        }
-                                        disabled={meals.isFetchingNextPage}
-                                        onPress={() => {
-                                            void meals.fetchNextPage();
-                                        }}
-                                    />
-                                </View>
-                            ) : null}
-                        </Stack>
-                    </QueryStates>
-                </Stack>
-            </View>
-
-            <MedicalDisclaimer />
-
-            <Drawer
-                testID="meals-more-filters-drawer"
-                open={showMore}
-                onClose={() => {
-                    setShowMore(false);
-                }}
-                placement={showRail ? 'end' : 'bottom'}
-                title={t('catalogue:meals.moreFilters')}
-                className={showRail ? 'w-[400px] max-w-[95vw]' : undefined}
-                footer={
-                    <Button
-                        testID="meals-more-filters-done"
-                        block
-                        label={t('catalogue:meals.moreFiltersDone')}
-                        onPress={() => {
-                            setShowMore(false);
-                        }}
-                    />
-                }
-            >
-                <MoreMealFilters
+            {/*
+             * Pinned on the web against the shell's scroll port — `top-0` sits just under the bar —
+             * so the filters stay in reach while the grid scrolls. `z-10` lifts the open menus over
+             * the cards; the wrapper is `z-auto` inside so the popovers are not trapped beneath it.
+             */}
+            <View className="z-10 flex-col gap-3 border-b border-stroke bg-surface-base pb-3 pt-1 web:sticky web:top-0">
+                <MealFilterBar
                     filters={filters}
                     ranges={ranges}
                     kitchens={kitchenItems}
                     currency={PRICE_CURRENCY}
+                    sort={sort}
+                    onSort={(next) => {
+                        filters.select('sort', next === 'relevance' ? null : next);
+                    }}
                 />
-            </Drawer>
+                {activeChips.length === 0 ? null : (
+                    <ToolbarRow
+                        testID="meals-toolbar"
+                        filtersLabel=""
+                        filtersActive={activeCount}
+                        filtersExpanded={false}
+                        filtersPanelId=""
+                        onToggleFilters={() => undefined}
+                        showFiltersToggle={false}
+                        activeFilters={activeChips}
+                        onClearAll={clearEverything}
+                        clearAllLabel={t('catalogue:filters.clear')}
+                    />
+                )}
+            </View>
+
+            {/* `min-w-0` is load-bearing: without it React Native Web gives the column its
+                max-content width and the page scrolls sideways at 1024. */}
+            <Stack space="md" className="min-w-0">
+                <QueryStates
+                    query={meals}
+                    isEmpty={items.length === 0 && !meals.hasNextPage}
+                    emptyTitle={t('catalogue:meals.emptyTitle')}
+                    emptyBody={t('catalogue:meals.emptyBody')}
+                    emptyActions={
+                        isFiltered ? (
+                            <Button
+                                testID="meals-empty-clear"
+                                label={t('catalogue:filters.clear')}
+                                onPress={clearEverything}
+                            />
+                        ) : undefined
+                    }
+                    testID="meals"
+                >
+                    <Stack space="md">
+                        <MenuGrid testID="meals-grid">
+                            {items.map((meal) => (
+                                <MenuMealCard
+                                    key={meal.id}
+                                    meal={meal}
+                                    onOpen={() => {
+                                        router.push(`/meals/${String(meal.id)}` as never);
+                                    }}
+                                    onAdd={() => {
+                                        basket.add(meal);
+                                    }}
+                                />
+                            ))}
+                        </MenuGrid>
+
+                        {meals.hasNextPage ? (
+                            <View className="items-center">
+                                <Button
+                                    testID="meals-load-more"
+                                    variant="secondary"
+                                    label={
+                                        meals.isFetchingNextPage
+                                            ? t('catalogue:meals.loadingMore')
+                                            : t('catalogue:meals.loadMore')
+                                    }
+                                    disabled={meals.isFetchingNextPage}
+                                    onPress={() => {
+                                        void meals.fetchNextPage();
+                                    }}
+                                />
+                            </View>
+                        ) : null}
+                    </Stack>
+                </QueryStates>
+            </Stack>
+
+            <MedicalDisclaimer />
 
             {basket.dialog}
         </Stack>

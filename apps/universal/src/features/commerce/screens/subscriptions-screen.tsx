@@ -53,7 +53,15 @@ const FILTER_STATES: Readonly<Record<FilterKey, readonly SubscriptionState[]>> =
     ended: ['cancelled', 'expired'],
 };
 
-export function SubscriptionsScreen() {
+export interface SubscriptionsScreenProps {
+    /**
+     * Drawn as a section of the account page rather than as a page of its own: the account's side
+     * nav already names it, so the page heading is dropped.
+     */
+    readonly embedded?: boolean | undefined;
+}
+
+export function SubscriptionsScreen({ embedded = false }: SubscriptionsScreenProps = {}) {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
@@ -77,12 +85,14 @@ export function SubscriptionsScreen() {
 
     return (
         <Stack space="lg" testID="subscriptions-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="subscriptions-title">
-                    {t('commerce:subscriptions.title')}
-                </Heading>
-                <Text tone="secondary">{t('commerce:subscriptions.body')}</Text>
-            </Stack>
+            {embedded ? null : (
+                <Stack space="xs">
+                    <Heading level={1} testID="subscriptions-title">
+                        {t('commerce:subscriptions.title')}
+                    </Heading>
+                    <Text tone="secondary">{t('commerce:subscriptions.body')}</Text>
+                </Stack>
+            )}
 
             <SegmentedControl
                 testID="subscriptions-filter"

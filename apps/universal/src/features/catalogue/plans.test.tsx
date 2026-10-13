@@ -278,12 +278,13 @@ describe('plan balance arithmetic', () => {
 /* ── /plans ──────────────────────────────────────────────────────────────────────────────────── */
 
 describe('PlansScreen — HealthZone structure', () => {
-    it('opens on the intro and links to how plans work', async () => {
+    it('opens on the title and count, and links to how plans work', async () => {
         await renderStubScreen(<PlansScreen />, { repositories: REPOSITORIES });
 
-        expect(screen.getByTestId('plans-intro')).toBeTruthy();
-        expect(screen.getByTestId('plans-title')).toBeTruthy();
-        expect(screen.queryByTestId('plans-hero')).toBeNull();
+        expect(screen.getByTestId('plans-header-title')).toHaveTextContent('Plans');
+        await waitFor(() => {
+            expect(screen.getByTestId('plans-count')).toHaveTextContent('2 plans');
+        });
 
         await fireEvent.press(screen.getByTestId('plans-how-link'));
         expect(routerMock.__push).toHaveBeenCalledWith('/plans/how-it-works');
@@ -329,9 +330,14 @@ describe('PlansScreen — HealthZone structure', () => {
         });
         expect(screen.getByTestId('plan-card-balanced-week-current')).toBeTruthy();
         expect(screen.queryByTestId('plan-card-lean-days-current')).toBeNull();
-        // The held plan offers "Manage plan" where the others offer "Choose …".
+        // The held plan offers "Manage plan" where the others offer "Choose plan", named for screen
+        // readers by the plan it chooses.
         expect(screen.queryByTestId('plan-card-balanced-week-open')).toBeNull();
-        expect(screen.getByTestId('plan-card-lean-days-open')).toHaveTextContent(/Lean days/);
+        expect(screen.getByTestId('plan-card-lean-days-open')).toHaveTextContent('Choose plan');
+        expect(screen.getByTestId('plan-card-lean-days-open')).toHaveProp(
+            'accessibilityLabel',
+            expect.stringMatching(/Lean days/),
+        );
         expect(screen.getByTestId('plans-subscriber-balance')).toHaveTextContent(/22/);
         expect(screen.getByTestId('plans-subscriber-days')).toHaveTextContent(/3/);
         // The week drawn is the one the next delivery (Monday 5 October) falls in.

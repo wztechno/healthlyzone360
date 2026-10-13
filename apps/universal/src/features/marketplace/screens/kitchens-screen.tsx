@@ -1,4 +1,12 @@
-import { Button, Checkbox, SearchInput, Select, useBreakpoint } from '@healthy360/design-system';
+import {
+    Button,
+    Icon,
+    SearchInput,
+    Select,
+    cx,
+    inputFrameClassName,
+    useBreakpoint,
+} from '@healthy360/design-system';
 import type {
     CustomerAddress,
     Kitchen,
@@ -6,7 +14,7 @@ import type {
     MealFilter,
 } from '@healthy360/api-client/contracts';
 import { DIET_CLASSIFICATIONS } from '@healthy360/domain-types';
-import type { DietClassification, SalesChannel } from '@healthy360/domain-types';
+import type { SalesChannel } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -20,8 +28,8 @@ import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
 import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
 import { useSession } from '../../../session/session-provider.tsx';
 import { Eyebrow } from '../../../ui/eyebrow.tsx';
+import { ListingHeader } from '../../../ui/listing-header.tsx';
 import { PillChip } from '../../../ui/pill-chip.tsx';
-import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { useMarketplaceFilters } from '../filter-bar.tsx';
 import { KitchenFinderCard } from '../kitchen-finder-card.tsx';
 import {
@@ -31,55 +39,45 @@ import {
     narrowByDiets,
     openToday,
     parseKitchenSort,
-    pickSpotlight,
     profileDietsOf,
     sortKitchens,
     toRows,
 } from '../kitchen-finder.ts';
 import type { KitchenSort } from '../kitchen-finder.ts';
-import { KitchenSpotlight } from '../kitchen-spotlight.tsx';
 import { QueryStates } from '../query-states.tsx';
 
 /**
- * `/kitchens` — the kitchen finder, HealthZone's `discover` screen (the header's "Kitchens").
+ * `/kitchens` — the kitchen finder (the header's "Kitchens").
  *
- * Top to bottom, as the design draws it: an intro row (eyebrow, two-line display title and lede on
- * the start side; a "Delivering to … / Change" box above the search field on the end side); a sticky
- * filter bar (diet pill chips, a divider, two checkbox toggles, SORT and its select at the end); a
- * canopy spotlight beside a three-photograph mosaic; the kitchen grid; and "Eat by goal". All of it
- * is bound to what the API answers. Where the design's data has no source, the stand-in is described
- * where it is drawn — `kitchen-finder.ts`, `kitchen-finder-card.tsx`, `kitchen-spotlight.tsx`.
+ * Top to bottom: the listing title with its count; a sticky toolbar of two rows — the search, the
+ * delivery address and the sort on one line, every filter as one row of pill chips under it; the
+ * kitchen grid; and "Eat by goal". Kept deliberately plain: one shape of control per row, every
+ * control on the row's centre line, and no prose the page does not need.
  *
  * ## The profile, the address, and who has them
  *
  * A signed-in shopper has a dietary profile and saved addresses on the account API; a visitor has
- * neither. So the lede's preference link, the "best match" order, the cards' DIET MATCH pill and
- * the delivery box read the account when there is one, and say plainly what to do when there is
- * not — "set your preferences", "Sign in to use a saved address" — in the same places and shapes.
- * The eyebrow does not repeat the design's "for 94110": the directory is not narrowed to the
- * shopper's area (an address's area and a zone's label need not match as text — see
- * `CustomerAddress.isDeliverable`), so naming the area there would claim a filter that is not on.
+ * neither. The profile only changes the default order ("best match"); the address control names the
+ * shopper's default address, or offers to add one — to the address book for a shopper, to sign-in
+ * for a visitor. The directory is not narrowed to the shopper's area (an address's area and a
+ * zone's label need not match as text — see `CustomerAddress.isDeliverable`).
  *
  * ## The search field searches kitchens, by name
  *
  * It writes `?q=`, which this screen sends as `KitchenFilter.query` — the API matches it against the
- * kitchen's name, so the placeholder says "by name" rather than the design's "kitchens or cuisines"
- * (the presenter answers `cuisines: []`, so a cuisine term could never match).
+ * kitchen's name (the presenter answers `cuisines: []`, so a cuisine term could never match).
  *
  * ## Which filters exist, and why these
  *
  * - **Diet chips** — the kitchen's own `dietClassifications`, derived from the kitchens the server
  *   query returned, so the row only offers a diet some kitchen cooks. They narrow on the client,
  *   over a directory small enough to be fetched whole ({@link DIRECTORY_LIMIT}).
- * - **"Under 30 min"** — the design's own chip: the fastest advertised delivery, on the client.
- * - **"Collection"** — a sales channel sent to the API. Kept from the first pass as one more chip at
- *   the end of the row rather than a third toggle: the chip row already mixes diets with a delivery
- *   fact and already varies in length with the data, so it costs the bar nothing. The first pass's
- *   "Delivers" toggle is not drawn — nearly every listed kitchen delivers — but `?channel=delivery`
- *   in a shared link is still honoured.
- * - **"Open today" / "Offers plans"** — the design's two toggles. "Open now" is a claim about this
- *   instant in the kitchen's time zone, which `storefront-facts.ts` explains is not reliably
- *   available on native; "today" is what the published hours can answer.
+ * - **"Under 30 min"** — the fastest advertised delivery, on the client.
+ * - **"Collection"** / **"Offers plans"** — sales channels sent to the API. `?channel=delivery` in
+ *   a shared link is still honoured, though no chip draws it: nearly every listed kitchen delivers.
+ * - **"Open today"** — "open now" is a claim about this instant in the kitchen's time zone, which
+ *   `storefront-facts.ts` explains is not reliably available on native; "today" is what the
+ *   published hours can answer.
  * - **Sort** — best match (with a profile), fastest, top rated, lowest fee, and name.
  */
 
@@ -100,13 +98,13 @@ const LISTING_CHANNELS: readonly SalesChannel[] = ['b2c', 'marketplace'];
  */
 const DIRECTORY_LIMIT = 50;
 
-/** The whole consumer directory — what the eyebrow counts and the "of N" in the list header. */
+/** The whole consumer directory — the "of N" in the count. */
 const DIRECTORY_FILTER: KitchenFilter = { channels: LISTING_CHANNELS, limit: DIRECTORY_LIMIT };
 
 const GROUP_KEYS = ['channel', 'diet', 'open', 'fast'] as const;
 const SORT_KEYS = ['sort'] as const;
 
-/** `?open=today` — the one value the "Open today" toggle writes. */
+/** `?open=today` — the one value the "Open today" chip writes. */
 const OPEN_TODAY = 'today';
 /** `?fast=30` — the one value the "Under 30 min" chip writes. */
 const FAST = '30';
@@ -114,9 +112,11 @@ const FAST = '30';
 /** How long a typed term waits before it becomes the URL's `?q=` and a request. */
 const SEARCH_DEBOUNCE_MS = 300;
 
-/** The design's grid tracks: `minmax(330px,1fr)` for kitchens, `minmax(220px,1fr)` for goals. */
-const KITCHEN_TRACK = 330;
-const GOAL_TRACK = 220;
+/**
+ * One track for both grids — `minmax(260px,1fr)` — so the kitchens and the goal tiles under them
+ * share their column lines at every width.
+ */
+const TRACK = 260;
 /** `gap-4` between cells, in the unit the measured width comes back in. */
 const GRID_GAP = 16;
 
@@ -132,8 +132,7 @@ interface Goal {
  * The collections the page closes on, each landing on a filter `/meals` already applies.
  *
  * Images are the diet heroes the manifest already carries; a key with no photograph falls back to
- * the generated pattern rather than to nothing. The design's "Clinical plans" tile has no backing
- * classification, so its place is taken by low carb, which does.
+ * the generated pattern rather than to nothing.
  */
 const GOALS: readonly Goal[] = [
     {
@@ -162,7 +161,7 @@ const GOALS: readonly Goal[] = [
     },
 ];
 
-/** The address the box names: the default one, else the first saved. */
+/** The address the control names: the default one, else the first saved. */
 function deliveryAddress(
     addresses: readonly CustomerAddress[] | undefined,
 ): CustomerAddress | null {
@@ -178,7 +177,6 @@ export function KitchensScreen() {
     const signedIn = me !== null;
     const filters = useMarketplaceFilters(GROUP_KEYS);
     const sorting = useMarketplaceFilters(SORT_KEYS);
-    const basket = useBasketAdd({ labelKey: 'marketplace:nav.kitchens', testID: 'kitchens' });
 
     // The account answers only for a signed-in shopper; a visitor's page never asks.
     const profile = useDietaryProfileQuery(signedIn);
@@ -253,119 +251,95 @@ export function KitchensScreen() {
         return sortKitchens(byHours, sort, profileDiets);
     }, [listed, selectedDiets, onlyFast, onlyOpenToday, sort, profileDiets]);
 
-    const spotlight = useMemo(
-        () => (filters.isFiltered ? null : pickSpotlight(kitchens, profileDiets)),
-        [filters.isFiltered, kitchens, profileDiets],
-    );
-
-    const loaded = query.data !== undefined;
-    const directoryLoaded = directoryQuery.data !== undefined;
-    const cookingToday = openToday(directory).length;
+    const loaded = query.data !== undefined && directoryQuery.data !== undefined;
+    const total = Math.max(directory.length, kitchens.length);
     const defaultSort = defaultKitchenSort(profileDiets);
 
-    const sortSelect = (
-        <View className="flex-row items-center gap-2">
-            <Eyebrow>{t('marketplace:kitchens.finder.sortLabel')}</Eyebrow>
-            <Select<KitchenSort>
-                testID="kitchens-sort"
-                id="kitchens-sort"
-                label={t('marketplace:kitchens.finder.sortFieldLabel')}
-                labelHidden
-                value={sort}
-                options={availableKitchenSorts(profileDiets).map((option) => ({
-                    value: option,
-                    label: t(`marketplace:kitchens.finder.sort.${option}`),
-                }))}
-                onChange={(next) => {
-                    sorting.select('sort', next === defaultSort ? null : next);
-                }}
-                className="min-w-[160px]"
-            />
-        </View>
-    );
+    const toggleChannel = (channel: SalesChannel) => {
+        filters.toggle('channel', channel, !selectedChannels.includes(channel));
+    };
 
     return (
         <View className="flex-col" testID="kitchens-screen">
-            {/* The opening: the count, the claim and the lede; the address and the search. */}
-            <View
-                testID="kitchens-intro"
-                className="flex-col gap-6 lg:flex-row lg:items-end lg:justify-between"
-            >
-                <View className="max-w-[640px] flex-col">
-                    {/* Announced rather than merely redrawn: the design's eyebrow is a live count. */}
-                    <View role="status" aria-live="polite">
-                        <Eyebrow testID="kitchens-eyebrow">
-                            {!directoryLoaded
-                                ? t('marketplace:kitchens.finder.eyebrowPending')
-                                : cookingToday > 0
-                                  ? t('marketplace:kitchens.finder.eyebrowOpen', {
-                                        count: cookingToday,
-                                    })
-                                  : t('marketplace:kitchens.finder.eyebrowListed', {
-                                        count: directory.length,
-                                    })}
-                        </Eyebrow>
-                    </View>
-                    <RNText
-                        testID="kitchens-title"
-                        accessibilityRole="header"
-                        aria-level={1}
-                        className="mt-3 font-display text-3xl font-bold leading-none tracking-display text-content-primary text-start lg:text-4xl xl:text-5xl"
-                    >
-                        {t('marketplace:kitchens.finder.title')}
-                    </RNText>
-                    <ProfileLede
-                        signedIn={signedIn}
-                        profileDiets={profileDiets}
-                        onOpen={() => {
-                            router.push((signedIn ? '/customer/account' : '/sign-in') as never);
-                        }}
-                    />
-                </View>
-                <View className="w-full flex-col gap-2 lg:w-[360px]">
-                    <AddressBox
-                        signedIn={signedIn}
-                        pending={
-                            signedIn && addresses.data === undefined && addresses.error === null
-                        }
-                        address={deliveryAddress(addresses.data)}
-                        onChange={() => {
-                            router.push(
-                                (signedIn ? '/customer/account/addresses' : '/sign-in') as never,
-                            );
-                        }}
-                    />
-                    <SearchInput
-                        testID="kitchens-search"
-                        label={t('marketplace:kitchens.finder.searchLabel')}
-                        placeholder={t('marketplace:kitchens.finder.searchPlaceholder')}
-                        value={draft}
-                        onChangeText={setDraft}
-                        onSubmitEditing={() => {
-                            setQuery(draft.trim());
-                        }}
-                        size="md"
-                    />
-                </View>
-            </View>
+            <ListingHeader
+                testID="kitchens-header"
+                title={t('marketplace:kitchens.title')}
+                metaTestID="kitchens-results-count"
+                {...(loaded
+                    ? {
+                          meta:
+                              kitchens.length === total
+                                  ? t('marketplace:kitchens.finder.count', { count: total })
+                                  : t('marketplace:kitchens.finder.countOf', {
+                                        shown: kitchens.length,
+                                        count: total,
+                                    }),
+                      }
+                    : {})}
+            />
 
             {/*
-             * The filter bar. Sticky on the web against the shell's scroll port — `top-0` pins it
-             * just under the marketplace bar, never the design's literal 115px. One row that
-             * scrolls sideways on a phone rather than wrapping into a band that eats the screen;
-             * the sort sits outside the scroller so its listbox is never clipped by it, and below
-             * `md` moves down beside the list's title.
+             * Sticky on the web against the shell's scroll port — `top-0` pins it just under the
+             * marketplace bar. The chips scroll sideways on a phone rather than wrapping into a band
+             * that eats the screen; the sort sits outside that scroller so its listbox is never
+             * clipped by it.
              */}
             <View
                 testID="kitchens-filters"
                 role="toolbar"
                 aria-label={t('marketplace:kitchens.finder.filtersLabel')}
-                className="z-10 mt-5 flex-row items-center gap-3 border-b border-stroke bg-surface-base py-3 web:sticky web:top-0"
+                className="z-10 mt-6 flex-col gap-1 border-b border-stroke bg-surface-base pb-2 pt-2 web:sticky web:top-0"
             >
+                <View className="flex-row flex-wrap items-center gap-2">
+                    <View className="min-w-[240px] flex-1">
+                        <SearchInput
+                            testID="kitchens-search"
+                            label={t('marketplace:kitchens.finder.searchLabel')}
+                            placeholder={t('marketplace:kitchens.finder.searchPlaceholder')}
+                            value={draft}
+                            onChangeText={setDraft}
+                            onSubmitEditing={() => {
+                                setQuery(draft.trim());
+                            }}
+                            size="md"
+                        />
+                    </View>
+                    <View className="w-full flex-row items-center gap-2 md:w-auto">
+                        <AddressControl
+                            signedIn={signedIn}
+                            pending={
+                                signedIn && addresses.data === undefined && addresses.error === null
+                            }
+                            address={deliveryAddress(addresses.data)}
+                            onPress={() => {
+                                router.push(
+                                    (signedIn
+                                        ? '/customer/account/addresses'
+                                        : '/sign-in') as never,
+                                );
+                            }}
+                        />
+                        <Select<KitchenSort>
+                            testID="kitchens-sort"
+                            id="kitchens-sort"
+                            label={t('marketplace:kitchens.finder.sortFieldLabel')}
+                            labelHidden
+                            value={sort}
+                            options={availableKitchenSorts(profileDiets).map((option) => ({
+                                value: option,
+                                label: t(`marketplace:kitchens.finder.sort.${option}`),
+                            }))}
+                            onChange={(next) => {
+                                sorting.select('sort', next === defaultSort ? null : next);
+                            }}
+                            className="min-w-[160px]"
+                        />
+                    </View>
+                </View>
+
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
-                    className="min-w-0 flex-1"
                     contentContainerClassName="flex-row items-center gap-2"
                 >
                     {dietOptions.map((diet) => {
@@ -391,68 +365,42 @@ export function KitchensScreen() {
                         }}
                     />
                     <PillChip
+                        testID="kitchens-filter-open-today"
+                        label={t('marketplace:kitchens.finder.toggle.openToday')}
+                        selected={onlyOpenToday}
+                        onPress={() => {
+                            filters.select('open', onlyOpenToday ? null : OPEN_TODAY);
+                        }}
+                    />
+                    <PillChip
                         testID="kitchens-filter-channel-pickup"
                         label={t('marketplace:kitchens.finder.toggle.pickup')}
                         selected={selectedChannels.includes('pickup')}
                         onPress={() => {
-                            filters.toggle(
-                                'channel',
-                                'pickup',
-                                !selectedChannels.includes('pickup'),
-                            );
+                            toggleChannel('pickup');
                         }}
                     />
-
-                    <View aria-hidden className="mx-1 h-[22px] w-px bg-stroke-strong" />
-
-                    <Checkbox
-                        testID="kitchens-filter-open-today"
-                        label={t('marketplace:kitchens.finder.toggle.openToday')}
-                        checked={onlyOpenToday}
-                        onChange={(next) => {
-                            filters.select('open', next ? OPEN_TODAY : null);
-                        }}
-                    />
-                    <Checkbox
+                    <PillChip
                         testID="kitchens-filter-channel-subscription"
                         label={t('marketplace:kitchens.finder.toggle.subscription')}
-                        checked={selectedChannels.includes('subscription')}
-                        onChange={(next) => {
-                            filters.toggle('channel', 'subscription', next);
+                        selected={selectedChannels.includes('subscription')}
+                        onPress={() => {
+                            toggleChannel('subscription');
                         }}
                     />
                 </ScrollView>
-                {atLeast('md') ? <View className="ps-3">{sortSelect}</View> : null}
             </View>
 
-            {spotlight === null ? null : (
-                <KitchenSpotlight spotlight={spotlight} profileDiets={profileDiets} />
-            )}
-
-            <View
+            <RNText
                 testID="kitchens-results"
-                className="mb-4 mt-8 flex-row flex-wrap items-baseline justify-between gap-3"
+                accessibilityRole="header"
+                aria-level={2}
+                className="mb-4 mt-8 font-display text-2xl font-bold tracking-display text-content-primary text-start"
             >
-                <RNText
-                    accessibilityRole="header"
-                    aria-level={2}
-                    className="font-display text-2xl font-bold tracking-display text-content-primary text-start"
-                >
-                    {filters.isFiltered
-                        ? t('marketplace:kitchens.finder.listMatching')
-                        : t('marketplace:kitchens.finder.listAll')}
-                </RNText>
-                {loaded && directoryLoaded ? (
-                    <Eyebrow testID="kitchens-results-count" className="tabular-nums">
-                        {t('marketplace:kitchens.finder.count', {
-                            shown: kitchens.length,
-                            count: Math.max(directory.length, kitchens.length),
-                            sort: t(`marketplace:kitchens.finder.sort.${sort}`),
-                        })}
-                    </Eyebrow>
-                ) : null}
-                {atLeast('md') ? null : <View className="w-full">{sortSelect}</View>}
-            </View>
+                {filters.isFiltered
+                    ? t('marketplace:kitchens.finder.listMatching')
+                    : t('marketplace:kitchens.finder.listAll')}
+            </RNText>
 
             <QueryStates
                 query={query}
@@ -472,36 +420,25 @@ export function KitchensScreen() {
             >
                 <TrackGrid
                     testID="kitchens-grid"
-                    track={KITCHEN_TRACK}
-                    fallback={atLeast('xl') ? 3 : atLeast('md') ? 2 : 1}
+                    track={TRACK}
+                    fallback={atLeast('lg') ? 4 : atLeast('sm') ? 2 : 1}
                 >
                     {kitchens.map((kitchen) => (
-                        <KitchenFinderCard
-                            key={String(kitchen.id)}
-                            kitchen={kitchen}
-                            onAdd={basket.add}
-                            profileDiets={profileDiets}
-                        />
+                        <KitchenFinderCard key={String(kitchen.id)} kitchen={kitchen} />
                     ))}
                 </TrackGrid>
             </QueryStates>
 
-            <View testID="kitchens-goals" className="mt-10 flex-col gap-4">
-                <View
-                    testID="kitchens-goals-header"
-                    className="flex-row flex-wrap items-baseline justify-between gap-2"
+            <View testID="kitchens-goals" className="mt-12 flex-col gap-4">
+                <RNText
+                    accessibilityRole="header"
+                    aria-level={2}
+                    className="font-display text-2xl font-bold tracking-display text-content-primary text-start"
                 >
-                    <RNText
-                        accessibilityRole="header"
-                        aria-level={2}
-                        className="font-display text-2xl font-bold tracking-display text-content-primary text-start"
-                    >
-                        {t('marketplace:kitchens.finder.goalsTitle')}
-                    </RNText>
-                    <Eyebrow>{t('marketplace:kitchens.finder.goalsMeta')}</Eyebrow>
-                </View>
+                    {t('marketplace:kitchens.finder.goalsTitle')}
+                </RNText>
                 <TrackGrid
-                    track={GOAL_TRACK}
+                    track={TRACK}
                     max={GOALS.length}
                     fallback={atLeast('lg') ? 4 : atLeast('sm') ? 2 : 1}
                 >
@@ -516,123 +453,73 @@ export function KitchensScreen() {
                     ))}
                 </TrackGrid>
             </View>
-
-            {basket.dialog}
         </View>
     );
 }
 
 /**
- * The lede: "Matched against your profile — high protein · vegan. Every dish lists …", the diets
- * a link to where they are set. Without a profile it says so in the same sentence and the link
- * reads "set your preferences" — to the account for a shopper, to sign-in for a visitor.
+ * The delivery address, drawn as a field so it sits level with the search beside it: a pin, the
+ * shopper's default saved address (else the first) and "Change"; with none saved — or for a
+ * visitor — "Add delivery address". One press target, to the address book or to sign-in. Nothing
+ * here invents an address.
  */
-function ProfileLede({
-    signedIn,
-    profileDiets,
-    onOpen,
-}: {
-    readonly signedIn: boolean;
-    readonly profileDiets: readonly DietClassification[];
-    readonly onOpen: () => void;
-}) {
-    const { t } = useTranslation();
-    const hasProfile = signedIn && profileDiets.length > 0;
-    const link = hasProfile
-        ? profileDiets
-              .map((diet) => t(`marketplace:diets.${diet}`).toLocaleLowerCase())
-              .join(t('marketplace:kitchens.areaSeparator'))
-        : t('marketplace:kitchens.finder.ledeSetPreferences');
-
-    return (
-        <RNText
-            testID="kitchens-lede"
-            className="mt-2.5 max-w-[540px] text-base leading-relaxed text-content-secondary text-start"
-        >
-            {hasProfile
-                ? t('marketplace:kitchens.finder.ledeMatched')
-                : t('marketplace:kitchens.finder.ledeUnmatched')}
-            <RNText
-                testID="kitchens-lede-preferences"
-                role="link"
-                accessibilityRole="link"
-                onPress={onOpen}
-                className="font-semibold text-content-on-brand-subtle"
-            >
-                {link}
-            </RNText>
-            {t('marketplace:kitchens.finder.ledeTail')}
-        </RNText>
-    );
-}
-
-/**
- * "Delivering to 1420 Valencia St · Change". The shopper's default saved address (else the first),
- * with Change opening the address book; with none saved, an "Add" in the same place; for a visitor,
- * a sign-in in the same place — nothing here invents an address.
- */
-function AddressBox({
+function AddressControl({
     signedIn,
     pending,
     address,
-    onChange,
+    onPress,
 }: {
     readonly signedIn: boolean;
     readonly pending: boolean;
     readonly address: CustomerAddress | null;
-    readonly onChange: () => void;
+    readonly onPress: () => void;
 }) {
     const { t } = useTranslation();
-    const value = !signedIn
-        ? null
-        : pending
-          ? t('marketplace:kitchens.finder.addressPending')
-          : address === null
-            ? t('marketplace:kitchens.finder.addressNone')
-            : address.line1;
-    const action = !signedIn
-        ? t('marketplace:kitchens.finder.addressSignIn')
-        : address === null
-          ? t('marketplace:kitchens.finder.addressAdd')
-          : t('marketplace:kitchens.finder.addressChange');
+    const value = pending
+        ? t('marketplace:kitchens.finder.addressPending')
+        : signedIn && address !== null
+          ? address.line1
+          : null;
 
     return (
-        <View
+        <Pressable
             testID="kitchens-address"
-            className="flex-row items-center justify-between gap-2.5 rounded-lg border border-stroke-strong bg-surface-raised px-3.5"
+            role="link"
+            accessibilityRole="link"
+            accessibilityLabel={
+                value === null
+                    ? t('marketplace:kitchens.finder.addressAdd')
+                    : t('marketplace:kitchens.finder.deliveringTo', { address: value })
+            }
+            disabled={pending}
+            onPress={onPress}
+            className={cx(
+                inputFrameClassName({ invalid: false, focused: false, disabled: false }),
+                'min-w-0 flex-1 hover:border-stroke-strong md:w-[260px] md:flex-none',
+            )}
         >
+            <Icon name="mapPin" size="md" className="text-content-secondary" />
             <RNText
                 testID="kitchens-address-value"
                 numberOfLines={1}
-                className="min-w-0 shrink py-2.5 text-sm text-content-secondary text-start"
+                className={
+                    value === null
+                        ? 'min-w-0 flex-1 text-sm font-medium text-content-on-brand-subtle text-start'
+                        : 'min-w-0 flex-1 text-sm font-medium text-content-primary text-start'
+                }
             >
-                {value === null ? (
-                    t('marketplace:kitchens.finder.addressSignedOut')
-                ) : (
-                    <>
-                        {t('marketplace:kitchens.finder.deliveringTo')}
-                        <RNText className="font-semibold text-content-primary">{value}</RNText>
-                    </>
-                )}
+                {value ?? t('marketplace:kitchens.finder.addressAdd')}
             </RNText>
-            {pending ? null : (
-                <Pressable
-                    testID="kitchens-address-change"
-                    role="link"
-                    accessibilityRole="link"
-                    onPress={onChange}
-                    className="min-h-touch justify-center"
-                >
-                    <RNText className="text-sm font-semibold text-content-on-brand-subtle">
-                        {action}
-                    </RNText>
-                </Pressable>
+            {value === null || pending ? null : (
+                <RNText className="text-sm font-semibold text-content-on-brand-subtle">
+                    {t('marketplace:kitchens.finder.addressChange')}
+                </RNText>
             )}
-        </View>
+        </Pressable>
     );
 }
 
-/** One "Eat by goal" tile — photograph, title, line, and the real meal count where the API has one. */
+/** One "Eat by goal" tile — photograph, title, and the real meal count where the API has one. */
 function GoalCard({ goal, onOpen }: { readonly goal: Goal; readonly onOpen: () => void }) {
     const { t } = useTranslation();
     const total = totalFromPages(useMealsQuery(goal.filter).data?.pages);
@@ -661,13 +548,10 @@ function GoalCard({ goal, onOpen }: { readonly goal: Goal; readonly onOpen: () =
                 <RNText className="font-display text-base font-bold tracking-display text-content-primary text-start">
                     {title}
                 </RNText>
-                <RNText className="text-sm leading-normal text-content-secondary text-start">
-                    {t(`marketplace:kitchens.finder.goal.${goal.key}.body`)}
-                </RNText>
                 <Eyebrow
                     testID={`kitchens-goal-${goal.key}-count`}
                     tone="brand"
-                    className="mt-1 tabular-nums"
+                    className="tabular-nums"
                 >
                     {total === null
                         ? t('marketplace:kitchens.finder.goalAction')

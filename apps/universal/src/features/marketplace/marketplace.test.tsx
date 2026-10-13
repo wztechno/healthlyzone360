@@ -34,11 +34,10 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { queryKeys } from '../../data/query-keys.ts';
 import { consumerNavigation, marketplaceNavigation } from '../../navigation/consumer-items.ts';
 import { ConsumerShell } from '../../shell/consumer-shell.tsx';
-import { testMeResponse } from '../../testing/session-fixtures.ts';
+import { kitchenManagerSession, testMeResponse } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { clearResumeIntent, getResumeIntent, recordResumeIntent } from './resume-intent.ts';
-import { ConsumerHomeScreen } from './screens/consumer-home-screen.tsx';
 import { DietitianProfileScreen } from './screens/dietitian-profile-screen.tsx';
 import { DietitiansScreen } from './screens/dietitians-screen.tsx';
 import { DiscoverScreen } from './screens/discover-screen.tsx';
@@ -47,7 +46,6 @@ import { HowItWorksScreen } from './screens/how-it-works-screen.tsx';
 import { KitchenMenuScreen } from './screens/kitchen-menu-screen.tsx';
 import { KitchenProfileScreen } from './screens/kitchen-profile-screen.tsx';
 import { KitchensScreen } from './screens/kitchens-screen.tsx';
-import { PublicLandingScreen } from './screens/public-landing-screen.tsx';
 import type * as ShownShelves from '../catalogue/shown-shelves.ts';
 
 /**
@@ -519,74 +517,6 @@ const ACTIVE_SUBSCRIPTION: Subscription = {
 
 /** The session the two signed-in surfaces below see: a consumer, no memberships. */
 const CONSUMER_SESSION = testMeResponse();
-
-/* ── public landing ──────────────────────────────────────────────────────────────────────────── */
-
-describe('PublicLandingScreen', () => {
-    /*
-     * The landing is the storefront home in full: the hero names the top-rated dish, the grid
-     * below opens with that same dish, and the hero's calls go to the catalogue and the explainer.
-     */
-    it('opens with the storefront home, its hero naming the dish the grid opens with', async () => {
-        await renderStubScreen(<PublicLandingScreen />, {
-            repositories: { marketplace: { listMeals } },
-        });
-
-        await waitFor(() => {
-            expect(screen.getByTestId('meal-card-verdant-harvest-bowl')).toBeTruthy();
-        });
-        expect(screen.getByTestId('landing-hero-overlay')).toHaveTextContent(/Harvest bowl/);
-        expect(screen.getByTestId('meal-card-verdant-harvest-bowl-tag')).toHaveTextContent(
-            "Today's hero",
-        );
-        expect(screen.getByTestId('landing-categories')).toBeTruthy();
-        expect(screen.getByTestId('landing-closing')).toBeTruthy();
-
-        await fireEvent.press(screen.getByTestId('landing-browse-meals'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/meals');
-
-        await fireEvent.press(screen.getByTestId('landing-how-it-works'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/how-it-works');
-    });
-
-    /*
-     * The design's delivery-slot eyebrow and "All 48 meals", made true: both count the whole
-     * prepared-meal listing — the sauce is a product and is not counted.
-     */
-    it('counts the catalogue into the hero eyebrow, the header link and every tile', async () => {
-        await renderStubScreen(<PublicLandingScreen />, {
-            repositories: { marketplace: { listMeals: listShelvedMeals } },
-        });
-
-        expect(screen.getByTestId('landing-category-skeleton-1')).toBeTruthy();
-
-        await waitFor(() => screen.getByTestId('landing-category-bowls'));
-        expect(screen.queryByTestId('landing-category-skeleton-1')).toBeNull();
-        expect(screen.getByTestId('landing-hero-eyebrow')).toHaveTextContent(
-            'From 1 kitchen · 2 meals on the menu',
-        );
-        expect(screen.getByTestId('landing-categories-header-action')).toHaveTextContent(
-            'All 2 meals →',
-        );
-        expect(screen.getByTestId('landing-category-bowls')).toHaveTextContent(/Bowls/);
-        expect(screen.getByTestId('landing-category-bowls')).toHaveTextContent(/1 meal$/);
-        expect(screen.getByTestId('landing-category-soups')).toHaveTextContent(/1 meal$/);
-        // Only shelves that hold a prepared meal get a tile; meal type is never one.
-        expect(screen.queryByTestId('landing-category-lunch')).toBeNull();
-    });
-
-    it('offers Add to a visitor with no account, and asks how to continue', async () => {
-        await renderStubScreen(<PublicLandingScreen />, {
-            repositories: { marketplace: { listMeals } },
-        });
-
-        await waitFor(() => screen.getByTestId('meal-card-verdant-harvest-bowl-add'));
-        await fireEvent.press(screen.getByTestId('meal-card-verdant-harvest-bowl-add'));
-
-        await waitFor(() => screen.getByTestId('landing-guest-continue'));
-        expect(screen.getByTestId('landing-guest-sign-in')).toBeTruthy();
-    });
-});
 
 /* ── kitchen directory ───────────────────────────────────────────────────────────────────────── */
 
@@ -1599,15 +1529,71 @@ function testOrder(mealName: string): PlacedOrder {
     };
 }
 
-/* ── consumer home ───────────────────────────────────────────────────────────────────────────── */
+/* ── discover as the only home ───────────────────────────────────────────────────────────────── */
 
-describe('ConsumerHomeScreen', () => {
+/*
+ * `/` and `/customer` both forward to Discover now. These are the cases the two screens they used
+ * to render covered, asserted on the one page that is left.
+ */
+describe('DiscoverScreen as the only home', () => {
+    /*
+     * The design's delivery-slot eyebrow and "All 48 meals", made true: both count the whole
+     * prepared-meal listing — the sauce is a product and is not counted.
+     */
+    it('counts the catalogue into the hero eyebrow, the header link and every tile', async () => {
+        await renderStubScreen(<DiscoverScreen />, {
+            repositories: { marketplace: { listMeals: listShelvedMeals } },
+        });
+
+        expect(screen.getByTestId('discover-category-skeleton-1')).toBeTruthy();
+
+        await waitFor(() => screen.getByTestId('discover-category-bowls'));
+        expect(screen.queryByTestId('discover-category-skeleton-1')).toBeNull();
+        expect(screen.getByTestId('discover-hero-eyebrow')).toHaveTextContent(
+            'From 1 kitchen · 2 meals on the menu',
+        );
+        expect(screen.getByTestId('discover-categories-header-action')).toHaveTextContent(
+            'All 2 meals →',
+        );
+        expect(screen.getByTestId('discover-category-bowls')).toHaveTextContent(/1 meal$/);
+        expect(screen.getByTestId('discover-category-soups')).toHaveTextContent(/1 meal$/);
+        // Only shelves that hold a prepared meal get a tile; meal type is never one.
+        expect(screen.queryByTestId('discover-category-lunch')).toBeNull();
+    });
+
+    it('offers Add to a visitor with no account, and asks how to continue', async () => {
+        await renderStubScreen(<DiscoverScreen />, {
+            repositories: { marketplace: { listMeals } },
+        });
+
+        await waitFor(() => screen.getByTestId('meal-card-verdant-harvest-bowl-add'));
+        await fireEvent.press(screen.getByTestId('meal-card-verdant-harvest-bowl-add'));
+
+        await waitFor(() => screen.getByTestId('discover-guest-continue'));
+        expect(screen.getByTestId('discover-guest-sign-in')).toBeTruthy();
+    });
+
+    /* A visitor's page is the storefront and nothing else: none of an account's extras. */
+    it('shows a visitor none of the signed-in extras', async () => {
+        recordResumeIntent({ href: '/kitchens', labelKey: 'marketplace:nav.kitchens' });
+
+        const { repositories } = await renderStubScreen(<DiscoverScreen />, {
+            repositories: { marketplace: { listMeals } },
+        });
+
+        await waitFor(() => screen.getByTestId('meal-card-verdant-harvest-bowl'));
+        expect(screen.queryByTestId('discover-resume')).toBeNull();
+        expect(screen.queryByTestId('discover-links')).toBeNull();
+        expect(screen.queryByTestId('medical-disclaimer')).toBeNull();
+        expect(repositories.commerce.listSubscriptions).not.toHaveBeenCalled();
+    });
+
     /*
      * The running subscription takes the offer band — the design's brand-subtle panel — and the
      * band's button manages it. Its next delivery is the hero's eyebrow.
      */
     it('puts the running subscription in the offer band, managed from its button', async () => {
-        await renderStubScreen(<ConsumerHomeScreen />, {
+        await renderStubScreen(<DiscoverScreen />, {
             session: CONSUMER_SESSION,
             repositories: {
                 commerce: { listSubscriptions: async () => page([ACTIVE_SUBSCRIPTION]) },
@@ -1616,23 +1602,23 @@ describe('ConsumerHomeScreen', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('consumer-offer-title')).toHaveTextContent('Balanced week');
+            expect(screen.getByTestId('discover-offer-title')).toHaveTextContent('Balanced week');
         });
-        expect(screen.getByTestId('consumer-offer-eyebrow')).toHaveTextContent(
+        expect(screen.getByTestId('discover-offer-eyebrow')).toHaveTextContent(
             'Your subscription · Active',
         );
-        expect(screen.getByTestId('consumer-offer-body')).toHaveTextContent(/August/);
-        expect(screen.getByTestId('consumer-hero-eyebrow')).toHaveTextContent(/August/);
+        expect(screen.getByTestId('discover-offer-body')).toHaveTextContent(/August/);
+        expect(screen.getByTestId('discover-hero-eyebrow')).toHaveTextContent(/August/);
         expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
 
-        await fireEvent.press(screen.getByTestId('consumer-subscription-manage'));
+        await fireEvent.press(screen.getByTestId('discover-subscription-manage'));
         expect(routerMock.__push).toHaveBeenCalledWith(
             `/customer/subscriptions/${String(ACTIVE_SUBSCRIPTION.id)}`,
         );
     });
 
     it('keeps the plans offer in the band for somebody with no subscription', async () => {
-        await renderStubScreen(<ConsumerHomeScreen />, {
+        await renderStubScreen(<DiscoverScreen />, {
             session: CONSUMER_SESSION,
             repositories: {
                 commerce: { listSubscriptions: async () => page([]) },
@@ -1641,17 +1627,15 @@ describe('ConsumerHomeScreen', () => {
         });
 
         await waitFor(() => screen.getByTestId('meal-card-verdant-harvest-bowl'));
-        expect(screen.queryByTestId('consumer-subscription-manage')).toBeNull();
-        await fireEvent.press(screen.getByTestId('consumer-offer-action'));
+        expect(screen.queryByTestId('discover-subscription-manage')).toBeNull();
+        await fireEvent.press(screen.getByTestId('discover-offer-action'));
         expect(routerMock.__push).toHaveBeenCalledWith('/plans');
     });
 
-    /*
-     * With the sidebar gone, the home is where the account's destinations live. They come from the
-     * navigation table — so only the ones with a backend — less the three the header carries.
-     */
-    it('links every account destination the header does not already carry', async () => {
-        await renderStubScreen(<ConsumerHomeScreen />, {
+    // The account's tiles are gone: the header's account icon opens the account page, which holds
+    // subscriptions, and staff reach their profile from their own header icon.
+    it('closes on no account tiles once signed in', async () => {
+        await renderStubScreen(<DiscoverScreen />, {
             session: CONSUMER_SESSION,
             repositories: {
                 commerce: { listSubscriptions: async () => page([]) },
@@ -1659,41 +1643,14 @@ describe('ConsumerHomeScreen', () => {
             },
         });
 
-        for (const [key, href] of [
-            ['subscriptions', '/customer/subscriptions'],
-            ['account', '/customer/account'],
-            ['profile', '/profile'],
-        ] as const) {
-            await fireEvent.press(screen.getByTestId(`consumer-link-${key}`));
-            expect(routerMock.__push).toHaveBeenCalledWith(href);
-        }
-        for (const key of ['home', 'discover', 'cart', 'planner', 'nutrition']) {
-            expect(screen.queryByTestId(`consumer-link-${key}`)).toBeNull();
-        }
-    });
-
-    it('is the storefront home, with Add on the cards', async () => {
-        await renderStubScreen(<ConsumerHomeScreen />, {
-            session: CONSUMER_SESSION,
-            repositories: {
-                commerce: { listSubscriptions: async () => page([]) },
-                marketplace: { listMeals: listShelvedMeals },
-            },
-        });
-
-        await waitFor(() => screen.getByTestId('meal-card-verdant-harvest-bowl-add'));
-        expect(screen.getByTestId('consumer-hero-title')).toHaveTextContent(/Real food/);
-        expect(screen.getByTestId('consumer-hero-overlay')).toHaveTextContent(/Harvest bowl/);
-
-        await waitFor(() => screen.getByTestId('consumer-category-soups'));
-        await fireEvent.press(screen.getByTestId('consumer-category-soups'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/meals?category=soups');
+        await waitFor(() => screen.getByTestId('discover-hero'));
+        expect(screen.queryByTestId('discover-links')).toBeNull();
     });
 
     it('offers to resume a marketplace page recorded before sign-in', async () => {
         recordResumeIntent({ href: '/kitchens', labelKey: 'marketplace:nav.kitchens' });
 
-        await renderStubScreen(<ConsumerHomeScreen />, {
+        await renderStubScreen(<DiscoverScreen />, {
             session: CONSUMER_SESSION,
             repositories: {
                 commerce: { listSubscriptions: async () => page([]) },
@@ -1701,8 +1658,9 @@ describe('ConsumerHomeScreen', () => {
             },
         });
 
-        expect(screen.getByTestId('consumer-resume')).toBeTruthy();
-        await fireEvent.press(screen.getByTestId('consumer-resume-continue'));
+        // Shown once the session has restored: the notice is a signed-in person's.
+        expect(await screen.findByTestId('discover-resume')).toBeTruthy();
+        await fireEvent.press(screen.getByTestId('discover-resume-continue'));
         expect(routerMock.__push).toHaveBeenCalledWith('/kitchens');
         expect(getResumeIntent()).toBeNull();
     });
@@ -1717,7 +1675,6 @@ describe('navigation descriptors', () => {
             .sort();
 
         expect([...new Set(offered)]).toEqual([
-            '/customer',
             '/customer/cart',
             '/customer/subscriptions',
             '/discover',
@@ -1748,6 +1705,27 @@ describe('ConsumerShell', () => {
         // The session restores asynchronously; the basket is offered once it has.
         await fireEvent.press(await screen.findByTestId('marketplace-basket'));
         expect(routerMock.__push).toHaveBeenCalledWith('/customer/cart');
+
+        // The account is one icon straight to the account page — no menu in between.
+        expect(screen.queryByTestId('marketplace-account-menu')).toBeNull();
+        await fireEvent.press(screen.getByTestId('marketplace-account'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account');
+        expect(screen.getByTestId('locale-toggle')).toBeTruthy();
+        expect(screen.getByTestId('theme-toggle')).toBeTruthy();
+        // A plain customer has no staff workspace, so no staff profile icon.
+        expect(screen.queryByTestId('marketplace-staff-profile')).toBeNull();
+    });
+
+    it('gives staff a second icon, to their staff profile', async () => {
+        await renderStubScreen(
+            <ConsumerShell unguarded>
+                <></>
+            </ConsumerShell>,
+            { session: kitchenManagerSession() },
+        );
+
+        await fireEvent.press(await screen.findByTestId('marketplace-staff-profile'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/profile');
         expect(screen.queryByTestId('prototype-notice')).toBeNull();
     });
 });

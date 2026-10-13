@@ -2477,32 +2477,35 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         testID={id('sidebar-shell')}
                         variant="workspace"
                         title="Kitchen workspace"
-                        navigation={[
-                            // Listed first, so it sits above Overview; its panel runs in sections.
+                        // The workspace switcher: the bottom bar under the page, not a rail module.
+                        bottomNavigation={[
                             {
                                 key: 'area-customer',
                                 label: 'Home',
-                                group: 'Workspace',
-                                groupIcon: 'layers',
-                                section: 'Workspaces',
+                                icon: 'store',
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'area-kitchen',
+                                label: 'Kitchen',
+                                icon: 'utensils',
+                                active: true,
                                 onPress: () => undefined,
                             },
                             {
                                 key: 'area-kds',
                                 label: 'Kitchen display',
-                                group: 'Workspace',
-                                groupIcon: 'layers',
-                                section: 'Workspaces',
+                                icon: 'monitor',
                                 onPress: () => undefined,
                             },
                             {
                                 key: 'profile',
                                 label: 'Profile',
-                                group: 'Workspace',
-                                groupIcon: 'layers',
-                                section: 'Account',
+                                icon: 'userCircle',
                                 onPress: () => undefined,
                             },
+                        ]}
+                        navigation={[
                             {
                                 key: 'home',
                                 label: 'Overview',
@@ -4578,6 +4581,17 @@ export function ShowcaseScreen() {
 
                     <Popover
                         testID="showcase-popover"
+                        triggerLabel={t('designSystem:showcase.popoverTrigger')}
+                        triggerText={t('designSystem:showcase.popoverTrigger')}
+                        title={t('designSystem:showcase.popoverTitle')}
+                    >
+                        <Text variant="caption">{t('designSystem:showcase.popoverBody')}</Text>
+                    </Popover>
+                    <Popover
+                        testID="showcase-popover-menu"
+                        triggerVariant="button"
+                        triggerIcon="chevronDown"
+                        triggerIconPosition="end"
                         triggerLabel={t('designSystem:showcase.popoverTrigger')}
                         triggerText={t('designSystem:showcase.popoverTrigger')}
                         title={t('designSystem:showcase.popoverTitle')}

@@ -28,7 +28,6 @@ import { View } from 'react-native';
 import { mealsFromPages, useMealsQuery, usePlanQuery } from '../../../data/catalogue-hooks.ts';
 import { discountedTotalMinorUnits, weeksFor } from '../../commerce/configurator.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
-import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { useSession } from '../../../session/session-provider.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
@@ -42,10 +41,11 @@ import { MealCard } from '../../marketplace/meal-card.tsx';
  * ## Cards at a reading width, the price beside them
  *
  * The page is held to {@link PAGE_MAX_WIDTH} and centred, and each part of the plan is its own card:
- * the overview (a small picture beside the name rather than a full-width banner), the band, what
- * arrives each day, the macros when the band publishes any, the durations, the sample week and the
- * delivery note. From `lg` the price and the call to action sit in a card beside them that stays in
- * view; below it, that card follows the content.
+ * the overview (a small picture beside the name rather than a full-width banner), the band with
+ * what arrives each day, the macros when the band publishes any, the durations, and the sample week
+ * when the plan publishes one. Each card is its title and its data — no sentence explaining it. From
+ * `lg` the price and the call to action sit in a card beside them that stays in view; below it,
+ * that card follows the content.
  *
  * ## Marketing above, transaction below, and never interleaved
  *
@@ -293,21 +293,24 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                     tone="raised"
                                     padding="md"
                                     title={t('catalogue:plan.variantsTitle')}
-                                    subtitle={t('catalogue:plan.variantsBody')}
                                 >
                                     <Stack space="sm">
-                                        <SegmentedControl
-                                            testID="plan-detail-variant-picker"
-                                            label={t('catalogue:plan.variantsTitle')}
-                                            block
-                                            value={String(selected.id)}
-                                            onChange={setVariantId}
-                                            items={item.variants.map((variant) => ({
-                                                value: String(variant.id),
-                                                label: variant.name,
-                                                testID: `plan-detail-variant-${String(variant.id)}`,
-                                            }))}
-                                        />
+                                        {/* One band is an answer, not a choice: a lone segment
+                                            asks a question nobody can answer differently. */}
+                                        {item.variants.length > 1 ? (
+                                            <SegmentedControl
+                                                testID="plan-detail-variant-picker"
+                                                label={t('catalogue:plan.variantsTitle')}
+                                                block
+                                                value={String(selected.id)}
+                                                onChange={setVariantId}
+                                                items={item.variants.map((variant) => ({
+                                                    value: String(variant.id),
+                                                    label: variant.name,
+                                                    testID: `plan-detail-variant-${String(variant.id)}`,
+                                                }))}
+                                            />
+                                        ) : null}
                                         <Text testID="plan-detail-variant-band">
                                             {t('catalogue:plan.variantLabel', {
                                                 name: selected.name,
@@ -319,34 +322,26 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                                 ),
                                             })}
                                         </Text>
+                                        <Inline space="xs" wrap testID="plan-detail-combination">
+                                            <Badge
+                                                tone="neutral"
+                                                label={t('catalogue:plan.combinationMeals', {
+                                                    count: selected.mealsPerDay,
+                                                })}
+                                            />
+                                            <Badge
+                                                testID="plan-detail-snacks"
+                                                tone="neutral"
+                                                label={
+                                                    selected.snacksPerDay === 0
+                                                        ? t('catalogue:plan.combinationNoSnacks')
+                                                        : t('catalogue:plan.combinationSnacks', {
+                                                              count: selected.snacksPerDay,
+                                                          })
+                                                }
+                                            />
+                                        </Inline>
                                     </Stack>
-                                </Card>
-
-                                <Card
-                                    testID="plan-detail-combination"
-                                    tone="raised"
-                                    padding="md"
-                                    title={t('catalogue:plan.combinationTitle')}
-                                >
-                                    <Inline space="xs" wrap>
-                                        <Badge
-                                            tone="neutral"
-                                            label={t('catalogue:plan.combinationMeals', {
-                                                count: selected.mealsPerDay,
-                                            })}
-                                        />
-                                        <Badge
-                                            testID="plan-detail-snacks"
-                                            tone="neutral"
-                                            label={
-                                                selected.snacksPerDay === 0
-                                                    ? t('catalogue:plan.combinationNoSnacks')
-                                                    : t('catalogue:plan.combinationSnacks', {
-                                                          count: selected.snacksPerDay,
-                                                      })
-                                            }
-                                        />
-                                    </Inline>
                                 </Card>
 
                                 {/* Only when the band publishes a figure: a card of nothing but its
@@ -359,7 +354,6 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                         tone="raised"
                                         padding="md"
                                         title={t('catalogue:plan.macrosTitle')}
-                                        subtitle={t('catalogue:plan.macrosBody')}
                                     >
                                         <Stack space="sm">
                                             {macroRanges(selected).map((entry) =>
@@ -388,9 +382,6 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                                     />
                                                 ),
                                             )}
-                                            <Text tone="secondary" variant="caption">
-                                                {t('catalogue:compare.macroCaveat')}
-                                            </Text>
                                         </Stack>
                                     </Card>
                                 )}
@@ -400,7 +391,6 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                     tone="raised"
                                     padding="md"
                                     title={t('catalogue:plan.durationsTitle')}
-                                    subtitle={t('catalogue:plan.durationsBody')}
                                 >
                                     {/* One hairline row per length: the length, its total, and
                                         what the commitment earns, read across like a price list. */}
@@ -449,67 +439,34 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                     </View>
                                 </Card>
 
-                                <Card
-                                    testID="plan-detail-sample-menu"
-                                    tone="raised"
-                                    padding="md"
-                                    title={t('catalogue:plan.sampleMenuTitle')}
-                                    subtitle={t('catalogue:plan.sampleMenuBody')}
-                                >
-                                    {/* A settled read with nothing to show is one quiet line in
-                                        the card, not a full empty state inside it. */}
-                                    {kitchenMeals.isSuccess && sampleMeals.length === 0 ? (
-                                        <Text
-                                            testID="plan-detail-sample-none"
-                                            tone="secondary"
-                                            variant="caption"
-                                        >
-                                            {t('catalogue:plan.sampleMenuEmpty')}
-                                        </Text>
-                                    ) : (
-                                        <QueryStates
-                                            query={kitchenMeals}
-                                            isEmpty={sampleMeals.length === 0}
-                                            emptyTitle={t('catalogue:plan.sampleMenuEmpty')}
-                                            skeletonCount={2}
-                                            testID="plan-detail-sample"
-                                        >
-                                            <CardGrid testID="plan-detail-sample-grid">
-                                                {sampleMeals.map((meal) => (
-                                                    <CardGridItem key={meal.id}>
-                                                        <MealCard
-                                                            meal={meal}
-                                                            onPress={() => {
-                                                                router.push(
-                                                                    `/meals/${String(meal.id)}` as never,
-                                                                );
-                                                            }}
-                                                            onAdd={() => {
-                                                                basket.add(meal);
-                                                            }}
-                                                        />
-                                                    </CardGridItem>
-                                                ))}
-                                            </CardGrid>
-                                        </QueryStates>
-                                    )}
-                                </Card>
-
-                                <Card
-                                    testID="plan-detail-delivery"
-                                    tone="raised"
-                                    padding="md"
-                                    title={t('catalogue:plan.deliveryTitle')}
-                                >
-                                    <Stack space="xs">
-                                        <Text>{t('catalogue:plan.deliveryBody')}</Text>
-                                        <Text tone="secondary" variant="caption">
-                                            {t('catalogue:plan.deliveryUnpublished')}
-                                        </Text>
-                                    </Stack>
-                                </Card>
-
-                                <MedicalDisclaimer />
+                                {/* Only once the plan's dishes have loaded: a card that says a sample is
+                                    not published tells the reader nothing they can act on. */}
+                                {sampleMeals.length === 0 ? null : (
+                                    <Card
+                                        testID="plan-detail-sample-menu"
+                                        tone="raised"
+                                        padding="md"
+                                        title={t('catalogue:plan.sampleMenuTitle')}
+                                    >
+                                        <CardGrid testID="plan-detail-sample-grid">
+                                            {sampleMeals.map((meal) => (
+                                                <CardGridItem key={meal.id}>
+                                                    <MealCard
+                                                        meal={meal}
+                                                        onPress={() => {
+                                                            router.push(
+                                                                `/meals/${String(meal.id)}` as never,
+                                                            );
+                                                        }}
+                                                        onAdd={() => {
+                                                            basket.add(meal);
+                                                        }}
+                                                    />
+                                                </CardGridItem>
+                                            ))}
+                                        </CardGrid>
+                                    </Card>
+                                )}
                             </View>
 
                             <View
@@ -583,10 +540,6 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                                 router.push('/sign-in');
                                             }}
                                         />
-
-                                        <Text tone="secondary" variant="caption">
-                                            {t('catalogue:plan.priceBothUnits')}
-                                        </Text>
                                     </Stack>
                                 </Card>
                             </View>

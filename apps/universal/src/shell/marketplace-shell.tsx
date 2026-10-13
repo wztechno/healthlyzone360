@@ -2,12 +2,12 @@ import {
     AppShell,
     Button,
     Icon,
+    IconButton,
     Inline,
     OfflineIndicator,
     Stack,
     Text,
     inputControlClassName,
-    Menu,
     inputFrameClassName,
     useBreakpoint,
     useTheme,
@@ -21,13 +21,15 @@ import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, Text as RNText, TextInput, View } from 'react-native';
 
 import { recordResumeIntent } from '../features/marketplace/resume-intent.ts';
-import { useLogoutMutation } from '../data/hooks.ts';
 import { useCartQuery } from '../data/marketplace-hooks.ts';
 import { isPathAvailable } from '../features/availability.ts';
 import { QUERY_PARAM } from '../features/marketplace/filter-bar.tsx';
 import { marketplaceNavigation } from '../navigation/consumer-items.ts';
+import { availableWorkspaceAreas } from '../navigation/items.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
-import { useSession } from '../session/session-provider.tsx';
+import { useAccessState, useSession } from '../session/session-provider.tsx';
+import { LocaleToggle } from './locale-toggle.tsx';
+import { ThemeToggle } from './theme-toggle.tsx';
 
 const SHELL_TEST_ID = 'marketplace-shell';
 const CONTENT_TEST_ID = `${SHELL_TEST_ID}-content`;
@@ -44,7 +46,7 @@ const CONTENT_TEST_ID = `${SHELL_TEST_ID}-content`;
  * Three things follow from being a *public* surface:
  *
  * * **Auth-aware trailing actions.** Anonymous visitors get sign-in and register. A signed-in
- *   person gets "My home", basket and sign-out — never a second Sign-in button that pretends they
+ *   person gets the account icon and the basket — never a second Sign-in button that pretends they
  *   are still a guest. The basket sits with those account controls because the person just came
  *   from browsing meals on this chrome; burying it only under `/customer` would hide the thing
  *   they just filled.
@@ -110,8 +112,8 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     const pathname = usePathname();
     const { locale, setLocale } = useLocale();
     const { state: connectivity } = useOnlineStatus();
-    const { phase, me } = useSession();
-    const logout = useLogoutMutation();
+    const { phase } = useSession();
+    const accessState = useAccessState();
     const signedIn = phase !== 'anonymous' && phase !== 'restoring';
     // Count only while signed in: `getCart` opens a basket lazily, and an anonymous visit must not
     // create one just to paint a zero. Guests who add a meal are steered through the guest-entry
@@ -126,10 +128,6 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                   items: cartCount,
               })
             : cartLabel;
-
-    // Falls back to the generic destination label rather than to an empty control: `me` is null for
-    // one render after a cold start, and a trigger with no name is a button nobody can describe.
-    const accountName = me?.profile.displayName ?? t('marketplace:nav.myHome');
 
     /*
      * Available destinations only — the table keeps every destination the product will have, and
@@ -262,17 +260,13 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     );
 
     /*
-     * The account control: the design's bordered name button, opening the account menu.
+     * The trailing controls: language, appearance, the account and the basket.
      *
-     * HealthZone's header ends in exactly two controls — the person's name and the cart — and the
-     * row used to carry six (name, basket, language, appearance, sign out, plus search). The four
-     * that are not destinations moved behind the name, which is where a person looks for "me":
-     * their account, their home, the language and appearance switches, and sign out. The language
-     * and appearance switches are also in the footer, so a signed-out visitor still has them and
-     * nobody has to open a menu to find the one control they cannot read the page without.
-     *
-     * `displayName` is the field the profile keeps for naming a person, so mononyms and non-Latin
-     * name orders come through as entered rather than being reassembled from given and family parts.
+     * They used to sit behind the person's name in an account menu — account, profile, language,
+     * appearance and sign out in one dropdown. The common pattern is flatter, so each is one press
+     * from the bar: the two switches are small controls here (and still links in the footer), the
+     * account is an icon that opens the account page, and Sign out lives at the foot of that page's
+     * own menu. Staff also get a second icon, to their staff profile.
      */
     const { isDark, toggleTheme } = useTheme();
     const toggleLocale = useCallback(() => {
@@ -280,123 +274,67 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     }, [locale, setLocale]);
     const otherLocaleLabel = locale.startsWith('ar') ? 'English' : t('common:locale.arabic');
     const themeLabel = isDark ? t('common:theme.switchToLight') : t('common:theme.switchToDark');
-    const accountMenuLabel = t('marketplace:nav.accountMenu', { name: accountName });
 
-    const accountMenu = (
-        <Menu
-            testID="marketplace-account-menu"
-            label={accountMenuLabel}
-            align="end"
-            sections={[
-                {
-                    items: [
-                        {
-                            key: 'account',
-                            label: t('marketplace:nav.account'),
-                            testID: 'marketplace-account',
-                            onSelect: () => {
-                                router.push('/customer/account' as never);
-                            },
-                        },
-                        {
-                            key: 'my-home',
-                            label: t('marketplace:nav.myHome'),
-                            testID: 'marketplace-my-home',
-                            onSelect: () => {
-                                router.push('/customer' as never);
-                            },
-                        },
-                        // The person's own details card — name, email, organisations, devices. It
-                        // was one press away from the old sidebar, so it is one press away here.
-                        {
-                            key: 'profile',
-                            label: t('marketplace:consumer.nav.profile'),
-                            testID: 'marketplace-profile',
-                            onSelect: () => {
-                                router.push('/profile' as never);
-                            },
-                        },
-                    ],
-                },
-                {
-                    items: [
-                        {
-                            key: 'locale',
-                            label: otherLocaleLabel,
-                            testID: 'locale-toggle',
-                            onSelect: toggleLocale,
-                        },
-                        {
-                            key: 'theme',
-                            label: themeLabel,
-                            testID: 'theme-toggle',
-                            onSelect: toggleTheme,
-                        },
-                    ],
-                },
-                {
-                    items: [
-                        {
-                            key: 'sign-out',
-                            label: t('common:action.signOut'),
-                            testID: 'marketplace-sign-out',
-                            disabled: logout.isPending,
-                            onSelect: () => {
-                                logout.mutate(undefined, {
-                                    onSuccess: () => {
-                                        router.replace('/' as never);
-                                    },
-                                });
-                            },
-                        },
-                    ],
-                },
-            ]}
-            trigger={({ triggerProps, toggle }) => (
-                <Pressable
-                    {...triggerProps}
-                    testID="marketplace-account-trigger"
-                    role="button"
-                    accessibilityRole="button"
-                    accessibilityLabel={accountMenuLabel}
-                    focusable
-                    onPress={toggle}
-                    // The design's name button: outlined on the strong stroke, 10px radius, the
-                    // name at 14px medium. Outlined, not borderless — a bordered box is what tells
-                    // you the name is a control and not a label saying who is signed in.
-                    className="min-h-touch max-w-[180px] flex-row items-center rounded-lg border border-stroke-strong bg-transparent px-3.5"
-                >
-                    <RNText
-                        numberOfLines={1}
-                        className="text-sm font-medium text-content-primary text-start"
-                    >
-                        {accountName}
-                    </RNText>
-                </Pressable>
-            )}
+    // The ring and the glyph's own colour match `ThemeToggle` beside it, for the reasons given there.
+    const accountButton = (
+        <IconButton
+            testID="marketplace-account"
+            size="sm"
+            variant="ghost"
+            className="rounded-full border-stroke"
+            icon={<Icon name="userCircle" size="lg" className="text-content-primary" />}
+            label={t('marketplace:nav.account')}
+            onPress={() => {
+                router.push('/customer/account' as never);
+            }}
         />
     );
 
     /*
-     * The cart: the word and its count, always. The design draws the count chip even at zero, and a
+     * Staff only: their profile, from which the admin bottom bar reaches every workspace. "Staff" is
+     * any workspace beyond the customer one — the same list `/workspace` draws its tiles from — so a
+     * plain customer never sees an icon that would lead them to a page of roles and permissions.
+     */
+    const isStaff = availableWorkspaceAreas(accessState).some(
+        (option) => option.area !== 'customer',
+    );
+    const staffProfileButton = isStaff ? (
+        <IconButton
+            testID="marketplace-staff-profile"
+            size="sm"
+            variant="ghost"
+            className="rounded-full border-stroke"
+            icon={<Icon name="shield" size="lg" className="text-content-primary" />}
+            label={t('common:nav.profile')}
+            onPress={() => {
+                router.push('/profile' as never);
+            }}
+        />
+    ) : null;
+
+    /*
+     * The cart: a basket and its count, always. The design draws the count chip even at zero, and a
      * chip that appears only once something is added makes the button change width under the
      * pointer at the moment of the first add. The chip is the button's colours inverted.
      */
     const cartButton = (
-        <Button
+        <IconButton
             testID="marketplace-basket"
             size="sm"
             variant="primary"
-            label={cartLabel}
-            accessibilityLabel={cartButtonLabel}
-            iconEnd={
-                <View
-                    testID="marketplace-basket-count"
-                    className="min-w-[24px] items-center justify-center rounded-full bg-content-on-brand px-2 py-0.5"
-                >
-                    <RNText className="text-xs font-semibold tabular-nums text-surface-brand">
-                        {String(cartCount)}
-                    </RNText>
+            className="rounded-lg px-3"
+            label={cartButtonLabel}
+            icon={
+                <View className="flex-row items-center gap-1.5">
+                    <Icon name="shoppingBasket" size="lg" className="text-content-on-brand" />
+                    <View
+                        testID="marketplace-basket-count"
+                        className="min-w-[24px] items-center justify-center rounded-full bg-content-on-brand px-2 py-0.5"
+                    >
+                        <RNText className="text-xs font-semibold tabular-nums text-surface-brand">
+                            {String(cartCount)}
+                        </RNText>
+                    </View>
                 </View>
             }
             onPress={() => {
@@ -417,9 +355,12 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
         <Inline space="md" justify="end" wrap={!wideBar} className="min-w-0 shrink">
             {searchField}
             <Inline space="sm" justify="end">
+                <LocaleToggle />
+                <ThemeToggle />
                 {signedIn ? (
                     <>
-                        {accountMenu}
+                        {staffProfileButton}
+                        {accountButton}
                         {cartButton}
                     </>
                 ) : (
@@ -464,9 +405,10 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
         // the images that cannot carry a credit beside them — a grid card, a tile, a 20px
         // catalogue thumbnail — this link is where that obligation is actually discharged.
         { key: 'image-credits', labelKey: 'marketplace:nav.imageCredits', href: '/image-credits' },
-        signedIn
-            ? { key: 'my-home', labelKey: 'marketplace:nav.myHome', href: '/customer' }
-            : { key: 'sign-in', labelKey: 'marketplace:nav.signIn', href: '/sign-in' },
+        // No "My home" when signed in: the home is Discover, which leads this list already.
+        ...(signedIn
+            ? []
+            : [{ key: 'sign-in', labelKey: 'marketplace:nav.signIn', href: '/sign-in' }]),
     ].filter((link) => isPathAvailable(link.href));
 
     /** A footer link: small muted print, underlined, with a touch target around it. */

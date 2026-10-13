@@ -15,7 +15,7 @@ import type {
     SalesChannel,
 } from '@healthy360/domain-types';
 import type { NutritionFacts } from '@healthy360/nutrition';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import type { CustomerAddress, DietaryProfile } from '@healthy360/api-client/contracts';
 
@@ -24,10 +24,8 @@ import { page } from '../../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../../testing/stub-screen.tsx';
 import {
     deliversFast,
-    kitchenInitials,
     narrowByDiets,
     parseKitchenSort,
-    pickSpotlight,
     profileDietsOf,
     sortKitchens,
     toRows,
@@ -304,7 +302,7 @@ function cardOrder(): string[] {
 /* ── the screen ──────────────────────────────────────────────────────────────────────────────── */
 
 describe('KitchensScreen — the finder', () => {
-    it('opens on the claim, the top-rated spotlight and the consumer directory', async () => {
+    it('opens on the title, the count and the consumer directory', async () => {
         const { repositories } = await renderStubScreen(<KitchensScreen />, {
             repositories: REPOSITORIES,
         });
@@ -316,43 +314,20 @@ describe('KitchensScreen — the finder', () => {
         expect(repositories.marketplace.listKitchens).toHaveBeenCalledWith(
             expect.objectContaining({ channels: ['b2c', 'marketplace'] }),
         );
+        expect(screen.getByTestId('kitchens-header-title')).toHaveTextContent('Kitchens');
+        expect(screen.getByTestId('kitchens-results-count')).toHaveTextContent('3 kitchens');
+        // Top rated, the unrated last.
         expect(cardOrder()).toEqual(['bravo', 'alpha', 'charlie']);
+        expect(screen.getByTestId('kitchens-sort')).toBeTruthy();
 
-        const spotlight = screen.getByTestId('kitchens-spotlight');
-        expect(within(spotlight).getByTestId('kitchens-spotlight-name')).toHaveTextContent(
-            'Bravo Greens',
-        );
-        expect(within(spotlight).getByTestId('kitchens-spotlight-lead')).toHaveTextContent(
-            'Top rated',
-        );
-        // The four-figure row keeps its four columns.
-        expect(within(spotlight).getByTestId('kitchens-spotlight-fact-rating')).toHaveTextContent(
-            '★ 4.8',
-        );
-        expect(within(spotlight).getByTestId('kitchens-spotlight-fact-delivery')).toHaveTextContent(
-            '25 min',
-        );
+        // A visitor is offered an address rather than shown one.
+        expect(screen.getByTestId('kitchens-address-value')).toHaveTextContent('Add address');
+        await fireEvent.press(screen.getByTestId('kitchens-address'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/sign-in');
 
-        // The design's match score has no source, so no percentage appears anywhere - and with
-        // no profile to match against, no DIET MATCH pill either.
-        expect(screen.queryByText(/%/)).toBeNull();
-        expect(screen.queryByTestId('kitchen-card-bravo-match')).toBeNull();
-        // A visitor is asked to sign in where the design names an address, and offered the way
-        // to a profile where it names their diets.
-        expect(screen.getByTestId('kitchens-address-value')).toHaveTextContent(
-            'Sign in to use a saved address',
-        );
-        expect(screen.getByTestId('kitchens-lede')).toHaveTextContent(
-            /Match kitchens to your profile — set your preferences/,
-        );
-        // Without a profile, "best match" is not on offer.
-        expect(screen.getByTestId('kitchens-results-count')).toHaveTextContent(/Top rated/);
-        // The "why" band says what the kitchen cooks.
-        expect(screen.getByTestId('kitchen-card-bravo-why')).toHaveTextContent(
-            'Cooks vegan · high protein.',
-        );
-        // One kitchen trades today by its published hours; the eyebrow counts it.
-        expect(screen.getByTestId('kitchens-eyebrow')).toHaveTextContent('1 kitchen cooking today');
+        // The whole card is the link to the storefront.
+        await fireEvent.press(screen.getByTestId('kitchen-card-alpha'));
+        expect(routerMock.__push).toHaveBeenCalledWith(`/kitchens/${String(ALPHA.id)}`);
     });
 
     it('sorts by the order the URL names, unrated and unpublished figures last', async () => {
@@ -363,10 +338,9 @@ describe('KitchensScreen — the finder', () => {
             expect(screen.getByTestId('kitchens-grid')).toBeTruthy();
         });
         expect(cardOrder()).toEqual(['charlie', 'bravo', 'alpha']);
-        expect(screen.getByTestId('kitchens-results-count')).toHaveTextContent(/Lowest fee/);
     });
 
-    it('narrows to kitchens cooking for every selected diet, and drops the spotlight', async () => {
+    it('narrows to kitchens cooking for every selected diet, and says how many', async () => {
         routerState.params = { diet: 'high_protein,vegan' };
         await renderStubScreen(<KitchensScreen />, { repositories: REPOSITORIES });
 
@@ -374,8 +348,12 @@ describe('KitchensScreen — the finder', () => {
             expect(screen.getByTestId('kitchen-card-bravo')).toBeTruthy();
         });
         expect(cardOrder()).toEqual(['bravo']);
-        expect(screen.queryByTestId('kitchens-spotlight')).toBeNull();
         expect(screen.getByText('Matching kitchens')).toBeTruthy();
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchens-results-count')).toHaveTextContent(
+                '1 of 3 kitchens',
+            );
+        });
     });
 
     it('narrows to kitchens trading today from ?open=today', async () => {
@@ -416,60 +394,15 @@ describe('KitchensScreen — the finder', () => {
         await waitFor(() => {
             expect(screen.getByTestId('kitchens-grid')).toBeTruthy();
         });
-        expect(screen.getByTestId('kitchen-card-alpha-term-delivery')).toHaveTextContent('40 min');
-        expect(screen.getByTestId('kitchen-card-charlie-term-fee')).toHaveTextContent('Free');
-        // Unpublished, so a dash - the column stays, so every card's row lines up.
-        expect(screen.getByTestId('kitchen-card-charlie-term-delivery')).toHaveTextContent('—');
+        expect(screen.getByTestId('kitchen-card-alpha-facts')).toHaveTextContent(
+            /^40 min · .*15\.00 fee · Min .*50\.00$/,
+        );
+        // No estimate is published, so no time is drawn — not a dash, not a guess.
+        expect(screen.getByTestId('kitchen-card-charlie-facts')).toHaveTextContent(
+            /^Free delivery · Min .*50\.00$/,
+        );
         expect(screen.getByTestId('kitchen-card-charlie-unrated')).toBeTruthy();
-    });
-
-    it('previews a kitchen’s dishes, opens one, and asks an anonymous visitor how to add', async () => {
-        const { repositories } = await renderStubScreen(<KitchensScreen />, {
-            repositories: REPOSITORIES,
-        });
-
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-card-bravo-dishes')).toBeTruthy();
-        });
-        expect(repositories.marketplace.listMeals).toHaveBeenCalledWith(
-            expect.objectContaining({ kitchenIds: [BRAVO.id], itemTypes: ['meal'] }),
-        );
-        expect(screen.getByTestId('kitchen-card-bravo-dishes-green-bowl')).toHaveTextContent(
-            /520 cal · 32g P/,
-        );
-        // Unpublished figures are left out, never drawn as "0 cal · 0g P".
-        expect(screen.getByTestId('kitchen-card-bravo-dishes-lentil-stew')).not.toHaveTextContent(
-            /cal|g P/,
-        );
-        // A kitchen with nothing on its menu says so, in the section's place.
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-card-alpha-dishes-empty')).toBeTruthy();
-        });
-
-        await fireEvent.press(screen.getByTestId('kitchen-card-bravo-dishes-green-bowl'));
-        expect(routerMock.__push).toHaveBeenCalledWith(`/meals/${String(GREEN_BOWL.id)}`);
-
-        await fireEvent.press(screen.getByTestId('kitchen-card-bravo-dishes-green-bowl-add'));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchens-guest-entry-dialog')).toBeTruthy();
-        });
-    });
-
-    it('offers plans only where the kitchen sells subscriptions', async () => {
-        await renderStubScreen(<KitchensScreen />, { repositories: REPOSITORIES });
-
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchens-grid')).toBeTruthy();
-        });
-        const none = screen.getByTestId('kitchen-card-charlie-plans');
-        expect(none).toHaveTextContent('No plans');
-        expect(none).toBeDisabled();
-
-        await fireEvent.press(screen.getByTestId('kitchen-card-bravo-plans'));
-        expect(routerMock.__push).toHaveBeenCalledWith(`/plans?kitchen=${String(BRAVO.id)}`);
-
-        await fireEvent.press(screen.getByTestId('kitchen-card-alpha-menu'));
-        expect(routerMock.__push).toHaveBeenCalledWith(`/kitchens/${String(ALPHA.id)}/menu`);
+        expect(screen.getByTestId('kitchen-card-bravo-verified')).toBeTruthy();
     });
 
     it('writes the search term and the toggles to the URL', async () => {
@@ -484,10 +417,10 @@ describe('KitchensScreen — the finder', () => {
         await fireEvent(input, 'submitEditing');
         expect(routerMock.__setParams).toHaveBeenCalledWith({ q: 'alp' });
 
-        await fireEvent.press(screen.getByTestId('kitchens-filter-open-today-control'));
+        await fireEvent.press(screen.getByTestId('kitchens-filter-open-today'));
         expect(routerMock.__setParams).toHaveBeenCalledWith({ open: 'today' });
 
-        await fireEvent.press(screen.getByTestId('kitchens-filter-channel-subscription-control'));
+        await fireEvent.press(screen.getByTestId('kitchens-filter-channel-subscription'));
         expect(routerMock.__setParams).toHaveBeenCalledWith({ channel: 'subscription' });
 
         await fireEvent.press(screen.getByTestId('kitchens-filter-fast'));
@@ -526,7 +459,7 @@ describe('KitchensScreen — the finder', () => {
         });
     });
 
-    it('matches against a signed-in shopper’s declared diets and names their address', async () => {
+    it('orders by a signed-in shopper’s declared diets and names their address', async () => {
         const profile: DietaryProfile = {
             dietCategoryCode: 'halal_friendly',
             allergens: [],
@@ -558,34 +491,17 @@ describe('KitchensScreen — the finder', () => {
             },
         });
 
+        // Best match is the landing order: the kitchen cooking the shopper's diet first.
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-card-alpha-match')).toBeTruthy();
+            expect(cardOrder()[0]).toBe('alpha');
         });
-        // One diet on the profile: the pill marks the kitchen that cooks it, and only that one.
-        expect(screen.getByTestId('kitchen-card-alpha-match')).toHaveTextContent(
-            'Matches your diet',
-        );
-        expect(screen.queryByTestId('kitchen-card-bravo-match')).toBeNull();
-        expect(screen.queryByTestId('kitchen-card-charlie-match')).toBeNull();
-        expect(screen.getByTestId('kitchen-card-alpha-why')).toHaveTextContent(
-            'Cooks halal friendly — your diet.',
-        );
-        // Best match is the landing order: the match first, then rating.
-        expect(screen.getByTestId('kitchens-results-count')).toHaveTextContent(/Best match/);
-        expect(cardOrder()[0]).toBe('alpha');
-        expect(screen.getByTestId('kitchens-spotlight-lead')).toHaveTextContent(
-            'Your best fit · cooks halal friendly',
-        );
-        expect(screen.getByTestId('kitchens-lede')).toHaveTextContent(
-            /Matched against your profile — halal friendly/,
-        );
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchens-address-value')).toHaveTextContent(
-                'Delivering to 14 Al Wasl Road',
+                '14 Al Wasl Road',
             );
         });
-        await fireEvent.press(screen.getByTestId('kitchens-address-change'));
+        await fireEvent.press(screen.getByTestId('kitchens-address'));
         expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/addresses');
     });
 });
@@ -611,23 +527,6 @@ describe('kitchen-finder', () => {
         expect(narrowByDiets([ALPHA, BRAVO, CHARLIE], ['high_protein', 'vegan'])).toEqual([BRAVO]);
     });
 
-    it('spotlights the top-rated kitchen, and claims nothing when none is rated', () => {
-        expect(pickSpotlight([ALPHA, BRAVO])).toEqual({ kitchen: BRAVO, reason: 'rating' });
-        expect(pickSpotlight([CHARLIE])).toEqual({ kitchen: CHARLIE, reason: null });
-        expect(pickSpotlight([])).toBeNull();
-    });
-
-    it('spotlights the best diet match, falling back to rating when nothing matches', () => {
-        expect(pickSpotlight([BRAVO, ALPHA], ['halal_friendly'])).toEqual({
-            kitchen: ALPHA,
-            reason: 'match',
-        });
-        expect(pickSpotlight([ALPHA, BRAVO], ['keto'])).toEqual({
-            kitchen: BRAVO,
-            reason: 'rating',
-        });
-    });
-
     it('offers best match only to a profile, and reads only known diet codes from it', () => {
         expect(parseKitchenSort(undefined)).toBe('rating');
         expect(parseKitchenSort('match')).toBe('rating');
@@ -643,12 +542,6 @@ describe('kitchen-finder', () => {
 
     it('reads "under 30 min" from the fastest published delivery', () => {
         expect(deliversFast([ALPHA, BRAVO, CHARLIE])).toEqual([BRAVO]);
-    });
-
-    it('draws a two-letter mark from the name', () => {
-        expect(kitchenInitials('Verdant Kitchen')).toBe('VK');
-        expect(kitchenInitials('Saffron')).toBe('SA');
-        expect(kitchenInitials('Levant & Co.')).toBe('LC');
     });
 
     it('splits a grid into rows of equal width', () => {

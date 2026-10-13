@@ -147,10 +147,16 @@ export function SubtleButton({
 export function TextLink({
     label,
     onPress,
+    align = 'center',
     testID,
 }: {
     readonly label: string;
     readonly onPress: () => void;
+    /**
+     * Where the label sits inside its 44px target. `end` puts it on the target's foot, for a link
+     * beside a line of text it must share a baseline with — `ListingHeader`'s count.
+     */
+    readonly align?: 'center' | 'end' | undefined;
     readonly testID?: string | undefined;
 }) {
     return (
@@ -160,7 +166,10 @@ export function TextLink({
             accessibilityRole="link"
             accessibilityLabel={label}
             onPress={onPress}
-            className="min-h-touch justify-center self-start"
+            className={cx(
+                'min-h-touch self-start',
+                align === 'end' ? 'justify-end' : 'justify-center',
+            )}
         >
             <RNText className="text-sm font-semibold text-content-on-brand-subtle text-start hover:underline">
                 {label}

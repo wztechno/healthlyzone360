@@ -37,7 +37,7 @@ function Probe() {
 }
 
 describe('useKitchenNavigation', () => {
-    it('leads with Workspace, then Overview, then the families', async () => {
+    it('leads with Overview, then the families — the workspace switcher is not on the rail', async () => {
         await renderStubScreen(<Probe />, { session: kitchenManagerSession() });
 
         // The families appear once the stubbed session has hydrated the access state.
@@ -45,12 +45,9 @@ describe('useKitchenNavigation', () => {
             expect(screen.getByTestId('probe-stock')).toBeTruthy();
         });
 
-        // Workspace first — the rail follows this order, so it sits above Overview — then Overview,
-        // unheaded, before the kitchen's own modules.
-        expect(screen.getByTestId('probe-profile')).toHaveTextContent(/\|Workspace\|/);
         const index = (key: string) =>
             Number(String(screen.getByTestId(`probe-${key}`).props.children).split('|')[0]);
-        expect(index('profile')).toBeLessThan(index('overview'));
+        expect(index('overview')).toBe(0);
         expect(index('overview')).toBeLessThan(index('stock'));
         expect(screen.getByTestId('probe-overview')).toHaveTextContent(/\|\(ungrouped\)\|/);
 
@@ -58,10 +55,10 @@ describe('useKitchenNavigation', () => {
         expect(screen.getByTestId('probe-stock')).toHaveTextContent(/\|Operations\|/);
         expect(screen.getByTestId('probe-stock')).toHaveTextContent(/\|active$/);
 
-        // The Workspace panel goes straight to the areas, so the tile page's own link is gone,
-        // and the area being drawn is the kitchen, which is listed but never lit.
+        // The areas and the account are the shell's bottom bar now, not a rail module.
+        expect(screen.queryByTestId('probe-area-kitchen')).toBeNull();
+        expect(screen.queryByTestId('probe-profile')).toBeNull();
         expect(screen.queryByTestId('probe-workspace')).toBeNull();
-        expect(screen.getByTestId('probe-area-kitchen')).toHaveTextContent(/\|Workspace\|.*\|$/);
     });
 
     it('offers no destination the session is not permitted to open', async () => {

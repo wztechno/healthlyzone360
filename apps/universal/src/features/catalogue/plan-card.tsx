@@ -126,7 +126,7 @@ export function PlanCard({
                     </RNText>
                     <RNText
                         testID={`${resolvedTestID}-tagline`}
-                        numberOfLines={2}
+                        numberOfLines={1}
                         className="text-sm text-content-secondary text-start"
                     >
                         {tagline}
@@ -203,7 +203,8 @@ export function PlanCard({
                         variant="primary"
                         size="lg"
                         block
-                        label={t('catalogue:plans.choosePlan', { plan: plan.name })}
+                        label={t('catalogue:plans.choosePlanShort')}
+                        accessibilityLabel={t('catalogue:plans.choosePlan', { plan: plan.name })}
                         onPress={onOpen}
                     />
                 ) : (

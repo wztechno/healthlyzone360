@@ -78,7 +78,7 @@ final class PublicMealIndexController
             $this->meals->whereDietClassifications($query, $diets);
         }
 
-        $itemTypes = $this->listParameter($request, 'item_types', 4);
+        $itemTypes = $this->listParameter($request, 'item_types', count(MarketplaceMeals::LISTING_ITEM_TYPES));
 
         if ($itemTypes !== null) {
             $unknown = array_values(array_diff($itemTypes, MarketplaceMeals::LISTING_ITEM_TYPES));
