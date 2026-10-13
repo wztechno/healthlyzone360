@@ -8498,6 +8498,13 @@ export type OrderDeskQuoteLine = {
      */
     currency_code: string;
     refusals: Array<OrderDeskQuoteRefusal>;
+    /**
+     * A warning, never a refusal: the names of the ingredients this line
+     * would draw that have stock on quality hold (a receipt or a batch under
+     * a held check). Empty on a refused line and when nothing is held.
+     *
+     */
+    held_stock?: Array<string>;
 };
 
 /**

@@ -37991,6 +37991,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/OrderDeskQuoteRefusal'
+        held_stock:
+          type: array
+          items:
+            type: string
+          description: |
+            A warning, never a refusal: the names of the ingredients this line
+            would draw that have stock on quality hold (a receipt or a batch under
+            a held check). Empty on a refused line and when nothing is held.
       additionalProperties: false
     OrderDeskQuote:
       type: object

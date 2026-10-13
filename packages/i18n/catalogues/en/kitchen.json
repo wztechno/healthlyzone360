@@ -1894,7 +1894,8 @@
                 "address": "Save the delivery address to place this order.",
                 "reference": "Write down the transfer reference to take a Whish payment."
             },
-            "zoneNoSlots": "The delivery zone for this address offers none of the kitchen’s slots. Tick one on the zone’s Delivery windows step."
+            "zoneNoSlots": "The delivery zone for this address offers none of the kitchen’s slots. Tick one on the zone’s Delivery windows step.",
+            "heldStock": "On quality hold: {{names}}"
         },
         "refusal": {
             "customer_required": "This kind of sale needs a customer. Go back and choose or add one.",

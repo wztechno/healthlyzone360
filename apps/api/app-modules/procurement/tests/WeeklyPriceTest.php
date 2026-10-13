@@ -4,18 +4,22 @@ declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
+use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Ingredients\Contracts\IngredientWeeklyPriceLookup;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\StockItem;
+use Healthy360\Orders\Contracts\HeldStockLookup;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\Procurement\Enums\WeeklyPriceCarryReason;
 use Healthy360\Procurement\Enums\WeeklyPriceSource;
+use Healthy360\Procurement\Models\GoodsReceipt;
 use Healthy360\Procurement\Models\IngredientWeeklyPrice;
 use Healthy360\Procurement\Models\WeeklyPricePublication;
 use Healthy360\Procurement\Services\GoodsReceiptService;
 use Healthy360\Procurement\Services\WeeklyPricePublisher;
+use Healthy360\QualityControl\Models\QualityCheck;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Tenancy\TenantContext;
@@ -597,4 +601,35 @@ it('answers a new ingredient from its latest purchase until a weekly price exist
         ->and((float) $latest->amount)->toBe(1.8)
         ->and($latest->isLatestPurchase())->toBeTrue()
         ->and($latest->publicationId)->toBeNull();
+});
+
+it('names stock on quality hold for the desk, and nothing once it is released', function (): void {
+    [$ingredient, $item] = weeklyIngredient('BBQ', $this->kg);
+
+    weeklyReceipt([['stock_item_id' => (string) $item->getKey(), 'quantity' => '5', 'unit_id' => (string) $this->kg->getKey(), 'unit_price_amount' => '3.00', 'cost_currency_code' => 'USD']], '2026-09-01');
+
+    // A sauce is sold from its own shelf, so it draws exactly this ingredient.
+    $sauce = CatalogueItem::factory()->create([
+        'organisation_id' => $this->organisation->getKey(),
+        'item_type' => 'sauce',
+        'ingredient_id' => (string) $ingredient->getKey(),
+    ]);
+
+    $check = QualityCheck::query()->create([
+        'organisation_id' => $this->organisation->getKey(),
+        'subject_type' => 'goods_receipt',
+        'subject_id' => (string) GoodsReceipt::withoutTenancy()->latest('created_at')->value('id'),
+        'status' => 'hold',
+    ]);
+
+    $lookup = app(HeldStockLookup::class);
+    $organisationId = (string) $this->organisation->getKey();
+
+    expect($lookup->heldFor($organisationId, (string) $this->branch->getKey(), $sauce, '1'))
+        ->toBe([$ingredient->name_en]);
+
+    $check->status = 'released';
+    $check->save();
+
+    expect($lookup->heldFor($organisationId, (string) $this->branch->getKey(), $sauce, '1'))->toBe([]);
 });

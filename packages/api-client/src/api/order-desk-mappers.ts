@@ -417,6 +417,7 @@ export function mapOrderDeskQuoteLine(wire: WireOrderDeskQuoteLine): OrderDeskQu
         lineTotalMinor: wire.line_total_minor,
         currencyCode: wire.currency_code as CurrencyCode,
         refusals: wire.refusals.map(mapOrderDeskRefusal),
+        heldStock: wire.held_stock ?? [],
     };
 }
 

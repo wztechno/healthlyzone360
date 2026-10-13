@@ -5641,7 +5641,8 @@ export const zOrderDeskQuoteLine = z.object({
     unit_price_minor: z.int().nullable(),
     line_total_minor: z.int().nullable(),
     currency_code: z.string().length(3),
-    refusals: z.array(zOrderDeskQuoteRefusal)
+    refusals: z.array(zOrderDeskQuoteRefusal),
+    held_stock: z.array(z.string()).optional()
 });
 
 /**
