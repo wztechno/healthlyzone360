@@ -107,21 +107,14 @@
         "collectionOnly": "Collection only",
         "areaSeparator": " · ",
         "finder": {
-            "eyebrowOpen_one": "{{count}} kitchen cooking today",
-            "eyebrowOpen_other": "{{count}} kitchens cooking today",
-            "eyebrowListed_one": "{{count}} kitchen on the marketplace",
-            "eyebrowListed_other": "{{count}} kitchens on the marketplace",
-            "eyebrowPending": "Kitchens on the marketplace",
-            "title": "Find a kitchen that cooks the way you eat.",
             "searchLabel": "Search kitchens by name",
-            "searchPlaceholder": "Search kitchens by name…",
+            "searchPlaceholder": "Search kitchens",
             "filtersLabel": "Narrow the kitchens",
             "toggle": {
                 "openToday": "Open today",
                 "pickup": "Collection",
                 "subscription": "Offers plans"
             },
-            "sortLabel": "Sort",
             "sortFieldLabel": "Sort kitchens",
             "sort": {
                 "rating": "Top rated",
@@ -132,79 +125,42 @@
             },
             "openToday": "Open today · {{opensAt}}–{{closesAt}}",
             "closedToday": "Closed today",
-            "topRated": "Top rated",
-            "fact": {
-                "rating": "Rating",
-                "delivery": "Delivery",
-                "fee": "Fee",
-                "minimum": "Minimum"
-            },
             "minutes": "{{minutes}} min",
-            "free": "Free",
-            "from": "From {{amount}}",
-            "openKitchen": "Open kitchen",
-            "seePlans": "See its plans",
             "listAll": "All kitchens",
             "listMatching": "Matching kitchens",
-            "count_one": "{{shown}} of {{count}} kitchen · sorted by {{sort}}",
-            "count_other": "{{shown}} of {{count}} kitchens · sorted by {{sort}}",
             "emptyTitle": "No kitchen matches all of that",
             "emptyBody": "Try removing a filter — or widen your search.",
-            "dishFigures": "{{energy}} cal · {{protein}}g P",
-            "openDish": "{{meal}} — open the dish",
-            "addDish": "Add {{meal}} to the basket",
-            "term": {
-                "delivery": "Delivery",
-                "fee": "Fee",
-                "minimum": "Min"
-            },
-            "viewMenu": "View menu",
-            "plans": "Plans",
-            "noPlans": "No plans",
             "goalsTitle": "Eat by goal",
-            "goalsMeta": "Meals across all kitchens",
             "goalAction": "Browse meals",
             "goal": {
                 "high_protein": {
-                    "title": "High protein",
-                    "body": "Dishes that lead on protein."
+                    "title": "High protein"
                 },
                 "vegan": {
-                    "title": "Plant based",
-                    "body": "Vegan cooking, no animal products."
+                    "title": "Plant based"
                 },
                 "under500": {
-                    "title": "Under 500 kcal",
-                    "body": "Lighter plates that still eat well."
+                    "title": "Under 500 kcal"
                 },
                 "low_carb": {
-                    "title": "Low carb",
-                    "body": "Plates built around protein and vegetables."
+                    "title": "Low carb"
                 }
             },
-            "ledeMatched": "Matched against your profile — ",
-            "ledeUnmatched": "Match kitchens to your profile — ",
-            "ledeSetPreferences": "set your preferences",
-            "ledeTail": ". Every dish lists its macros and allergens.",
-            "deliveringTo": "Delivering to ",
+            "deliveringTo": "Delivering to {{address}}. Change",
             "addressChange": "Change",
-            "addressAdd": "Add",
-            "addressNone": "no saved address",
+            "addressAdd": "Add address",
             "addressPending": "…",
-            "addressSignedOut": "Sign in to use a saved address",
-            "addressSignIn": "Sign in",
             "under30": "Under 30 min",
-            "dietMatch": "Matches your diet",
-            "bestFit": "Your best fit · cooks {{diets}}",
-            "whyMatch": "Cooks {{diets}} — your diet.",
-            "whyDiets": "Cooks {{diets}}.",
-            "ratingValue": "★ {{rating}}",
-            "noFigure": "—",
-            "signatureDishes": "Signature dishes",
-            "noDishes": "No dishes on the menu yet.",
             "goalCount_one": "{{count}} meal →",
             "goalCount_other": "{{count}} meals →",
-            "whyWithSummary": "{{why}} {{summary}}"
+            "count_one": "{{count}} kitchen",
+            "count_other": "{{count}} kitchens",
+            "countOf_one": "{{shown}} of {{count}} kitchen",
+            "countOf_other": "{{shown}} of {{count}} kitchens",
+            "fee": "{{amount}} fee",
+            "feeFrom": "From {{amount}} fee",
+            "minimum": "Min {{amount}}",
+            "minimumFrom": "Min from {{amount}}"
         }
     },
     "kitchen": {

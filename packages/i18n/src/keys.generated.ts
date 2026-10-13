@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8301 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8262 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -6611,82 +6611,43 @@ export interface NamespaceKeys {
     | 'kitchens.emptyBody'
     | 'kitchens.emptyTitle'
     | 'kitchens.etaMinutes'
-    | 'kitchens.finder.addDish'
     | 'kitchens.finder.addressAdd'
     | 'kitchens.finder.addressChange'
-    | 'kitchens.finder.addressNone'
     | 'kitchens.finder.addressPending'
-    | 'kitchens.finder.addressSignIn'
-    | 'kitchens.finder.addressSignedOut'
-    | 'kitchens.finder.bestFit'
     | 'kitchens.finder.closedToday'
     | 'kitchens.finder.count'
+    | 'kitchens.finder.countOf'
     | 'kitchens.finder.deliveringTo'
-    | 'kitchens.finder.dietMatch'
-    | 'kitchens.finder.dishFigures'
     | 'kitchens.finder.emptyBody'
     | 'kitchens.finder.emptyTitle'
-    | 'kitchens.finder.eyebrowListed'
-    | 'kitchens.finder.eyebrowOpen'
-    | 'kitchens.finder.eyebrowPending'
-    | 'kitchens.finder.fact.delivery'
-    | 'kitchens.finder.fact.fee'
-    | 'kitchens.finder.fact.minimum'
-    | 'kitchens.finder.fact.rating'
+    | 'kitchens.finder.fee'
+    | 'kitchens.finder.feeFrom'
     | 'kitchens.finder.filtersLabel'
-    | 'kitchens.finder.free'
-    | 'kitchens.finder.from'
-    | 'kitchens.finder.goal.high_protein.body'
     | 'kitchens.finder.goal.high_protein.title'
-    | 'kitchens.finder.goal.low_carb.body'
     | 'kitchens.finder.goal.low_carb.title'
-    | 'kitchens.finder.goal.under500.body'
     | 'kitchens.finder.goal.under500.title'
-    | 'kitchens.finder.goal.vegan.body'
     | 'kitchens.finder.goal.vegan.title'
     | 'kitchens.finder.goalAction'
     | 'kitchens.finder.goalCount'
-    | 'kitchens.finder.goalsMeta'
     | 'kitchens.finder.goalsTitle'
-    | 'kitchens.finder.ledeMatched'
-    | 'kitchens.finder.ledeSetPreferences'
-    | 'kitchens.finder.ledeTail'
-    | 'kitchens.finder.ledeUnmatched'
     | 'kitchens.finder.listAll'
     | 'kitchens.finder.listMatching'
+    | 'kitchens.finder.minimum'
+    | 'kitchens.finder.minimumFrom'
     | 'kitchens.finder.minutes'
-    | 'kitchens.finder.noDishes'
-    | 'kitchens.finder.noFigure'
-    | 'kitchens.finder.noPlans'
-    | 'kitchens.finder.openDish'
-    | 'kitchens.finder.openKitchen'
     | 'kitchens.finder.openToday'
-    | 'kitchens.finder.plans'
-    | 'kitchens.finder.ratingValue'
     | 'kitchens.finder.searchLabel'
     | 'kitchens.finder.searchPlaceholder'
-    | 'kitchens.finder.seePlans'
-    | 'kitchens.finder.signatureDishes'
     | 'kitchens.finder.sort.fastest'
     | 'kitchens.finder.sort.fee'
     | 'kitchens.finder.sort.match'
     | 'kitchens.finder.sort.name'
     | 'kitchens.finder.sort.rating'
     | 'kitchens.finder.sortFieldLabel'
-    | 'kitchens.finder.sortLabel'
-    | 'kitchens.finder.term.delivery'
-    | 'kitchens.finder.term.fee'
-    | 'kitchens.finder.term.minimum'
-    | 'kitchens.finder.title'
     | 'kitchens.finder.toggle.openToday'
     | 'kitchens.finder.toggle.pickup'
     | 'kitchens.finder.toggle.subscription'
-    | 'kitchens.finder.topRated'
     | 'kitchens.finder.under30'
-    | 'kitchens.finder.viewMenu'
-    | 'kitchens.finder.whyDiets'
-    | 'kitchens.finder.whyMatch'
-    | 'kitchens.finder.whyWithSummary'
     | 'kitchens.freeDelivery'
     | 'kitchens.imageLabel'
     | 'kitchens.noPublishedZone'
@@ -14929,82 +14890,43 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:kitchens.emptyBody',
   'marketplace:kitchens.emptyTitle',
   'marketplace:kitchens.etaMinutes',
-  'marketplace:kitchens.finder.addDish',
   'marketplace:kitchens.finder.addressAdd',
   'marketplace:kitchens.finder.addressChange',
-  'marketplace:kitchens.finder.addressNone',
   'marketplace:kitchens.finder.addressPending',
-  'marketplace:kitchens.finder.addressSignIn',
-  'marketplace:kitchens.finder.addressSignedOut',
-  'marketplace:kitchens.finder.bestFit',
   'marketplace:kitchens.finder.closedToday',
   'marketplace:kitchens.finder.count',
+  'marketplace:kitchens.finder.countOf',
   'marketplace:kitchens.finder.deliveringTo',
-  'marketplace:kitchens.finder.dietMatch',
-  'marketplace:kitchens.finder.dishFigures',
   'marketplace:kitchens.finder.emptyBody',
   'marketplace:kitchens.finder.emptyTitle',
-  'marketplace:kitchens.finder.eyebrowListed',
-  'marketplace:kitchens.finder.eyebrowOpen',
-  'marketplace:kitchens.finder.eyebrowPending',
-  'marketplace:kitchens.finder.fact.delivery',
-  'marketplace:kitchens.finder.fact.fee',
-  'marketplace:kitchens.finder.fact.minimum',
-  'marketplace:kitchens.finder.fact.rating',
+  'marketplace:kitchens.finder.fee',
+  'marketplace:kitchens.finder.feeFrom',
   'marketplace:kitchens.finder.filtersLabel',
-  'marketplace:kitchens.finder.free',
-  'marketplace:kitchens.finder.from',
-  'marketplace:kitchens.finder.goal.high_protein.body',
   'marketplace:kitchens.finder.goal.high_protein.title',
-  'marketplace:kitchens.finder.goal.low_carb.body',
   'marketplace:kitchens.finder.goal.low_carb.title',
-  'marketplace:kitchens.finder.goal.under500.body',
   'marketplace:kitchens.finder.goal.under500.title',
-  'marketplace:kitchens.finder.goal.vegan.body',
   'marketplace:kitchens.finder.goal.vegan.title',
   'marketplace:kitchens.finder.goalAction',
   'marketplace:kitchens.finder.goalCount',
-  'marketplace:kitchens.finder.goalsMeta',
   'marketplace:kitchens.finder.goalsTitle',
-  'marketplace:kitchens.finder.ledeMatched',
-  'marketplace:kitchens.finder.ledeSetPreferences',
-  'marketplace:kitchens.finder.ledeTail',
-  'marketplace:kitchens.finder.ledeUnmatched',
   'marketplace:kitchens.finder.listAll',
   'marketplace:kitchens.finder.listMatching',
+  'marketplace:kitchens.finder.minimum',
+  'marketplace:kitchens.finder.minimumFrom',
   'marketplace:kitchens.finder.minutes',
-  'marketplace:kitchens.finder.noDishes',
-  'marketplace:kitchens.finder.noFigure',
-  'marketplace:kitchens.finder.noPlans',
-  'marketplace:kitchens.finder.openDish',
-  'marketplace:kitchens.finder.openKitchen',
   'marketplace:kitchens.finder.openToday',
-  'marketplace:kitchens.finder.plans',
-  'marketplace:kitchens.finder.ratingValue',
   'marketplace:kitchens.finder.searchLabel',
   'marketplace:kitchens.finder.searchPlaceholder',
-  'marketplace:kitchens.finder.seePlans',
-  'marketplace:kitchens.finder.signatureDishes',
   'marketplace:kitchens.finder.sort.fastest',
   'marketplace:kitchens.finder.sort.fee',
   'marketplace:kitchens.finder.sort.match',
   'marketplace:kitchens.finder.sort.name',
   'marketplace:kitchens.finder.sort.rating',
   'marketplace:kitchens.finder.sortFieldLabel',
-  'marketplace:kitchens.finder.sortLabel',
-  'marketplace:kitchens.finder.term.delivery',
-  'marketplace:kitchens.finder.term.fee',
-  'marketplace:kitchens.finder.term.minimum',
-  'marketplace:kitchens.finder.title',
   'marketplace:kitchens.finder.toggle.openToday',
   'marketplace:kitchens.finder.toggle.pickup',
   'marketplace:kitchens.finder.toggle.subscription',
-  'marketplace:kitchens.finder.topRated',
   'marketplace:kitchens.finder.under30',
-  'marketplace:kitchens.finder.viewMenu',
-  'marketplace:kitchens.finder.whyDiets',
-  'marketplace:kitchens.finder.whyMatch',
-  'marketplace:kitchens.finder.whyWithSummary',
   'marketplace:kitchens.freeDelivery',
   'marketplace:kitchens.imageLabel',
   'marketplace:kitchens.noPublishedZone',
