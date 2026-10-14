@@ -338,6 +338,10 @@ beforeEach(() => {
     mockReplace.mockClear();
 });
 
+afterEach(() => {
+    jest.useRealTimers();
+});
+
 describe('sale — the menu', () => {
     it('prices each tile from a quote of one of each, and starts with an empty ticket', async () => {
         const quoteSale = jest.fn(async (request: OrderDeskSaleRequest) => quoteFor(request));
@@ -615,6 +619,27 @@ describe('sale — collections and deliveries', () => {
     });
 
     it('places a collection for the chosen customer, with no payment block, and returns to the queue', async () => {
+        // Before the midday slot closes: once both are over the When card rolls to tomorrow.
+        // Only Date is faked, so React Query and waitFor keep their real timers.
+        jest.useFakeTimers({
+            now: new Date(2026, 9, 14, 11, 0),
+            doNotFake: [
+                'hrtime',
+                'nextTick',
+                'performance',
+                'queueMicrotask',
+                'requestAnimationFrame',
+                'cancelAnimationFrame',
+                'requestIdleCallback',
+                'cancelIdleCallback',
+                'setImmediate',
+                'clearImmediate',
+                'setInterval',
+                'clearInterval',
+                'setTimeout',
+                'clearTimeout',
+            ],
+        });
         const placeSale = jest.fn(async () =>
             placedOrder({ fulfilmentType: 'pickup', status: 'confirmed' }),
         );
