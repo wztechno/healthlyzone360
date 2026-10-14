@@ -25,6 +25,7 @@ import type {
     OrderDeskSaleRequest,
     OrderDeskShortfallCount,
     PlaceOrderDeskSaleRequest,
+    UpdateOrderDeskCustomerRequest,
 } from '../contracts/order-desk.ts';
 import type {
     AssignedDeliveryJob as WireAssignedDeliveryJob,
@@ -157,6 +158,8 @@ function queueQuery(filters?: OrderDeskQueueFilters): string {
 
     const search = new URLSearchParams();
     if (filters.window !== undefined) search.set('window', filters.window);
+    if (filters.from !== undefined) search.set('from', filters.from);
+    if (filters.to !== undefined) search.set('to', filters.to);
     if (filters.branchId !== undefined) search.set('branch_id', String(filters.branchId));
     for (const status of filters.statuses ?? []) {
         // Bracket form, not `style: form` — see the header. An empty array appends nothing, which
@@ -464,6 +467,24 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                     ...(request.countryCode === undefined
                         ? {}
                         : { country_code: request.countryCode }),
+                },
+            });
+            return mapOrderDeskCustomerCreated(payload);
+        },
+
+        async updateCustomer(
+            request: UpdateOrderDeskCustomerRequest,
+        ): Promise<OrderDeskCustomerCreated> {
+            // No `Idempotency-Key`: a correction sent twice lands on the same values, so a replay
+            // is harmless in a way a second customer would not be.
+            const payload = await transport.request<OrderDeskCustomerEnvelope['data']>({
+                method: 'PATCH',
+                path: `/catalogue/order-desk/customers/${encodeURIComponent(request.customerId)}`,
+                body: {
+                    ...(request.displayName === undefined
+                        ? {}
+                        : { display_name: request.displayName }),
+                    ...(request.phone === undefined ? {} : { phone: request.phone }),
                 },
             });
             return mapOrderDeskCustomerCreated(payload);

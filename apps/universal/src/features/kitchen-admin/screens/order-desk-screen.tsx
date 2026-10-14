@@ -20,6 +20,7 @@ import {
     Button,
     Callout,
     Cascade,
+    DatePickerButton,
     Dialog,
     EmptyState,
     ErrorState,
@@ -218,7 +219,11 @@ const WINDOW_LABEL_KEYS: Readonly<Record<OrderDeskWindow, string>> = {
     today: 'kitchen:desk.window.today',
     overdue: 'kitchen:desk.window.overdue',
     next_7: 'kitchen:desk.window.next7',
+    range: 'kitchen:desk.window.range',
 };
+
+/** The three windows the segmented control offers; `range` is reached through the From/To pickers. */
+const SEGMENT_WINDOWS = ORDER_DESK_WINDOWS.filter((candidate) => candidate !== 'range');
 
 /**
  * What a cell with nothing to say renders as — the same character the cost report, the purchases
@@ -824,6 +829,12 @@ function OrderDeskQueueList() {
     const canManage = useCan(ORDER_MANAGE_PERMISSION);
 
     const [deskWindow, setDeskWindow] = useState<OrderDeskWindow>('today');
+    /**
+     * The span `window: 'range'` looks at, inclusive — any days, past or future. `''` until picked.
+     * Picking one end alone fills the other with the same day, so a single day is one pick.
+     */
+    const [rangeFrom, setRangeFrom] = useState('');
+    const [rangeTo, setRangeTo] = useState('');
     const [statuses, setStatuses] = useState<readonly OrderDeskQueueStatus[]>([]);
     /**
      * One kind of sale, or all three.
@@ -874,6 +885,9 @@ function OrderDeskQueueList() {
     const filters = useMemo<OrderDeskQueueFilters>(
         () => ({
             window: deskWindow,
+            ...(deskWindow === 'range' && rangeFrom !== '' && rangeTo !== ''
+                ? { from: rangeFrom, to: rangeTo }
+                : {}),
             ...(statuses.length === 0 ? {} : { statuses }),
             // Omitted rather than sent as a null: absent is what the server reads as "all three",
             // and a present-but-empty parameter would be the screen naming a field it has no value
@@ -881,7 +895,7 @@ function OrderDeskQueueList() {
             ...(fulfilmentType === null ? {} : { fulfilmentType }),
             ...(trimmed === '' ? {} : { query: trimmed }),
         }),
-        [deskWindow, statuses, fulfilmentType, trimmed],
+        [deskWindow, rangeFrom, rangeTo, statuses, fulfilmentType, trimmed],
     );
 
     const queue = useOrderDeskQueueQuery(filters, true, {
@@ -927,8 +941,17 @@ function OrderDeskQueueList() {
         );
     }
 
+    /** Either end's Clear: a half span is no span, so the desk goes back to today. */
+    function clearRange() {
+        setRangeFrom('');
+        setRangeTo('');
+        setDeskWindow('today');
+    }
+
     function clearFilters() {
         setDeskWindow('today');
+        setRangeFrom('');
+        setRangeTo('');
         setStatuses([]);
         setFulfilmentType(null);
         setQuery('');
@@ -1915,13 +1938,68 @@ function OrderDeskQueueList() {
                         testID="kitchen-order-desk-window"
                         label={t('kitchen:desk.windowLabel')}
                         value={deskWindow}
-                        onChange={setDeskWindow}
-                        items={ORDER_DESK_WINDOWS.map((candidate) => ({
+                        onChange={(next) => {
+                            setDeskWindow(next);
+                            setRangeFrom('');
+                            setRangeTo('');
+                        }}
+                        items={SEGMENT_WINDOWS.map((candidate) => ({
                             value: candidate,
                             label: t(WINDOW_LABEL_KEYS[candidate]),
                             testID: `kitchen-order-desk-window-${candidate}`,
                         }))}
                     />
+
+                    {/*
+                     * Any span of days, past or future — the orders `overdue` and `next_7` cannot
+                     * reach. Each end bounds the other, so the span can never run backwards, and
+                     * clearing either returns the desk to today. `z-tooltip` so the month opens over
+                     * the rows below, as the kind filter does.
+                     */}
+                    <View
+                        testID="kitchen-order-desk-range"
+                        role="group"
+                        aria-label={t('kitchen:desk.window.range')}
+                        className="z-tooltip flex-row items-center gap-hair"
+                    >
+                        <DatePickerButton
+                            testID="kitchen-order-desk-from"
+                            label={t('kitchen:desk.window.from')}
+                            placeholder={t('kitchen:desk.window.from')}
+                            value={deskWindow === 'range' ? rangeFrom : ''}
+                            {...(deskWindow === 'range' && rangeTo !== '' ? { max: rangeTo } : {})}
+                            onChange={(next) => {
+                                setRangeFrom(next);
+                                if (deskWindow !== 'range' || rangeTo === '' || rangeTo < next) {
+                                    setRangeTo(next);
+                                }
+                                setDeskWindow('range');
+                            }}
+                            onClear={clearRange}
+                        />
+                        <DatePickerButton
+                            testID="kitchen-order-desk-to"
+                            label={t('kitchen:desk.window.to')}
+                            placeholder={t('kitchen:desk.window.to')}
+                            value={deskWindow === 'range' ? rangeTo : ''}
+                            {...(deskWindow === 'range' && rangeFrom !== ''
+                                ? { min: rangeFrom }
+                                : {})}
+                            align="end"
+                            onChange={(next) => {
+                                setRangeTo(next);
+                                if (
+                                    deskWindow !== 'range' ||
+                                    rangeFrom === '' ||
+                                    rangeFrom > next
+                                ) {
+                                    setRangeFrom(next);
+                                }
+                                setDeskWindow('range');
+                            }}
+                            onClear={clearRange}
+                        />
+                    </View>
 
                     <View
                         testID="kitchen-order-desk-status"

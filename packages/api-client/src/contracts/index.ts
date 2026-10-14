@@ -605,6 +605,7 @@ export type {
     OrderDeskShortfallCount,
     OrderDeskWindow,
     PlaceOrderDeskSaleRequest,
+    UpdateOrderDeskCustomerRequest,
 } from './order-desk.ts';
 
 export { DRIVER_JOB_STATUSES, DRIVER_JOB_TRACKING_STATUSES } from './driver-jobs.ts';

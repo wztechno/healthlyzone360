@@ -74,6 +74,9 @@ final class OrderDeskQueueController
     {
         $validated = $request->validate([
             'window' => ['nullable', Rule::in(OrderDeskWindow::codes())],
+            // The span `window=range` names, inclusive; any days, past or future.
+            'from' => ['nullable', 'required_if:window,range', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'required_if:window,range', 'date_format:Y-m-d', 'after_or_equal:from'],
             'branch_id' => ['nullable', 'uuid'],
             'status' => ['nullable', 'array'],
             'status.*' => ['string', Rule::in(array_map(
@@ -98,6 +101,8 @@ final class OrderDeskQueueController
             isset($validated['fulfilment_type'])
                 ? FulfilmentType::from((string) $validated['fulfilment_type'])
                 : null,
+            isset($validated['from']) ? (string) $validated['from'] : null,
+            isset($validated['to']) ? (string) $validated['to'] : null,
         );
 
         $orders = $page['orders'];
@@ -156,6 +161,8 @@ final class OrderDeskQueueController
             'limit' => OrderDeskQueue::MAX_ROWS,
             'truncated' => $page['truncated'],
             'window' => (string) ($validated['window'] ?? OrderDeskWindow::Today->value),
+            'from' => isset($validated['from']) ? (string) $validated['from'] : null,
+            'to' => isset($validated['to']) ? (string) $validated['to'] : null,
             // Echoed because the client did not choose them and cannot derive
             // them: which day the window was measured from, and on whose clock.
             'today' => $page['today'],

@@ -28,6 +28,7 @@ import {
     useAddOrderDeskCustomerAddressMutation,
     useCreateOrderDeskCustomerMutation,
     useOrderDeskCustomerSearchQuery,
+    useUpdateOrderDeskCustomerMutation,
 } from '../../../data/order-desk-hooks.ts';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 import { displayName } from '../format.ts';
@@ -80,10 +81,16 @@ export function CustomerSection({
     /** The record behind `customerAccountId`, held so the folded card can name them. */
     const [chosen, setChosen] = useState<OrderDeskCustomer | null>(null);
     const [changing, setChanging] = useState(false);
+    /** Correcting the chosen customer's name or number in place, rather than writing them twice. */
+    const [editing, setEditing] = useState(false);
+    const [editName, setEditName] = useState('');
+    const [editPhone, setEditPhone] = useState('');
 
     const debounced = useDebouncedValue(query.trim(), SEARCH_DEBOUNCE_MS);
     const search = useOrderDeskCustomerSearchQuery(debounced);
     const create = useCreateOrderDeskCustomerMutation();
+    const update = useUpdateOrderDeskCustomerMutation();
+    const updateFailure = toFailure(update.error);
 
     const searchFailure = toFailure(search.error);
     const createFailure = toFailure(create.error);
@@ -97,8 +104,42 @@ export function CustomerSection({
         setChosen(customer);
         setChanging(false);
         setCreating(false);
+        setEditing(false);
         onChoose(customer);
     }
+
+    function startEditing(customer: OrderDeskCustomer) {
+        update.reset();
+        setEditName(customer.displayName ?? '');
+        setEditPhone(customer.phone ?? '');
+        setEditing(true);
+    }
+
+    /** Only what changed is sent, so a correction to the name never re-sends the number. */
+    function saveEdit(customer: OrderDeskCustomer) {
+        const nextName = editName.trim();
+        const nextPhone = editPhone.trim();
+        update.mutate(
+            {
+                customerId: customer.id,
+                ...(nextName === (customer.displayName ?? '') ? {} : { displayName: nextName }),
+                ...(nextPhone === (customer.phone ?? '') ? {} : { phone: nextPhone }),
+            },
+            {
+                onSuccess: (result) => {
+                    setChosen(result.customer);
+                    onChoose(result.customer);
+                    // Held open while somebody else shares the new number, so it can be read.
+                    if (result.possibleDuplicates.length === 0) setEditing(false);
+                },
+            },
+        );
+    }
+
+    const editUnchanged =
+        chosen !== null &&
+        editName.trim() === (chosen.displayName ?? '') &&
+        editPhone.trim() === (chosen.phone ?? '');
 
     return (
         <FormSection
@@ -106,20 +147,112 @@ export function CustomerSection({
             testID="kitchen-order-desk-sale-customer"
             title={t('kitchen:desk.sale.customerTitle')}
             actions={
-                folded ? (
-                    <Button
-                        testID="kitchen-order-desk-sale-customer-change"
-                        size="sm"
-                        variant="secondary"
-                        label={t('kitchen:desk.sale.change')}
-                        onPress={() => {
-                            setChanging(true);
-                        }}
-                    />
+                folded && !editing ? (
+                    <Inline space="xs">
+                        <Button
+                            testID="kitchen-order-desk-sale-customer-edit"
+                            size="sm"
+                            variant="secondary"
+                            label={t('kitchen:desk.sale.customerEdit')}
+                            onPress={() => {
+                                if (chosen !== null) startEditing(chosen);
+                            }}
+                        />
+                        <Button
+                            testID="kitchen-order-desk-sale-customer-change"
+                            size="sm"
+                            variant="secondary"
+                            label={t('kitchen:desk.sale.change')}
+                            onPress={() => {
+                                setChanging(true);
+                            }}
+                        />
+                    </Inline>
                 ) : undefined
             }
         >
-            {folded && chosen !== null ? (
+            {folded && chosen !== null && editing ? (
+                <View
+                    testID="kitchen-order-desk-sale-customer-edit-form"
+                    className="flex-col gap-tight"
+                >
+                    <FormGrid columns={2}>
+                        <TextInputField
+                            testID="kitchen-order-desk-sale-customer-edit-name"
+                            id="kitchen-order-desk-sale-customer-edit-name"
+                            label={t('kitchen:desk.sale.customerNameLabel')}
+                            size="sm"
+                            required
+                            value={editName}
+                            onChangeText={setEditName}
+                        />
+                        <TextInputField
+                            testID="kitchen-order-desk-sale-customer-edit-phone"
+                            id="kitchen-order-desk-sale-customer-edit-phone"
+                            label={t('kitchen:desk.sale.customerPhoneLabel')}
+                            hint={t('kitchen:desk.sale.customerPhoneHint')}
+                            size="sm"
+                            required
+                            value={editPhone}
+                            onChangeText={setEditPhone}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            inputMode="tel"
+                        />
+                    </FormGrid>
+
+                    {updateFailure === null ? null : (
+                        <Text tone="danger" testID="kitchen-order-desk-sale-customer-edit-error">
+                            {updateFailure.message}
+                        </Text>
+                    )}
+
+                    {update.data === undefined ||
+                    update.data.possibleDuplicates.length === 0 ? null : (
+                        <Callout
+                            testID="kitchen-order-desk-sale-customer-edit-duplicates"
+                            tone="warning"
+                            role="status"
+                            title={t('kitchen:desk.sale.customerEditDuplicatesTitle')}
+                        >
+                            <View className="flex-col gap-hair">
+                                {update.data.possibleDuplicates.map((duplicate) => (
+                                    <Text key={duplicate.id} variant="caption">
+                                        {`${
+                                            duplicate.displayName ??
+                                            t('kitchen:desk.sale.customerUnnamed')
+                                        } · ${duplicate.phone ?? EM_DASH}`}
+                                    </Text>
+                                ))}
+                            </View>
+                        </Callout>
+                    )}
+
+                    <Inline space="xs" wrap>
+                        <Button
+                            testID="kitchen-order-desk-sale-customer-edit-save"
+                            size="sm"
+                            label={t('kitchen:desk.sale.customerEditSave')}
+                            loading={update.isPending}
+                            disabled={
+                                editUnchanged || editName.trim() === '' || editPhone.trim() === ''
+                            }
+                            onPress={() => {
+                                saveEdit(chosen);
+                            }}
+                        />
+                        <Button
+                            testID="kitchen-order-desk-sale-customer-edit-cancel"
+                            size="sm"
+                            variant="secondary"
+                            label={t('kitchen:desk.sale.customerCancelCreate')}
+                            onPress={() => {
+                                setEditing(false);
+                            }}
+                        />
+                    </Inline>
+                </View>
+            ) : folded && chosen !== null ? (
                 <View
                     testID="kitchen-order-desk-sale-customer-chosen"
                     className="flex-row flex-wrap items-center gap-tight"

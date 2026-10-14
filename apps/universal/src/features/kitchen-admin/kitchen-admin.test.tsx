@@ -1139,6 +1139,66 @@ describe('the ingredient editor', () => {
         });
     });
 
+    it('shows the unit price as what was last paid, and offers nothing to type into', async () => {
+        const id = ingredientId(3);
+        const stored = ingredient(3);
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { ...editorReads(() => [stored]), getIngredient: async () => stored },
+                kitchenOps: {
+                    listStockItems: async () => [
+                        {
+                            id: 'stock-item-3' as never,
+                            code: 'ITEM-3',
+                            nameEn: 'Shelf',
+                            unitCode: 'kg',
+                            ingredientId: id,
+                            catalogueItemId: null,
+                            backing: 'ingredient',
+                            isStocked: true,
+                            hasHistory: true,
+                        },
+                    ],
+                    listItemLatestPurchases: async () => [
+                        {
+                            stockItemId: 'stock-item-3' as never,
+                            goodsReceiptId: 'receipt-1' as never,
+                            documentRef: null,
+                            receivedAt: '2026-10-14T09:00:00Z' as never,
+                            quantity: '15',
+                            unitId: null,
+                            unitCode: 'kg',
+                            unitPriceAmount: '2.300000',
+                            costCurrencyCode: 'USD',
+                            supplier: {
+                                id: 'supplier-1' as never,
+                                code: 'S-1',
+                                nameEn: 'Legume Co',
+                            },
+                        },
+                    ],
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-ingredient-unit-price-input').props.value).toBe(
+                '2.30',
+            );
+        });
+        expect(screen.getByTestId('kitchen-ingredient-unit-price-input').props.editable).toBe(
+            false,
+        );
+        // The suffix is aria-hidden (the label carries the unit for assistive technology).
+        expect(
+            screen.getByTestId('kitchen-ingredient-unit-price-unit', {
+                includeHiddenElements: true,
+            }),
+        ).toHaveTextContent('USD / kg');
+    });
+
     it('asks before discarding unsaved changes, and leaves when told to', async () => {
         const record = ingredient(3, { name: { en: 'Discard me', ar: 'اتركني' } });
 

@@ -12305,6 +12305,24 @@ paths:
             every order with no requested date at all.
           schema:
             $ref: '#/components/schemas/OrderDeskWindow'
+        - name: from
+          in: query
+          required: false
+          description: |
+            First day of the span `window=range` looks at, inclusive. Required with
+            `window=range` (`422` without it) and ignored by the other windows.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          description: |
+            Last day of the span `window=range` looks at, inclusive, on or after
+            `from`. Required with `window=range` and ignored by the other windows.
+          schema:
+            type: string
+            format: date
         - name: branch_id
           in: query
           required: false
@@ -12856,6 +12874,69 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '409':
           $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/customers/{account}:
+    patch:
+      operationId: updateOrderDeskCustomer
+      tags: [Order desk]
+      summary: Correct a customer's name or number
+      description: |
+        Fixes a misheard name or a mistyped number instead of writing the same
+        person down a second time, which split one human's history across two
+        customers.
+
+        The account is put through the **same scoping rule as the search** — an
+        order with this kitchen, or provisioned by somebody with an active
+        membership of it — so exactly the customers the desk can pick for a
+        collection or a delivery can be corrected, and anything else is `404`.
+
+        The name is the account's `display_name`; a registered customer's own
+        profile is not touched. A new number is remembered as the account's
+        primary phone and the account's other numbers are **retired, not
+        rewritten**, so an order already placed keeps showing the number it was
+        given. A phone owned by the customer's own sign-in is left alone; the
+        account's primary outranks it for the desk and the driver.
+
+        A number verified on somebody else's account is
+        `422 contact.already_verified`; a number other customers merely share is
+        returned in `possible_duplicates`, as on create.
+
+        Requires `customer.create_on_behalf_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: account
+          in: path
+          required: true
+          description: The customer account, as returned by the desk's customer search or create.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderDeskCustomerRequest'
+      responses:
+        '200':
+          description: The customer as the desk now sees them, and anybody else on the new number.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskCustomerEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '429':
@@ -34763,9 +34844,9 @@ components:
 
     OrderDeskWindow:
       type: string
-      enum: [today, overdue, next_7]
+      enum: [today, overdue, next_7, range]
       description: |
-        Which slice of the open book the desk is looking at — three questions
+        Which slice of the open book the desk is looking at — four questions
         somebody at a desk actually asks, rather than a date range that could
         express a hundred nobody does.
 
@@ -34775,7 +34856,9 @@ components:
         set nobody has committed to a day yet. `overdue` does not inherit that
         rule: a dateless order is never late, because there is no day it has
         missed. `next_7` runs from today to seven days after it, inclusive at
-        both ends.
+        both ends. `range` is the span named by the `from` and `to` parameters,
+        inclusive, past or future; a span containing today also carries the
+        dateless orders, as `today` does.
 
     OrderDeskDeliveryJob:
       type: object
@@ -34953,6 +35036,14 @@ components:
                     exactly the backlog the queue exists to surface.
                 window:
                   $ref: '#/components/schemas/OrderDeskWindow'
+                from:
+                  type: [string, 'null']
+                  format: date
+                  description: First day of the `window=range` span, echoed; null for the other windows.
+                to:
+                  type: [string, 'null']
+                  format: date
+                  description: Last day of the `window=range` span, echoed; null for the other windows.
                 today:
                   type: string
                   format: date
@@ -35823,6 +35914,28 @@ components:
           type: [string, 'null']
           minLength: 2
           maxLength: 2
+
+    UpdateOrderDeskCustomerRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: At least one of the two; an absent field is left as it is.
+      properties:
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: The corrected name this customer goes by at this kitchen.
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: |
+            The corrected number, already in E.164, or `422` on this field — the
+            create operation's rule. It becomes the account's primary phone and
+            the account's other numbers are retired; orders already placed keep
+            the number they were given.
+          examples: ['+96170123456']
 
     AddOrderDeskCustomerAddressRequest:
       type: object

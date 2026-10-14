@@ -338,6 +338,10 @@ beforeEach(() => {
     mockReplace.mockClear();
 });
 
+afterEach(() => {
+    jest.useRealTimers();
+});
+
 describe('sale — the menu', () => {
     it('prices each tile from a quote of one of each, and starts with an empty ticket', async () => {
         const quoteSale = jest.fn(async (request: OrderDeskSaleRequest) => quoteFor(request));
@@ -615,6 +619,27 @@ describe('sale — collections and deliveries', () => {
     });
 
     it('places a collection for the chosen customer, with no payment block, and returns to the queue', async () => {
+        // Before the midday slot closes: once both are over the When card rolls to tomorrow.
+        // Only Date is faked, so React Query and waitFor keep their real timers.
+        jest.useFakeTimers({
+            now: new Date(2026, 9, 14, 11, 0),
+            doNotFake: [
+                'hrtime',
+                'nextTick',
+                'performance',
+                'queueMicrotask',
+                'requestAnimationFrame',
+                'cancelAnimationFrame',
+                'requestIdleCallback',
+                'cancelIdleCallback',
+                'setImmediate',
+                'clearImmediate',
+                'setInterval',
+                'clearInterval',
+                'setTimeout',
+                'clearTimeout',
+            ],
+        });
         const placeSale = jest.fn(async () =>
             placedOrder({ fulfilmentType: 'pickup', status: 'confirmed' }),
         );
@@ -713,6 +738,67 @@ describe('sale — collections and deliveries', () => {
         // A hint, not an error, and no 422 spent finding out.
         await untilVisible('kitchen-order-desk-sale-customer-too-short');
         expect(repositories.orderDesk.searchCustomers).not.toHaveBeenCalled();
+    });
+
+    it('corrects the chosen customer in place, sending only what changed', async () => {
+        const updateCustomer = jest.fn(async () => ({
+            customer: customer({ phone: '+9613000222' }),
+            possibleDuplicates: [],
+        }));
+        await renderStubScreen(<OrderDeskSaleScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listMeals: async () => pageOf([adminMeal()]),
+                    listProducts: async () => pageOf([adminProduct()]),
+                    listServiceAreas: async () => pageOf([]),
+                },
+                orderDesk: {
+                    quoteSale: async (request) => quoteFor(request),
+                    searchCustomers: async () => ({ rows: [customer()], limit: 20 }),
+                    listDeliveryWindows: async () => [],
+                    updateCustomer,
+                },
+            },
+        });
+
+        await tapMeal();
+        await chooseKind('pickup');
+        await untilVisible('kitchen-order-desk-sale-customer');
+        await chooseLayla();
+        await untilVisible('kitchen-order-desk-sale-customer-edit');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-customer-edit'));
+        });
+        // Opens holding what is on file, so a correction starts from the record.
+        expect(
+            screen.getByTestId('kitchen-order-desk-sale-customer-edit-phone-input').props.value,
+        ).toBe('+9613000111');
+        // Nothing changed yet, so there is nothing to save.
+        expect(screen.getByTestId('kitchen-order-desk-sale-customer-edit-save')).toBeDisabled();
+
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-order-desk-sale-customer-edit-phone-input'),
+                '+9613000222',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-customer-edit-save'));
+        });
+
+        await waitFor(() => {
+            expect(updateCustomer).toHaveBeenCalledWith({
+                customerId: ACCOUNT_ID,
+                phone: '+9613000222',
+            });
+        });
+        // Folds back to the corrected record.
+        await untilVisible('kitchen-order-desk-sale-customer-chosen');
+        expect(screen.getByTestId('kitchen-order-desk-sale-customer-chosen')).toHaveTextContent(
+            /\+9613000222/,
+        );
     });
 
     it('surfaces possible duplicates as a warning with a way to use the other record', async () => {

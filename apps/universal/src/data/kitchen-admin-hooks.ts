@@ -89,6 +89,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type { Repositories } from '@healthy360/api-client';
+import { useEffect } from 'react';
 import { queryKeys } from './query-keys.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 
@@ -700,6 +701,36 @@ export function useRecipesQuery(
         },
         getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     });
+}
+
+/**
+ * The whole recipe book, for a picker that searches it in the browser.
+ *
+ * A picker filters the options it holds, so a book read one page deep hides every recipe past that
+ * page — 108 recipes against a 100-row page left eight that no search could find, the newest among
+ * them. This pages through to the end, the way the kitchen menu reads itself whole, and reports
+ * itself pending until it gets there so a picker never offers a partial list as the answer. A failed
+ * page stops the loop and surfaces through `error` rather than being retried here forever.
+ */
+export function useAllRecipesQuery(
+    filter: Omit<RecipeAdminFilter, 'cursor'> = { limit: 100 },
+    enabled = true,
+): RecipesInfiniteResult {
+    const query = useRecipesQuery(filter, enabled);
+    const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = query;
+
+    useEffect(() => {
+        if (hasNextPage && !isFetchingNextPage && !isFetchNextPageError) {
+            void fetchNextPage();
+        }
+    }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage]);
+
+    // Still paging counts as still loading. The result object is spread rather than mutated: it is
+    // React Query's, and the one field a picker reads to decide whether its list is final changes.
+    return {
+        ...query,
+        isPending: query.isPending || (hasNextPage && !isFetchNextPageError),
+    } as RecipesInfiniteResult;
 }
 
 /**

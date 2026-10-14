@@ -295,6 +295,9 @@ describe('createApiOrderDeskRepository — listQueue', () => {
             limit: 200,
             truncated: true,
             window: 'next_7',
+            // Not sent by this wire, and only `window: 'range'` names them: absent reads as no span.
+            from: null,
+            to: null,
             today: '2026-08-15',
             timezone: 'Asia/Dubai',
         });
@@ -1005,6 +1008,38 @@ describe('createApiOrderDeskRepository — customers', () => {
         expect(created.customer.displayName).toBe('Sami Nassar');
         // A warning, never a refusal — a household genuinely shares a telephone.
         expect(created.possibleDuplicates).toHaveLength(1);
+    });
+
+    it('corrects a customer with a PATCH carrying only the fields given', async () => {
+        const { repository, calls } = harness([
+            {
+                status: 200,
+                body: {
+                    data: {
+                        customer: {
+                            id: ACCOUNT_UUID,
+                            display_name: 'Sami Nassar',
+                            phone: '+9613000222',
+                            origin: 'staff',
+                            has_orders_with_org: true,
+                        },
+                        possible_duplicates: [],
+                    },
+                    meta: {},
+                },
+            },
+        ]);
+
+        const updated = await repository.updateCustomer({
+            customerId: ACCOUNT_UUID,
+            phone: '+9613000222',
+        });
+
+        expect(calls[0]?.method).toBe('PATCH');
+        expect(calls[0]?.path).toBe(`/catalogue/order-desk/customers/${ACCOUNT_UUID}`);
+        // The name was not given, so it is not sent — a correction never re-states the rest.
+        expect(calls[0]?.body).toEqual({ phone: '+9613000222' });
+        expect(updated.customer.phone).toBe('+9613000222');
     });
 
     it('writes an address against the named account, with no idempotency key', async () => {

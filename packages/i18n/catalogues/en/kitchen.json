@@ -1670,7 +1670,10 @@
         "window": {
             "today": "Today",
             "overdue": "Overdue",
-            "next7": "Next 7 days"
+            "next7": "Next 7 days",
+            "range": "Date range",
+            "from": "From",
+            "to": "To"
         },
         "statusLabel": "Status",
         "columnNumber": "Order",
@@ -1816,6 +1819,9 @@
             "customerPhoneHint": "With the country code, for example +9613000111. We do not guess it.",
             "customerCreate": "Save customer",
             "customerCancelCreate": "Cancel",
+            "customerEdit": "Edit",
+            "customerEditSave": "Save changes",
+            "customerEditDuplicatesTitle": "Somebody else also has this number",
             "customerDuplicatesTitle": "Somebody already has that number",
             "customerDuplicatesBody": "That is allowed — a household or an office shares one line. If this is really the same person, use their existing record instead so the order joins their history.",
             "customerUseInstead": "Use this one instead",
@@ -2497,6 +2503,7 @@
         "subcategoryNone": "Filed at the top level",
         "unitPrice": "Unit price",
         "unitPriceHint": "What one stock unit is listed at.",
+        "unitPricePer": "{{currency}} / {{unit}}",
         "stockUnit": "Stock unit",
         "stockUnitHint": "The unit this ingredient is issued and costed in.",
         "itemsPerPurchaseUnit": "Items per purchase unit",

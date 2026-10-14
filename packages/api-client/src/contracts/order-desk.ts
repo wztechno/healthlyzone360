@@ -72,7 +72,7 @@ import type {
  * dateless order is never late, because there is no day it has missed. `next_7` runs from today to
  * seven days after it, inclusive at both ends.
  */
-export const ORDER_DESK_WINDOWS = ['today', 'overdue', 'next_7'] as const;
+export const ORDER_DESK_WINDOWS = ['today', 'overdue', 'next_7', 'range'] as const;
 export type OrderDeskWindow = (typeof ORDER_DESK_WINDOWS)[number];
 
 /**
@@ -257,6 +257,10 @@ export interface OrderDeskQueueMeta {
      */
     readonly truncated: boolean;
     readonly window: OrderDeskWindow;
+    /** `YYYY-MM-DD` — first day of the `window: 'range'` span; null for the other windows. */
+    readonly from: string | null;
+    /** `YYYY-MM-DD` — last day of the `window: 'range'` span; null for the other windows. */
+    readonly to: string | null;
     /** `YYYY-MM-DD` — the day the window was measured from. */
     readonly today: string;
     /** The IANA zone that day was computed in: the named branch's, or `UTC` when none was named. */
@@ -272,6 +276,13 @@ export interface OrderDeskQueue {
 export interface OrderDeskQueueFilters {
     /** Defaults to `today` server-side when omitted, which is why this is not required here. */
     readonly window?: OrderDeskWindow | undefined;
+    /**
+     * `YYYY-MM-DD` — first and last day of the span `window: 'range'` looks at, inclusive, past or
+     * future (the same day twice is one day). Both required with that window — the server answers
+     * `422` without either, or with `to` before `from` — and ignored by the others.
+     */
+    readonly from?: string | undefined;
+    readonly to?: string | undefined;
     /**
      * Narrow to one production site — **and** name the clock `today` is read on. A branch is a
      * place and a place has a working day; unnamed, the day boundary is UTC.
@@ -905,6 +916,20 @@ export interface CreateOrderDeskCustomerRequest {
 }
 
 /**
+ * A correction to a customer the desk can sell to. Each field is keyed on presence: an absent one is
+ * left as it is, and at least one must be sent.
+ *
+ * A new `phone` becomes the account's main number; the old one is retired, not rewritten, so orders
+ * already placed keep the number they were given.
+ */
+export interface UpdateOrderDeskCustomerRequest {
+    readonly customerId: string;
+    readonly displayName?: string | undefined;
+    /** E.164, or a `422` on this field — the create rule. */
+    readonly phone?: string | undefined;
+}
+
+/**
  * A newly written customer, and who else already answers to that number.
  *
  * `possibleDuplicates` is a **warning, never a refusal**: two customers genuinely share a telephone
@@ -1070,6 +1095,12 @@ export interface OrderDeskRepository {
 
     /** Write down a cold caller. Answers the new row **and** who else already has that number. */
     createCustomer(request: CreateOrderDeskCustomerRequest): Promise<OrderDeskCustomerCreated>;
+
+    /**
+     * Correct a customer's name, number or both, instead of writing them down a second time.
+     * Answers the corrected row and who else already has the new number.
+     */
+    updateCustomer(request: UpdateOrderDeskCustomerRequest): Promise<OrderDeskCustomerCreated>;
 
     /**
      * Add an address to a customer, for a delivery.
