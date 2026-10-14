@@ -13,6 +13,7 @@ use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\Recipes\Models\RecipeVersionOutput;
 use Healthy360\Tenancy\TenantContext;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The recipes module's answer to the ingredients module's questions
@@ -125,7 +126,11 @@ final readonly class RecipeIngredientUsageRegistry implements IngredientUsageReg
             ]);
 
         foreach ($versionIds as $versionId) {
-            RecomputeRecipeDerivations::dispatch($versionId, $organisationId);
+            // Delay uniqueness-lock acquisition too: a rolled-back edit must not
+            // suppress the recomputation scheduled by its subsequent retry.
+            DB::afterCommit(static function () use ($versionId, $organisationId): void {
+                RecomputeRecipeDerivations::dispatch($versionId, $organisationId);
+            });
         }
 
         return $versionIds;

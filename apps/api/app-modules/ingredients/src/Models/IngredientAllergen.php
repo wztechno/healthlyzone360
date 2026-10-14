@@ -44,6 +44,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $created_by
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
+ * @property string|null $reviewed_by
+ * @property CarbonImmutable|null $reviewed_at
+ * @property string|null $review_evidence
  */
 #[Classified(DataClassification::Internal, 'evidence')]
 #[Classified(DataClassification::Public, 'allergen_code', 'containment', 'market_scope')]
@@ -65,6 +68,7 @@ class IngredientAllergen extends BaseModel implements OrganisationScoped
     protected function casts(): array
     {
         return [
+            'reviewed_at' => 'immutable_datetime',
             'containment' => AllergenContainment::class,
             'market_scope' => AllergenMarketScope::class,
             'source' => AllergenMappingSource::class,

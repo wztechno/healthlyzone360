@@ -441,6 +441,9 @@ enum ErrorCode: string
 
     case ServerInternalError = 'server.internal_error';
 
+    case NutritionProviderUnavailable = 'nutrition.provider_unavailable';
+    case NutritionProviderConfiguration = 'nutrition.provider_configuration';
+
     /**
      * The HTTP status this code is served with unless the thrower overrides
      * it. One code maps to exactly one status in this phase.
@@ -502,6 +505,7 @@ enum ErrorCode: string
             self::OtpCooldownActive,
             self::OtpLocked => 429,
             self::ServerInternalError => 500,
+            self::NutritionProviderUnavailable, self::NutritionProviderConfiguration => 503,
         };
     }
 
@@ -569,6 +573,8 @@ enum ErrorCode: string
             self::AccessSelfLockout => 'This change would remove your own access to the administration console.',
             self::RateLimitExceeded => 'Too many requests. Please retry later.',
             self::ServerInternalError => 'An unexpected error occurred. The correlation identifier can be quoted to support.',
+            self::NutritionProviderUnavailable => 'Nutrition lookup is temporarily unavailable. Please retry later.',
+            self::NutritionProviderConfiguration => 'Nutrition lookup requires administrator configuration.',
         };
     }
 

@@ -1,3 +1,5 @@
+import type { NutritionReferenceSelection } from '@healthy360/api-client/contracts';
+import { NutritionReferencePicker } from '../nutrition-reference-picker.tsx';
 import type {
     AllergenClass,
     CostAmount,
@@ -14,7 +16,6 @@ import {
     Button,
     Callout,
     Cascade,
-    Checkbox,
     Dialog,
     ErrorState,
     FormGrid,
@@ -122,7 +123,8 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ## Save always answers
  *
- * Save is pressable over an incomplete form. Pressing it marks the form *attempted*: the required
+ * New food requires a suitable reference and preparation acknowledgement before Save is enabled.
+ * Other incomplete fields are explained on pressing Save: the required
  * fields that are still empty say so under themselves, and one banner under the header names each
  * of them, each name taking the reader to its field. Before the first press nothing is flagged — a
  * new record opens with every required field blank, and a page of red before anyone has typed is
@@ -587,6 +589,19 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     );
     const [detailsKey, setDetailsKey] = useState<string | null>(null);
     const [detailsDirty, setDetailsDirty] = useState(false);
+    const [referenceDraft, setReferenceDraft] = useState<{
+        readonly name: string;
+        readonly selection: NutritionReferenceSelection | undefined;
+    }>({ name: '', selection: undefined });
+    const nutritionReference =
+        referenceDraft.name === details.name.en ? referenceDraft.selection : undefined;
+    const isPackaging = details.categoryCode.startsWith('packaging-disposables');
+    const referenceRequired =
+        !isPackaging &&
+        (isCreating || (record.data?.categoryCode.startsWith('packaging-disposables') ?? false));
+    const referenceBlocked =
+        (referenceRequired && nutritionReference === undefined) ||
+        (nutritionReference !== undefined && !nutritionReference.confirmed);
 
     const data = record.data;
 
@@ -639,10 +654,14 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
 
     const settle = (nextDirty: boolean) => {
         setDetailsDirty(nextDirty);
-        if (!nextDirty) guard.markClean();
+        if (!nextDirty) {
+            guard.markClean();
+            setReferenceDraft({ name: '', selection: undefined });
+        }
     };
 
     const reload = useCallback(() => {
+        setReferenceDraft({ name: '', selection: undefined });
         setDetailsDirty(false);
         setDetailsKey(null);
         guard.markClean();
@@ -903,15 +922,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         currency === null &&
         [unitPriceValue, b2bPriceValue, b2cPriceValue].some((value) => typeof value === 'number');
 
-    /*
-     * Whether this screen may annotate the figures — the estimate flag and the note. The figures
-     * themselves are never written here.
-     *
-     * Packaging has no entry in the reference food database and never will (see `food` on the
-     * family), and an ingredient a published recipe *outputs* has its figures derived from that
-     * formulation — the server refuses the flag and the note while the link stands, so offering
-     * them would be offering a control whose save 422s.
-     */
+    // Only non-derived food can select a reference. Figures and provenance remain server-managed.
     const nutritionDerived = data?.nutritionDerivedFromVersionId ?? null;
     const nutritionEditable = family.food && nutritionDerived === null;
 
@@ -1058,6 +1069,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const save = () => {
         if (!editable || currencyMissing) return;
         setAttempted(true);
+        if (referenceBlocked) return;
         if (blockers.length > 0) {
             // The banner names every field; the first one is also where the reader is taken.
             focusField(blockers[0]!.fieldId);
@@ -1085,15 +1097,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         : { unitPrice: costOf(unitPriceValue)! }),
                     ...(costOf(b2bPriceValue) === null ? {} : { b2bPrice: costOf(b2bPriceValue)! }),
                     ...(costOf(b2cPriceValue) === null ? {} : { b2cPrice: costOf(b2cPriceValue)! }),
-                    // Never `per100g`: the figures come from the database. The flag and the note
-                    // go only when somebody stated one — sent unasked, an unticked box would record
-                    // `false` ("a declared figure") on a row that has no figure to declare.
-                    ...(nutritionEditable && details.nutritionEstimated
-                        ? { nutritionEstimated: true }
-                        : {}),
-                    ...(nutritionEditable && details.nutritionNote.trim() !== ''
-                        ? { nutritionNote: details.nutritionNote.trim() }
-                        : {}),
+                    ...(nutritionReference === undefined ? {} : { nutritionReference }),
                     isSellable: details.isSellable,
                 },
                 {
@@ -1135,21 +1139,8 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     unitPrice: costOf(unitPriceValue),
                     b2bPrice: costOf(b2bPriceValue),
                     b2cPrice: costOf(b2cPriceValue),
-                    /*
-                     * `per100g` is never sent: the figures come from the database, and a missing
-                     * field is untouched where `null` would be a clear. The flag and the note go on
-                     * their own — the server takes either without the figures — and are absent
-                     * entirely on a record a recipe derives, where the server refuses both.
-                     */
-                    ...(nutritionEditable
-                        ? {
-                              nutritionEstimated: details.nutritionEstimated,
-                              nutritionNote:
-                                  details.nutritionNote.trim() === ''
-                                      ? null
-                                      : details.nutritionNote.trim(),
-                          }
-                        : {}),
+                    // Submit the reviewed reference; the server owns figures and provenance.
+                    ...(nutritionReference === undefined ? {} : { nutritionReference }),
                     isSellable: details.isSellable,
                 },
             },
@@ -1240,6 +1231,10 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
 
     /** One field of the draft, and the dirty flag with it — the shape every input below writes. */
     const edit = (patch: Partial<DetailsDraft>) => {
+        if (patch.name !== undefined && patch.name.en !== details.name.en) {
+            setReferenceDraft({ name: patch.name.en, selection: undefined });
+        }
+
         setDetails({ ...details, ...patch });
         markDetailsDirty();
     };
@@ -1443,7 +1438,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                     testID="kitchen-ingredient-editor-screen-save"
                                     label={t('kitchen:editor.save')}
                                     loading={busy}
-                                    disabled={!editable || currencyMissing || busy}
+                                    disabled={
+                                        !editable || currencyMissing || busy || referenceBlocked
+                                    }
                                     onPress={save}
                                 />
                             )}
@@ -1972,41 +1969,22 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                     emptyValue={t('kitchen:sale.marginUnavailable')}
                                 />
 
-                                <Checkbox
-                                    testID="kitchen-ingredient-nutrition-estimated"
-                                    id="kitchen-ingredient-nutrition-estimated"
-                                    label={t('kitchen:nutritionFacts.estimateLabel')}
-                                    checked={details.nutritionEstimated}
-                                    disabled={!editable}
-                                    onChange={(next) => {
-                                        edit({ nutritionEstimated: next });
-                                    }}
-                                />
-
-                                <FormGrid
-                                    track="half"
-                                    maxColumns={4}
-                                    testID="kitchen-ingredient-nutrition-note-grid"
-                                >
-                                    {/*
-                                     * Four half tracks: a 300-character sentence in a 132px box is
-                                     * read two words at a time.
-                                     */}
-                                    <TextInputField
-                                        testID="kitchen-ingredient-nutrition-note"
-                                        id="kitchen-ingredient-nutrition-note"
-                                        span={4}
-                                        size="sm"
-                                        label={t('kitchen:nutritionFacts.noteLabel')}
-                                        placeholder={t('kitchen:nutritionFacts.notePlaceholder')}
-                                        maxLength={300}
-                                        value={details.nutritionNote}
-                                        disabled={!editable}
-                                        onChangeText={(next) => {
-                                            edit({ nutritionNote: next });
+                                <Text tone="secondary" variant="caption">
+                                    {data?.nutritionNote ??
+                                        t('kitchen:nutritionLookup.serverManaged')}
+                                </Text>
+                                {editable && !isPackaging ? (
+                                    <NutritionReferencePicker
+                                        key={`${String(data?.id ?? 'new')}:${details.name.en}`}
+                                        name={details.name.en}
+                                        value={nutritionReference}
+                                        onChange={(selection) => {
+                                            setReferenceDraft({ name: details.name.en, selection });
+                                            setDetailsDirty(true);
+                                            guard.markDirty();
                                         }}
                                     />
-                                </FormGrid>
+                                ) : null}
                             </Stack>
                         ) : (
                             <DerivedPanel
@@ -2039,7 +2017,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     >
                         {editable && data !== undefined && classes.data !== undefined ? (
                             <IngredientAllergenEditor
-                                key={`${String(data.meta.lockVersion)}-${allergens
+                                key={`${data.allergenReviewToken ?? ''}-${String(data.meta.lockVersion)}-${allergens
                                     .map((m) => `${String(m.allergenCode)}:${m.containment}`)
                                     .join(',')}-${String(data.allergensAssessedClear === true)}`}
                                 ingredient={data}

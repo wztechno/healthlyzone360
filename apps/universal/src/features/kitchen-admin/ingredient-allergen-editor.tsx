@@ -12,6 +12,8 @@ import {
     Select,
     Stack,
     Text,
+    TextInputField,
+    Checkbox,
     useToast,
 } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
@@ -19,8 +21,11 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { toFailure } from '../../data/hooks.ts';
-import { useSetIngredientAllergensMutation } from '../../data/kitchen-admin-hooks.ts';
-import { displayName } from './format.ts';
+import {
+    useSetIngredientAllergensMutation,
+    useConfirmIngredientAllergensMutation,
+} from '../../data/kitchen-admin-hooks.ts';
+import { displayName, containmentKey, verificationKey } from './format.ts';
 
 type Choice = AllergenContainment | 'none';
 
@@ -45,6 +50,16 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
     const { locale } = useLocale();
     const toast = useToast();
     const save = useSetIngredientAllergensMutation();
+    const confirm = useConfirmIngredientAllergensMutation();
+    const [evidence, setEvidence] = useState('');
+    const [supplierEvidence, setSupplierEvidence] = useState('');
+    const [confirmNone, setConfirmNone] = useState(false);
+    const needsSupplier = ingredient.allergens.some(
+        (mapping) =>
+            mapping.verification === 'requires_supplier_confirmation' &&
+            (mapping.layer !== 'platform_baseline' ||
+                (ingredient.organisationId === null && ingredient.isEditable)),
+    );
 
     const stored = new Map(ingredient.allergens.map((m) => [String(m.allergenCode), m]));
     const [draft, setDraft] = useState<ReadonlyMap<string, Choice>>(
@@ -54,7 +69,7 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
     const active = classes.filter((entry) => entry.isActive || draft.has(String(entry.code)));
     const chosen = [...draft].filter(([, choice]) => choice !== 'none');
     const dirty =
-        chosen.length !== ingredient.allergens.length ||
+        chosen.length !== stored.size ||
         chosen.some(([code, choice]) => stored.get(code)?.containment !== choice);
     const assessed = ingredient.allergens.length > 0 || ingredient.allergensAssessedClear === true;
 
@@ -96,10 +111,13 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
         );
     };
 
-    const failure = toFailure(save.error);
+    const failure = toFailure(save.error ?? confirm.error);
 
     return (
         <Stack space="sm" testID="kitchen-ingredient-mapping">
+            {ingredient.allergenReviewRequired ? (
+                <Callout tone="warning" title={t('kitchen:nutritionLookup.reviewChanged')} />
+            ) : null}
             {assessed ? null : (
                 <Callout
                     testID="kitchen-ingredient-mapping-unassessed"
@@ -156,6 +174,90 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
                     onPress={onSave}
                 />
             </Inline>
+            {ingredient.allergenReviewToken == null ? null : (
+                <Stack space="sm" testID="ingredient-allergen-confirmation">
+                    {ingredient.allergens.map((mapping) => (
+                        <Text
+                            key={`${String(mapping.allergenCode)}:${mapping.marketScope.join(',')}:${mapping.layer ?? 'unknown'}`}
+                            variant="caption"
+                        >
+                            {
+                                displayName(
+                                    classes.find((entry) => entry.code === mapping.allergenCode)
+                                        ?.name ?? {
+                                        en: String(mapping.allergenCode),
+                                        ar: String(mapping.allergenCode),
+                                    },
+                                    locale,
+                                ).value
+                            }
+                            {' · '}
+                            {t(containmentKey(mapping.containment))}
+                            {' · '}
+                            {mapping.marketScope.join(', ') ||
+                                t('kitchen:allergens.marketScopeAll')}
+                            {' · '}
+                            {t(verificationKey(mapping.verification))}
+                            {mapping.sourceNote == null ? '' : ` · ${mapping.sourceNote}`}
+                        </Text>
+                    ))}
+                    <TextInputField
+                        testID="allergen-review-evidence"
+                        label={t('kitchen:nutritionLookup.reviewEvidence')}
+                        value={evidence}
+                        onChangeText={setEvidence}
+                        maxLength={2000}
+                    />
+                    {needsSupplier ? (
+                        <TextInputField
+                            testID="allergen-supplier-evidence"
+                            label={t('kitchen:nutritionLookup.supplierEvidence')}
+                            value={supplierEvidence}
+                            onChangeText={setSupplierEvidence}
+                            maxLength={2000}
+                        />
+                    ) : null}
+                    {ingredient.allergens.length === 0 ? (
+                        <Checkbox
+                            testID="allergen-confirm-none"
+                            label={t('kitchen:nutritionLookup.confirmNone')}
+                            checked={confirmNone}
+                            onChange={setConfirmNone}
+                        />
+                    ) : null}
+                    {dirty ? (
+                        <Text tone="secondary">
+                            {t('kitchen:nutritionLookup.saveMappingsFirst')}
+                        </Text>
+                    ) : null}
+                    <Button
+                        testID="allergen-review-confirm"
+                        label={t('kitchen:nutritionLookup.confirmReview')}
+                        loading={confirm.isPending}
+                        disabled={
+                            dirty ||
+                            save.isPending ||
+                            confirm.isPending ||
+                            evidence.trim() === '' ||
+                            (needsSupplier && supplierEvidence.trim() === '') ||
+                            (ingredient.allergens.length === 0 && !confirmNone)
+                        }
+                        onPress={() =>
+                            confirm.mutate({
+                                ingredientId: ingredient.id,
+                                request: {
+                                    reviewToken: ingredient.allergenReviewToken!,
+                                    evidence: evidence.trim(),
+                                    ...(needsSupplier
+                                        ? { supplierEvidence: supplierEvidence.trim() }
+                                        : {}),
+                                    confirmNoAllergens: confirmNone,
+                                },
+                            })
+                        }
+                    />
+                </Stack>
+            )}
         </Stack>
     );
 }

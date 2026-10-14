@@ -191,6 +191,8 @@ export const REPOSITORY_SURFACE = {
         'setOverride',
     ],
     kitchenAdmin: [
+        'searchNutritionReferences',
+        'confirmIngredientAllergens',
         'archiveIngredient',
         'archiveProduct',
         'archiveZone',

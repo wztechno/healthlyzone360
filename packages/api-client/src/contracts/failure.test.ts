@@ -1,4 +1,26 @@
 import { describe, expect, it } from 'vitest';
+import { mapErrorEnvelope } from '../api/failures.ts';
+
+it('distinguishes provider downtime from configuration errors without suggesting retries for bad configuration', () => {
+    for (const [code, retryable] of [
+        ['nutrition.provider_unavailable', true],
+        ['nutrition.provider_configuration', false],
+    ] as const) {
+        const failure = mapErrorEnvelope(
+            {
+                error: {
+                    code,
+                    message: 'Nutrition lookup failed',
+                    details: { retryable },
+                    correlation_id: 'nutrition-test',
+                },
+            },
+            { status: 503 },
+        );
+        expect(failure.code).toBe(code);
+        expect(failure.retryable).toBe(retryable);
+    }
+});
 
 import {
     API_FAILURE_CODES,
@@ -75,6 +97,8 @@ describe('the failure vocabulary', () => {
             'offboarding.refused',
             'offboarding.settlement_outstanding',
             'record_export.unavailable',
+            'nutrition.provider_unavailable',
+            'nutrition.provider_configuration',
             'network',
             'server',
             'prototype.not_implemented',
@@ -105,9 +129,9 @@ describe('the failure vocabulary', () => {
      * The retry policy is derived from this table, so it is asserted rather than assumed: an
      * automatic retry of a rejected password or a rate limit is a bug, not a resilience feature.
      */
-    it('marks only transport-level failures as automatically retryable', () => {
+    it('marks temporary transport and provider failures as retryable', () => {
         const retryable = API_FAILURE_CODES.filter(defaultRetryable);
-        expect([...retryable]).toEqual(['network', 'server']);
+        expect([...retryable]).toEqual(['nutrition.provider_unavailable', 'network', 'server']);
     });
 });
 

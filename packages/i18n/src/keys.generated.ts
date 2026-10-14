@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8312 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8334 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2567,6 +2567,8 @@ export interface NamespaceKeys {
     | 'failure.context_organisation_required'
     | 'failure.guest_session_invalid'
     | 'failure.network'
+    | 'failure.nutrition_provider_configuration'
+    | 'failure.nutrition_provider_unavailable'
     | 'failure.offboarding_refused'
     | 'failure.offboarding_settlement_outstanding'
     | 'failure.order_placement_refused'
@@ -3910,6 +3912,26 @@ export interface NamespaceKeys {
     | 'nutritionFacts.unitGrams'
     | 'nutritionFacts.unitKcal'
     | 'nutritionFacts.unitMilligrams'
+    | 'nutritionLookup.allergensSeparate'
+    | 'nutritionLookup.clearSelection'
+    | 'nutritionLookup.configuration'
+    | 'nutritionLookup.confirmNone'
+    | 'nutritionLookup.confirmPreparation'
+    | 'nutritionLookup.confirmReview'
+    | 'nutritionLookup.estimated'
+    | 'nutritionLookup.noMatches'
+    | 'nutritionLookup.query'
+    | 'nutritionLookup.reviewChanged'
+    | 'nutritionLookup.reviewEvidence'
+    | 'nutritionLookup.saveMappingsFirst'
+    | 'nutritionLookup.search'
+    | 'nutritionLookup.select'
+    | 'nutritionLookup.selected'
+    | 'nutritionLookup.serverManaged'
+    | 'nutritionLookup.supplierEvidence'
+    | 'nutritionLookup.tryShorter'
+    | 'nutritionLookup.unavailable'
+    | 'nutritionLookup.unsuitable'
     | 'ops.batch.awaitingTarget'
     | 'ops.batch.baseTimes'
     | 'ops.batch.baseTimesWithWaste'
@@ -10900,6 +10922,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:failure.context_organisation_required',
   'errors:failure.guest_session_invalid',
   'errors:failure.network',
+  'errors:failure.nutrition_provider_configuration',
+  'errors:failure.nutrition_provider_unavailable',
   'errors:failure.offboarding_refused',
   'errors:failure.offboarding_settlement_outstanding',
   'errors:failure.order_placement_refused',
@@ -12240,6 +12264,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nutritionFacts.unitGrams',
   'kitchen:nutritionFacts.unitKcal',
   'kitchen:nutritionFacts.unitMilligrams',
+  'kitchen:nutritionLookup.allergensSeparate',
+  'kitchen:nutritionLookup.clearSelection',
+  'kitchen:nutritionLookup.configuration',
+  'kitchen:nutritionLookup.confirmNone',
+  'kitchen:nutritionLookup.confirmPreparation',
+  'kitchen:nutritionLookup.confirmReview',
+  'kitchen:nutritionLookup.estimated',
+  'kitchen:nutritionLookup.noMatches',
+  'kitchen:nutritionLookup.query',
+  'kitchen:nutritionLookup.reviewChanged',
+  'kitchen:nutritionLookup.reviewEvidence',
+  'kitchen:nutritionLookup.saveMappingsFirst',
+  'kitchen:nutritionLookup.search',
+  'kitchen:nutritionLookup.select',
+  'kitchen:nutritionLookup.selected',
+  'kitchen:nutritionLookup.serverManaged',
+  'kitchen:nutritionLookup.supplierEvidence',
+  'kitchen:nutritionLookup.tryShorter',
+  'kitchen:nutritionLookup.unavailable',
+  'kitchen:nutritionLookup.unsuitable',
   'kitchen:ops.batch.awaitingTarget',
   'kitchen:ops.batch.baseTimes',
   'kitchen:ops.batch.baseTimesWithWaste',

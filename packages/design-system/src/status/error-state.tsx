@@ -11,6 +11,8 @@ import { cx } from '../internal/class-names.ts';
  * server's text is a developer-facing fallback, not product copy.
  */
 export const FAILURE_MESSAGE_KEYS: Readonly<Record<ApiFailure['code'], string>> = {
+    'nutrition.provider_unavailable': 'errors:failure.nutrition_provider_unavailable',
+    'nutrition.provider_configuration': 'errors:failure.nutrition_provider_configuration',
     'auth.invalid_credentials': 'errors:failure.auth_invalid_credentials',
     'auth.unauthenticated': 'errors:failure.auth_unauthenticated',
     'auth.email_unverified': 'errors:failure.auth_email_unverified',

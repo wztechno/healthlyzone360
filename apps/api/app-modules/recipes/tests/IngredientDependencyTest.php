@@ -12,6 +12,7 @@ use Healthy360\Recipes\Jobs\RecomputeRecipeDerivations;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Tests\Fixtures\RecipeWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 
 /*
@@ -147,6 +148,40 @@ it('marks a published label stale when the mappings underneath it change', funct
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.allergen_code', 'sesame');
 });
+
+it('queues ingredient recomputation only after commit and discards it on rollback', function (bool $commit): void {
+    $this->postJson("/api/v1/catalogue/recipes/{$this->recipeId}/versions/1/publish", [],
+        $this->headers + ['If-Match' => '"1"'])->assertOk();
+    config(['queue.default' => 'database']);
+    $countJobs = static fn (): int => DB::table('jobs')->where('queue', 'default')->where('payload', 'like', '%RecomputeRecipeDerivations%')->count();
+    $before = $countJobs();
+    DB::beginTransaction();
+    try {
+        $this->putJson('/api/v1/catalogue/ingredients/'.$this->tahini->getKey().'/allergens', [
+            'mappings' => [
+                ['allergen_code' => 'sesame', 'containment' => 'contains'],
+                ['allergen_code' => RecipeWorld::allergen('peanut')->code, 'containment' => 'may_contain'],
+            ],
+        ], $this->headers)->assertOk();
+        expect($countJobs())->toBe($before);
+    } catch (Throwable $exception) {
+        DB::rollBack();
+        throw $exception;
+    }
+    $commit ? DB::commit() : DB::rollBack();
+    expect($countJobs())->toBe($before + ($commit ? 1 : 0));
+    $version = RecipeVersion::withoutTenancy()->where('recipe_id', $this->recipeId)->sole();
+    expect($version->derivation_state)->toBe($commit ? DerivationState::Stale : DerivationState::Current);
+    if (! $commit) {
+        $this->putJson('/api/v1/catalogue/ingredients/'.$this->tahini->getKey().'/allergens', [
+            'mappings' => [
+                ['allergen_code' => 'sesame', 'containment' => 'contains'],
+                ['allergen_code' => RecipeWorld::allergen('peanut')->code, 'containment' => 'may_contain'],
+            ],
+        ], $this->headers)->assertOk();
+        expect($countJobs())->toBe($before + 1);
+    }
+})->with(['committed' => [true], 'rolled back' => [false]]);
 
 it('recomputes the label, quarantines the published version and names the delta', function (): void {
     // The same edit as above with the queue running — the K1.8 behaviour the

@@ -13,6 +13,7 @@ use Healthy360\Ingredients\Enums\AllergenVerificationStatus;
 use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAllergen;
+use Healthy360\Ingredients\Nutrition\NutritionReferenceService;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -140,6 +141,19 @@ final readonly class AllergenMappingService
      */
     public function replace(Ingredient $ingredient, AllergenMarketScope $scope, array $mappings): Collection
     {
+        return DB::transaction(function () use ($ingredient, $scope, $mappings): Collection {
+            IngredientMutationLock::acquire((string) $ingredient->getKey());
+            $ingredient->refresh();
+
+            return $this->replaceLocked($ingredient, $scope, $mappings);
+        });
+    }
+
+    /** @param list<array{allergen_code: string, containment: string, source?: string|null, verification_status?: string|null, evidence?: string|null}> $mappings
+     * @return Collection<int, IngredientAllergen>
+     */
+    private function replaceLocked(Ingredient $ingredient, AllergenMarketScope $scope, array $mappings): Collection
+    {
         $organisationId = $this->callerLayer();
         $normalised = $this->normalise($mappings);
 
@@ -235,6 +249,85 @@ final readonly class AllergenMappingService
         );
 
         return $this->mappingsFor($ingredient, $organisationId);
+    }
+
+    /** @param iterable<IngredientAllergen>|null $mappings */
+    public function reviewToken(Ingredient $ingredient, ?iterable $mappings = null): string
+    {
+        $rows = collect($mappings ?? $this->mappingsFor($ingredient, $this->callerLayer()))->map(static fn (IngredientAllergen $row): array => [
+            'id' => (string) $row->getKey(), 'organisation' => $row->organisation_id,
+            'allergen' => $row->allergen_code, 'scope' => $row->market_scope->value,
+            'containment' => $row->containment->value, 'verification' => $row->verification_status->value,
+            'source' => $row->source->value, 'evidence' => $row->evidence,
+            'reviewed_by' => $row->reviewed_by, 'reviewed_at' => $row->reviewed_at?->toIso8601String(), 'review_evidence' => $row->review_evidence,
+        ])->all();
+
+        return hash('sha256', json_encode(NutritionReferenceService::canonical([
+            'ingredient' => (string) $ingredient->getKey(), 'organisation' => $this->context->organisationId(),
+            'version' => $ingredient->lock_version, 'source' => $ingredient->nutrition_source['source_hash'] ?? null,
+            'review_required' => $ingredient->allergen_review_required,
+            'verification' => $ingredient->verification_status->value,
+            'reviewed_by' => $ingredient->allergens_reviewed_by,
+            'reviewed_at' => $ingredient->allergens_reviewed_at?->toIso8601String(),
+            'review_evidence' => $ingredient->allergens_review_evidence, 'mappings' => $rows,
+        ]), JSON_THROW_ON_ERROR));
+    }
+
+    public function confirm(Ingredient $ingredient, string $token, string $evidence, ?string $supplierEvidence, bool $confirmNoAllergens): Ingredient
+    {
+        return DB::transaction(function () use ($ingredient, $token, $evidence, $supplierEvidence, $confirmNoAllergens): Ingredient {
+            IngredientMutationLock::acquire((string) $ingredient->getKey());
+            $ingredient->refresh();
+            if (! hash_equals($this->reviewToken($ingredient), $token)) {
+                throw new ApiException(ErrorCode::ResourceConflict, 'The allergen assessment changed. Reload and review it again.');
+            }
+            $layer = $this->callerLayer();
+            $effective = $this->mappingsFor($ingredient, $layer);
+            $owned = $ingredient->organisation_id === $layer;
+            $rows = $effective->filter(static fn (IngredientAllergen $row): bool => $row->organisation_id === $layer);
+            $evidence = trim($evidence);
+            if ($evidence === '' || mb_strlen($evidence) > 2000) {
+                throw new ApiException(ErrorCode::ValidationFailed, details: ['fields' => ['evidence' => ['Review evidence is required (maximum 2,000 characters).']]]);
+            }
+            $supplierEvidence = trim($supplierEvidence ?? '');
+            $needsSupplier = $rows->contains(static fn (IngredientAllergen $row): bool => $row->verification_status === AllergenVerificationStatus::RequiresSupplierConfirmation);
+            if ($needsSupplier && ($supplierEvidence === '' || mb_strlen($supplierEvidence) > 2000)) {
+                throw new ApiException(ErrorCode::ValidationFailed, details: ['fields' => ['supplier_evidence' => ['Supplier evidence is required before confirming these mappings.']]]);
+            }
+            if ($effective->isEmpty()) {
+                if (! $owned || ! $confirmNoAllergens) {
+                    throw new ApiException(ErrorCode::ValidationFailed, details: ['fields' => ['confirm_no_allergens' => ['Explicitly confirm the empty assessment on your own ingredient.']]]);
+                }
+                if ($ingredient->verification_status === IngredientVerificationStatus::Unverified) {
+                    $ingredient->verification_status = IngredientVerificationStatus::Verified;
+                }
+            } elseif ($confirmNoAllergens) {
+                throw new ApiException(ErrorCode::ValidationFailed, details: ['fields' => ['confirm_no_allergens' => ['This ingredient has declared allergens.']]]);
+            } elseif ($rows->isEmpty()) {
+                throw new ApiException(ErrorCode::ValidationFailed, details: ['fields' => ['review_token' => ['There are no mappings in your writable layer to confirm.']]]);
+            }
+            foreach ($rows as $row) {
+                $row->verification_status = AllergenVerificationStatus::Verified;
+                $row->reviewed_by = $this->context->userId();
+                $row->reviewed_at = now();
+                $row->review_evidence = json_encode(['review' => $evidence, 'supplier' => $supplierEvidence === '' ? null : $supplierEvidence], JSON_THROW_ON_ERROR);
+                $row->save();
+            }
+            if ($owned) {
+                $ingredient->allergen_review_required = false;
+                $ingredient->allergens_reviewed_by = $this->context->userId();
+                $ingredient->allergens_reviewed_at = now();
+                $ingredient->allergens_review_evidence = $evidence;
+                $ingredient->save();
+            }
+            $this->invalidator->invalidate($ingredient, $layer);
+            $this->audit->record('catalogue.ingredient_allergens_confirmed', actorUserId: $this->context->userId(), subjectType: 'ingredient', subjectId: (string) $ingredient->getKey(), metadata: [
+                'market_scope' => 'all_scopes', 'mapping_count' => $rows->count(), 'confirmed_clear' => $effective->isEmpty(),
+                'evidence' => $evidence, 'supplier_evidence' => $supplierEvidence,
+            ]);
+
+            return $ingredient->refresh();
+        });
     }
 
     /**

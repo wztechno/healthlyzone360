@@ -4073,5 +4073,27 @@
     "weightInvalid": "[[Á ŵéíĝĥţ íš á ñúɱƀéŕ ĝŕéáţéŕ ţĥáñ žéŕó. āēīōūāēīōūāēīōūā]]",
     "priceInvalid": "[[Á þŕíçé íš á ñúɱƀéŕ ĝŕéáţéŕ ţĥáñ žéŕó. āēīōūāēīōūāēīōūā]]",
     "priceNeedsWeight": "[[Šáý ĥóŵ ɱúçĥ ţĥíš þŕíçé ƀúýš: áðð á ŵéíĝĥţ. āēīōūāēīōūāēīōūāēī]]"
+  },
+  "nutritionLookup": {
+    "query": "[ Search USDA foods ]",
+    "search": "[ Search ]",
+    "estimated": "[ Representative estimate ]",
+    "select": "[ Select reference ]",
+    "selected": "[ Selected reference ]",
+    "confirmPreparation": "[ This reference matches the ingredient and preparation state I purchase. ]",
+    "noMatches": "[ No nutrition reference found ]",
+    "tryShorter": "[ Try a shorter food name or a different preparation description. A suitable reference is required to create a food ingredient. ]",
+    "unavailable": "[ Nutrition lookup unavailable ]",
+    "unsuitable": "[ Reference cannot be used ]",
+    "allergensSeparate": "[ USDA supplies nutrition. Assess allergens separately using your supplier information. ]",
+    "serverManaged": "[ Nutrition figures and provenance are managed by the server. ]",
+    "reviewChanged": "[ Nutrition reference changed — review allergens ]",
+    "reviewEvidence": "[ Evidence supporting this allergen assessment ]",
+    "supplierEvidence": "[ Supplier evidence for pending supplier confirmations ]",
+    "confirmNone": "[ I have assessed this ingredient and confirm that no allergens are present. ]",
+    "saveMappingsFirst": "[ Save your mapping changes before confirming the assessment. ]",
+    "confirmReview": "[ Confirm allergen assessment ]",
+    "configuration": "[[Nutrition lookup needs configuration]]",
+    "clearSelection": "[[Clear selection]]"
   }
 }

@@ -148,6 +148,8 @@ export function containmentKey(containment: AllergenContainment): string {
 const VERIFICATION_KEYS: Readonly<Record<AllergenVerification, string>> = {
     unverified: 'kitchen:verification.unverified',
     supplier_declared: 'kitchen:verification.supplierDeclared',
+    requires_supplier_confirmation: 'kitchen:verification.supplierDeclared',
+    requires_review: 'kitchen:status.reviewRequired',
     laboratory_tested: 'kitchen:verification.laboratoryTested',
     operator_confirmed: 'kitchen:verification.operatorConfirmed',
 };

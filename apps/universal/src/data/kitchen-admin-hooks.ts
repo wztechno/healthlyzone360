@@ -4,6 +4,7 @@ import type {
     CreateDeliveryWindowRequest,
     CreateDeliveryZoneRequest,
     CreateIngredientRequest,
+    ConfirmIngredientAllergensRequest,
     CreateMealRequest,
     CreatePlanRequest,
     CreateProductRequest,
@@ -657,6 +658,35 @@ export function useSetIngredientAllergensMutation(): UseMutationResult<
         mutationFn: ({ ingredientId, request }: SetIngredientAllergensVariables) =>
             repositories.kitchenAdmin.setIngredientAllergens(ingredientId, request),
         onSuccess: onWritten,
+    });
+}
+
+export function useNutritionReferenceSearch() {
+    const repositories = useRepositories();
+    return useMutation({
+        mutationFn: (query: string) => repositories.kitchenAdmin.searchNutritionReferences(query),
+        retry: false,
+    });
+}
+
+export function useConfirmIngredientAllergensMutation() {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+    const onWritten = useIngredientWriteEffects();
+    return useMutation({
+        mutationFn: ({
+            ingredientId,
+            request,
+        }: {
+            readonly ingredientId: IngredientId;
+            readonly request: ConfirmIngredientAllergensRequest;
+        }) => repositories.kitchenAdmin.confirmIngredientAllergens(ingredientId, request),
+        onSuccess: onWritten,
+        onError: (_error, { ingredientId }) => {
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.kitchenAdmin.ingredient(ingredientId),
+            });
+        },
     });
 }
 

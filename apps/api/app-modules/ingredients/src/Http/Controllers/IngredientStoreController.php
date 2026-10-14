@@ -35,7 +35,7 @@ final class IngredientStoreController
         /** @var array{name_en: string, name_ar?: string|null, slug?: string|null, ingredient_category_id?: string|null, ingredient_subcategory_id?: string|null, default_unit_id: string, yield_factor?: float|string|null, availability_tier?: string|null, notes?: string|null} $attributes */
         $attributes = $request->validated();
 
-        $ingredient = $this->catalogue->create($attributes);
+        $ingredient = $this->catalogue->createPublic($attributes);
         $ingredient->load(['defaultUnit', 'purchaseUnit', 'capacityUnit']);
 
         return ApiResponse::data(['ingredient' => $this->presenter->ingredient($ingredient)], status: 201)

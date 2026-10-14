@@ -2,6 +2,11 @@
 
 return [
 
+    'usda_fdc' => [
+        'key' => env('USDA_FDC_API_KEY'),
+        'budget' => (int) env('USDA_FDC_HOURLY_BUDGET', 900),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Third Party Services

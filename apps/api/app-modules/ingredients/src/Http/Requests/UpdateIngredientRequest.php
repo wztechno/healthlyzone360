@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Healthy360\Ingredients\Http\Requests;
 
 use Healthy360\Ingredients\Enums\AvailabilityTier;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 
@@ -18,7 +17,7 @@ use Illuminate\Validation\Rules\Enum;
  * changes are lifecycle actions with their own routes and audit actions
  * (master plan v2 §4.15).
  */
-class UpdateIngredientRequest extends FormRequest
+class UpdateIngredientRequest extends StoreIngredientRequest
 {
     public function authorize(): bool
     {
@@ -51,7 +50,7 @@ class UpdateIngredientRequest extends FormRequest
             'is_sellable' => ['sometimes', 'required', 'boolean'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
             ...StoreIngredientRequest::priceRules(),
-            ...StoreIngredientRequest::nutritionRules(),
+            ...StoreIngredientRequest::referenceRules(),
         ];
     }
 }

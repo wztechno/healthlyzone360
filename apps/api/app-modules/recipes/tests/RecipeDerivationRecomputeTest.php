@@ -26,6 +26,7 @@ use Healthy360\Recipes\Tests\Fixtures\RecipeWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Queue;
+use Tests\Support\NutritionReferenceFixture;
 
 /*
 |--------------------------------------------------------------------------
@@ -464,9 +465,8 @@ it('refreshes the nutrition snapshot when an ingredients per-100 g facts change,
     // 250 g of a 595 kcal/100 g ingredient.
     expect(snapshotEnergy($versionId))->toBe(1487.5);
 
-    // The supplier restates the figure. Nothing about the formulation changed,
-    // and everything about the label a customer reads off it did.
-    patchIngredient($tahini, ['nutrition_per_100g' => recomputeFacts(700)], $this->headers);
+    // A newly reviewed reference changes the figure without changing the formulation.
+    patchIngredient($tahini, NutritionReferenceFixture::selection(recomputeFacts(700)), $this->headers);
 
     expect(snapshotEnergy($versionId))->toBe(1750.0);
 
@@ -529,7 +529,10 @@ it('leaves a null snapshot when an ingredient loses its facts', function (): voi
 
     expect(snapshotEnergy($versionId))->toBe(1487.5);
 
-    patchIngredient($tahini, ['nutrition_per_100g' => null], $this->headers);
+    // Withdrawing figures is a trusted maintenance operation; kitchens cannot
+    // submit a null nutrition envelope through the public API.
+    app(TenantContext::class)->setOrganisation((string) $this->kitchen->user->getKey(), (string) $this->kitchen->organisation->getKey());
+    app(IngredientCatalogueService::class)->update($tahini, ['nutrition_per_100g' => null], $tahini->refresh()->lock_version);
 
     $version = RecipeVersion::withoutTenancy()->whereKey($versionId)->sole();
 

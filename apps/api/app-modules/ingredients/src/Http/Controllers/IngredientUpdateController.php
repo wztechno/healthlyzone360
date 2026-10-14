@@ -49,7 +49,7 @@ final class IngredientUpdateController
             );
         }
 
-        $updated = $this->catalogue->update($record, $request->validated(), $expected);
+        $updated = $this->catalogue->updatePublic($record, $request->validated(), $expected);
         $updated->load(['defaultUnit', 'purchaseUnit', 'capacityUnit']);
 
         return ApiResponse::data(['ingredient' => $this->presenter->ingredient($updated)])
