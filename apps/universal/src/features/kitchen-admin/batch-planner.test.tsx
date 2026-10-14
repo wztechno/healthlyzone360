@@ -409,6 +409,36 @@ describe('the batch planner', () => {
         expect(screen.queryByTestId('kitchen-batch-packaging-waste')).toBeNull();
     });
 
+    it('offers a recipe that sits past the first page of the book', async () => {
+        // The defect: the picker held one 100-row page, so recipe 101 onwards could not be found.
+        const first = recipe({
+            id: RecipeId.unsafe('01935f6d-0000-7000-8000-0000000b0002'),
+            name: { en: 'First page recipe', ar: '' },
+        });
+        const repositories = batchRepositories();
+
+        await renderStubScreen(<BatchPlannerScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                ...repositories,
+                kitchenAdmin: {
+                    ...repositories.kitchenAdmin,
+                    listRecipes: async (filter) =>
+                        filter?.cursor === undefined
+                            ? page([summaryOf(first)], { nextCursor: 'page-2' })
+                            : page([summaryOf(recipe())]),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-batch-recipe-trigger');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-recipe-trigger'));
+        });
+        await untilVisible(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`);
+        expect(screen.getByTestId(`kitchen-batch-recipe-option-${String(first.id)}`)).toBeTruthy();
+    });
+
     it('adds the packaging rate to packaging before it rounds up, and says so', async () => {
         const record = recipe({ currentVersion: version({ packagingWastePercent: 10 }) });
         await renderStubScreen(<BatchPlannerScreen />, {

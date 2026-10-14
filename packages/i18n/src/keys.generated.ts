@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8186 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8193 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3250,6 +3250,9 @@ export interface NamespaceKeys {
     | 'desk.sale.customerCreateTitle'
     | 'desk.sale.customerDuplicatesBody'
     | 'desk.sale.customerDuplicatesTitle'
+    | 'desk.sale.customerEdit'
+    | 'desk.sale.customerEditDuplicatesTitle'
+    | 'desk.sale.customerEditSave'
     | 'desk.sale.customerNameLabel'
     | 'desk.sale.customerNamePlaceholder'
     | 'desk.sale.customerNew'
@@ -3347,8 +3350,11 @@ export interface NamespaceKeys {
     | 'desk.title'
     | 'desk.truncatedBody'
     | 'desk.truncatedTitle'
+    | 'desk.window.from'
     | 'desk.window.next7'
     | 'desk.window.overdue'
+    | 'desk.window.range'
+    | 'desk.window.to'
     | 'desk.window.today'
     | 'desk.windowLabel'
     | 'dressings.create'
@@ -3541,6 +3547,7 @@ export interface NamespaceKeys {
     | 'fields.unitPlaceholder'
     | 'fields.unitPrice'
     | 'fields.unitPriceHint'
+    | 'fields.unitPricePer'
     | 'fields.unitPricePlaceholder'
     | 'fields.zoneNamePlaceholderAr'
     | 'fields.zoneNamePlaceholderEn'
@@ -11454,6 +11461,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.customerCreateTitle',
   'kitchen:desk.sale.customerDuplicatesBody',
   'kitchen:desk.sale.customerDuplicatesTitle',
+  'kitchen:desk.sale.customerEdit',
+  'kitchen:desk.sale.customerEditDuplicatesTitle',
+  'kitchen:desk.sale.customerEditSave',
   'kitchen:desk.sale.customerNameLabel',
   'kitchen:desk.sale.customerNamePlaceholder',
   'kitchen:desk.sale.customerNew',
@@ -11551,8 +11561,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.title',
   'kitchen:desk.truncatedBody',
   'kitchen:desk.truncatedTitle',
+  'kitchen:desk.window.from',
   'kitchen:desk.window.next7',
   'kitchen:desk.window.overdue',
+  'kitchen:desk.window.range',
+  'kitchen:desk.window.to',
   'kitchen:desk.window.today',
   'kitchen:desk.windowLabel',
   'kitchen:dressings.create',
@@ -11745,6 +11758,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.unitPlaceholder',
   'kitchen:fields.unitPrice',
   'kitchen:fields.unitPriceHint',
+  'kitchen:fields.unitPricePer',
   'kitchen:fields.unitPricePlaceholder',
   'kitchen:fields.zoneNamePlaceholderAr',
   'kitchen:fields.zoneNamePlaceholderEn',

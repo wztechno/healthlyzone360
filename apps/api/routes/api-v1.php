@@ -217,6 +217,7 @@ use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCashReportController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerStoreController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerUpdateController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDeliveryWindowIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDriverIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlacementController;
@@ -2274,6 +2275,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
 
                 Route::post('/order-desk/customers/{account}/addresses', OrderDeskCustomerAddressStoreController::class)
                     ->name('catalogue.order-desk.customers.addresses.store');
+
+                // Correcting a misheard name or a mistyped number, instead of
+                // writing the same person down a second time.
+                Route::patch('/order-desk/customers/{account}', OrderDeskCustomerUpdateController::class)
+                    ->name('catalogue.order-desk.customers.update');
             });
 
             /*

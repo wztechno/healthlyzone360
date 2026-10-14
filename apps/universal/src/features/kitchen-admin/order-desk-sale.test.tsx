@@ -715,6 +715,67 @@ describe('sale — collections and deliveries', () => {
         expect(repositories.orderDesk.searchCustomers).not.toHaveBeenCalled();
     });
 
+    it('corrects the chosen customer in place, sending only what changed', async () => {
+        const updateCustomer = jest.fn(async () => ({
+            customer: customer({ phone: '+9613000222' }),
+            possibleDuplicates: [],
+        }));
+        await renderStubScreen(<OrderDeskSaleScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listMeals: async () => pageOf([adminMeal()]),
+                    listProducts: async () => pageOf([adminProduct()]),
+                    listServiceAreas: async () => pageOf([]),
+                },
+                orderDesk: {
+                    quoteSale: async (request) => quoteFor(request),
+                    searchCustomers: async () => ({ rows: [customer()], limit: 20 }),
+                    listDeliveryWindows: async () => [],
+                    updateCustomer,
+                },
+            },
+        });
+
+        await tapMeal();
+        await chooseKind('pickup');
+        await untilVisible('kitchen-order-desk-sale-customer');
+        await chooseLayla();
+        await untilVisible('kitchen-order-desk-sale-customer-edit');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-customer-edit'));
+        });
+        // Opens holding what is on file, so a correction starts from the record.
+        expect(
+            screen.getByTestId('kitchen-order-desk-sale-customer-edit-phone-input').props.value,
+        ).toBe('+9613000111');
+        // Nothing changed yet, so there is nothing to save.
+        expect(screen.getByTestId('kitchen-order-desk-sale-customer-edit-save')).toBeDisabled();
+
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-order-desk-sale-customer-edit-phone-input'),
+                '+9613000222',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-customer-edit-save'));
+        });
+
+        await waitFor(() => {
+            expect(updateCustomer).toHaveBeenCalledWith({
+                customerId: ACCOUNT_ID,
+                phone: '+9613000222',
+            });
+        });
+        // Folds back to the corrected record.
+        await untilVisible('kitchen-order-desk-sale-customer-chosen');
+        expect(screen.getByTestId('kitchen-order-desk-sale-customer-chosen')).toHaveTextContent(
+            /\+9613000222/,
+        );
+    });
+
     it('surfaces possible duplicates as a warning with a way to use the other record', async () => {
         const other = customer({ id: 'test-0000-account-002', displayName: 'L. Haddad' });
         await renderSale({

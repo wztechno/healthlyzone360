@@ -169,6 +169,9 @@ export function mapOrderDeskQueueMeta(wire: OrderDeskQueueEnvelope['meta']): Ord
         limit: wire.limit,
         truncated: wire.truncated,
         window: wire.window,
+        // Optional on the wire (older servers never sent them), so absent reads as "no span".
+        from: wire.from ?? null,
+        to: wire.to ?? null,
         today: wire.today,
         timezone: wire.timezone,
     };

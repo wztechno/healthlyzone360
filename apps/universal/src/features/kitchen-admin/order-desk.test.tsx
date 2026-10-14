@@ -156,6 +156,8 @@ function meta(overrides: Partial<OrderDeskQueueMeta> = {}): OrderDeskQueueMeta {
         limit: 200,
         truncated: false,
         window: 'today',
+        from: null,
+        to: null,
         today: '2026-08-15',
         timezone: 'UTC',
         ...overrides,
@@ -544,6 +546,62 @@ describe('order desk queue — filters and the query key', () => {
             expect(repositories.orderDesk.listQueue).toHaveBeenCalledWith({
                 window: 'today',
                 query: '0148',
+            });
+        });
+    });
+
+    it('asks for a span picked From and To, a single pick being one day', async () => {
+        const { repositories } = await renderDesk(async () => queue(seedQueue()));
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-table')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        // Two days of the month the pickers open on — a span the three segments cannot name.
+        const now = new Date();
+        const month = `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const first = `${month}-01`;
+        const fifteenth = `${month}-15`;
+
+        // From alone is one day: To takes the same date.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-from-trigger'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`kitchen-order-desk-from-day-${first}`));
+        });
+        await waitFor(() => {
+            expect(repositories.orderDesk.listQueue).toHaveBeenCalledWith({
+                window: 'range',
+                from: first,
+                to: first,
+            });
+        });
+
+        // To widens it.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-to-trigger'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`kitchen-order-desk-to-day-${fifteenth}`));
+        });
+        await waitFor(() => {
+            expect(repositories.orderDesk.listQueue).toHaveBeenLastCalledWith({
+                window: 'range',
+                from: first,
+                to: fifteenth,
+            });
+        });
+
+        // A segment takes the screen off the span.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-window-overdue'));
+        });
+        await waitFor(() => {
+            expect(repositories.orderDesk.listQueue).toHaveBeenLastCalledWith({
+                window: 'overdue',
             });
         });
     });

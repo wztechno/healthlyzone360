@@ -22,7 +22,9 @@ use Illuminate\Foundation\Http\FormRequest;
  * person who could know which. Here it would be an identifier the desk supplied
  * for a `contact_points` row this endpoint cannot prove belongs to this account —
  * a foreign key the database would accept and nobody had checked. The number the
- * kitchen holds is already the account's primary, written when the customer was.
+ * kitchen holds is already the account's primary, written when the customer was,
+ * and the controller attaches *that* — resolved on the server from the account's
+ * own rows — so the order the address goes on carries a number for its driver.
  *
  * `is_default` is likewise absent, and does not need to be present:
  * `CustomerAddressService` makes the **first** address of a type the default

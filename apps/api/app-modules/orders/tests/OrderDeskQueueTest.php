@@ -331,6 +331,42 @@ it('answers each window with the days it names, and only those', function (): vo
     ]);
 });
 
+it('answers any span of days, past or future, and needs both ends', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
+
+    $longAgo = deskOrder($this, ['requested_delivery_date' => '2026-04-20']);
+    $aprilEnd = deskOrder($this, ['requested_delivery_date' => '2026-04-30']);
+    $today = deskOrder($this, ['requested_delivery_date' => '2026-05-10']);
+    $undated = deskOrder($this, ['requested_delivery_date' => null]);
+    $nextMonth = deskOrder($this, ['requested_delivery_date' => '2026-06-02']);
+
+    // Further back than `overdue` reaches on one screen, inclusive at both ends.
+    expect(deskIds($this, 'window=range&from=2026-04-20&to=2026-04-30'))
+        ->toBe([(string) $longAgo->getKey(), (string) $aprilEnd->getKey()]);
+
+    // The same day twice is one day — further ahead than `next_7` reaches.
+    expect(deskIds($this, 'window=range&from=2026-06-02&to=2026-06-02'))->toBe([(string) $nextMonth->getKey()]);
+
+    // A span containing today carries the dateless orders, as `today` does.
+    expect(deskIds($this, 'window=range&from=2026-05-01&to=2026-05-31'))
+        ->toEqualCanonicalizing([(string) $today->getKey(), (string) $undated->getKey()]);
+
+    $this->getJson('/api/v1/catalogue/order-desk/queue?window=range&from=2026-05-01', $this->headers)
+        ->assertStatus(422)
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['to']]]]);
+
+    // Backwards is refused rather than read as empty.
+    $this->getJson('/api/v1/catalogue/order-desk/queue?window=range&from=2026-05-31&to=2026-05-01', $this->headers)
+        ->assertStatus(422)
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['to']]]]);
+
+    $this->getJson('/api/v1/catalogue/order-desk/queue?window=range&from=2026-04-20&to=2026-06-02', $this->headers)
+        ->assertOk()
+        ->assertJsonPath('meta.window', 'range')
+        ->assertJsonPath('meta.from', '2026-04-20')
+        ->assertJsonPath('meta.to', '2026-06-02');
+});
+
 it('narrows on branch, status and delivery window without widening the queue', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
 

@@ -21,6 +21,7 @@ import type {
     OrderDeskSaleRequest,
     OrderDeskShortfallCount,
     PlaceOrderDeskSaleRequest,
+    UpdateOrderDeskCustomerRequest,
 } from '@healthy360/api-client/contracts';
 import type { BranchId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -428,6 +429,30 @@ export function useCreateOrderDeskCustomerMutation(): UseMutationResult<
         retry: false,
         mutationFn: (request: CreateOrderDeskCustomerRequest) =>
             repositories.orderDesk.createCustomer(request),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
+        },
+    });
+}
+
+/**
+ * Correct a customer's name or number.
+ *
+ * Every desk read is invalidated afterwards, for the create hook's reason: the account is now found
+ * under a different name or number, and the queue rows show both.
+ */
+export function useUpdateOrderDeskCustomerMutation(): UseMutationResult<
+    OrderDeskCustomerCreated,
+    unknown,
+    UpdateOrderDeskCustomerRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (request: UpdateOrderDeskCustomerRequest) =>
+            repositories.orderDesk.updateCustomer(request),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
         },

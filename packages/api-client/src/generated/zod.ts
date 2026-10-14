@@ -5479,7 +5479,7 @@ export const zOrderPaymentReceiptEnvelope = z.object({
 });
 
 /**
- * Which slice of the open book the desk is looking at — three questions
+ * Which slice of the open book the desk is looking at — four questions
  * somebody at a desk actually asks, rather than a date range that could
  * express a hundred nobody does.
  *
@@ -5489,13 +5489,16 @@ export const zOrderPaymentReceiptEnvelope = z.object({
  * set nobody has committed to a day yet. `overdue` does not inherit that
  * rule: a dateless order is never late, because there is no day it has
  * missed. `next_7` runs from today to seven days after it, inclusive at
- * both ends.
+ * both ends. `range` is the span named by the `from` and `to` parameters,
+ * inclusive, past or future; a span containing today also carries the
+ * dateless orders, as `today` does.
  *
  */
 export const zOrderDeskWindow = z.enum([
     'today',
     'overdue',
-    'next_7'
+    'next_7',
+    'range'
 ]);
 
 /**
@@ -5829,6 +5832,14 @@ export const zCreateOrderDeskCustomerRequest = z.object({
     phone: z.string().max(255),
     preferred_language_code: z.string().length(2).nullish(),
     country_code: z.string().length(2).nullish()
+});
+
+/**
+ * At least one of the two; an absent field is left as it is.
+ */
+export const zUpdateOrderDeskCustomerRequest = z.object({
+    display_name: z.string().min(1).max(255).optional(),
+    phone: z.string().min(1).max(255).optional()
 });
 
 /**
@@ -7355,6 +7366,8 @@ export const zOrderDeskQueueEnvelope = z.object({
         limit: z.int(),
         truncated: z.boolean(),
         window: zOrderDeskWindow,
+        from: z.iso.date().nullish(),
+        to: z.iso.date().nullish(),
         today: z.iso.date(),
         timezone: z.string()
     }))
@@ -13312,6 +13325,8 @@ export const zListOrderDeskQueueHeaders = z.object({
 
 export const zListOrderDeskQueueQuery = z.object({
     window: zOrderDeskWindow.optional(),
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
     branch_id: zUuid.optional(),
     'status[]': z.array(z.enum(['placed', 'confirmed'])).optional(),
     delivery_window_code: z.string().max(40).optional(),
@@ -13384,6 +13399,22 @@ export const zCreateOrderDeskCustomerHeaders = z.object({
  *
  */
 export const zCreateOrderDeskCustomerResponse = zOrderDeskCustomerEnvelope;
+
+export const zUpdateOrderDeskCustomerBody = zUpdateOrderDeskCustomerRequest;
+
+export const zUpdateOrderDeskCustomerHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateOrderDeskCustomerPath = z.object({
+    account: zUuid
+});
+
+/**
+ * The customer as the desk now sees them, and anybody else on the new number.
+ */
+export const zUpdateOrderDeskCustomerResponse = zOrderDeskCustomerEnvelope;
 
 export const zAddOrderDeskCustomerAddressBody = zAddOrderDeskCustomerAddressRequest;
 
