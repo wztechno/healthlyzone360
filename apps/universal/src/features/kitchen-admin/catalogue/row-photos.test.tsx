@@ -154,3 +154,72 @@ describe('RecordPhoto', () => {
         expect(screen.queryByTestId('photo')).toBeNull();
     });
 });
+
+/** The first `source` under an image frame — the bundled `require` or the kitchen's `{ uri }`. */
+interface Node {
+    readonly props: Record<string, unknown>;
+    readonly children: readonly (Node | string)[];
+}
+
+function sourceUnder(node: Node): unknown {
+    if (node.props.source !== undefined) return node.props.source;
+    for (const child of node.children) {
+        if (typeof child === 'string') continue;
+        const found = sourceUnder(child);
+        if (found !== undefined) return found;
+    }
+    return undefined;
+}
+
+describe('the kitchen’s own photo (BUG-14)', () => {
+    const UPLOAD = '/api/v1/media/photos/42';
+
+    function renderUploaded() {
+        const columns: readonly CatalogueColumn<Row>[] = spec(true).map((column) => ({
+            ...column,
+            thumbnailUrl: (row: Row) => (row.id === 'no-photo' ? UPLOAD : null),
+        }));
+        return render(
+            <CatalogueList
+                testID="list"
+                label="Ingredients"
+                columns={columns}
+                rows={ROWS}
+                rowKey={(row) => row.id}
+                rowActionsLabel="Row actions"
+            />,
+        );
+    }
+
+    it('draws the uploaded photo on the row that has one, and the bundled one elsewhere', async () => {
+        await renderUploaded();
+
+        const uploaded = screen.getByTestId('list-row-no-photo-image', HIDDEN) as unknown as Node;
+        expect(sourceUnder(uploaded)).toEqual({ uri: UPLOAD });
+
+        // `null` falls back: still the bundled file, not a link.
+        const bundled = screen.getByTestId('list-row-black-pepper-image', HIDDEN) as unknown as Node;
+        expect(sourceUnder(bundled)).not.toEqual(expect.objectContaining({ uri: UPLOAD }));
+        expect(sourceUnder(bundled)).toBeDefined();
+    });
+
+    it('gives an unmapped record a rail card for its upload, without the stock credit', async () => {
+        const i18n = createI18n({ locale: 'en' });
+        await render(
+            <I18nextProvider i18n={i18n}>
+                <RecordPhoto
+                    assetId="ingredient-not-sourced"
+                    photoUrl={UPLOAD}
+                    label="Record"
+                    shape="square"
+                    testID="photo"
+                />
+            </I18nextProvider>,
+        );
+
+        expect(sourceUnder(screen.getByTestId('photo-image') as unknown as Node)).toEqual({
+            uri: UPLOAD,
+        });
+        expect(screen.queryByTestId('photo-credit')).toBeNull();
+    });
+});

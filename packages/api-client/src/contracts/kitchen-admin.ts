@@ -357,11 +357,27 @@ export interface IngredientCategoryAdmin {
     readonly isActive: boolean;
 }
 
+/** Which record a kitchen's photo belongs to (BUG-14). Products and meals are both catalogue items. */
+export type RecordPhotoSubject = 'ingredient' | 'recipe' | 'catalogue_item';
+
+/** A photo to save on a record: the image's bytes and the name it was picked under. */
+export interface SetRecordPhotoRequest {
+    readonly subject: RecordPhotoSubject;
+    readonly recordId: string;
+    readonly photo: Blob;
+    readonly fileName: string;
+}
+
 export interface IngredientAdmin {
     readonly nutritionSource?: Readonly<Record<string, unknown>> | null;
     readonly allergenReviewRequired?: boolean;
     readonly allergenReviewToken?: string | null;
     readonly id: IngredientId;
+    /**
+     * The kitchen's own photo of this record (BUG-14), served same-origin from
+     * `/api/v1/media/photos/{id}`; `null` (or absent) shows the stock picture.
+     */
+    readonly photoUrl?: string | null | undefined;
     readonly meta: AdminEntityMeta;
     readonly name: LocalisedText;
     /**
@@ -954,6 +970,11 @@ export interface RecipeSoldAs {
 
 export interface RecipeAdminSummary {
     readonly id: RecipeId;
+    /**
+     * The kitchen's own photo of this record (BUG-14), served same-origin from
+     * `/api/v1/media/photos/{id}`; `null` (or absent) shows the stock picture.
+     */
+    readonly photoUrl?: string | null | undefined;
     readonly meta: AdminEntityMeta;
     readonly name: LocalisedText;
     readonly slug: string;
@@ -1447,6 +1468,11 @@ export interface ProductPackVariant {
 
 export interface ProductAdmin {
     readonly id: ProductId;
+    /**
+     * The kitchen's own photo of this record (BUG-14), served same-origin from
+     * `/api/v1/media/photos/{id}`; `null` (or absent) shows the stock picture.
+     */
+    readonly photoUrl?: string | null | undefined;
     readonly meta: AdminEntityMeta;
     /**
      * Which packaged kind this row is. Sauces and dressings share the product
@@ -1703,6 +1729,11 @@ export type ProductionMode = (typeof PRODUCTION_MODES)[number];
 
 export interface MealAdmin {
     readonly id: MealId;
+    /**
+     * The kitchen's own photo of this record (BUG-14), served same-origin from
+     * `/api/v1/media/photos/{id}`; `null` (or absent) shows the stock picture.
+     */
+    readonly photoUrl?: string | null | undefined;
     readonly meta: AdminEntityMeta;
     readonly name: LocalisedText;
     readonly description: LocalisedText;
@@ -2196,6 +2227,14 @@ export interface KitchenAdminRepository {
      * whatever the create answers with.
      */
     nextReference(prefix: ReferenceSeries): Promise<string>;
+
+    /* ── record photos (BUG-14) ─────────────────────────────────────────────────────────────── */
+
+    /** Save a record's photo, replacing any earlier one. Answers the photo's new link. */
+    setRecordPhoto(request: SetRecordPhotoRequest): Promise<string>;
+
+    /** Remove a record's photo, so it shows its stock picture again. */
+    removeRecordPhoto(subject: RecordPhotoSubject, recordId: string): Promise<void>;
 
     /* ── ingredients ────────────────────────────────────────────────────────────────────────── */
 

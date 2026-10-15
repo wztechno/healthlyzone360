@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Healthy360\Ingredients\Presenters;
 
+use Healthy360\Catalogues\Enums\RecordPhotoSubject;
+use Healthy360\Catalogues\Services\RecordPhotoService;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAlias;
 use Healthy360\Ingredients\Models\IngredientAllergen;
@@ -31,7 +33,11 @@ use Healthy360\Ingredients\Services\IngredientCatalogueService;
  */
 final class IngredientPresenter
 {
-    public function __construct(private readonly IngredientCatalogueService $catalogue, private readonly AllergenMappingService $mappings) {}
+    public function __construct(
+        private readonly IngredientCatalogueService $catalogue,
+        private readonly AllergenMappingService $mappings,
+        private readonly RecordPhotoService $photos,
+    ) {}
 
     /**
      * @param  iterable<IngredientAllergen>|null  $allergens  the mappings visible to this caller,
@@ -96,6 +102,8 @@ final class IngredientPresenter
             'is_platform' => $ingredient->isPlatformRow(),
             'is_editable' => $this->catalogue->isWritable($ingredient),
             'slug' => $ingredient->slug,
+            // The kitchen's own photo, when it saved one (BUG-14); null shows the stock picture.
+            'photo_url' => $this->photos->urlFor(RecordPhotoSubject::Ingredient, (string) $ingredient->getKey()),
             'name_en' => $ingredient->name_en,
             'name_ar' => $ingredient->name_ar,
             'ingredient_category_id' => $ingredient->ingredient_category_id,

@@ -68,6 +68,7 @@ import {
     useRecipeRollupQuery,
     useRecipeTechnicalSheetQuery,
     useRetireRecipeMutation,
+    useSaveRecordPhotoMutation,
     useSetRecipeLinesMutation,
     useSetRecipePackagingMutation,
     useUpdateRecipeMutation,
@@ -154,13 +155,12 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * What the right-hand roll-up pane used to say lives on **Technical sheet** now: the derived
  * nutrients, the inherited allergen classes and the print view, in one place instead of two.
  *
- * ## One of the design's fields this contract cannot store
+ * ## The photo is written after the recipe
  *
- * The photo on Description exists in the prototype's own state and nowhere on
- * `KitchenAdminRepository`. It is drawn, at the kitchen's request, and held in this screen's state
- * only — never sent, never marking the record dirty, and never blocking a save. Storage and the
- * Restricted switch belong to the Method section below and are not drawn, for the reason that
- * section gives.
+ * The photo on Description has an endpoint of its own, keyed on the recipe rather than a version,
+ * so it is written once the recipe's own writes have answered — and a refused upload leaves the
+ * recipe saved and says so in the save callout (BUG-14). Storage and the Restricted switch belong
+ * to the Method section below and are not drawn, for the reason that section gives.
  *
  * ## The expiry period is the recipe's, and it saves on a published recipe too
  *
@@ -593,14 +593,21 @@ function RecipeEditor({
     const publish = usePublishRecipeMutation();
     const retire = useRetireRecipeMutation();
     const openDraft = useOpenRecipeDraftMutation();
+    const photoSave = useSaveRecordPhotoMutation();
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
     const [tab, setTab] = useState<RecipeTab>('description');
     /** Whether a save has been pressed — what lets an empty required field call itself out. */
     const [attempted, setAttempted] = useState(false);
-    /** The design's photo. Not saved: see the docblock. */
-    const [image, setImage] = useState<string | null>(null);
+    /*
+     * The design's photo, the link it was last filled from (`undefined` until the record arrives),
+     * and whether it has been changed since. Rehydrated on its own key: the photo endpoint moves the
+     * link and not the lock version.
+     */
+    const [photo, setPhoto] = useState<string | null>(null);
+    const [photoKey, setPhotoKey] = useState<string | null | undefined>(undefined);
+    const [photoDirty, setPhotoDirty] = useState(false);
 
     const [details, setDetails] = useState<DetailsDraft>(EMPTY_DETAILS);
     const [lines, setLinesDraft] = useState<readonly LineDraft[]>([]);
@@ -650,7 +657,7 @@ function RecipeEditor({
     const data = record.data;
     const serverKey =
         data === undefined ? null : `${String(data.id)}:${String(data.meta.lockVersion)}`;
-    const anyDirty = detailsDirty || linesDirty || packagingDirty;
+    const anyDirty = detailsDirty || linesDirty || packagingDirty || photoDirty;
 
     /*
      * One rehydration key for the whole record rather than one per section: every write answers with
@@ -666,6 +673,10 @@ function RecipeEditor({
         setDetails(detailsFrom(data));
         setLinesDraft(linesFrom(data.currentVersion));
         setPackaging(packagingFrom(data.currentVersion));
+    }
+    if (data !== undefined && (data.photoUrl ?? null) !== photoKey && !photoDirty) {
+        setPhotoKey(data.photoUrl ?? null);
+        setPhoto(data.photoUrl ?? null);
     }
 
     /**
@@ -713,6 +724,8 @@ function RecipeEditor({
         setDetailsDirty(false);
         setLinesDirty(false);
         setHydratedKey(null);
+        setPhotoDirty(false);
+        setPhotoKey(undefined);
         setSaveError(null);
         guard.markClean();
         void record.refetch();
@@ -1441,6 +1454,29 @@ function RecipeEditor({
 
     /* ── saving ──────────────────────────────────────────────────────────────────────────────── */
 
+    /**
+     * The photo, written once the recipe's own writes have answered: it needs the recipe's id, and
+     * a refused upload must not undo a recipe that is already saved. Answers the failure, or null.
+     * An untouched slot is a no-op, so every save calls it.
+     */
+    const writePhoto = async (
+        recipeId: RecipeId,
+        saved: string | null | undefined,
+    ): Promise<unknown> => {
+        try {
+            await photoSave.mutateAsync({
+                subject: 'recipe',
+                recordId: String(recipeId),
+                chosen: photo,
+                saved,
+            });
+            setPhotoDirty(false);
+            return null;
+        } catch (error) {
+            return error;
+        }
+    };
+
     const saveAll = (onDone?: () => void) => {
         if (saveBlocked) return;
         setSaveError(null);
@@ -1515,7 +1551,8 @@ function RecipeEditor({
             };
 
             void createAll().then(
-                (created) => {
+                async (created) => {
+                    const photoError = await writePhoto(created.id, null);
                     settle();
                     toast.show({
                         testID: 'kitchen-recipe-created-toast',
@@ -1524,6 +1561,16 @@ function RecipeEditor({
                             name: displayName(created.name, locale).value,
                         }),
                     });
+                    // The page is about to leave, so a refused photo is said in a toast rather than
+                    // the save callout, which would go with it.
+                    if (photoError !== null) {
+                        toast.show({
+                            tone: 'danger',
+                            message:
+                                toFailure(photoError)?.message ?? t('kitchen:recipes.saveFailed'),
+                        });
+                        photoSave.reset();
+                    }
                     if (onCreated !== undefined) {
                         onCreated(created, { description: details.description });
                         return;
@@ -1609,9 +1656,18 @@ function RecipeEditor({
             }
         };
 
+        const savedPhoto = data.photoUrl;
+
         void run().then(
-            () => {
+            async () => {
                 settle();
+                const photoError = await writePhoto(recipeId, savedPhoto);
+                if (photoError !== null) {
+                    // The recipe is saved; only the photo is left to try again.
+                    guard.markDirty();
+                    setSaveError({ failure: toFailure(photoError) });
+                    return;
+                }
                 if (onDone !== undefined) onDone();
                 toast.show({
                     testID: 'kitchen-recipe-saved-toast',
@@ -2119,9 +2175,14 @@ function RecipeEditor({
                         <View className="z-auto flex-row flex-wrap items-start gap-base">
                             <ImageSlot
                                 testID="kitchen-recipe-image"
-                                uri={image}
+                                uri={photo}
                                 disabled={!editable}
-                                onChange={setImage}
+                                onChange={(next) => {
+                                    setPhoto(next);
+                                    const changed = next !== (photoKey ?? null);
+                                    setPhotoDirty(changed);
+                                    if (changed) guard.markDirty();
+                                }}
                             />
                             {/*
                              * Four half tracks beside the photo — two 280px fields: the designation
@@ -3088,7 +3149,8 @@ function RecipeEditor({
                             creatingNow ||
                             create.isPending ||
                             update.isPending ||
-                            setLines.isPending
+                            setLines.isPending ||
+                            photoSave.isPending
                         }
                         disabled={creatingNow || !canManage || (!isEditable && !shelfLifeChanged)}
                         onPress={attemptSave}

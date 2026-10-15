@@ -205,6 +205,7 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                 media={
                     <RecordPhoto
                         assetId={viewing.imagePlaceholderId}
+                        photoUrl={viewing.photoUrl}
                         label={displayName(viewing.name, locale).value}
                         shape="wide"
                         testID="kitchen-products-view-photo"

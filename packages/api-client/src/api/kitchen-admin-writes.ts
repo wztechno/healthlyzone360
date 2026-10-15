@@ -21,6 +21,8 @@ import type {
     CreateDeliveryZoneRequest,
     CreateIngredientRequest,
     CreateMealRequest,
+    RecordPhotoSubject,
+    SetRecordPhotoRequest,
     CreatePlanRequest,
     CreateProductRequest,
     CreateRecipeRequest,
@@ -96,6 +98,7 @@ import {
     type WireItemChannelPrices,
 } from './kitchen-admin-mappers.ts';
 import { createApiKitchenAdminReads } from './kitchen-admin-repository.ts';
+import { MultipartBody } from './transport.ts';
 import type { Transport } from './transport.ts';
 
 /**
@@ -105,6 +108,8 @@ export type ApiKitchenAdminWrites = Pick<
     KitchenAdminRepository,
     | 'createIngredient'
     | 'updateIngredient'
+    | 'setRecordPhoto'
+    | 'removeRecordPhoto'
     | 'archiveIngredient'
     | 'forkIngredient'
     | 'setIngredientAllergens'
@@ -397,6 +402,13 @@ function salesChannelIdFor(
     });
     return match?.id ?? null;
 }
+
+/** Where each kind of record keeps its photo (BUG-14). */
+const PHOTO_PATHS: Readonly<Record<RecordPhotoSubject, string>> = {
+    ingredient: '/catalogue/ingredients',
+    recipe: '/catalogue/recipes',
+    catalogue_item: '/catalogue/items',
+};
 
 export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdminWrites {
     const reads = createApiKitchenAdminReads(transport);
@@ -704,6 +716,24 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             });
             return reads.getIngredient(ingredientId);
         },
+        async setRecordPhoto(request: SetRecordPhotoRequest): Promise<string> {
+            const form = new FormData();
+            form.append('photo', request.photo, request.fileName);
+            const wire = await transport.request<{ readonly photo: { readonly url: string } }>({
+                method: 'POST',
+                path: `${PHOTO_PATHS[request.subject]}/${encodeURIComponent(request.recordId)}/photo`,
+                body: new MultipartBody(form),
+            });
+            return wire.photo.url;
+        },
+
+        async removeRecordPhoto(subject: RecordPhotoSubject, recordId: string): Promise<void> {
+            await transport.request<void>({
+                method: 'DELETE',
+                path: `${PHOTO_PATHS[subject]}/${encodeURIComponent(recordId)}/photo`,
+            });
+        },
+
         async createIngredient(request: CreateIngredientRequest): Promise<IngredientAdmin> {
             const lookup = await loadCategoryLookup();
             const categoryId = lookup.codeToId.get(request.categoryCode);

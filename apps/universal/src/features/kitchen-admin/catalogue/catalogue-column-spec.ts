@@ -39,6 +39,12 @@ export interface CatalogueColumn<Row> extends DataListColumn<Row> {
      * fallback, not a gap.
      */
     readonly thumbnail?: ((row: Row) => string) | undefined;
+    /**
+     * The kitchen's own photo of the row (BUG-14), read beside `thumbnail` on the `title` column.
+     * When it returns a link, both renderers draw that instead of the bundled photograph; `null`
+     * or absent keeps `thumbnail`'s picture.
+     */
+    readonly thumbnailUrl?: ((row: Row) => string | null | undefined) | undefined;
 }
 
 export const CATALOGUE_COLUMN_ROLES = ['title', 'status', 'metric', 'meta', 'actions'] as const;

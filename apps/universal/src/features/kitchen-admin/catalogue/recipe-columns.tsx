@@ -371,6 +371,7 @@ export function recipeColumns({
         sortType: 'text',
         value: (row) => displayName(row.name, locale).value,
         thumbnail: recipePhotoId,
+        thumbnailUrl: (row) => row.photoUrl,
         render: (row) => {
             const title = displayName(row.name, locale);
             return (

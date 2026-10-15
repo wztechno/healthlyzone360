@@ -426,6 +426,7 @@ export const zAdminIngredient = z.object({
     organisation_id: zUuid.nullable(),
     is_platform: z.boolean(),
     is_editable: z.boolean(),
+    photo_url: z.url().nullish(),
     slug: z.string().max(120),
     name_en: z.string(),
     name_ar: z.string(),
@@ -1239,6 +1240,7 @@ export const zAdminRecipe = z.object({
     id: zUuid,
     organisation_id: zUuid,
     branch_id: zUuid.nullish(),
+    photo_url: z.url().nullish(),
     slug: z.string().max(120),
     name_en: z.string(),
     name_ar: z.string(),
@@ -1412,6 +1414,7 @@ export const zAdminCatalogueItem = z.object({
     organisation_id: zUuid,
     catalogue_id: zUuid,
     item_type: zCatalogueItemType,
+    photo_url: z.url().nullish(),
     slug: z.string().max(140),
     name_en: z.string(),
     name_ar: z.string(),
@@ -2733,6 +2736,7 @@ export const zMarketplaceMeal = z.object({
         name: z.string()
     }).nullable(),
     name: z.string(),
+    photo_url: z.url().nullish(),
     slug: z.string(),
     description: z.string(),
     meal_types: z.array(z.string()),
@@ -2845,6 +2849,20 @@ export const zPublicDeliveryAreasEnvelope = z.object({
         locale: z.enum(['en', 'ar']).optional(),
         country_code: z.string().length(2).optional()
     }))
+});
+
+export const zRecordPhotoUploadRequest = z.object({
+    photo: z.string()
+});
+
+export const zRecordPhotoEnvelope = z.object({
+    data: z.object({
+        photo: z.object({
+            id: zUuid,
+            url: z.url()
+        })
+    }),
+    meta: zMeta
 });
 
 export const zOrderDeskDeliveryAreasEnvelope = z.object({
@@ -13565,6 +13583,105 @@ export const zAddOrderDeskCustomerAddressPath = z.object({
  * The address was added, with whether anybody delivers to it today.
  */
 export const zAddOrderDeskCustomerAddressResponse = zCustomerAddressEnvelope;
+
+export const zRemoveIngredientPhotoHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRemoveIngredientPhotoPath = z.object({
+    record: zUuid
+});
+
+/**
+ * The photo is gone, or was never there.
+ */
+export const zRemoveIngredientPhotoResponse = z.void();
+
+export const zUploadIngredientPhotoBody = zRecordPhotoUploadRequest;
+
+export const zUploadIngredientPhotoHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUploadIngredientPhotoPath = z.object({
+    record: zUuid
+});
+
+/**
+ * The photo was saved.
+ */
+export const zUploadIngredientPhotoResponse = zRecordPhotoEnvelope;
+
+export const zRemoveRecipePhotoHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRemoveRecipePhotoPath = z.object({
+    record: zUuid
+});
+
+/**
+ * The photo is gone, or was never there.
+ */
+export const zRemoveRecipePhotoResponse = z.void();
+
+export const zUploadRecipePhotoBody = zRecordPhotoUploadRequest;
+
+export const zUploadRecipePhotoHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUploadRecipePhotoPath = z.object({
+    record: zUuid
+});
+
+/**
+ * The photo was saved.
+ */
+export const zUploadRecipePhotoResponse = zRecordPhotoEnvelope;
+
+export const zRemoveCatalogueItemPhotoHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRemoveCatalogueItemPhotoPath = z.object({
+    record: zUuid
+});
+
+/**
+ * The photo is gone, or was never there.
+ */
+export const zRemoveCatalogueItemPhotoResponse = z.void();
+
+export const zUploadCatalogueItemPhotoBody = zRecordPhotoUploadRequest;
+
+export const zUploadCatalogueItemPhotoHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUploadCatalogueItemPhotoPath = z.object({
+    record: zUuid
+});
+
+/**
+ * The photo was saved.
+ */
+export const zUploadCatalogueItemPhotoResponse = zRecordPhotoEnvelope;
+
+export const zShowRecordPhotoPath = z.object({
+    photo: zUuid
+});
+
+/**
+ * The image.
+ */
+export const zShowRecordPhotoResponse = z.string();
 
 export const zListOrderDeskDeliveryAreasHeaders = z.object({
     'X-Organisation-Id': zUuid,

@@ -64,6 +64,7 @@ import {
     useIngredientPageQuery,
     useIngredientQuery,
     useNextReferenceQuery,
+    useSaveRecordPhotoMutation,
     useUpdateIngredientMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { BilingualField } from '../bilingual-field.tsx';
@@ -336,7 +337,6 @@ function detailsFrom(ingredient: IngredientAdmin): DetailsDraft {
 /**
  * The design's fields that nothing on the write path accepts yet — drawn, editable, and never sent.
  *
- * - **Image.** No image column exists on the ingredient, and no endpoint takes one.
  * - **Pack price, waste, holds** (packaging). `purchasePrice`, `wastePercent` and `capacity` are on
  *   `IngredientAdmin` — the import writes them and the packaging list reads them — but neither
  *   `CreateIngredientRequest` nor `UpdateIngredientRequest` carries any of the three, and the
@@ -347,9 +347,11 @@ function detailsFrom(ingredient: IngredientAdmin): DetailsDraft {
  * is nothing for the unsaved guard to protect, because nothing would have been saved — and none of
  * them can block the save, which is why the pack price carries no required mark here although the
  * design draws one. A required field whose value is thrown away is a gate with nothing behind it.
+ *
+ * The photo is not one of them any more: it has an endpoint of its own and is written after the
+ * record's save (BUG-14), so it lives beside the details draft as `photo`.
  */
 interface UnstoredDraft {
-    readonly image: string | null;
     readonly packPrice: string;
     readonly wastePercent: string;
     readonly capacity: string;
@@ -357,19 +359,14 @@ interface UnstoredDraft {
 }
 
 const EMPTY_UNSTORED: UnstoredDraft = {
-    image: null,
     packPrice: '',
     wastePercent: '',
     capacity: '',
     capacityUnit: 'ml',
 };
 
-function unstoredFrom(ingredient: IngredientAdmin, image: string | null): UnstoredDraft {
+function unstoredFrom(ingredient: IngredientAdmin): UnstoredDraft {
     return {
-        // The one field with no stored counterpart at all survives a rehydration rather than
-        // resetting: a save answers with a record that has no image, and the photo somebody just
-        // dropped should not vanish because the name was saved.
-        image,
         packPrice: amountToInput(ingredient.purchasePrice),
         wastePercent: ingredient.wastePercent === null ? '' : String(ingredient.wastePercent),
         capacity: ingredient.capacity === null ? '' : String(ingredient.capacity.quantity),
@@ -578,12 +575,22 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const create = useCreateIngredientMutation();
     const update = useUpdateIngredientMutation();
     const fork = useForkIngredientMutation();
+    const photoSave = useSaveRecordPhotoMutation();
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
     /** Whether Save has been pressed — what lets an empty required field call itself out. */
     const [attempted, setAttempted] = useState(false);
     const [unstored, setUnstored] = useState<UnstoredDraft>(EMPTY_UNSTORED);
+    /*
+     * The photo slot, the link it was last filled from (`undefined` until the record arrives), and
+     * whether it has been changed since. Rehydrated on its own key rather than the lock version: the
+     * photo endpoint moves the link and not the version, and a slot reset by the record's own save
+     * answer would flash the old photo until the re-read arrives.
+     */
+    const [photo, setPhoto] = useState<string | null>(null);
+    const [photoKey, setPhotoKey] = useState<string | null | undefined>(undefined);
+    const [photoDirty, setPhotoDirty] = useState(false);
 
     /*
      * A new record opens already filed where the list that launched it looks.
@@ -673,7 +680,11 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     if (data !== undefined && serverKey !== detailsKey && !detailsDirty) {
         setDetailsKey(serverKey);
         setDetails(detailsFrom(data));
-        setUnstored(unstoredFrom(data, unstored.image));
+        setUnstored(unstoredFrom(data));
+    }
+    if (data !== undefined && (data.photoUrl ?? null) !== photoKey && !photoDirty) {
+        setPhotoKey(data.photoUrl ?? null);
+        setPhoto(data.photoUrl ?? null);
     }
 
     const title = isCreating
@@ -711,6 +722,8 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         setAllergenDraft({ name: '', selection: undefined });
         setDetailsDirty(false);
         setDetailsKey(null);
+        setPhotoDirty(false);
+        setPhotoKey(undefined);
         guard.markClean();
         void record.refetch();
     }, [guard, record]);
@@ -1088,6 +1101,37 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const costOf = (value: number | null | undefined): CostAmount | null =>
         typeof value === 'number' && currency !== null ? { amount: value, currency } : null;
 
+    /**
+     * The photo, written once the record's own save has answered: it needs the record's id, and a
+     * refused upload must not undo a record that is already saved. Answers the failure, or null.
+     * An untouched slot is a no-op, so every save calls it.
+     */
+    const writePhoto = async (
+        ingredientId: IngredientId,
+        saved: string | null | undefined,
+    ): Promise<unknown> => {
+        try {
+            await photoSave.mutateAsync({
+                subject: 'ingredient',
+                recordId: String(ingredientId),
+                chosen: photo,
+                saved,
+            });
+            setPhotoDirty(false);
+            return null;
+        } catch (error) {
+            return error;
+        }
+    };
+
+    const showSaved = () => {
+        toast.show({
+            testID: 'kitchen-ingredient-saved-toast',
+            tone: 'success',
+            message: t('kitchen:editor.savedToast'),
+        });
+    };
+
     const save = () => {
         if (!editable || currencyMissing) return;
         setAttempted(true);
@@ -1127,15 +1171,28 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 },
                 {
                     onSuccess: (created) => {
-                        settle(false);
-                        toast.show({
-                            testID: 'kitchen-ingredient-created-toast',
-                            tone: 'success',
-                            message: t('kitchen:editor.createdToast', {
-                                name: displayName(created.name, locale).value,
-                            }),
+                        void writePhoto(created.id, null).then((photoError) => {
+                            settle(false);
+                            toast.show({
+                                testID: 'kitchen-ingredient-created-toast',
+                                tone: 'success',
+                                message: t('kitchen:editor.createdToast', {
+                                    name: displayName(created.name, locale).value,
+                                }),
+                            });
+                            // The page is about to leave, so a refused photo is said in a toast
+                            // rather than the callout, which would go with it.
+                            if (photoError !== null) {
+                                toast.show({
+                                    tone: 'danger',
+                                    message:
+                                        toFailure(photoError)?.message ??
+                                        t('kitchen:editor.saveError'),
+                                });
+                                photoSave.reset();
+                            }
+                            router.replace(`${family.listRoute}/${String(created.id)}` as never);
                         });
-                        router.replace(`${family.listRoute}/${String(created.id)}` as never);
                     },
                 },
             );
@@ -1143,6 +1200,21 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         }
 
         if (data === undefined) return;
+        const savedPhoto = data.photoUrl;
+
+        /*
+         * Only the photo changed: the record write would be an audited act that changed nothing.
+         * A refused photo leaves the slot dirty, with the callout below saying why.
+         */
+        if (!detailsDirty && photoDirty) {
+            void writePhoto(data.id, savedPhoto).then((photoError) => {
+                if (photoError === null) {
+                    settle(false);
+                    showSaved();
+                }
+            });
+            return;
+        }
         /*
          * Reference, composition, notes and aliases are absent on purpose, not forgotten: the form
          * no longer collects them, and `UpdateIngredientRequest` reads a missing field as untouched
@@ -1171,11 +1243,14 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
             },
             {
                 onSuccess: () => {
-                    settle(false);
-                    toast.show({
-                        testID: 'kitchen-ingredient-saved-toast',
-                        tone: 'success',
-                        message: t('kitchen:editor.savedToast'),
+                    void writePhoto(data.id, savedPhoto).then((photoError) => {
+                        settle(false);
+                        if (photoError === null) {
+                            showSaved();
+                            return;
+                        }
+                        // The record is saved; only the photo is left to try again.
+                        guard.markDirty();
                     });
                 },
                 onError: (error) => {
@@ -1286,7 +1361,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     // number nothing stands behind.
     const reference = isCreating ? (nextReference.data ?? '') : details.reference.trim();
 
-    const busy = create.isPending || update.isPending;
+    const photoFailure = toFailure(photoSave.error);
+
+    const busy = create.isPending || update.isPending || photoSave.isPending;
     const priceUnit = currency === null ? {} : { unit: currency };
 
     /*
@@ -1637,6 +1714,15 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     body={server.unplaced ?? saveFailure.message}
                 />
             )}
+            {photoFailure === null ? null : (
+                <Callout
+                    testID="kitchen-ingredient-photo-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('kitchen:editor.saveError')}
+                    body={photoFailure.message}
+                />
+            )}
             {currencyMissing ? (
                 <Callout
                     testID="kitchen-ingredient-currency-missing"
@@ -1658,16 +1744,19 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     <View className="z-auto flex-row flex-wrap items-start gap-base">
                         {/*
                          * The photo leads a food record and packaging has none — a bin liner is
-                         * identified by its reference, and the design draws no slot for it. Not
-                         * saved yet: see `UnstoredDraft`.
+                         * identified by its reference, and the design draws no slot for it. Written
+                         * after the record's save; see `writePhoto`.
                          */}
                         {!family.food ? null : (
                             <ImageSlot
                                 testID="kitchen-ingredient-image"
-                                uri={unstored.image}
+                                uri={photo}
                                 disabled={!editable}
                                 onChange={(next) => {
-                                    editUnstored({ image: next });
+                                    setPhoto(next);
+                                    const changed = next !== (photoKey ?? null);
+                                    setPhotoDirty(changed);
+                                    if (changed) guard.markDirty();
                                 }}
                             />
                         )}

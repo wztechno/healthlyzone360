@@ -314,6 +314,8 @@ export type {
     DeliveryZoneAdmin,
     DeliveryZoneAdminFilter,
     IngredientAdmin,
+    RecordPhotoSubject,
+    SetRecordPhotoRequest,
     IngredientAdminFilter,
     IngredientAllergenMapping,
     IngredientCategoryAdmin,

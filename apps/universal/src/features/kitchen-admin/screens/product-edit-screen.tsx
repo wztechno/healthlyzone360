@@ -45,6 +45,7 @@ import {
     useProductQuery,
     usePublishProductMutation,
     useAllRecipesQuery,
+    useSaveRecordPhotoMutation,
     useSetProductChannelAvailabilityMutation,
     useUpdateProductMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
@@ -135,11 +136,13 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * Only what changed is written: a save that re-sent untouched channels would put a false entry in
  * the log.
  *
- * ## Two things this screen draws and does not keep
+ * ## The photo is a third write
  *
- * **The photo.** No image column exists on the catalogue item and no endpoint takes one. It is
- * drawn as it is on the ingredient and recipe editors — held in this screen's state, never sent,
- * never marking the record dirty.
+ * The photo has an endpoint of its own, as on the ingredient and recipe editors, and goes last —
+ * after the record and the channels — because it needs the item's id and a refused upload must not
+ * undo what is already saved (BUG-14). A photo-only change writes the photo alone.
+ *
+ * ## One thing this screen draws and does not keep
  *
  * **Diet classifications as a field.** `ProductAdmin.dietClassifications` is answered from the
  * linked recipe's published version. `UpdateProductRequest` nominally accepts them, but nothing
@@ -356,6 +359,7 @@ function ProductEditor({
     const setChannels = useSetProductChannelAvailabilityMutation();
     const publish = usePublishProductMutation();
     const archive = useArchiveProductMutation();
+    const photoSave = useSaveRecordPhotoMutation();
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
@@ -373,8 +377,14 @@ function ProductEditor({
 
     /** Whether Save has been pressed — what lets an empty required field call itself out. */
     const [attempted, setAttempted] = useState(false);
-    /** The photo, which nothing saves yet. See the module note. */
-    const [image, setImage] = useState<string | null>(null);
+    /*
+     * The photo, the link it was last filled from (`undefined` until the record arrives), and
+     * whether it has been changed since. Rehydrated on its own key: the photo endpoint moves the
+     * link and not the lock version.
+     */
+    const [photo, setPhoto] = useState<string | null>(null);
+    const [photoKey, setPhotoKey] = useState<string | null | undefined>(undefined);
+    const [photoDirty, setPhotoDirty] = useState(false);
 
     const [nextPackOrdinal, setNextPackOrdinal] = useState(1);
     const [showPublish, setShowPublish] = useState(false);
@@ -393,6 +403,10 @@ function ProductEditor({
     if (data !== undefined && serverKey !== channelsKey && !channelsDirty) {
         setChannelsKey(serverKey);
         setChannelRows(channelsFrom(data));
+    }
+    if (data !== undefined && (data.photoUrl ?? null) !== photoKey && !photoDirty) {
+        setPhotoKey(data.photoUrl ?? null);
+        setPhoto(data.photoUrl ?? null);
     }
 
     const title = isCreating
@@ -427,6 +441,8 @@ function ProductEditor({
         setChannelsDirty(false);
         setDetailsKey(null);
         setChannelsKey(null);
+        setPhotoDirty(false);
+        setPhotoKey(undefined);
         guard.markClean();
         void record.refetch();
     }, [guard, record]);
@@ -680,6 +696,52 @@ function ProductEditor({
      * `wroteRecord` says whether the record write went first in this same save: if it did and this
      * one is refused, the record *is* saved, and only the channels are left to try again.
      */
+    /**
+     * The photo, written last: it needs the item's id, and a refused upload must not undo what is
+     * already saved. Answers the failure, or null. An untouched slot is a no-op, so every save
+     * calls it.
+     */
+    const writePhoto = async (
+        productId: ProductId,
+        saved: string | null | undefined,
+    ): Promise<unknown> => {
+        try {
+            await photoSave.mutateAsync({
+                subject: 'catalogue_item',
+                recordId: String(productId),
+                chosen: photo,
+                saved,
+            });
+            setPhotoDirty(false);
+            return null;
+        } catch (error) {
+            return error;
+        }
+    };
+
+    /**
+     * After the record's writes: the photo, then the dirty flags and the toast. A refused photo
+     * keeps the guard armed — the record is saved, and only the photo is left to try again.
+     */
+    const finishWithPhoto = (productId: ProductId, onSaved: () => void) => {
+        void writePhoto(productId, data?.photoUrl).then((photoError) => {
+            settle(false, false);
+            if (photoError === null) {
+                onSaved();
+                return;
+            }
+            guard.markDirty();
+        });
+    };
+
+    const showSaved = () => {
+        toast.show({
+            testID: 'kitchen-product-saved-toast',
+            tone: 'success',
+            message: t('kitchen:editor.savedToast'),
+        });
+    };
+
     const writeChannels = (productId: ProductId, lockVersion: number, wroteRecord: boolean) => {
         setChannels.mutate(
             {
@@ -688,20 +750,17 @@ function ProductEditor({
             },
             {
                 onSuccess: () => {
-                    settle(false, false);
-                    toast.show(
-                        wroteRecord
-                            ? {
-                                  testID: 'kitchen-product-saved-toast',
-                                  tone: 'success',
-                                  message: t('kitchen:editor.savedToast'),
-                              }
-                            : {
-                                  testID: 'kitchen-product-channels-saved-toast',
-                                  tone: 'success',
-                                  message: t('kitchen:channels.savedToast'),
-                              },
-                    );
+                    finishWithPhoto(productId, () => {
+                        if (wroteRecord) {
+                            showSaved();
+                            return;
+                        }
+                        toast.show({
+                            testID: 'kitchen-product-channels-saved-toast',
+                            tone: 'success',
+                            message: t('kitchen:channels.savedToast'),
+                        });
+                    });
                 },
                 onError: (error) => {
                     if (wroteRecord) settle(false, true);
@@ -734,7 +793,8 @@ function ProductEditor({
                     ...netContentRequest,
                 },
                 {
-                    onSuccess: (created) => {
+                    onSuccess: async (created) => {
+                        const photoError = await writePhoto(created.id, null);
                         toast.show({
                             testID: 'kitchen-product-created-toast',
                             tone: 'success',
@@ -742,6 +802,16 @@ function ProductEditor({
                                 name: displayName(created.name, locale).value,
                             }),
                         });
+                        // The page is about to leave, so a refused photo is said in a toast rather
+                        // than the save callout, which would go with it.
+                        if (photoError !== null) {
+                            toast.show({
+                                tone: 'danger',
+                                message:
+                                    toFailure(photoError)?.message ?? t('kitchen:editor.saveError'),
+                            });
+                            photoSave.reset();
+                        }
 
                         const open = () => {
                             settle(false, false);
@@ -785,6 +855,11 @@ function ProductEditor({
             writeChannels(data.id, data.meta.lockVersion, false);
             return;
         }
+        // Only the photo changed: the same reasoning, so the photo is the one write.
+        if (!detailsDirty && photoDirty) {
+            finishWithPhoto(data.id, showSaved);
+            return;
+        }
 
         update.mutate(
             {
@@ -808,12 +883,7 @@ function ProductEditor({
                         writeChannels(updated.id, updated.meta.lockVersion, true);
                         return;
                     }
-                    settle(false, false);
-                    toast.show({
-                        testID: 'kitchen-product-saved-toast',
-                        tone: 'success',
-                        message: t('kitchen:editor.savedToast'),
-                    });
+                    finishWithPhoto(updated.id, showSaved);
                 },
                 onError: (error) => {
                     concurrency.capture(error);
@@ -969,7 +1039,9 @@ function ProductEditor({
     const channelFailure = toFailure(setChannels.error);
     const status = data?.meta.status ?? 'draft';
     const quarantined = status === 'review_required';
-    const busy = create.isPending || update.isPending || setChannels.isPending;
+    const photoFailure = toFailure(photoSave.error);
+    const busy =
+        create.isPending || update.isPending || setChannels.isPending || photoSave.isPending;
 
     /*
      * The client-side half of the publish gate: everything that stops the save, the one warning,
@@ -978,7 +1050,12 @@ function ProductEditor({
      * and refuses more than this; these are only the ones a person can see and fix from this form.
      */
     const publishBlocked =
-        blockers.length > 0 || noChannel || detailsDirty || channelsDirty || quarantined;
+        blockers.length > 0 ||
+        noChannel ||
+        detailsDirty ||
+        channelsDirty ||
+        photoDirty ||
+        quarantined;
     const offersPublish =
         !isCreating && canManage && status !== 'published' && status !== 'retired';
     /*
@@ -1324,6 +1401,15 @@ function ProductEditor({
                     body={channelFailure.message}
                 />
             )}
+            {photoFailure === null ? null : (
+                <Callout
+                    testID="kitchen-product-photo-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('kitchen:editor.saveError')}
+                    body={photoFailure.message}
+                />
+            )}
 
             {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
             <View className="z-auto flex-col gap-loose">
@@ -1338,12 +1424,17 @@ function ProductEditor({
                         identityFields
                     ) : (
                         <View className="z-auto flex-row flex-wrap items-start gap-base">
-                            {/* Not saved yet: see the module note. */}
+                            {/* Written after the record: see the module note. */}
                             <ImageSlot
                                 testID="kitchen-product-image"
-                                uri={image}
+                                uri={photo}
                                 disabled={!canManage}
-                                onChange={setImage}
+                                onChange={(next) => {
+                                    setPhoto(next);
+                                    const changed = next !== (photoKey ?? null);
+                                    setPhotoDirty(changed);
+                                    if (changed) guard.markDirty();
+                                }}
                             />
                             {identityFields}
                         </View>

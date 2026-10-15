@@ -767,6 +767,12 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     createIngredient(_request: CreateIngredientRequest): Promise<IngredientAdmin> {
         return notImplemented(`POST ${BASE}/catalogue/ingredients`);
     },
+    setRecordPhoto(): Promise<string> {
+        return notImplemented(`POST ${BASE}/catalogue/{record}/photo`);
+    },
+    removeRecordPhoto(): Promise<void> {
+        return notImplemented(`DELETE ${BASE}/catalogue/{record}/photo`);
+    },
     updateIngredient(
         _ingredientId: IngredientId,
         _request: UpdateIngredientRequest,

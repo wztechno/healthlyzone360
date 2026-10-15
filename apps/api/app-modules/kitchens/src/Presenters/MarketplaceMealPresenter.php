@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Healthy360\Kitchens\Presenters;
 
+use Healthy360\Catalogues\Enums\RecordPhotoSubject;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Services\RecordPhotoService;
 use Healthy360\Pricing\Services\ResolvedPrice;
 
 /**
@@ -47,6 +49,8 @@ use Healthy360\Pricing\Services\ResolvedPrice;
  */
 final class MarketplaceMealPresenter
 {
+    public function __construct(private readonly RecordPhotoService $photos) {}
+
     /**
      * @param  array{size: string, unit: string}|null  $pack  the size the price buys; null for an item-level price
      * @param  list<string>  $mealTypes
@@ -105,6 +109,9 @@ final class MarketplaceMealPresenter
             // experiences anyway.
             'preparation_minutes' => null,
             'image_placeholder_id' => $meal->item_type->value.'-'.$meal->slug,
+            // The kitchen's own photo (BUG-14): the item's, else its recipe's; null shows the stock picture.
+            'photo_url' => $this->photos->urlFor(RecordPhotoSubject::CatalogueItem, (string) $meal->getKey())
+                ?? $this->photos->urlFor(RecordPhotoSubject::Recipe, $meal->recipe_id),
             'availability' => $availability,
             'channels' => $channels,
             'rating' => null,

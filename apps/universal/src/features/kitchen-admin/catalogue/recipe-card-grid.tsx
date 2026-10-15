@@ -92,6 +92,7 @@ export function RecipeCardGrid({
                                 <EntityImage
                                     testID={`${cardID}-image`}
                                     assetId={recipePhotoId(row)}
+                                    photoUrl={row.photoUrl}
                                     variant="card"
                                     seed={row.slug}
                                     label={t('kitchen:recipes.imageLabel', { recipe: name.value })}

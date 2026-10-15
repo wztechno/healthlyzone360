@@ -99,8 +99,17 @@ jest.mock('expo-router', () => {
     };
 });
 
+// The photo slot's picker has no native module under Node; stubbed so a test can choose a file.
+jest.mock('expo-document-picker', () => ({
+    __esModule: true,
+    getDocumentAsync: jest.fn(),
+}));
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const routerMock = require('expo-router') as { __push: jest.Mock; __replace: jest.Mock };
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pickerMock = require('expo-document-picker') as { getDocumentAsync: jest.Mock };
 
 beforeEach(() => {
     routerMock.__push.mockClear();
@@ -1167,6 +1176,62 @@ describe('the ingredient editor', () => {
                 expect.objectContaining({ lockVersion: 5 }),
             );
         });
+    });
+
+    it('writes a picked photo after the save, against the record it saved (BUG-14)', async () => {
+        const id = ingredientId(3);
+        const stored = ingredient(3, { meta: meta({ lockVersion: 4 }) });
+
+        // Jest has no `fetch` for a picked file's local URI; the photo save reads its bytes with it.
+        const realFetch = global.fetch;
+        global.fetch = jest.fn(async () => ({
+            blob: async () => new Blob(['x'], { type: 'image/png' }),
+        })) as unknown as typeof fetch;
+
+        try {
+            const { repositories } = await renderStubScreen(
+                <IngredientEditScreen ingredient={String(id)} />,
+                {
+                    session: kitchenManagerSession(),
+                    repositories: {
+                        kitchenAdmin: {
+                            ...editorReads(() => [stored]),
+                            getIngredient: async () => stored,
+                            updateIngredient: async () => stored,
+                            setRecordPhoto: async () => 'https://media.test/photos/1',
+                        },
+                    },
+                },
+            );
+
+            await untilVisible('kitchen-ingredient-image');
+
+            pickerMock.getDocumentAsync.mockResolvedValue({
+                canceled: false,
+                assets: [{ uri: 'blob:picked-photo', name: 'photo.png', mimeType: 'image/png' }],
+            });
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ingredient-image-pick'));
+            });
+            await untilVisible('kitchen-ingredient-image-preview');
+            // A photo on its own is an unsaved change.
+            expect(screen.getByTestId('kitchen-ingredient-editor-screen-dirty')).toBeTruthy();
+
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+            });
+
+            await waitFor(() => {
+                expect(repositories.kitchenAdmin.setRecordPhoto).toHaveBeenCalledWith(
+                    expect.objectContaining({ subject: 'ingredient', recordId: String(id) }),
+                );
+            });
+            await waitFor(() => {
+                expect(screen.queryByTestId('kitchen-ingredient-editor-screen-dirty')).toBeNull();
+            });
+        } finally {
+            global.fetch = realFetch;
+        }
     });
 
     it('shows the unit price as what was last paid, and offers nothing to type into', async () => {

@@ -2,7 +2,7 @@ import { Avatar, ImagePlaceholder } from '@healthy360/design-system';
 import type { AvatarSize } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { Image, Text as RNText, View } from 'react-native';
-import type { ImageRequireSource } from 'react-native';
+import type { ImageRequireSource, ImageSourcePropType } from 'react-native';
 
 import { IMAGE_ASSETS } from './image-manifest.generated.ts';
 
@@ -206,6 +206,11 @@ export interface EntityImageProps {
     readonly assetId?: string | undefined;
     /** A resolved asset (e.g. from {@link resolveMarketingImage}); takes precedence over `assetId`. */
     readonly source?: ImageRequireSource | null | undefined;
+    /**
+     * The kitchen's own photo of the record (BUG-14), served same-origin by the API. Wins over both
+     * the bundled photo and `source`; `null` or absent falls back to them.
+     */
+    readonly photoUrl?: string | null | undefined;
     /** Which sized variant to prefer for entities that ship both (`card` ~640w, `detail` ~1280w). */
     readonly variant?: EntityImageVariant | undefined;
     /** Fallback pattern seed and accessible label, forwarded to the placeholder when unmapped. */
@@ -244,6 +249,7 @@ export interface EntityImageProps {
 export function EntityImage({
     assetId,
     source,
+    photoUrl,
     variant = 'card',
     seed,
     label,
@@ -255,7 +261,12 @@ export function EntityImage({
     className,
     testID,
 }: EntityImageProps) {
-    const resolved = source !== undefined ? source : resolveEntityImage(assetId, variant);
+    const resolved: ImageSourcePropType | null | undefined =
+        photoUrl !== undefined && photoUrl !== null && photoUrl !== ''
+            ? { uri: photoUrl }
+            : source !== undefined
+              ? source
+              : resolveEntityImage(assetId, variant);
     const hasOverlay = overlayStart !== undefined || overlayEnd !== undefined;
 
     // Overlays are positioned against a wrapper that both branches share, so a chip does not

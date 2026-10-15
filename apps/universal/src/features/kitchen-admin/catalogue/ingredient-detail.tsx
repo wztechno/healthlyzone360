@@ -399,6 +399,7 @@ export function IngredientDetail({
             media={
                 <RecordPhoto
                     assetId={`ingredient-${ingredient.slug}`}
+                    photoUrl={ingredient.photoUrl}
                     label={name.value}
                     shape="square"
                     testID={`${testID}-photo`}

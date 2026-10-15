@@ -431,6 +431,12 @@ export type AdminIngredient = {
      *
      */
     is_editable: boolean;
+    /**
+     * The kitchen's own photo of this record (`GET /media/photos/{photo}`), or
+     * null to show the stock picture.
+     *
+     */
+    photo_url?: string | null;
     slug: string;
     name_en: string;
     /**
@@ -945,6 +951,12 @@ export type AdminRecipe = {
     id: Uuid;
     organisation_id: Uuid;
     branch_id?: Uuid | null;
+    /**
+     * The kitchen's own photo of this record (`GET /media/photos/{photo}`), or
+     * null to show the stock picture.
+     *
+     */
+    photo_url?: string | null;
     slug: string;
     name_en: string;
     /**
@@ -2195,6 +2207,12 @@ export type AdminCatalogueItem = {
     organisation_id: Uuid;
     catalogue_id: Uuid;
     item_type: CatalogueItemType;
+    /**
+     * The kitchen's own photo of this record (`GET /media/photos/{photo}`), or
+     * null to show the stock picture.
+     *
+     */
+    photo_url?: string | null;
     /**
      * Immutable after creation. A rename changes the names and nothing
      * else: a slug is what a link, a marketplace listing and a partner's
@@ -4057,6 +4075,12 @@ export type MarketplaceMeal = {
      * Localised. One server-chosen language, never both columns.
      */
     name: string;
+    /**
+     * The kitchen's own photo of the item, else of its recipe, or null to show
+     * the stock picture named by `image_placeholder_id`.
+     *
+     */
+    photo_url?: string | null;
     slug: string;
     description: string;
     /**
@@ -4294,6 +4318,23 @@ export type PublicDeliveryAreasEnvelope = {
         locale?: 'en' | 'ar';
         country_code?: string;
     };
+};
+
+export type RecordPhotoUploadRequest = {
+    /**
+     * A JPEG, PNG or WebP of at most 5 MB.
+     */
+    photo: Blob | File;
+};
+
+export type RecordPhotoEnvelope = {
+    data: {
+        photo: {
+            id: Uuid;
+            url: string;
+        };
+    };
+    meta: Meta;
 };
 
 export type OrderDeskDeliveryAreasEnvelope = {
@@ -30028,6 +30069,391 @@ export type AddOrderDeskCustomerAddressResponses = {
 };
 
 export type AddOrderDeskCustomerAddressResponse = AddOrderDeskCustomerAddressResponses[keyof AddOrderDeskCustomerAddressResponses];
+
+export type RemoveIngredientPhotoData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        record: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{record}/photo';
+};
+
+export type RemoveIngredientPhotoErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RemoveIngredientPhotoError = RemoveIngredientPhotoErrors[keyof RemoveIngredientPhotoErrors];
+
+export type RemoveIngredientPhotoResponses = {
+    /**
+     * The photo is gone, or was never there.
+     */
+    204: void;
+};
+
+export type RemoveIngredientPhotoResponse = RemoveIngredientPhotoResponses[keyof RemoveIngredientPhotoResponses];
+
+export type UploadIngredientPhotoData = {
+    body: RecordPhotoUploadRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        record: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{record}/photo';
+};
+
+export type UploadIngredientPhotoErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UploadIngredientPhotoError = UploadIngredientPhotoErrors[keyof UploadIngredientPhotoErrors];
+
+export type UploadIngredientPhotoResponses = {
+    /**
+     * The photo was saved.
+     */
+    200: RecordPhotoEnvelope;
+};
+
+export type UploadIngredientPhotoResponse = UploadIngredientPhotoResponses[keyof UploadIngredientPhotoResponses];
+
+export type RemoveRecipePhotoData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        record: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{record}/photo';
+};
+
+export type RemoveRecipePhotoErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RemoveRecipePhotoError = RemoveRecipePhotoErrors[keyof RemoveRecipePhotoErrors];
+
+export type RemoveRecipePhotoResponses = {
+    /**
+     * The photo is gone, or was never there.
+     */
+    204: void;
+};
+
+export type RemoveRecipePhotoResponse = RemoveRecipePhotoResponses[keyof RemoveRecipePhotoResponses];
+
+export type UploadRecipePhotoData = {
+    body: RecordPhotoUploadRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        record: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{record}/photo';
+};
+
+export type UploadRecipePhotoErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UploadRecipePhotoError = UploadRecipePhotoErrors[keyof UploadRecipePhotoErrors];
+
+export type UploadRecipePhotoResponses = {
+    /**
+     * The photo was saved.
+     */
+    200: RecordPhotoEnvelope;
+};
+
+export type UploadRecipePhotoResponse = UploadRecipePhotoResponses[keyof UploadRecipePhotoResponses];
+
+export type RemoveCatalogueItemPhotoData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        record: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/items/{record}/photo';
+};
+
+export type RemoveCatalogueItemPhotoErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RemoveCatalogueItemPhotoError = RemoveCatalogueItemPhotoErrors[keyof RemoveCatalogueItemPhotoErrors];
+
+export type RemoveCatalogueItemPhotoResponses = {
+    /**
+     * The photo is gone, or was never there.
+     */
+    204: void;
+};
+
+export type RemoveCatalogueItemPhotoResponse = RemoveCatalogueItemPhotoResponses[keyof RemoveCatalogueItemPhotoResponses];
+
+export type UploadCatalogueItemPhotoData = {
+    body: RecordPhotoUploadRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        record: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/items/{record}/photo';
+};
+
+export type UploadCatalogueItemPhotoErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UploadCatalogueItemPhotoError = UploadCatalogueItemPhotoErrors[keyof UploadCatalogueItemPhotoErrors];
+
+export type UploadCatalogueItemPhotoResponses = {
+    /**
+     * The photo was saved.
+     */
+    200: RecordPhotoEnvelope;
+};
+
+export type UploadCatalogueItemPhotoResponse = UploadCatalogueItemPhotoResponses[keyof UploadCatalogueItemPhotoResponses];
+
+export type ShowRecordPhotoData = {
+    body?: never;
+    path: {
+        photo: Uuid;
+    };
+    query?: never;
+    url: '/media/photos/{photo}';
+};
+
+export type ShowRecordPhotoErrors = {
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowRecordPhotoError = ShowRecordPhotoErrors[keyof ShowRecordPhotoErrors];
+
+export type ShowRecordPhotoResponses = {
+    /**
+     * The image.
+     */
+    200: Blob | File;
+};
+
+export type ShowRecordPhotoResponse = ShowRecordPhotoResponses[keyof ShowRecordPhotoResponses];
 
 export type ListOrderDeskDeliveryAreasData = {
     body?: never;

@@ -58,6 +58,7 @@ export function CartLine({ item, priceText, busy, onQuantity, onRemove, onOpen }
                 <EntityImage
                     testID={`${testID}-image`}
                     assetId={meal.data?.imagePlaceholderId}
+                    photoUrl={meal.data?.photoUrl}
                     variant="card"
                     seed={meal.data?.slug ?? String(item.mealId)}
                     label={t('marketplace:menu.imageLabel', { meal: item.name })}

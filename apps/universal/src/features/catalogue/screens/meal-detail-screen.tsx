@@ -273,6 +273,7 @@ function MealGallery({ item }: { readonly item: MarketplaceMeal }) {
                 <EntityImage
                     testID="meal-detail-image"
                     assetId={item.imagePlaceholderId}
+                    photoUrl={item.photoUrl}
                     variant="detail"
                     seed={item.slug}
                     label={t('catalogue:meal.imageLabel', { meal: item.name })}
@@ -289,6 +290,7 @@ function MealGallery({ item }: { readonly item: MarketplaceMeal }) {
                 >
                     <EntityImage
                         assetId={item.imagePlaceholderId}
+                        photoUrl={item.photoUrl}
                         variant="card"
                         seed={item.slug}
                         label={t('catalogue:meal.imageLabel', { meal: item.name })}
@@ -337,8 +339,10 @@ function MealGallery({ item }: { readonly item: MarketplaceMeal }) {
             </View>
 
             {/* The credit a photograph's licence obliges, under the photograph it belongs to —
-                nothing at all for one that obliges none. */}
-            <PhotoCredit assetId={item.imagePlaceholderId} testID="meal-detail-photo-credit" />
+                nothing at all for one that obliges none, or for the kitchen's own upload. */}
+            {item.photoUrl === undefined || item.photoUrl === null || item.photoUrl === '' ? (
+                <PhotoCredit assetId={item.imagePlaceholderId} testID="meal-detail-photo-credit" />
+            ) : null}
         </View>
     );
 }

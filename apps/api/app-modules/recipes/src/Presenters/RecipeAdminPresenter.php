@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Healthy360\Recipes\Presenters;
 
+use Healthy360\Catalogues\Enums\RecordPhotoSubject;
+use Healthy360\Catalogues\Services\RecordPhotoService;
 use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Services\RecipeSummaries;
@@ -75,6 +77,8 @@ use Healthy360\Recipes\Services\RecipeSummaries;
  */
 final class RecipeAdminPresenter
 {
+    public function __construct(private readonly RecordPhotoService $photos) {}
+
     /**
      * @param  int|null  $publishedVersionNumber  the live version, or null when nothing is published
      * @param  string|null  $currentVersionStatus  the *current* version's publishable state — the only field that can say `review_required`
@@ -96,6 +100,8 @@ final class RecipeAdminPresenter
             'organisation_id' => $recipe->organisation_id,
             'branch_id' => $recipe->branch_id,
             'slug' => $recipe->slug,
+            // The kitchen's own photo, when it saved one (BUG-14); null shows the stock picture.
+            'photo_url' => $this->photos->urlFor(RecordPhotoSubject::Recipe, (string) $recipe->getKey()),
             'name_en' => $recipe->name_en,
             'name_ar' => $recipe->name_ar,
             'recipe_category' => $recipe->recipe_category,

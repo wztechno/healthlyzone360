@@ -13188,6 +13188,262 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/ingredients/{record}/photo:
+    post:
+      operationId: uploadIngredientPhoto
+      tags: [Kitchen catalogue]
+      summary: Set the ingredient's photo
+      description: |
+        A kitchen's own photo of the ingredient, replacing any earlier one. A JPEG, PNG or
+        WebP of at most 5 MB, sent as `photo` in a multipart body. A record outside this
+        organisation is `404`. Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: record
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecordPhotoUploadRequest'
+            encoding:
+              photo:
+                contentType: image/jpeg, image/png, image/webp
+      responses:
+        '200':
+          description: The photo was saved.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordPhotoEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      operationId: removeIngredientPhoto
+      tags: [Kitchen catalogue]
+      summary: Remove the ingredient's photo
+      description: |
+        Back to the stock picture. Removing a photo that is not there is still `204`.
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: record
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '204':
+          description: The photo is gone, or was never there.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/recipes/{record}/photo:
+    post:
+      operationId: uploadRecipePhoto
+      tags: [Recipes]
+      summary: Set the recipe's photo
+      description: |
+        A kitchen's own photo of the recipe, replacing any earlier one. A JPEG, PNG or
+        WebP of at most 5 MB, sent as `photo` in a multipart body. A record outside this
+        organisation is `404`. Requires `recipe.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: record
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecordPhotoUploadRequest'
+            encoding:
+              photo:
+                contentType: image/jpeg, image/png, image/webp
+      responses:
+        '200':
+          description: The photo was saved.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordPhotoEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      operationId: removeRecipePhoto
+      tags: [Recipes]
+      summary: Remove the recipe's photo
+      description: |
+        Back to the stock picture. Removing a photo that is not there is still `204`.
+        Requires `recipe.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: record
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '204':
+          description: The photo is gone, or was never there.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/items/{record}/photo:
+    post:
+      operationId: uploadCatalogueItemPhoto
+      tags: [Sellable catalogue]
+      summary: Set the product or meal's photo
+      description: |
+        A kitchen's own photo of the product or meal, replacing any earlier one. A JPEG, PNG or
+        WebP of at most 5 MB, sent as `photo` in a multipart body. A record outside this
+        organisation is `404`. Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: record
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecordPhotoUploadRequest'
+            encoding:
+              photo:
+                contentType: image/jpeg, image/png, image/webp
+      responses:
+        '200':
+          description: The photo was saved.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordPhotoEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      operationId: removeCatalogueItemPhoto
+      tags: [Sellable catalogue]
+      summary: Remove the product or meal's photo
+      description: |
+        Back to the stock picture. Removing a photo that is not there is still `204`.
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: record
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '204':
+          description: The photo is gone, or was never there.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /media/photos/{photo}:
+    get:
+      operationId: showRecordPhoto
+      tags: [Sellable catalogue]
+      summary: A record's photo
+      description: |
+        The bytes of a kitchen's own photo. Anonymous, because a customer's shop shows
+        these and an `<img>` sends no token; named by an unguessable id and cached as
+        immutable, since a replaced photo is a new id.
+      security: []
+      parameters:
+        - name: photo
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      responses:
+        '200':
+          description: The image.
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/order-desk/delivery-areas:
     get:
       operationId: listOrderDeskDeliveryAreas
@@ -24117,6 +24373,12 @@ components:
             offers a control that 403s. True for a caller's own rows, and for
             platform-library rows when the selected organisation is the
             platform operator.
+        photo_url:
+          type: [string, "null"]
+          format: uri
+          description: |
+            The kitchen's own photo of this record (`GET /media/photos/{photo}`), or
+            null to show the stock picture.
         slug:
           type: string
           maxLength: 120
@@ -24882,6 +25144,12 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
+        photo_url:
+          type: [string, "null"]
+          format: uri
+          description: |
+            The kitchen's own photo of this record (`GET /media/photos/{photo}`), or
+            null to show the stock picture.
         slug:
           type: string
           maxLength: 120
@@ -26700,6 +26968,12 @@ components:
           $ref: '#/components/schemas/Uuid'
         item_type:
           $ref: '#/components/schemas/CatalogueItemType'
+        photo_url:
+          type: [string, "null"]
+          format: uri
+          description: |
+            The kitchen's own photo of this record (`GET /media/photos/{photo}`), or
+            null to show the stock picture.
         slug:
           type: string
           maxLength: 140
@@ -29428,6 +29702,12 @@ components:
         name:
           type: string
           description: Localised. One server-chosen language, never both columns.
+        photo_url:
+          type: [string, "null"]
+          format: uri
+          description: |
+            The kitchen's own photo of the item, else of its recipe, or null to show
+            the stock picture named by `image_placeholder_id`.
         slug:
           type: string
         description:
@@ -29776,6 +30056,35 @@ components:
                   type: string
                   minLength: 2
                   maxLength: 2
+
+    RecordPhotoUploadRequest:
+      type: object
+      required: [photo]
+      properties:
+        photo:
+          type: string
+          format: binary
+          description: A JPEG, PNG or WebP of at most 5 MB.
+
+    RecordPhotoEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [photo]
+          properties:
+            photo:
+              type: object
+              required: [id, url]
+              properties:
+                id:
+                  $ref: '#/components/schemas/Uuid'
+                url:
+                  type: string
+                  format: uri
+        meta:
+          $ref: '#/components/schemas/Meta'
 
     OrderDeskDeliveryAreasEnvelope:
       type: object

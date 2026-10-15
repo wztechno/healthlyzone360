@@ -22,6 +22,8 @@ const SIZE_CLASS: Readonly<Record<RowThumbnailSize, string>> = {
 export interface RowThumbnailProps {
     /** The photograph id, e.g. `ingredient-black-pepper`. */
     readonly assetId: string;
+    /** The kitchen's own photo of the record (BUG-14). Wins over `assetId`; null falls back to it. */
+    readonly photoUrl?: string | null | undefined;
     /** Keeps the fallback pattern stable across renames: the row's key, not its name. */
     readonly seed: string;
     /**
@@ -35,11 +37,12 @@ export interface RowThumbnailProps {
     readonly testID?: string | undefined;
 }
 
-export function RowThumbnail({ assetId, seed, label, size, testID }: RowThumbnailProps) {
+export function RowThumbnail({ assetId, photoUrl, seed, label, size, testID }: RowThumbnailProps) {
     return (
         <View className={SIZE_CLASS[size]}>
             <EntityImage
                 assetId={assetId}
+                photoUrl={photoUrl}
                 seed={seed}
                 label={label}
                 aspect="square"

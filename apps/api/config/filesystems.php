@@ -28,6 +28,13 @@ return [
     |
     */
 
+    /*
+    | Where a kitchen's own photos of its records are kept (BUG-14). `local` is
+    | the API's persistent storage volume on the droplet; the bytes are served
+    | back through `GET /api/v1/media/photos/{photo}`, never from the disk.
+    */
+    'record_photos_disk' => env('RECORD_PHOTOS_DISK', 'local'),
+
     'disks' => [
 
         'local' => [

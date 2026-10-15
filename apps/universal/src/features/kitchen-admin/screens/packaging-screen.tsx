@@ -176,6 +176,7 @@ function PackagingList() {
                 media={
                     <RecordPhoto
                         assetId={`ingredient-${viewing.slug}`}
+                        photoUrl={viewing.photoUrl}
                         label={displayName(viewing.name, locale).value}
                         shape="square"
                         testID="kitchen-packaging-view-photo"

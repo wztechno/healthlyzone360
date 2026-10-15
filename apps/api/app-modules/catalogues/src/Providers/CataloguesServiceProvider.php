@@ -8,6 +8,7 @@ use Healthy360\Catalogues\Contracts\ConfirmedPriceRegistry;
 use Healthy360\Catalogues\Services\CatalogueIngredientUsageRegistry;
 use Healthy360\Catalogues\Services\CatalogueRecipeUsageRegistry;
 use Healthy360\Catalogues\Services\NullConfirmedPriceRegistry;
+use Healthy360\Catalogues\Services\RecordPhotoService;
 use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
 use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
 use Healthy360\Tenancy\TenantContext;
@@ -31,6 +32,9 @@ class CataloguesServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(ConfirmedPriceRegistry::class, NullConfirmedPriceRegistry::class);
+
+        // Scoped, so the photo links it looks up are reused for the rest of the request.
+        $this->app->scoped(RecordPhotoService::class);
     }
 
     /**

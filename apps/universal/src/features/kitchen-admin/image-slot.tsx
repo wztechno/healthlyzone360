@@ -15,13 +15,11 @@ import { Image, Platform, Pressable, Text as RNText, View } from 'react-native';
  * └╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
  * ```
  *
- * ## Nothing stores it yet
+ * ## The editor saves it
  *
- * Neither `IngredientAdmin` nor `RecipeAdmin` has an image field, and no endpoint takes one. The
- * slot is drawn now, as the design asks, and holds the chosen file in the editor's own state — so
- * it survives moving between tabs and is gone once the reader leaves the page. The caller owns the
- * value (`uri`) precisely so the day an upload endpoint exists, the editor adds it to its save and
- * this component does not change.
+ * The caller owns the value (`uri`): the record's `photoUrl` as loaded, or a picked file's local
+ * URI. The editor writes it with `useSaveRecordPhotoMutation` once the record's own save has
+ * answered; this component only picks.
  *
  * ## One picker on both platforms
  *
