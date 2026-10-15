@@ -15942,6 +15942,11 @@ paths:
         Sets the job to `delivered`, stamps the time, and stores whatever the
         driver typed as proof.
 
+        **It also fulfils the order, as the driver**, in the same transaction:
+        the customer sees it delivered at once, and whatever cash is still owed
+        on a cash order is receipted to the driver who took it. An order that is
+        already fulfilled or was cancelled is left as it is.
+
         **A job that is not the caller's is `404`, and it is decided before
         the body is looked at.** A request with somebody else's job and a
         thousand-character note answers `404`, not `422` — which is the right
