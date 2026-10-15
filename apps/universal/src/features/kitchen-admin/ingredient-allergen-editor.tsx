@@ -30,6 +30,7 @@ import {
 import { AllergenReferencePicker } from './allergen-reference-picker.tsx';
 import { AllergenReferenceSource } from './allergen-reference-source.tsx';
 import { displayName, containmentKey, verificationKey } from './format.ts';
+import { serverFieldErrors } from './server-field-errors.ts';
 
 type Choice = AllergenContainment | 'none';
 
@@ -60,6 +61,8 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
     const [evidence, setEvidence] = useState('');
     const [supplierEvidence, setSupplierEvidence] = useState('');
     const [confirmNone, setConfirmNone] = useState(false);
+    // The classes the last save sent, in order: `mappings.2.…` in a refusal is the third of these.
+    const [sentCodes, setSentCodes] = useState<readonly string[]>([]);
     const needsSupplier = ingredient.allergens.some(
         (mapping) =>
             mapping.verification === 'requires_supplier_confirmation' &&
@@ -100,6 +103,7 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
                 sourceNote: previous?.sourceNote ?? null,
             });
         }
+        setSentCodes(mappings.map((mapping) => String(mapping.allergenCode)));
         save.mutate(
             {
                 ingredientId: ingredient.id,
@@ -118,6 +122,38 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
     };
 
     const failure = toFailure(save.error ?? confirm.error ?? importReference.error);
+    // What the server refused, put on the fields it named (BUG-06). No issue banner here, so the
+    // callout stays and carries only what no field shows.
+    const server = serverFieldErrors(failure, {
+        'mappings.*.allergen_code': {
+            label: t('kitchen:allergens.classLabel'),
+            fieldId: 'kitchen-ingredient-mapping-grid',
+        },
+        'mappings.*.containment': {
+            label: t('kitchen:allergens.classLabel'),
+            fieldId: 'kitchen-ingredient-mapping-grid',
+        },
+        evidence: {
+            label: t('kitchen:nutritionLookup.reviewEvidence'),
+            fieldId: 'allergen-review-evidence',
+        },
+        supplier_evidence: {
+            label: t('kitchen:nutritionLookup.supplierEvidence'),
+            fieldId: 'allergen-supplier-evidence',
+        },
+        confirm_no_allergens: {
+            label: t('kitchen:nutritionLookup.confirmNone'),
+            fieldId: 'allergen-confirm-none',
+        },
+    });
+    const mappingFlag = (code: string): { readonly error?: string } => {
+        const index = sentCodes.indexOf(code);
+        if (index < 0) return {};
+        const at = `mappings.${String(index)}`;
+        const error =
+            server.errorFor(`${at}.containment`) ?? server.errorFor(`${at}.allergen_code`);
+        return error === undefined ? {} : { error };
+    };
 
     return (
         <Stack space="sm" testID="kitchen-ingredient-mapping">
@@ -201,10 +237,12 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
                         <Select
                             key={code}
                             testID={`kitchen-ingredient-mapping-${code}`}
+                            id={`kitchen-ingredient-mapping-${code}`}
                             size="sm"
                             label={displayName(entry.name, locale).value}
                             options={options}
                             value={draft.get(code) ?? 'none'}
+                            {...mappingFlag(code)}
                             onChange={(next) => {
                                 setDraft((current) => new Map(current).set(code, next));
                             }}
@@ -218,7 +256,7 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
                     testID="kitchen-ingredient-mapping-error"
                     tone="danger"
                     title={t('kitchen:allergens.saveError')}
-                    body={failure.message}
+                    body={server.unplaced ?? failure.message}
                 />
             )}
 
@@ -274,26 +312,32 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
                     ))}
                     <TextInputField
                         testID="allergen-review-evidence"
+                        id="allergen-review-evidence"
                         label={t('kitchen:nutritionLookup.reviewEvidence')}
                         value={evidence}
                         onChangeText={setEvidence}
                         maxLength={2000}
+                        {...server.flag('evidence')}
                     />
                     {needsSupplier ? (
                         <TextInputField
                             testID="allergen-supplier-evidence"
+                            id="allergen-supplier-evidence"
                             label={t('kitchen:nutritionLookup.supplierEvidence')}
                             value={supplierEvidence}
                             onChangeText={setSupplierEvidence}
                             maxLength={2000}
+                            {...server.flag('supplier_evidence')}
                         />
                     ) : null}
                     {ingredient.allergens.length === 0 ? (
                         <Checkbox
                             testID="allergen-confirm-none"
+                            id="allergen-confirm-none"
                             label={t('kitchen:nutritionLookup.confirmNone')}
                             checked={confirmNone}
                             onChange={setConfirmNone}
+                            {...server.flag('confirm_no_allergens')}
                         />
                     ) : null}
                     {dirty ? (

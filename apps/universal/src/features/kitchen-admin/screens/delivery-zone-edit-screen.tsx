@@ -65,6 +65,7 @@ import { focusField } from '../field-focus.ts';
 import { ISO_WEEKDAYS, displayName, minorAmountToInput, statusKey, statusTone } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
+import { serverFieldErrors } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -609,14 +610,54 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
     }
 
     const saveFailure = toFailure(update.error ?? create.error);
+    // What the server refused, put on the fields it named (BUG-06). All of them are on step one.
+    const server = serverFieldErrors(saveFailure, {
+        name_en: {
+            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:fields.name') }),
+            fieldId: 'kitchen-zone-name-en',
+        },
+        name_ar: {
+            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:fields.name') }),
+            fieldId: 'kitchen-zone-name-ar',
+        },
+        currency_code: {
+            label: t('kitchen:zones.currencyLabel'),
+            fieldId: 'kitchen-zone-currency-select',
+        },
+        estimated_minutes: {
+            label: t('kitchen:zones.estimatedLabel'),
+            fieldId: 'kitchen-zone-estimated',
+        },
+        delivery_fee_minor: {
+            label: t('kitchen:zones.feeLabel', { currency: currency ?? '' }),
+            fieldId: 'kitchen-zone-fee',
+        },
+        minimum_order_minor: {
+            label: t('kitchen:zones.minimumLabel', { currency: currency ?? '' }),
+            fieldId: 'kitchen-zone-minimum',
+        },
+    });
+    // The chip opens step one first: Save is pressed from the last step, where none of these is.
+    const serverItems = server.items.map((item) => ({
+        ...item,
+        onPress: () => {
+            form.goTo('zone');
+            item.onPress();
+        },
+    }));
     const areasFailure = toFailure(saveAreasMutation.error);
     const windowsFailure = toFailure(saveWindowsMutation.error);
+    // Neither picker has a field of its own to mark, so a refusal's own words go in its callout.
+    const areasServer = serverFieldErrors(areasFailure);
+    const windowsServer = serverFieldErrors(windowsFailure);
     const gazetteerFailure = toFailure(gazetteer.error);
     const isRetired = data?.meta.status === 'retired';
 
     const status = data?.meta.status ?? 'draft';
     const stepIssues = (step: ZoneStep) => {
-        const count = shownIssues.filter((entry) => entry.step === step).length;
+        const count =
+            shownIssues.filter((entry) => entry.step === step).length +
+            (step === 'zone' ? serverItems.length : 0);
         return count === 0
             ? undefined
             : {
@@ -694,19 +735,22 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                 }
                 errors={{
                     summary: t(
-                        shownIssues.every((entry) => entry.required)
+                        serverItems.length === 0 && shownIssues.every((entry) => entry.required)
                             ? 'kitchen:forms.requiredCount'
                             : 'kitchen:forms.toFixCount',
-                        { count: shownIssues.length },
+                        { count: shownIssues.length + serverItems.length },
                     ),
-                    items: shownIssues.map((entry) => ({
-                        key: entry.key,
-                        label: entry.label,
-                        fieldId: entry.fieldId ?? undefined,
-                        onPress: () => {
-                            goTo(entry.step, entry.fieldId);
-                        },
-                    })),
+                    items: [
+                        ...shownIssues.map((entry) => ({
+                            key: entry.key,
+                            label: entry.label,
+                            fieldId: entry.fieldId ?? undefined,
+                            onPress: () => {
+                                goTo(entry.step, entry.fieldId);
+                            },
+                        })),
+                        ...serverItems,
+                    ],
                 }}
                 steps={{
                     label: t('kitchen:editor.stepsLabel'),
@@ -721,13 +765,13 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                 }}
             />
 
-            {saveFailure === null ? null : (
+            {saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
                 <Callout
                     testID="kitchen-zone-save-error"
                     role="alert"
                     tone="danger"
                     title={t('kitchen:editor.saveError')}
-                    body={saveFailure.message}
+                    body={server.unplaced ?? saveFailure.message}
                 />
             )}
 
@@ -757,7 +801,12 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                             requiredEnglish
                             {...(shows('name')
                                 ? { englishError: t('kitchen:forms.required') }
-                                : {})}
+                                : server.errorFor('name_en') === undefined
+                                  ? {}
+                                  : { englishError: server.errorFor('name_en') })}
+                            {...(server.errorFor('name_ar') === undefined
+                                ? {}
+                                : { arabicError: server.errorFor('name_ar') })}
                             onChange={(next) => {
                                 markDirty(() => {
                                     setDetails({ ...details, name: next });
@@ -776,6 +825,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                                 {...(shows('currency')
                                     ? { error: t('kitchen:forms.required') }
                                     : {})}
+                                {...server.flag('currency_code')}
                                 value={currency}
                                 options={CURRENCY_CODES.map((code) => ({
                                     value: code,
@@ -813,6 +863,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                             inputMode="numeric"
                             autoCorrect={false}
                             disabled={!canManage}
+                            {...server.flag('estimated_minutes')}
                             onChangeText={(next) => {
                                 // Empty is "not advertised" (null), never zero minutes.
                                 const digits = next.replace(/[^0-9]/gu, '');
@@ -841,6 +892,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                             {...(feeState === 'invalid'
                                 ? { error: t('kitchen:zones.amountInvalid') }
                                 : {})}
+                            {...server.flag('delivery_fee_minor')}
                             onChangeText={(next) => {
                                 markDirty(() => {
                                     setDetails({ ...details, deliveryFee: next });
@@ -863,6 +915,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                             {...(minimumState === 'invalid'
                                 ? { error: t('kitchen:zones.amountInvalid') }
                                 : {})}
+                            {...server.flag('minimum_order_minor')}
                             onChangeText={(next) => {
                                 markDirty(() => {
                                     setDetails({ ...details, minimumOrder: next });
@@ -944,7 +997,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                                 role="alert"
                                 tone="danger"
                                 title={t('kitchen:areas.saveError')}
-                                body={areasFailure.message}
+                                body={areasServer.unplaced ?? areasFailure.message}
                             />
                         )}
                     </Stack>
@@ -983,7 +1036,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                                 role="alert"
                                 tone="danger"
                                 title={t('kitchen:windows.saveError')}
-                                body={windowsFailure.message}
+                                body={windowsServer.unplaced ?? windowsFailure.message}
                             />
                         )}
                     </Stack>

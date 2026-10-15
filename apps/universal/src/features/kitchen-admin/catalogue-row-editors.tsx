@@ -87,9 +87,14 @@ export interface PackEditorProps {
     readonly rows: readonly PackDraft[];
     readonly onChange: (rows: readonly PackDraft[]) => void;
     readonly errors: ReadonlyMap<string, string>;
+    /** A server refusal of one column of one row — under that column, not the row's code. */
+    readonly fieldError?: ((row: PackDraft, column: PackColumn) => string | undefined) | undefined;
     readonly canManage: boolean;
     readonly testID: string;
 }
+
+/** The pack table's editable columns, by their column key. */
+export type PackColumn = 'code' | 'label' | 'quantity' | 'unit' | 'units-per-pack';
 
 /** Every measure unit, annotated by the dimension it belongs to. Same grouping as the line editor. */
 function useUnitOptions(): readonly SelectOption[] {
@@ -133,10 +138,22 @@ function useUnitOptions(): readonly SelectOption[] {
  * within the product, because two packs sharing a code make the reference ambiguous rather than
  * merely untidy.
  */
-export function PackVariantEditor({ rows, onChange, errors, canManage, testID }: PackEditorProps) {
+export function PackVariantEditor({
+    rows,
+    onChange,
+    errors,
+    fieldError,
+    canManage,
+    testID,
+}: PackEditorProps) {
     const { t } = useTranslation();
     const unitOptions = useUnitOptions();
     const [removed, setRemoved] = useState<{ row: PackDraft; index: number } | null>(null);
+
+    const flagOf = (row: PackDraft, column: PackColumn): { readonly error?: string } => {
+        const error = fieldError?.(row, column);
+        return error === undefined ? {} : { error };
+    };
 
     const nameOf = (row: PackDraft): string =>
         row.label.en.trim() === ''
@@ -173,7 +190,7 @@ export function PackVariantEditor({ rows, onChange, errors, canManage, testID }:
             width: 128,
             priority: UNDROPPABLE_PRIORITY,
             render: (row) => {
-                const error = errors.get(row.key);
+                const error = errors.get(row.key) ?? fieldError?.(row, 'code');
                 return (
                     <View className="z-auto w-full py-tight">
                         <TextInputField
@@ -218,6 +235,7 @@ export function PackVariantEditor({ rows, onChange, errors, canManage, testID }:
                         placeholder={t('kitchen:products.packLabelPlaceholder')}
                         value={row.label.en}
                         disabled={!canManage}
+                        {...flagOf(row, 'label')}
                         onChangeText={(next) => {
                             patch(row, { label: { ...row.label, en: next } });
                         }}
@@ -241,6 +259,7 @@ export function PackVariantEditor({ rows, onChange, errors, canManage, testID }:
                         value={row.netQuantity}
                         inputMode="decimal"
                         disabled={!canManage}
+                        {...flagOf(row, 'quantity')}
                         onChangeText={(next) => {
                             patch(row, { netQuantity: next });
                         }}
@@ -265,6 +284,7 @@ export function PackVariantEditor({ rows, onChange, errors, canManage, testID }:
                         options={unitOptions}
                         value={row.netUnit}
                         disabled={!canManage}
+                        {...flagOf(row, 'unit')}
                         onChange={(next) => {
                             patch(row, { netUnit: next as MeasureUnit });
                         }}
@@ -288,6 +308,7 @@ export function PackVariantEditor({ rows, onChange, errors, canManage, testID }:
                         value={row.unitsPerPack}
                         inputMode="numeric"
                         disabled={!canManage}
+                        {...flagOf(row, 'units-per-pack')}
                         onChangeText={(next) => {
                             patch(row, { unitsPerPack: next });
                         }}
@@ -556,9 +577,15 @@ export interface AvailabilityEditorProps {
     readonly rows: readonly AvailabilityDraft[];
     readonly onChange: (rows: readonly AvailabilityDraft[]) => void;
     readonly errors: ReadonlyMap<string, string>;
+    /** A server refusal of one column of one day — under that column. */
+    readonly fieldError?:
+        ((row: AvailabilityDraft, column: AvailabilityColumn) => string | undefined) | undefined;
     readonly canManage: boolean;
     readonly testID: string;
 }
+
+/** The availability table's editable columns, by their column key. */
+export type AvailabilityColumn = 'date' | 'serving' | 'remaining' | 'cutoff';
 
 /**
  * A date, a count and a time each start from this track — a 124px box plus the cell's
@@ -602,11 +629,20 @@ export function MealAvailabilityEditor({
     rows,
     onChange,
     errors,
+    fieldError,
     canManage,
     testID,
 }: AvailabilityEditorProps) {
     const { t } = useTranslation();
     const [removed, setRemoved] = useState<{ row: AvailabilityDraft; index: number } | null>(null);
+
+    const flagOf = (
+        row: AvailabilityDraft,
+        column: AvailabilityColumn,
+    ): { readonly error?: string } => {
+        const error = fieldError?.(row, column);
+        return error === undefined ? {} : { error };
+    };
 
     const patch = (row: AvailabilityDraft, next: Partial<AvailabilityDraft>) => {
         onChange(rows.map((entry) => (entry.key === row.key ? { ...entry, ...next } : entry)));
@@ -637,7 +673,7 @@ export function MealAvailabilityEditor({
             priority: UNDROPPABLE_PRIORITY,
             fill: true,
             render: (row) => {
-                const error = errors.get(row.key);
+                const error = errors.get(row.key) ?? fieldError?.(row, 'date');
                 return (
                     <View className="z-auto w-full py-tight">
                         <DateField
@@ -682,6 +718,7 @@ export function MealAvailabilityEditor({
                         }
                         checked={row.isAvailable}
                         disabled={!canManage}
+                        {...flagOf(row, 'serving')}
                         onChange={(checked) => {
                             patch(row, { isAvailable: checked });
                         }}
@@ -708,6 +745,7 @@ export function MealAvailabilityEditor({
                         value={row.remaining}
                         inputMode="numeric"
                         disabled={!canManage}
+                        {...flagOf(row, 'remaining')}
                         onChangeText={(next) => {
                             patch(row, { remaining: next });
                         }}
@@ -730,6 +768,7 @@ export function MealAvailabilityEditor({
                         labelHidden
                         value={row.orderCutOffAt}
                         disabled={!canManage}
+                        {...flagOf(row, 'cutoff')}
                         onChange={(next) => {
                             patch(row, { orderCutOffAt: next });
                         }}

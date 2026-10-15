@@ -35,6 +35,8 @@ import { focusField } from '../field-focus.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RoleChoiceList } from '../role-choice-list.tsx';
+import { serverFieldErrors } from '../server-field-errors.ts';
+import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -217,6 +219,65 @@ function StaffCreateForm() {
             : `${trimmedLocalPart}@${chosenDomain}`;
 
     /*
+     * What the server refused, put on the fields it named (BUG-06). `email` is also the refusal for
+     * a composed address somebody already holds, so it lands on whichever sign-in field is drawn.
+     */
+    const signInTarget: ServerFieldTarget & { readonly step: StaffStep } = byLocalPart
+        ? {
+              label: t('accessAdmin:add.signInName'),
+              fieldId: 'kitchen-staff-create-local-part',
+              step: 'signIn',
+          }
+        : { label: t('accessAdmin:add.email'), fieldId: 'kitchen-staff-create-email', step: 'signIn' };
+    const roleTarget = {
+        label: t(mode === 'invite' ? 'accessAdmin:add.role' : 'accessAdmin:add.roles'),
+        fieldId: 'kitchen-staff-create-role',
+        step: 'role' as const,
+    };
+    const serverTargets: Readonly<Record<string, ServerFieldTarget & { readonly step: StaffStep }>> =
+        {
+            email: signInTarget,
+            local_part: {
+                label: t('accessAdmin:add.signInName'),
+                fieldId: 'kitchen-staff-create-local-part',
+                step: 'signIn',
+            },
+            password: {
+                label: t('accessAdmin:add.password'),
+                fieldId: 'kitchen-staff-create-password',
+                step: 'signIn',
+            },
+            given_name: {
+                label: t('accessAdmin:add.givenName'),
+                fieldId: 'kitchen-staff-create-given-name',
+                step: 'person',
+            },
+            family_name: {
+                label: t('accessAdmin:add.familyName'),
+                fieldId: 'kitchen-staff-create-family-name',
+                step: 'person',
+            },
+            role_code: roleTarget,
+            role_ids: roleTarget,
+            'role_ids.*': roleTarget,
+        };
+    const server = serverFieldErrors(failure, serverTargets);
+    const roleServerError =
+        server.errorFor('role_code') ?? server.errorFor('role_ids') ?? server.errorFor('role_ids.*');
+    // A chip names its field by label; the label says which step to open before focusing it.
+    const serverItems = server.items.map((item) => {
+        const on = Object.values(serverTargets).find((target) => target.label === item.label)?.step;
+        return {
+            ...item,
+            step: on,
+            onPress: () => {
+                if (on !== undefined) setStep(on);
+                item.onPress();
+            },
+        };
+    });
+
+    /*
      * What stops the commit, each naming the field that fixes it, in the order the steps draw
      * them. A blank waits for the press; a sign-in name the server would refuse is named at once.
      */
@@ -364,7 +425,9 @@ function StaffCreateForm() {
     const stepItems: readonly TabItem<StaffStep>[] = (
         mode === 'invite' ? INVITE_STEPS : CREATE_STEPS
     ).map((key) => {
-        const count = shownIssues.filter((issue) => issue.step === key).length;
+        const count =
+            shownIssues.filter((issue) => issue.step === key).length +
+            serverItems.filter((item) => item.step === key).length;
         return {
             value: key,
             label: stepLabels[key],
@@ -404,19 +467,22 @@ function StaffCreateForm() {
                     }
                     errors={{
                         summary: t(
-                            shownIssues.every((issue) => issue.required)
+                            serverItems.length === 0 && shownIssues.every((issue) => issue.required)
                                 ? 'kitchen:forms.requiredCount'
                                 : 'kitchen:forms.toFixCount',
-                            { count: shownIssues.length },
+                            { count: shownIssues.length + serverItems.length },
                         ),
-                        items: shownIssues.map((issue) => ({
-                            key: issue.key,
-                            label: issue.label,
-                            fieldId: issue.fieldId,
-                            onPress: () => {
-                                goToIssue(issue);
-                            },
-                        })),
+                        items: [
+                            ...shownIssues.map((issue) => ({
+                                key: issue.key,
+                                label: issue.label,
+                                fieldId: issue.fieldId,
+                                onPress: () => {
+                                    goToIssue(issue);
+                                },
+                            })),
+                            ...serverItems,
+                        ],
                     }}
                     steps={{
                         label: t('kitchen:editor.stepsLabel'),
@@ -426,12 +492,12 @@ function StaffCreateForm() {
                     }}
                 />
 
-                {failure === null ? null : (
+                {failure === null || (server.isValidation && server.unplaced === null) ? null : (
                     <Callout
                         testID="kitchen-staff-create-error"
                         tone="danger"
                         role="alert"
-                        title={failure.message}
+                        title={server.unplaced ?? failure.message}
                     />
                 )}
 
@@ -514,6 +580,8 @@ function StaffCreateForm() {
                                                   }),
                                               })}
                                         {...errorFor('local-part')}
+                                        {...server.flag('email')}
+                                        {...server.flag('local_part')}
                                     />
                                 ) : (
                                     <TextInputField
@@ -528,6 +596,7 @@ function StaffCreateForm() {
                                         required
                                         onChangeText={edit(setEmail)}
                                         {...errorFor('email')}
+                                        {...server.flag('email')}
                                     />
                                 )}
 
@@ -566,6 +635,7 @@ function StaffCreateForm() {
                                             />
                                         }
                                         {...errorFor('password')}
+                                        {...server.flag('password')}
                                     />
                                 ) : null}
                             </FormGrid>
@@ -590,6 +660,7 @@ function StaffCreateForm() {
                                     required
                                     onChangeText={edit(setGivenName)}
                                     {...errorFor('given-name')}
+                                    {...server.flag('given_name')}
                                 />
                                 <TextInputField
                                     testID="kitchen-staff-create-family-name"
@@ -601,6 +672,7 @@ function StaffCreateForm() {
                                     required
                                     onChangeText={edit(setFamilyName)}
                                     {...errorFor('family-name')}
+                                    {...server.flag('family_name')}
                                 />
                             </FormGrid>
                         </FormSection>
@@ -631,6 +703,9 @@ function StaffCreateForm() {
                                     selected={roleIds}
                                     onChange={edit(setRoleIds)}
                                     {...errorFor('role')}
+                                    {...(roleServerError === undefined
+                                        ? {}
+                                        : { error: roleServerError })}
                                 />
                             </Stack>
                         </FormSection>

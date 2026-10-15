@@ -95,6 +95,7 @@ import { ImageSlot } from '../image-slot.tsx';
 import { AllergenReferencePicker } from '../allergen-reference-picker.tsx';
 import { IngredientAllergenEditor } from '../ingredient-allergen-editor.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { serverFieldErrors } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -1243,6 +1244,41 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const forkFailure = toFailure(fork.error);
 
     const saveFailure = toFailure(update.error ?? create.error);
+    // What the server refused, put on the fields it named (BUG-06).
+    const server = serverFieldErrors(saveFailure, {
+        name_en: {
+            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:list.columnItem') }),
+            fieldId: 'kitchen-ingredient-name-en',
+        },
+        name_ar: {
+            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:list.columnItem') }),
+            fieldId: 'kitchen-ingredient-name-ar',
+        },
+        ingredient_category_id: {
+            label: t('kitchen:fields.category'),
+            fieldId: 'kitchen-ingredient-category',
+        },
+        ingredient_subcategory_id: {
+            label: t('kitchen:fields.subcategory'),
+            fieldId: 'kitchen-ingredient-subcategory',
+        },
+        purchase_unit_id: {
+            label: t('kitchen:fields.purchaseUnit'),
+            fieldId: 'kitchen-ingredient-purchase-unit',
+        },
+        default_unit_id: {
+            label: t(family.food ? 'kitchen:fields.stockUnit' : 'kitchen:forms.issueUnit'),
+            fieldId: 'kitchen-ingredient-unit',
+        },
+        b2b_price_amount: {
+            label: t('kitchen:sale.b2bPrice'),
+            fieldId: 'kitchen-ingredient-b2b-price',
+        },
+        b2c_price_amount: {
+            label: t('kitchen:sale.b2cPrice'),
+            fieldId: 'kitchen-ingredient-b2c-price',
+        },
+    });
     const figures = nutrientFigures(data?.per100g ?? null, t, formatter);
 
     // Creating, the reference is the one the save is about to assign rather than one the record
@@ -1317,7 +1353,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const nutritionEmpty = nutritionEditable && (data?.per100g ?? null) === null;
     const allergens = data?.allergens ?? [];
 
-    const onlyRequired = shownBlockers.every((entry) => entry.required);
+    const onlyRequired =
+        server.items.length === 0 && shownBlockers.every((entry) => entry.required);
+    const issueItems: readonly FormIssueItem[] = [...blockerItems, ...server.items];
 
     /*
      * The purchase pack and the unit, drawn by both families — the pack first, because it is what
@@ -1330,6 +1368,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
             key="purchase-unit"
             testID="kitchen-ingredient-purchase-unit"
             id="kitchen-ingredient-purchase-unit"
+            {...server.flag('purchase_unit_id')}
             label={t('kitchen:fields.purchaseUnit')}
             placeholder={t('kitchen:fields.unitPlaceholder')}
             searchable
@@ -1349,6 +1388,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
             key="unit"
             testID="kitchen-ingredient-unit"
             id="kitchen-ingredient-unit"
+            {...server.flag('default_unit_id')}
             label={t(family.food ? 'kitchen:fields.stockUnit' : 'kitchen:forms.issueUnit')}
             placeholder={t('kitchen:fields.unitPlaceholder')}
             searchable
@@ -1506,9 +1546,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     }
                 />
 
-                {blockerItems.length === 0 && warningItems.length === 0 ? null : (
+                {issueItems.length === 0 && warningItems.length === 0 ? null : (
                     <Inline space="xs" wrap testID="kitchen-ingredient-issues">
-                        {blockerItems.length === 0 ? null : (
+                        {issueItems.length === 0 ? null : (
                             <FormIssueBanner
                                 testID="kitchen-ingredient-issues-errors"
                                 tone="danger"
@@ -1516,9 +1556,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                     onlyRequired
                                         ? 'kitchen:forms.requiredCount'
                                         : 'kitchen:forms.toFixCount',
-                                    { count: blockerItems.length },
+                                    { count: issueItems.length },
                                 )}
-                                items={blockerItems}
+                                items={issueItems}
                             />
                         )}
                         {warningItems.length === 0 ? null : (
@@ -1588,13 +1628,13 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     body={t('kitchen:allergens.quarantineBody')}
                 />
             ) : null}
-            {saveFailure === null ? null : (
+            {saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
                 <Callout
                     testID="kitchen-ingredient-save-error"
                     role="alert"
                     tone="danger"
                     title={t('kitchen:editor.saveError')}
-                    body={saveFailure.message}
+                    body={server.unplaced ?? saveFailure.message}
                 />
             )}
             {currencyMissing ? (
@@ -1677,6 +1717,13 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 requiredEnglish
                                 disabled={!editable}
                                 {...flagEnglish}
+                                {...(server.errorFor('name_en') === undefined ||
+                                flagEnglish.englishError !== undefined
+                                    ? {}
+                                    : { englishError: server.errorFor('name_en') })}
+                                {...(server.errorFor('name_ar') === undefined
+                                    ? {}
+                                    : { arabicError: server.errorFor('name_ar') })}
                                 onChange={(next) => {
                                     edit({ name: next });
                                 }}
@@ -1696,6 +1743,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 options={categoryOptions}
                                 value={details.categoryCode === '' ? null : details.categoryCode}
                                 {...flag('category', t('kitchen:forms.required'))}
+                                {...server.flag('ingredient_category_id')}
                                 onChange={(next) => {
                                     // Changing the parent invalidates the leaf: a sub-category
                                     // from the previous branch would be refused on save.
@@ -1707,6 +1755,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 span={2}
                                 testID="kitchen-ingredient-subcategory"
                                 id="kitchen-ingredient-subcategory"
+                                {...server.flag('ingredient_subcategory_id')}
                                 label={t('kitchen:fields.subcategory')}
                                 placeholder={t('kitchen:fields.subcategoryPlaceholder')}
                                 searchable
@@ -1920,6 +1969,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                         disabled={!editable}
                                         {...priceUnit}
                                         {...flag('b2b-price', t('kitchen:sale.priceInvalid'))}
+                                        {...server.flag('b2b_price_amount')}
                                         onChangeText={(next) => {
                                             edit({ b2bPrice: next });
                                         }}
@@ -1934,6 +1984,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                         disabled={!editable}
                                         {...priceUnit}
                                         {...flag('b2c-price', t('kitchen:sale.priceInvalid'))}
+                                        {...server.flag('b2c_price_amount')}
                                         onChangeText={(next) => {
                                             edit({ b2cPrice: next });
                                         }}

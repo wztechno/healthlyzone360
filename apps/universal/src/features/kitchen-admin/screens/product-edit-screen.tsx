@@ -58,7 +58,7 @@ import {
     emptyPack,
     packErrors,
 } from '../catalogue-row-editors.tsx';
-import type { ChannelDraft, PackDraft } from '../catalogue-row-editors.tsx';
+import type { ChannelDraft, PackColumn, PackDraft } from '../catalogue-row-editors.tsx';
 import {
     CATALOGUE_MANAGE_PERMISSION,
     CATALOGUE_VIEW_PERMISSION,
@@ -76,6 +76,7 @@ import {
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { serverFieldErrors } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -878,6 +879,93 @@ function ProductEditor({
     }
 
     const saveFailure = toFailure(update.error ?? create.error);
+    // What the server refused, put on the fields it named (BUG-06). The pack rows go out in the
+    // order the table draws them, so `variants.2.…` is the third row.
+    const packsAnchor = 'kitchen-product-packs-anchor';
+    const server = serverFieldErrors(saveFailure, {
+        name_en: {
+            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:list.columnItem') }),
+            fieldId: 'kitchen-product-name-en',
+        },
+        name_ar: {
+            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:list.columnItem') }),
+            fieldId: 'kitchen-product-name-ar',
+        },
+        description_en: {
+            label: t('kitchen:bilingual.englishShort', {
+                field: t('kitchen:products.descriptionLabel'),
+            }),
+            fieldId: 'kitchen-product-description-en',
+        },
+        description_ar: {
+            label: t('kitchen:bilingual.arabicShort', {
+                field: t('kitchen:products.descriptionLabel'),
+            }),
+            fieldId: 'kitchen-product-description-ar',
+        },
+        // Embedded, neither picker is drawn, so a refusal of either stays in the callout.
+        ...(embedded
+            ? {}
+            : {
+                  product_category_id: {
+                      label: t('kitchen:fields.category'),
+                      fieldId: 'kitchen-product-category',
+                  },
+                  recipe_id: {
+                      label: t('kitchen:products.recipeLabel'),
+                      fieldId: 'kitchen-product-recipe-select',
+                  },
+              }),
+        ...(canReadUnits
+            ? {
+                  net_content_quantity: {
+                      label: t('kitchen:products.netContentLabel'),
+                      fieldId: 'kitchen-product-net-content',
+                  },
+                  net_content_unit_id: {
+                      label: t('kitchen:products.netContentUnitLabel'),
+                      fieldId: 'kitchen-product-net-content-unit',
+                  },
+              }
+            : {}),
+        is_market_priced: {
+            label: t('kitchen:products.marketPricedShort'),
+            fieldId: 'kitchen-product-market-priced',
+        },
+        is_assorted: {
+            label: t('kitchen:products.assortedShort'),
+            fieldId: 'kitchen-product-assorted',
+        },
+        variants: { label: t('kitchen:products.sectionPacks'), fieldId: packsAnchor },
+        'variants.*.code': { label: t('kitchen:products.packCodeLabel'), fieldId: packsAnchor },
+        'variants.*.name_en': { label: t('kitchen:products.packLabel'), fieldId: packsAnchor },
+        'variants.*.pack.pack_quantity': {
+            label: t('kitchen:products.packQuantityLabel'),
+            fieldId: packsAnchor,
+        },
+        'variants.*.pack.pack_unit_id': {
+            label: t('kitchen:products.packUnitLabel'),
+            fieldId: packsAnchor,
+        },
+        'variants.*.pack.pack_piece_count': {
+            label: t('kitchen:products.unitsPerPackLabel'),
+            fieldId: packsAnchor,
+        },
+    });
+    const packServerField: Readonly<Record<PackColumn, string>> = {
+        code: 'code',
+        label: 'name_en',
+        quantity: 'pack.pack_quantity',
+        unit: 'pack.pack_unit_id',
+        'units-per-pack': 'pack.pack_piece_count',
+    };
+    const packFieldError = (row: PackDraft, column: PackColumn): string | undefined => {
+        const index = details.packs.findIndex((entry) => entry.key === row.key);
+        return index < 0
+            ? undefined
+            : server.errorFor(`variants.${String(index)}.${packServerField[column]}`);
+    };
+    const dangerItems: readonly FormIssueItem[] = [...blockerItems, ...server.items];
     const channelFailure = toFailure(setChannels.error);
     const status = data?.meta.status ?? 'draft';
     const quarantined = status === 'review_required';
@@ -1009,7 +1097,14 @@ function ProductEditor({
                 value={details.name}
                 requiredEnglish
                 disabled={!canManage}
-                {...(shows('name') ? { englishError: t('kitchen:forms.required') } : {})}
+                {...(shows('name')
+                    ? { englishError: t('kitchen:forms.required') }
+                    : server.errorFor('name_en') === undefined
+                      ? {}
+                      : { englishError: server.errorFor('name_en') })}
+                {...(server.errorFor('name_ar') === undefined
+                    ? {}
+                    : { arabicError: server.errorFor('name_ar') })}
                 onChange={(next) => {
                     edit({ name: next });
                 }}
@@ -1033,6 +1128,7 @@ function ProductEditor({
                     options={categoryOptions}
                     value={details.categoryCode === '' ? null : details.categoryCode}
                     {...(shows('category') ? { error: t('kitchen:forms.required') } : {})}
+                    {...server.flag('product_category_id')}
                     onChange={(next) => {
                         edit({ categoryCode: next });
                     }}
@@ -1049,6 +1145,7 @@ function ProductEditor({
                     disabled={!canManage}
                     options={recipeOptions}
                     value={details.recipeId === null ? NO_RECIPE : String(details.recipeId)}
+                    {...server.flag('recipe_id')}
                     onChange={(next) => {
                         edit({ recipeId: next === NO_RECIPE ? null : (next as RecipeId) });
                     }}
@@ -1067,6 +1164,12 @@ function ProductEditor({
                 }}
                 value={details.description}
                 disabled={!canManage}
+                {...(server.errorFor('description_en') === undefined
+                    ? {}
+                    : { englishError: server.errorFor('description_en') })}
+                {...(server.errorFor('description_ar') === undefined
+                    ? {}
+                    : { arabicError: server.errorFor('description_ar') })}
                 onChange={(next) => {
                     edit({ description: next });
                 }}
@@ -1137,19 +1240,20 @@ function ProductEditor({
                     />
                 )}
 
-                {blockerItems.length === 0 && warningItems.length === 0 ? null : (
+                {dangerItems.length === 0 && warningItems.length === 0 ? null : (
                     <Inline space="xs" wrap testID="kitchen-product-issues">
-                        {blockerItems.length === 0 ? null : (
+                        {dangerItems.length === 0 ? null : (
                             <FormIssueBanner
                                 testID="kitchen-product-issues-errors"
                                 tone="danger"
                                 summary={t(
-                                    shownBlockers.every((entry) => entry.required)
+                                    server.items.length === 0 &&
+                                        shownBlockers.every((entry) => entry.required)
                                         ? 'kitchen:forms.requiredCount'
                                         : 'kitchen:forms.toFixCount',
-                                    { count: blockerItems.length },
+                                    { count: dangerItems.length },
                                 )}
-                                items={blockerItems}
+                                items={dangerItems}
                             />
                         )}
                         {warningItems.length === 0 ? null : (
@@ -1202,13 +1306,13 @@ function ProductEditor({
                     </Inline>
                 </Callout>
             )}
-            {saveFailure === null ? null : (
+            {saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
                 <Callout
                     testID="kitchen-product-save-error"
                     role="alert"
                     tone="danger"
                     title={t('kitchen:editor.saveError')}
-                    body={saveFailure.message}
+                    body={server.unplaced ?? saveFailure.message}
                 />
             )}
             {channelFailure === null ? null : (
@@ -1278,6 +1382,7 @@ function ProductEditor({
                             testID={PACK_EDITOR_TEST_ID}
                             rows={details.packs}
                             errors={shownPackErrors}
+                            fieldError={packFieldError}
                             canManage={canManage}
                             onChange={(next) => {
                                 edit({ packs: next });
@@ -1332,6 +1437,7 @@ function ProductEditor({
                                         {...(shows('net-content')
                                             ? { error: t('kitchen:products.netContentInvalid') }
                                             : {})}
+                                        {...server.flag('net_content_quantity')}
                                         onChangeText={(next) => {
                                             edit({ netContentQuantity: next });
                                         }}
@@ -1348,6 +1454,7 @@ function ProductEditor({
                                         {...(shows('net-content-unit')
                                             ? { error: t('kitchen:forms.required') }
                                             : {})}
+                                        {...server.flag('net_content_unit_id')}
                                         onChange={(next) => {
                                             edit({ netContentUnitId: next });
                                         }}
@@ -1378,6 +1485,7 @@ function ProductEditor({
                                 label={t('kitchen:products.marketPricedShort')}
                                 checked={details.isMarketPriced}
                                 disabled={!canManage}
+                                {...server.flag('is_market_priced')}
                                 onChange={(checked) => {
                                     edit({ isMarketPriced: checked });
                                 }}
@@ -1388,6 +1496,7 @@ function ProductEditor({
                                 label={t('kitchen:products.assortedShort')}
                                 checked={details.isAssorted}
                                 disabled={!canManage}
+                                {...server.flag('is_assorted')}
                                 onChange={(checked) => {
                                     edit({ isAssorted: checked });
                                 }}

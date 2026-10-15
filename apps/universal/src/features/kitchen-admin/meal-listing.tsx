@@ -53,7 +53,7 @@ import {
     availabilityErrors,
     emptyAvailabilityDay,
 } from './catalogue-row-editors.tsx';
-import type { AvailabilityDraft } from './catalogue-row-editors.tsx';
+import type { AvailabilityColumn, AvailabilityDraft } from './catalogue-row-editors.tsx';
 import { EditorFrame } from './editor-frame.tsx';
 import {
     CATALOGUE_MANAGE_PERMISSION,
@@ -71,6 +71,7 @@ import {
     unitDimension,
     unitKey,
 } from './format.ts';
+import { serverFieldErrors } from './server-field-errors.ts';
 import { useOptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from './use-unsaved-guard.ts';
 
@@ -634,6 +635,83 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
 
     const saveFailure = toFailure(update.error);
     const availabilityFailure = toFailure(setAvailability.error);
+    /*
+     * What the server refused, put on the fields it named (BUG-06). This listing has no issue
+     * banner, so the callouts stay and carry only what no field shows. Net content is described
+     * only while it is drawn: a refusal of a hidden field belongs in the callout.
+     */
+    const netContentDrawn = details.sellsFromFinishedStock && !unitsUnavailable;
+    const server = serverFieldErrors(saveFailure, {
+        name_en: {
+            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:fields.name') }),
+            fieldId: 'kitchen-meal-name-en',
+        },
+        name_ar: {
+            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:fields.name') }),
+            fieldId: 'kitchen-meal-name-ar',
+        },
+        description_en: {
+            label: t('kitchen:bilingual.englishShort', {
+                field: t('kitchen:meals.descriptionLabel'),
+            }),
+            fieldId: 'kitchen-meal-description-en',
+        },
+        description_ar: {
+            label: t('kitchen:bilingual.arabicShort', {
+                field: t('kitchen:meals.descriptionLabel'),
+            }),
+            fieldId: 'kitchen-meal-description-ar',
+        },
+        portion_factor: { label: t('kitchen:meals.portionLabel'), fieldId: 'kitchen-meal-portion' },
+        production_mode: {
+            label: t('kitchen:meals.productionModeLabel'),
+            fieldId: 'kitchen-meal-production-mode',
+        },
+        ingredient_id: {
+            label: t('kitchen:meals.producedIngredientLabel'),
+            fieldId: 'kitchen-meal-produced-ingredient',
+        },
+        sells_from_finished_stock: {
+            label: t('kitchen:meals.finishedStockToggleLabel'),
+            fieldId: 'kitchen-meal-finished-stock',
+        },
+        ...(netContentDrawn
+            ? {
+                  net_content_quantity: {
+                      label: t('kitchen:meals.netContentLabel'),
+                      fieldId: 'kitchen-meal-net-content',
+                  },
+                  net_content_unit_id: {
+                      label: t('kitchen:meals.netContentUnitLabel'),
+                      fieldId: 'kitchen-meal-net-content-unit',
+                  },
+              }
+            : {}),
+    });
+    // The days go out in table order, less any row with no date: `days.2.…` is the third sent.
+    const dayTarget = {
+        label: t('kitchen:availability.sectionServiceDays'),
+        fieldId: 'kitchen-meal-availability-editor',
+    };
+    const dayServer = serverFieldErrors(availabilityFailure, {
+        'days.*.date': dayTarget,
+        'days.*.is_available': dayTarget,
+        'days.*.remaining': dayTarget,
+        'days.*.order_cut_off_at': dayTarget,
+    });
+    const dayServerField: Readonly<Record<AvailabilityColumn, string>> = {
+        date: 'date',
+        serving: 'is_available',
+        remaining: 'remaining',
+        cutoff: 'order_cut_off_at',
+    };
+    const sentDays = days.filter((row) => row.date !== null);
+    const dayFieldError = (row: AvailabilityDraft, column: AvailabilityColumn) => {
+        const index = sentDays.findIndex((entry) => entry.key === row.key);
+        return index < 0
+            ? undefined
+            : dayServer.errorFor(`days.${String(index)}.${dayServerField[column]}`);
+    };
     const publishFailure = toFailure(publish.error);
     const publishFields =
         publishFailure !== null && isValidationFailure(publishFailure) ? publishFailure.fields : {};
@@ -849,7 +927,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                             role="alert"
                             tone="danger"
                             title={t('kitchen:editor.saveError')}
-                            body={saveFailure.message}
+                            body={server.unplaced ?? saveFailure.message}
                         />
                     )}
                 </Stack>
@@ -881,7 +959,12 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                             requiredEnglish
                             {...(nameMissing
                                 ? { englishError: t('kitchen:meals.nameRequired') }
-                                : {})}
+                                : server.errorFor('name_en') === undefined
+                                  ? {}
+                                  : { englishError: server.errorFor('name_en') })}
+                            {...(server.errorFor('name_ar') === undefined
+                                ? {}
+                                : { arabicError: server.errorFor('name_ar') })}
                             onChange={(next) => {
                                 setDetails({ ...details, name: next });
                                 markDetailsDirty();
@@ -898,6 +981,12 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                                 en: t('kitchen:fields.descriptionPlaceholderEn'),
                                 ar: t('kitchen:fields.descriptionPlaceholderAr'),
                             }}
+                            {...(server.errorFor('description_en') === undefined
+                                ? {}
+                                : { englishError: server.errorFor('description_en') })}
+                            {...(server.errorFor('description_ar') === undefined
+                                ? {}
+                                : { arabicError: server.errorFor('description_ar') })}
                             onChange={(next) => {
                                 setDetails({ ...details, description: next });
                                 markDetailsDirty();
@@ -922,6 +1011,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                             {...(portionInvalid
                                 ? { error: t('kitchen:meals.portionInvalid') }
                                 : {})}
+                            {...server.flag('portion_factor')}
                             onChangeText={(next) => {
                                 setDetails({ ...details, portionFactor: next });
                                 markDetailsDirty();
@@ -959,6 +1049,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                                     disabled={!canManage}
                                     options={productionModeOptions}
                                     value={details.productionMode ?? NO_MODE}
+                                    {...server.flag('production_mode')}
                                     onChange={(next) => {
                                         setDetails({
                                             ...details,
@@ -980,6 +1071,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                                     disabled={!canManage}
                                     options={ingredientOptions}
                                     value={details.ingredientId ?? NO_INGREDIENT}
+                                    {...server.flag('ingredient_id')}
                                     onChange={(next) => {
                                         setDetails({
                                             ...details,
@@ -1010,6 +1102,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                             }
                             checked={details.sellsFromFinishedStock}
                             disabled={!canManage || finishedStockBlockedReason !== null}
+                            {...server.flag('sells_from_finished_stock')}
                             onChange={(next) => {
                                 setDetails({ ...details, sellsFromFinishedStock: next });
                                 markDetailsDirty();
@@ -1047,6 +1140,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                                             : netContentRequired
                                               ? { error: t('kitchen:meals.netContentRequired') }
                                               : {})}
+                                        {...server.flag('net_content_quantity')}
                                         onChangeText={(next) => {
                                             setDetails({ ...details, netContentQuantity: next });
                                             markDetailsDirty();
@@ -1066,6 +1160,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                                         {...(netContentUnitMissing
                                             ? { error: t('kitchen:meals.netContentUnitMissing') }
                                             : {})}
+                                        {...server.flag('net_content_unit_id')}
                                         onChange={(next) => {
                                             setDetails({ ...details, netContentUnitId: next });
                                             markDetailsDirty();
@@ -1183,7 +1278,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                                 role="alert"
                                 tone="danger"
                                 title={t('kitchen:availability.saveError')}
-                                body={availabilityFailure.message}
+                                body={dayServer.unplaced ?? availabilityFailure.message}
                             />
                         )}
 
@@ -1198,6 +1293,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                                 testID="kitchen-meal-availability-editor"
                                 rows={days}
                                 errors={dayErrors}
+                                fieldError={dayFieldError}
                                 canManage={canManage}
                                 onChange={(next) => {
                                     setDays(next);

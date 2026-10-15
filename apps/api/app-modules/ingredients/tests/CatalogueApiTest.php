@@ -173,6 +173,15 @@ it('exempts packaging but requires nutrition when it becomes food', function ():
     $this->patchJson($url, ['ingredient_category_id' => null] + NutritionReferenceFixture::selection(), $headers + ['If-Match' => '"0"'])->assertOk();
 });
 
+it('lets an edit leave the Arabic name blank, as create does', function (): void {
+    $this->actingAs($this->a->user);
+    $ingredient = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId(), 'name_ar' => 'ملح']);
+
+    $this->patchJson('/api/v1/catalogue/ingredients/'.$ingredient->getKey(), ['name_ar' => ''], catalogueHeaders($this->a) + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.name_ar', '');
+});
+
 it('rejects a USDA reference on a derived ingredient before fetching', function (): void {
     $this->actingAs($this->a->user);
     $ingredient = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId(), 'nutrition_derived_from_version_id' => (string) Str::uuid7()]);

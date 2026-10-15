@@ -49,6 +49,7 @@ import {
 } from '../ops-format.ts';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
+import { serverFieldErrors } from '../server-field-errors.ts';
 import { readQuantity } from '../supply-order-model.ts';
 import { trimDecimal } from '../format.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
@@ -198,6 +199,8 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
     const [dirty, setDirty] = useState(false);
     const [confirmingIssue, setConfirmingIssue] = useState(false);
     const [confirmingCancel, setConfirmingCancel] = useState(false);
+    // The lines the last save sent, in order: the server names a refused one by its position.
+    const [savedLineIds, setSavedLineIds] = useState<readonly string[]>([]);
     /*
      * Read from the node rather than `onLayout`, which on the web delivered one early width and
      * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.
@@ -276,9 +279,46 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
     const invalid = readings.some((reading) => reading.value === null);
     const empty = lines.length === 0;
 
+    /*
+     * What the server refused, put on the fields it named (BUG-06). The page has no issue banner,
+     * so this marks the quantity boxes and the note only.
+     */
+    const updateFailure = toFailure(update.error);
+    const otherFailure = toFailure(issue.error ?? cancel.error);
+    const server = serverFieldErrors(updateFailure, {
+        notes: {
+            label: t('kitchen:ops.supplyOrders.notesLabel'),
+            fieldId: 'kitchen-supply-order-detail-notes-input',
+        },
+        ...Object.fromEntries(
+            savedLineIds.map((stockItemId, index) => [
+                `lines.${String(index)}.quantity`,
+                {
+                    label: t('kitchen:ops.supplyOrders.quantityLabel', {
+                        item:
+                            lines.find((line) => line.stockItemId === stockItemId)?.itemNameEn ??
+                            '',
+                    }),
+                    fieldId: `${purchaseOrderLineTestId(stockItemId)}-quantity`,
+                },
+            ]),
+        ),
+    });
+    const actionError: string | null =
+        updateFailure !== null
+            ? server.isValidation
+                ? server.unplaced
+                : updateFailure.message
+            : (otherFailure?.message ?? null);
+    const serverQuantityError = (stockItemId: string): string | undefined => {
+        const index = savedLineIds.indexOf(stockItemId);
+        return index === -1 ? undefined : server.errorFor(`lines.${String(index)}.quantity`);
+    };
+
     function save(): void {
         if (parsed === null || !editable || invalid || empty) return;
 
+        setSavedLineIds(lines.map((line) => line.stockItemId));
         update.mutate(
             {
                 purchaseOrderId: parsed,
@@ -537,6 +577,7 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                     <View className="min-w-0 flex-1 py-tight">
                         <QuantityInput
                             testID={`${testID}-quantity`}
+                            id={`${testID}-quantity`}
                             // The item's own name, never a shared "Order quantity": forty inputs
                             // with one accessible name is a form a screen-reader user cannot use,
                             // and the duplication is invisible by eye.
@@ -551,7 +592,7 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                             error={
                                 reading.value === null && reading.issue !== null
                                     ? t(`kitchen:ops.supplyOrders.quantityIssue.${reading.issue}`)
-                                    : undefined
+                                    : serverQuantityError(line.stockItemId)
                             }
                             onChangeText={(next) => {
                                 edit(
@@ -755,6 +796,18 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                 />
             )}
 
+            {actionError === null ? null : (
+                // A save, issue or cancel the server refused. Field refusals are already on their
+                // fields; this says what is left, so a refused action never looks like nothing.
+                <Callout
+                    testID="kitchen-supply-order-detail-action-error"
+                    tone="danger"
+                    role="alert"
+                    title={t('kitchen:editor.saveError')}
+                    body={actionError}
+                />
+            )}
+
             {data.supplier?.archivedAt == null ? null : (
                 <Callout
                     testID="kitchen-supply-order-detail-archived-notice"
@@ -866,6 +919,8 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                         {editable ? (
                             <TextInputField
                                 testID="kitchen-supply-order-detail-notes-input"
+                                id="kitchen-supply-order-detail-notes-input"
+                                {...server.flag('notes')}
                                 label={t('kitchen:ops.supplyOrders.notesLabel')}
                                 hint={t('kitchen:ops.supplyOrders.notesHint')}
                                 placeholder={t('kitchen:ops.supplyOrders.notesPlaceholder')}

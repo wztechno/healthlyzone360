@@ -1,3 +1,4 @@
+import type { ApiFailure } from '@healthy360/api-client';
 import { PACKAGING_CATEGORY_CODE, isValidationFailure } from '@healthy360/api-client/contracts';
 import type {
     CostAmount,
@@ -106,8 +107,9 @@ import {
     isSendableLine,
     packagingEntry,
 } from '../recipe-line-table.tsx';
-import type { PickerEntry } from '../recipe-line-table.tsx';
+import type { LineColumn, PickerEntry } from '../recipe-line-table.tsx';
 import type { LineDraft } from '../recipe-line-table.tsx';
+import { serverFieldErrors } from '../server-field-errors.ts';
 import { TechnicalSheetPanel } from '../technical-sheet-panel.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
@@ -622,7 +624,10 @@ function RecipeEditor({
     const [selectedVersionId, setSelectedVersionId] = useState<RecipeVersionId | null>(null);
     const [showPublish, setShowPublish] = useState(false);
     const [showRetire, setShowRetire] = useState(false);
-    const [saveError, setSaveError] = useState<string | null>(null);
+    // The failure itself, not its message: a validation refusal is put back on its fields.
+    const [saveError, setSaveError] = useState<{ readonly failure: ApiFailure | null } | null>(
+        null,
+    );
     /**
      * A create in flight, from the press until the page has moved on.
      *
@@ -1163,6 +1168,148 @@ function RecipeEditor({
         if (fieldId !== null) focusField(fieldId);
     };
 
+    /*
+     * What the server refused, put on the fields it named (BUG-06). One save is up to four writes —
+     * the recipe, its version, the lines, the packaging — whose field names do not overlap, so one
+     * table describes all four. Each names the tab its field is on, so its chip can switch to it.
+     * A field this route does not draw is left out, and its refusal stays in the save callout.
+     */
+    const saveFailure = saveError?.failure ?? null;
+    const linesTarget = {
+        label: t('kitchen:recipes.sectionRawMaterials'),
+        fieldId: 'kitchen-recipe-lines-table-refusals',
+        tab: 'production' as const,
+    };
+    const packagingTarget = {
+        label: t('kitchen:recipes.sectionPackaging'),
+        fieldId: 'kitchen-recipe-packaging-table-refusals',
+        tab: 'packaging' as const,
+    };
+    const serverTargets: Readonly<
+        Record<
+            string,
+            { readonly label: string; readonly fieldId: string; readonly tab: RecipeTab }
+        >
+    > = {
+        name_en: {
+            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:recipes.columnName') }),
+            fieldId: 'kitchen-recipe-name-en',
+            tab: 'description',
+        },
+        name_ar: {
+            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:recipes.columnName') }),
+            fieldId: 'kitchen-recipe-name-ar',
+            tab: 'description',
+        },
+        ...(isCreating && onCreated !== undefined
+            ? {
+                  notes: {
+                      label: t('kitchen:bilingual.englishShort', {
+                          field: t('kitchen:products.descriptionLabel'),
+                      }),
+                      fieldId: 'kitchen-recipe-description-en',
+                      tab: 'description' as const,
+                  },
+              }
+            : {}),
+        ...(classification === undefined || classification.options.length === 0
+            ? {}
+            : {
+                  recipe_category: {
+                      label: classification.subcategoryLabel,
+                      fieldId: 'kitchen-recipe-subcategory',
+                      tab: 'description' as const,
+                  },
+              }),
+        // The unit rides on the yield field as its suffix, so a refused unit is that field's.
+        yield_quantity: {
+            label: t('kitchen:recipes.yieldQuantity'),
+            fieldId: 'kitchen-recipe-yield-quantity',
+            tab: 'production',
+        },
+        yield_unit_id: {
+            label: t('kitchen:recipes.yieldQuantity'),
+            fieldId: 'kitchen-recipe-yield-quantity',
+            tab: 'production',
+        },
+        yield_piece_count: {
+            label: t('kitchen:recipes.yieldPieces'),
+            fieldId: 'kitchen-recipe-yield-pieces',
+            tab: 'production',
+        },
+        waste_coefficient_percent: {
+            label: t('kitchen:recipes.productionWastePercent'),
+            fieldId: 'kitchen-recipe-waste',
+            tab: 'production',
+        },
+        'lines.*.ingredient_id': linesTarget,
+        'lines.*.quantity': linesTarget,
+        'lines.*.unit_id': linesTarget,
+        'lines.*.source_designation': linesTarget,
+        shelf_life_days: {
+            label: t('kitchen:forms.expiryPeriod'),
+            fieldId: 'kitchen-recipe-expiry',
+            tab: 'packaging',
+        },
+        packaging_waste_percent: {
+            label: t('kitchen:recipes.packagingWastePercent'),
+            fieldId: 'kitchen-recipe-packaging-waste',
+            tab: 'packaging',
+        },
+        'packaging.*.ingredient_id': packagingTarget,
+        'packaging.*.basis': packagingTarget,
+        'packaging.*.quantity': packagingTarget,
+        'packaging.*.comment': packagingTarget,
+        b2b_price_amount: {
+            label: t('kitchen:recipes.b2bPricePerUnit', {
+                unit: t(unitShortKey(details.yieldUnit)),
+            }),
+            fieldId: 'kitchen-recipe-b2b-price',
+            tab: 'costing',
+        },
+        b2c_price_amount: {
+            label: t('kitchen:recipes.b2cPricePerUnit', {
+                unit: t(unitShortKey(details.yieldUnit)),
+            }),
+            fieldId: 'kitchen-recipe-b2c-price',
+            tab: 'costing',
+        },
+    };
+    const server = serverFieldErrors(saveFailure, serverTargets);
+    // The helper's chip only focuses; these also switch tab. It keys each chip `server-<pattern>`.
+    const serverItems: readonly (FormIssueItem & { readonly tab: RecipeTab | undefined })[] =
+        server.items.map((item) => {
+            const target = serverTargets[item.key.slice('server-'.length)];
+            return target === undefined
+                ? { ...item, tab: undefined }
+                : {
+                      ...item,
+                      tab: target.tab,
+                      onPress: () => {
+                          goTo(target.tab, target.fieldId);
+                      },
+                  };
+        });
+
+    /** A line table's refusal, by the sendable row it was sent as — see `isSendableLine`. */
+    const lineFieldError =
+        (section: 'lines' | 'packaging', rows: readonly LineDraft[]) =>
+        (row: LineDraft, column: LineColumn): string | undefined => {
+            const index = rows.filter(isSendableLine).findIndex((entry) => entry.key === row.key);
+            if (index < 0) return undefined;
+            const at = `${section}.${String(index)}`;
+            if (column === 'quantity') return server.errorFor(`${at}.quantity`);
+            if (column === 'comment') {
+                return server.errorFor(
+                    `${at}.${section === 'lines' ? 'source_designation' : 'comment'}`,
+                );
+            }
+            return (
+                server.errorFor(`${at}.ingredient_id`) ??
+                server.errorFor(`${at}.${section === 'lines' ? 'unit_id' : 'basis'}`)
+            );
+        };
+
     const blockerItems: readonly FormIssueItem[] = shownBlockers.map((entry) => ({
         key: entry.key,
         label: entry.label,
@@ -1172,6 +1319,7 @@ function RecipeEditor({
             goTo(entry.tab, entry.fieldId);
         },
     }));
+    const dangerItems: readonly FormIssueItem[] = [...blockerItems, ...serverItems];
 
     const zeroItems: readonly FormIssueItem[] = zeroPackaging.map((row) => {
         const entry = packagingLibrary.find((candidate) => candidate.id === row.ingredientId);
@@ -1189,7 +1337,9 @@ function RecipeEditor({
 
     /** What each tab's pill says: the blockers on it, or failing those its cautions. */
     const tabIssues = (target: RecipeTab) => {
-        const errors = shownBlockers.filter((entry) => entry.tab === target).length;
+        const errors =
+            shownBlockers.filter((entry) => entry.tab === target).length +
+            serverItems.filter((item) => item.tab === target).length;
         if (errors > 0) {
             return {
                 count: errors,
@@ -1383,7 +1533,7 @@ function RecipeEditor({
                 (error: unknown) => {
                     creatingRef.current = null;
                     setCreatingNow(false);
-                    setSaveError(toFailure(error)?.message ?? t('kitchen:recipes.saveFailed'));
+                    setSaveError({ failure: toFailure(error) });
                 },
             );
             return;
@@ -1471,7 +1621,7 @@ function RecipeEditor({
             },
             (error: unknown) => {
                 if (concurrency.capture(error)) return;
-                setSaveError(toFailure(error)?.message ?? t('kitchen:recipes.saveFailed'));
+                setSaveError({ failure: toFailure(error) });
             },
         );
     };
@@ -1864,19 +2014,20 @@ function RecipeEditor({
                     }
                 />
 
-                {blockerItems.length === 0 && zeroItems.length === 0 && !marginLow ? null : (
+                {dangerItems.length === 0 && zeroItems.length === 0 && !marginLow ? null : (
                     <Inline space="xs" wrap testID="kitchen-recipe-issues">
-                        {blockerItems.length === 0 ? null : (
+                        {dangerItems.length === 0 ? null : (
                             <FormIssueBanner
                                 testID="kitchen-recipe-issues-errors"
                                 tone="danger"
                                 summary={t(
-                                    shownBlockers.every((entry) => entry.required)
+                                    serverItems.length === 0 &&
+                                        shownBlockers.every((entry) => entry.required)
                                         ? 'kitchen:forms.requiredCount'
                                         : 'kitchen:forms.toFixCount',
-                                    { count: blockerItems.length },
+                                    { count: dangerItems.length },
                                 )}
-                                items={blockerItems}
+                                items={dangerItems}
                             />
                         )}
                         {zeroItems.length === 0 ? null : (
@@ -1932,13 +2083,15 @@ function RecipeEditor({
                     body={t('kitchen:publish.quarantineBody')}
                 />
             ) : null}
-            {saveError === null ? null : (
+            {saveError === null || (server.isValidation && server.unplaced === null) ? null : (
                 <Callout
                     testID="kitchen-recipe-save-error"
                     role="alert"
                     tone="danger"
                     title={t('kitchen:recipes.saveErrorTitle')}
-                    body={saveError}
+                    body={
+                        server.unplaced ?? saveFailure?.message ?? t('kitchen:recipes.saveFailed')
+                    }
                 />
             )}
 
@@ -1999,7 +2152,12 @@ function RecipeEditor({
                                     disabled={!editable}
                                     {...(shows('name')
                                         ? { englishError: t('kitchen:forms.required') }
-                                        : {})}
+                                        : server.errorFor('name_en') === undefined
+                                          ? {}
+                                          : { englishError: server.errorFor('name_en') })}
+                                    {...(server.errorFor('name_ar') === undefined
+                                        ? {}
+                                        : { arabicError: server.errorFor('name_ar') })}
                                     onChange={(next) => {
                                         setDetails({ ...details, name: next });
                                         markDirty('details');
@@ -2024,6 +2182,9 @@ function RecipeEditor({
                                         }}
                                         value={details.description}
                                         disabled={!editable}
+                                        {...(server.errorFor('notes') === undefined
+                                            ? {}
+                                            : { englishError: server.errorFor('notes') })}
                                         onChange={(next) => {
                                             setDetails({ ...details, description: next });
                                             markDirty('details');
@@ -2061,6 +2222,7 @@ function RecipeEditor({
                                                 ? null
                                                 : details.recipeCategory
                                         }
+                                        {...server.flag('recipe_category')}
                                         onChange={(next) => {
                                             setDetails({ ...details, recipeCategory: next });
                                             markDirty('details');
@@ -2287,6 +2449,8 @@ function RecipeEditor({
                                                   : t('kitchen:recipes.yieldRequired'),
                                       }
                                     : {})}
+                                {...server.flag('yield_quantity')}
+                                {...server.flag('yield_unit_id')}
                                 onChangeText={(next) => {
                                     setDetails({ ...details, yieldQuantity: next });
                                     markDirty('details');
@@ -2300,6 +2464,7 @@ function RecipeEditor({
                                 size="sm"
                                 value={details.yieldPieces}
                                 disabled={!editable}
+                                {...server.flag('yield_piece_count')}
                                 onChangeText={(next) => {
                                     setDetails({ ...details, yieldPieces: next });
                                     markDirty('details');
@@ -2314,6 +2479,7 @@ function RecipeEditor({
                                 unit="%"
                                 value={details.wastePercent}
                                 disabled={!editable}
+                                {...server.flag('waste_coefficient_percent')}
                                 onChangeText={(next) => {
                                     setDetails({ ...details, wastePercent: next });
                                     markDirty('details');
@@ -2333,6 +2499,7 @@ function RecipeEditor({
                             ingredients={libraryEntries}
                             flaggedIngredientIds={flaggedIngredientIds}
                             costs={computed?.production ?? null}
+                            fieldError={lineFieldError('lines', lines)}
                             canManage={editable}
                             nextKey={nextKey}
                             pickerPlaceholder={t('kitchen:recipes.addIngredientPlaceholder')}
@@ -2372,6 +2539,7 @@ function RecipeEditor({
                                 {...(shows('shelf-life')
                                     ? { error: t('kitchen:forms.shelfLifeInvalid') }
                                     : {})}
+                                {...server.flag('shelf_life_days')}
                                 onChangeText={(next) => {
                                     setDetails({ ...details, shelfLifeDays: next });
                                     markDirty('details');
@@ -2386,6 +2554,7 @@ function RecipeEditor({
                                 unit="%"
                                 value={details.packagingWastePercent}
                                 disabled={!editable}
+                                {...server.flag('packaging_waste_percent')}
                                 onChangeText={(next) => {
                                     setDetails({ ...details, packagingWastePercent: next });
                                     markDirty('details');
@@ -2414,6 +2583,7 @@ function RecipeEditor({
                                 source="packaging"
                                 warnZeroQuantity
                                 costs={computed?.packaging ?? null}
+                                fieldError={lineFieldError('packaging', packaging)}
                                 canManage={canManage}
                                 nextKey={nextKey}
                                 pickerPlaceholder={t('kitchen:recipes.packagingPlaceholder')}
@@ -2571,6 +2741,7 @@ function RecipeEditor({
                                     {...(shows('b2b-price')
                                         ? { error: t('kitchen:sale.priceInvalid') }
                                         : {})}
+                                    {...server.flag('b2b_price_amount')}
                                     onChangeText={(next) => {
                                         setDetails({ ...details, b2bPrice: next });
                                         markDirty('details');
@@ -2598,6 +2769,7 @@ function RecipeEditor({
                                     {...(shows('b2c-price')
                                         ? { error: t('kitchen:sale.priceInvalid') }
                                         : {})}
+                                    {...server.flag('b2c_price_amount')}
                                     onChangeText={(next) => {
                                         setDetails({ ...details, b2cPrice: next });
                                         markDirty('details');

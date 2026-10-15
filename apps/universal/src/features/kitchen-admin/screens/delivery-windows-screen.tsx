@@ -35,6 +35,7 @@ import { DeliveryWindowRows } from '../delivery-row-editors.tsx';
 import { CATALOGUE_VIEW_PERMISSION, DELIVERY_ZONE_MANAGE_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
+import { serverFieldErrors } from '../server-field-errors.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -82,6 +83,8 @@ function DeliveryWindowsEditor() {
     const [dirty, setDirty] = useState(false);
     const [ordinal, setOrdinal] = useState(1);
     const [saving, setSaving] = useState(false);
+    /** The row whose write the server refused — the one a field error belongs to. */
+    const [failedKey, setFailedKey] = useState<string | null>(null);
 
     const data = windows.data;
     // Re-seeded from every fresh read while nothing is being edited — after a save, the refetch the
@@ -135,9 +138,12 @@ function DeliveryWindowsEditor() {
 
         void (async () => {
             setSaving(true);
+            setFailedKey(null);
             let current = rows;
+            let writing: string | null = null;
             try {
                 for (const row of pending) {
+                    writing = row.key;
                     const request = windowWrite(row);
                     const written =
                         row.id === null
@@ -159,6 +165,7 @@ function DeliveryWindowsEditor() {
                 });
             } catch {
                 // `save.error` renders the callout; the rows written so far stay written.
+                setFailedKey(writing);
             } finally {
                 setSaving(false);
             }
@@ -197,6 +204,42 @@ function DeliveryWindowsEditor() {
     }
 
     const saveFailure = toFailure(save.error);
+    /*
+     * What the server refused, put on the fields of the row it was writing (BUG-06). No issue
+     * banner here, so the callout stays and carries whatever no field could.
+     */
+    const labelField = t('kitchen:windows.labelField');
+    const rowId = `kitchen-windows-rows-row-${failedKey ?? ''}`;
+    const server = serverFieldErrors(failedKey === null ? null : saveFailure, {
+        name_en: {
+            label: t('kitchen:bilingual.englishShort', { field: labelField }),
+            fieldId: `${rowId}-label-en`,
+        },
+        name_ar: {
+            label: t('kitchen:bilingual.arabicShort', { field: labelField }),
+            fieldId: `${rowId}-label-ar`,
+        },
+        weekdays: {
+            label: t('kitchen:windows.weekdaysLabel'),
+            fieldId: `${rowId}-weekdays`,
+        },
+        'weekdays.*': {
+            label: t('kitchen:windows.weekdaysLabel'),
+            fieldId: `${rowId}-weekdays`,
+        },
+        starts_at: {
+            label: t('kitchen:windows.startsLabel'),
+            fieldId: `${rowId}-starts`,
+        },
+        ends_at: {
+            label: t('kitchen:windows.endsLabel'),
+            fieldId: `${rowId}-ends`,
+        },
+        is_active: {
+            label: t('kitchen:windows.activeLabel'),
+            fieldId: `${rowId}-active`,
+        },
+    });
 
     return (
         <Cascade space="md" testID="kitchen-windows-screen">
@@ -223,7 +266,7 @@ function DeliveryWindowsEditor() {
                     role="alert"
                     tone="danger"
                     title={t('kitchen:windows.saveError')}
-                    body={saveFailure.message}
+                    body={server.unplaced ?? saveFailure.message}
                 />
             )}
 
@@ -256,6 +299,11 @@ function DeliveryWindowsEditor() {
                         testID="kitchen-windows-rows"
                         rows={rows}
                         errors={rowErrors}
+                        refused={
+                            failedKey === null || !server.isValidation
+                                ? undefined
+                                : { key: failedKey, errorFor: server.errorFor }
+                        }
                         canManage={canManage}
                         onChange={edit}
                         onAdd={addRow}

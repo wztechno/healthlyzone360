@@ -31,7 +31,10 @@ class UpdateIngredientRequest extends StoreIngredientRequest
     {
         return [
             'name_en' => ['sometimes', 'required', 'string', 'max:255'],
-            'name_ar' => ['sometimes', 'required', 'string', 'max:255'],
+            // Optional, as it is on create: a blank Arabic name is stored as an
+            // empty string there, so an edit that leaves it blank must not be
+            // the first place it is refused (BUG-06).
+            'name_ar' => ['sometimes', 'nullable', 'string', 'max:255'],
             'ingredient_category_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('ingredient_categories', 'id')],
             'ingredient_subcategory_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('ingredient_categories', 'id')],
             'default_unit_id' => ['sometimes', 'required', 'uuid', Rule::exists('measurement_units', 'id')],

@@ -66,6 +66,7 @@ import {
 } from '../price-row-editors.tsx';
 import type { PriceEntryDraft, PriceEntryProblem, PriceItemOption } from '../price-row-editors.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
+import { serverFieldErrors } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -568,6 +569,64 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
     if (data === undefined) return null;
 
     const saveFailure = toFailure(save.error);
+    /*
+     * What the server refused, put on the row and field it named (BUG-06). `entries.N` is the
+     * N-th row `priceEntryRequest` sent, which drops only a row with no item.
+     */
+    const sentEntries = entries.filter((row) => row.item !== null);
+    const server = serverFieldErrors(
+        saveFailure,
+        Object.fromEntries(
+            sentEntries.flatMap((row, index) => {
+                const name = nameOf(row);
+                const rowId = `${PAGE_ID}-entries-row-${row.key}`;
+                const at = `entries.${String(index)}`;
+                const item = {
+                    label: t('kitchen:priceLists.issueChip', {
+                        name,
+                        problem: t('kitchen:priceLists.itemLabel'),
+                    }),
+                    // A saved row's item is text, not a control: the chip takes the reader to the row.
+                    fieldId: baseline.has(row.key) ? rowId : `${rowId}-item`,
+                };
+                return [
+                    [`${at}.catalogue_item_id`, item],
+                    [`${at}.catalogue_item_variant_id`, item],
+                    [
+                        `${at}.unit_amount_minor`,
+                        {
+                            label: t('kitchen:priceLists.amountFieldLabel', {
+                                name,
+                                currency: data.currency,
+                            }),
+                            fieldId: `${rowId}-amount`,
+                        },
+                    ],
+                    [
+                        `${at}.price_status`,
+                        {
+                            label: t('kitchen:priceLists.basisFieldLabel', { name }),
+                            fieldId: rowId,
+                        },
+                    ],
+                ] as const;
+            }),
+        ),
+    );
+    const refusals = new Map(
+        sentEntries.flatMap((row, index) => {
+            const at = (field: string) => server.errorFor(`entries.${String(index)}.${field}`);
+            const refusal = {
+                item: at('catalogue_item_id') ?? at('catalogue_item_variant_id'),
+                amount: at('unit_amount_minor'),
+                basis: at('price_status'),
+            };
+            return Object.values(refusal).every((text) => text === undefined)
+                ? []
+                : [[row.key, refusal] as const];
+        }),
+    );
+    const allIssueItems: readonly FormIssueItem[] = [...issueItems, ...server.items];
     const publishFailure = toFailure(publish.error);
     const publishFields =
         publishFailure !== null && isValidationFailure(publishFailure) ? publishFailure.fields : {};
@@ -710,8 +769,10 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
                         </>
                     }
                     errors={{
-                        summary: t('kitchen:priceLists.issuesTitle', { count: issueItems.length }),
-                        items: issueItems,
+                        summary: t('kitchen:priceLists.issuesTitle', {
+                            count: allIssueItems.length,
+                        }),
+                        items: allIssueItems,
                     }}
                 />
 
@@ -753,13 +814,14 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
                     />
                 ) : null}
 
-                {saveFailure === null ? null : (
+                {saveFailure === null ||
+                (server.isValidation && server.unplaced === null) ? null : (
                     <Callout
                         testID={`${PAGE_ID}-save-error`}
                         role="alert"
                         tone="danger"
                         title={t('kitchen:priceLists.saveFailedTitle')}
-                        body={saveFailure.message}
+                        body={server.unplaced ?? saveFailure.message}
                     />
                 )}
 
@@ -799,6 +861,7 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
                     }}
                     baseline={baseline}
                     problems={shownProblems}
+                    refusals={refusals}
                     options={itemOptions}
                     currency={data.currency}
                     canManage={canManage}

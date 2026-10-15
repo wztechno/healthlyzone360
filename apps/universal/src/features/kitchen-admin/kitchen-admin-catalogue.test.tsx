@@ -1088,6 +1088,58 @@ describe('creating and editing a product', () => {
         expect(repositories.kitchenAdmin.createProduct).not.toHaveBeenCalled();
     });
 
+    it('puts a refusal on the fields the server named and names them in the banner (BUG-06)', async () => {
+        const stored = product({ ordinal: 1, name: 'Pomegranate molasses' });
+
+        await renderStubScreen(<ProductEditScreen product={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getProduct: async () => stored,
+                    listProducts: productListing(() => [stored]),
+                    listRecipes: async () => page(NO_RECIPES),
+                    updateProduct: async () =>
+                        throwFailure(
+                            validationFailure({
+                                name_ar: [
+                                    'The Arabic name may not be greater than 255 characters.',
+                                ],
+                                'variants.0.pack.pack_quantity': [
+                                    'The pack quantity must be greater than 0.',
+                                ],
+                            }),
+                        ),
+                },
+            },
+        });
+        await untilVisible('kitchen-product-name-en-input');
+
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-product-name-en-input'),
+                'Pomegranate molasses, thick',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
+        });
+
+        await untilVisible('kitchen-product-name-ar-error');
+        expect(screen.getByTestId('kitchen-product-name-ar-error')).toHaveTextContent(
+            'The Arabic name may not be greater than 255 characters.',
+        );
+        // The first pack's quantity cell, not its code.
+        expect(
+            screen.getAllByTestId(/^kitchen-product-pack-editor-row-.*-quantity-error$/)[0],
+        ).toHaveTextContent('The pack quantity must be greater than 0.');
+        const banner = screen.getByTestId('kitchen-product-issues-errors');
+        expect(banner).toHaveTextContent(/2 to fix/);
+        expect(banner).toHaveTextContent(/Item \(AR\)/);
+        expect(banner).toHaveTextContent(/Net quantity/);
+        // Every refusal was placed, so the generic callout has nothing left to say.
+        expect(screen.queryByTestId('kitchen-product-save-error')).toBeNull();
+    });
+
     it('publishes through the generic item endpoint, and the button waits for the gate', async () => {
         /*
          * The gap this closes: `POST /catalogue/items/{item}/publish` was never meal-specific, but

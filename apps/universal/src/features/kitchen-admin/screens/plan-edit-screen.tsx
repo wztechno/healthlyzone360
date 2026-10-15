@@ -99,6 +99,7 @@ import {
     variantRequest,
 } from '../plan-matrix.ts';
 import type { CombinationDraft, DurationDraft, VariantDraft } from '../plan-matrix.ts';
+import { serverFieldErrors } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -641,9 +642,12 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
         },
     }));
 
-    /** The solid pill a step's tab carries while something on it needs attention. */
-    const stepIssues = (step: PlanStep) => {
-        const count = shownIssues.filter((entry) => entry.step === step).length;
+    /**
+     * The solid pill a step's tab carries while something on it needs attention. `refused` is what
+     * the server turned down on that step, counted where the refusal is read.
+     */
+    const stepIssues = (step: PlanStep, refused = 0) => {
+        const count = shownIssues.filter((entry) => entry.step === step).length + refused;
         if (count === 0) return undefined;
         return {
             count,
@@ -998,6 +1002,85 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     const matrixFailure = toFailure(saveVariantsMutation.error);
     const durationsFailure = toFailure(saveDurationsMutation.error);
     const menuFailure = toFailure(saveMenuMutation.error);
+
+    /* ── what the server refused, put on the fields it named (BUG-06) ──────────────────────── */
+
+    const server = serverFieldErrors(saveFailure, {
+        name_en: {
+            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:fields.name') }),
+            fieldId: 'kitchen-plan-name-en',
+        },
+        name_ar: {
+            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:fields.name') }),
+            fieldId: 'kitchen-plan-name-ar',
+        },
+        summary_en: {
+            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:plans.summaryLabel') }),
+            fieldId: 'kitchen-plan-summary-en',
+        },
+        summary_ar: {
+            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:plans.summaryLabel') }),
+            fieldId: 'kitchen-plan-summary-ar',
+        },
+        description_en: {
+            label: t('kitchen:bilingual.englishShort', {
+                field: t('kitchen:plans.descriptionLabel'),
+            }),
+            fieldId: 'kitchen-plan-description-en',
+        },
+        description_ar: {
+            label: t('kitchen:bilingual.arabicShort', {
+                field: t('kitchen:plans.descriptionLabel'),
+            }),
+            fieldId: 'kitchen-plan-description-ar',
+        },
+        change_cutoff_hours: {
+            label: t('kitchen:plans.cutOffLabel'),
+            fieldId: 'kitchen-plan-cut-off',
+        },
+    });
+    /*
+     * A configuration's refusal (`cells.2.name_en`) is about one row of the configurations step,
+     * and a row there has no field of its own to mark — the message becomes the row's note. `cells`
+     * holds the rows `variantRequest` sent, which skips none once the save is allowed.
+     */
+    const variantsServer = serverFieldErrors(matrixFailure, {
+        'cells.*.*': { label: t('kitchen:plans.variantsTitle'), fieldId: 'kitchen-plan-variants' },
+    });
+    const sentVariants = variants.filter((row) => variantRequest([row]).length > 0);
+    const variantServerNotes = new Map(
+        sentVariants.flatMap((row, index) => {
+            const message = variantsServer.errorFor(`cells.${String(index)}.*`);
+            return message === undefined ? [] : [[row.key, message] as const];
+        }),
+    );
+    // Neither of these has a field to mark: a refusal's own words go in the section's callout.
+    const durationsServer = serverFieldErrors(durationsFailure);
+    const menuServer = serverFieldErrors(menuFailure);
+
+    // Each chip opens its step first: Save is pressed from the last one.
+    const serverItems: readonly FormIssueItem[] = [
+        ...server.items.map((item) => ({
+            ...item,
+            onPress: () => {
+                form.goTo('plan');
+                item.onPress();
+            },
+        })),
+        ...variantsServer.items.map((item) => ({
+            ...item,
+            onPress: () => {
+                form.goTo('variants');
+            },
+        })),
+    ];
+    const allIssueItems: readonly FormIssueItem[] = [...issueItems, ...serverItems];
+    const refusedOn = (step: PlanStep): number =>
+        step === 'plan'
+            ? server.items.length
+            : step === 'variants'
+              ? variantsServer.items.length
+              : 0;
     const menuLoadFailure = toFailure(menuRecord.error);
     const mealRows = mealsFromPages(meals.data?.pages);
     /*
@@ -1048,7 +1131,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
               : key === 'menu'
                 ? { count: menu.entries.length }
                 : {}),
-        issues: stepIssues(key),
+        issues: stepIssues(key, refusedOn(key)),
         // The ids the progress row used to carry, so a suite that walks the steps still can.
         testID: `kitchen-plan-editor-screen-steps-${key}`,
     }));
@@ -1139,17 +1222,17 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     }
                 />
 
-                {issueItems.length === 0 ? null : (
+                {allIssueItems.length === 0 ? null : (
                     <FormIssueBanner
                         testID="kitchen-plan-issues"
                         tone="danger"
                         summary={t(
-                            shownIssues.every((entry) => entry.required)
+                            serverItems.length === 0 && shownIssues.every((entry) => entry.required)
                                 ? 'kitchen:forms.requiredCount'
                                 : 'kitchen:forms.toFixCount',
-                            { count: issueItems.length },
+                            { count: allIssueItems.length },
                         )}
-                        items={issueItems}
+                        items={allIssueItems}
                     />
                 )}
 
@@ -1196,13 +1279,13 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 />
             ) : null}
 
-            {saveFailure === null ? null : (
+            {saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
                 <Callout
                     testID="kitchen-plan-save-error"
                     role="alert"
                     tone="danger"
                     title={t('kitchen:editor.saveError')}
-                    body={saveFailure.message}
+                    body={server.unplaced ?? saveFailure.message}
                 />
             )}
 
@@ -1235,7 +1318,8 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 disabled={!canManage}
                                 {...(shows('name')
                                     ? { englishError: t('kitchen:forms.required') }
-                                    : {})}
+                                    : { englishError: server.errorFor('name_en') })}
+                                arabicError={server.errorFor('name_ar')}
                                 onChange={(next) => {
                                     markDirty(() => {
                                         setDetails({ ...details, name: next });
@@ -1255,6 +1339,8 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 }}
                                 value={details.summary}
                                 disabled={!canManage}
+                                englishError={server.errorFor('summary_en')}
+                                arabicError={server.errorFor('summary_ar')}
                                 onChange={(next) => {
                                     markDirty(() => {
                                         setDetails({ ...details, summary: next });
@@ -1275,6 +1361,8 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 multiline
                                 value={details.description}
                                 disabled={!canManage}
+                                englishError={server.errorFor('description_en')}
+                                arabicError={server.errorFor('description_ar')}
                                 onChange={(next) => {
                                     markDirty(() => {
                                         setDetails({ ...details, description: next });
@@ -1302,6 +1390,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 {...(shows('cut-off')
                                     ? { error: t('kitchen:plans.cutOffRequired') }
                                     : {})}
+                                {...server.flag('change_cutoff_hours')}
                                 onChangeText={(text) => {
                                     const digits = text.replace(/[^0-9]/g, '');
                                     markDirty(() => {
@@ -1437,13 +1526,15 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                         title={t('kitchen:plans.tabMatrix')}
                     >
                         <Stack space="md">
-                            {matrixFailure === null ? null : (
+                            {matrixFailure === null ||
+                            (variantsServer.isValidation &&
+                                variantsServer.unplaced === null) ? null : (
                                 <Callout
                                     testID="kitchen-plan-matrix-error"
                                     role="alert"
                                     tone="danger"
                                     title={t('kitchen:plans.matrixSaveError')}
-                                    body={matrixFailure.message}
+                                    body={variantsServer.unplaced ?? matrixFailure.message}
                                 />
                             )}
 
@@ -1505,13 +1596,15 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 testID="kitchen-plan-variants"
                                 rows={variants}
                                 errors={
-                                    attempted
-                                        ? variantRowErrors
-                                        : new Map(
-                                              [...variantRowErrors].filter(
+                                    // The form's own check first; the server's note where none.
+                                    new Map([
+                                        ...variantServerNotes,
+                                        ...(attempted
+                                            ? variantRowErrors
+                                            : [...variantRowErrors].filter(
                                                   ([key]) => !untouchedVariant(key),
-                                              ),
-                                          )
+                                              )),
+                                    ])
                                 }
                                 keepOne={isCreating}
                                 canManage={canManage}
@@ -1576,7 +1669,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                     role="alert"
                                     tone="danger"
                                     title={t('kitchen:plans.durationsSaveError')}
-                                    body={durationsFailure.message}
+                                    body={durationsServer.unplaced ?? durationsFailure.message}
                                 />
                             )}
 
@@ -1722,7 +1815,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                             role="alert"
                                             tone="danger"
                                             title={t('kitchen:plans.menuSaveError')}
-                                            body={menuFailure.message}
+                                            body={menuServer.unplaced ?? menuFailure.message}
                                         />
                                     )}
 

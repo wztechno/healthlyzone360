@@ -53,6 +53,7 @@ import type { ShelfAvailability } from '../operations/batch-sheet.tsx';
 import { RecordFormOpening } from '../record-form-opening.tsx';
 import { productionStatusKey } from '../ops-format.ts';
 import { readNumber } from '../production-desk/completion-model.ts';
+import { serverFieldErrors } from '../server-field-errors.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -229,6 +230,26 @@ function ProductionBatchNew() {
     const parsedAmount = readNumber(amount);
     const amountValid = parsedAmount !== null && parsedAmount > 0;
     const failure = toFailure(create.error);
+    // What the server refused, put on the fields it named (BUG-06). The figure goes as whichever
+    // scale was chosen, and either lands on the one amount field.
+    const amountLabel = t(
+        scale === 'yield'
+            ? 'kitchen:ops.production.plannedYieldLabel'
+            : 'kitchen:ops.production.batchFactorLabel',
+    );
+    const server = serverFieldErrors(failure, {
+        recipe_version_id: {
+            label: t('kitchen:ops.production.recipeLabel'),
+            fieldId: 'kitchen-production-batch-new-recipe',
+        },
+        planned_yield: { label: amountLabel, fieldId: 'kitchen-production-batch-new-amount' },
+        batch_factor: { label: amountLabel, fieldId: 'kitchen-production-batch-new-amount' },
+        notes: {
+            label: t('kitchen:ops.production.notesLabel'),
+            fieldId: 'kitchen-production-batch-new-notes',
+        },
+    });
+    const serverAmountError = server.errorFor('planned_yield') ?? server.errorFor('batch_factor');
 
     /*
      * The preview needs the published version's lines, and only the current version arrives with
@@ -485,23 +506,26 @@ function ProductionBatchNew() {
                 }
                 errors={{
                     summary: t(
-                        shownIssues.every((entry) => entry.required)
+                        server.items.length === 0 && shownIssues.every((entry) => entry.required)
                             ? 'kitchen:forms.requiredCount'
                             : 'kitchen:forms.toFixCount',
-                        { count: shownIssues.length },
+                        { count: shownIssues.length + server.items.length },
                     ),
-                    items: shownIssues.map((entry) => ({
-                        key: entry.key,
-                        label: entry.label,
-                        /*
-                         * Not the recipe: "has no published version — publish one first" is the
-                         * only place that explanation lives, and a `Recipe` chip does not say it.
-                         */
-                        fieldId: entry.key === 'recipe' ? undefined : entry.fieldId,
-                        onPress: () => {
-                            focusField(entry.fieldId);
-                        },
-                    })),
+                    items: [
+                        ...shownIssues.map((entry) => ({
+                            key: entry.key,
+                            label: entry.label,
+                            /*
+                             * Not the recipe: "has no published version — publish one first" is the
+                             * only place that explanation lives, and a `Recipe` chip does not say it.
+                             */
+                            fieldId: entry.key === 'recipe' ? undefined : entry.fieldId,
+                            onPress: () => {
+                                focusField(entry.fieldId);
+                            },
+                        })),
+                        ...server.items,
+                    ],
                 }}
             />
 
@@ -524,13 +548,14 @@ function ProductionBatchNew() {
                     : {})}
             />
 
-            {failure === null ? null : (
+            {/* Gone once the banner names every refused field (BUG-06). */}
+            {failure === null || (server.unplaced === null && server.items.length > 0) ? null : (
                 <Callout
                     testID="kitchen-production-batch-new-error"
                     role="alert"
                     tone="danger"
                     title={t('kitchen:editor.saveError')}
-                    body={failure.message}
+                    body={server.unplaced ?? failure.message}
                 />
             )}
 
@@ -590,6 +615,7 @@ function ProductionBatchNew() {
                                                 ? {}
                                                 : { hint: recipeHint }
                                             : { error: recipeError })}
+                                        {...server.flag('recipe_version_id')}
                                         onChange={(value) => {
                                             setRecipeId(RecipeId.safeParse(value));
                                             setFromPlanner(false);
@@ -674,6 +700,9 @@ function ProductionBatchNew() {
                                                           ),
                                                       }
                                                     : {})}
+                                                {...(serverAmountError === undefined
+                                                    ? {}
+                                                    : { error: serverAmountError })}
                                                 onChangeText={(next) => {
                                                     setAmount(next);
                                                     setFromPlanner(false);
@@ -722,6 +751,7 @@ function ProductionBatchNew() {
                                         label={t('kitchen:ops.production.notesLabel')}
                                         placeholder={t('kitchen:ops.production.notesPlaceholder')}
                                         value={notes}
+                                        {...server.flag('notes')}
                                         multiline
                                         onChangeText={(next) => {
                                             setNotes(next);

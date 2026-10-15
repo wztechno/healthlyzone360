@@ -46,6 +46,8 @@ import { RECORD_RAIL_MIN, RECORD_SPLIT_MIN } from '../desk-layout.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { receiptCostStatusKey, receiptCostStatusTone } from '../ops-format.ts';
 import { readAmount } from '../receive-delivery-model.ts';
+import { serverFieldErrors } from '../server-field-errors.ts';
+import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -119,6 +121,8 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
     const [prices, setPrices] = useState<Readonly<Record<string, string>>>({});
+    // The lines the last save sent, in order: the server names a refused one by its position.
+    const [sentLineIds, setSentLineIds] = useState<readonly string[]>([]);
 
     const detail = record.data;
     const failure = toFailure(record.error);
@@ -196,6 +200,30 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
         return raw.trim() === '' || readAmount(raw) !== null;
     });
     const saveFailure = toFailure(complete.error);
+    // What the server refused, put on the price it named (BUG-06). No banner here, so the
+    // callout stays and carries anything the lines cannot.
+    const priceTargets: Record<string, ServerFieldTarget> = {};
+    sentLineIds.forEach((lineId, index) => {
+        const line = lines.find((candidate) => candidate.id === lineId);
+        if (line === undefined) return;
+        const target = {
+            label: t('kitchen:ops.unpricedReceipts.linePriceLabel', {
+                item: itemsById.get(String(line.stockItemId))?.nameEn ?? String(line.stockItemId),
+            }),
+            fieldId: `kitchen-unpriced-line-${line.id}-price`,
+        };
+        priceTargets[`lines.${String(index)}.unit_price_amount`] = target;
+        priceTargets[`lines.${String(index)}.cost_currency_code`] = target;
+    });
+    const server = serverFieldErrors(saveFailure, priceTargets);
+    const serverPriceError = (lineId: string): string | undefined => {
+        const index = sentLineIds.indexOf(lineId);
+        if (index === -1) return undefined;
+        return (
+            server.errorFor(`lines.${String(index)}.unit_price_amount`) ??
+            server.errorFor(`lines.${String(index)}.cost_currency_code`)
+        );
+    };
 
     const setPrice = (lineId: string, next: string) => {
         setPrices((current) => ({ ...current, [lineId]: next }));
@@ -205,6 +233,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
     const save = () => {
         if (typed.length === 0 || !everyPriceReadable) return;
 
+        setSentLineIds(typed.map((line) => line.id));
         complete.mutate(
             {
                 goodsReceiptId: detail.id,
@@ -238,6 +267,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
         itemsById,
         prices,
         onPrice: setPrice,
+        serverPriceError,
     });
 
     return (
@@ -283,7 +313,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                     tone="danger"
                     role="alert"
                     title={t('kitchen:ops.unpricedReceipts.completeFailed')}
-                    body={saveFailure.message}
+                    body={server.unplaced ?? saveFailure.message}
                 />
             )}
 
@@ -401,12 +431,15 @@ function lineColumns({
     itemsById,
     prices,
     onPrice,
+    serverPriceError,
 }: {
     readonly t: TFunction;
     readonly formatter: Formatter;
     readonly itemsById: ReadonlyMap<string, StockItem>;
     readonly prices: Readonly<Record<string, string>>;
     readonly onPrice: (lineId: string, next: string) => void;
+    /** The server's refusal of a line's price on the last save, if any. */
+    readonly serverPriceError: (lineId: string) => string | undefined;
 }): readonly DataListColumn<GoodsReceiptLine>[] {
     const noValue = t('kitchen:list.noValue');
     const money = (amount: number) => formatter.formatCurrency(amount, RECEIPT_CURRENCY);
@@ -483,7 +516,11 @@ function lineColumns({
                         size="sm"
                         placeholder={t('kitchen:fields.unitPricePlaceholder')}
                         value={raw}
-                        error={invalid ? t('kitchen:ops.unpricedReceipts.priceInvalid') : undefined}
+                        error={
+                            invalid
+                                ? t('kitchen:ops.unpricedReceipts.priceInvalid')
+                                : serverPriceError(line.id)
+                        }
                         onChangeText={(next) => {
                             onPrice(line.id, next);
                         }}

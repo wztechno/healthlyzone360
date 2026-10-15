@@ -1,4 +1,4 @@
-import { ApiError, apiFailure } from '@healthy360/api-client';
+import { ApiError, apiFailure, validationFailure } from '@healthy360/api-client';
 import type {
     CursorPage,
     KitchenOrder,
@@ -885,6 +885,80 @@ describe('sale — collections and deliveries', () => {
         // The new customer was chosen straight away, so the ticket no longer asks for one.
         await settle();
         expect(screen.queryByTestId('kitchen-order-desk-sale-shortfall')).toBeNull();
+    });
+
+    async function openNewCustomer(createCustomer?: () => Promise<OrderDeskCustomerCreated>) {
+        const result = await renderSale(createCustomer === undefined ? {} : { createCustomer });
+        await tapMeal();
+        await chooseKind('pickup');
+        await untilVisible('kitchen-order-desk-sale-customer');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-customer-new'));
+        });
+        await untilVisible('kitchen-order-desk-sale-customer-form');
+        return result;
+    }
+
+    it('opens the number on the kitchen code and marks a short Lebanese number on the field', async () => {
+        const createCustomer = jest.fn(async () => ({
+            customer: customer(),
+            possibleDuplicates: [],
+        }));
+        await openNewCustomer(createCustomer);
+        // The test kitchen is in the UAE.
+        expect(screen.getByTestId('kitchen-order-desk-sale-customer-phone-input').props.value).toBe(
+            '+971 ',
+        );
+
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-order-desk-sale-customer-name-input'),
+                'Layla Haddad',
+            );
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-order-desk-sale-customer-phone-input'),
+                '+961 70 12',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-customer-create'));
+        });
+
+        expect(screen.getByTestId('kitchen-order-desk-sale-customer-phone')).toHaveTextContent(
+            /A number after \+961 has 7 or 8 digits/,
+        );
+        expect(createCustomer).not.toHaveBeenCalled();
+    });
+
+    it('puts a refused number on the phone field instead of a general error', async () => {
+        await openNewCustomer(async () => {
+            throw new ApiError(
+                validationFailure(
+                    { phone: ['Enter the number in international format.'] },
+                    { message: 'The submitted data is invalid.' },
+                ),
+            );
+        });
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-order-desk-sale-customer-name-input'),
+                'Layla Haddad',
+            );
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-order-desk-sale-customer-phone-input'),
+                '+971 50 123 4567',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-customer-create'));
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-order-desk-sale-customer-phone')).toHaveTextContent(
+                /Enter the number in international format/,
+            );
+        });
+        expect(screen.queryByTestId('kitchen-order-desk-sale-customer-create-error')).toBeNull();
     });
 });
 

@@ -1,4 +1,9 @@
-import { apiFailure, conflictFailure, throwFailure } from '@healthy360/api-client/contracts';
+import {
+    apiFailure,
+    conflictFailure,
+    throwFailure,
+    validationFailure,
+} from '@healthy360/api-client/contracts';
 import type {
     AdminEntityMeta,
     AdminRecordMeta,
@@ -1547,6 +1552,38 @@ describe('the delivery-windows page', () => {
                 isActive: true,
             }),
         );
+    });
+
+    it('puts a refused save’s message on the field the server named (BUG-06)', async () => {
+        const message = 'A window that starts needs to end.';
+        const updateDeliveryWindow = jest.fn(async () =>
+            throwFailure(validationFailure({ ends_at: [message] }, { message: 'Refused.' })),
+        );
+
+        await renderStubScreen(<DeliveryWindowsScreen />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: { ...windowsPageReads(), updateDeliveryWindow } },
+        });
+        await untilVisible(windowRowId(EVENING_WINDOW));
+
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId(`${windowRowId(EVENING_WINDOW)}-ends-input`),
+                '21:00',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-windows-save'));
+        });
+
+        await untilVisible(`${windowRowId(EVENING_WINDOW)}-ends-error`);
+        expect(screen.getByTestId(`${windowRowId(EVENING_WINDOW)}-ends-error`)).toHaveTextContent(
+            message,
+        );
+        // Only the row whose write was refused is marked.
+        expect(screen.queryByTestId(`${windowRowId(MORNING_WINDOW)}-ends-error`)).toBeNull();
+        // The callout still says the save failed; the field carries the reason.
+        expect(screen.getByTestId('kitchen-windows-save-error')).not.toHaveTextContent(message);
     });
 
     it('is read-only without the delivery-zone manage permission', async () => {

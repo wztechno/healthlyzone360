@@ -34,6 +34,8 @@ import { earliestStartDate } from '../../commerce/dates.ts';
 import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
 import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
+import { serverFieldErrors } from '../../kitchen-admin/server-field-errors.ts';
+import type { ServerFieldTarget } from '../../kitchen-admin/server-field-errors.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import {
     CORPORATE_HOME_HREF,
@@ -108,6 +110,8 @@ export function QuotationBuilderScreen({
     const [contact, setContact] = useState<DraftContact>(EMPTY_CONTACT);
     const [showErrors, setShowErrors] = useState(false);
     const [submitted, setSubmitted] = useState<Quotation | null>(null);
+    // The items the last submit sent, in order: the server names a refused line by its position.
+    const [sentItemIds, setSentItemIds] = useState<readonly string[]>([]);
 
     const request = useRequestQuotationMutation();
     const failure = toFailure(request.error);
@@ -137,6 +141,34 @@ export function QuotationBuilderScreen({
     }, [edits, initialItemId, items]);
 
     const errors = validateDraft(items, quantities, contact, validationTranslate);
+
+    /*
+     * What the server refused, put on the fields it named (BUG-06). A line is refused by its place
+     * in what was sent, and either half of it lands on the row's quantity. The page has no issue
+     * banner, so the callout stays and carries what the fields cannot.
+     */
+    const lineTargets: Record<string, ServerFieldTarget> = {};
+    sentItemIds.forEach((itemId, index) => {
+        const name = items.find((item) => item.id === itemId)?.name ?? '';
+        const target = {
+            label: t('business:builder.quantityLabel', { name }),
+            fieldId: `quotation-line-${itemId}-quantity`,
+        };
+        lineTargets[`lines.${String(index)}.quantity`] = target;
+        lineTargets[`lines.${String(index)}.catalogue_item_id`] = target;
+    });
+    const server = serverFieldErrors(failure, {
+        notes: { label: t('business:builder.note'), fieldId: 'quotation-builder-note' },
+        ...lineTargets,
+    });
+    const serverLineError = (itemId: string): string | undefined => {
+        const index = sentItemIds.indexOf(itemId);
+        if (index === -1) return undefined;
+        return (
+            server.errorFor(`lines.${String(index)}.quantity`) ??
+            server.errorFor(`lines.${String(index)}.catalogue_item_id`)
+        );
+    };
     const lines = draftLines(items, quantities);
     const values = draftValues(items, quantities);
     const totals = totalsByCurrency(values);
@@ -261,9 +293,11 @@ export function QuotationBuilderScreen({
                 const quantity = quantities[item.id] ?? null;
                 const belowMinimum =
                     quantity !== null && quantity > 0 && quantity < item.minimumOrderQuantity;
+                const refused = serverLineError(item.id);
                 return (
                     <QuantityInput
                         testID={`quotation-line-${item.id}-quantity`}
+                        id={`quotation-line-${item.id}-quantity`}
                         label={t('business:builder.quantityLabel', { name: item.name })}
                         labelHidden
                         size="sm"
@@ -278,7 +312,9 @@ export function QuotationBuilderScreen({
                                       count: item.minimumOrderQuantity,
                                   }),
                               }
-                            : {})}
+                            : refused === undefined
+                              ? {}
+                              : { error: refused })}
                     />
                 );
             },
@@ -322,6 +358,7 @@ export function QuotationBuilderScreen({
             setShowErrors(true);
             return;
         }
+        setSentItemIds(lines.map((line) => line.catalogueItemId));
         request.mutate(
             {
                 programmeId: parsed,
@@ -381,7 +418,7 @@ export function QuotationBuilderScreen({
                     tone="danger"
                     icon="warning"
                     title={t('business:builder.rejectedTitle')}
-                    body={failure.message}
+                    body={server.unplaced ?? failure.message}
                 />
             )}
 
@@ -560,6 +597,7 @@ export function QuotationBuilderScreen({
                         label={t('business:builder.note')}
                         placeholder={t('business:builder.notePlaceholder')}
                         hint={t('business:builder.noteHint')}
+                        {...server.flag('notes')}
                         value={contact.note}
                         multiline
                         onChangeText={(next: string) => {

@@ -44,6 +44,7 @@ import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RoleChoiceList } from '../role-choice-list.tsx';
 import { RolePermissionsTab } from '../role-permissions-tab.tsx';
+import { serverFieldErrors } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { memberDisplayName } from './team-screen.tsx';
@@ -344,6 +345,14 @@ function TeamMemberEditor() {
         permissions: t('accessAdmin:member.permissionsHeading'),
     };
 
+    // What the server refused, put on the fields it named (BUG-06). No issue banner on this form,
+    // so the callout stays and the fields carry the reasons.
+    const server = serverFieldErrors(writeFailure, {
+        roles: { label: stepLabels.roles, fieldId: 'kitchen-team-member-roles' },
+        'roles.*.role_id': { label: stepLabels.roles, fieldId: 'kitchen-team-member-roles' },
+        branch_id: { label: stepLabels.scope, fieldId: 'kitchen-team-member-scope-select' },
+    });
+
     const stepItems: readonly TabItem<MemberStep>[] = MEMBER_STEPS.map((key) => ({
         value: key,
         label: stepLabels[key],
@@ -444,7 +453,7 @@ function TeamMemberEditor() {
                         title={
                             writeFailure.code === 'access.self_lockout'
                                 ? t('accessAdmin:member.selfLockout')
-                                : writeFailure.message
+                                : (server.unplaced ?? writeFailure.message)
                         }
                     />
                 )}
@@ -467,6 +476,10 @@ function TeamMemberEditor() {
                             <RoleChoiceList
                                 testID="kitchen-team-member-roles"
                                 itemTestID="kitchen-team-member-role"
+                                id="kitchen-team-member-roles"
+                                {...(server.errorFor('roles') === undefined
+                                    ? server.flag('roles.*.role_id')
+                                    : server.flag('roles'))}
                                 label={stepLabels.roles}
                                 roles={roles.data ?? []}
                                 mode="multiple"
@@ -510,6 +523,8 @@ function TeamMemberEditor() {
                                 <FormGrid testID="kitchen-team-member-scope-grid">
                                     <Select
                                         testID="kitchen-team-member-scope-select"
+                                        id="kitchen-team-member-scope-select"
+                                        {...server.flag('branch_id')}
                                         label={stepLabels.scope}
                                         disabled={!canUpdate}
                                         options={[

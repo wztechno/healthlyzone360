@@ -94,6 +94,7 @@ import {
 import { DeskAmount, DeskFact } from '../order-desk/desk-parts.tsx';
 import { DueBadge, PaymentCell } from '../order-desk/queue-cells.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { serverFieldErrors } from '../server-field-errors.ts';
 
 /**
  * `/kitchen/order-desk` — the open order book in the order somebody at a desk has to work it.
@@ -325,6 +326,9 @@ function AssignDriverDialog({
     // The discriminator, in one place. A number means a lost race; its absence means the run is
     // over — see the component note.
     const lostRace = conflict !== null && conflict.currentLockVersion !== undefined;
+    // The driver is a pick from a list with no line to say why, so a refusal of it is told in the
+    // error line in the server's own words rather than the envelope's (BUG-06).
+    const assignRefusal = serverFieldErrors(assignFailure).unplaced;
 
     // Looked up in the **whole** list rather than the filtered one: somebody who chooses a person
     // and then types in the search box has still chosen them, and reading the name out of the
@@ -404,7 +408,7 @@ function AssignDriverDialog({
                 />
             ) : (
                 <Text testID="kitchen-order-desk-assign-error" tone="danger" role="alert">
-                    {assignFailure.message}
+                    {assignRefusal ?? assignFailure.message}
                 </Text>
             )}
 
@@ -603,6 +607,26 @@ function RecordPaymentDialog({
     const conflict = failure?.code === 'resource.conflict' ? failure : null;
     // The discriminator, in one place — see the component note.
     const stale = conflict !== null && conflict.currentLockVersion !== undefined;
+    // What the server refused, put on the fields it named (BUG-06). No issue banner in a dialog, so
+    // the error line stays and carries what the fields cannot.
+    const server = serverFieldErrors(failure, {
+        method: {
+            label: t('kitchen:desk.recordPayment.methodLabel'),
+            fieldId: 'kitchen-order-desk-payment-method',
+        },
+        amount_minor: {
+            label: t('kitchen:desk.recordPayment.amountLabel', { currency: row.currencyCode }),
+            fieldId: 'kitchen-order-desk-payment-amount',
+        },
+        reference: {
+            label: t('kitchen:desk.sale.referenceLabel'),
+            fieldId: 'kitchen-order-desk-payment-reference',
+        },
+        notes: {
+            label: t('kitchen:desk.sale.notesLabel'),
+            fieldId: 'kitchen-order-desk-payment-notes',
+        },
+    });
 
     function submit() {
         if (amountMinor === null || !amountValid) return;
@@ -691,13 +715,14 @@ function RecordPaymentDialog({
                 />
             ) : (
                 <Text testID="kitchen-order-desk-payment-error" tone="danger" role="alert">
-                    {failure.message}
+                    {server.unplaced ?? failure.message}
                 </Text>
             )}
 
             <Select<KitchenOrderPaymentMethod>
                 testID="kitchen-order-desk-payment-method"
                 id="kitchen-order-desk-payment-method"
+                {...server.flag('method')}
                 label={t('kitchen:desk.recordPayment.methodLabel')}
                 value={method}
                 onChange={setMethod}
@@ -739,7 +764,7 @@ function RecordPaymentDialog({
                 // red because it is empty is a form telling somebody off for arriving.
                 {...(amount.trim() !== '' && !amountValid
                     ? { error: t('kitchen:desk.recordPayment.amountInvalid') }
-                    : {})}
+                    : server.flag('amount_minor'))}
                 value={amount}
                 onChangeText={setAmount}
                 inputMode="decimal"
@@ -759,6 +784,7 @@ function RecordPaymentDialog({
                         : 'kitchen:desk.recordPayment.referenceHint',
                 )}
                 placeholder={t('kitchen:desk.sale.referencePlaceholder')}
+                {...server.flag('reference')}
                 value={reference}
                 onChangeText={setReference}
                 autoCapitalize="none"
@@ -770,6 +796,7 @@ function RecordPaymentDialog({
                 id="kitchen-order-desk-payment-notes"
                 label={t('kitchen:desk.sale.notesLabel')}
                 placeholder={t('kitchen:desk.recordPayment.notesPlaceholder')}
+                {...server.flag('notes')}
                 value={notes}
                 onChangeText={setNotes}
                 multiline
